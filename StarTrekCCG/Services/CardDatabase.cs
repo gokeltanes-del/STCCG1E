@@ -1,6 +1,9 @@
-﻿using StarTrekCCG.Models;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
+using StarTrekCCG.Models;
 
 namespace StarTrekCCG.Services;
 
@@ -69,23 +72,8 @@ public class CardDatabase
                     if (string.IsNullOrWhiteSpace(card.SetFolder))
                         card.SetFolder = setName;
 
-                    // Vollständigen Bildpfad setzen
-                    if (!string.IsNullOrWhiteSpace(card.Image))
-                    {
-                        var possiblePath = Path.Combine(setDir, card.Image);
-                        if (File.Exists(possiblePath))
-                        {
-                            card.FullImagePath = possiblePath;
-                        }
-                        else
-                        {
-                            // Fallback: nur Dateiname
-                            var fileName = Path.GetFileName(card.Image);
-                            var fallback = Path.Combine(setDir, fileName);
-                            if (File.Exists(fallback))
-                                card.FullImagePath = fallback;
-                        }
-                    }
+                    // Vollständigen Bildpfad setzen (mehrere Fallbacks – keine Ban-Liste)
+                    card.FullImagePath = ResolveImagePath(setDir, card);
 
                     _cards.Add(card);
                 }
@@ -98,6 +86,54 @@ public class CardDatabase
         }
 
         return _cards.Count;
+    }
+
+    /// <summary>
+    /// Sucht Bild unter Image, OldImageFile (Lackey PR89 etc.) und gängigen Varianten.
+    /// Keine Tournament-Blacklist – alle Karten sind im privaten Client spielbar.
+    /// </summary>
+    private static string? ResolveImagePath(string setDir, Card card)
+    {
+        var candidates = new List<string>();
+        void Add(string? name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return;
+            string n = name.Trim();
+            candidates.Add(Path.Combine(setDir, n));
+            candidates.Add(Path.Combine(setDir, Path.GetFileName(n)));
+            // Lackey oft ohne Extension
+            if (!Path.HasExtension(n))
+            {
+                candidates.Add(Path.Combine(setDir, n + ".jpg"));
+                candidates.Add(Path.Combine(setDir, n + ".png"));
+                candidates.Add(Path.Combine(setDir, n + ".jpeg"));
+            }
+        }
+
+        Add(card.Image);
+        Add(card.OldImageFile);
+        // Premiere Raise the Stakes etc.: PR89
+        if (!string.IsNullOrWhiteSpace(card.OldImageFile))
+        {
+            string o = card.OldImageFile.Trim();
+            Add(o + ".jpg");
+            Add(o + ".png");
+        }
+        // Normalized name from card
+        if (!string.IsNullOrWhiteSpace(card.Name) && !string.IsNullOrWhiteSpace(card.Type))
+        {
+            string safe = string.Join("_", (card.Name ?? "")
+                .Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries));
+            Add($"{card.SetFolder}_{card.Type}_{safe}.jpg".Replace(" ", "_"));
+            Add($"PR_Event_{safe}.jpg".Replace(" ", "_"));
+        }
+
+        foreach (var path in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (File.Exists(path))
+                return path;
+        }
+        return null;
     }
 
     public Card? FindByName(string name)
