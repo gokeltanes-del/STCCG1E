@@ -210,6 +210,19 @@ public sealed class GameSession
     }
 }
 
+/// <summary>
+/// Rules engines write comparison traces here; TableWindow wires it to ActionLog.AddDebug.
+/// </summary>
+public static class CheckTrace
+{
+    public static Action<string>? Emit { get; set; }
+
+    public static void Line(string text) => Emit?.Invoke(text);
+
+    public static void Cmp(string kind, string need, string have, bool ok)
+        => Emit?.Invoke($"{kind}: need '{need}'  vs  have '{have}'  → {(ok ? "MATCH" : "NO MATCH")}");
+}
+
 public sealed class ActionLog
 {
     public sealed record Entry(DateTime Utc, int Turn, string Actor, string Text, bool Debug = false);

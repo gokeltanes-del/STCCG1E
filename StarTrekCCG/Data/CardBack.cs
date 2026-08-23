@@ -5,27 +5,28 @@ namespace StarTrekCCG;
 
 /// <summary>
 /// Gemeinsamer Kartenrücken für verdeckte Stapel (Draw, Seed unter Mission für Gegner, …).
-/// Datei:  {DataPath}\card_back.jpg
-/// Optional Fallback: {DataPath}\Common\card_back.jpg
+/// Datei: Assets/card_back.jpg (siehe GamePaths). Fallback: DataRoot / Common / legacy DataPath.
 /// </summary>
 public static class CardBack
 {
     public const string FileName = "card_back.jpg";
 
-    public static string? ResolvePath(string dataPath)
+    public static string? ResolvePath(string? dataPath = null)
     {
-        if (string.IsNullOrWhiteSpace(dataPath)) return null;
+        string? viaAssets = GamePaths.FindCardBack();
+        if (viaAssets != null) return viaAssets;
 
-        string primary = Path.Combine(dataPath, FileName);
-        if (File.Exists(primary)) return primary;
-
-        string alt = Path.Combine(dataPath, "Common", FileName);
-        if (File.Exists(alt)) return alt;
-
+        if (!string.IsNullOrWhiteSpace(dataPath))
+        {
+            string primary = Path.Combine(dataPath, FileName);
+            if (File.Exists(primary)) return primary;
+            string alt = Path.Combine(dataPath, "Common", FileName);
+            if (File.Exists(alt)) return alt;
+        }
         return null;
     }
 
-    public static BitmapImage? Load(string dataPath)
+    public static BitmapImage? Load(string? dataPath = null)
     {
         string? path = ResolvePath(dataPath);
         if (path == null) return null;

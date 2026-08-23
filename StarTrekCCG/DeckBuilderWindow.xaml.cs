@@ -35,7 +35,7 @@ public partial class DeckBuilderWindow : Window
 
     private void DeckBuilderWindow_Loaded(object sender, RoutedEventArgs e)
     {
-        string dataPath = @"C:\STCCG_Data";
+        string dataPath = GamePaths.DataRoot;
 
         try
         {

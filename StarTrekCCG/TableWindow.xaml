@@ -59,6 +59,13 @@
                 <MenuItem x:Name="DevShowDebugLogItem" Header="Show Debug: lines in Action History"
                           IsCheckable="True" IsChecked="True" Click="DevShowDebugLog_Click"
                           ToolTip="Include Debug: entries in Action History (for development)"/>
+                <MenuItem x:Name="DevPlaySeedFromHandItem" Header="Play seed cards from hand"
+                          IsCheckable="True" Click="DevPlaySeedFromHand_Click"
+                          ToolTip="Dev: drop Dilemmas/Artifacts from hand onto missions (artifacts acquire immediately)"/>
+                <Separator/>
+                <MenuItem Header="Inspect opponent hand (gallery)…" Click="DevInspectOppHand_Click"/>
+                <MenuItem Header="Inspect opponent discard (gallery)…" Click="DevInspectOppDiscard_Click"/>
+                <MenuItem Header="Inspect opponent draw (backs)…" Click="DevInspectOppDraw_Click"/>
                 <Separator/>
                 <MenuItem Header="Add card to game…" Click="DevAddCard_Click"
                           ToolTip="Search the database and inject a card into the active player's pile"/>
@@ -66,71 +73,68 @@
             </MenuItem>
         </Menu>
 
-        <!-- Top control bar (was left sidebar + bottom status) -->
-        <Border DockPanel.Dock="Top" Background="#1E1E24" BorderBrush="#333" BorderThickness="0,0,0,1"
-                Padding="8,2" Height="32">
+        <!-- Top control bar: score · turn/phase/actions · end-phase · history -->
+        <Border DockPanel.Dock="Top" Background="#1A1A20" BorderBrush="#3A3A48" BorderThickness="0,0,0,1"
+                Padding="10,4" MinHeight="40">
             <Grid>
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- Left: status messages -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock x:Name="StatusText" Text="Ready" Foreground="#E0E0E0"
-                               FontSize="11" TextTrimming="CharacterEllipsis"
-                               VerticalAlignment="Center" Margin="0,0,10,0"/>
-                    <TextBlock x:Name="PhaseHint" Text="" Foreground="#9CDCFE"
-                               FontSize="11" TextTrimming="CharacterEllipsis"
-                               VerticalAlignment="Center"/>
-                </StackPanel>
+                <!-- Score -->
+                <TextBlock Grid.Column="0" x:Name="ScoreText" Text="P1: 0  ·  P2: 0"
+                           Foreground="#B5CEA8" FontSize="15" FontWeight="Bold"
+                           VerticalAlignment="Center" Margin="0,0,14,0"/>
 
-                <!-- Center: score · turn · phase button -->
-                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock x:Name="ScoreText" Text="P1: 0  ·  P2: 0" Foreground="#B5CEA8"
-                               FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"
-                               Margin="0,0,12,0"/>
-                    <Border x:Name="ActivePlayerBanner" Background="#2A3A4A" CornerRadius="3"
-                            Padding="12,2" Margin="0,0,8,0" MinWidth="220">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock x:Name="ActivePlayerText" Text="–" Foreground="#FFE082"
-                                       FontSize="12" FontWeight="Bold" VerticalAlignment="Center"
-                                       TextWrapping="NoWrap"/>
-                            <TextBlock x:Name="PhaseLabel" Text="" Foreground="#AAA"
-                                       FontSize="11" VerticalAlignment="Center" Margin="10,0,0,0"
-                                       TextWrapping="NoWrap"/>
-                        </StackPanel>
-                    </Border>
-                    <Grid Width="140" Height="24">
-                        <Button x:Name="BtnPhaseNext" Content="Next phase ▶"
-                                Click="BtnPhaseNext_Click" Padding="8,4"
-                                Background="#3A3A48" Foreground="White" BorderBrush="#555"
-                                Cursor="Hand" IsEnabled="False"/>
-                        <Button x:Name="BtnSeedFinish" Content="Finish seed"
-                                Click="BtnSeedFinish_Click" Padding="8,4"
-                                Background="#2A4A3A" Foreground="White" BorderBrush="#3A6A4A"
-                                Cursor="Hand" IsEnabled="False" Visibility="Collapsed"
-                                ToolTip="End seed phase and draw opening hands"/>
-                        <Button x:Name="BtnEndTurn" Content="End turn ▶"
-                                Click="BtnEndTurn_Click" Padding="8,4"
-                                Background="#4A3A2A" Foreground="White" BorderBrush="#6A5A3A"
-                                Cursor="Hand" Visibility="Collapsed"/>
-                    </Grid>
-                    <Border x:Name="ResponsePanel" Visibility="Collapsed" Width="0" Height="0">
-                        <StackPanel>
-                            <TextBlock x:Name="ResponseTitle" Text=""/>
-                            <TextBlock x:Name="ResponseStackText" Text=""/>
-                            <Button x:Name="BtnResponsePass" Content="Pass" Click="BtnResponsePass_Click"/>
-                            <TextBlock x:Name="ResponseHint" Text=""/>
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
+                <!-- Main status (bold, fills remaining width) -->
+                <Border Grid.Column="1" x:Name="ActivePlayerBanner" Background="#2A3A4A"
+                        CornerRadius="4" Padding="14,4" VerticalAlignment="Center"
+                        Margin="0,0,10,0">
+                    <TextBlock x:Name="ActivePlayerText" Text="–" Foreground="#FFE082"
+                               FontSize="15" FontWeight="Bold"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               TextAlignment="Center"
+                               TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                </Border>
 
-                <!-- Right: action history -->
-                <Button Grid.Column="2" Content="Action History" Click="BtnHistoryOpen_Click"
-                        Padding="12,4" Margin="16,0,0,0" FontSize="12"
-                        Background="#333" Foreground="#CCC" BorderBrush="#555" Cursor="Hand"
+                <!-- Hidden leftovers kept so existing code compiles -->
+                <TextBlock x:Name="StatusText" Visibility="Collapsed"/>
+                <TextBlock x:Name="PhaseHint" Visibility="Collapsed"/>
+                <TextBlock x:Name="PhaseLabel" Visibility="Collapsed"/>
+                <Border x:Name="ResponsePanel" Visibility="Collapsed" Width="0" Height="0">
+                    <StackPanel>
+                        <TextBlock x:Name="ResponseTitle" Text=""/>
+                        <TextBlock x:Name="ResponseStackText" Text=""/>
+                        <Button x:Name="BtnResponsePass" Content="Pass" Click="BtnResponsePass_Click"/>
+                        <TextBlock x:Name="ResponseHint" Text=""/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Phase / end-turn buttons -->
+                <Grid Grid.Column="2" MinWidth="200" Height="30" Margin="0,0,8,0"
+                      VerticalAlignment="Center">
+                    <Button x:Name="BtnPhaseNext" Content="Next phase ▶"
+                            Click="BtnPhaseNext_Click" Padding="10,4"
+                            Background="#3A3A48" Foreground="White" BorderBrush="#555"
+                            Cursor="Hand" IsEnabled="False" FontWeight="SemiBold"/>
+                    <Button x:Name="BtnSeedFinish" Content="Finish seed"
+                            Click="BtnSeedFinish_Click" Padding="10,4"
+                            Background="#2A4A3A" Foreground="White" BorderBrush="#3A6A4A"
+                            Cursor="Hand" IsEnabled="False" Visibility="Collapsed"
+                            FontWeight="SemiBold"
+                            ToolTip="End seed phase and draw opening hands"/>
+                    <Button x:Name="BtnEndTurn" Content="End PLAY phase (Space)"
+                            Click="BtnEndTurn_Click" Padding="10,4"
+                            Background="#4A3A2A" Foreground="White" BorderBrush="#6A5A3A"
+                            Cursor="Hand" Visibility="Collapsed" FontWeight="SemiBold"/>
+                </Grid>
+
+                <Button Grid.Column="3" Content="Action History" Click="BtnHistoryOpen_Click"
+                        Padding="12,5" FontSize="13" FontWeight="SemiBold"
+                        Background="#333" Foreground="#EEE" BorderBrush="#555" Cursor="Hand"
                         VerticalAlignment="Center"
                         ToolTip="Space = next phase / end turn"/>
             </Grid>
@@ -193,8 +197,21 @@
                         </DockPanel>
                     </Border>
 
-                    <Border Grid.Row="1" Background="#121212" Margin="2" CornerRadius="2" ClipToBounds="True">
+                    <Border x:Name="BoardFrameBorder" Grid.Row="1"
+                        Background="#121212" Margin="2" CornerRadius="3"
+                        BorderBrush="#4A8A60" BorderThickness="3" ClipToBounds="True">
                         <Grid>
+                            <!-- Active-player tint -->
+                            <Border x:Name="BoardTintOverlay" Background="#121E18"
+                                Opacity="0.22" IsHitTestVisible="False"/>
+                            <!-- Inner glow ring (active player / legal board play) -->
+                            <Border x:Name="BoardInnerGlow" BorderBrush="#60C888"
+                                BorderThickness="2" Margin="3" CornerRadius="2"
+                                Opacity="0.55" IsHitTestVisible="False"/>
+                            <!-- Halo when dragging an instant / no-target play onto the board -->
+                            <Border x:Name="BoardPlayHalo" Visibility="Collapsed"
+                                BorderBrush="#70E8FF" BorderThickness="5" CornerRadius="3"
+                                Background="#2800C0E8" IsHitTestVisible="False"/>
                             <TextBlock Text="Mouse wheel = zoom  •  RMB = pan  •  Doorway on side deck = unlock"
                                    Foreground="#444" FontSize="11" Margin="10,4,0,0"
                                    VerticalAlignment="Top" IsHitTestVisible="False"/>
@@ -285,49 +302,83 @@
                                 MouseLeftButtonDown="CardDetailOverlay_MouseLeftButtonDown">
                                 <Border HorizontalAlignment="Center" VerticalAlignment="Center"
                                     Background="#252530" BorderBrush="#6A6A80" BorderThickness="1"
-                                    CornerRadius="10" Padding="16" MaxWidth="640" MaxHeight="560"
+                                    CornerRadius="10" Padding="16" MaxWidth="920" MaxHeight="720"
                                     MouseLeftButtonDown="CardDetailPanel_MouseLeftButtonDown">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Border Grid.Column="0" Width="200" Margin="0,0,16,0"
-                                            BorderBrush="#555" BorderThickness="1" CornerRadius="4"
-                                            Background="#111"
-                                            Cursor="Hand" ToolTip="Hold right mouse button to enlarge">
-                                            <Image x:Name="DetailImage" Stretch="Uniform"
-                                               RenderOptions.BitmapScalingMode="HighQuality"
-                                               MouseLeftButtonDown="DetailImage_MouseLeftButtonDown"
-                                               MouseRightButtonDown="DetailImage_MouseRightButtonDown"
-                                               MouseRightButtonUp="DetailImage_MouseRightButtonUp"/>
-                                        </Border>
-                                        <DockPanel Grid.Column="1">
-                                            <Button DockPanel.Dock="Bottom" Content="Close" Padding="16,6"
-                                                HorizontalAlignment="Right" Margin="0,12,0,0"
+                                    <DockPanel>
+                                        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
+                                                HorizontalAlignment="Right" Margin="0,12,0,0">
+                                            <Button x:Name="BtnDetailBeamSelect" Content="Select none"
+                                                Padding="16,6" Margin="0,0,8,0"
+                                                Visibility="Collapsed"
+                                                Click="BtnDetailBeamSelect_Click"
+                                                Background="#2E5A3A" Foreground="#B8F0C8"
+                                                BorderBrush="#4A9A60" Cursor="Hand"
+                                                ToolTip="Toggle select all / select none for beam"/>
+                                            <Button Content="Close" Padding="16,6"
                                                 Click="BtnCardDetailClose_Click"
                                                 Background="#3A3A58" Foreground="White" BorderBrush="#5A5A78"
                                                 Cursor="Hand"/>
-                                            <TextBlock DockPanel.Dock="Top" x:Name="DetailName" Text="–"
-                                                   FontSize="16" FontWeight="Bold" Foreground="White"
-                                                   TextWrapping="Wrap"/>
-                                            <TextBlock DockPanel.Dock="Top" x:Name="DetailType"
-                                                   Foreground="#4EC9B0" FontSize="12" Margin="0,4,0,8"/>
-                                            <TextBlock DockPanel.Dock="Top" x:Name="DetailAttributes"
-                                                   Foreground="#B5CEA8" FontSize="12" FontWeight="SemiBold"
-                                                   Margin="0,0,0,6" TextWrapping="Wrap"/>
-                                            <TextBlock DockPanel.Dock="Top" x:Name="DetailClass"
-                                                   Foreground="#DCDCAA" FontSize="11" Margin="0,0,0,2"/>
-                                            <TextBlock DockPanel.Dock="Top" x:Name="DetailStaff"
-                                                   Foreground="#9CDCFE" FontSize="11" Margin="0,0,0,2"/>
-                                            <TextBlock DockPanel.Dock="Top" x:Name="DetailIcons"
-                                                   Foreground="#C586C0" FontSize="11" Margin="0,0,0,8"/>
-                                            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                                <TextBlock x:Name="DetailText" Foreground="#D4D4D4" FontSize="12"
-                                                       TextWrapping="Wrap" LineHeight="18"/>
-                                            </ScrollViewer>
-                                        </DockPanel>
-                                    </Grid>
+                                        </StackPanel>
+                                        <!-- Stack contents: minis + optional crew stats (hosts only) -->
+                                        <Border x:Name="DetailStackSection" DockPanel.Dock="Bottom"
+                                            Visibility="Collapsed" Margin="0,12,0,0"
+                                            BorderBrush="#3A3A50" BorderThickness="0,1,0,0" Padding="0,10,0,0">
+                                            <DockPanel MaxHeight="260">
+                                                <TextBlock DockPanel.Dock="Top" x:Name="DetailStackTitle"
+                                                       Text="Contents" Foreground="#FFE082"
+                                                       FontSize="13" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                                                <ScrollViewer DockPanel.Dock="Top" MaxHeight="72"
+                                                          VerticalScrollBarVisibility="Auto"
+                                                          Margin="0,0,0,8">
+                                                    <TextBlock x:Name="DetailStackStats" Foreground="#B5CEA8"
+                                                           FontSize="11" FontFamily="Consolas"
+                                                           TextWrapping="Wrap"/>
+                                                </ScrollViewer>
+                                                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                                          HorizontalScrollBarVisibility="Disabled">
+                                                    <WrapPanel x:Name="DetailStackCards"/>
+                                                </ScrollViewer>
+                                            </DockPanel>
+                                        </Border>
+                                        <!-- Top: card image + text -->
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Border Grid.Column="0" Width="200" Margin="0,0,16,0"
+                                                BorderBrush="#555" BorderThickness="1" CornerRadius="4"
+                                                Background="#111"
+                                                Cursor="Hand" ToolTip="Hold right mouse button to enlarge">
+                                                <Image x:Name="DetailImage" Stretch="Uniform"
+                                                   RenderOptions.BitmapScalingMode="HighQuality"
+                                                   MouseLeftButtonDown="DetailImage_MouseLeftButtonDown"
+                                                   MouseRightButtonDown="DetailImage_MouseRightButtonDown"
+                                                   MouseRightButtonUp="DetailImage_MouseRightButtonUp"/>
+                                            </Border>
+                                            <DockPanel Grid.Column="1">
+                                                <TextBlock DockPanel.Dock="Top" x:Name="DetailName" Text="–"
+                                                       FontSize="16" FontWeight="Bold" Foreground="White"
+                                                       TextWrapping="Wrap"/>
+                                                <TextBlock DockPanel.Dock="Top" x:Name="DetailType"
+                                                       Foreground="#4EC9B0" FontSize="12" Margin="0,4,0,8"/>
+                                                <TextBlock DockPanel.Dock="Top" x:Name="DetailAttributes"
+                                                       Foreground="#B5CEA8" FontSize="12" FontWeight="SemiBold"
+                                                       Margin="0,0,0,6" TextWrapping="Wrap"/>
+                                                <TextBlock DockPanel.Dock="Top" x:Name="DetailClass"
+                                                       Foreground="#DCDCAA" FontSize="11" Margin="0,0,0,2"/>
+                                                <TextBlock DockPanel.Dock="Top" x:Name="DetailStaff"
+                                                       Foreground="#9CDCFE" FontSize="11" Margin="0,0,0,2"/>
+                                                <TextBlock DockPanel.Dock="Top" x:Name="DetailIcons"
+                                                       Foreground="#C586C0" FontSize="11" Margin="0,0,0,8"
+                                                       TextWrapping="Wrap"/>
+                                                <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="180">
+                                                    <TextBlock x:Name="DetailText" Foreground="#D4D4D4" FontSize="12"
+                                                           TextWrapping="Wrap" LineHeight="18"/>
+                                                </ScrollViewer>
+                                            </DockPanel>
+                                        </Grid>
+                                    </DockPanel>
                                 </Border>
                             </Border>
                             <Border x:Name="HistoryOverlay" Visibility="Collapsed"

@@ -54,7 +54,9 @@ public static class InterruptRules
         Mindmeld,
         Wormhole,
         AlienGroupie,
-        GroupieStop
+        GroupieStop,
+        RogueBorg,
+        Crosis
     }
 
     public sealed class Result
@@ -70,6 +72,68 @@ public static class InterruptRules
 
     public static bool IsInterrupt(Card c) =>
         (c.Type ?? "").Contains("interrupt", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Where the interrupt must be dropped (hand play).</summary>
+    public enum PlayTarget
+    {
+        None,
+        Event,
+        OwnCrew,
+        AnyCrew,
+        OwnShip,
+        AnyShip
+    }
+
+    public static PlayTarget GetPlayTarget(Card card)
+    {
+        string n = (card.Name ?? "").Trim();
+        string t = card.Text ?? "";
+
+        if (n.Equals("Kevin Uxbridge", StringComparison.OrdinalIgnoreCase))
+            return PlayTarget.Event;
+
+        if (n.Equals("Emergency Transporter Armbands", StringComparison.OrdinalIgnoreCase)
+            || n.Equals("Vulcan Mindmeld", StringComparison.OrdinalIgnoreCase)
+            || n.Equals("Alien Groupie", StringComparison.OrdinalIgnoreCase))
+            return PlayTarget.OwnCrew;
+
+        if (n.Equals("Disruptor Overload", StringComparison.OrdinalIgnoreCase))
+            return PlayTarget.AnyCrew;
+
+        if (n.Equals("Incoming Message: Federation", StringComparison.OrdinalIgnoreCase)
+            || n.Equals("Incoming Message: Klingon", StringComparison.OrdinalIgnoreCase)
+            || n.Equals("Incoming Message: Romulan", StringComparison.OrdinalIgnoreCase)
+            || n.Equals("Transwarp Conduit", StringComparison.OrdinalIgnoreCase)
+            || n.Equals("Auto-Destruct Sequence", StringComparison.OrdinalIgnoreCase)
+            || n.Equals("Escape Pod", StringComparison.OrdinalIgnoreCase)
+            || n.Equals("Near-Warp Transport", StringComparison.OrdinalIgnoreCase))
+            return PlayTarget.OwnShip;
+
+        if (n.Equals("Loss of Orbital Stability", StringComparison.OrdinalIgnoreCase)
+            || n.Equals("Long-Range Scan", StringComparison.OrdinalIgnoreCase)
+            || n.Equals("Rogue Borg", StringComparison.OrdinalIgnoreCase)
+            || n.Equals("Crosis", StringComparison.OrdinalIgnoreCase))
+            return PlayTarget.AnyShip;
+
+        if (ContainsIgnore(t, "Plays on your crew") || ContainsIgnore(t, "Plays on your Away Team")
+            || ContainsIgnore(t, "Plays on crew or Away Team"))
+            return PlayTarget.OwnCrew;
+        if (ContainsIgnore(t, "Plays on a crew") || ContainsIgnore(t, "Plays on an Away Team"))
+            return PlayTarget.AnyCrew;
+        if (ContainsIgnore(t, "Plays on your ship"))
+            return PlayTarget.OwnShip;
+        // "Plays on a ship" / "Plays on an occupied ship" / "Plays on ship"
+        if (ContainsIgnore(t, "Plays on a ship") || ContainsIgnore(t, "Plays on an occupied ship")
+            || ContainsIgnore(t, "Plays on ship") || ContainsIgnore(t, "Plays on opponent's"))
+            return PlayTarget.AnyShip;
+
+        return PlayTarget.None;
+    }
+
+    private static bool ContainsIgnore(string text, string needle) =>
+        text.Contains(needle, StringComparison.OrdinalIgnoreCase);
+
+    public static bool NeedsDropTarget(Card card) => GetPlayTarget(card) != PlayTarget.None;
 
     public static Result Resolve(Card card)
     {
@@ -149,7 +213,7 @@ public static class InterruptRules
             {
                 Kind = Kind.Instant,
                 Effect = Effect.JaglomLook,
-                Message = "Gegner-Hand anschauen (Hotseat)."
+                Message = "Examine opponent's draw deck, then replace it unshuffled (order unchanged)."
             },
             "Klingon Death Yell" => new Result
             {
@@ -257,13 +321,29 @@ public static class InterruptRules
                 Countdown = 2,
                 Message = "Countdown: Schiff zerstört, andere Schiffe SHIELDS&lt;8 damaged."
             },
-            "Crosis" or "Rogue Borg" or "Tachyon Detection Grid"
-                or "Distortion of Space/Time Continuum"
+            "Rogue Borg" => new Result
+            {
+                Kind = Kind.AttachShip,
+                Effect = Effect.RogueBorg,
+                DiscardAfter = false,
+                Message = "Plays on an occupied ship. Forms a Rogue Borg Away Team (STRENGTH 5 each). "
+                    + "End of every player's turn: battles that player's personnel present."
+            },
+            "Crosis" => new Result
+            {
+                Kind = Kind.AttachShip,
+                Effect = Effect.Crosis,
+                DiscardAfter = false,
+                Countdown = 1,
+                Message = "Plays on a ship. Doubles STRENGTH of all Rogue Borg present. "
+                    + "Discard at start of next turn."
+            },
+            "Tachyon Detection Grid" or "Distortion of Space/Time Continuum"
                 => new Result
                 {
                     Kind = Kind.Instant,
                     Effect = Effect.None,
-                    Message = $"„{n}“ Premiere-Sandbox: selten / AU-nah – Marker, voller Effekt später."
+                    Message = $"\"{n}\" Premiere sandbox marker (full effect later)."
                 },
             _ => new Result
             {

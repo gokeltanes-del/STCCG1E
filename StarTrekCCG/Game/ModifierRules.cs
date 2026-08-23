@@ -281,9 +281,17 @@ public static class ModifierRules
 
         if (ep.Skills.Count > 0)
         {
-            var skillParts = ep.Skills.OrderBy(k => k.Key)
+            var classKeys = new HashSet<string>(MissionRules.Classifications, StringComparer.OrdinalIgnoreCase);
+            var classParts = ep.Skills.Where(kv => classKeys.Contains(kv.Key))
+                .OrderBy(k => k.Key)
                 .Select(kv => kv.Value > 1 ? $"{kv.Key}×{kv.Value}" : kv.Key);
-            lines.Add("Skills: " + string.Join(", ", skillParts));
+            var skillParts = ep.Skills.Where(kv => !classKeys.Contains(kv.Key))
+                .OrderBy(k => k.Key)
+                .Select(kv => kv.Value > 1 ? $"{kv.Key}×{kv.Value}" : kv.Key);
+            if (classParts.Any())
+                lines.Add("Classification: " + string.Join(", ", classParts));
+            if (skillParts.Any())
+                lines.Add("Skills: " + string.Join(", ", skillParts));
         }
 
         var grants = ep.Applied.Where(m => m.Kind == ModifierKind.SkillGrant).ToList();

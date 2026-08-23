@@ -65,7 +65,8 @@ public static class EventRules
         HoloProjectors,
         Fingernail,
         NeuralServo,
-        AntiTime
+        AntiTime,
+        LoreReturns
     }
 
     public sealed class PlayResult
@@ -259,7 +260,7 @@ public static class EventRules
             {
                 Place = Place.Table,
                 Persist = Persist.Traveler,
-                Message = "Nullifies Static Warp Bubble. Chosen player draws +1 at end of turn."
+                Message = "While in play, nullifies each Static Warp Bubble (they stay on table but have no effect). Chosen player draws +1 at end of turn."
             },
             "Telepathic Alien Kidnappers" => new PlayResult
             {
@@ -277,7 +278,10 @@ public static class EventRules
             {
                 Place = Place.Table,
                 Persist = Persist.RedAlert,
-                Message = "On table. Next turns: instead of your normal card play you may play up to 5 personnel and/or equipment."
+                Message = "On table until nullified. Each of your turns: instead of your one normal card play, "
+                          + "report up to 5 personnel and/or equipment from hand (to a legal facility). "
+                          + "Playing this event uses this turn's normal card play — the 5-play starts next turn. "
+                          + "No separate 'Use' click."
             },
             "Raise the Stakes" => new PlayResult
             {
@@ -318,9 +322,10 @@ public static class EventRules
             },
             "Lore Returns" => new PlayResult
             {
-                Place = Place.Table,
-                Persist = Persist.Table,
-                Message = "Rogue Borg commandeer (Premiere sandbox: marker, no full effect)."
+                Place = Place.OnShip,
+                Persist = Persist.LoreReturns,
+                Message = "Plays on opponent's empty ship with Rogue Borg aboard. You gain control of those Rogue Borg; "
+                    + "they commandeer the ship (Non-Aligned). While Rogue Borg aboard, ship is staffed and may battle / beam."
             },
             _ when TreatyRules.IsTreatyCard(ev) => new PlayResult
             {
@@ -376,12 +381,16 @@ public static class EventRules
         {
             foreach (var kv in MissionRules.ParsePersonnelSkills(p))
             {
-                if (kv.Key.Equals(skill, StringComparison.OrdinalIgnoreCase)
-                    || kv.Key.Contains(skill, StringComparison.OrdinalIgnoreCase))
+                bool hit = kv.Key.Equals(skill, StringComparison.OrdinalIgnoreCase)
+                    || kv.Key.Contains(skill, StringComparison.OrdinalIgnoreCase);
+                CheckTrace.Cmp($"Skill on '{p.Name}'", skill, kv.Key, hit);
+                if (hit)
                     have += kv.Value;
             }
         }
-        return have >= need;
+        bool ok = have >= need;
+        CheckTrace.Line($"HasSkill '{skill}' x{need} have {have} → {(ok ? "MATCH" : "NO MATCH")}");
+        return ok;
     }
 
     public static int WeaponsBonusFromEvents(IEnumerable<(Persist kind, Card ev)> attached)

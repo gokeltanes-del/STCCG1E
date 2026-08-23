@@ -144,22 +144,22 @@ public static class MovementRules
         return 0;
     }
 
-    public static int GetMissionSpan(Card mission)
-    {
-        string s = (mission.Span ?? "").Trim();
-        if (int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out int v))
-            return Math.Max(0, v);
-        var m = Regex.Match(s, @"\d+");
-        if (m.Success && int.TryParse(m.Value, out v))
-            return v;
-        return 0; // X etc. – vorerst 0
-    }
+    public static int GetMissionSpan(Card mission, bool forOwner = true)
+        => MissionRules.GetEffectiveSpan(mission, forOwner);
 
     /// <summary>
     /// RANGE-Kosten: Summe der Spans aller Locationen, zu denen bewegt wird
     /// (Start zählt nicht). Index entlang _spacelineOrder.
     /// </summary>
-    public static int RangeCostBetween(IReadOnlyList<Card> orderedMissions, int fromIndex, int toIndex)
+    /// <param name="forOwnerAtIndex">
+    /// Optional: true when the mover is the mission owner (printed Span);
+    /// false uses Opponent's-side Span when printed (e.g. Warped Space).
+    /// </param>
+    public static int RangeCostBetween(
+        IReadOnlyList<Card> orderedMissions,
+        int fromIndex,
+        int toIndex,
+        Func<int, bool>? forOwnerAtIndex = null)
     {
         if (fromIndex < 0 || toIndex < 0 || fromIndex >= orderedMissions.Count || toIndex >= orderedMissions.Count)
             return int.MaxValue / 4;
@@ -169,7 +169,8 @@ public static class MovementRules
         int cost = 0;
         for (int i = fromIndex + step; ; i += step)
         {
-            cost += GetMissionSpan(orderedMissions[i]);
+            bool forOwner = forOwnerAtIndex?.Invoke(i) ?? true;
+            cost += GetMissionSpan(orderedMissions[i], forOwner);
             if (i == toIndex) break;
         }
         return cost;
@@ -182,7 +183,8 @@ public static class MovementRules
         IReadOnlyList<Card> orderedMissions,
         int fromIndex,
         int toIndex,
-        IReadOnlyList<TreatyRules.TreatyLink>? treaties = null)
+        IReadOnlyList<TreatyRules.TreatyLink>? treaties = null,
+        Func<int, bool>? forOwnerAtIndex = null)
     {
         var staff = IsShipStaffed(ship, crew, treaties);
         if (!staff.Ok)
@@ -191,7 +193,7 @@ public static class MovementRules
         if (fromIndex == toIndex)
             return new MoveResult(false, "Schiff ist bereits an dieser Mission.", 0, remainingRange);
 
-        int cost = RangeCostBetween(orderedMissions, fromIndex, toIndex);
+        int cost = RangeCostBetween(orderedMissions, fromIndex, toIndex, forOwnerAtIndex);
         if (cost > remainingRange)
         {
             return new MoveResult(false,

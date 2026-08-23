@@ -159,7 +159,7 @@ public static class DilemmaRules
                 Fate = Fate.AttachAndEnd,
                 Persist = PersistKind.BorgShip,
                 StopTeam = true,
-                Message = "Borg Ship appears at far end of spaceline and attacks there (simplified)."
+                Message = "Borg Ship placed at furthest spaceline end. End of every turn: attacks ships here (WEAPONS 24), then moves one mission toward the opposite end and off the spaceline. Destroy in battle for 15 points."
             },
 
             "Female's Love Interest" => RelocateGender(ctx, female: true),
@@ -515,13 +515,14 @@ public static class DilemmaRules
     private static Result Loop(Ctx ctx)
     {
         if (Skill(ctx, "SCIENCE") && Sum(ctx).cunn > 35)
-            return new Result { Fate = Fate.Overcome, Score = 5, Message = "SCIENCE + CUNNING>35 → +5." };
+            return new Result { Fate = Fate.Overcome, Score = 5, Message = "SCIENCE + CUNNING>35 → +5. Discard dilemma." };
         return new Result
         {
             Fate = Fate.EffectAndEnd,
             StopTeam = true,
             EndTurn = true,
-            Message = "Temporal Causality Loop: attempt cards returned (sandbox: turn ends)."
+            // UI restores discards from this attempt and re-seeds seed cards under the mission.
+            Message = "Temporal Causality Loop: cards discarded here this attempt return (seeds re-seeded); turn ends."
         };
     }
 

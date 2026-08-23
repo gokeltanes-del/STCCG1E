@@ -64,7 +64,8 @@ public partial class TableWindow : Window
     private const int OpeningHandSize = 7;
     private bool _seedPhaseActive;
     private Card? _detailCard;
-    private DateTime _detailImageClickTime;
+    /// <summary>Host opened via double-click stack popup (ship/mission/facility).</summary>
+    private Border? _detailHost;
 
     private enum GameMode { Hotseat, Network, SingleAi }
     private GameMode _gameMode = GameMode.Hotseat;
@@ -79,6 +80,8 @@ public partial class TableWindow : Window
     private readonly Dictionary<string, List<Border>> _missionsByQuadrant = new(StringComparer.OrdinalIgnoreCase);
     /// <summary>Eine Spaceline, links→rechts (Quadranten durch 1 Kartenbreite getrennt).</summary>
     private readonly List<Border> _spacelineOrder = new();
+    /// <summary>Second copy of a unique mission stacked on the first (shared location).</summary>
+    private readonly Dictionary<Border, List<Border>> _sharedMissionCopies = new();
     private readonly List<Rectangle> _missionSlotPreviews = new();
 
     private enum SeedSubPhase
@@ -99,7 +102,6 @@ public partial class TableWindow : Window
     private Point _dragOffset;
     private Point _dragOrigin;           // Position vor dem Ziehen
     private Border? _dragSourceMission; // Mission, unter der die Karte lag (falls)
-    private Border? _dragSourceHost;    // Host (Schiff/Mission/…), von dem Karte kam
     private bool _isDragging;           // true erst nach Bewegungsschwelle
     private Point _mouseDownScreen;     // für Schwelle
     private const double DragThreshold = 6; // Pixel, bevor echtes Ziehen beginnt
@@ -114,8 +116,6 @@ public partial class TableWindow : Window
     /// <summary>Host chosen by drag before event resolve (or click in EventPickTarget mode).</summary>
     private Border? _eventPreferredHost;
     private Border? _eventPreferredHost2;
-    private Card? _eventPendingCard;
-    private int _eventPendingController;
     private readonly HashSet<Border> _beamSelected = new();
     private readonly HashSet<Border> _solvedMissions = new();
     /// <summary>Mission-Border → Spieler, der gelöst hat.</summary>
@@ -156,6 +156,26 @@ public partial class TableWindow : Window
     private readonly Dictionary<Border, int> _shipRangeLeft = new();
     // Verdeckt unter Mission (Dilemmas/Artifacts – Typ oft unbekannt für Gegner)
     private readonly Dictionary<Border, List<Border>> _seedUnderMission = new();
+    /// <summary>Artifacts revealed mid-attempt (face-up for both players); acquired only on solve.</summary>
+    private readonly Dictionary<Border, List<Card>> _revealedArtifactsUnderMission = new();
+    /// <summary>Last dilemma faced at this mission (for View contents).</summary>
+    private readonly Dictionary<Border, Card> _lastEncounteredDilemma = new();
+    /// <summary>Visible Borg Ship dilemma token on the spaceline (self-controlling).</summary>
+    private Border? _borgShipToken;
+
+    /// <summary>Rogue Borg interrupt tokens aboard ships (self-controlling until Lore Returns).</summary>
+    private sealed class RogueBorgUnit
+    {
+        public required Card Card { get; init; }
+        public required Border Host { get; set; }
+        public int PlayedBy { get; init; }
+        /// <summary>0 = self-controlling; 1/2 = under that player's control (Lore Returns).</summary>
+        public int Controller { get; set; }
+        public Border? Visual { get; set; }
+    }
+    private readonly List<RogueBorgUnit> _rogueBorg = new();
+    /// <summary>Ship borders with active Crosis (doubles Rogue Borg STRENGTH until start of next turn).</summary>
+    private readonly HashSet<Border> _crosisShips = new();
     // Badge unter dem Host (Crew/Eq)
     private readonly Dictionary<Border, TextBlock> _hostBadges = new();
     private readonly Dictionary<Border, TextBlock> _hostBadgesP2 = new();
@@ -172,6 +192,8 @@ public partial class TableWindow : Window
     private bool _aidLegalResponses = true;
     private bool _aidOwnSeedCounts = true;
     private bool _devShowDebugLog = true;
+    /// <summary>Dev: play Dilemma/Artifact from hand onto a mission (artifacts acquire immediately).</summary>
+    private bool _devPlaySeedFromHand;
     private bool _aidZoneCounts = true;
 
     // ---------- Nur noch der zoombare Mittelbereich ----------
@@ -209,9 +231,6 @@ public partial class TableWindow : Window
     private readonly TimingRules.ActionStack _stack = new();
     private readonly List<Card> _outOfPlayP1 = new();
     private readonly List<Card> _outOfPlayP2 = new();
-    /// <summary>Wenn Stack offen: Card-Play noch nicht als normal play verbucht.</summary>
-    private bool _pendingNormalPlayMark;
-
     private sealed class AttachedDilemma
     {
         public required Card Card { get; init; }
@@ -222,6 +241,12 @@ public partial class TableWindow : Window
     }
 
     private readonly List<AttachedDilemma> _attachedDilemmas = new();
+
+    /// <summary>During a mission attempt: cards discarded from this location (for Temporal Causality Loop).</summary>
+    private Border? _attemptMission;
+    private readonly List<(Card card, int owner, Border? returnHost, bool wasSeed)> _attemptDiscards = new();
+    /// <summary>Borg Ship dilemma token direction along spaceline (+1 / -1).</summary>
+    private int _borgShipDir = 1;
 
     private enum RevealButtons { Ok, YesNo, PlayerPick }
     private enum RevealAnswer { None, Ok, Yes, No }
@@ -275,7 +300,8 @@ public partial class TableWindow : Window
     private static readonly Color ColSide = Color.FromRgb(70, 70, 140);
     private static readonly Color ColHand = Color.FromRgb(120, 100, 40);
 
-    private const string DataPath = @"C:\STCCG_Data";
+    /// <summary>Set folders (cards.json + images). See GamePaths.</summary>
+    private static string DataPath => GamePaths.DataRoot;
 
     /// <summary>Hotkey for Next phase / End turn. Custom binding later.</summary>
     private Key _hotkeyNextPhase = Key.Space;
@@ -696,7 +722,16 @@ public partial class TableWindow : Window
         if (k > 1) mods.Add($"Kurlan ×{k}");
         if (transwarp) mods.Add("Transwarp ×2");
 
+        // Compendium: Rotation Damage → RANGE limited to maximum 5 (not halved).
         string line = $"RANGE {remain}/{rangeFull} (printed {printedR})  •  WEAPONS {w} (printed {printedW})  •  SHIELDS {s} (printed {printedS})";
+        if (border != null)
+        {
+            int hull = GetHullDamage(border);
+            if (hull > 0)
+                line += $"\nDAMAGE: HULL {hull}%"
+                        + (hull >= 50 ? "  ·  Rotation Damage (RANGE max 5)" : "")
+                        + (hull >= 100 ? "  ·  DESTROYED" : "");
+        }
         if (mods.Count > 0)
             line += "\nModifiers: " + string.Join(", ", mods);
         return line;
@@ -852,7 +887,8 @@ public partial class TableWindow : Window
     private void AnnounceChoiceResult(Card? card, string title, string body)
     {
         StatusText.Text = body.Replace("\n", " ");
-        ShowCardReveal(card, title + " — Result", body, RevealButtons.Ok, null, autoCloseMs: 3500);
+        // No auto-timer — player confirms with OK
+        ShowCardReveal(card, title + " — Result", body, RevealButtons.Ok, null);
     }
     private void BtnRevealYes_Click(object sender, RoutedEventArgs e) => CloseReveal(RevealAnswer.Yes);
     private void BtnRevealNo_Click(object sender, RoutedEventArgs e) => CloseReveal(RevealAnswer.No);
@@ -875,6 +911,11 @@ public partial class TableWindow : Window
 
     private void TableWindow_Loaded(object sender, RoutedEventArgs e)
     {
+        CheckTrace.Emit = msg =>
+        {
+            if (_devShowDebugLog)
+                _session.Log.AddDebug(_session.TurnNumber, "Check", msg);
+        };
         BuildFixedZones();
         UpdatePhaseControls();
 
@@ -886,6 +927,7 @@ public partial class TableWindow : Window
             StatusText.Text = $"{count} cards loaded – start New Game";
             RefreshActionHistory();
             DrawSpacelineBackground();
+            ApplyRandomBoardBackground();
             // Keine Demo-Karten – Start über Welcome-Overlay / Neues Spiel
             Dispatcher.BeginInvoke(new Action(CenterOnSpaceline),
                 System.Windows.Threading.DispatcherPriority.Loaded);
@@ -895,7 +937,9 @@ public partial class TableWindow : Window
             StatusText.Text = "Failed to load card data";
             MessageBox.Show(
                 $"Could not load card data:\n\n{ex.Message}\n\n" +
-                "Check DataPath in TableWindow.xaml.cs.",
+                "Expected a Data/ folder with set subfolders and cards.json\n"
+                + "(or set STCCG_DATA / keep C:\\STCCG_DATA as fallback).\n"
+                + $"Tried: {DataPath}",
                 "Data error", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
@@ -941,26 +985,78 @@ public partial class TableWindow : Window
 
     private string _stripZoneP1 = "Hand";
     private string _stripZoneP2 = "Hand";
-    /// <summary>When a strip shows a host stack (crew / away team), this is the host.</summary>
+    /// <summary>Last host inspected (beam / refresh). Per-strip hosts stay independent.</summary>
     private Border? _hostStripHost;
+    private Border? _hostStripHostP1;
+    private Border? _hostStripHostP2;
     private bool _hostStripBeam;
+    /// <summary>Host chosen by dropping a crew/ship-targeted interrupt.</summary>
+    private Border? _interruptTargetHost;
+
+    // ----- Top/bottom inspector: Spaceline stack vs opponent-pile interaction -----
+    private enum InspectorMode { SpacelineInspect, OpponentPileInteract }
+    private enum TargetPileType
+    {
+        Hand, Draw, Discard, BattleBridge, QsTent, QContinuum, SitePile, Tribble, OutOfPlay
+    }
+    [Flags]
+    private enum PileInteraction
+    {
+        ViewOnly = 1,
+        SelectCard = 2,
+        FullView = 4,       // show faces even for private piles (draw)
+        TakeToHand = 8,
+        StealToTable = 16
+    }
+
+    private InspectorMode _inspectorMode = InspectorMode.SpacelineInspect;
+    private string _savedStripZoneP1 = "Hand";
+    private string _savedStripZoneP2 = "Hand";
+    private Border? _savedHostStripHost;
+    private Border? _savedHostStripHostP1;
+    private Border? _savedHostStripHostP2;
+    private bool _savedHostStripBeam;
+    private int _pileTargetPlayer;
+    private TargetPileType _pileTargetType;
+    private PileInteraction _pileInteractions;
+    private string _pilePrompt = "";
+    private Action<Card?>? _pileOnComplete;
+    private System.Windows.Threading.DispatcherFrame? _pileFrame;
+    private bool _pileResolved;
 
     /// <summary>Horizontal strip: Hand by default; other piles when selected; Host = crew.</summary>
     private void RefreshHandStrips()
     {
-        if (_stripZoneP1 == "Host" && _hostStripHost != null)
-            FillHostStrip(opponent: false);
-        else if (_stripZoneP1 == "Hand" || string.IsNullOrEmpty(_stripZoneP1))
-            FillStrip(false, "Hand");
-        else
-            FillStrip(false, _stripZoneP1);
+        if (_inspectorMode == InspectorMode.OpponentPileInteract)
+        {
+            // Keep the interaction gallery on the target player's strip; refresh the other strip normally.
+            bool targetIsP2 = _pileTargetPlayer == 2;
+            if (targetIsP2)
+            {
+                FillOpponentPileGallery();
+                RefreshOneStrip(opponent: false);
+            }
+            else
+            {
+                FillOpponentPileGallery();
+                RefreshOneStrip(opponent: true);
+            }
+            return;
+        }
 
-        if (_stripZoneP2 == "Host" && _hostStripHost != null)
-            FillHostStrip(opponent: true);
-        else if (_stripZoneP2 == "Hand" || string.IsNullOrEmpty(_stripZoneP2))
-            FillStrip(true, "Hand");
+        RefreshOneStrip(opponent: false);
+        RefreshOneStrip(opponent: true);
+    }
+
+    private void RefreshOneStrip(bool opponent)
+    {
+        string zone = opponent ? _stripZoneP2 : _stripZoneP1;
+        // Hand strips stay Hand (stack contents live in the detail popup).
+        // Pile-click (Draw/Discard/…) still uses the strip as a gallery.
+        if (zone == "Host" || string.IsNullOrEmpty(zone) || zone == "PileInteract")
+            FillStrip(opponent, "Hand");
         else
-            FillStrip(true, _stripZoneP2);
+            FillStrip(opponent, zone);
     }
 
     private void FillStrip(bool opponent, string zoneName)
@@ -1033,7 +1129,7 @@ public partial class TableWindow : Window
         if (panel == null) return;
         panel.Children.Clear();
 
-        var host = _hostStripHost;
+        var host = opponent ? _hostStripHostP2 : _hostStripHostP1;
         if (host?.Tag is not Card hostCard)
         {
             if (title != null) title.Text = opponent ? "P2 HAND" : "P1 HAND";
@@ -1051,25 +1147,30 @@ public partial class TableWindow : Window
             title.Foreground = new SolidColorBrush(Color.FromRgb(0xFF, 0xE0, 0x82));
         }
 
-        if (IsShipCard(hostCard))
-        {
-            panel.Children.Add(new TextBlock
-            {
-                Text = FormatShipEffectiveLine(hostCard),
-                Foreground = new SolidColorBrush(Color.FromRgb(181, 206, 168)),
-                FontSize = 11,
-                TextWrapping = TextWrapping.Wrap,
-                Width = 88,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(2, 0, 6, 0)
-            });
-        }
+        // Ship RANGE/WEAPONS/SHIELDS live in "Crew / stats…" next to the card — not repeated in the strip.
 
         bool isMission = string.Equals(hostCard.Type, "Mission", StringComparison.OrdinalIgnoreCase);
         int seedCount = _seedUnderMission.TryGetValue(host, out var seedList) ? seedList.Count : 0;
         bool hasStack = _stackOnHost.TryGetValue(host, out var list) && list.Count > 0;
 
-        if (!hasStack && seedCount == 0)
+        if (_lastEncounteredDilemma.TryGetValue(host, out var lastDil) && lastDil != null)
+        {
+            panel.Children.Add(new TextBlock
+            {
+                Text = "Last dilemma",
+                Foreground = new SolidColorBrush(Color.FromRgb(220, 120, 100)),
+                FontSize = 11,
+                FontWeight = FontWeights.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(4, 0, 6, 0)
+            });
+            var lastMini = CreateMiniCard(lastDil, faceDown: false);
+            lastMini.ToolTip = $"Last encountered: {lastDil.Name}\nDouble-click / right-click = large view";
+            WireHostStripMini(lastMini, lastDil);
+            panel.Children.Add(lastMini);
+        }
+
+        if (!hasStack && seedCount == 0 && !_lastEncounteredDilemma.ContainsKey(host))
         {
             panel.Children.Add(new TextBlock
             {
@@ -1172,20 +1273,27 @@ public partial class TableWindow : Window
             }
             else
             {
-                mini.MouseLeftButtonDown += MiniCard_Click;
-                mini.MouseRightButtonDown += (s2, e2) =>
-                {
-                    ShowCardDetail(c);
-                    BeginHoldZoom(c, s2 as IInputElement);
-                    e2.Handled = true;
-                };
-                mini.MouseRightButtonUp += (_, e2) =>
-                {
-                    EndHoldZoom();
-                    e2.Handled = true;
-                };
+                bool movable = CanDragOffHost(c);
+                mini.ToolTip = $"{c.Name}  (P{o})"
+                               + (IsBorderStopped(cardBorder) ? "  · stopped" : "")
+                               + "\nClick = detail · Double-click / right-click = large view"
+                               + (movable ? " · Drag = move" : " · stays on host");
+                WireHostStripMini(mini, c);
                 panel.Children.Add(mini);
             }
+        }
+
+        // Attached events only in _attachedEvents (no stack border)
+        foreach (var ae in EventsOn(host).ToList())
+        {
+            if (hasStack && list != null
+                && list.Any(b => b.Tag is Card sc && ReferenceEquals(sc, ae.Card)))
+                continue;
+            var emini = CreateMiniCard(ae.Card);
+            emini.BorderBrush = new SolidColorBrush(Color.FromRgb(200, 160, 60));
+            emini.ToolTip = $"{ae.Card.Name} (attached)\nClick = detail · Double-click / right-click = large view";
+            WireHostStripMini(emini, ae.Card);
+            panel.Children.Add(emini);
         }
 
         // Keep that player's hand visible on the same strip so interrupts stay playable.
@@ -1213,16 +1321,259 @@ public partial class TableWindow : Window
         }
     }
 
+    /// <summary>Detail / large view for strip minis (incl. attached events).</summary>
+    private void WireHostStripMini(Border mini, Card card)
+    {
+        mini.MouseLeftButtonDown += (s, e) =>
+        {
+            ShowCardDetail(card);
+            if (e.ClickCount >= 2)
+            {
+                _detailHost = null;
+                OpenCardDetailPopup();
+                e.Handled = true;
+                return;
+            }
+            if (s is Border b && b.Tag is HostCardRef)
+                MiniCard_Click(s, e);
+            else
+                e.Handled = true;
+        };
+        mini.MouseRightButtonDown += (s, e) =>
+        {
+            e.Handled = true;
+            ShowCardDetail(card);
+            _detailHost = null;
+            OpenCardDetailPopup();
+            BeginHoldZoom(card, s as IInputElement);
+        };
+        mini.MouseRightButtonUp += (_, e) =>
+        {
+            EndHoldZoom();
+            e.Handled = true;
+        };
+    }
+
     private void ResetStripsToHand()
     {
+        if (_inspectorMode == InspectorMode.OpponentPileInteract)
+            return; // locked until pile interaction finishes
         _stripZoneP1 = "Hand";
         _stripZoneP2 = "Hand";
         if (_cardActionMode != CardActionMode.BeamPickTarget)
         {
             _hostStripHost = null;
+            _hostStripHostP1 = null;
+            _hostStripHostP2 = null;
             _hostStripBeam = false;
         }
         RefreshHandStrips();
+    }
+
+    private static string PileTypeLabel(TargetPileType t) => t switch
+    {
+        TargetPileType.Hand => "Hand",
+        TargetPileType.Draw => "Draw Deck",
+        TargetPileType.Discard => "Discard",
+        TargetPileType.BattleBridge => "Battle Bridge",
+        TargetPileType.QsTent => "Q's Tent",
+        TargetPileType.QContinuum => "Q-Continuum",
+        TargetPileType.SitePile => "Site Pile",
+        TargetPileType.Tribble => "Tribble",
+        TargetPileType.OutOfPlay => "Out of Play",
+        _ => t.ToString()
+    };
+
+    private List<Card> GetPileCards(int player, TargetPileType pile)
+    {
+        bool opp = player == 2;
+        return pile switch
+        {
+            TargetPileType.Hand => (opp ? _oppHandCards : _handCards).ToList(),
+            TargetPileType.Draw => (opp ? _oppDrawCards : _drawCards).ToList(),
+            TargetPileType.Discard => (opp ? _oppDiscardCards : _discardCards).ToList(),
+            TargetPileType.BattleBridge => (opp ? _oppBattleBridgeCards : _battleBridgeCards).ToList(),
+            TargetPileType.QsTent => (opp ? _oppQsTentCards : _qsTentCards).ToList(),
+            TargetPileType.QContinuum => (opp ? _oppQContinuumCards : _qContinuumCards).ToList(),
+            TargetPileType.SitePile => (opp ? _oppSitePileCards : _sitePileCards).ToList(),
+            TargetPileType.Tribble => (opp ? _oppTribbleCards : _tribbleCards).ToList(),
+            _ => new List<Card>()
+        };
+    }
+
+    /// <summary>
+    /// Switch the target player's strip into an interaction gallery for a pile effect.
+    /// Modal until a card is chosen (SelectCard) or the user cancels (ViewOnly / optional cancel).
+    /// Restores the previous Spaceline/host inspector context afterward.
+    /// </summary>
+    private Card? BeginOpponentPileInteract(
+        int targetPlayer,
+        TargetPileType pile,
+        PileInteraction flags,
+        string prompt,
+        bool allowCancel = true)
+    {
+        if (_inspectorMode == InspectorMode.OpponentPileInteract)
+            EndOpponentPileInteract(null);
+
+        _savedStripZoneP1 = _stripZoneP1;
+        _savedStripZoneP2 = _stripZoneP2;
+        _savedHostStripHost = _hostStripHost;
+        _savedHostStripHostP1 = _hostStripHostP1;
+        _savedHostStripHostP2 = _hostStripHostP2;
+        _savedHostStripBeam = _hostStripBeam;
+
+        _inspectorMode = InspectorMode.OpponentPileInteract;
+        _pileTargetPlayer = targetPlayer;
+        _pileTargetType = pile;
+        _pileInteractions = flags;
+        _pilePrompt = prompt;
+        _pileResolved = false;
+        Card? chosen = null;
+        _pileOnComplete = c => chosen = c;
+
+        if (targetPlayer == 2)
+            _stripZoneP2 = "PileInteract";
+        else
+            _stripZoneP1 = "PileInteract";
+
+        FillOpponentPileGallery();
+        UpdatePhaseControls();
+        StatusText.Text = prompt;
+
+        bool needsModal = flags.HasFlag(PileInteraction.SelectCard);
+        if (needsModal)
+        {
+            _pileFrame = new System.Windows.Threading.DispatcherFrame();
+            try { System.Windows.Threading.Dispatcher.PushFrame(_pileFrame); }
+            finally { _pileFrame = null; }
+            EndOpponentPileInteract(chosen);
+            return chosen;
+        }
+
+        // View-only: leave gallery open until user clicks Done
+        return null;
+    }
+
+    private void FillOpponentPileGallery()
+    {
+        bool targetIsP2 = _pileTargetPlayer == 2;
+        var panel = targetIsP2 ? OppStripPanel : PlayerStripPanel;
+        var title = targetIsP2 ? OppStripTitle : PlayerStripTitle;
+        var border = targetIsP2 ? OppHandStripBorder : PlayerHandStripBorder;
+        if (panel == null) return;
+
+        panel.Children.Clear();
+        string pileName = PileTypeLabel(_pileTargetType);
+        if (title != null)
+        {
+            title.Text = $"P{_pileTargetPlayer} · {pileName} — {_pilePrompt}";
+            title.Foreground = new SolidColorBrush(Color.FromRgb(0xFF, 0xE0, 0x82));
+        }
+        if (border != null)
+            border.BorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0xC1, 0x07));
+
+        var cards = GetPileCards(_pileTargetPlayer, _pileTargetType);
+        bool faceDown = !_pileInteractions.HasFlag(PileInteraction.FullView)
+                        && _pileTargetType is TargetPileType.Draw or TargetPileType.BattleBridge
+                            or TargetPileType.QContinuum;
+        bool canSelect = _pileInteractions.HasFlag(PileInteraction.SelectCard);
+
+        if (cards.Count == 0)
+        {
+            panel.Children.Add(new TextBlock
+            {
+                Text = $"({pileName} empty)",
+                Foreground = Brushes.Gray,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(8)
+            });
+        }
+        else
+        {
+            foreach (var card in cards)
+            {
+                var mini = CreateMiniCard(card, faceDown: faceDown);
+                mini.Width = 78;
+                mini.Height = 108;
+                if (canSelect && !faceDown)
+                {
+                    Card cardRef = card;
+                    mini.BorderBrush = new SolidColorBrush(Color.FromRgb(80, 200, 120));
+                    mini.BorderThickness = new Thickness(2);
+                    mini.MouseLeftButtonDown += (_, e) =>
+                    {
+                        if (_pileResolved) return;
+                        CompletePileSelection(cardRef);
+                        e.Handled = true;
+                    };
+                }
+                else if (canSelect && faceDown)
+                {
+                    // Still selectable (e.g. random-looking backs) — pick by click
+                    Card cardRef = card;
+                    mini.MouseLeftButtonDown += (_, e) =>
+                    {
+                        if (_pileResolved) return;
+                        CompletePileSelection(cardRef);
+                        e.Handled = true;
+                    };
+                }
+                panel.Children.Add(mini);
+            }
+        }
+
+        var done = new Button
+        {
+            Content = canSelect ? "Cancel" : "Done",
+            Padding = new Thickness(10, 4, 10, 4),
+            Margin = new Thickness(12, 0, 4, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Background = new SolidColorBrush(Color.FromRgb(60, 60, 70)),
+            Foreground = Brushes.White,
+            BorderBrush = new SolidColorBrush(Color.FromRgb(100, 100, 110))
+        };
+        done.Click += (_, _) => CompletePileSelection(null);
+        panel.Children.Add(done);
+    }
+
+    private void CompletePileSelection(Card? card)
+    {
+        if (_pileResolved) return;
+        _pileResolved = true;
+        _pileOnComplete?.Invoke(card);
+        if (_pileFrame != null)
+            _pileFrame.Continue = false; // EndOpponentPileInteract runs after PushFrame returns
+        else
+            EndOpponentPileInteract(card);
+    }
+
+    private void EndOpponentPileInteract(Card? selected)
+    {
+        _inspectorMode = InspectorMode.SpacelineInspect;
+        _pileOnComplete = null;
+        _pilePrompt = "";
+
+        // Restore strip chrome
+        if (OppHandStripBorder != null)
+            OppHandStripBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(0x2A, 0x4A, 0x55));
+        if (PlayerHandStripBorder != null)
+            PlayerHandStripBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(0x3A, 0x5A, 0x48));
+
+        _stripZoneP1 = _savedStripZoneP1;
+        _stripZoneP2 = _savedStripZoneP2;
+        _hostStripHost = _savedHostStripHost;
+        _hostStripHostP1 = _savedHostStripHostP1;
+        _hostStripHostP2 = _savedHostStripHostP2;
+        _hostStripBeam = _savedHostStripBeam;
+
+        RefreshHandStrips();
+        UpdatePhaseControls();
+
+        if (selected != null)
+            StatusText.Text = $"Selected from P{_pileTargetPlayer} {PileTypeLabel(_pileTargetType)}: {selected.Name}";
+        else
+            StatusText.Text = "Pile inspection closed.";
     }
 
     private void AddSeedZonesFor(Panel parent, bool opponent)
@@ -1575,6 +1926,7 @@ public partial class TableWindow : Window
         ShowCardDetail(zref.Card);
         if (e.ClickCount >= 2)
         {
+            _detailHost = null; // hand / zone card — no host stack section
             OpenCardDetailPopup();
             e.Handled = true;
             return;
@@ -1690,16 +2042,17 @@ public partial class TableWindow : Window
                     Canvas.SetLeft(_dragCard, pos.X - _dragOffset.X);
                     Canvas.SetTop(_dragCard, pos.Y - _dragOffset.Y);
                 }
-                if (_dragCard?.Tag is Card dc && IsMissionCard(dc))
+                var floating = _dragCard;
+                if (floating?.Tag is Card dc && IsMissionCard(dc))
                     ShowMissionSlotPreviews(dc);
-                else if (_dragCard.Tag is Card dw && IsDoorwayCard(dw))
+                else if (floating?.Tag is Card dw && IsDoorwayCard(dw))
                 {
                     UpdateZoneSnapForDoorway(dw, winPos);
                     if (_zoneHighlightTarget == null)
                     {
                         RestoreFloatingCardSize();
-                        Canvas.SetLeft(_dragCard, pos.X - _dragOffset.X);
-                        Canvas.SetTop(_dragCard, pos.Y - _dragOffset.Y);
+                        Canvas.SetLeft(floating, pos.X - _dragOffset.X);
+                        Canvas.SetTop(floating, pos.Y - _dragOffset.Y);
                     }
                 }
                 else
@@ -2246,17 +2599,52 @@ public partial class TableWindow : Window
         BtnRevealYes.Visibility = Visibility.Collapsed;
         BtnRevealNo.Visibility = Visibility.Collapsed;
 
-        // No legal cards: still show the played card in the center, then auto-resolve.
+        // No legal cards for this responder
         if (legal.Count == 0)
         {
+            int other = opponentOf(responder);
+            var otherHand = other == 1 ? _handCards : _oppHandCards;
+            var otherLegal = TimingRules.LegalResponsesInHand(otherHand, top, other);
+
+            // Never open a second "respond to your own card?" window when you have nothing legal.
+            // 1E: responses are almost always to the opponent's just-played action / initiation.
+            if (responder == top.Controller)
+            {
+                _stack.ConsecutivePasses++;
+                _session.Log.Add(_session.TurnNumber, $"P{responder}", "Pass (no legal response to own action)");
+                if (_stack.ConsecutivePasses >= 2 || otherLegal.Count == 0)
+                {
+                    ResolveEntireStack();
+                    return;
+                }
+                _stack.ResponsePlayer = other;
+                ShowActionAnnounce();
+                return;
+            }
+
+            // Opponent has nothing legal either → single center announce, then resolve
+            if (otherLegal.Count == 0)
+            {
+                _announceKind = AnnounceKind.OkOnly;
+                RevealAudience.Text = "No legal responses — resolving.";
+                BtnRevealOk.Visibility = Visibility.Visible;
+                BtnRevealRespond.Visibility = Visibility.Collapsed;
+                BtnRevealPass.Visibility = Visibility.Collapsed;
+                CardRevealOverlay.Visibility = Visibility.Visible;
+                StatusText.Text = $"{top.Summary} — no responses.";
+                StartAnnounceDeadline(5000);
+                return;
+            }
+
+            // Opponent has nothing, but controller might — brief announce then hand window to controller
             _announceKind = AnnounceKind.OkOnly;
-            RevealAudience.Text = $"Player {responder}: no legal response — resolving.";
+            RevealAudience.Text = $"Player {responder}: no legal response.";
             BtnRevealOk.Visibility = Visibility.Visible;
             BtnRevealRespond.Visibility = Visibility.Collapsed;
             BtnRevealPass.Visibility = Visibility.Collapsed;
             CardRevealOverlay.Visibility = Visibility.Visible;
-            StatusText.Text = $"{top.Summary} — no responses.";
-            StartAnnounceDeadline(2800);
+            StatusText.Text = $"{top.Summary} — P{responder} cannot respond.";
+            StartAnnounceDeadline(5000);
             return;
         }
 
@@ -2420,7 +2808,16 @@ public partial class TableWindow : Window
 
             if (a.IsResponse)
             {
-                SendCardTo(a.Card, a.Controller, TimingRules.SelfDestination(a.Card));
+                // Kevin (etc.) may still need TargetCard nullify when used as a response
+                if ((TimingRules.IsInterrupt(a.Card) || InterruptRules.IsInterrupt(a.Card))
+                    && a.TargetCard != null)
+                {
+                    TryResolveInterruptPlay(a.Card, a.Controller, isResponse: true, a.TargetCard);
+                }
+                else
+                {
+                    SendCardTo(a.Card, a.Controller, TimingRules.SelfDestination(a.Card));
+                }
                 return;
             }
 
@@ -2874,6 +3271,21 @@ public partial class TableWindow : Window
             SetTischZoneHighlight(false);
             placedOk = true;
         }
+        // Targeted interrupt onto crew/ship in the same strip must run BEFORE "return to hand"
+        else if (!_seedPhaseActive && InterruptRules.IsInterrupt(card)
+                 && InterruptRules.NeedsDropTarget(card) && zref.ZoneName == "Hand")
+        {
+            int owner = zref.Opponent ? 2 : 1;
+            if (TryPlayInterruptFromHand(card, cardBorder, windowPos, owner))
+                placedOk = true;
+            else if (TryReturnCardToZone(card, cardBorder, zref.ZoneName, windowPos, zref.Opponent))
+                placedOk = true;
+            else
+            {
+                ReturnFloatingToZone(card, cardBorder, zref.ZoneName, zref.Opponent);
+                placedOk = false;
+            }
+        }
         // Zurück in den Quell-Stapel (Maus über Zone oder Hand-Leiste, nicht TABLE)
         else if (TryReturnCardToZone(card, cardBorder, zref.ZoneName, windowPos, zref.Opponent))
         {
@@ -2909,16 +3321,35 @@ public partial class TableWindow : Window
             SetSelection(cardBorder);
             placedOk = true;
         }
-        else if (IsSeedableUnderMission(card) && _seedPhaseActive)
+        else if (IsSeedableUnderMission(card)
+                 && (_seedPhaseActive || (_devPlaySeedFromHand && zref.ZoneName == "Hand" && !_seedPhaseActive)))
         {
-            // Dilemma/Artifact nur unter legaler Mission – sonst zurück in Stapel
+            // Dilemma/Artifact unter legaler Mission (Seed-Phase oder Dev-Ausnahme)
             CommitFloatingToCanvas(cardBorder, windowPos);
             var targetMission = TrySnapToMission(cardBorder);
             if (targetMission != null && targetMission.Tag is Card mc
                 && CanSeedCardUnderMission(card, mc).ok)
             {
-                AddSeedUnderMission(targetMission, cardBorder);
-                SetSelection(targetMission);
+                if (_devPlaySeedFromHand && !_seedPhaseActive && ArtifactRules.IsArtifact(card))
+                {
+                    // Test path: acquire immediately at this mission (crew present)
+                    if (DragLayer.Children.Contains(cardBorder))
+                        DragLayer.Children.Remove(cardBorder);
+                    if (TableCanvas.Children.Contains(cardBorder))
+                        TableCanvas.Children.Remove(cardBorder);
+                    ApplyArtifactAcquire(card, targetMission, mc);
+                    SetSelection(targetMission);
+                    StatusText.Text = $"Dev: acquired {card.Name} at {mc.Name}.";
+                    _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
+                        $"Dev acquire {card.Name} @ {mc.Name}");
+                }
+                else
+                {
+                    AddSeedUnderMission(targetMission, cardBorder);
+                    SetSelection(targetMission);
+                    if (_devPlaySeedFromHand && !_seedPhaseActive)
+                        StatusText.Text = $"Dev: seeded {card.Name} under {mc.Name} (attempt to encounter).";
+                }
                 placedOk = true;
             }
             else
@@ -3052,7 +3483,6 @@ public partial class TableWindow : Window
                     {
                         AddCardToHostStack(host, cardBorder);
                         SetSelection(host);
-                        ShowHostContents(host, hostCard);
                         StatusText.Text = $"P{owner}: {card.Name} reports for duty at {hostCard.Name}.";
                         placedOk = true;
                     }
@@ -3062,7 +3492,6 @@ public partial class TableWindow : Window
                     // Seed / Execute / bereits im Spiel: Host-Stapel ohne Report-Check
                     AddCardToHostStack(host, cardBorder);
                     SetSelection(host);
-                    ShowHostContents(host, hostCard);
                     placedOk = true;
                 }
             }
@@ -3632,9 +4061,8 @@ public partial class TableWindow : Window
                     StringComparison.OrdinalIgnoreCase));
             if (existing != null)
             {
-                Canvas.SetLeft(missionBorder, Canvas.GetLeft(existing) + 12);
-                Canvas.SetTop(missionBorder, Canvas.GetTop(existing) + 14);
-                Panel.SetZIndex(missionBorder, Panel.GetZIndex(existing) + 1);
+                SetBorderOwner(missionBorder, _activePlayer);
+                AttachSharedMissionCopy(existing, missionBorder);
                 StatusText.Text = $"Shared mission: {card.Name} stacked on existing location ({quadrant})";
                 ClearMissionSlotPreviews();
                 return;
@@ -3828,7 +4256,12 @@ public partial class TableWindow : Window
             }
             Canvas.SetLeft(order[i], x);
             Canvas.SetTop(order[i], SpacelineY);
-            order[i].RenderTransform = Transform.Identity;
+            // Face mission toward its owner: P1 upright, P2 rotated 180° (readable from top)
+            order[i].RenderTransformOrigin = new Point(0.5, 0.5);
+            int missionOwner = GetBorderOwner(order[i]);
+            order[i].RenderTransform = missionOwner == 2
+                ? new RotateTransform(180)
+                : Transform.Identity;
             if (order[i].Tag is Card oc && IsMissionCard(oc))
             {
                 UpdateSeedBadge(order[i]);
@@ -3845,7 +4278,39 @@ public partial class TableWindow : Window
                 Canvas.SetLeft(solvedLbl, x);
                 Canvas.SetTop(solvedLbl, SpacelineY - 16);
             }
+            LayoutSharedMissionCopies(order[i], x);
             x += TableCardWidth;
+        }
+    }
+
+    private void AttachSharedMissionCopy(Border primary, Border copy)
+    {
+        if (!_sharedMissionCopies.TryGetValue(primary, out var list))
+        {
+            list = new List<Border>();
+            _sharedMissionCopies[primary] = list;
+        }
+        if (!list.Contains(copy))
+            list.Add(copy);
+        if (!TableCanvas.Children.Contains(copy))
+            TableCanvas.Children.Add(copy);
+        LayoutSharedMissionCopies(primary, Canvas.GetLeft(primary));
+    }
+
+    private void LayoutSharedMissionCopies(Border primary, double primaryX)
+    {
+        if (!_sharedMissionCopies.TryGetValue(primary, out var list) || list.Count == 0)
+            return;
+        int i = 1;
+        foreach (var copy in list)
+        {
+            Canvas.SetLeft(copy, primaryX + i * 10);
+            Canvas.SetTop(copy, SpacelineY + i * 12);
+            copy.RenderTransformOrigin = new Point(0.5, 0.5);
+            int owner = GetBorderOwner(copy);
+            copy.RenderTransform = owner == 2 ? new RotateTransform(180) : Transform.Identity;
+            Panel.SetZIndex(copy, 20 + i);
+            i++;
         }
     }
 
@@ -4581,6 +5046,31 @@ public partial class TableWindow : Window
         StatusText.Text = _devShowSeedCounts ? "Dev: seed counts visible." : "Dev: seed counts hidden.";
     }
 
+    private void DevInspectOppHand_Click(object sender, RoutedEventArgs e)
+    {
+        int target = _activePlayer == 1 ? 2 : 1;
+        BeginOpponentPileInteract(target, TargetPileType.Hand,
+            PileInteraction.ViewOnly | PileInteraction.FullView,
+            "Dev: view opponent hand — click Done when finished.");
+    }
+
+    private void DevInspectOppDiscard_Click(object sender, RoutedEventArgs e)
+    {
+        int target = _activePlayer == 1 ? 2 : 1;
+        BeginOpponentPileInteract(target, TargetPileType.Discard,
+            PileInteraction.ViewOnly | PileInteraction.FullView,
+            "Dev: view opponent discard — click Done when finished.");
+    }
+
+    private void DevInspectOppDraw_Click(object sender, RoutedEventArgs e)
+    {
+        int target = _activePlayer == 1 ? 2 : 1;
+        // Draw stays face-down unless FullView is granted by a card effect
+        BeginOpponentPileInteract(target, TargetPileType.Draw,
+            PileInteraction.ViewOnly,
+            "Dev: opponent draw deck (backs only) — click Done.");
+    }
+
     private void DevPeekOpponent_Click(object sender, RoutedEventArgs e)
     {
         _devPeekOpponentPiles = DevPeekOpponentItem?.IsChecked == true;
@@ -4596,6 +5086,14 @@ public partial class TableWindow : Window
         StatusText.Text = _devShowDebugLog
             ? "Dev: Debug: lines visible in Action History."
             : "Dev: Debug: lines hidden from Action History.";
+    }
+
+    private void DevPlaySeedFromHand_Click(object sender, RoutedEventArgs e)
+    {
+        _devPlaySeedFromHand = DevPlaySeedFromHandItem?.IsChecked == true;
+        StatusText.Text = _devPlaySeedFromHand
+            ? "Dev: drop Dilemmas/Artifacts from hand onto missions (artifacts acquire immediately)."
+            : "Dev: seed-from-hand off.";
     }
 
     private void AidLegalResponses_Click(object sender, RoutedEventArgs e)
@@ -4932,8 +5430,10 @@ public partial class TableWindow : Window
         if (_stack.IsOpen)
         {
             BtnPhaseNext.IsEnabled = false;
-            BtnEndTurn.IsEnabled = false;
-            PhaseHint.Text = "Response window open – resolve stack first (Pass / Response).";
+            if (BtnEndTurn != null) BtnEndTurn.IsEnabled = false;
+            if (ActivePlayerText != null)
+                ActivePlayerText.Text =
+                    $"TURN {_turnNumber} · Player {_activePlayer} · RESPONSE WINDOW — resolve stack first";
             return;
         }
 
@@ -4952,77 +5452,89 @@ public partial class TableWindow : Window
             }
         }
 
+        if (ScoreText != null)
+            ScoreText.Text = $"P1: {_scoreP1}  ·  P2: {_scoreP2}";
+
         if (_seedPhaseActive)
         {
-            string side = _activePlayer == 1 ? "Player 1 (bottom)" : "Player 2 (top)";
-            SetActiveBanner(side, _activePlayer == 1 ? "#1B5E20" : "#0D47A1");
-            PhaseLabel.Text = SeedPhaseShortName();
+            string side = _activePlayer == 1 ? "Player 1 (BOTTOM)" : "Player 2 (TOP)";
             int left = CountSeedFor(_seedSubPhase, _activePlayer);
-            PhaseHint.Text =
-                SeedPhaseStatusLine() +
-                $"\n\n{side} is seeding.\n{left} card(s) left in this sub-phase." +
-                (_gameMode == GameMode.Hotseat
-                    ? "\nHotseat: only use your own zone strip."
-                    : "");
-            // Fixer Slot: Seed-Teilphase → BtnPhaseNext; am Ende Facility → Seed beenden
+            SetActiveBanner(
+                $"SEED · {SeedPhaseShortName()} · {side} · {left} card(s) left",
+                _activePlayer == 1 ? "#1B5E20" : "#0D47A1");
+            ApplyBoardPlayerTint();
+            if (PhaseLabel != null) PhaseLabel.Text = SeedPhaseShortName();
+            if (PhaseHint != null) PhaseHint.Text = "";
             bool facilityExit = _seedSubPhase == SeedSubPhase.Facility;
             BtnPhaseNext.Visibility = facilityExit ? Visibility.Collapsed : Visibility.Visible;
             BtnPhaseNext.IsEnabled = !facilityExit;
             BtnPhaseNext.Content = _seedSubPhase switch
             {
-                SeedSubPhase.Doorway => "Doorway phase done ▶",
-                SeedSubPhase.Mission => "Mission phase done ▶",
-                SeedSubPhase.Dilemma => "Dilemma/Artifact fertig ▶",
-                SeedSubPhase.Facility => "Facility phase done ▶",
-                _ => "Next phase ▶"
+                SeedSubPhase.Doorway => "End Doorway phase (Space)",
+                SeedSubPhase.Mission => "End Mission phase (Space)",
+                SeedSubPhase.Dilemma => "End Dilemma phase (Space)",
+                SeedSubPhase.Facility => "End Facility phase (Space)",
+                _ => "Next phase (Space)"
             };
-            BtnSeedFinish.Content = "Seed → Spielstart";
+            BtnSeedFinish.Content = "Seed → Start play";
             BtnSeedFinish.Visibility = facilityExit ? Visibility.Visible : Visibility.Collapsed;
             BtnSeedFinish.IsEnabled = facilityExit;
             if (BtnEndTurn != null) BtnEndTurn.Visibility = Visibility.Collapsed;
         }
         else if (_loadedDeck != null)
         {
-            string side = _activePlayer == 1 ? "Player 1 (bottom)" : "Player 2 (top)";
+            string side = _activePlayer == 1 ? "Player 1 (BOTTOM)" : "Player 2 (TOP)";
+            string phase = _session.Segment switch
+            {
+                GameSession.TurnSegment.Play => "PLAY",
+                GameSession.TurnSegment.Execute => "EXECUTE",
+                GameSession.TurnSegment.Draw => "DRAW",
+                _ => _session.SegmentLabel()
+            };
+            string actions;
+            if (_stack.IsOpen)
+                actions = "Response window open";
+            else if (_session.Segment == GameSession.TurnSegment.Play)
+            {
+                if (_redAlertPlaysLeft > 0)
+                    actions = $"Red Alert: up to {_redAlertPlaysLeft} personnel/equipment";
+                else if (_session.NormalCardPlayUsed)
+                    actions = "Normal card play used";
+                else
+                    actions = "1× card play possible";
+            }
+            else if (_session.Segment == GameSession.TurnSegment.Execute)
+                actions = "Orders (move / battle / attempt)";
+            else
+                actions = "End of turn";
+
             SetActiveBanner(
-                _gameMode == GameMode.Hotseat ? $"Turn {_turnNumber} · {side}" : side,
+                $"TURN {_turnNumber} · {side} · {phase} · {actions}",
                 _activePlayer == 1 ? "#1B5E20" : "#0D47A1");
-            PhaseLabel.Text = _gameMode == GameMode.Hotseat
-                ? _session.StatusLine()
-                : "Spielphase";
-            PhaseHint.Text =
-                $"{side} · Segment {_session.SegmentLabel()}\n" +
-                (_session.Segment == GameSession.TurnSegment.Play
-                    ? (_redAlertPlaysLeft > 0
-                        ? $"Red Alert: play up to {_redAlertPlaysLeft} personnel/equipment instead of your normal card play.\nOr play one other card as usual (then Red Alert is unused this turn)."
-                        : _session.NormalCardPlayUsed
-                        ? "Play: normal card play already used → advance to Execute."
-                        : "Play: optional 1× normal card play from hand\n(Personnel/Ship/Eq = report for duty · Events → TABLE).\nInterrupt/Doorway: any time, does not use the normal play.")
-                    : _session.Segment == GameSession.TurnSegment.Execute
-                        ? "Execute: orders. No further normal card play.\nInterrupts/Doorways ok. Then Draw + opponent."
-                        : "Draw: end of turn – card is drawn.") +
-                (_activePlayer == 1
-                    ? "\nShips/outposts below spaceline · TABLE bottom"
-                    : "\nShips/outposts above spaceline · TABLE top");
+            ApplyBoardPlayerTint();
+            if (PhaseLabel != null) PhaseLabel.Text = phase;
+            if (PhaseHint != null) PhaseHint.Text = "";
             BtnPhaseNext.IsEnabled = false;
             BtnPhaseNext.Visibility = Visibility.Collapsed;
             BtnSeedFinish.IsEnabled = false;
             BtnSeedFinish.Visibility = Visibility.Collapsed;
-            BtnPhaseNext.Content = "Next phase ▶";
             if (BtnEndTurn != null)
             {
                 BtnEndTurn.Visibility = Visibility.Visible;
-                BtnEndTurn.IsEnabled = true;
-                BtnEndTurn.Content = _session.Segment == GameSession.TurnSegment.Play
-                    ? "Play fertig → Execute ▶"
-                    : "Execute fertig → Draw + Gegner ▶";
+                bool pileLock = _inspectorMode == InspectorMode.OpponentPileInteract;
+                BtnEndTurn.IsEnabled = !pileLock;
+                BtnEndTurn.Content = pileLock
+                    ? "Finish pile action first…"
+                    : _session.Segment == GameSession.TurnSegment.Play
+                        ? "End PLAY phase (Space)"
+                        : "End EXECUTE phase (Space)";
             }
         }
         else
         {
-            SetActiveBanner("–", "#2A3A4A");
-            PhaseLabel.Text = "–";
-            PhaseHint.Text = "Neues Spiel starten und Deck laden.";
+            SetActiveBanner("Start a new game and load decks", "#2A3A4A");
+            if (PhaseLabel != null) PhaseLabel.Text = "–";
+            if (PhaseHint != null) PhaseHint.Text = "";
             BtnPhaseNext.IsEnabled = false;
             BtnPhaseNext.Visibility = Visibility.Visible;
             BtnSeedFinish.IsEnabled = false;
@@ -5052,6 +5564,11 @@ public partial class TableWindow : Window
     private void BtnEndTurn_Click(object sender, RoutedEventArgs e)
     {
         if (_seedPhaseActive || _gameMode != GameMode.Hotseat) return;
+        if (_inspectorMode == InspectorMode.OpponentPileInteract)
+        {
+            StatusText.Text = "Resolve or cancel the pile interaction first.";
+            return;
+        }
 
         // Play → Execute
         if (_session.Segment == GameSession.TurnSegment.Play)
@@ -5085,6 +5602,7 @@ public partial class TableWindow : Window
         ProcessEndOfTurnRepairs(finishingPlayer);
         ProcessEndOfTurnDilemmas(finishingPlayer);
         ProcessEndOfTurnEvents(finishingPlayer);
+        ProcessRogueBorgEndOfTurn(finishingPlayer);
         _ionizationBeamsThisTurn = 0;
         _movedThisTurnAfterArrival.Clear();
 
@@ -5106,6 +5624,7 @@ public partial class TableWindow : Window
         UnstopAllCards(); // Compendium: Stopped endet zu Beginn des nächsten Zugs (hier Zugwechsel)
         ResetShipRangesForTurn();
         RefreshRedAlertForTurn();
+        ProcessCrosisStartOfTurn();
         ProcessStartOfTurnDilemmas(_session.ActivePlayer);
         SyncSessionToUi();
         ApplyPerspective();
@@ -5808,6 +6327,8 @@ public partial class TableWindow : Window
         _oppDilemmaSeedCards.Clear(); _oppFacilitySeedCards.Clear();
         _outOfPlayP1.Clear(); _outOfPlayP2.Clear();
         _stackOnHost.Clear(); _seedUnderMission.Clear();
+        _revealedArtifactsUnderMission.Clear(); _lastEncounteredDilemma.Clear();
+        RemoveBorgShipToken();
         _solvedMissions.Clear(); _missionSolver.Clear();
         _hullDamagePercent.Clear(); _stoppedBorders.Clear();
         _repairTurnsAtOutpost.Clear(); _shipRangeLeft.Clear();
@@ -6091,6 +6612,7 @@ public partial class TableWindow : Window
         _activePlayer = 1;
         _turnNumber = 1;
         _session.StartPlayFromSeed();
+        ApplyRandomBoardBackground();
         ResetShipRangesForTurn();
         RefreshRedAlertForTurn();
         _activePlayer = _session.ActivePlayer;
@@ -6119,19 +6641,90 @@ public partial class TableWindow : Window
     }
 
     /// <summary>
-    /// Scrollt so, dass die Spaceline ungefähr in der Mitte des sichtbaren Bereichs liegt.
+    /// Scroll so the middle of the spaceline sits in the middle of the viewport
+    /// (not the leftmost mission).
     /// </summary>
     private void CenterOnSpaceline()
     {
-        double scale = ZoomTransform.ScaleX;
+        double scale = ZoomTransform.ScaleX <= 0 ? 1 : ZoomTransform.ScaleX;
+
+        double midX;
+        if (_spacelineOrder.Count >= 2)
+        {
+            double left = Canvas.GetLeft(_spacelineOrder[0]);
+            double right = Canvas.GetLeft(_spacelineOrder[^1]) + TableCardWidth;
+            midX = (left + right) / 2.0;
+        }
+        else if (_spacelineOrder.Count == 1)
+        {
+            midX = Canvas.GetLeft(_spacelineOrder[0]) + TableCardWidth / 2.0;
+        }
+        else
+        {
+            midX = SpacelineStartX + 250;
+        }
+
         double targetY = (SpacelineY + TableCardHeight / 2.0) * scale;
-        double targetX = (SpacelineStartX + 250) * scale;
+        double targetX = midX * scale;
 
         double viewH = TableScroll.ViewportHeight;
         double viewW = TableScroll.ViewportWidth;
+        if (viewW <= 0 || viewH <= 0) return;
 
         TableScroll.ScrollToVerticalOffset(Math.Max(0, targetY - viewH / 2));
-        TableScroll.ScrollToHorizontalOffset(Math.Max(0, targetX - viewW / 3));
+        TableScroll.ScrollToHorizontalOffset(Math.Max(0, targetX - viewW / 2));
+    }
+
+    /// <summary>
+    /// Pick a random PNG/JPG from BoardBackgrounds (DataPath first, then app Assets).
+    /// One full image covers the 2800×1400 canvas — not split P1/P2.
+    /// </summary>
+    private void ApplyRandomBoardBackground()
+    {
+        if (TableCanvas == null) return;
+        try
+        {
+            var files = new List<string>();
+            void AddDir(string dir)
+            {
+                if (!Directory.Exists(dir)) return;
+                files.AddRange(Directory.GetFiles(dir, "*.png"));
+                files.AddRange(Directory.GetFiles(dir, "*.jpg"));
+                files.AddRange(Directory.GetFiles(dir, "*.jpeg"));
+            }
+            AddDir(GamePaths.BoardBackgrounds);
+            AddDir(System.IO.Path.Combine(DataPath, "BoardBackgrounds"));
+            AddDir(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "BoardBackgrounds"));
+
+            files = files
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Where(f => !System.IO.Path.GetFileName(f).StartsWith(".", StringComparison.Ordinal))
+                .ToList();
+            if (files.Count == 0)
+            {
+                TableCanvas.Background = new SolidColorBrush(Color.FromRgb(0x1A, 0x1A, 0x1A));
+                return;
+            }
+
+            string pick = files[Random.Shared.Next(files.Count)];
+            var bmp = new BitmapImage();
+            bmp.BeginInit();
+            bmp.CacheOption = BitmapCacheOption.OnLoad;
+            bmp.UriSource = new Uri(pick, UriKind.Absolute);
+            bmp.EndInit();
+            bmp.Freeze();
+            TableCanvas.Background = new ImageBrush(bmp)
+            {
+                Stretch = Stretch.UniformToFill,
+                AlignmentX = AlignmentX.Center,
+                AlignmentY = AlignmentY.Center
+            };
+            StatusText.Text = (StatusText.Text ?? "") + $"  ·  board: {System.IO.Path.GetFileName(pick)}";
+        }
+        catch
+        {
+            TableCanvas.Background = new SolidColorBrush(Color.FromRgb(0x1A, 0x1A, 0x1A));
+        }
     }
 
     // ===================== KARTEN =====================
@@ -6266,6 +6859,9 @@ public partial class TableWindow : Window
         UpdateScoreDisplay();
 
         _seedUnderMission.Clear();
+        _revealedArtifactsUnderMission.Clear();
+        _lastEncounteredDilemma.Clear();
+        RemoveBorgShipToken();
         _missionsByQuadrant.Clear();
         _spacelineOrder.Clear();
         ClearMissionSlotPreviews();
@@ -6497,6 +7093,7 @@ public partial class TableWindow : Window
         border.MouseLeftButtonDown += Card_MouseLeftButtonDown;
         border.MouseLeftButtonUp += Card_MouseLeftButtonUp;
         border.MouseMove += Card_MouseMove;
+        border.PreviewMouseRightButtonDown += Card_MouseRightButtonDown;
         border.MouseRightButtonDown += Card_MouseRightButtonDown;
         border.MouseRightButtonUp += Card_MouseRightButtonUp;
 
@@ -6531,17 +7128,32 @@ public partial class TableWindow : Window
         SetSelection(border);
         if (e.ClickCount >= 2)
         {
+            // Double-click host stack → detail + scrollable contents (not the hand strip)
+            bool isHost = IsShipCard(card) || IsFacilityCard(card)
+                          || string.Equals(card.Type, "Mission", StringComparison.OrdinalIgnoreCase);
+            _detailHost = isHost ? border : null;
             OpenCardDetailPopup();
             e.Handled = true;
             return;
         }
 
-        // Einfachklick auf Host → Stapel rechts anzeigen (ohne Position zu ändern)
-        if (IsHostCard(card))
-            ShowHostContents(border, card);
+        // Single click: selection + action buttons only (no strip fill)
 
         // Missionen: nur auswählen, nicht verschieben
         if (string.Equals(card.Type, "Mission", StringComparison.OrdinalIgnoreCase))
+        {
+            e.Handled = true;
+            return;
+        }
+
+        // Events / dilemmas / artifacts on the board are not free-drag furniture.
+        // (Q-Net, Gaps, Plasma Fire, seeded dilemmas, … stay where rules placed them.)
+        // Ships, facilities, personnel, equipment remain draggable for legal moves.
+        if (!_seedPhaseActive
+            && (EventRules.IsEvent(card)
+                || string.Equals(card.Type, "Dilemma", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(card.Type, "Artifact", StringComparison.OrdinalIgnoreCase)
+                || ArtifactRules.IsArtifact(card)))
         {
             e.Handled = true;
             return;
@@ -6604,7 +7216,6 @@ public partial class TableWindow : Window
         {
             _dragCard = null;
             _dragSourceMission = null;
-            _dragSourceHost = null;
             _isDragging = false;
             return;
         }
@@ -6620,7 +7231,8 @@ public partial class TableWindow : Window
                 kv.Value.Remove(cardBorder);
             PlaceMissionOnSpaceline(cardBorder, card);
         }
-        else if (card != null && IsSeedableUnderMission(card) && _seedPhaseActive)
+        else if (card != null && IsSeedableUnderMission(card)
+                 && (_seedPhaseActive || _devPlaySeedFromHand))
         {
             var targetMission = TrySnapToMission(cardBorder);
             if (targetMission != null)
@@ -6725,7 +7337,6 @@ public partial class TableWindow : Window
 
         _dragCard = null;
         _dragSourceMission = null;
-        _dragSourceHost = null;
         _isDragging = false;
     }
 
@@ -6848,7 +7459,7 @@ public partial class TableWindow : Window
 
         var crew = GetCrewOnShip(shipBorder);
         var staff = MovementRules.IsShipStaffed(ship, crew, GetActiveTreaties(_activePlayer));
-        if (!staff.Ok)
+        if (!staff.Ok && !ShipStaffedByRogueBorg(shipBorder))
         {
             string names = crew.Count == 0
                 ? "(0 cards on ship stack – crew is not on this ship. "
@@ -6883,10 +7494,18 @@ public partial class TableWindow : Window
                        && ((fromIdx == 0 && toIdx == missions.Count - 1)
                            || (toIdx == 0 && fromIdx == missions.Count - 1));
 
+        int mover = _activePlayer;
+        bool SpanForOwner(int missionIndex)
+        {
+            if (missionIndex < 0 || missionIndex >= _spacelineOrder.Count) return true;
+            int mo = GetBorderOwner(_spacelineOrder[missionIndex]);
+            return mo == 0 || mo == mover;
+        }
+
         MovementRules.MoveResult move;
         if (endsHop)
         {
-            int cost = MovementRules.GetMissionSpan(missions[toIdx]);
+            int cost = MovementRules.GetMissionSpan(missions[toIdx], SpanForOwner(toIdx));
             if (cost > remain)
             {
                 StatusText.Text = "Where No One Has Gone Before: RANGE reicht nicht.";
@@ -6897,7 +7516,7 @@ public partial class TableWindow : Window
         else
         {
             move = MovementRules.CanMoveShip(ship, crew, remain, missions, fromIdx, toIdx,
-                GetActiveTreaties(_activePlayer));
+                GetActiveTreaties(_activePlayer), SpanForOwner);
         }
         if (!move.Ok)
         {
@@ -7073,10 +7692,10 @@ public partial class TableWindow : Window
             goto DrawEventSnap;
         }
 
-        if (IsStackableCard(card) || (IsSeedableUnderMission(card) && _seedPhaseActive))
+        if (IsStackableCard(card) || (IsSeedableUnderMission(card) && (_seedPhaseActive || _devPlaySeedFromHand)))
         {
-            // Personnel/Equipment → Host; Dilemma/Artifact in Seed → Mission
-            if (IsSeedableUnderMission(card) && _seedPhaseActive)
+            // Personnel/Equipment → Host; Dilemma/Artifact in Seed (or Dev) → Mission
+            if (IsSeedableUnderMission(card) && (_seedPhaseActive || _devPlaySeedFromHand))
             {
                 target = FindNearestLegalSeedMission(card, cx, cy, out double dist);
                 if (target == null || dist > ShipSnapRange)
@@ -7451,7 +8070,13 @@ public partial class TableWindow : Window
         cardBorder.Visibility = Visibility.Collapsed;
 
         if (host.Tag is Card hostCard && cardBorder.Tag is Card card)
+        {
             StatusText.Text = $"{card.Name} → {hostCard.Name}";
+            int o = GetBorderOwner(cardBorder);
+            if (o == 0) o = _activePlayer;
+            _session.Log.Add(_session.TurnNumber, $"P{o}",
+                $"{card.Name} → on {hostCard.Name} [{hostCard.Type}]");
+        }
 
         UpdateHostBadge(host);
     }
@@ -7465,6 +8090,13 @@ public partial class TableWindow : Window
                 _stackOnHost.Remove(host);
         }
         cardBorder.Visibility = Visibility.Visible;
+        if (host.Tag is Card hostCard && cardBorder.Tag is Card card)
+        {
+            int o = GetBorderOwner(cardBorder);
+            if (o == 0) o = _activePlayer;
+            _session.Log.Add(_session.TurnNumber, $"P{o}",
+                $"{card.Name} ← left {hostCard.Name}");
+        }
         UpdateHostBadge(host);
     }
 
@@ -7673,38 +8305,38 @@ public partial class TableWindow : Window
     /// </summary>
     private void ShowHostContents(Border hostBorder, Card hostCard, bool beamSelectMode = false)
     {
+        if (_inspectorMode == InspectorMode.OpponentPileInteract)
+        {
+            StatusText.Text = "Finish the pile interaction first.";
+            return;
+        }
+
+        UpdateHostBadge(hostBorder);
+        if (!beamSelectMode)
+            return;
+
+        // Beam selection lives in the detail popup so both hand strips stay Hand.
         _hostStripHost = hostBorder;
-        _hostStripBeam = beamSelectMode;
+        _hostStripBeam = true;
+        _detailHost = hostBorder;
+        ShowCardDetail(hostCard);
+        OpenCardDetailPopup();
+        StatusText.Text =
+            $"BEAM {hostCard.Name}: check cards in the detail window, then click a highlighted destination.";
+    }
 
-        // Host stack on the viewer's strip; the other strip stays that player's hand
-        // so interrupts can still be dragged onto the event in the stack.
-        int viewer = _activePlayer == 2 ? 2 : 1;
-        if (viewer == 2)
-        {
-            _stripZoneP2 = "Host";
-            if (_stripZoneP1 == "Host") _stripZoneP1 = "Hand";
-            FillHostStrip(opponent: true);
-            FillStrip(false, _stripZoneP1);
-        }
-        else
-        {
-            _stripZoneP1 = "Host";
-            if (_stripZoneP2 == "Host") _stripZoneP2 = "Hand";
-            FillHostStrip(opponent: false);
-            FillStrip(true, _stripZoneP2);
-        }
-
-        if (StackTitle != null)
-            StackTitle.Text = beamSelectMode
-                ? $"Beam – select: {hostCard.Name}"
-                : $"Contents: {hostCard.Name}";
-
-        int seedCount = _seedUnderMission.TryGetValue(hostBorder, out var seedList) ? seedList.Count : 0;
-        bool hasStack = _stackOnHost.TryGetValue(hostBorder, out var list) && list.Count > 0;
-        int n = hasStack ? list!.Count : 0;
-        StatusText.Text = beamSelectMode
-            ? $"BEAM {hostCard.Name}: check cards in the hand strip, then click a destination."
-            : $"{hostCard.Name}: {n} aboard, {seedCount} seed under – click = detail, drag = move. Empty table = back to Hand.";
+    /// <summary>
+    /// Personnel / equipment can leave a host (beam / report). Events, dilemmas, artifacts
+    /// stay where they were played unless another card explicitly relocates them.
+    /// </summary>
+    private bool CanDragOffHost(Card card)
+    {
+        if (_seedPhaseActive) return true;
+        if (ModifierRules.IsPersonnelCard(card) || ModifierRules.IsEquipmentCard(card))
+            return true;
+        if (IsShipCard(card) || IsFacilityCard(card))
+            return true;
+        return false;
     }
 
     /// <summary>
@@ -7715,13 +8347,13 @@ public partial class TableWindow : Window
         if (sender is not Border mini || mini.Tag is not HostCardRef href)
             return;
 
-        ShowCardDetail(href.Card);
-        if (e.ClickCount >= 2)
+        // Events / dilemmas / artifacts: detail only (drag handled by WireHostStripMini)
+        if (!CanDragOffHost(href.Card))
         {
-            OpenCardDetailPopup();
             e.Handled = true;
             return;
         }
+
         _panelDragRef = href;
         _panelDragging = false;
         _mouseDownScreen = e.GetPosition(this);
@@ -7898,6 +8530,8 @@ public partial class TableWindow : Window
             return;
         bool wasHost = _stripZoneP1 == "Host" || _stripZoneP2 == "Host";
         _hostStripHost = null;
+        _hostStripHostP1 = null;
+        _hostStripHostP2 = null;
         _hostStripBeam = false;
         if (_stripZoneP1 == "Host") _stripZoneP1 = "Hand";
         if (_stripZoneP2 == "Host") _stripZoneP2 = "Hand";
@@ -8057,17 +8691,26 @@ public partial class TableWindow : Window
                 }
                 else
                 {
-                    AddBtn("View crew…", (_, _) => ShowHostContents(cardBorder, card));
-                    AddBtn("Crew / stats…", (_, _) => ShowTeamOverlay(cardBorder, card));
+                    // Contents + crew stats: double-click host (detail popup)
                     AddBtn("Beam crew…", (_, _) => BeginBeamMode(cardBorder));
                     AddBtn("Fly (highlight destinations)", (_, _) => BeginFlyHighlight(cardBorder, card));
                     AddBtn("Attack ship…", (_, _) => BeginAttackMode(cardBorder, card));
-                    // Crew vs Crew an Bord / vs Away Team am Planeten derselben Mission
                     if (CanOfferPersonnelBattleFromShip(cardBorder))
                         AddBtn("Attack crew…", (_, _) => BeginPersonnelAttackFromHost(cardBorder));
                     if (GetHullDamage(cardBorder) > 0 && GetHullDamage(cardBorder) < 100)
                         AddBtn("Repair status", (_, _) => ShowRepairStatus(cardBorder, card));
                     AddBtn("Solvable missions?", (_, _) => HighlightSolvableMissions(GetCrewOnShip(cardBorder)));
+                    if (EventsOn(cardBorder).Any(ae => ae.Kind == EventRules.Persist.PlasmaFire)
+                        && EventRules.HasSkill(GetCrewOnShip(cardBorder), "SECURITY"))
+                    {
+                        AddBtn("Nullify Plasma Fire (SECURITY)", (_, _) =>
+                            TryNullifyPlasmaFire(cardBorder));
+                    }
+                    if (_attachedDilemmas.Any(d => d.Kind == DilemmaRules.PersistKind.BorgShip))
+                    {
+                        AddBtn("Attack Borg Ship…", (_, _) =>
+                            TryDestroyBorgShipInBattle(cardBorder, card));
+                    }
                     var mAt = FindMissionForDockable(cardBorder);
                     if (mAt != null && mAt.Tag is Card mc
                         && MissionRules.IsSpaceMission(mc)
@@ -8079,14 +8722,10 @@ public partial class TableWindow : Window
             }
             else if (isFac)
             {
-                AddBtn("View crew…", (_, _) => ShowHostContents(cardBorder, card));
-                AddBtn("Crew / stats…", (_, _) => ShowTeamOverlay(cardBorder, card));
                 AddBtn("Beam personnel…", (_, _) => BeginBeamMode(cardBorder));
             }
             else if (isMission && missionHasMyAway)
             {
-                AddBtn("View away team…", (_, _) => ShowHostContents(cardBorder, card));
-                AddBtn("Crew / stats…", (_, _) => ShowTeamOverlay(cardBorder, card));
                 AddBtn("Beam away team…", (_, _) => BeginBeamMode(cardBorder));
                 var awayTeam = new List<Card>();
                 if (_stackOnHost.TryGetValue(cardBorder, out var al))
@@ -8097,7 +8736,6 @@ public partial class TableWindow : Window
                         if (o == _activePlayer && (IsCrewType(c) || (c.Type ?? "").Contains("personnel", StringComparison.OrdinalIgnoreCase)))
                             awayTeam.Add(c);
                     }
-                // Personnel Battle nur wenn Gegner-Personal present
                 if (GetPersonnelBordersAtHost(cardBorder, opponentOf: _activePlayer).Count > 0)
                     AddBtn("Attack away team…", (_, _) => BeginPersonnelAttackFromHost(cardBorder));
                 AddBtn("Solvable missions?", (_, _) => HighlightSolvableMissions(awayTeam));
@@ -8105,15 +8743,15 @@ public partial class TableWindow : Window
                     AddBtn("Attempt mission", (_, _) => TryAttemptMission(cardBorder, card));
             }
         }
-        else if (isShip || isFac)
+        else if (_session.Segment == GameSession.TurnSegment.Play
+                 && isShip
+                 && EventsOn(cardBorder).Any(ae => ae.Kind == EventRules.Persist.PlasmaFire)
+                 && EventRules.HasSkill(GetCrewOnShip(cardBorder), "SECURITY"))
         {
-            AddBtn("View crew…", (_, _) => ShowHostContents(cardBorder, card));
-            AddBtn("Crew / stats…", (_, _) => ShowTeamOverlay(cardBorder, card));
-            AddBtn("(Execute: beam / fly)", (_, _) =>
-            {
-                StatusText.Text = "Beam and fly are orders → finish Play → Execute first.";
-            });
+            AddBtn("Nullify Plasma Fire (SECURITY)", (_, _) =>
+                TryNullifyPlasmaFire(cardBorder));
         }
+        // Draw phase: no action panel on hosts (orders are Execute-only)
 
         if (_actionPanel.Children.Count == 0)
         {
@@ -8139,7 +8777,7 @@ public partial class TableWindow : Window
     {
         if (_session.Segment != GameSession.TurnSegment.Execute)
         {
-            ShowPlayError("Missionen nur im Execute-Segment versuchen.");
+            ShowPlayError("Missions may only be attempted during the Execute segment.");
             return;
         }
         if (_solvedMissions.Contains(missionBorder))
@@ -8147,14 +8785,17 @@ public partial class TableWindow : Window
             ShowPlayError("This mission is already solved.");
             return;
         }
+        // Track discards for Temporal Causality Loop
+        _attemptMission = missionBorder;
+        _attemptDiscards.Clear();
         if (_attachedDilemmas.Any(a => a.Kind == DilemmaRules.PersistKind.Scow && ReferenceEquals(a.Host, missionBorder)))
         {
-            ShowPlayError("Radioactive Garbage Scow: Mission hier nicht versuchbar (abschleppen: Tractor + 2 ENGINEER).");
+            ShowPlayError("Radioactive Garbage Scow: this mission cannot be attempted (tow with Tractor Beam + 2 ENGINEER).");
             return;
         }
         if (_attachedEvents.Any(e => e.Kind == EventRules.Persist.Supernova && ReferenceEquals(e.Host, missionBorder)))
         {
-            ShowPlayError("Supernova: Mission nicht mehr versuchbar.");
+            ShowPlayError("Supernova: this mission can no longer be attempted.");
             return;
         }
 
@@ -8169,47 +8810,69 @@ public partial class TableWindow : Window
             return;
         }
 
-        // Seed-Stack: Add() hängt oben an. Regelbuch: neue Karte geht nach UNTEN = zuerst encountered.
-        // → zuletzt geseedet = Listenende = zuerst draufstoßen.
+        if (!MissionRules.TeamMatchesMissionAffiliation(mission, team))
+        {
+            string need = string.Join("/", MissionRules.ParseAffiliationTokens(mission.Affiliation));
+            ShowPlayError($"Cannot attempt {mission.Name}: requires affiliation {need}.");
+            return;
+        }
+
+        // Seed stack: last seeded = list end = encountered first (bottom → top).
+        // Artifacts in that order are revealed face-up for both players, but only
+        // acquired after the mission is solved.
         if (!_seedUnderMission.TryGetValue(missionBorder, out var seedStack))
             seedStack = new List<Border>();
 
         while (seedStack.Count > 0)
         {
-            int idx = seedStack.Count - 1; // bottom / first encountered
+            int idx = seedStack.Count - 1;
             var seedBorder = seedStack[idx];
             if (seedBorder.Tag is not Card seedCard)
             {
-                seedStack.RemoveAt(seedStack.Count - 1);
+                seedStack.RemoveAt(idx);
                 continue;
             }
 
+            // Artifact in encounter order: reveal, leave under mission, continue attempt
             if (MissionRules.IsArtifact(seedCard) || ArtifactRules.IsArtifact(seedCard))
             {
-                seedStack.RemoveAt(seedStack.Count - 1);
+                seedStack.RemoveAt(idx);
                 _seedUnderMission[missionBorder] = seedStack;
+                if (!_revealedArtifactsUnderMission.TryGetValue(missionBorder, out var revealed))
+                {
+                    revealed = new List<Card>();
+                    _revealedArtifactsUnderMission[missionBorder] = revealed;
+                }
+                if (!revealed.Contains(seedCard))
+                    revealed.Add(seedCard);
                 UpdateSeedBadge(missionBorder);
-                ApplyArtifactAcquire(seedCard, missionBorder, mission);
+                ShowCardReveal(seedCard, "Artifact revealed",
+                    $"{seedCard.Name} is found under {mission.Name}.\n"
+                    + "Both players can see it. It is acquired only when this mission is solved.",
+                    RevealButtons.Ok, seedCard.Name);
+                _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
+                    $"Revealed artifact {seedCard.Name} under {mission.Name}");
                 continue;
             }
 
             if (!MissionRules.IsDilemma(seedCard))
             {
-                // Unbekannt → entfernen
-                seedStack.RemoveAt(seedStack.Count - 1);
+                seedStack.RemoveAt(idx);
                 continue;
             }
 
             if (!MissionRules.DilemmaAllowedAtMission(seedCard, mission))
             {
-                // Mis-seed / wrong type: discard out-of-play (vereinfacht: entfernen)
-                seedStack.RemoveAt(seedStack.Count - 1);
+                seedStack.RemoveAt(idx);
                 _seedUnderMission[missionBorder] = seedStack;
                 UpdateSeedBadge(missionBorder);
-                StatusText.Text = $"{seedCard.Name} passt nicht zu dieser Mission (Planet/Space) – entfernt.";
+                ShowCardReveal(seedCard, "Mis-seeded dilemma",
+                    $"{seedCard.Name} does not match this mission (planet/space) and is removed.",
+                    RevealButtons.Ok, seedCard.Name);
                 continue;
             }
 
+            _lastEncounteredDilemma[missionBorder] = seedCard;
             ShowCardDetail(seedCard);
 
             var present = CollectPresentAtMission(missionBorder, mission);
@@ -8238,47 +8901,69 @@ public partial class TableWindow : Window
                 ShipShields = ship != null ? BattleRules.GetShields(ship) : 0,
                 AttemptingPlayer = _activePlayer,
                 Hand = hand.ToList(),
-                PickYou = (prompt, pool) => PickCardFromList(prompt, pool, "Deine Wahl"),
+                PickYou = (prompt, pool) => PickCardFromList(prompt, pool, "Choose a card"),
                 PickOpp = (prompt, pool) => PickCardFromList(prompt, pool, "Opponent chooses"),
                 Confirm = prompt =>
                     ShowCardReveal(seedCard, seedCard.Name ?? "Dilemma", prompt,
-                        RevealButtons.YesNo, "Entscheidung") == RevealAnswer.Yes
+                        RevealButtons.YesNo, "Your choice") == RevealAnswer.Yes
             });
 
-            ShowCardReveal(
-                seedCard,
-                "Dilemma Encounter",
-                (seedCard.Text ?? "") + "\n\n→ " + dilResult.Message,
-                RevealButtons.Ok,
-                seedCard.Name, autoCloseMs: 1000);
-
-            ApplyDilemmaResult(dilResult, seedCard, missionBorder, mission, teamBorders, shipBorder, seedStack);
-
-            if (dilResult.Fate is DilemmaRules.Fate.WallFailed
+            bool failed = dilResult.Fate is DilemmaRules.Fate.WallFailed
                 or DilemmaRules.Fate.EffectAndEnd
                 or DilemmaRules.Fate.AttachAndEnd
-                or DilemmaRules.Fate.EndAttempt)
+                or DilemmaRules.Fate.EndAttempt;
+
+            string outcomeHeader = failed
+                ? "FAILED — attempt ends"
+                : "OVERCOME";
+            string victimLine = FormatDilemmaVictims(dilResult);
+            string consequences = failed
+                ? (dilResult.StopTeam
+                    ? "\nConsequences: team is stopped; mission attempt ends."
+                    : "\nConsequences: mission attempt ends.")
+                : (dilResult.StopTeam
+                    ? "\nNote: team is stopped after overcoming this dilemma."
+                    : "\nContinue to the next dilemma (or mission requirements).");
+            if (dilResult.Score > 0)
+                consequences += $"\nBonus points: +{dilResult.Score}";
+            if (victimLine.Length > 0)
+                consequences = "\n" + victimLine + consequences;
+
+            string outcomeBody = (seedCard.Text ?? "") + "\n\n→ " + dilResult.Message + consequences;
+
+            // No auto-timer — player must acknowledge with OK
+            ShowCardReveal(
+                seedCard,
+                outcomeHeader,
+                outcomeBody,
+                RevealButtons.Ok,
+                seedCard.Name);
+
+            // ApplyDilemmaResult already removes overcome / attached / effect dilemmas from seedStack
+            ApplyDilemmaResult(dilResult, seedCard, missionBorder, mission, teamBorders, shipBorder, seedStack);
+
+            string logMsg = dilResult.Message + (victimLine.Length > 0 ? " " + victimLine : "");
+            if (failed)
             {
                 if (dilResult.StopTeam)
                     StopMissionAttemptTeam(missionBorder, mission, teamBorders);
-                StatusText.Text = dilResult.Message;
+                StatusText.Text = logMsg;
                 _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
-                    $"Dilemma {seedCard.Name}: {dilResult.Message}");
+                    $"Dilemma {seedCard.Name} FAILED: {logMsg}");
                 if (dilResult.EndTurn)
                     FinishExecuteAndEndTurn();
                 ClearCardActionUi();
                 return;
             }
 
-            // Overcome → Dilemma weg
-            seedStack.RemoveAt(seedStack.Count - 1);
-            _seedUnderMission[missionBorder] = seedStack;
-            UpdateSeedBadge(missionBorder);
+            // Overcome: seed already removed in ApplyDilemmaResult
             if (dilResult.Score > 0)
                 AwardDilemmaPoints(dilResult.Score);
-            StatusText.Text = dilResult.Message;
+            StatusText.Text = logMsg;
             _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
-                $"Overcome {seedCard.Name}" + (dilResult.Score > 0 ? $" +{dilResult.Score}" : ""));
+                $"OVERCOME {seedCard.Name}"
+                + (dilResult.Score > 0 ? $" +{dilResult.Score}" : "")
+                + (victimLine.Length > 0 ? " — " + victimLine : ""));
 
             if (dilResult.StopTeam)
             {
@@ -8291,31 +8976,65 @@ public partial class TableWindow : Window
             team = teamBorders.Where(b => b.Tag is Card).Select(b => (Card)b.Tag!).ToList();
             if (team.Count == 0)
             {
-                ShowPlayError("Kein Personal mehr am Attempt – Mission endet.");
+                ShowPlayError("No personnel left in the attempt — mission ends.");
                 ClearCardActionUi();
                 return;
             }
         }
 
-        // Alle Dilemmas klar → Solve
-        var result = MissionRules.CanSolve(mission, team, dilemmasRemaining: 0);
+        // All dilemmas clear → check mission requirements, then solve, then artifacts
+        int missionOwner = GetBorderOwner(missionBorder);
+        var result = MissionRules.CanSolve(mission, team, dilemmasRemaining: 0,
+            attemptingPlayer: _activePlayer, missionOwner: missionOwner);
         if (!result.Ok)
         {
-            // Requirements nicht erfüllt: Attempt endet ohne Solve; Team bleibt aktiv
-            // (nur Dilemma-Fail stoppt – Compendium-Kern vereinfacht)
-            ShowPlayError("Dilemmas klar, aber Mission-Requirements fehlen: " + result.Reason);
+            ShowCardReveal(mission, "Mission not solved",
+                "All dilemmas are clear, but mission requirements are not met:\n" + result.Reason
+                + "\n\nArtifacts remain under the mission until it is solved.",
+                RevealButtons.Ok, mission.Name);
             return;
         }
 
-        // Regelwerk: mehrere Mission Attempts pro Zug erlaubt (kein 1×-Limit).
         MarkMissionSolved(missionBorder, mission, _activePlayer, result.Points);
         _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
             $"Solved {mission.Name} for {result.Points} points");
+
+        // Acquire revealed artifacts + any still under the mission (only after solve)
+        var toAcquire = new List<Card>();
+        if (_revealedArtifactsUnderMission.TryGetValue(missionBorder, out var foundArts))
+        {
+            toAcquire.AddRange(foundArts);
+            _revealedArtifactsUnderMission.Remove(missionBorder);
+        }
+        if (_seedUnderMission.TryGetValue(missionBorder, out var remaining) && remaining.Count > 0)
+        {
+            foreach (var sb in remaining.ToList())
+            {
+                if (sb.Tag is not Card ac) continue;
+                if (!(MissionRules.IsArtifact(ac) || ArtifactRules.IsArtifact(ac))) continue;
+                remaining.Remove(sb);
+                if (!toAcquire.Contains(ac)) toAcquire.Add(ac);
+            }
+            _seedUnderMission[missionBorder] = remaining;
+            UpdateSeedBadge(missionBorder);
+        }
+        foreach (var ac in toAcquire)
+        {
+            ApplyArtifactAcquire(ac, missionBorder, mission);
+            ShowCardReveal(ac, "Artifact acquired",
+                $"After solving {mission.Name}, you acquire {ac.Name}.",
+                RevealButtons.Ok, ac.Name);
+        }
+
+        ShowCardReveal(mission, "Mission solved",
+            $"Player {_activePlayer} solved {mission.Name}!\n+{result.Points} points\n\n"
+            + $"Score: P1 {_scoreP1}  ·  P2 {_scoreP2}\n\n"
+            + "More mission attempts are allowed in the same Execute segment.",
+            RevealButtons.Ok, mission.Name);
         StatusText.Text =
-            $"Mission solved! +{result.Points} (P{_activePlayer}). Score P1 {_scoreP1} · P2 {_scoreP2}. More missions possible in Execute.";
-        MessageBox.Show(
-            $"Mission solved by Player {_activePlayer}!\n+{result.Points} points\n\nTotal: P1 {_scoreP1}  ·  P2 {_scoreP2}\n\nWeitere Missionen im selben Execute-Segment sind erlaubt.",
-            "Mission solved", MessageBoxButton.OK, MessageBoxImage.Information);
+            $"Mission solved! +{result.Points} (P{_activePlayer}). Score P1 {_scoreP1} · P2 {_scoreP2}.";
+        _attemptMission = null;
+        _attemptDiscards.Clear();
         ClearCardActionUi();
     }
 
@@ -8333,6 +9052,8 @@ public partial class TableWindow : Window
             if (TableCanvas.Children.Contains(floating))
                 TableCanvas.Children.Remove(floating);
         }
+        RemoveOrphanTableCopies(card);
+        ClearEventTargetHighlights();
 
         bool isKevin = (card.Name ?? "").Equals("Kevin Uxbridge", StringComparison.OrdinalIgnoreCase);
         if (isKevin)
@@ -8353,11 +9074,164 @@ public partial class TableWindow : Window
             return true;
         }
 
+        var need = InterruptRules.GetPlayTarget(card);
+        if (need is InterruptRules.PlayTarget.OwnCrew or InterruptRules.PlayTarget.AnyCrew
+            or InterruptRules.PlayTarget.OwnShip or InterruptRules.PlayTarget.AnyShip)
+        {
+            var host = FindTeamOrShipHostAt(windowPos, owner, need, card);
+            if (host == null)
+            {
+                ShowPlayError($"{card.Name}: no legal target under the cursor. "
+                    + "Highlighted ships/crew only — card returns to hand.");
+                return false;
+            }
+            string cn = (card.Name ?? "").Trim();
+            if (cn.Equals("Rogue Borg", StringComparison.OrdinalIgnoreCase)
+                && !ShipIsOccupied(host))
+            {
+                ShowPlayError("Rogue Borg: plays on an occupied ship (personnel must be aboard).");
+                return false;
+            }
+            _interruptTargetHost = host;
+            Card? targetCard = host.Tag as Card;
+            BeginPlayCardStack(card, isResponse: _stack.IsOpen, controllerOverride: owner, target: targetCard);
+            return true;
+        }
+
         if (_stack.IsOpen)
             BeginPlayCardStack(card, isResponse: true, controllerOverride: owner);
         else
             BeginPlayCardStack(card, isResponse: false, controllerOverride: owner);
         return true;
+    }
+
+    /// <summary>
+    /// Hit-test a crew mini in either strip, or a ship/mission/facility on the board.
+    /// </summary>
+    private Border? FindTeamOrShipHostAt(Point windowPos, int owner, InterruptRules.PlayTarget need,
+        Card? interrupt = null)
+    {
+        bool Matches(Border host) =>
+            interrupt != null
+                ? HostMatchesInterruptTargetForCard(host, owner, interrupt)
+                : HostMatchesInterruptTarget(host, owner, need);
+
+        var hit = InputHitTest(windowPos) as DependencyObject;
+        while (hit != null)
+        {
+            if (hit is FrameworkElement fe)
+            {
+                if (fe.Tag is HostCardRef href && Matches(href.Host))
+                    return href.Host;
+            }
+            if (hit is Border b && b.Tag is Card && Matches(b))
+                return b;
+            hit = VisualTreeHelper.GetParent(hit);
+        }
+
+        // Geometry fallback (zoom-safe: screen corners → window coords, padded hit box)
+        Border? best = null;
+        double bestDist = double.MaxValue;
+        foreach (var b in TableCanvas.Children.OfType<Border>().ToList())
+        {
+            if (b.Visibility != Visibility.Visible || b.Tag is not Card) continue;
+            if (!Matches(b)) continue;
+            if (!TryGetBorderWindowRect(b, out var rect)) continue;
+            rect.Inflate(28, 28);
+            if (!rect.Contains(windowPos)) continue;
+            double cx = rect.Left + rect.Width / 2;
+            double cy = rect.Top + rect.Height / 2;
+            double d = (windowPos.X - cx) * (windowPos.X - cx) + (windowPos.Y - cy) * (windowPos.Y - cy);
+            if (d < bestDist)
+            {
+                bestDist = d;
+                best = b;
+            }
+        }
+        return best;
+    }
+
+    private bool TryGetBorderWindowRect(Border b, out Rect rect)
+    {
+        rect = default;
+        try
+        {
+            double w = b.ActualWidth > 1 ? b.ActualWidth : (b.Width > 1 ? b.Width : TableCardWidth);
+            double h = b.ActualHeight > 1 ? b.ActualHeight : (b.Height > 1 ? b.Height : TableCardHeight);
+            var tl = PointFromScreen(b.PointToScreen(new Point(0, 0)));
+            var br = PointFromScreen(b.PointToScreen(new Point(w, h)));
+            rect = new Rect(tl, br);
+            return rect.Width > 0 && rect.Height > 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private bool HostMatchesInterruptTargetForCard(Border host, int owner, Card interrupt)
+    {
+        string n = (interrupt.Name ?? "").Trim();
+        if (n.Equals("Rogue Borg", StringComparison.OrdinalIgnoreCase))
+            return host.Tag is Card hc && IsShipCard(hc) && ShipIsOccupied(host);
+        if (n.Equals("Crosis", StringComparison.OrdinalIgnoreCase))
+            return host.Tag is Card hc && IsShipCard(hc);
+        return HostMatchesInterruptTarget(host, owner, InterruptRules.GetPlayTarget(interrupt));
+    }
+
+    private bool HostMatchesInterruptTarget(Border host, int owner, InterruptRules.PlayTarget need)
+    {
+        if (host.Tag is not Card hc) return false;
+        int ho = GetBorderOwner(host);
+        if (ho == 0) ho = owner;
+
+        bool isShip = IsShipCard(hc);
+        bool isFac = IsFacilityCard(hc);
+        bool isMission = IsMissionCard(hc);
+        if (!isShip && !isFac && !isMission) return false;
+
+        bool ownHost = ho == owner;
+        bool hasOwnPersonnel = HostHasPersonnelOf(host, owner);
+        bool hasAnyPersonnel = HostHasPersonnelOf(host, 0);
+
+        return need switch
+        {
+            InterruptRules.PlayTarget.OwnShip => (isShip || isFac) && ownHost,
+            InterruptRules.PlayTarget.AnyShip => isShip || isFac,
+            InterruptRules.PlayTarget.OwnCrew => hasOwnPersonnel,
+            InterruptRules.PlayTarget.AnyCrew => hasAnyPersonnel,
+            _ => false
+        };
+    }
+
+    private bool HostMatchesRogueBorgTarget(Border host, Card interrupt)
+        => HostMatchesInterruptTargetForCard(host, _activePlayer, interrupt);
+
+    /// <summary>Personnel (any owner) aboard this host ship/mission/facility.</summary>
+    private bool ShipIsOccupied(Border host) => HostHasPersonnelOf(host, 0);
+
+    private bool HostHasPersonnelOf(Border host, int ownerOrZero)
+    {
+        if (!_stackOnHost.TryGetValue(host, out var list) || list.Count == 0)
+            return false;
+        foreach (var b in list)
+        {
+            if (b.Tag is not Card c) continue;
+            if (!IsCrewType(c) && !ModifierRules.IsPersonnelCard(c)
+                && !(c.Type ?? "").Contains("personnel", StringComparison.OrdinalIgnoreCase))
+                continue;
+            // Rogue Borg tokens are interrupts, not personnel
+            if ((c.Name ?? "").Equals("Rogue Borg", StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (ownerOrZero != 0)
+            {
+                int o = GetBorderOwner(b);
+                if (o == 0) o = CardOwner(b);
+                if (o != ownerOrZero) continue;
+            }
+            return true;
+        }
+        return false;
     }
 
     private Card? FindEventTargetAt(Point windowPos)
@@ -8376,7 +9250,7 @@ public partial class TableWindow : Window
         }
 
         // Dropped on a ship / mission / facility that has an attached event
-        foreach (var b in TableCanvas.Children.OfType<Border>())
+        foreach (var b in TableCanvas.Children.OfType<Border>().ToList())
         {
             if (b.Tag is not Card hc) continue;
             if (b.Visibility != Visibility.Visible) continue;
@@ -8410,6 +9284,10 @@ public partial class TableWindow : Window
 
     private void NullifyEventInPlay(Card ev, int byPlayer)
     {
+        int owner = _tablePermanentCards.Contains(ev) ? 1
+            : _oppTablePermanentCards.Contains(ev) ? 2
+            : byPlayer;
+
         RemoveCardFromTableColumn(ev);
         foreach (var ae in _attachedEvents.Where(x => ReferenceEquals(x.Card, ev)).ToList())
             _attachedEvents.Remove(ae);
@@ -8425,9 +9303,6 @@ public partial class TableWindow : Window
             }
         }
 
-        int owner = _tablePermanentCards.Contains(ev) ? 1
-            : _oppTablePermanentCards.Contains(ev) ? 2
-            : byPlayer;
         SendCardTo(ev, owner, TimingRules.Destination.Discard);
         RebuildTablePermanentsPanel();
         if (_hostStripHost != null && _hostStripHost.Tag is Card hc)
@@ -8463,9 +9338,66 @@ public partial class TableWindow : Window
 
         switch (r.Effect)
         {
+            case InterruptRules.Effect.RogueBorg:
+                {
+                    var host = _interruptTargetHost;
+                    if (host == null || host.Tag is not Card ship || !IsShipCard(ship)
+                        || !ShipIsOccupied(host))
+                    {
+                        ShowPlayError("Rogue Borg: need an occupied ship. Card returns to hand.");
+                        var hand = controller == 1 ? _handCards : _oppHandCards;
+                        if (!hand.Contains(card)) hand.Add(card);
+                        RefreshHandStrips();
+                        RefreshZoneCounts();
+                        break;
+                    }
+                    PlaceRogueBorg(card, host, controller);
+                    break;
+                }
+            case InterruptRules.Effect.Crosis:
+                {
+                    var host = _interruptTargetHost;
+                    if (host == null || host.Tag is not Card ship || !IsShipCard(ship))
+                    {
+                        ShowPlayError("Crosis: drop onto a ship.");
+                        break;
+                    }
+                    _crosisShips.Add(host);
+                    _attachedEvents.Add(new AttachedEvent
+                    {
+                        Card = card,
+                        Kind = EventRules.Persist.None,
+                        Countdown = 1,
+                        Host = host,
+                        Owner = controller
+                    });
+                    // Keep interrupt visually with ship
+                    if (!_stackOnHost.ContainsKey(host))
+                        _stackOnHost[host] = new List<Border>();
+                    int n = CountRogueBorgOn(host);
+                    ShowCardReveal(card, "Crosis",
+                        $"On {ship.Name}: Rogue Borg STRENGTH doubled ({n} Rogue Borg present).\n"
+                        + "Discarded at start of next turn.",
+                        RevealButtons.Ok, card.Name);
+                    StatusText.Text = $"Crosis on {ship.Name} — Rogue Borg STRENGTH ×2.";
+                    break;
+                }
+            case InterruptRules.Effect.EmergencyBeam:
+                {
+                    var host = _interruptTargetHost;
+                    if (host != null && host.Tag is Card)
+                    {
+                        ShowHostContents(host, (Card)host.Tag!, beamSelectMode: true);
+                        BeginBeamMode(host);
+                        StatusText.Text = "Emergency Transporter Armbands: select personnel, then click a destination.";
+                    }
+                    else
+                        StatusText.Text = "Emergency Transporter Armbands: no team host.";
+                    break;
+                }
             case InterruptRules.Effect.DisruptorOverload:
                 {
-                    Border? host = PickAnyHostWithEquipment();
+                    Border? host = _interruptTargetHost ?? PickAnyHostWithEquipment();
                     if (host != null && _stackOnHost.TryGetValue(host, out var list))
                     {
                         var eqs = list.Where(b => b.Tag is Card c && ModifierRules.IsEquipmentCard(c)
@@ -8517,11 +9449,13 @@ public partial class TableWindow : Window
                 }
             case InterruptRules.Effect.JaglomLook:
                 {
-                    var oppHand = controller == 1 ? _oppHandCards : _handCards;
-                    string names = string.Join("\n", oppHand.Select(c => c.Name));
-                    ShowCardReveal(card, "Jaglom Shrek",
-                        "Gegner-Hand:\n" + (string.IsNullOrEmpty(names) ? "(empty)" : names),
-                        RevealButtons.Ok);
+                    // Premiere text: "Examine opponent's draw deck, then replace unshuffled."
+                    int oppPlayer = controller == 1 ? 2 : 1;
+                    BeginOpponentPileInteract(
+                        oppPlayer,
+                        TargetPileType.Draw,
+                        PileInteraction.ViewOnly | PileInteraction.FullView,
+                        "Jaglom Shrek — examine opponent's draw deck (faces up), then Done. Deck is not shuffled.");
                     break;
                 }
             case InterruptRules.Effect.PlanetScan:
@@ -8653,9 +9587,34 @@ public partial class TableWindow : Window
         else if (r.DiscardAfter)
             SendCardTo(card, controller, TimingRules.Destination.Discard);
 
+        // Instant interrupts must never remain as free-floating board cards
+        // (skip Rogue Borg / Crosis that legitimately sit on a host stack)
+        if (r.Effect is not InterruptRules.Effect.RogueBorg and not InterruptRules.Effect.Crosis)
+            RemoveOrphanTableCopies(card);
+
         _session.Log.Add(_session.TurnNumber, $"P{controller}", $"Interrupt {card.Name}: {r.Effect}");
         RefreshZoneCounts();
         return true;
+    }
+
+    /// <summary>Remove any TableCanvas borders still showing this card (failed drops / zoom bugs).</summary>
+    private void RemoveOrphanTableCopies(Card card)
+    {
+        foreach (var b in TableCanvas.Children.OfType<Border>().ToList())
+        {
+            if (b.Tag is not Card c || !ReferenceEquals(c, card)) continue;
+            // Keep cards that are aboard a host stack (Rogue Borg tokens, etc.)
+            if (_stackOnHost.Values.Any(list => list.Contains(b))) continue;
+            TableCanvas.Children.Remove(b);
+        }
+        if (DragLayer != null)
+        {
+            foreach (var b in DragLayer.Children.OfType<Border>().ToList())
+            {
+                if (b.Tag is Card c && ReferenceEquals(c, card))
+                    DragLayer.Children.Remove(b);
+            }
+        }
     }
 
     private Border? PickOwnShip(int owner)
@@ -8808,12 +9767,39 @@ public partial class TableWindow : Window
             }
             if (r.Persist == EventRules.Persist.Traveler)
             {
-                // Nullify Static Warp Bubble
-                foreach (var sw in _attachedEvents.Where(x => x.Kind == EventRules.Persist.StaticWarp).ToList())
-                    _attachedEvents.Remove(sw);
-                _tablePermanentCards.RemoveAll(c => (c.Name ?? "").Equals("Static Warp Bubble", StringComparison.OrdinalIgnoreCase));
-                _oppTablePermanentCards.RemoveAll(c => (c.Name ?? "").Equals("Static Warp Bubble", StringComparison.OrdinalIgnoreCase));
-                RebuildTablePermanentsPanel();
+                // Continuous nullify: SWBs stay on table but have no effect while Traveler is in play.
+                // (If Kevin removes Traveler, existing Static Warp Bubbles resume.)
+                int swbCount = _attachedEvents.Count(x => x.Kind == EventRules.Persist.StaticWarp)
+                    + _tablePermanentCards.Count(c => (c.Name ?? "").Equals("Static Warp Bubble", StringComparison.OrdinalIgnoreCase))
+                    + _oppTablePermanentCards.Count(c => (c.Name ?? "").Equals("Static Warp Bubble", StringComparison.OrdinalIgnoreCase));
+                if (swbCount > 0)
+                {
+                    ShowCardReveal(ev, "The Traveler: Transcendence",
+                        "Nullifies each Static Warp Bubble while this event remains in play.\n"
+                        + $"({swbCount} Static Warp Bubble(s) stay on table but have no effect until Traveler leaves.)",
+                        RevealButtons.Ok, ev.Name);
+                }
+            }
+            if (r.Persist == EventRules.Persist.PlasmaFire && host != null && host.Tag is Card fireShip)
+            {
+                UpdateHostBadge(host);
+                ShowHostContents(host, fireShip);
+                StatusText.Text =
+                    $"Plasma Fire on {fireShip.Name}. Damages at the end of that ship's controller's turn. "
+                    + "SECURITY may nullify (button on the ship).";
+            }
+            if (r.Persist == EventRules.Persist.LoreReturns && host != null)
+            {
+                if (!TryApplyLoreReturns(ev, host, controller))
+                {
+                    // detach and return to hand
+                    RemoveCardFromHostStack(host, FindBorderForCard(ev) ?? host);
+                    RemoveCardFromTableColumn(ev);
+                    var h = controller == 1 ? _handCards : _oppHandCards;
+                    if (!h.Contains(ev)) h.Add(ev);
+                    _attachedEvents.RemoveAll(x => ReferenceEquals(x.Card, ev));
+                    return true;
+                }
             }
             if (r.Persist == EventRules.Persist.Supernova && host != null)
                 ApplySupernova(host);
@@ -8869,9 +9855,23 @@ public partial class TableWindow : Window
             {
                 if (!IsShipCard(c)) continue;
                 string n = ev.Name ?? "";
+                if (n.Equals("Lore Returns", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Opponent's empty ship with Rogue Borg aboard
+                    int ho = GetBorderOwner(b);
+                    if (ho == 0) ho = 1;
+                    if (ho == controller) continue;
+                    if (CountRogueBorgOn(b) == 0) continue;
+                    if (HostHasPersonnelOf(b, 0)) continue; // must be empty of personnel
+                    candidates.Add(b);
+                    continue;
+                }
                 bool anyShip = n.Contains("Plasma", StringComparison.OrdinalIgnoreCase)
                                || n.Contains("Warp Core", StringComparison.OrdinalIgnoreCase)
                                || n.Contains("Neural", StringComparison.OrdinalIgnoreCase);
+                if (n.Equals("Plasma Fire", StringComparison.OrdinalIgnoreCase)
+                    && IsBorgAffiliation(c))
+                    continue; // non-[Bor] ships only
                 if (anyShip || GetBorderOwner(b) == controller)
                     candidates.Add(b);
             }
@@ -9138,7 +10138,7 @@ public partial class TableWindow : Window
     private void ShowLegalPlayHighlights(Card card, bool fromHand)
     {
         ClearEventTargetHighlights();
-        if (_seedPhaseActive)
+        if (_seedPhaseActive || (_devPlaySeedFromHand && fromHand && IsSeedableUnderMission(card)))
         {
             if (IsSeedableUnderMission(card))
             {
@@ -9168,7 +10168,8 @@ public partial class TableWindow : Window
 
         if ((card.Name ?? "").Equals("Kevin Uxbridge", StringComparison.OrdinalIgnoreCase))
         {
-            foreach (var b in TableCanvas.Children.OfType<Border>())
+            // Snapshot — AddTargetHalo mutates TableCanvas.Children
+            foreach (var b in TableCanvas.Children.OfType<Border>().ToList())
             {
                 if (b.Tag is not Card) continue;
                 bool has = false;
@@ -9187,14 +10188,40 @@ public partial class TableWindow : Window
                 el.BorderBrush = new SolidColorBrush(Color.FromRgb(255, 210, 80));
                 el.BorderThickness = new Thickness(2);
             }
-            foreach (var mini in (OppStripPanel?.Children.OfType<Border>() ?? Enumerable.Empty<Border>()))
+            foreach (var mini in (OppStripPanel?.Children.OfType<Border>() ?? Enumerable.Empty<Border>()).ToList())
                 if (mini.Tag is HostCardRef href) MarkEventMini(mini, href.Card);
-            foreach (var mini in (PlayerStripPanel?.Children.OfType<Border>() ?? Enumerable.Empty<Border>()))
+            foreach (var mini in (PlayerStripPanel?.Children.OfType<Border>() ?? Enumerable.Empty<Border>()).ToList())
                 if (mini.Tag is HostCardRef href) MarkEventMini(mini, href.Card);
-            foreach (var mini in (TablePermanentsPanel?.Children.OfType<Border>() ?? Enumerable.Empty<Border>()))
+            foreach (var mini in (TablePermanentsPanel?.Children.OfType<Border>() ?? Enumerable.Empty<Border>()).ToList())
                 if (mini.Tag is Card ev) MarkEventMini(mini, ev);
-            foreach (var mini in (OppTablePermanentsPanel?.Children.OfType<Border>() ?? Enumerable.Empty<Border>()))
+            foreach (var mini in (OppTablePermanentsPanel?.Children.OfType<Border>() ?? Enumerable.Empty<Border>()).ToList())
                 if (mini.Tag is Card ev) MarkEventMini(mini, ev);
+            return;
+        }
+
+        if (fromHand && InterruptRules.IsInterrupt(card)
+            && InterruptRules.GetPlayTarget(card) is InterruptRules.PlayTarget.OwnCrew
+                or InterruptRules.PlayTarget.AnyCrew
+                or InterruptRules.PlayTarget.OwnShip
+                or InterruptRules.PlayTarget.AnyShip)
+        {
+            int owner = _zoneDragRef?.Opponent == true ? 2 : _activePlayer;
+            foreach (var b in TableCanvas.Children.OfType<Border>().ToList())
+            {
+                if (HostMatchesInterruptTargetForCard(b, owner, card))
+                    AddTargetHalo(b, Color.FromRgb(80, 200, 220));
+            }
+            void MarkCrewMini(Border el)
+            {
+                if (el.Tag is not HostCardRef href) return;
+                if (!HostMatchesInterruptTargetForCard(href.Host, owner, card)) return;
+                el.BorderBrush = new SolidColorBrush(Color.FromRgb(80, 220, 200));
+                el.BorderThickness = new Thickness(2);
+            }
+            foreach (var mini in (OppStripPanel?.Children.OfType<Border>() ?? Enumerable.Empty<Border>()).ToList())
+                MarkCrewMini(mini);
+            foreach (var mini in (PlayerStripPanel?.Children.OfType<Border>() ?? Enumerable.Empty<Border>()).ToList())
+                MarkCrewMini(mini);
             return;
         }
 
@@ -9205,6 +10232,100 @@ public partial class TableWindow : Window
                 AddTargetHalo(h, Color.FromRgb(80, 200, 120));
             return;
         }
+
+        // Instant event / interrupt with no drop target → highlight the board
+        if (fromHand && IsBoardPlayHighlightCard(card))
+            SetBoardPlayHalo(true);
+    }
+
+    private static bool IsBoardPlayHighlightCard(Card card)
+    {
+        if (EventRules.IsEvent(card))
+        {
+            var place = EventRules.ResolvePlay(card).Place;
+            return place == EventRules.Place.Instant;
+        }
+        if (InterruptRules.IsInterrupt(card))
+            return InterruptRules.GetPlayTarget(card) == InterruptRules.PlayTarget.None;
+        return false;
+    }
+
+    private void ApplyBoardPlayerTint()
+    {
+        if (BoardTintOverlay == null || BoardFrameBorder == null) return;
+        if (_activePlayer == 2)
+        {
+            BoardTintOverlay.Background = new SolidColorBrush(Color.FromRgb(0x14, 0x2A, 0x48));
+            BoardTintOverlay.Opacity = 0.28;
+            BoardFrameBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(0x50, 0x90, 0xE0));
+            BoardFrameBorder.BorderThickness = new Thickness(3);
+            if (BoardInnerGlow != null)
+            {
+                BoardInnerGlow.BorderBrush = new SolidColorBrush(Color.FromRgb(0x70, 0xB0, 0xFF));
+                BoardInnerGlow.Opacity = 0.65;
+            }
+            if (OppHandStripBorder != null)
+                OppHandStripBorder.BorderThickness = new Thickness(0, 0, 0, 3);
+            if (PlayerHandStripBorder != null)
+                PlayerHandStripBorder.BorderThickness = new Thickness(0, 1, 0, 0);
+        }
+        else
+        {
+            BoardTintOverlay.Background = new SolidColorBrush(Color.FromRgb(0x14, 0x32, 0x1C));
+            BoardTintOverlay.Opacity = 0.26;
+            BoardFrameBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(0x50, 0xC0, 0x70));
+            BoardFrameBorder.BorderThickness = new Thickness(3);
+            if (BoardInnerGlow != null)
+            {
+                BoardInnerGlow.BorderBrush = new SolidColorBrush(Color.FromRgb(0x70, 0xE0, 0x90));
+                BoardInnerGlow.Opacity = 0.65;
+            }
+            if (PlayerHandStripBorder != null)
+                PlayerHandStripBorder.BorderThickness = new Thickness(0, 3, 0, 0);
+            if (OppHandStripBorder != null)
+                OppHandStripBorder.BorderThickness = new Thickness(0, 0, 0, 1);
+        }
+    }
+
+    private Rectangle? _boardPlayCanvasGlow;
+
+    private void SetBoardPlayHalo(bool on)
+    {
+        if (BoardPlayHalo != null)
+            BoardPlayHalo.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+
+        // Canvas-level glow so the legal-play area is visible while zoomed in
+        // (frame halo alone sits outside the zoomed content and is easy to miss).
+        if (on)
+        {
+            if (_boardPlayCanvasGlow == null)
+            {
+                _boardPlayCanvasGlow = new Rectangle
+                {
+                    IsHitTestVisible = false,
+                    Stroke = new SolidColorBrush(Color.FromRgb(0x70, 0xE8, 0xFF)),
+                    StrokeThickness = 6,
+                    Fill = new SolidColorBrush(Color.FromArgb(40, 0, 180, 220)),
+                    RadiusX = 8,
+                    RadiusY = 8
+                };
+            }
+            if (!TableCanvas.Children.Contains(_boardPlayCanvasGlow))
+                TableCanvas.Children.Add(_boardPlayCanvasGlow);
+            double w = TableCanvas.Width > 0 ? TableCanvas.Width : 2800;
+            double h = TableCanvas.Height > 0 ? TableCanvas.Height : 1400;
+            _boardPlayCanvasGlow.Width = w - 40;
+            _boardPlayCanvasGlow.Height = h - 40;
+            Canvas.SetLeft(_boardPlayCanvasGlow, 20);
+            Canvas.SetTop(_boardPlayCanvasGlow, 20);
+            Panel.SetZIndex(_boardPlayCanvasGlow, 5);
+            _boardPlayCanvasGlow.Visibility = Visibility.Visible;
+        }
+        else if (_boardPlayCanvasGlow != null)
+        {
+            _boardPlayCanvasGlow.Visibility = Visibility.Collapsed;
+        }
+
     }
 
     private void AddTargetHalo(Border host, Color color)
@@ -9294,6 +10415,7 @@ public partial class TableWindow : Window
         foreach (var r in _targetHighlights)
             TableCanvas.Children.Remove(r);
         _targetHighlights.Clear();
+        SetBoardPlayHalo(false);
     }
 
     private Border? PickAdjacentMission(Border? from)
@@ -9636,12 +10758,65 @@ public partial class TableWindow : Window
 
     private bool HasHorgahn(int player) => player == 1 ? _horgahnP1 : _horgahnP2;
 
+    /// <summary>
+    /// The Traveler: Transcendence nullifies Static Warp Bubble while in play (both stay on table).
+    /// </summary>
+    private bool IsTravelerInPlay()
+    {
+        if (_attachedEvents.Any(e => e.Kind == EventRules.Persist.Traveler))
+            return true;
+        bool IsTraveler(Card c) =>
+            (c.Name ?? "").Equals("The Traveler: Transcendence", StringComparison.OrdinalIgnoreCase);
+        return _tablePermanentCards.Any(IsTraveler) || _oppTablePermanentCards.Any(IsTraveler);
+    }
+
     private bool HasRedAlert(int player)
     {
         if (_attachedEvents.Any(e => e.Kind == EventRules.Persist.RedAlert && e.Owner == player))
             return true;
         var table = player == 2 ? _oppTablePermanentCards : _tablePermanentCards;
         return table.Any(c => (c.Name ?? "").Equals("Red Alert!", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Premiere Red Alert! has no countdown and is not "activated".
+    /// Each of the owner's turns: replace the single normal card play with up to 5
+    /// personnel/equipment reports from hand. Playing the event itself is this turn's play.
+    /// </summary>
+    private string FormatRedAlertStatusLine(Card card)
+    {
+        int owner = 0;
+        var ae = _attachedEvents.FirstOrDefault(e =>
+            e.Kind == EventRules.Persist.RedAlert && ReferenceEquals(e.Card, card));
+        if (ae != null) owner = ae.Owner;
+        if (owner is not (1 or 2))
+        {
+            if (_tablePermanentCards.Contains(card)) owner = 1;
+            else if (_oppTablePermanentCards.Contains(card)) owner = 2;
+        }
+        bool onTable = HasRedAlert(owner == 0 ? _activePlayer : owner);
+        var lines = new List<string>
+        {
+            "Red Alert! stays on table (no Use button).",
+            "Each of your turns: instead of 1 normal card play, drag up to 5 personnel/equipment from hand onto a legal Outpost/HQ."
+        };
+        if (!onTable)
+        {
+            lines.Add("Not in play.");
+            return string.Join("\n", lines);
+        }
+        if (owner != 0 && owner != _session.ActivePlayer)
+        {
+            lines.Add($"Owner P{owner} — waiting for that player's turn.");
+            return string.Join("\n", lines);
+        }
+        if (_redAlertPlaysLeft > 0)
+            lines.Add($"THIS TURN: {_redAlertPlaysLeft} / 5 personnel or equipment still allowed.");
+        else if (_session.NormalCardPlayUsed)
+            lines.Add("THIS TURN: normal card play already used (or the 5 reports are finished). Next turn: 5 again.");
+        else
+            lines.Add("THIS TURN: 5 reports available after your turn starts with Red Alert already in play.");
+        return string.Join("\n", lines);
     }
 
     /// <summary>
@@ -9658,21 +10833,69 @@ public partial class TableWindow : Window
         }
     }
 
+    /// <summary>
+    /// Visual card picker (same overlay as Static Warp Bubble). No timer — click a card.
+    /// </summary>
     private Card? PickCardFromList(string prompt, IReadOnlyList<Card> pool, string title)
     {
         if (pool.Count == 0) return null;
-        if (pool.Count == 1) return pool[0];
-        var names = string.Join("\n", pool.Select((c, i) => $"{i + 1}. {c.Name}"));
-        foreach (var c in pool)
+        if (pool.Count == 1)
         {
-            var ans = MessageBox.Show(
-                $"{prompt}\n\n{names}\n\nChoose {c.Name}?",
-                title,
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
-            if (ans == MessageBoxResult.Yes) return c;
+            ShowCardReveal(pool[0], title, $"{prompt}\n\nOnly option: {pool[0].Name}.", RevealButtons.Ok);
+            return pool[0];
         }
-        return pool[0];
+
+        if (KidnapOverlay == null)
+        {
+            // Fallback without MessageBox: first card
+            ShowCardReveal(pool[0], title, prompt + $"\n\nSelected: {pool[0].Name}", RevealButtons.Ok);
+            return pool[0];
+        }
+
+        _handPickMandatory = true;
+        _handPickResult = null;
+        _handPickTimedOut = false;
+        _kidnapResolved = false;
+        _kidnapHand = pool.ToList();
+
+        KidnapTitle.Text = title;
+        KidnapHint.Text = prompt + "\nClick a card to choose.";
+        KidnapTypePanel.Children.Clear();
+        KidnapCardsPanel.Children.Clear();
+        if (BtnKidnapCancel != null)
+            BtnKidnapCancel.Visibility = Visibility.Collapsed;
+
+        foreach (var c in _kidnapHand)
+        {
+            var mini = CreateMiniCard(c, faceDown: false);
+            mini.Width = 96;
+            mini.Height = 134;
+            Card cardRef = c;
+            mini.MouseLeftButtonDown += (_, ev) =>
+            {
+                if (_kidnapResolved) return;
+                _kidnapResolved = true;
+                _handPickResult = cardRef;
+                if (_kidnapFrame != null) _kidnapFrame.Continue = false;
+                ev.Handled = true;
+            };
+            KidnapCardsPanel.Children.Add(mini);
+        }
+
+        KidnapOverlay.Visibility = Visibility.Visible;
+        _kidnapFrame = new System.Windows.Threading.DispatcherFrame();
+        try { System.Windows.Threading.Dispatcher.PushFrame(_kidnapFrame); }
+        finally
+        {
+            _kidnapFrame = null;
+            KidnapOverlay.Visibility = Visibility.Collapsed;
+            _handPickMandatory = false;
+            if (BtnKidnapCancel != null) BtnKidnapCancel.Visibility = Visibility.Visible;
+        }
+
+        var chosen = _handPickResult ?? pool[0];
+        ShowCardReveal(chosen, title, $"{prompt}\n\nChosen: {chosen.Name}", RevealButtons.Ok);
+        return chosen;
     }
 
     private void AwardDilemmaPoints(int pts)
@@ -9682,6 +10905,28 @@ public partial class TableWindow : Window
         else _scoreP2 += pts;
         if (ScoreText != null)
             ScoreText.Text = $"P1: {_scoreP1}   ·   P2: {_scoreP2}";
+    }
+
+    private static string FormatDilemmaVictims(DilemmaRules.Result r)
+    {
+        if (r.Kill == null || r.Kill.Count == 0) return "";
+        bool stasis = r.Persist == DilemmaRules.PersistKind.Phased
+                      || r.Persist == DilemmaRules.PersistKind.Abduction;
+        string names = string.Join(", ",
+            r.Kill.Where(c => c != null).Select(c => c.Name ?? "?").Distinct());
+        if (names.Length == 0) return "";
+        if (stasis)
+            return r.Kill.Count == 1
+                ? $"Held / relocated: {names}."
+                : $"Held / relocated: {names}.";
+        bool eq = r.Kill.All(c => c != null && ModifierRules.IsEquipmentCard(c));
+        if (eq)
+            return r.Kill.Count == 1
+                ? $"Destroyed: {names}."
+                : $"Destroyed: {names}.";
+        return r.Kill.Count == 1
+            ? $"Killed: {names}."
+            : $"Killed: {names}.";
     }
 
     private void ApplyDilemmaResult(
@@ -9704,16 +10949,13 @@ public partial class TableWindow : Window
                 if (b != null) MarkStopped(b); // Stasis-Sandbox: gestoppt
                 continue;
             }
-            if (b != null && victim != null)
+            if (victim == null) continue;
+            if (b != null)
                 DiscardPersonnelBorder(b, victim, _activePlayer);
             else if (ModifierRules.IsEquipmentCard(victim) && shipBorder != null)
-            {
                 RemoveEquipmentFromHost(shipBorder, victim);
-            }
             else if (ModifierRules.IsEquipmentCard(victim))
-            {
                 RemoveEquipmentFromHost(missionBorder, victim);
-            }
         }
 
         if (r.Relocate != null && r.Persist != DilemmaRules.PersistKind.Abduction)
@@ -9751,9 +10993,28 @@ public partial class TableWindow : Window
 
         if (removeFromSeed && seedStack.Count > 0)
         {
-            seedStack.RemoveAt(seedStack.Count - 1);
+            // Track overcome/removed seeds for Temporal Causality Loop re-seed
+            if (_attemptMission != null && ReferenceEquals(_attemptMission, missionBorder)
+                && (r.Fate == DilemmaRules.Fate.Overcome
+                    || (r.Fate == DilemmaRules.Fate.EffectAndEnd
+                        && !(seedCard.Name ?? "").Equals("Temporal Causality Loop", StringComparison.OrdinalIgnoreCase))))
+            {
+                _attemptDiscards.Add((seedCard, _activePlayer, missionBorder, wasSeed: true));
+            }
+            // Prefer remove by card identity (not a stale index)
+            int ri = seedStack.FindLastIndex(b => b.Tag is Card c && ReferenceEquals(c, seedCard));
+            if (ri < 0) ri = seedStack.Count - 1;
+            if (ri >= 0 && ri < seedStack.Count)
+                seedStack.RemoveAt(ri);
             _seedUnderMission[missionBorder] = seedStack;
             UpdateSeedBadge(missionBorder);
+        }
+
+        // Temporal Causality Loop fail: restore cards discarded this attempt, re-seed seeds
+        if ((seedCard.Name ?? "").Equals("Temporal Causality Loop", StringComparison.OrdinalIgnoreCase)
+            && r.Fate == DilemmaRules.Fate.EffectAndEnd)
+        {
+            ApplyTemporalCausalityLoopRestore(missionBorder, seedCard);
         }
 
         if (r.Fate == DilemmaRules.Fate.AttachAndEnd)
@@ -9764,7 +11025,15 @@ public partial class TableWindow : Window
                 ? missionBorder
                 : (shipBorder ?? missionBorder);
             if (r.Persist == DilemmaRules.PersistKind.BorgShip)
+            {
                 host = FindFurthestMission(missionBorder) ?? missionBorder;
+                // One-way trip: from furthest end back toward the encounter end, then off the spaceline
+                int farIdx = _spacelineOrder.IndexOf(host);
+                int nearIdx = _spacelineOrder.IndexOf(missionBorder);
+                if (farIdx < 0) farIdx = _spacelineOrder.Count - 1;
+                if (nearIdx < 0) nearIdx = 0;
+                _borgShipDir = farIdx >= nearIdx ? -1 : 1;
+            }
             _attachedDilemmas.Add(new AttachedDilemma
             {
                 Card = seedCard,
@@ -9773,12 +11042,81 @@ public partial class TableWindow : Window
                 Host = host,
                 Extra = r.Relocate
             });
+            if (r.Persist == DilemmaRules.PersistKind.BorgShip)
+            {
+                PlaceBorgShipToken(seedCard, host);
+                ShowCardReveal(seedCard, "Borg Ship",
+                    $"Placed at furthest end: {(host.Tag as Card)?.Name}.\n"
+                    + "End of every turn: attacks all ships here (WEAPONS 24), then moves one mission "
+                    + "toward the opposite end and off the spaceline (leaves play).\n"
+                    + "Destroy it in ship battle (same location) for 15 points.",
+                    RevealButtons.Ok, seedCard.Name);
+            }
             _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
-                $"Attached {seedCard.Name} ({r.Persist})");
+                $"Attached {seedCard.Name} ({r.Persist}) @ {(host.Tag as Card)?.Name}");
         }
 
         if (r.Score > 0 && r.Fate != DilemmaRules.Fate.Overcome)
             AwardDilemmaPoints(r.Score);
+    }
+
+    /// <summary>
+    /// Temporal Causality Loop fail: return personnel/equipment discarded from this attempt
+    /// and re-seed overcome seed cards under the mission; TCL itself is discarded.
+    /// </summary>
+    private void ApplyTemporalCausalityLoopRestore(Border missionBorder, Card loopCard)
+    {
+        int restored = 0;
+        foreach (var (card, owner, returnHost, wasSeed) in _attemptDiscards.ToList())
+        {
+            var disc = owner == 2 ? _oppDiscardCards : _discardCards;
+            disc.Remove(card);
+
+            if (wasSeed)
+            {
+                var mini = CreateMiniCard(card, faceDown: true);
+                SetBorderOwner(mini, owner);
+                mini.Visibility = Visibility.Collapsed;
+                if (!_seedUnderMission.TryGetValue(missionBorder, out var seeds))
+                {
+                    seeds = new List<Border>();
+                    _seedUnderMission[missionBorder] = seeds;
+                }
+                // Re-seed under (bottom of encounter order = top of list for our Add-at-end scheme: insert at 0)
+                seeds.Insert(0, mini);
+                if (!TableCanvas.Children.Contains(mini))
+                    TableCanvas.Children.Add(mini);
+                restored++;
+                continue;
+            }
+
+            Border host = returnHost ?? missionBorder;
+            if (!TableCanvas.Children.Contains(host))
+                host = missionBorder;
+            if (!_stackOnHost.TryGetValue(host, out var list))
+            {
+                list = new List<Border>();
+                _stackOnHost[host] = list;
+            }
+            var b = CreateMiniCard(card, faceDown: false);
+            SetBorderOwner(b, owner);
+            b.Visibility = Visibility.Collapsed;
+            list.Add(b);
+            if (!TableCanvas.Children.Contains(b))
+                TableCanvas.Children.Add(b);
+            restored++;
+        }
+        _attemptDiscards.Clear();
+        UpdateSeedBadge(missionBorder);
+        // Loop dilemma is discarded (already removed from seed as EffectAndEnd)
+        var loopDisc = _activePlayer == 2 ? _oppDiscardCards : _discardCards;
+        if (!loopDisc.Contains(loopCard))
+            loopDisc.Add(loopCard);
+        RefreshZoneCounts();
+        _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
+            $"Temporal Causality Loop: restored {restored} card(s); turn ends");
+        StatusText.Text = $"Temporal Causality Loop: {restored} card(s) returned; turn ends.";
+        _attemptMission = null;
     }
 
     private void RemoveEquipmentFromHost(Border host, Card eq)
@@ -9868,14 +11206,12 @@ public partial class TableWindow : Window
             }
         }
 
-        MessageBox.Show(
-            "Mission Attempt gescheitert.\n\n" +
-            "The involved away team / crew is stopped " +
-            "(bei Space-Missionen auch das Schiff).\n" +
-            "Stopped ends automatically at the start of that player's next turn.",
-            "Dilemma – team stopped",
-            MessageBoxButton.OK,
-            MessageBoxImage.Information);
+        ShowCardReveal(mission, "Dilemma — team stopped",
+            "Mission attempt failed.\n\n"
+            + "The involved away team / crew is stopped"
+            + (MissionRules.IsPlanetMission(mission) ? "." : " (and the ship, on space missions).")
+            + "\nStopped ends automatically at the start of that player's next turn.",
+            RevealButtons.Ok, mission.Name);
     }
 
     /// <summary>Ungestopptes eigenes Personal an der Mission (Borders).</summary>
@@ -9979,7 +11315,9 @@ public partial class TableWindow : Window
             if (mb.Tag is not Card mission) continue;
             if (_solvedMissions.Contains(mb)) continue;
             int dil = _seedUnderMission.TryGetValue(mb, out var seeds) ? seeds.Count : 0;
-            var check = MissionRules.CanSolve(mission, teamList, dilemmasRemaining: 0);
+            int missionOwner = GetBorderOwner(mb);
+            var check = MissionRules.CanSolve(mission, teamList, dilemmasRemaining: 0,
+                attemptingPlayer: _activePlayer, missionOwner: missionOwner);
             if (!check.Ok) continue;
             if (dil > 0)
             {
@@ -9995,7 +11333,7 @@ public partial class TableWindow : Window
 
         StatusText.Text =
             $"Team skills vs spaceline: {green} solvable now (green), {yellow} with dilemmas (yellow). " +
-            "Right-click clears highlights. (Requirements only – team must be at the location.)";
+            "Includes affiliation + owner/opponent-side requirements. Right-click clears highlights.";
     }
 
 
@@ -10089,7 +11427,7 @@ public partial class TableWindow : Window
 
         var crew = GetCrewOnShip(shipBorder);
         var staff = MovementRules.IsShipStaffed(ship, crew, GetActiveTreaties(_activePlayer));
-        if (!staff.Ok)
+        if (!staff.Ok && !ShipStaffedByRogueBorg(shipBorder))
         {
             ShowPlayError(staff.Reason);
             return;
@@ -10098,20 +11436,36 @@ public partial class TableWindow : Window
         _cardActionMode = CardActionMode.FlyPickMission;
         int remain = GetRemainingRange(shipBorder, ship);
         var missions = GetOrderedMissionCards();
+        bool wnohgb = HasTableEvent("Where No One Has Gone Before") && missions.Count >= 2;
         int marked = 0;
         for (int i = 0; i < _spacelineOrder.Count; i++)
         {
             if (i == fromIdx) continue;
-            var move = MovementRules.CanMoveShip(ship, crew, remain, missions, fromIdx, i,
-                GetActiveTreaties(_activePlayer));
-            if (!move.Ok) continue;
+            bool endsHop = wnohgb
+                && ((fromIdx == 0 && i == missions.Count - 1)
+                    || (i == 0 && fromIdx == missions.Count - 1));
+            bool ok;
+            if (endsHop)
+            {
+                int cost = MovementRules.GetMissionSpan(missions[i], forOwner: true);
+                ok = cost <= remain;
+            }
+            else
+            {
+                var move = MovementRules.CanMoveShip(ship, crew, remain, missions, fromIdx, i,
+                    GetActiveTreaties(_activePlayer));
+                ok = move.Ok;
+            }
+            if (!ok) continue;
             AddTargetHighlight(_spacelineOrder[i], Color.FromArgb(90, 80, 160, 255));
             marked++;
         }
 
         StatusText.Text = marked == 0
-            ? $"Keine Mission in RANGE (noch {remain})."
-            : $"FLIEGEN: {marked} Mission(en) markiert (RANGE {remain}). Mission klicken oder per Drag fliegen.";
+            ? $"No mission in RANGE (left {remain})."
+            : $"FLY: {marked} mission(s) marked (RANGE {remain})"
+              + (wnohgb ? " · WNOHGB: ends are adjacent." : "")
+              + ". Click a mission or drag the ship.";
     }
 
     private void AddTargetHighlight(Border target, Color fill)
@@ -10285,38 +11639,6 @@ public partial class TableWindow : Window
         }
 
         BeginShipBattleStack(attackerBorder, attackerShip, targetBorder, targetCard, atkOwner, defOwner);
-        ClearCardActionUi();
-        return true;
-
-        // Verteidiger: Return Fire?
-        bool returnFire = false;
-        int defWeapons = BattleRules.GetWeapons(targetCard);
-        if (defWeapons > 0 && !IsBorderStopped(targetBorder))
-        {
-            var rf = MessageBox.Show(
-                $"Ship Battle: {attackerShip.Name} (S{atkOwner}) greift {targetCard.Name} (S{defOwner}) an.\n\n" +
-                $"Angreifer WEAPONS {BattleRules.GetWeapons(attackerShip)} · " +
-                $"Ziel SHIELDS {BattleRules.GetShields(targetCard)}.\n\n" +
-                $"Verteidiger (S{defOwner}): Return Fire?\n" +
-                $"(target would have WEAPONS {defWeapons})",
-                "Ship Battle – Return Fire",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
-            returnFire = rf == MessageBoxResult.Yes;
-        }
-        else
-        {
-            MessageBox.Show(
-                $"Ship Battle: {attackerShip.Name} greift {targetCard.Name} an.\n" +
-                (defWeapons <= 0
-                    ? "Verteidiger hat keine WEAPONS – kein Return Fire."
-                    : "Defender is stopped – no Return Fire."),
-                "Ship Battle",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
-        }
-
-        ResolveShipBattle(attackerBorder, attackerShip, targetBorder, targetCard, returnFire);
         ClearCardActionUi();
         return true;
     }
@@ -10592,14 +11914,370 @@ public partial class TableWindow : Window
 
             if (a.Kind == DilemmaRules.PersistKind.BorgShip)
             {
-                // Vereinfacht: alle Schiffe an dieser Location 50 % Damage
-                foreach (var dock in GetDockablesUnderMission(a.Host))
-                {
-                    if (dock.Tag is Card sc && IsShipCard(sc))
-                        ApplyHullDamage(dock, sc, Math.Min(100, GetHullDamage(dock) + 50));
-                }
+                ProcessBorgShipEndOfTurn(a);
             }
         }
+    }
+
+    /// <summary>
+    /// Borg Ship (self-controlling dilemma): WEAPONS 24 / SHIELDS 24.
+    /// End of every turn: attack all ships here, then move one mission toward the opposite
+    /// spaceline end. When it would move past the end, it leaves play (classic "off the long end").
+    /// Does not bounce back and forth.
+    /// </summary>
+    private void ProcessBorgShipEndOfTurn(AttachedDilemma a)
+    {
+        const int borgWeapons = 24;
+        var host = a.Host;
+        if (host.Tag is not Card hostMission) return;
+
+        var hit = new List<string>();
+        foreach (var dock in GetDockablesUnderMission(host).ToList())
+        {
+            if (dock.Tag is not Card sc || !IsShipCard(sc)) continue;
+            int shields = BattleRules.GetShields(sc);
+            var aboard = GetAllCardsOnHost(dock, GetBorderOwner(dock) == 0 ? 1 : GetBorderOwner(dock));
+            shields += EventRules.ShieldsBonusFromEvents(EventsOn(dock).Select(e => (e.Kind, e.Card)), aboard);
+            if (borgWeapons > shields)
+            {
+                int next = Math.Min(100, GetHullDamage(dock) + 50);
+                ApplyHullDamage(dock, sc, next);
+                hit.Add($"{sc.Name} (HULL {next}%)");
+                if (next >= 100)
+                    DestroyShipOrFacility(dock, sc, GetBorderOwner(dock) == 0 ? 1 : GetBorderOwner(dock));
+            }
+        }
+
+        int idx = _spacelineOrder.IndexOf(host);
+        if (idx < 0 && _spacelineOrder.Count > 0)
+            idx = _borgShipDir > 0 ? 0 : _spacelineOrder.Count - 1;
+        int nextIdx = idx + _borgShipDir;
+
+        string attackPart = hit.Count > 0
+            ? $"Attacks at {hostMission.Name}: {string.Join(", ", hit)}."
+            : $"At {hostMission.Name}: no ships damaged (SHIELDS ≥ 24).";
+
+        // Off the end → leave play (do not reverse direction)
+        if (nextIdx < 0 || nextIdx >= _spacelineOrder.Count)
+        {
+            _attachedDilemmas.Remove(a);
+            RemoveBorgShipToken();
+            string leaveMsg = attackPart + " Moves off the spaceline and leaves play.";
+            _session.Log.Add(_session.TurnNumber, "sys", leaveMsg);
+            StatusText.Text = leaveMsg;
+            ShowCardReveal(a.Card, "Borg Ship leaves", leaveMsg, RevealButtons.Ok, a.Card.Name);
+            return;
+        }
+
+        var newHost = _spacelineOrder[nextIdx];
+        _attachedDilemmas.Remove(a);
+        _attachedDilemmas.Add(new AttachedDilemma
+        {
+            Card = a.Card,
+            Kind = a.Kind,
+            Countdown = a.Countdown,
+            Host = newHost,
+            Extra = a.Extra
+        });
+        PositionBorgShipToken(newHost);
+
+        string where = (newHost.Tag as Card)?.Name ?? "?";
+        string msg = attackPart + $" Moves to {where}.";
+        _session.Log.Add(_session.TurnNumber, "sys", msg);
+        StatusText.Text = msg;
+        ShowCardReveal(a.Card, "Borg Ship", msg, RevealButtons.Ok, a.Card.Name);
+    }
+
+    private void PlaceBorgShipToken(Card borgCard, Border hostMission)
+    {
+        RemoveBorgShipToken();
+        var token = new Border
+        {
+            Width = TableCardWidth,
+            Height = TableCardHeight,
+            BorderBrush = new SolidColorBrush(Color.FromRgb(180, 40, 40)),
+            BorderThickness = new Thickness(3),
+            Background = new SolidColorBrush(Color.FromRgb(20, 10, 10)),
+            CornerRadius = new CornerRadius(4),
+            Tag = borgCard,
+            ToolTip = "Borg Ship (self-controlling dilemma)\nAttacks ships each end of turn, then moves toward opposite end."
+        };
+        var img = new Image { Stretch = Stretch.Uniform };
+        if (!string.IsNullOrEmpty(borgCard.FullImagePath) && System.IO.File.Exists(borgCard.FullImagePath))
+        {
+            try
+            {
+                var bmp = new BitmapImage();
+                bmp.BeginInit();
+                bmp.CacheOption = BitmapCacheOption.OnLoad;
+                bmp.UriSource = new Uri(borgCard.FullImagePath, UriKind.Absolute);
+                bmp.DecodePixelWidth = 200;
+                bmp.EndInit();
+                img.Source = bmp;
+            }
+            catch { }
+        }
+        token.Child = img;
+        token.MouseLeftButtonDown += (_, e) =>
+        {
+            ShowCardDetail(borgCard);
+            if (e.ClickCount >= 2) { _detailHost = null; OpenCardDetailPopup(); }
+            e.Handled = true;
+        };
+        token.MouseRightButtonDown += (s, e) =>
+        {
+            ShowCardDetail(borgCard);
+            BeginHoldZoom(borgCard, s as IInputElement);
+            e.Handled = true;
+        };
+        token.MouseRightButtonUp += (_, e) =>
+        {
+            if (_holdZoomActive) { EndHoldZoom(); e.Handled = true; }
+        };
+        TableCanvas.Children.Add(token);
+        Panel.SetZIndex(token, 40);
+        _borgShipToken = token;
+        PositionBorgShipToken(hostMission);
+    }
+
+    private void PositionBorgShipToken(Border hostMission)
+    {
+        if (_borgShipToken == null) return;
+        double left = Canvas.GetLeft(hostMission);
+        double top = Canvas.GetTop(hostMission);
+        // Sit slightly above the mission on the spaceline (self-controlling ship)
+        Canvas.SetLeft(_borgShipToken, left);
+        Canvas.SetTop(_borgShipToken, top - UnderMissionGap * 0.55);
+        Panel.SetZIndex(_borgShipToken, 40);
+    }
+
+    private void RemoveBorgShipToken()
+    {
+        if (_borgShipToken != null)
+        {
+            if (TableCanvas.Children.Contains(_borgShipToken))
+                TableCanvas.Children.Remove(_borgShipToken);
+            _borgShipToken = null;
+        }
+    }
+
+    private int CountRogueBorgOn(Border host) =>
+        _rogueBorg.Count(r => ReferenceEquals(r.Host, host));
+
+    private bool ShipStaffedByRogueBorg(Border ship) =>
+        CountRogueBorgOn(ship) > 0
+        && _attachedEvents.Any(e => e.Kind == EventRules.Persist.LoreReturns
+                                    && ReferenceEquals(e.Host, ship));
+
+    private int RogueBorgStrengthOn(Border host)
+    {
+        int n = CountRogueBorgOn(host);
+        if (n == 0) return 0;
+        int each = 5;
+        if (_crosisShips.Contains(host)) each *= 2;
+        return n * each;
+    }
+
+    private void PlaceRogueBorg(Card card, Border host, int playedBy)
+    {
+        var unit = new RogueBorgUnit
+        {
+            Card = card,
+            Host = host,
+            PlayedBy = playedBy,
+            Controller = 0
+        };
+        // Visible on ship stack (detail popup / host contents)
+        var border = CreateFloatingCard(card);
+        border.IsHitTestVisible = true;
+        border.Visibility = Visibility.Collapsed;
+        if (!TableCanvas.Children.Contains(border))
+            TableCanvas.Children.Add(border);
+        unit.Visual = border;
+        AddCardToHostStack(host, border);
+        _rogueBorg.Add(unit);
+
+        int n = CountRogueBorgOn(host);
+        int str = RogueBorgStrengthOn(host);
+        string shipName = (host.Tag as Card)?.Name ?? "ship";
+        ShowCardReveal(card, "Rogue Borg",
+            $"Aboard {shipName}.\n"
+            + $"Rogue Borg present: {n} (STRENGTH {str}"
+            + (_crosisShips.Contains(host) ? ", Crosis active" : "") + ").\n"
+            + "End of every player's turn: they battle that player's personnel present.",
+            RevealButtons.Ok, card.Name);
+        StatusText.Text = $"Rogue Borg on {shipName} ({n} present, STR {str}).";
+        _session.Log.Add(_session.TurnNumber, $"P{playedBy}",
+            $"Rogue Borg → {shipName} ({n} total, STR {str})");
+        UpdateHostBadge(host);
+    }
+
+    private bool TryApplyLoreReturns(Card ev, Border host, int controller)
+    {
+        if (host.Tag is not Card ship || !IsShipCard(ship))
+        {
+            ShowPlayError("Lore Returns: target must be a ship.");
+            return false;
+        }
+        int ho = GetBorderOwner(host);
+        if (ho == 0) ho = 1;
+        if (ho == controller)
+        {
+            ShowPlayError("Lore Returns: must be an opponent's ship.");
+            return false;
+        }
+        if (CountRogueBorgOn(host) == 0)
+        {
+            ShowPlayError("Lore Returns: no Rogue Borg aboard.");
+            return false;
+        }
+        if (HostHasPersonnelOf(host, 0))
+        {
+            ShowPlayError("Lore Returns: ship must be empty of personnel.");
+            return false;
+        }
+
+        foreach (var rb in _rogueBorg.Where(r => ReferenceEquals(r.Host, host)))
+            rb.Controller = controller;
+        SetBorderOwner(host, controller);
+
+        ShowCardReveal(ev, "Lore Returns",
+            $"You control the Rogue Borg aboard {ship.Name}.\n"
+            + "Ship commandeered (Non-Aligned). While Rogue Borg aboard, it is staffed "
+            + "and may initiate battle / beam your Rogue Borg.",
+            RevealButtons.Ok, ship.Name);
+        StatusText.Text = $"Lore Returns: P{controller} commandeers {ship.Name} with Rogue Borg.";
+        _session.Log.Add(_session.TurnNumber, $"P{controller}",
+            $"Lore Returns commandeers {ship.Name}");
+        return true;
+    }
+
+    /// <summary>
+    /// End of every player's turn: Rogue Borg Away Team battles that player's personnel present.
+    /// </summary>
+    private void ProcessRogueBorgEndOfTurn(int finishingPlayer)
+    {
+        foreach (var group in _rogueBorg.GroupBy(r => r.Host).ToList())
+        {
+            var host = group.Key;
+            if (host.Tag is not Card ship) continue;
+            int str = RogueBorgStrengthOn(host);
+            if (str <= 0) continue;
+
+            var defenders = new List<Border>();
+            if (_stackOnHost.TryGetValue(host, out var list))
+            {
+                foreach (var b in list)
+                {
+                    if (b.Tag is not Card c) continue;
+                    if (!ModifierRules.IsPersonnelCard(c)) continue;
+                    if (IsRogueBorgCard(c)) continue;
+                    int o = GetBorderOwner(b);
+                    if (o == 0) o = CardOwner(b);
+                    if (o != finishingPlayer) continue;
+                    defenders.Add(b);
+                }
+            }
+            if (defenders.Count == 0) continue;
+
+            // Synthetic Rogue Borg force: one combatant with total STRENGTH
+            var atkCard = new Card
+            {
+                Name = $"Rogue Borg (×{CountRogueBorgOn(host)})",
+                Type = "Personnel",
+                StrengthOrShields = str.ToString(),
+                Class = "CIVILIAN"
+            };
+            var defCards = defenders.Select(b => (Card)b.Tag!).ToList();
+            var result = BattleRules.ResolvePersonnelBattle(
+                new[] { atkCard }, defCards, null,
+                new[] { atkCard }, defCards, 0, finishingPlayer);
+            if (!result.Ok) continue;
+
+            var killed = new HashSet<string>(result.KilledNames, StringComparer.OrdinalIgnoreCase);
+            foreach (var b in defenders.ToList())
+            {
+                if (b.Tag is not Card c) continue;
+                if (killed.Contains(c.Name ?? ""))
+                    DiscardPersonnelBorder(b, c, finishingPlayer);
+                else
+                    MarkStopped(b);
+            }
+
+            // If defenders overpower Rogue Borg mortally, remove one token per mortal
+            // (sandbox: if all RB "die" when total crew strength dominates heavily — skip for now)
+
+            ShowCardReveal(group.First().Card, "Rogue Borg battle",
+                $"End of P{finishingPlayer}'s turn aboard {ship.Name}.\n"
+                + $"Rogue Borg STR {str} vs crew.\n{result.LogSummary}",
+                RevealButtons.Ok, ship.Name);
+            _session.Log.Add(_session.TurnNumber, "sys",
+                $"Rogue Borg vs P{finishingPlayer} on {ship.Name}: {result.LogSummary}");
+        }
+    }
+
+    private static bool IsRogueBorgCard(Card c) =>
+        (c.Name ?? "").Equals("Rogue Borg", StringComparison.OrdinalIgnoreCase)
+        || (c.Name ?? "").StartsWith("Rogue Borg (", StringComparison.OrdinalIgnoreCase);
+
+    private void ProcessCrosisStartOfTurn()
+    {
+        // Crosis: discard at start of next turn (any player's start after it was played)
+        foreach (var ae in _attachedEvents
+                     .Where(e => (e.Card.Name ?? "").Equals("Crosis", StringComparison.OrdinalIgnoreCase))
+                     .ToList())
+        {
+            if (ae.Countdown > 0)
+            {
+                ae.Countdown--;
+                if (ae.Countdown > 0) continue;
+            }
+            if (ae.Host != null)
+                _crosisShips.Remove(ae.Host);
+            _attachedEvents.Remove(ae);
+            SendCardTo(ae.Card, ae.Owner, TimingRules.Destination.Discard);
+            _session.Log.Add(_session.TurnNumber, "sys", "Crosis discarded (start of turn).");
+            StatusText.Text = "Crosis discarded at start of turn.";
+        }
+    }
+
+    private void TryDestroyBorgShipInBattle(Border shipBorder, Card shipCard)
+    {
+        var borg = _attachedDilemmas.FirstOrDefault(d => d.Kind == DilemmaRules.PersistKind.BorgShip);
+        if (borg == null)
+        {
+            ShowPlayError("No Borg Ship on the spaceline.");
+            return;
+        }
+        var mission = FindMissionForDockable(shipBorder);
+        if (mission == null || !ReferenceEquals(mission, borg.Host))
+        {
+            ShowPlayError("Your ship must be at the same mission as the Borg Ship.");
+            return;
+        }
+        int owner = GetBorderOwner(shipBorder);
+        if (owner == 0) owner = _activePlayer;
+        var crew = GetCrewOnShip(shipBorder);
+        int weapons = BattleRules.GetWeapons(shipCard)
+                      + EventRules.WeaponsBonusFromEvents(EventsOn(shipBorder).Select(e => (e.Kind, e.Card)));
+        weapons *= BattleRules.KurlanMultiplier(crew);
+        // Borg SHIELDS 24 — need WEAPONS > 24 to damage; second hit destroys (100%)
+        const int borgShields = 24;
+        if (weapons <= borgShields)
+        {
+            ShowPlayError($"Need WEAPONS > {borgShields} to damage the Borg Ship (you have {weapons}).");
+            return;
+        }
+        // One successful hit destroys the dilemma token (sandbox: strong enough shot wins 15)
+        _attachedDilemmas.Remove(borg);
+        RemoveBorgShipToken();
+        AwardDilemmaPoints(15);
+        _session.Log.Add(_session.TurnNumber, $"P{owner}",
+            $"Destroyed Borg Ship with {shipCard.Name} (WEAPONS {weapons}) for 15 points");
+        ShowCardReveal(borg.Card, "Borg Ship destroyed",
+            $"{shipCard.Name} destroys the Borg Ship!\n+15 points (P{owner}).",
+            RevealButtons.Ok, shipCard.Name);
+        StatusText.Text = $"Borg Ship destroyed by {shipCard.Name}. +15 (P{owner}).";
     }
 
     private void ProcessStartOfTurnDilemmas(int owner)
@@ -10775,6 +12453,38 @@ public partial class TableWindow : Window
         return true;
     }
 
+    private static bool IsBorgAffiliation(Card c)
+    {
+        var tokens = MissionRules.ParseAffiliationTokens(c.Affiliation);
+        return tokens.Contains("BORG");
+    }
+
+    private void TryNullifyPlasmaFire(Border shipBorder)
+    {
+        if (!EventRules.HasSkill(GetCrewOnShip(shipBorder), "SECURITY"))
+        {
+            ShowPlayError("Need SECURITY aboard to nullify Plasma Fire.");
+            return;
+        }
+        var fires = EventsOn(shipBorder).Where(ae => ae.Kind == EventRules.Persist.PlasmaFire).ToList();
+        if (fires.Count == 0)
+        {
+            ShowPlayError("No Plasma Fire on this ship.");
+            return;
+        }
+        foreach (var e in fires)
+        {
+            _attachedEvents.Remove(e);
+            SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
+        }
+        UpdateHostBadge(shipBorder);
+        if (shipBorder.Tag is Card sc)
+            ShowHostContents(shipBorder, sc);
+        _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
+            $"Nullified Plasma Fire on {(shipBorder.Tag as Card)?.Name}");
+        StatusText.Text = "Plasma Fire nullified (SECURITY).";
+    }
+
     private void ProcessEndOfTurnEvents(int owner)
     {
         foreach (var e in _attachedEvents.ToList())
@@ -10797,14 +12507,27 @@ public partial class TableWindow : Window
             if (e.Kind == EventRules.Persist.PlasmaFire && e.Host != null
                 && GetBorderOwner(e.Host) == owner && e.Host.Tag is Card ship)
             {
-                var crew = GetCrewOnShip(e.Host);
-                if (EventRules.HasSkill(crew, "SECURITY"))
+                // "May be nullified by SECURITY" is optional — not automatic.
+                int next = Math.Min(100, GetHullDamage(e.Host) + 50);
+                ApplyHullDamage(e.Host, ship, next);
+                _session.Log.Add(_session.TurnNumber, "sys",
+                    $"Plasma Fire damages {ship.Name} (HULL {next}%).");
+                if (next >= 100)
                 {
+                    ShowCardReveal(e.Card, "Plasma Fire",
+                        $"{ship.Name} is destroyed by Plasma Fire (HULL 100%).",
+                        RevealButtons.Ok, ship.Name, autoCloseMs: 4000);
+                    DestroyShipOrFacility(e.Host, ship, owner);
                     _attachedEvents.Remove(e);
                     SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
-                    continue;
                 }
-                ApplyHullDamage(e.Host, ship, Math.Min(100, GetHullDamage(e.Host) + 50));
+                else
+                {
+                    ShowCardReveal(e.Card, "Plasma Fire",
+                        $"{ship.Name} is damaged (HULL {next}%).\n"
+                        + "May be nullified later if SECURITY is aboard.",
+                        RevealButtons.Ok, ship.Name, autoCloseMs: 4000);
+                }
             }
 
             if (e.Kind == EventRules.Persist.WarpCore && e.Host != null
@@ -10827,6 +12550,13 @@ public partial class TableWindow : Window
 
             if (e.Kind == EventRules.Persist.StaticWarp && e.Owner != owner)
             {
+                // The Traveler: Transcendence continuously nullifies Static Warp Bubble
+                if (IsTravelerInPlay())
+                {
+                    _session.Log.AddDebug(_session.TurnNumber, "Check",
+                        "Static Warp Bubble: suppressed by The Traveler: Transcendence in play");
+                    continue;
+                }
                 var hand = owner == 1 ? _handCards : _oppHandCards;
                 if (hand.Count > 0)
                 {
@@ -11300,6 +13030,27 @@ public partial class TableWindow : Window
         if (TryGenetronicSave(border, card, owner))
             return;
 
+        Border? returnHost = null;
+        foreach (var kv in _stackOnHost.ToList())
+        {
+            if (kv.Value.Contains(border))
+            {
+                returnHost = kv.Key;
+                break;
+            }
+        }
+        // Temporal Causality Loop: only cards discarded from the attempted location
+        if (_attemptMission != null)
+        {
+            bool fromHere = returnHost != null && (
+                ReferenceEquals(returnHost, _attemptMission)
+                || FindMissionForDockable(returnHost) == _attemptMission
+                || (returnHost.Tag is Card hc && IsShipCard(hc)
+                    && GetDockablesUnderMission(_attemptMission).Contains(returnHost)));
+            if (fromHere)
+                _attemptDiscards.Add((card, owner, returnHost, wasSeed: false));
+        }
+
         bool opp = owner == 2;
         var discardList = opp ? _oppDiscardCards : _discardCards;
         if (!discardList.Contains(card))
@@ -11371,8 +13122,12 @@ public partial class TableWindow : Window
         UpdateHostBadge(targetHost);
         if (targetHost.Tag is Card tc)
         {
-            StatusText.Text = $"Beamed {toMove.Count} card(s) → {tc.Name}.";
-            _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}", $"Beam {toMove.Count} cards");
+            string fromName = (source.Tag as Card)?.Name ?? "?";
+            string names = string.Join(", ",
+                toMove.Select(b => (b.Tag as Card)?.Name ?? "?").Where(n => n != "?"));
+            StatusText.Text = $"Beamed {toMove.Count} card(s) {fromName} → {tc.Name}.";
+            _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
+                $"Beam: {names}  ({fromName} → {tc.Name})");
             ClearCardActionUi();
             SetSelection(targetHost);
             ShowHostContents(targetHost, tc);
@@ -11505,7 +13260,8 @@ public partial class TableWindow : Window
         if (cardBorder.Tag is not Card card)
             return null;
         // Dockable (Schiff/Facility) oder Seedable (Dilemma/Artifact in Seed)
-        if (!IsDockableUnderMission(card) && !(IsSeedableUnderMission(card) && _seedPhaseActive))
+        if (!IsDockableUnderMission(card)
+            && !(IsSeedableUnderMission(card) && (_seedPhaseActive || _devPlaySeedFromHand)))
             return null;
 
         double w = cardBorder.Width > 0 ? cardBorder.Width : TableCardWidth;
@@ -11590,17 +13346,20 @@ public partial class TableWindow : Window
         {
             Canvas.SetLeft(below[i], missionLeft);
             Canvas.SetTop(below[i], missionTop + UnderMissionGap * (i + 1));
-            Panel.SetZIndex(below[i], 10 + i);
+            // Ships above facilities so they stay clickable
+            int z = DockSortKey(below[i]) == 0 ? 12 + i : 22 + i;
+            Panel.SetZIndex(below[i], z);
             SetBorderOwner(below[i], 1);
             below[i].RenderTransform = Transform.Identity;
             UpdateHostBadge(below[i]);
         }
         for (int i = 0; i < above.Count; i++)
         {
-            // i=0 Facility direkt über Mission, i=1 Schiff darüber, usw.
+            // i=0 Facility directly above mission, i=1 ship above that, …
             Canvas.SetLeft(above[i], missionLeft);
             Canvas.SetTop(above[i], missionTop - UnderMissionGap * (i + 1));
-            Panel.SetZIndex(above[i], 10 + i);
+            int z = DockSortKey(above[i]) == 0 ? 12 + i : 22 + i;
+            Panel.SetZIndex(above[i], z);
             SetBorderOwner(above[i], 2);
             above[i].RenderTransform = Transform.Identity;
             UpdateHostBadge(above[i]);
@@ -11782,10 +13541,25 @@ public partial class TableWindow : Window
         {
             ClearCardActionUi();
             if (_selectedCard != null) RefreshCardActionPanel(_selectedCard);
-            StatusText.Text = "Aktion abgebrochen.";
+            StatusText.Text = "Action cancelled.";
             e.Handled = true;
             return;
         }
+
+        // Prefer card zoom over board pan (P2 ships above outposts were losing RMB to the canvas).
+        DependencyObject? src = e.OriginalSource as DependencyObject;
+        while (src != null && !ReferenceEquals(src, TableCanvas))
+        {
+            if (src is Border b && b.Tag is Card c && b.Visibility == Visibility.Visible)
+            {
+                ShowCardDetail(c);
+                BeginHoldZoom(c, b);
+                e.Handled = true;
+                return;
+            }
+            src = VisualTreeHelper.GetParent(src);
+        }
+
         _isPanning = true;
         _panStart = e.GetPosition(this);
         _scrollStartH = TableScroll.HorizontalOffset;
@@ -11813,6 +13587,42 @@ public partial class TableWindow : Window
     }
 
     // ===================== DETAIL =====================
+
+    private Border? FindBorderForCard(Card card)
+    {
+        foreach (var b in TableCanvas.Children.OfType<Border>())
+        {
+            if (b.Tag is Card c && ReferenceEquals(c, card))
+                return b;
+        }
+        return null;
+    }
+
+    private static string TrimDetail(string text, int max)
+    {
+        text = text.Replace('\n', ' ').Trim();
+        if (text.Length <= max) return text;
+        return text[..max].TrimEnd() + "…";
+    }
+
+    /// <summary>Detail line for an attached event/dilemma, including countdown when set.</summary>
+    private static string FormatAttachedCounterLine(string kind, Card card, int countdown, string? persistKind)
+    {
+        string line = $"{kind}: {card.Name}";
+        if (countdown > 0)
+            line += $"  ·  COUNTER {countdown}";
+        else if (!string.IsNullOrEmpty(persistKind)
+                 && !persistKind.Equals("None", StringComparison.OrdinalIgnoreCase)
+                 && !persistKind.Equals("PlasmaFire", StringComparison.OrdinalIgnoreCase))
+            line += $"  ·  {persistKind}";
+        // Plasma Fire has no numeric counter — damages every EOT of the ship's controller
+        if (persistKind != null
+            && persistKind.Equals("PlasmaFire", StringComparison.OrdinalIgnoreCase))
+            line += "  ·  damages each of controller's EOT";
+        if (!string.IsNullOrWhiteSpace(card.Text))
+            line += $" — {TrimDetail(card.Text!, 100)}";
+        return line;
+    }
 
     private void ShowCardDetail(Card card)
     {
@@ -11843,7 +13653,54 @@ public partial class TableWindow : Window
             DetailAttributes.Text = FormatShipEffectiveLine(card);
             DetailClass.Text = string.IsNullOrWhiteSpace(card.Class) ? "" : $"Class: {card.Class}";
             DetailStaff.Text = string.IsNullOrWhiteSpace(card.Staff) ? "" : $"Staffing: {card.Staff}";
-            DetailIcons.Text = string.IsNullOrWhiteSpace(card.Icons) ? "" : $"Icons: {card.Icons}";
+
+            var eventLines = new List<string>();
+            if (!string.IsNullOrWhiteSpace(card.Icons))
+                eventLines.Add($"Icons: {card.Icons}");
+            // Attached / stacked events on this ship (e.g. Plasma Fire, Bynars)
+            Border? shipBorder = FindBorderForCard(card);
+            if (shipBorder != null)
+            {
+                foreach (var ae in EventsOn(shipBorder))
+                    eventLines.Add(FormatAttachedCounterLine("Event", ae.Card, ae.Countdown, ae.Kind.ToString()));
+                foreach (var ad in _attachedDilemmas.Where(d => ReferenceEquals(d.Host, shipBorder)))
+                    eventLines.Add(FormatAttachedCounterLine("Dilemma", ad.Card, ad.Countdown, ad.Kind.ToString()));
+                if (_stackOnHost.TryGetValue(shipBorder, out var stacked))
+                {
+                    foreach (var b in stacked)
+                    {
+                        if (b.Tag is not Card ec || !EventRules.IsEvent(ec)) continue;
+                        if (EventsOn(shipBorder).Any(ae => ReferenceEquals(ae.Card, ec))) continue;
+                        eventLines.Add(FormatAttachedCounterLine("Event", ec, 0, null));
+                    }
+                }
+            }
+            DetailIcons.Text = string.Join("\n", eventLines);
+        }
+        else if (EventRules.IsEvent(card) || type.Contains("dilemma"))
+        {
+            if (!string.IsNullOrWhiteSpace(card.Icons)) attrs.Add($"Icons: {card.Icons}");
+            DetailAttributes.Text = string.Join("  •  ", attrs);
+            DetailClass.Text = "";
+            DetailStaff.Text = "";
+            var counterLines = new List<string>();
+            foreach (var ae in _attachedEvents.Where(e => ReferenceEquals(e.Card, card)))
+            {
+                string hostName = (ae.Host?.Tag as Card)?.Name ?? "(no host)";
+                counterLines.Add(FormatAttachedCounterLine("Attached", card, ae.Countdown, ae.Kind.ToString())
+                                 + $"  ·  on {hostName}");
+            }
+            foreach (var ad in _attachedDilemmas.Where(d => ReferenceEquals(d.Card, card)))
+            {
+                string hostName = (ad.Host?.Tag as Card)?.Name ?? "(no host)";
+                counterLines.Add(FormatAttachedCounterLine("Attached", card, ad.Countdown, ad.Kind.ToString())
+                                 + $"  ·  on {hostName}");
+            }
+            if ((card.Name ?? "").Equals("Red Alert!", StringComparison.OrdinalIgnoreCase))
+                counterLines.Add(FormatRedAlertStatusLine(card));
+            if (counterLines.Count == 0 && !string.IsNullOrWhiteSpace(card.Icons))
+                counterLines.Add($"Icons: {card.Icons}");
+            DetailIcons.Text = string.Join("\n", counterLines);
         }
         else if (type.Contains("personnel") || type.Contains("animal") || type.Contains("android"))
         {
@@ -11862,9 +13719,29 @@ public partial class TableWindow : Window
                 if (!string.IsNullOrWhiteSpace(card.Points)) attrs.Add($"POINTS {card.Points}");
                 DetailAttributes.Text = string.Join("  •  ", attrs);
             }
-            DetailClass.Text = string.IsNullOrWhiteSpace(card.Class) ? "" : $"Class: {card.Class}";
+            if (string.IsNullOrWhiteSpace(DetailAttributes.Text) || presentCtx == null)
+            {
+                // keep stats from profile when present
+            }
+            DetailClass.Text = string.IsNullOrWhiteSpace(card.Class)
+                ? ""
+                : $"Classification: {card.Class}";
             DetailStaff.Text = string.IsNullOrWhiteSpace(card.Staff) ? "" : $"Staffing: {card.Staff}";
-            DetailIcons.Text = string.IsNullOrWhiteSpace(card.Icons) ? "" : $"Icons: {card.Icons}";
+            if (presentCtx == null)
+            {
+                var parsed = MissionRules.ParsePersonnelSkills(card);
+                var classKeys = new HashSet<string>(MissionRules.Classifications, StringComparer.OrdinalIgnoreCase);
+                var onlySkills = parsed
+                    .Where(kv => !classKeys.Contains(kv.Key))
+                    .OrderBy(kv => kv.Key)
+                    .Select(kv => kv.Value > 1 ? $"{kv.Key}×{kv.Value}" : kv.Key);
+                DetailIcons.Text = string.IsNullOrWhiteSpace(card.Icons) ? "" : $"Icons: {card.Icons}";
+                if (onlySkills.Any())
+                    DetailIcons.Text = (string.IsNullOrEmpty(DetailIcons.Text) ? "" : DetailIcons.Text + "\n")
+                        + "Skills: " + string.Join(", ", onlySkills);
+            }
+            else
+                DetailIcons.Text = string.IsNullOrWhiteSpace(card.Icons) ? "" : $"Icons: {card.Icons}";
         }
         else
         {
@@ -11873,7 +13750,7 @@ public partial class TableWindow : Window
             if (!string.IsNullOrWhiteSpace(card.StrengthOrShields)) attrs.Add($"STR/SHD {card.StrengthOrShields}");
             if (!string.IsNullOrWhiteSpace(card.Points)) attrs.Add($"POINTS {card.Points}");
             DetailAttributes.Text = string.Join("  •  ", attrs);
-            DetailClass.Text = string.IsNullOrWhiteSpace(card.Class) ? "" : $"Class: {card.Class}";
+            DetailClass.Text = string.IsNullOrWhiteSpace(card.Class) ? "" : $"Classification: {card.Class}";
             DetailStaff.Text = string.IsNullOrWhiteSpace(card.Staff) ? "" : $"Staffing: {card.Staff}";
             DetailIcons.Text = string.IsNullOrWhiteSpace(card.Icons) ? "" : $"Icons: {card.Icons}";
         }
@@ -11897,19 +13774,272 @@ public partial class TableWindow : Window
     private void OpenCardDetailPopup()
     {
         if (_detailCard == null) return;
+        FillDetailStackSection(_detailHost);
         if (CardDetailOverlay != null)
             CardDetailOverlay.Visibility = Visibility.Visible;
+    }
+
+    /// <summary>
+    /// Host double-click: show scrollable contents + crew/stats under the card detail.
+    /// </summary>
+    private void FillDetailStackSection(Border? host)
+    {
+        if (DetailStackSection == null || DetailStackCards == null)
+            return;
+
+        DetailStackCards.Children.Clear();
+        if (DetailStackStats != null) DetailStackStats.Text = "";
+
+        if (host == null || host.Tag is not Card hostCard)
+        {
+            DetailStackSection.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        bool isMission = string.Equals(hostCard.Type, "Mission", StringComparison.OrdinalIgnoreCase);
+        bool isHostKind = isMission || IsShipCard(hostCard) || IsFacilityCard(hostCard);
+        if (!isHostKind)
+        {
+            DetailStackSection.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        DetailStackSection.Visibility = Visibility.Visible;
+        if (DetailStackTitle != null)
+        {
+            if (_hostStripBeam)
+                DetailStackTitle.Text = $"BEAM — check cards to move from {hostCard.Name}";
+            else
+                DetailStackTitle.Text = isMission
+                    ? $"Contents under {hostCard.Name}"
+                    : $"Contents of {hostCard.Name}";
+        }
+
+        UpdateDetailBeamSelectButton(host);
+
+        // Crew / team stats (same data as the old TeamOverlay)
+        var sb = new System.Text.StringBuilder();
+        if (IsShipCard(hostCard))
+            sb.AppendLine(FormatShipEffectiveLine(hostCard));
+        for (int p = 1; p <= 2; p++)
+        {
+            var present = GetAllCardsOnHost(host, p);
+            if (!present.Any()) continue;
+            sb.AppendLine($"— Player {p} —");
+            if (present.Any(ModifierRules.IsPersonnelCard))
+                sb.AppendLine(ModifierRules.FormatTeamSummary(ModifierRules.SummarizeTeam(present, p), p));
+        }
+        if (DetailStackStats != null)
+            DetailStackStats.Text = sb.ToString().TrimEnd();
+
+        void AddStackMini(Card c, string? badge = null, Border? cardBorder = null)
+        {
+            var mini = CreateMiniCard(c, faceDown: false);
+            mini.Width = 72;
+            mini.Height = 100;
+            mini.Margin = new Thickness(3);
+            mini.Cursor = Cursors.Hand;
+            if (!string.IsNullOrEmpty(badge))
+                mini.ToolTip = $"{c.Name}\n{badge}\nClick = show in this window · RMB hold = enlarge";
+            else
+                mini.ToolTip = $"{c.Name}\nClick = show in this window · RMB hold = enlarge";
+
+            Card cRef = c;
+            mini.MouseLeftButtonDown += (_, ev) =>
+            {
+                ShowCardDetail(cRef);
+                ev.Handled = true;
+            };
+            mini.MouseRightButtonDown += (s, ev) =>
+            {
+                ShowCardDetail(cRef);
+                BeginHoldZoom(cRef, s as IInputElement);
+                ev.Handled = true;
+            };
+            mini.MouseRightButtonUp += (_, ev) =>
+            {
+                if (_holdZoomActive) { EndHoldZoom(); ev.Handled = true; }
+            };
+
+            bool beamThis = _hostStripBeam && cardBorder != null
+                            && CardOwner(cardBorder) == _activePlayer
+                            && IsBeamableCard(c);
+            if (beamThis)
+            {
+                var cell = new Grid { Margin = new Thickness(2) };
+                var cb = new CheckBox
+                {
+                    IsChecked = _beamSelected.Contains(cardBorder!),
+                    Tag = cardBorder,
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    VerticalAlignment = VerticalAlignment.Top,
+                    Margin = new Thickness(2, 2, 0, 0),
+                    ToolTip = "Select for beam"
+                };
+                Panel.SetZIndex(cb, 5);
+                cb.Checked += BeamSelect_Changed;
+                cb.Unchecked += BeamSelect_Changed;
+                cell.Children.Add(mini);
+                cell.Children.Add(cb);
+                DetailStackCards.Children.Add(cell);
+            }
+            else
+                DetailStackCards.Children.Add(mini);
+        }
+
+        // Last dilemma faced at this mission
+        if (_lastEncounteredDilemma.TryGetValue(host, out var lastDil) && lastDil != null)
+        {
+            DetailStackCards.Children.Add(new TextBlock
+            {
+                Text = "Last dilemma",
+                Foreground = new SolidColorBrush(Color.FromRgb(220, 120, 100)),
+                FontSize = 11,
+                FontWeight = FontWeights.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(4, 0, 6, 0)
+            });
+            AddStackMini(lastDil, "Last encountered");
+        }
+
+        // Artifacts revealed mid-attempt (face-up for both; not acquired yet)
+        if (_revealedArtifactsUnderMission.TryGetValue(host, out var foundArts) && foundArts.Count > 0)
+        {
+            DetailStackCards.Children.Add(new TextBlock
+            {
+                Text = $"Found artifacts ({foundArts.Count})",
+                Foreground = new SolidColorBrush(Color.FromRgb(200, 160, 80)),
+                FontSize = 11,
+                FontWeight = FontWeights.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(4, 0, 6, 0)
+            });
+            foreach (var ac in foundArts)
+                AddStackMini(ac, "Revealed — acquired when mission is solved");
+        }
+
+        // Remaining face-down seed under mission (count only unless Dev reveal)
+        if (_seedUnderMission.TryGetValue(host, out var seeds) && seeds.Count > 0)
+        {
+            DetailStackCards.Children.Add(new TextBlock
+            {
+                Text = _devRevealSeed ? $"Seed remaining ({seeds.Count})" : $"Seed remaining: {seeds.Count} face-down",
+                Foreground = new SolidColorBrush(Color.FromRgb(180, 160, 100)),
+                FontSize = 11,
+                FontWeight = FontWeights.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(4, 0, 6, 0)
+            });
+            if (_devRevealSeed)
+            {
+                foreach (var sbord in seeds)
+                {
+                    if (sbord.Tag is Card sc)
+                        AddStackMini(sc, "Seed under mission");
+                }
+            }
+        }
+
+        // Attached events on host
+        foreach (var ae in EventsOn(host))
+            AddStackMini(ae.Card, ae.Countdown > 0 ? $"Event · countdown {ae.Countdown}" : "Event");
+        foreach (var ad in _attachedDilemmas.Where(d => ReferenceEquals(d.Host, host)))
+            AddStackMini(ad.Card, ad.Countdown > 0 ? $"Dilemma · countdown {ad.Countdown}" : "Dilemma");
+
+        // Aboard / present
+        if (_stackOnHost.TryGetValue(host, out var list) && list.Count > 0)
+        {
+            foreach (var b in list)
+            {
+                if (b.Tag is not Card c) continue;
+                if (EventRules.IsEvent(c) && EventsOn(host).Any(ae => ReferenceEquals(ae.Card, c)))
+                    continue;
+                AddStackMini(c, cardBorder: b);
+            }
+        }
+
+        if (DetailStackCards.Children.Count == 0)
+        {
+            DetailStackCards.Children.Add(new TextBlock
+            {
+                Text = "(empty)",
+                Foreground = Brushes.Gray,
+                FontSize = 12,
+                Margin = new Thickness(4)
+            });
+        }
+    }
+
+    private void BtnCardDetailClose_Click(object sender, RoutedEventArgs e)
+    {
+        CloseCardDetailPopup();
+    }
+
+    private void UpdateDetailBeamSelectButton(Border? host)
+    {
+        if (BtnDetailBeamSelect == null) return;
+        if (!_hostStripBeam || host == null)
+        {
+            BtnDetailBeamSelect.Visibility = Visibility.Collapsed;
+            return;
+        }
+        BtnDetailBeamSelect.Visibility = Visibility.Visible;
+        bool allOn = true;
+        if (_stackOnHost.TryGetValue(host, out var crewList))
+        {
+            var beamable = crewList
+                .Where(b => b.Tag is Card c && CardOwner(b) == _activePlayer && IsBeamableCard(c))
+                .ToList();
+            allOn = beamable.Count > 0 && beamable.All(b => _beamSelected.Contains(b));
+        }
+        // All selected → show "Select none" (red). Partial/none → "Select all" (green).
+        if (allOn)
+        {
+            BtnDetailBeamSelect.Content = "Select none";
+            BtnDetailBeamSelect.Background = new SolidColorBrush(Color.FromRgb(90, 40, 40));
+            BtnDetailBeamSelect.Foreground = new SolidColorBrush(Color.FromRgb(255, 180, 180));
+            BtnDetailBeamSelect.BorderBrush = new SolidColorBrush(Color.FromRgb(180, 80, 80));
+        }
+        else
+        {
+            BtnDetailBeamSelect.Content = "Select all";
+            BtnDetailBeamSelect.Background = new SolidColorBrush(Color.FromRgb(40, 90, 50));
+            BtnDetailBeamSelect.Foreground = new SolidColorBrush(Color.FromRgb(180, 255, 190));
+            BtnDetailBeamSelect.BorderBrush = new SolidColorBrush(Color.FromRgb(80, 180, 100));
+        }
+    }
+
+    private void BtnDetailBeamSelect_Click(object sender, RoutedEventArgs e)
+    {
+        var host = _detailHost ?? _hostStripHost;
+        if (host == null || !_stackOnHost.TryGetValue(host, out var crewList)) return;
+        var beamable = crewList
+            .Where(b => b.Tag is Card c && CardOwner(b) == _activePlayer && IsBeamableCard(c))
+            .ToList();
+        bool allOn = beamable.Count > 0 && beamable.All(b => _beamSelected.Contains(b));
+        if (allOn)
+        {
+            foreach (var b in beamable) _beamSelected.Remove(b);
+        }
+        else
+        {
+            foreach (var b in beamable) _beamSelected.Add(b);
+        }
+        StatusText.Text = $"BEAM: {_beamSelected.Count} card(s) selected – click destination.";
+        FillDetailStackSection(host);
     }
 
     private void CloseCardDetailPopup()
     {
         if (CardDetailOverlay != null)
             CardDetailOverlay.Visibility = Visibility.Collapsed;
-    }
-
-    private void BtnCardDetailClose_Click(object sender, RoutedEventArgs e)
-    {
-        CloseCardDetailPopup();
+        if (DetailStackCards != null)
+            DetailStackCards.Children.Clear();
+        if (DetailStackSection != null)
+            DetailStackSection.Visibility = Visibility.Collapsed;
+        if (BtnDetailBeamSelect != null)
+            BtnDetailBeamSelect.Visibility = Visibility.Collapsed;
+        _detailHost = null;
     }
 
     private void CardDetailOverlay_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
