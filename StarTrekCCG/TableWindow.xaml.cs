@@ -279,6 +279,13 @@ public partial class TableWindow : Window
         public string? EspionageAs { get; init; }
         public string? EspionageOn { get; init; }
         public int? TravelerPlayer { get; set; }
+
+        /// <summary>Compendium turn wording: next / every / each / owner's next.</summary>
+        public TimingRules.TurnScope TurnScope { get; set; } = TimingRules.TurnScope.EveryTurn;
+        /// <summary>Start of turn vs end of turn trigger.</summary>
+        public TimingRules.TurnPhasePoint PhasePoint { get; set; } = TimingRules.TurnPhasePoint.EndOfTurn;
+        /// <summary>Player for SpecificPlayerNextTurn / EachSubjectTurn (owner/controller).</summary>
+        public int? ScopePlayer { get; set; }
     }
 
     private readonly List<AttachedEvent> _attachedEvents = new();
@@ -5624,7 +5631,7 @@ public partial class TableWindow : Window
         UnstopAllCards(); // Compendium: Stopped endet zu Beginn des nächsten Zugs (hier Zugwechsel)
         ResetShipRangesForTurn();
         RefreshRedAlertForTurn();
-        ProcessCrosisStartOfTurn();
+        ProcessStartOfTurnTimedEffects();
         ProcessStartOfTurnDilemmas(_session.ActivePlayer);
         SyncSessionToUi();
         ApplyPerspective();
@@ -7596,7 +7603,7 @@ public partial class TableWindow : Window
         return t.Contains("equipment");
     }
 
-    /// <summary>Personnel, Equipment, and acquired Artifacts can beam with the team.</summary>
+    /// <summary>Personnel, Equipment, acquired Artifacts; Rogue Borg only with Lore Returns (handled via host).</summary>
     private static bool IsBeamableCard(Card c)
     {
         if (c == null) return false;
@@ -7604,7 +7611,26 @@ public partial class TableWindow : Window
         if (t.Contains("personnel") || t.Contains("animal") || t.Contains("android")) return true;
         if (t.Contains("equipment")) return true;
         if (t.Contains("artifact")) return true;
+        // Interrupt "Rogue Borg" is beamable after Lore Returns — caller must also check ownership/Lore.
+        if ((c.Name ?? "").Equals("Rogue Borg", StringComparison.OrdinalIgnoreCase)) return true;
         return false;
+    }
+
+    private bool IsBeamableFromHost(Card c, Border host, Border cardBorder)
+    {
+        if (IsRogueBorgCard(c))
+        {
+            if (!ShipHasLoreReturns(host)) return false;
+            int o = GetBorderOwner(cardBorder);
+            if (o == 0) o = CardOwner(cardBorder);
+            var unit = _rogueBorg.FirstOrDefault(r => ReferenceEquals(r.Visual, cardBorder)
+                                                      || ReferenceEquals(r.Card, c) && ReferenceEquals(r.Host, host));
+            if (unit != null && unit.Controller != 0)
+                o = unit.Controller;
+            return o == _activePlayer;
+        }
+        if (!IsBeamableCard(c)) return false;
+        return CardOwner(cardBorder) == _activePlayer || GetBorderOwner(cardBorder) == _activePlayer;
     }
 
     // ---------- Snap-Vorschau + Host-Umrandung ----------
@@ -8155,6 +8181,21 @@ public partial class TableWindow : Window
 
         string text1 = LabelFor(crew1, equip1, art1, other1, 1);
         string text2 = LabelFor(crew2, equip2, art2, other2, 2);
+
+        int rbCount = CountRogueBorgOn(host);
+        if (rbCount > 0)
+        {
+            string rbBadge = $"RB×{rbCount} STR{RogueBorgStrengthOn(host)}";
+            if (HostHasCrosis(host)) rbBadge += " C×2";
+            if (ShipHasLoreReturns(host)) rbBadge += " Lore";
+            // Show on active controller side if Lore, else P1 badge as neutral notice
+            var units = RogueBorgUnitsOn(host).ToList();
+            int ctrl = units.Select(u => u.Controller).FirstOrDefault(c => c != 0);
+            if (ctrl == 2)
+                text2 = string.IsNullOrEmpty(text2) ? rbBadge : text2 + " · " + rbBadge;
+            else
+                text1 = string.IsNullOrEmpty(text1) ? rbBadge : text1 + " · " + rbBadge;
+        }
 
         // Badge P1: unter der Karte
         EnsureSideBadge(host, playerSide: 1, text1, isMission);
@@ -9359,7 +9400,11 @@ public partial class TableWindow : Window
                     var host = _interruptTargetHost;
                     if (host == null || host.Tag is not Card ship || !IsShipCard(ship))
                     {
-                        ShowPlayError("Crosis: drop onto a ship.");
+                        ShowPlayError("Crosis: drop onto a ship. Card returns to hand.");
+                        var hand = controller == 1 ? _handCards : _oppHandCards;
+                        if (!hand.Contains(card)) hand.Add(card);
+                        RefreshHandStrips();
+                        RefreshZoneCounts();
                         break;
                     }
                     _crosisShips.Add(host);
@@ -9369,17 +9414,30 @@ public partial class TableWindow : Window
                         Kind = EventRules.Persist.None,
                         Countdown = 1,
                         Host = host,
-                        Owner = controller
+                        Owner = controller,
+                        // "At start of next turn, discard" = chronological next turn
+                        TurnScope = TimingRules.TurnScope.NextTurn,
+                        PhasePoint = TimingRules.TurnPhasePoint.StartOfTurn,
+                        ScopePlayer = null
                     });
-                    // Keep interrupt visually with ship
-                    if (!_stackOnHost.ContainsKey(host))
-                        _stackOnHost[host] = new List<Border>();
+                    // Visual on ship stack
+                    var crosisBorder = CreateFloatingCard(card);
+                    crosisBorder.Visibility = Visibility.Collapsed;
+                    if (!TableCanvas.Children.Contains(crosisBorder))
+                        TableCanvas.Children.Add(crosisBorder);
+                    AddCardToHostStack(host, crosisBorder);
+
                     int n = CountRogueBorgOn(host);
+                    int str = RogueBorgStrengthOn(host);
                     ShowCardReveal(card, "Crosis",
-                        $"On {ship.Name}: Rogue Borg STRENGTH doubled ({n} Rogue Borg present).\n"
+                        $"On {ship.Name}: doubles STRENGTH of all Rogue Borg present.\n"
+                        + $"Rogue Borg ×{n}  →  STRENGTH {str} (includes Crosis ×2).\n"
                         + "Discarded at start of next turn.",
                         RevealButtons.Ok, card.Name);
-                    StatusText.Text = $"Crosis on {ship.Name} — Rogue Borg STRENGTH ×2.";
+                    StatusText.Text = $"Crosis on {ship.Name} — Rogue Borg STR {str}.";
+                    _session.Log.Add(_session.TurnNumber, $"P{controller}",
+                        $"Crosis on {ship.Name}: RB STR {str}");
+                    UpdateHostBadge(host);
                     break;
                 }
             case InterruptRules.Effect.EmergencyBeam:
@@ -9739,6 +9797,8 @@ public partial class TableWindow : Window
                 EspionageAs = r.EspionageAs,
                 EspionageOn = r.EspionageOn
             };
+            // Compendium turn wording defaults for known persist kinds
+            AssignTurnScopeForEvent(ae, r.Persist, controller, host);
             if (r.Persist == EventRules.Persist.Traveler)
             {
                 bool timed;
@@ -12061,21 +12121,72 @@ public partial class TableWindow : Window
         }
     }
 
+    private bool SameHostShip(Border? a, Border? b)
+    {
+        if (a == null || b == null) return false;
+        if (ReferenceEquals(a, b)) return true;
+        // Same Card instance after layout/commandeer edge cases
+        return a.Tag is Card ca && b.Tag is Card cb && ReferenceEquals(ca, cb);
+    }
+
+    private IEnumerable<RogueBorgUnit> RogueBorgUnitsOn(Border host) =>
+        _rogueBorg.Where(r => SameHostShip(r.Host, host));
+
     private int CountRogueBorgOn(Border host) =>
-        _rogueBorg.Count(r => ReferenceEquals(r.Host, host));
+        RogueBorgUnitsOn(host).Count();
+
+    private bool ShipHasLoreReturns(Border ship) =>
+        _attachedEvents.Any(e => e.Kind == EventRules.Persist.LoreReturns
+                                 && ReferenceEquals(e.Host, ship));
 
     private bool ShipStaffedByRogueBorg(Border ship) =>
-        CountRogueBorgOn(ship) > 0
-        && _attachedEvents.Any(e => e.Kind == EventRules.Persist.LoreReturns
-                                    && ReferenceEquals(e.Host, ship));
+        CountRogueBorgOn(ship) > 0 && ShipHasLoreReturns(ship);
 
+    private bool HostHasCrosis(Border host) =>
+        _crosisShips.Contains(host)
+        || _attachedEvents.Any(e => ReferenceEquals(e.Host, host)
+                                    && (e.Card.Name ?? "").Equals("Crosis", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// X = number of Rogue Borg present.
+    /// Each Rogue Borg has STRENGTH = X; total Away Team STRENGTH = X×X.
+    /// Crosis doubles STRENGTH of all present → each 2X, total 2·X².
+    /// </summary>
     private int RogueBorgStrengthOn(Border host)
     {
         int n = CountRogueBorgOn(host);
         if (n == 0) return 0;
-        int each = 5;
-        if (_crosisShips.Contains(host)) each *= 2;
-        return n * each;
+        int total = n * n; // each has X → X² total
+        if (HostHasCrosis(host)) total *= 2;
+        return total;
+    }
+
+    /// <summary>Per-Borg STRENGTH in pairings: X each, or 2X with Crosis.</summary>
+    private int RogueBorgStrengthEach(Border host)
+    {
+        int n = CountRogueBorgOn(host);
+        if (n == 0) return 0;
+        return HostHasCrosis(host) ? n * 2 : n;
+    }
+
+    private string FormatRogueBorgDetailLine(Border host)
+    {
+        int n = CountRogueBorgOn(host);
+        if (n == 0) return "";
+        int each = RogueBorgStrengthEach(host);
+        int str = RogueBorgStrengthOn(host);
+        var units = RogueBorgUnitsOn(host).ToList();
+        string ctrl;
+        if (units.Any(u => u.Controller == 1) && units.Any(u => u.Controller == 2))
+            ctrl = "mixed control";
+        else if (units.Any(u => u.Controller == 1))
+            ctrl = "controlled by P1 (Lore Returns)";
+        else if (units.Any(u => u.Controller == 2))
+            ctrl = "controlled by P2 (Lore Returns)";
+        else
+            ctrl = "self-controlling";
+        string crosis = HostHasCrosis(host) ? " · Crosis ×2" : "";
+        return $"Rogue Borg ×{n}  ·  each STR {each}  ·  total STRENGTH {str} (X={n}{(HostHasCrosis(host) ? "×2" : "")})  ·  {ctrl}{crosis}";
     }
 
     private void PlaceRogueBorg(Card card, Border host, int playedBy)
@@ -12087,13 +12198,13 @@ public partial class TableWindow : Window
             PlayedBy = playedBy,
             Controller = 0
         };
-        // Visible on ship stack (detail popup / host contents)
         var border = CreateFloatingCard(card);
         border.IsHitTestVisible = true;
         border.Visibility = Visibility.Collapsed;
         if (!TableCanvas.Children.Contains(border))
             TableCanvas.Children.Add(border);
         unit.Visual = border;
+        SetBorderOwner(border, 0); // self-controlling until Lore Returns
         AddCardToHostStack(host, border);
         _rogueBorg.Add(unit);
 
@@ -12102,9 +12213,9 @@ public partial class TableWindow : Window
         string shipName = (host.Tag as Card)?.Name ?? "ship";
         ShowCardReveal(card, "Rogue Borg",
             $"Aboard {shipName}.\n"
-            + $"Rogue Borg present: {n} (STRENGTH {str}"
-            + (_crosisShips.Contains(host) ? ", Crosis active" : "") + ").\n"
-            + "End of every player's turn: they battle that player's personnel present.",
+            + $"Rogue Borg present: {n}  ·  each STRENGTH {RogueBorgStrengthEach(host)}  ·  total {str}"
+            + (HostHasCrosis(host) ? " (Crosis ×2)" : "") + ".\n"
+            + "End of every player's turn: they battle personnel present.",
             RevealButtons.Ok, card.Name);
         StatusText.Text = $"Rogue Borg on {shipName} ({n} present, STR {str}).";
         _session.Log.Add(_session.TurnNumber, $"P{playedBy}",
@@ -12138,7 +12249,11 @@ public partial class TableWindow : Window
         }
 
         foreach (var rb in _rogueBorg.Where(r => ReferenceEquals(r.Host, host)))
+        {
             rb.Controller = controller;
+            if (rb.Visual != null)
+                SetBorderOwner(rb.Visual, controller);
+        }
         SetBorderOwner(host, controller);
 
         ShowCardReveal(ev, "Lore Returns",
@@ -12149,21 +12264,47 @@ public partial class TableWindow : Window
         StatusText.Text = $"Lore Returns: P{controller} commandeers {ship.Name} with Rogue Borg.";
         _session.Log.Add(_session.TurnNumber, $"P{controller}",
             $"Lore Returns commandeers {ship.Name}");
+        UpdateHostBadge(host);
         return true;
     }
 
+    private void DiscardRogueBorgUnit(RogueBorgUnit unit, string reason)
+    {
+        if (unit.Visual != null)
+        {
+            if (_stackOnHost.TryGetValue(unit.Host, out var list))
+                list.Remove(unit.Visual);
+            if (TableCanvas.Children.Contains(unit.Visual))
+                TableCanvas.Children.Remove(unit.Visual);
+        }
+        _rogueBorg.Remove(unit);
+        int owner = unit.Controller != 0 ? unit.Controller : unit.PlayedBy;
+        if (owner == 0) owner = 1;
+        SendCardTo(unit.Card, owner, TimingRules.Destination.Discard);
+        _session.Log.Add(_session.TurnNumber, "sys",
+            $"Rogue Borg discarded ({reason})");
+        UpdateHostBadge(unit.Host);
+    }
+
     /// <summary>
-    /// End of every player's turn: Rogue Borg Away Team battles that player's personnel present.
+    /// End of every player's turn (P1 and P2): Rogue Borg battle personnel aboard the ship.
+    /// Ship owner does not matter; any personnel present (either player) can be fought.
     /// </summary>
     private void ProcessRogueBorgEndOfTurn(int finishingPlayer)
     {
+        // Prune dead references (host removed from canvas)
+        _rogueBorg.RemoveAll(r => r.Host == null || !TableCanvas.Children.Contains(r.Host));
+
         foreach (var group in _rogueBorg.GroupBy(r => r.Host).ToList())
         {
             var host = group.Key;
-            if (host.Tag is not Card ship) continue;
+            if (host?.Tag is not Card ship) continue;
+            var units = group.ToList();
+            int n = units.Count;
             int str = RogueBorgStrengthOn(host);
-            if (str <= 0) continue;
+            if (n == 0 || str <= 0) continue;
 
+            // All non-RB personnel on the ship (any owner) — battle every turn if anyone is present
             var defenders = new List<Border>();
             if (_stackOnHost.TryGetValue(host, out var list))
             {
@@ -12172,74 +12313,179 @@ public partial class TableWindow : Window
                     if (b.Tag is not Card c) continue;
                     if (!ModifierRules.IsPersonnelCard(c)) continue;
                     if (IsRogueBorgCard(c)) continue;
-                    int o = GetBorderOwner(b);
-                    if (o == 0) o = CardOwner(b);
-                    if (o != finishingPlayer) continue;
                     defenders.Add(b);
                 }
             }
-            if (defenders.Count == 0) continue;
-
-            // Synthetic Rogue Borg force: one combatant with total STRENGTH
-            var atkCard = new Card
+            if (defenders.Count == 0)
             {
-                Name = $"Rogue Borg (×{CountRogueBorgOn(host)})",
-                Type = "Personnel",
-                StrengthOrShields = str.ToString(),
-                Class = "CIVILIAN"
-            };
+                _session.Log.Add(_session.TurnNumber, "sys",
+                    $"Rogue Borg on {ship.Name}: end of P{finishingPlayer} turn — no personnel present (no battle).");
+                continue;
+            }
+
+            // One combatant per Rogue Borg; STRENGTH 1 each (2 with Crosis)
+            int each = RogueBorgStrengthEach(host);
+            var atkCards = new List<Card>();
+            var unitBySynthetic = new Dictionary<Card, RogueBorgUnit>();
+            for (int i = 0; i < units.Count; i++)
+            {
+                var syn = new Card
+                {
+                    Name = $"Rogue Borg #{i + 1}",
+                    Type = "Personnel",
+                    StrengthOrShields = each.ToString(),
+                    Class = "CIVILIAN"
+                };
+                atkCards.Add(syn);
+                unitBySynthetic[syn] = units[i];
+            }
+
             var defCards = defenders.Select(b => (Card)b.Tag!).ToList();
             var result = BattleRules.ResolvePersonnelBattle(
-                new[] { atkCard }, defCards, null,
-                new[] { atkCard }, defCards, 0, finishingPlayer);
+                atkCards, defCards, null,
+                atkCards, defCards, 0, finishingPlayer);
             if (!result.Ok) continue;
 
             var killed = new HashSet<string>(result.KilledNames, StringComparer.OrdinalIgnoreCase);
+
             foreach (var b in defenders.ToList())
             {
                 if (b.Tag is not Card c) continue;
+                int victimOwner = GetBorderOwner(b);
+                if (victimOwner == 0) victimOwner = CardOwner(b);
+                if (victimOwner == 0) victimOwner = finishingPlayer;
                 if (killed.Contains(c.Name ?? ""))
-                    DiscardPersonnelBorder(b, c, finishingPlayer);
+                    DiscardPersonnelBorder(b, c, victimOwner);
                 else
                     MarkStopped(b);
             }
 
-            // If defenders overpower Rogue Borg mortally, remove one token per mortal
-            // (sandbox: if all RB "die" when total crew strength dominates heavily — skip for now)
+            // Rogue Borg that were mortally wounded → discard (no longer active)
+            int rbKilled = 0;
+            foreach (var kv in unitBySynthetic)
+            {
+                if (!killed.Contains(kv.Key.Name ?? "")) continue;
+                DiscardRogueBorgUnit(kv.Value, "killed in personnel battle");
+                rbKilled++;
+            }
 
-            ShowCardReveal(group.First().Card, "Rogue Borg battle",
+            int strAfter = RogueBorgStrengthOn(host);
+            ShowCardReveal(units[0].Card, "Rogue Borg battle",
                 $"End of P{finishingPlayer}'s turn aboard {ship.Name}.\n"
-                + $"Rogue Borg STR {str} vs crew.\n{result.LogSummary}",
+                + $"Rogue Borg: {n} × STR {each} each = total {str}"
+                + (HostHasCrosis(host) ? " (Crosis ×2)" : "") + ".\n"
+                + result.LogSummary
+                + (rbKilled > 0 ? $"\nRogue Borg killed → discard: {rbKilled}." : "")
+                + $"\nRemaining: {CountRogueBorgOn(host)} Rogue Borg, STRENGTH {strAfter}.",
                 RevealButtons.Ok, ship.Name);
             _session.Log.Add(_session.TurnNumber, "sys",
-                $"Rogue Borg vs P{finishingPlayer} on {ship.Name}: {result.LogSummary}");
+                $"Rogue Borg vs P{finishingPlayer} on {ship.Name}: {result.LogSummary}; RB killed={rbKilled}");
         }
     }
 
     private static bool IsRogueBorgCard(Card c) =>
         (c.Name ?? "").Equals("Rogue Borg", StringComparison.OrdinalIgnoreCase)
-        || (c.Name ?? "").StartsWith("Rogue Borg (", StringComparison.OrdinalIgnoreCase);
+        || (c.Name ?? "").StartsWith("Rogue Borg", StringComparison.OrdinalIgnoreCase);
 
-    private void ProcessCrosisStartOfTurn()
+    /// <summary>
+    /// Map known event persist kinds to Compendium turn wording.
+    /// Future cards can set TurnScope/PhasePoint/ScopePlayer explicitly.
+    /// </summary>
+    private void AssignTurnScopeForEvent(AttachedEvent ae, EventRules.Persist persist, int controller, Border? host)
     {
-        // Crosis: discard at start of next turn (any player's start after it was played)
-        foreach (var ae in _attachedEvents
-                     .Where(e => (e.Card.Name ?? "").Equals("Crosis", StringComparison.OrdinalIgnoreCase))
-                     .ToList())
+        switch (persist)
         {
-            if (ae.Countdown > 0)
-            {
-                ae.Countdown--;
-                if (ae.Countdown > 0) continue;
-            }
-            if (ae.Host != null)
-                _crosisShips.Remove(ae.Host);
-            _attachedEvents.Remove(ae);
-            SendCardTo(ae.Card, ae.Owner, TimingRules.Destination.Discard);
-            _session.Log.Add(_session.TurnNumber, "sys", "Crosis discarded (start of turn).");
-            StatusText.Text = "Crosis discarded at start of turn.";
+            case EventRules.Persist.WarpCore:
+                // "destroyed at end of controller's next turn"
+                ae.TurnScope = TimingRules.TurnScope.SpecificPlayerNextTurn;
+                ae.PhasePoint = TimingRules.TurnPhasePoint.EndOfTurn;
+                ae.ScopePlayer = host != null && GetBorderOwner(host) is int o and > 0 ? o : controller;
+                break;
+            case EventRules.Persist.PlasmaFire:
+                // Damages at end of each of that ship's controller's turns
+                ae.TurnScope = TimingRules.TurnScope.EachSubjectTurn;
+                ae.PhasePoint = TimingRules.TurnPhasePoint.EndOfTurn;
+                ae.ScopePlayer = host != null && GetBorderOwner(host) is int po and > 0 ? po : controller;
+                break;
+            case EventRules.Persist.AntiTime:
+                ae.TurnScope = TimingRules.TurnScope.EveryTurn;
+                ae.PhasePoint = TimingRules.TurnPhasePoint.EndOfTurn;
+                ae.ScopePlayer = controller;
+                break;
+            case EventRules.Persist.StaticWarp:
+                // End of each opponent's turn (effect body still filters Owner != turn player)
+                ae.TurnScope = TimingRules.TurnScope.EveryTurn;
+                ae.PhasePoint = TimingRules.TurnPhasePoint.EndOfTurn;
+                ae.ScopePlayer = controller;
+                break;
+            case EventRules.Persist.Kidnappers:
+            case EventRules.Persist.Traveler:
+                // "each of your turns" style end-of-turn for the subject
+                ae.TurnScope = TimingRules.TurnScope.EachSubjectTurn;
+                ae.PhasePoint = TimingRules.TurnPhasePoint.EndOfTurn;
+                ae.ScopePlayer = controller;
+                break;
+            default:
+                if (ae.Countdown > 0)
+                {
+                    ae.TurnScope = TimingRules.TurnScope.EveryTurn;
+                    ae.PhasePoint = TimingRules.TurnPhasePoint.EndOfTurn;
+                }
+                break;
         }
     }
+
+    /// <summary>
+    /// Start-of-turn delayed effects using TimingRules.TurnScope
+    /// (e.g. Crosis: "At start of next turn, discard").
+    /// Called after ActivePlayer has switched to the player whose turn is beginning.
+    /// </summary>
+    private void ProcessStartOfTurnTimedEffects()
+    {
+        int turnPlayer = _session.ActivePlayer;
+        foreach (var ae in _attachedEvents
+                     .Where(e => e.PhasePoint == TimingRules.TurnPhasePoint.StartOfTurn)
+                     .ToList())
+        {
+            int cd = ae.Countdown;
+            bool expired = TimingRules.TickCountdown(
+                ref cd,
+                ae.TurnScope,
+                ae.PhasePoint,
+                TimingRules.TurnPhasePoint.StartOfTurn,
+                turnPlayer,
+                ae.ScopePlayer);
+            ae.Countdown = cd;
+            if (!expired) continue;
+
+            // Crosis and any other start-of-next-turn discards
+            if ((ae.Card.Name ?? "").Equals("Crosis", StringComparison.OrdinalIgnoreCase)
+                || ae.TurnScope == TimingRules.TurnScope.NextTurn)
+            {
+                if (ae.Host != null)
+                    _crosisShips.Remove(ae.Host);
+                _attachedEvents.Remove(ae);
+                if (ae.Host != null && _stackOnHost.TryGetValue(ae.Host, out var stack))
+                {
+                    foreach (var b in stack.Where(x => x.Tag is Card c && ReferenceEquals(c, ae.Card)).ToList())
+                    {
+                        stack.Remove(b);
+                        if (TableCanvas.Children.Contains(b))
+                            TableCanvas.Children.Remove(b);
+                    }
+                }
+                SendCardTo(ae.Card, ae.Owner, TimingRules.Destination.Discard);
+                _session.Log.Add(_session.TurnNumber, "sys",
+                    $"{ae.Card.Name} discarded (start of {TimingRules.DescribeScope(ae.TurnScope, ae.ScopePlayer)}).");
+                StatusText.Text = $"{ae.Card.Name} discarded at start of turn.";
+                if (ae.Host != null)
+                    UpdateHostBadge(ae.Host);
+            }
+        }
+    }
+
+    [Obsolete("Use ProcessStartOfTurnTimedEffects")]
+    private void ProcessCrosisStartOfTurn() => ProcessStartOfTurnTimedEffects();
 
     private void TryDestroyBorgShipInBattle(Border shipBorder, Card shipCard)
     {
@@ -12505,8 +12751,18 @@ public partial class TableWindow : Window
             }
 
             if (e.Kind == EventRules.Persist.PlasmaFire && e.Host != null
-                && GetBorderOwner(e.Host) == owner && e.Host.Tag is Card ship)
+                && e.Host.Tag is Card ship)
             {
+                int shipOwner = GetBorderOwner(e.Host);
+                if (shipOwner == 0) shipOwner = e.Owner;
+                e.ScopePlayer ??= shipOwner;
+                e.TurnScope = TimingRules.TurnScope.EachSubjectTurn;
+                e.PhasePoint = TimingRules.TurnPhasePoint.EndOfTurn;
+                if (!TimingRules.ShouldProcessOnTurn(
+                        e.TurnScope, e.PhasePoint,
+                        TimingRules.TurnPhasePoint.EndOfTurn, owner, e.ScopePlayer))
+                    continue;
+
                 // "May be nullified by SECURITY" is optional — not automatic.
                 int next = Math.Min(100, GetHullDamage(e.Host) + 50);
                 ApplyHullDamage(e.Host, ship, next);
@@ -12517,7 +12773,7 @@ public partial class TableWindow : Window
                     ShowCardReveal(e.Card, "Plasma Fire",
                         $"{ship.Name} is destroyed by Plasma Fire (HULL 100%).",
                         RevealButtons.Ok, ship.Name, autoCloseMs: 4000);
-                    DestroyShipOrFacility(e.Host, ship, owner);
+                    DestroyShipOrFacility(e.Host, ship, shipOwner);
                     _attachedEvents.Remove(e);
                     SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
                 }
@@ -12530,9 +12786,20 @@ public partial class TableWindow : Window
                 }
             }
 
-            if (e.Kind == EventRules.Persist.WarpCore && e.Host != null
-                && GetBorderOwner(e.Host) == owner)
+            if (e.Kind == EventRules.Persist.WarpCore && e.Host != null)
             {
+                // "End of owner's next turn" → only when finishing player is ship controller
+                int shipOwner = GetBorderOwner(e.Host);
+                if (shipOwner == 0) shipOwner = e.Owner;
+                e.ScopePlayer ??= shipOwner;
+                e.TurnScope = TimingRules.TurnScope.SpecificPlayerNextTurn;
+                e.PhasePoint = TimingRules.TurnPhasePoint.EndOfTurn;
+
+                if (!TimingRules.ShouldProcessOnTurn(
+                        e.TurnScope, e.PhasePoint,
+                        TimingRules.TurnPhasePoint.EndOfTurn, owner, e.ScopePlayer))
+                    continue;
+
                 var crew = GetCrewOnShip(e.Host);
                 if (EventRules.HasSkill(crew, "ENGINEER"))
                 {
@@ -12540,11 +12807,16 @@ public partial class TableWindow : Window
                     SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
                     continue;
                 }
-                e.Countdown--;
-                if (e.Countdown <= 0 && e.Host.Tag is Card ws)
+                int cd = e.Countdown;
+                bool explode = TimingRules.TickCountdown(
+                    ref cd, e.TurnScope, e.PhasePoint,
+                    TimingRules.TurnPhasePoint.EndOfTurn, owner, e.ScopePlayer);
+                e.Countdown = cd;
+                if (explode && e.Host.Tag is Card ws)
                 {
-                    DestroyShipOrFacility(e.Host, ws, owner);
+                    DestroyShipOrFacility(e.Host, ws, shipOwner);
                     _attachedEvents.Remove(e);
+                    SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
                 }
             }
 
@@ -12582,8 +12854,15 @@ public partial class TableWindow : Window
 
             if (e.Kind == EventRules.Persist.AntiTime)
             {
-                e.Countdown--;
-                if (e.Countdown <= 0)
+                // Countdown ticks every turn (both players) by default
+                e.TurnScope = TimingRules.TurnScope.EveryTurn;
+                e.PhasePoint = TimingRules.TurnPhasePoint.EndOfTurn;
+                int cd = e.Countdown;
+                bool done = TimingRules.TickCountdown(
+                    ref cd, e.TurnScope, e.PhasePoint,
+                    TimingRules.TurnPhasePoint.EndOfTurn, owner, e.ScopePlayer);
+                e.Countdown = cd;
+                if (done)
                 {
                     // alle eigenen Personnel ins Draw
                     foreach (var kv in _stackOnHost.ToList())
@@ -13101,13 +13380,12 @@ public partial class TableWindow : Window
         var toMove = list.Where(b =>
         {
             if (b.Tag is not Card c) return false;
-            if (CardOwner(b) != _activePlayer) return false;
             if (_beamSelected.Count > 0 && !_beamSelected.Contains(b)) return false;
-            return IsBeamableCard(c);
+            return IsBeamableFromHost(c, source, b);
         }).ToList();
         if (toMove.Count == 0)
         {
-            ShowPlayError("No cards selected to beam (checkboxes in the hand strip).");
+            ShowPlayError("No cards selected to beam (checkboxes in the detail window).");
             return true;
         }
 
@@ -13116,6 +13394,12 @@ public partial class TableWindow : Window
             RemoveCardFromHostStack(source, b);
             SetBorderOwner(b, _activePlayer);
             AddCardToHostStack(targetHost, b);
+            // Keep Rogue Borg unit host in sync so strength/battles track the new ship
+            foreach (var rb in _rogueBorg.Where(r => ReferenceEquals(r.Visual, b)))
+            {
+                rb.Host = targetHost;
+                rb.Controller = _activePlayer;
+            }
         }
 
         UpdateHostBadge(source);
@@ -13606,6 +13890,9 @@ public partial class TableWindow : Window
     }
 
     /// <summary>Detail line for an attached event/dilemma, including countdown when set.</summary>
+    /// <summary>
+    /// Status line only (name, counter, persist). Full card text lives in DetailText — do not duplicate.
+    /// </summary>
     private static string FormatAttachedCounterLine(string kind, Card card, int countdown, string? persistKind)
     {
         string line = $"{kind}: {card.Name}";
@@ -13619,8 +13906,6 @@ public partial class TableWindow : Window
         if (persistKind != null
             && persistKind.Equals("PlasmaFire", StringComparison.OrdinalIgnoreCase))
             line += "  ·  damages each of controller's EOT";
-        if (!string.IsNullOrWhiteSpace(card.Text))
-            line += $" — {TrimDetail(card.Text!, 100)}";
         return line;
     }
 
@@ -13821,6 +14106,9 @@ public partial class TableWindow : Window
         var sb = new System.Text.StringBuilder();
         if (IsShipCard(hostCard))
             sb.AppendLine(FormatShipEffectiveLine(hostCard));
+        string rbLine = FormatRogueBorgDetailLine(host);
+        if (!string.IsNullOrEmpty(rbLine))
+            sb.AppendLine(rbLine);
         for (int p = 1; p <= 2; p++)
         {
             var present = GetAllCardsOnHost(host, p);
@@ -13862,8 +14150,7 @@ public partial class TableWindow : Window
             };
 
             bool beamThis = _hostStripBeam && cardBorder != null
-                            && CardOwner(cardBorder) == _activePlayer
-                            && IsBeamableCard(c);
+                            && IsBeamableFromHost(c, host, cardBorder);
             if (beamThis)
             {
                 var cell = new Grid { Margin = new Thickness(2) };
@@ -13988,7 +14275,7 @@ public partial class TableWindow : Window
         if (_stackOnHost.TryGetValue(host, out var crewList))
         {
             var beamable = crewList
-                .Where(b => b.Tag is Card c && CardOwner(b) == _activePlayer && IsBeamableCard(c))
+                .Where(b => b.Tag is Card c && IsBeamableFromHost(c, host, b))
                 .ToList();
             allOn = beamable.Count > 0 && beamable.All(b => _beamSelected.Contains(b));
         }
@@ -14014,7 +14301,7 @@ public partial class TableWindow : Window
         var host = _detailHost ?? _hostStripHost;
         if (host == null || !_stackOnHost.TryGetValue(host, out var crewList)) return;
         var beamable = crewList
-            .Where(b => b.Tag is Card c && CardOwner(b) == _activePlayer && IsBeamableCard(c))
+            .Where(b => b.Tag is Card c && IsBeamableFromHost(c, host, b))
             .ToList();
         bool allOn = beamable.Count > 0 && beamable.All(b => _beamSelected.Contains(b));
         if (allOn)

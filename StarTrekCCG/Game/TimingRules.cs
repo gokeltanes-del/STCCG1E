@@ -285,4 +285,111 @@ public static class TimingRules
         }
         return string.Join("\n", lines);
     }
+
+    // ------------------------------------------------------------------
+    // Turn phrasing (Compendium glossary / §5, §12.2)
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// How a delayed effect counts turns.
+    /// </summary>
+    public enum TurnScope
+    {
+        /// <summary>
+        /// "next turn" (unqualified): the chronologically next turn in the game
+        /// (usually the opponent's turn after you play the card).
+        /// </summary>
+        NextTurn,
+
+        /// <summary>
+        /// "your next turn" / "owner's next turn" / "controller's next turn":
+        /// only that specific player's upcoming turn(s).
+        /// </summary>
+        SpecificPlayerNextTurn,
+
+        /// <summary>
+        /// "every turn": every individual turn of every player.
+        /// </summary>
+        EveryTurn,
+
+        /// <summary>
+        /// "each turn" / "per turn" of a subject: only that player's own turns
+        /// (opponent's turns are skipped for the counter).
+        /// </summary>
+        EachSubjectTurn
+    }
+
+    public enum TurnPhasePoint
+    {
+        StartOfTurn,
+        EndOfTurn
+    }
+
+    /// <summary>
+    /// Whether a delayed effect should process/tick on this turn boundary.
+    /// </summary>
+    /// <param name="scope">Card wording scope.</param>
+    /// <param name="phasePoint">When the effect checks (start vs end of turn).</param>
+    /// <param name="currentPhase">The phase point currently being processed.</param>
+    /// <param name="turnPlayer">Player whose turn is starting or ending.</param>
+    /// <param name="scopePlayer">Owner/controller/subject for SpecificPlayer / EachSubject (1 or 2).</param>
+    public static bool ShouldProcessOnTurn(
+        TurnScope scope,
+        TurnPhasePoint phasePoint,
+        TurnPhasePoint currentPhase,
+        int turnPlayer,
+        int? scopePlayer)
+    {
+        if (phasePoint != currentPhase)
+            return false;
+
+        return scope switch
+        {
+            TurnScope.NextTurn => true,
+            TurnScope.EveryTurn => true,
+            TurnScope.SpecificPlayerNextTurn =>
+                scopePlayer is > 0 && turnPlayer == scopePlayer.Value,
+            TurnScope.EachSubjectTurn =>
+                scopePlayer is > 0 && turnPlayer == scopePlayer.Value,
+            _ => true
+        };
+    }
+
+    /// <summary>
+    /// Decrement a countdown if this turn boundary matches the effect's scope.
+    /// Returns true when the countdown reaches 0 (effect should resolve/expire).
+    /// </summary>
+    public static bool TickCountdown(
+        ref int countdown,
+        TurnScope scope,
+        TurnPhasePoint phasePoint,
+        TurnPhasePoint currentPhase,
+        int turnPlayer,
+        int? scopePlayer)
+    {
+        if (!ShouldProcessOnTurn(scope, phasePoint, currentPhase, turnPlayer, scopePlayer))
+            return false;
+        if (countdown <= 0)
+            return true;
+        countdown--;
+        return countdown <= 0;
+    }
+
+    public static string DescribeScope(TurnScope scope, int? scopePlayer = null)
+    {
+        return scope switch
+        {
+            TurnScope.NextTurn => "next turn (chronological)",
+            TurnScope.EveryTurn => "every turn",
+            TurnScope.SpecificPlayerNextTurn =>
+                scopePlayer is > 0
+                    ? $"P{scopePlayer}'s next turn"
+                    : "owner's/controller's next turn",
+            TurnScope.EachSubjectTurn =>
+                scopePlayer is > 0
+                    ? $"each of P{scopePlayer}'s turns"
+                    : "each turn of the subject",
+            _ => scope.ToString()
+        };
+    }
 }

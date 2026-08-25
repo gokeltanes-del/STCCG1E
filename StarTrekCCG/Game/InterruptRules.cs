@@ -326,8 +326,8 @@ public static class InterruptRules
                 Kind = Kind.AttachShip,
                 Effect = Effect.RogueBorg,
                 DiscardAfter = false,
-                Message = "Plays on an occupied ship. Forms a Rogue Borg Away Team (STRENGTH 5 each). "
-                    + "End of every player's turn: battles that player's personnel present."
+                Message = "Plays on an occupied ship. X = number of Rogue Borg present; each has STRENGTH X "
+                    + "(total X×X). End of every player's turn: that Away Team battles personnel present."
             },
             "Crosis" => new Result
             {

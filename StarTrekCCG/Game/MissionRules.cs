@@ -74,11 +74,13 @@ public static class MissionRules
         string text = (personnel.Text ?? "").Trim();
         if (!string.IsNullOrEmpty(text))
         {
-            // Longest multi-word skills first, with optional "x 2"
+            // Longest multi-word skills first, with optional "x2" / "x 2" / "×2"
             string remaining = text;
             foreach (var multi in KnownMultiWordSkills.OrderByDescending(s => s.Length))
             {
-                var rx = new Regex(@"\b" + Regex.Escape(multi) + @"\b(?:\s*x\s*(\d+))?", RegexOptions.IgnoreCase);
+                var rx = new Regex(
+                    @"\b" + Regex.Escape(multi) + @"\b(?:\s*[xX×]\s*(\d+))?",
+                    RegexOptions.IgnoreCase);
                 foreach (Match m in rx.Matches(remaining))
                 {
                     int n = 1;
@@ -89,30 +91,27 @@ public static class MissionRules
                 remaining = rx.Replace(remaining, " ");
             }
 
-            var tokens = Regex.Split(remaining, @"\s+");
-            for (int i = 0; i < tokens.Length; i++)
+            // Single-word skills + classifications with the same xN pattern
+            // (e.g. "Diplomacy x 2", "OFFICER", "Mindmeld") — do not rely on Keys.Last()
+            var singles = Classifications.Concat(KnownSingleSkills)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderByDescending(s => s.Length);
+            foreach (var skill in singles)
             {
-                string tok = tokens[i].Trim().TrimEnd(',', ';', '.');
-                if (tok.Length < 2) continue;
-                // "Computer Skill x2" style after multi-word already stripped: "Foo x 2"
-                if (tok.Equals("x", StringComparison.OrdinalIgnoreCase) && i + 1 < tokens.Length
-                    && int.TryParse(tokens[i + 1], out int mult) && skills.Count > 0)
+                var rx = new Regex(
+                    @"\b" + Regex.Escape(skill) + @"\b(?:\s*[xX×]\s*(\d+))?",
+                    RegexOptions.IgnoreCase);
+                foreach (Match m in rx.Matches(remaining))
                 {
-                    var last = skills.Keys.Last();
-                    // xN is total level for that skill, not additive on top of the one token
-                    skills[last] = Math.Max(skills[last], mult);
-                    i++;
-                    continue;
+                    int n = 1;
+                    if (m.Groups[1].Success && int.TryParse(m.Groups[1].Value, out int mult))
+                        n = Math.Max(1, mult);
+                    Add(skill, n);
                 }
-                if (int.TryParse(tok, out _)) continue;
-                if (tok.Contains('>') || tok.Contains('<')) continue;
-                if (tok.Equals("Skill", StringComparison.OrdinalIgnoreCase)) continue;
-
-                bool known = Classifications.Any(c => c.Equals(tok, StringComparison.OrdinalIgnoreCase))
-                             || KnownSingleSkills.Any(c => c.Equals(tok, StringComparison.OrdinalIgnoreCase));
-                if (!known) continue;
-                Add(tok);
+                remaining = rx.Replace(remaining, " ");
             }
+
+            // Leftover "x N" without skill name is ignored (skill already consumed)
         }
 
         // Classification field: only if skill line did not already list it
