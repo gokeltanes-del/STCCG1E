@@ -66,7 +66,16 @@ public static class EventRules
         Fingernail,
         NeuralServo,
         AntiTime,
-        LoreReturns
+        LoreReturns,
+        Baryon,
+        YellowAlert,
+        Klim,
+        Thermal,
+        CaptainsLog,
+        LowerDecks,
+        ParticleScatter,
+        IntruderField,
+        Wartime
     }
 
     public sealed class PlayResult
@@ -99,6 +108,14 @@ public static class EventRules
     public static bool IsWarpCoreBreach(Card? c) => NameIs(c, "Warp Core Breach");
     public static bool IsYellowAlert(Card? c) => NameIs(c, "Yellow Alert");
     public static bool IsThermalDeflectors(Card? c) => NameIs(c, "Thermal Deflectors");
+    public static bool IsBaryonBuildup(Card? c) => NameIs(c, "Baryon Buildup");
+    public static bool IsKlimDokachin(Card? c) => NameIs(c, "Klim Dokachin");
+    public static bool IsCaptainsLog(Card? c) => NameIs(c, "Captain's Log");
+    public static bool IsLowerDecks(Card? c) => NameIs(c, "Lower Decks");
+    public static bool IsParticleScatteringField(Card? c) => NameIs(c, "Particle Scattering Field");
+    public static bool IsIntruderForceField(Card? c) => NameIs(c, "Intruder Force Field");
+    public static bool IsWartimeConditions(Card? c) => NameIs(c, "Wartime Conditions");
+    public static bool IsKevinConvergence(Card? c) => NameIs(c, "Kevin Uxbridge: Convergence");
     public static bool IsWhereNoOneHasGoneBefore(Card? c) => NameIs(c, "Where No One Has Gone Before");
     public static bool IsPatternEnhancers(Card? c) => NameIs(c, "Pattern Enhancers");
     public static bool IsGenetronicReplicator(Card? c) => NameIs(c, "Genetronic Replicator");
@@ -356,13 +373,13 @@ public static class EventRules
             "Baryon Buildup" => new PlayResult
             {
                 Place = Place.OnShip,
-                Persist = Persist.Table,
-                Message = "On ship: RANGE −2 (cumulative). Nullify if empty and docked at your facility at start of turn."
+                Persist = Persist.Baryon,
+                Message = "Plays on ship. RANGE −2 (cumulative). Nullified at start of your turn if ship is empty and docked at your facility."
             },
             "Captain's Log" => new PlayResult
             {
                 Place = Place.Table,
-                Persist = Persist.Table,
+                Persist = Persist.CaptainsLog,
                 Message = "Your ships with matching commander aboard: SHIELDS and WEAPONS +3 (Captain's Order)."
             },
             "Engage Shuttle Operations" => new PlayResult
@@ -380,20 +397,20 @@ public static class EventRules
             "Intruder Force Field" => new PlayResult
             {
                 Place = Place.Table,
-                Persist = Persist.Table,
-                Message = "Reverses Telepathic Alien Kidnappers vs you; Rogue Borg need 3+ to invade your ships."
+                Persist = Persist.IntruderField,
+                Message = "Reverses Telepathic Alien Kidnappers affecting you. Rogue Borg need 3+ to invade your ships."
             },
             "Klim Dokachin" => new PlayResult
             {
                 Place = Place.Table,
-                Persist = Persist.Table,
-                Message = "Opponent loses regular draw if they played a unique personnel this turn."
+                Persist = Persist.Klim,
+                Message = "Opponent loses their regular card draw if they played a unique personnel this turn."
             },
             "Lower Decks" => new PlayResult
             {
                 Place = Place.Table,
-                Persist = Persist.Table,
-                Message = "Your non-holo universal personnel attributes +2 (Captain's Order)."
+                Persist = Persist.LowerDecks,
+                Message = "Your non-holographic universal personnel are attributes all +2 (Captain's Order)."
             },
             "Mot's Advice" => new PlayResult
             {
@@ -404,8 +421,8 @@ public static class EventRules
             "Particle Scattering Field" => new PlayResult
             {
                 Place = Place.OnShip,
-                Persist = Persist.Table,
-                Message = "On your ship with Particle Scattering Device: no planet beaming here; may discard anytime."
+                Persist = Persist.ParticleScatter,
+                Message = "On your ship with a Particle Scattering Device: no planet beaming here. You may discard this at any time."
             },
             "Revolving Door" => new PlayResult
             {
@@ -434,20 +451,20 @@ public static class EventRules
             "Thermal Deflectors" => new PlayResult
             {
                 Place = Place.Table,
-                Persist = Persist.Table,
-                Message = "Nullifies Firestorm, Thought Fire, Plasma Fire, Fire Sculptor, Phaser Burns while in play."
+                Persist = Persist.Thermal,
+                Message = "While in play, nullifies Firestorm, Thought Fire, Plasma Fire, Fire Sculptor, and Phaser Burns."
             },
             "Wartime Conditions" => new PlayResult
             {
                 Place = Place.Table,
-                Persist = Persist.Table,
-                Message = "Only if a Fed ship was attacked: Federation may battle that affiliation at will."
+                Persist = Persist.Wartime,
+                Message = "Play only if a Federation ship was attacked. Federation may battle that attacking affiliation at will."
             },
             "Yellow Alert" => new PlayResult
             {
                 Place = Place.Table,
-                Persist = Persist.Table,
-                Message = "Cancels/prevents Red Alert!; your personnel CUNNING +1 (Captain's Order)."
+                Persist = Persist.YellowAlert,
+                Message = "Cancels and prevents Red Alert! Your personnel each CUNNING +1 (not cumulative). Captain's Order."
             },
 
             _ when TreatyRules.IsTreatyCard(ev) => new PlayResult

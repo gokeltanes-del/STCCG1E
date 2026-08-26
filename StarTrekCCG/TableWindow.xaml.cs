@@ -286,12 +286,24 @@ public partial class TableWindow : Window
         public TimingRules.TurnPhasePoint PhasePoint { get; set; } = TimingRules.TurnPhasePoint.EndOfTurn;
         /// <summary>Player for SpecificPlayerNextTurn / EachSubjectTurn (owner/controller).</summary>
         public int? ScopePlayer { get; set; }
+        /// <summary>Owner/controller to restore after Neural Servo (etc.).</summary>
+        public int SavedHostOwner { get; set; }
     }
 
     private readonly List<AttachedEvent> _attachedEvents = new();
     private int _ionizationBeamsThisTurn;
     private int _redAlertPlaysLeft;
     private readonly HashSet<Border> _movedThisTurnAfterArrival = new();
+    private readonly HashSet<Border> _cloakedShips = new();
+    private readonly HashSet<Border> _cloakLocked = new();
+    private bool _auPlayedThisTurnP1;
+    private bool _auPlayedThisTurnP2;
+    private readonly Dictionary<Border, Border> _conundrumChase = new();
+    private readonly Dictionary<Border, int> _edoContinuePenalty = new();
+    private bool _seniorStaffArmed;
+    private string? _wartimeVsAffiliation;
+    private bool _uniquePersonnelPlayedP1;
+    private bool _uniquePersonnelPlayedP2;
 
     /// <summary>true = Panel-Drag schwebt auf DragLayer (Fensterkoordinaten).</summary>
     private bool _dragOnOverlay;
@@ -713,6 +725,12 @@ public partial class TableWindow : Window
 
         int w = printedW + EventRules.WeaponsBonusFromEvents(evs);
         int s = printedS + EventRules.ShieldsBonusFromEvents(evs, aboard);
+        bool captainsLog = border != null && HasMatchingCommander(border, ship)
+            && _attachedEvents.Any(e => e.Kind == EventRules.Persist.CaptainsLog && e.Owner == owner);
+        if (captainsLog)
+        {
+            w += 3; s += 3;
+        }
         int k = BattleRules.KurlanMultiplier(aboard);
         w *= k;
         s *= k;
@@ -721,12 +739,15 @@ public partial class TableWindow : Window
             InterruptRules.IsTranswarpConduit(e.Card)
             && (border == null || ReferenceEquals(e.Host, border)));
         int rangeFull = printedR * (transwarp ? 2 : 1);
+        if (border != null)
+            rangeFull = Math.Max(0, rangeFull - EventsOn(border).Count(e => e.Kind == EventRules.Persist.Baryon) * 2);
         if (border != null && GetHullDamage(border) >= 50 && rangeFull > 5)
             rangeFull = 5;
         int remain = border != null ? GetRemainingRange(border, ship) : rangeFull;
 
         var mods = new List<string>();
         if (EventRules.WeaponsBonusFromEvents(evs) != 0) mods.Add("Bynars/events");
+        if (captainsLog) mods.Add("Captain's Log +3");
         if (k > 1) mods.Add($"Kurlan ×{k}");
         if (transwarp) mods.Add("Transwarp ×2");
 
@@ -768,11 +789,30 @@ public partial class TableWindow : Window
             if (kv.Key.Tag is not Card c) continue;
             var kind = MapBoardKind(c);
             int owner = kv.Value;
-            var aboard = kind == BoardPieceKind.Ship
-                ? GetAllCardsOnHost(kv.Key, owner == 0 ? 1 : owner)
-                : new List<Card>();
-            if (kind == BoardPieceKind.Ship && owner == 0)
-                aboard = GetAllCardsOnHost(kv.Key, 1);
+            var aboard = new List<Card>();
+            if (kind is BoardPieceKind.Ship or BoardPieceKind.Facility or BoardPieceKind.Mission)
+            {
+                int who = owner == 0 ? 1 : owner;
+                aboard = GetAllCardsOnHost(kv.Key, who);
+                if (kind == BoardPieceKind.Mission)
+                {
+                    // Away Teams of either player sit on the mission host
+                    aboard = new List<Card>();
+                    if (_stackOnHost.TryGetValue(kv.Key, out var stacked))
+                    {
+                        foreach (var b in stacked)
+                            if (b.Tag is Card sc) aboard.Add(sc);
+                    }
+                }
+                else if (kind == BoardPieceKind.Facility && aboard.Count == 0)
+                {
+                    if (_stackOnHost.TryGetValue(kv.Key, out var stackedFac))
+                    {
+                        foreach (var b in stackedFac)
+                            if (b.Tag is Card sc) aboard.Add(sc);
+                    }
+                }
+            }
 
             bool missionSolved = false;
             bool attemptBlocked = false;
@@ -802,12 +842,12 @@ public partial class TableWindow : Window
             string? hostName = null;
             int spacelineIndex = -1;
 
-            IReadOnlyList<Card> crewSnap = Array.Empty<Card>();
+            IReadOnlyList<Card> crewSnap = aboard;
             if (kind == BoardPieceKind.Ship)
             {
                 rangeLeft = GetRemainingRange(kv.Key, c);
                 var crew = GetCrewOnShip(kv.Key);
-                crewSnap = crew.ToList();
+                crewSnap = crew.Count > 0 ? crew.ToList() : aboard;
                 int staffOwner = owner == 0 ? _activePlayer : owner;
                 var staff = MovementRules.IsShipStaffed(c, crew, GetActiveTreaties(staffOwner));
                 staffed = staff.Ok || ShipStaffedByRogueBorg(kv.Key);
@@ -831,7 +871,9 @@ public partial class TableWindow : Window
                 InstanceId = c.InstanceId,
                 FaceUp = c.FaceUp,
                 HostName = hostName,
-                Occupied = kind == BoardPieceKind.Ship && ShipIsOccupied(kv.Key),
+                Occupied = (kind == BoardPieceKind.Ship && ShipIsOccupied(kv.Key))
+                           || ((kind == BoardPieceKind.Facility || kind == BoardPieceKind.Mission)
+                               && aboard.Any(ModifierRules.IsPersonnelCard)),
                 HasSecurityAboard = QuietHasSkill(aboard, "SECURITY"),
                 HasEngineerAboard = QuietHasSkill(aboard, "ENGINEER"),
                 MissionSolved = missionSolved,
@@ -1237,6 +1279,7 @@ public partial class TableWindow : Window
         RevealTitle.Text = title;
         RevealSubtitle.Text = subtitle ?? (card != null
             ? $"{card.Type}" + (string.IsNullOrEmpty(card.Affiliation) ? "" : $"  ·  {card.Affiliation}")
+              + (DualAffiliationRules.CurrentMode(card) is string mode ? $"  [{DualAffiliationRules.DisplayName(mode)}]" : "")
             : "");
         RevealBody.Text = body;
         if (RevealAudience != null) RevealAudience.Text = "";
@@ -3290,9 +3333,12 @@ public partial class TableWindow : Window
 
             if (a.IsResponse)
             {
+                bool attachStay = InterruptRules.NameIs(a.Card, "Asteroid Sanctuary")
+                                  || InterruptRules.NameIs(a.Card, "Distortion of Space/Time Continuum")
+                                  || InterruptRules.NameIs(a.Card, "Tachyon Detection Grid");
                 // Kevin (etc.) may still need TargetCard nullify when used as a response
                 if ((TimingRules.IsInterrupt(a.Card) || InterruptRules.IsInterrupt(a.Card))
-                    && a.TargetCard != null)
+                    && (a.TargetCard != null || attachStay))
                 {
                     TryResolveInterruptPlay(a.Card, a.Controller, isResponse: true, a.TargetCard);
                 }
@@ -3598,6 +3644,13 @@ public partial class TableWindow : Window
             return;
         }
 
+        NoteAuPlay(card, _activePlayer);
+        if (ModifierRules.IsPersonnelCard(card) && !ModifierRules.IsUniversalNonHolo(card)
+            && !(card.Uniqueness ?? "").Contains("univ", StringComparison.OrdinalIgnoreCase))
+        {
+            if (_activePlayer == 1) _uniquePersonnelPlayedP1 = true;
+            else _uniquePersonnelPlayedP2 = true;
+        }
         _session.MarkNormalCardPlay(card.Name ?? "?");
         // Normale Card Play verbraucht → Play-Segment abgeschlossen → Execute
         // Ausnahme: Horga'hn noch verfügbar → im Play bleiben
@@ -4900,6 +4953,9 @@ public partial class TableWindow : Window
         if (hostOwner == 0) hostOwner = 1;
         int player = _activePlayer;
 
+        if (!EnsureAffiliationModeForHost(card, host))
+            return (false, $"{card.Name} has no affiliation mode compatible with {host.Name}.");
+
         // Persona-Limit zusätzlich
         var owned = CollectCardsInPlay(player == 2);
         var persona = ReportingRules.CheckPersonaLimit(card, owned);
@@ -4915,6 +4971,85 @@ public partial class TableWindow : Window
             treaties: treaties);
 
         return (r.Ok, r.Reason);
+    }
+
+    private bool EnsureAffiliationModeForHost(Card card, Card host)
+    {
+        if (!DualAffiliationRules.IsMulti(card)) return true;
+        var modes = DualAffiliationRules.PrintedModes(card);
+        var treaties = GetActiveTreaties(_activePlayer);
+        var compatible = new List<string>();
+        string? saved = card.CurrentAffiliation;
+        foreach (var m in modes)
+        {
+            card.CurrentAffiliation = m;
+            if (ReportingRules.AreCompatible(card, host, treatyAllowsMix: false, treaties))
+                compatible.Add(m);
+        }
+        card.CurrentAffiliation = saved;
+        if (compatible.Count == 0) return false;
+        if (!string.IsNullOrWhiteSpace(card.CurrentAffiliation)
+            && compatible.Contains(ReportingRules.NormalizeAffil(card.CurrentAffiliation)))
+            return true;
+        if (compatible.Count == 1)
+        {
+            DualAffiliationRules.TrySetMode(card, compatible[0]);
+            return true;
+        }
+        string a = compatible[0], b = compatible[1];
+        var pick = ShowCardReveal(card, "Affiliation mode",
+            $"Report {card.Name} as {DualAffiliationRules.DisplayName(a)} (Yes) or {DualAffiliationRules.DisplayName(b)} (No)?",
+            RevealButtons.YesNo);
+        DualAffiliationRules.TrySetMode(card, pick == RevealAnswer.Yes ? a : b);
+        return true;
+    }
+
+    private static string NextAffiliationMode(Card card)
+    {
+        var modes = DualAffiliationRules.PrintedModes(card);
+        if (modes.Count == 0) return "FED";
+        string cur = DualAffiliationRules.CurrentMode(card) ?? modes[0];
+        int i = modes.FindIndex(m => string.Equals(m, cur, StringComparison.OrdinalIgnoreCase));
+        return modes[(i + 1) % modes.Count];
+    }
+
+    private void TrySwitchAffiliation(Border border, Card card, string next)
+    {
+        if (_attemptMission != null)
+        {
+            ShowPlayError("Cannot change affiliation during a mission attempt.");
+            return;
+        }
+        string? prev = card.CurrentAffiliation;
+        if (!DualAffiliationRules.TrySetMode(card, next))
+            return;
+
+        Border? host = null;
+        foreach (var kv in _stackOnHost)
+        {
+            if (kv.Value.Contains(border))
+            {
+                host = kv.Key;
+                break;
+            }
+        }
+        if (host != null && host.Tag is Card hc
+            && (IsShipCard(hc) || ReportingRules.IsFacilityHost(hc)))
+        {
+            var treaties = GetActiveTreaties(_activePlayer);
+            if (!ReportingRules.AreCompatible(card, hc, false, treaties))
+            {
+                card.CurrentAffiliation = prev;
+                ShowPlayError($"Cannot switch to {DualAffiliationRules.DisplayName(next)} while aboard {hc.Name} (incompatible).");
+                return;
+            }
+        }
+
+        StatusText.Text = $"{card.Name} is now {DualAffiliationRules.DisplayName(next)}.";
+        _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
+            $"{card.Name} affiliation → {next}");
+        ClearCardActionUi();
+        if (host != null) UpdateHostBadge(host);
     }
 
     private static bool AffiliationsCompatible(Card facility, Card mission) =>
@@ -5711,6 +5846,14 @@ public partial class TableWindow : Window
             _attachedEvents.Remove(e);
             SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
         }
+        // Any Edo Probe "abandon" locks on other missions lift when a different mission is solved.
+        foreach (var d in _attachedDilemmas.Where(x => x.Kind == DilemmaRules.PersistKind.EdoProbe).ToList())
+        {
+            if (ReferenceEquals(d.Host, missionBorder)) continue;
+            _attachedDilemmas.Remove(d);
+            SendCardTo(d.Card, player, TimingRules.Destination.Discard);
+        }
+        _edoContinuePenalty.Remove(missionBorder);
 
         missionBorder.Opacity = 0.7;
         // Rahmen farblich nach Spieler
@@ -5921,8 +6064,15 @@ public partial class TableWindow : Window
         ProcessEndOfTurnEvents(finishingPlayer);
         ProcessUntilEndOfTurnBag(finishingPlayer);
         ProcessRogueBorgEndOfTurn(finishingPlayer);
+        ApplyEdoEndOfTurnPenalties(finishingPlayer);
+        if (KlimBlocksDraw(finishingPlayer))
+            _session.SuppressEndOfTurnDraw = true;
         _ionizationBeamsThisTurn = 0;
         _movedThisTurnAfterArrival.Clear();
+        _auPlayedThisTurnP1 = false;
+        _auPlayedThisTurnP2 = false;
+        _uniquePersonnelPlayedP1 = false;
+        _uniquePersonnelPlayedP2 = false;
 
         if (!_session.SuppressEndOfTurnDraw && !_session.HasDrawnThisTurn)
             DrawOneToHand(endOfTurn: true);
@@ -7842,7 +7992,8 @@ public partial class TableWindow : Window
             if (b.Tag is Card c && IsShipCard(c))
             {
                 int hull = GetHullDamage(b);
-                _shipRangeLeft[b] = BattleRules.EffectiveRange(c, hull);
+                int baryon = EventsOn(b).Count(e => e.Kind == EventRules.Persist.Baryon) * 2;
+                _shipRangeLeft[b] = Math.Max(0, BattleRules.EffectiveRange(c, hull) - baryon);
             }
         }
     }
@@ -9159,7 +9310,10 @@ public partial class TableWindow : Window
         bool missionHasMyAway = false;
         if (isMission && _stackOnHost.TryGetValue(cardBorder, out var awayList))
             missionHasMyAway = awayList.Any(b => CardOwner(b) == _activePlayer);
-        if (!isShip && !isFac && !(isMission && missionHasMyAway)) return;
+        bool isMultiPersonnel = DualAffiliationRules.IsMulti(card)
+                               && ModifierRules.IsPersonnelCard(card);
+        if (!isShip && !isFac && !(isMission && missionHasMyAway) && !isMultiPersonnel)
+            return;
 
         _actionPanel = new StackPanel
         {
@@ -9187,6 +9341,13 @@ public partial class TableWindow : Window
 
         if (_session.Segment == GameSession.TurnSegment.Execute)
         {
+            if (isMultiPersonnel)
+            {
+                var next = NextAffiliationMode(card);
+                AddBtn(
+                    $"Affiliation: {DualAffiliationRules.DisplayName(DualAffiliationRules.CurrentMode(card) ?? "?")} → {DualAffiliationRules.DisplayName(next)}",
+                    (_, _) => TrySwitchAffiliation(cardBorder, card, next));
+            }
             if (isShip)
             {
                 if (IsBorderStopped(cardBorder))
@@ -9210,6 +9371,22 @@ public partial class TableWindow : Window
                     {
                         AddBtn("Nullify Plasma Fire (SECURITY)", (_, _) =>
                             TryNullifyPlasmaFire(cardBorder));
+                    }
+                    if (ShipHasCloakingDevice(card) && !_cloakLocked.Contains(cardBorder))
+                    {
+                        AddBtn(IsShipCloaked(cardBorder) ? "Decloak" : "Cloak", (_, _) =>
+                            ToggleCloak(cardBorder, card));
+                    }
+                    if (HasAttachedNamedInterrupt(cardBorder, "Distortion of Space/Time Continuum"))
+                    {
+                        AddBtn("Use Distortion of S/T…", (_, _) =>
+                            UseDistortionOnShip(cardBorder));
+                    }
+                    if (DualAffiliationRules.IsMulti(card))
+                    {
+                        var next = NextAffiliationMode(card);
+                        AddBtn($"Affiliation → {DualAffiliationRules.DisplayName(next)}", (_, _) =>
+                            TrySwitchAffiliation(cardBorder, card, next));
                     }
                     foreach (var sd in CrewWithSpecialDownload(cardBorder))
                     {
@@ -9299,6 +9476,14 @@ public partial class TableWindow : Window
             ShowPlayError(auth.Message);
             return;
         }
+        if (_attachedDilemmas.Any(d =>
+                d.Kind == DilemmaRules.PersistKind.EdoProbe && ReferenceEquals(d.Host, missionBorder)))
+        {
+            ShowPlayError("Edo Probe: cannot attempt this mission until any player solves a different mission.");
+            return;
+        }
+        TryCureFrameOfMindAt(missionBorder);
+
         // Solved / Scow / Supernova already denied via BoardPiece flags in EngineAuthority.
         // Track discards for Temporal Causality Loop
         _attemptMission = missionBorder;
@@ -9357,6 +9542,24 @@ public partial class TableWindow : Window
                     RevealButtons.Ok, seedCard.Name);
                 _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
                     $"Revealed artifact {seedCard.Name} under {mission.Name}");
+                continue;
+            }
+
+            if (_seniorStaffArmed
+                && !MissionRules.IsPlanetMission(mission)
+                && MissionRules.IsDilemma(seedCard))
+            {
+                _seniorStaffArmed = false;
+                seedStack.RemoveAt(idx);
+                _seedUnderMission[missionBorder] = seedStack;
+                UpdateSeedBadge(missionBorder);
+                var disc = _activePlayer == 2 ? _oppDiscardCards : _discardCards;
+                if (!disc.Contains(seedCard)) disc.Add(seedCard);
+                ShowCardReveal(seedCard, "Senior Staff Meeting",
+                    $"First dilemma discarded: {seedCard.Name}.",
+                    RevealButtons.Ok, seedCard.Name);
+                _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
+                    $"Senior Staff Meeting discards {seedCard.Name}");
                 continue;
             }
 
@@ -9419,6 +9622,7 @@ public partial class TableWindow : Window
                 Confirm = prompt =>
                     ShowCardReveal(seedCard, seedCard.Name ?? "Dilemma", prompt,
                         RevealButtons.YesNo, "Your choice") == RevealAnswer.Yes,
+                ThermalDeflectors = HasThermalDeflectors(),
                 AtOwnOutpost = GetDockablesUnderMission(missionBorder).Any(b =>
                     b.Tag is Card fc
                     && GetBorderOwner(b) == _activePlayer
@@ -10103,6 +10307,15 @@ public partial class TableWindow : Window
                     }
                     break;
                 }
+            case InterruptRules.Effect.Sanctuary:
+                ApplyAsteroidSanctuary(card, controller);
+                break;
+            case InterruptRules.Effect.Distortion:
+                ApplyDistortionContinuum(card, controller);
+                break;
+            case InterruptRules.Effect.Tachyon:
+                ApplyTachyonGrid(card, controller);
+                break;
             case InterruptRules.Effect.Transwarp:
                 {
                     Border? shipB = PickOwnShip(controller);
@@ -10153,7 +10366,12 @@ public partial class TableWindow : Window
                 // next draw discard: simple flag on session via log note
                 StatusText.Text = "Subspace Schism active (next draw: card discarded).";
                 break;
+            default:
+                ApplyNamedAuInterrupt(card, controller);
+                break;
         }
+
+        NoteAuPlay(card, controller);
 
         if (r.OutOfPlay)
             SendCardTo(card, controller, TimingRules.Destination.OutOfPlay);
@@ -10253,6 +10471,20 @@ public partial class TableWindow : Window
         }
 
         var r = auth.EventPlay ?? EventRules.ResolvePlay(ev);
+        if (EventRules.IsRedAlert(ev) && HasYellowAlert())
+        {
+            ShowPlayError("Yellow Alert prevents Red Alert!");
+            var hand = controller == 1 ? _handCards : _oppHandCards;
+            if (!hand.Contains(ev)) hand.Add(ev);
+            return true;
+        }
+        if (EventRules.IsWartimeConditions(ev) && string.IsNullOrEmpty(_wartimeVsAffiliation))
+        {
+            ShowPlayError("Wartime Conditions: a Federation ship must have been attacked first.");
+            var hand = controller == 1 ? _handCards : _oppHandCards;
+            if (!hand.Contains(ev)) hand.Add(ev);
+            return true;
+        }
         if (r.NeedsToxUthat)
         {
             bool toxOnTable = HasTableCard(ArtifactRules.IsToxUthat);
@@ -10391,6 +10623,17 @@ public partial class TableWindow : Window
             }
             if (r.Persist == EventRules.Persist.Supernova && host != null)
                 ApplySupernova(host);
+            if (r.Persist == EventRules.Persist.NeuralServo && host != null)
+            {
+                if (!TryApplyNeuralServo(ev, host, controller, ae))
+                {
+                    RemoveCardFromHostStack(host, FindBorderForCard(ev) ?? host);
+                    RemoveCardFromTableColumn(ev);
+                    var h = controller == 1 ? _handCards : _oppHandCards;
+                    if (!h.Contains(ev)) h.Add(ev);
+                    return true;
+                }
+            }
             if (r.Persist == EventRules.Persist.RaiseStakes)
             {
                 if (ShowCardReveal(ev, "Raise the Stakes",
@@ -10402,8 +10645,12 @@ public partial class TableWindow : Window
                 }
             }
             _attachedEvents.Add(ae);
+            if (r.Persist == EventRules.Persist.YellowAlert)
+                ApplyYellowAlert(controller, ev);
+            RefreshTableBuffs();
         }
 
+        NoteAuPlay(ev, controller);
         StatusText.Text = r.Message;
         _session.Log.Add(_session.TurnNumber, $"P{controller}", $"Event {ev.Name}");
         return true;
@@ -10456,9 +10703,17 @@ public partial class TableWindow : Window
                 }
                 bool anyShip = EventRules.IsPlasmaFire(ev)
                                || EventRules.IsWarpCoreBreach(ev)
-                               || n.Contains("Neural", StringComparison.OrdinalIgnoreCase);
-                if (EventRules.IsPlasmaFire(ev) && IsBorgAffiliation(c))
+                               || EventRules.IsNeuralServo(ev);
+                if ((EventRules.IsPlasmaFire(ev) || EventRules.IsWarpCoreBreach(ev))
+                    && IsBorgAffiliation(c))
                     continue; // non-[Bor] ships only
+                if (EventRules.IsNeuralServo(ev))
+                {
+                    if (!IsNonAlignedShip(c)) continue;
+                    if (EventRules.HasSkill(GetCrewOnShip(b), "SECURITY", 2)) continue;
+                    candidates.Add(b);
+                    continue;
+                }
                 if (anyShip || GetBorderOwner(b) == controller)
                     candidates.Add(b);
             }
@@ -11373,6 +11628,312 @@ public partial class TableWindow : Window
         return table.Any(EventRules.IsRedAlert);
     }
 
+    private bool HasYellowAlert() =>
+        _attachedEvents.Any(e => e.Kind == EventRules.Persist.YellowAlert)
+        || _tablePermanentCards.Any(EventRules.IsYellowAlert)
+        || _oppTablePermanentCards.Any(EventRules.IsYellowAlert);
+
+    private bool HasThermalDeflectors() =>
+        _attachedEvents.Any(e => e.Kind == EventRules.Persist.Thermal)
+        || _tablePermanentCards.Any(EventRules.IsThermalDeflectors)
+        || _oppTablePermanentCards.Any(EventRules.IsThermalDeflectors);
+
+    private void RefreshTableBuffs()
+    {
+        ModifierRules.TableBuffs.YellowAlertPlayer =
+            _attachedEvents.FirstOrDefault(e => e.Kind == EventRules.Persist.YellowAlert)?.Owner ?? 0;
+        if (ModifierRules.TableBuffs.YellowAlertPlayer == 0)
+        {
+            if (_tablePermanentCards.Any(EventRules.IsYellowAlert))
+                ModifierRules.TableBuffs.YellowAlertPlayer = 1;
+            else if (_oppTablePermanentCards.Any(EventRules.IsYellowAlert))
+                ModifierRules.TableBuffs.YellowAlertPlayer = 2;
+        }
+        ModifierRules.TableBuffs.LowerDecksPlayer =
+            _attachedEvents.FirstOrDefault(e => e.Kind == EventRules.Persist.LowerDecks)?.Owner ?? 0;
+    }
+
+    private void ApplyYellowAlert(int controller, Card ev)
+    {
+        foreach (var ae in _attachedEvents.Where(e => e.Kind == EventRules.Persist.RedAlert).ToList())
+        {
+            _attachedEvents.Remove(ae);
+            SendCardTo(ae.Card, ae.Owner, TimingRules.Destination.Discard);
+        }
+        foreach (var c in _tablePermanentCards.Where(EventRules.IsRedAlert).ToList())
+        {
+            _tablePermanentCards.Remove(c);
+            SendCardTo(c, 1, TimingRules.Destination.Discard);
+        }
+        foreach (var c in _oppTablePermanentCards.Where(EventRules.IsRedAlert).ToList())
+        {
+            _oppTablePermanentCards.Remove(c);
+            SendCardTo(c, 2, TimingRules.Destination.Discard);
+        }
+        _redAlertPlaysLeft = 0;
+        ShowCardReveal(ev, "Yellow Alert",
+            "Red Alert! is cancelled and cannot be played while Yellow Alert remains. Your personnel CUNNING +1.",
+            RevealButtons.Ok, ev.Name);
+    }
+
+    private bool KlimBlocksDraw(int finishingPlayer)
+    {
+        bool klimOpp = _attachedEvents.Any(e =>
+            e.Kind == EventRules.Persist.Klim && e.Owner != finishingPlayer);
+        if (!klimOpp) return false;
+        bool unique = finishingPlayer == 1 ? _uniquePersonnelPlayedP1 : _uniquePersonnelPlayedP2;
+        if (!unique) return false;
+        _session.Log.Add(_session.TurnNumber, "sys",
+            "Klim Dokachin: opponent loses regular draw (unique personnel played).");
+        StatusText.Text = "Klim Dokachin: no end-of-turn draw.";
+        return true;
+    }
+
+    private void ApplyEdoEndOfTurnPenalties(int finishingPlayer)
+    {
+        foreach (var kv in _edoContinuePenalty.ToList())
+        {
+            if (kv.Value != finishingPlayer) continue;
+            if (_solvedMissions.Contains(kv.Key)) continue;
+            if (finishingPlayer == 1) _scoreP1 -= 10;
+            else _scoreP2 -= 10;
+            UpdateScoreDisplay();
+            _session.Log.Add(_session.TurnNumber, $"P{finishingPlayer}",
+                $"Edo Probe: −10 ({(kv.Key.Tag as Card)?.Name} not solved this turn).");
+            _edoContinuePenalty.Remove(kv.Key);
+        }
+    }
+
+    private void ApplyConundrumChase(Border shipOrMission, Card dilemma)
+    {
+        Border? ship = shipOrMission;
+        if (ship.Tag is Card c && !IsShipCard(c))
+        {
+            ship = GetDockablesUnderMission(shipOrMission)
+                .FirstOrDefault(b => b.Tag is Card sc && IsShipCard(sc) && GetBorderOwner(b) == _activePlayer);
+        }
+        if (ship == null || ship.Tag is not Card shipCard || !IsShipCard(shipCard))
+        {
+            StatusText.Text = "Conundrum: no ship to chase with.";
+            return;
+        }
+        var oppShips = TableCanvas.Children.OfType<Border>()
+            .Where(b => b.Tag is Card oc && IsShipCard(oc) && GetBorderOwner(b) != _activePlayer)
+            .ToList();
+        if (oppShips.Count == 0)
+        {
+            StatusText.Text = "Conundrum: no opposing ship on the spaceline.";
+            return;
+        }
+        var target = oppShips.Count == 1
+            ? oppShips[0]
+            : ShowTargetPickDialog(dilemma, oppShips, "Conundrum: chase which ship?");
+        if (target == null) target = oppShips[0];
+        _conundrumChase[ship] = target;
+        StatusText.Text =
+            $"{shipCard.Name} must chase and attack {(target.Tag as Card)?.Name} (normal speed).";
+        _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
+            $"Conundrum: {shipCard.Name} chases {(target.Tag as Card)?.Name}");
+    }
+
+    private void ApplyFrameOfMind(Card victim, Border mission, Border? ship)
+    {
+        var skills = MissionRules.ParsePersonnelSkills(victim).Keys.ToList();
+        var keep = new List<string>();
+        if (skills.Count <= 2)
+            keep.AddRange(skills);
+        else
+        {
+            for (int i = 0; i < 2 && skills.Count > 0; i++)
+            {
+                var pick = PickCardFromList(
+                    $"Frame of Mind: opponent chooses skill {i + 1} for {victim.Name}",
+                    skills.Select(s => new Card { Name = s, Type = "Skill" }).ToList(),
+                    "Choose skill");
+                string name = pick?.Name ?? skills[0];
+                keep.Add(name);
+                skills.RemoveAll(s => s.Equals(name, StringComparison.OrdinalIgnoreCase));
+            }
+        }
+        victim.FramedOfMind = true;
+        victim.FrameSkills = keep;
+        ShowCardReveal(victim, "Frame of Mind",
+            $"{victim.Name} is Non-Aligned 3-3-3 with only: {string.Join(", ", keep)}.\nCure with 3 Empathy present.",
+            RevealButtons.Ok, victim.Name);
+        _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
+            $"Frame of Mind on {victim.Name} ({string.Join("/", keep)})");
+    }
+
+    private void TryCureFrameOfMindAt(Border host)
+    {
+        var framed = new List<Card>();
+        void CollectFramed(Border? h)
+        {
+            if (h == null || !_stackOnHost.TryGetValue(h, out var list)) return;
+            foreach (var b in list)
+            {
+                if (b.Tag is not Card person) continue;
+                if (person.FramedOfMind)
+                    framed.Add(person);
+            }
+        }
+        CollectFramed(host);
+        foreach (var dock in GetDockablesUnderMission(host))
+            CollectFramed(dock);
+        if (framed.Count == 0) return;
+        var present = CollectPresentAtMission(host, host.Tag as Card ?? new Card());
+        int empathy = present.Where(ModifierRules.IsPersonnelCard)
+            .Sum(person => MissionRules.ParsePersonnelSkills(person)
+                .Where(kv => kv.Key.Contains("Empathy", StringComparison.OrdinalIgnoreCase))
+                .Sum(kv => kv.Value));
+        if (empathy < 3) return;
+        foreach (var person in framed)
+        {
+            person.FramedOfMind = false;
+            person.FrameSkills = null;
+            _session.Log.Add(_session.TurnNumber, "sys",
+                $"Frame of Mind cured on {person.Name} (3 Empathy).");
+        }
+    }
+
+    private void ApplyNamedAuInterrupt(Card card, int controller)
+    {
+        string n = (card.Name ?? "").Trim();
+        if (EventRules.IsKevinConvergence(card))
+        {
+            ApplyKevinConvergence(controller, card);
+            return;
+        }
+        if (n.Equals("Countermanda", StringComparison.OrdinalIgnoreCase))
+        {
+            foreach (var e in _attachedEvents.Where(x => x.Kind == EventRules.Persist.Kidnappers).ToList())
+            {
+                _attachedEvents.Remove(e);
+                SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
+            }
+            StatusText.Text = "Countermanda: Telepathic Alien Kidnappers nullified.";
+            return;
+        }
+        if (n.Equals("Destroy Radioactive Garbage Scow", StringComparison.OrdinalIgnoreCase))
+        {
+            var scow = _attachedDilemmas.FirstOrDefault(d => d.Kind == DilemmaRules.PersistKind.Scow);
+            if (scow == null)
+            {
+                ShowPlayError("No Radioactive Garbage Scow in play.");
+                return;
+            }
+            var host = scow.Host;
+            _attachedDilemmas.Remove(scow);
+            SendCardTo(scow.Card, controller, TimingRules.Destination.Discard);
+            if (!HasThermalDeflectors() && host != null)
+            {
+                foreach (var b in GetPersonnelBordersAtHost(host, opponentOf: 0).ToList())
+                {
+                    if (b.Tag is not Card p) continue;
+                    // aboard a ship at this location → survive
+                    bool onShip = GetDockablesUnderMission(host)
+                        .Any(d => IsShipCard(d.Tag as Card ?? new Card())
+                                  && _stackOnHost.TryGetValue(d, out var crew) && crew.Contains(b));
+                    if (onShip) continue;
+                    DiscardPersonnelBorder(b, p, GetBorderOwner(b) == 0 ? 1 : GetBorderOwner(b));
+                }
+            }
+            if (host != null && !_solvedMissions.Contains(host) && host.Tag is Card mis)
+            {
+                AwardDilemmaPoints(-10);
+                StatusText.Text = $"Scow destroyed. Mission {mis.Name} −10 (unsolved). Personnel not aboard ships killed.";
+            }
+            return;
+        }
+        if (n.Equals("Senior Staff Meeting", StringComparison.OrdinalIgnoreCase))
+        {
+            _seniorStaffArmed = true;
+            StatusText.Text = "Senior Staff Meeting: first dilemma of the next space attempt is discarded.";
+            return;
+        }
+        if (n.Equals("Hail", StringComparison.OrdinalIgnoreCase))
+        {
+            StatusText.Text = "Hail: flying-by ship must stop here, or two ships cannot battle this turn (choose via ship orders).";
+        }
+    }
+
+    private bool HasMatchingCommander(Border shipBorder, Card ship)
+    {
+        string shipName = ship.Name ?? "";
+        if (string.IsNullOrEmpty(shipName)) return false;
+        foreach (var p in GetCrewOnShip(shipBorder))
+        {
+            string blob = $"{p.Name} {p.Characteristics} {p.Text}";
+            if (blob.Contains("Commander", StringComparison.OrdinalIgnoreCase)
+                && blob.Contains(shipName, StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (!string.IsNullOrEmpty(p.Name)
+                && (ship.Text ?? "").Contains(p.Name, StringComparison.OrdinalIgnoreCase)
+                && (ship.Text ?? "").Contains("Commander", StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
+    }
+
+    private bool PlanetBeamBlockedAt(Border host)
+    {
+        Card? hc = host.Tag as Card;
+        Border? mission = hc != null && CardKinds.IsMission(hc) ? host : FindMissionForDockable(host);
+        if (mission?.Tag is not Card mc || !MissionRules.IsPlanetMission(mc))
+            return false;
+        return _attachedEvents.Any(e =>
+            e.Kind == EventRules.Persist.ParticleScatter
+            && e.Host != null
+            && (ReferenceEquals(e.Host, host)
+                || ReferenceEquals(FindMissionForDockable(e.Host), mission)));
+    }
+
+    private void TryNullifyBaryonBuildup(int turnPlayer)
+    {
+        foreach (var e in _attachedEvents.Where(x => x.Kind == EventRules.Persist.Baryon && x.Owner == turnPlayer).ToList())
+        {
+            if (e.Host == null) continue;
+            bool empty = GetCrewOnShip(e.Host).Count == 0;
+            var mission = FindMissionForDockable(e.Host);
+            bool dockedOwn = mission != null && GetDockablesUnderMission(mission).Any(b =>
+                b.Tag is Card f
+                && ((f.Type ?? "").Contains("facility", StringComparison.OrdinalIgnoreCase)
+                    || (f.Type ?? "").Contains("outpost", StringComparison.OrdinalIgnoreCase))
+                && GetBorderOwner(b) == turnPlayer);
+            if (!empty || !dockedOwn) continue;
+            _attachedEvents.Remove(e);
+            SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
+            _session.Log.Add(_session.TurnNumber, $"P{turnPlayer}",
+                $"Baryon Buildup nullified ({(e.Host.Tag as Card)?.Name} empty at own facility).");
+            UpdateHostBadge(e.Host);
+        }
+    }
+
+    private void ApplyKevinConvergence(int controller, Card card)
+    {
+        var locs = _spacelineOrder.ToList();
+        if (locs.Count == 0)
+        {
+            ShowPlayError("Kevin Uxbridge: Convergence needs a spaceline location.");
+            return;
+        }
+        var loc = locs.Count == 1 ? locs[0] : ShowTargetPickDialog(card, locs, "Destroy events at which location?");
+        if (loc == null) loc = locs[0];
+        int n = 0;
+        foreach (var e in _attachedEvents.Where(ae =>
+                     ReferenceEquals(ae.Host, loc)
+                     || ReferenceEquals(ae.Host2, loc)
+                     || (ae.Host != null && FindMissionForDockable(ae.Host) == loc)).ToList())
+        {
+            _attachedEvents.Remove(e);
+            SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
+            n++;
+        }
+        StatusText.Text = $"Kevin Uxbridge: Convergence destroyed {n} event(s) at {(loc.Tag as Card)?.Name}.";
+        _session.Log.Add(_session.TurnNumber, $"P{controller}",
+            $"Kevin Convergence @ {(loc.Tag as Card)?.Name}: {n} events");
+    }
+
     /// <summary>
     /// Premiere Red Alert! has no countdown and is not "activated".
     /// Each of the owner's turns: replace the single normal card play with up to 5
@@ -11553,7 +12114,9 @@ public partial class TableWindow : Window
                 RemoveEquipmentFromHost(missionBorder, victim);
         }
 
-        if (r.Relocate != null && r.Persist != DilemmaRules.PersistKind.Abduction)
+        if (r.Relocate != null
+            && r.Persist != DilemmaRules.PersistKind.Abduction
+            && r.Persist != DilemmaRules.PersistKind.FrameOfMind)
             RelocatePersonnelToFurthestPlanet(r.Relocate, missionBorder);
 
         if (r.DamageShip && shipBorder != null && shipBorder.Tag is Card)
@@ -11653,6 +12216,21 @@ public partial class TableWindow : Window
 
         if (r.Score > 0 && r.Fate != DilemmaRules.Fate.Overcome)
             AwardDilemmaPoints(r.Score);
+
+        if ((seedCard.Name ?? "").Equals("Edo Probe", StringComparison.OrdinalIgnoreCase)
+            && r.Fate == DilemmaRules.Fate.Overcome)
+        {
+            _edoContinuePenalty[missionBorder] = _activePlayer;
+            _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
+                "Edo Probe: −10 if this mission is not solved this turn.");
+        }
+
+        if ((seedCard.Name ?? "").Equals("Conundrum", StringComparison.OrdinalIgnoreCase)
+            && r.Fate == DilemmaRules.Fate.EffectAndEnd)
+            ApplyConundrumChase(shipBorder ?? missionBorder, seedCard);
+
+        if (r.Persist == DilemmaRules.PersistKind.FrameOfMind && r.Relocate != null)
+            ApplyFrameOfMind(r.Relocate, missionBorder, shipBorder);
     }
 
     /// <summary>
@@ -11939,6 +12517,11 @@ public partial class TableWindow : Window
         if (!beamAuth.Ok)
         {
             ShowPlayError(beamAuth.Message);
+            return;
+        }
+        if (PlanetBeamBlockedAt(hostBorder))
+        {
+            ShowPlayError("Particle Scattering Field: no beaming to or from a planet here.");
             return;
         }
         _actionSourceHost = hostBorder;
@@ -12232,6 +12815,16 @@ public partial class TableWindow : Window
         var check = BattleRules.CanInitiateShipAttack(
             attackerShip, crew, atkOwner, targetCard, defOwner,
             GetHullDamage(attackerBorder), IsBorderStopped(attackerBorder));
+
+        if (ReportingRules.GetAffiliations(targetCard).Contains("FED"))
+        {
+            var atkAff = ReportingRules.GetAffiliations(attackerShip).FirstOrDefault();
+            if (!string.IsNullOrEmpty(atkAff))
+                _wartimeVsAffiliation = atkAff;
+        }
+        if (_conundrumChase.TryGetValue(attackerBorder, out var chaseT)
+            && ReferenceEquals(chaseT, targetBorder))
+            _conundrumChase.Remove(attackerBorder);
 
         if (!check.Ok)
         {
@@ -12810,6 +13403,403 @@ public partial class TableWindow : Window
         return true;
     }
 
+    private void NoteAuPlay(Card? card, int player)
+    {
+        if (card == null || player is not (1 or 2)) return;
+        if (!CardIcons.HasAlternateUniverse(card)
+            && !(card.Icons ?? "").Contains("[AU]", StringComparison.OrdinalIgnoreCase))
+            return;
+        if (player == 1) _auPlayedThisTurnP1 = true;
+        else _auPlayedThisTurnP2 = true;
+    }
+
+    private bool OpponentPlayedAuThisTurn(int me) =>
+        me == 1 ? _auPlayedThisTurnP2 : _auPlayedThisTurnP1;
+
+    private static bool IsNonAlignedShip(Card c)
+    {
+        var tokens = MissionRules.ParseAffiliationTokens(c.Affiliation);
+        if (tokens.Contains("NA") || tokens.Contains("NON") || tokens.Contains("NON-ALIGNED"))
+            return true;
+        string blob = $"{c.Affiliation} {c.Icons} {c.Characteristics}";
+        return blob.Contains("[Non]", StringComparison.OrdinalIgnoreCase)
+               || blob.Contains("Non-Aligned", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool ShipHasCloakingDevice(Card ship)
+    {
+        string t = $"{ship.Text} {ship.Staff} {ship.Characteristics}";
+        return t.Contains("Cloaking Device", StringComparison.OrdinalIgnoreCase)
+               || t.Contains("[Cloak]", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool IsShipCloaked(Border ship) => _cloakedShips.Contains(ship);
+
+    private void ToggleCloak(Border shipBorder, Card ship)
+    {
+        if (_cloakLocked.Contains(shipBorder))
+        {
+            ShowPlayError($"{ship.Name} may not cloak (Tachyon Detection Grid).");
+            return;
+        }
+        if (!ShipHasCloakingDevice(ship))
+        {
+            ShowPlayError($"{ship.Name} has no Cloaking Device.");
+            return;
+        }
+        if (IsShipCloaked(shipBorder))
+        {
+            _cloakedShips.Remove(shipBorder);
+            StatusText.Text = $"{ship.Name} decloaks.";
+        }
+        else
+        {
+            _cloakedShips.Add(shipBorder);
+            StatusText.Text = $"{ship.Name} cloaks (exposed ships cannot be targeted the same way).";
+        }
+        _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
+            $"{ship.Name} {(IsShipCloaked(shipBorder) ? "cloaked" : "decloaked")}.");
+        UpdateHostBadge(shipBorder);
+        ClearCardActionUi();
+    }
+
+    private int CountExposedShips(int player)
+    {
+        int n = 0;
+        foreach (var b in TableCanvas.Children.OfType<Border>())
+        {
+            if (b.Tag is not Card c || !IsShipCard(c)) continue;
+            int o = GetBorderOwner(b); if (o == 0) o = 1;
+            if (c.Controller != 0) o = c.Controller;
+            if (o != player) continue;
+            if (IsShipCloaked(b)) continue;
+            n++;
+        }
+        return n;
+    }
+
+    private bool HasAttachedNamedInterrupt(Border host, string name) =>
+        _attachedEvents.Any(e =>
+            e.Host == host
+            && (e.Card.Name ?? "").Equals(name, StringComparison.OrdinalIgnoreCase));
+
+    private bool TryApplyNeuralServo(Card ev, Border host, int controller, AttachedEvent ae)
+    {
+        if (host.Tag is not Card ship || !IsShipCard(ship))
+        {
+            ShowPlayError("Neural Servo Device: target must be a ship.");
+            return false;
+        }
+        if (!IsNonAlignedShip(ship))
+        {
+            ShowPlayError("Neural Servo Device: ship must be Non-Aligned.");
+            return false;
+        }
+        if (EventRules.HasSkill(GetCrewOnShip(host), "SECURITY", 2))
+        {
+            ShowPlayError("Neural Servo Device: ship has 2 SECURITY aboard.");
+            return false;
+        }
+        int original = GetBorderOwner(host);
+        if (original == 0) original = 1;
+        ae.SavedHostOwner = original;
+        SetBorderOwner(host, controller);
+        ship.Controller = controller;
+        if (_stackOnHost.TryGetValue(host, out var crew))
+        {
+            foreach (var b in crew)
+            {
+                if (b.Tag is not Card pc) continue;
+                pc.Controller = controller;
+            }
+        }
+        TurnExpiry.RegisterFlag(_session, controller, $"NeuralServo|{ev.InstanceId}", ship.Name);
+        ShowCardReveal(ev, "Neural Servo Device",
+            $"Until end of turn you control {ship.Name} and its crew.\n"
+            + "They are not compatible with your other cards.",
+            RevealButtons.Ok, ev.Name);
+        StatusText.Text = $"Neural Servo: P{controller} controls {ship.Name} until end of turn.";
+        _session.Log.Add(_session.TurnNumber, $"P{controller}",
+            $"Neural Servo takes {ship.Name} (was P{original}).");
+        UpdateHostBadge(host);
+        return true;
+    }
+
+    private void RestoreNeuralServo(AttachedEvent e)
+    {
+        if (e.Host == null) return;
+        int back = e.SavedHostOwner > 0 ? e.SavedHostOwner : (3 - e.Owner);
+        SetBorderOwner(e.Host, back);
+        if (e.Host.Tag is Card ship)
+            ship.Controller = back;
+        if (_stackOnHost.TryGetValue(e.Host, out var crew))
+        {
+            foreach (var b in crew)
+            {
+                if (b.Tag is Card pc)
+                    pc.Controller = back;
+            }
+        }
+        _attachedEvents.Remove(e);
+        SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
+        _session.Log.Add(_session.TurnNumber, $"P{e.Owner}",
+            $"Neural Servo ends — {(e.Host.Tag as Card)?.Name} returns to P{back}.");
+        UpdateHostBadge(e.Host);
+    }
+
+    private void ApplyAsteroidSanctuary(Card card, int controller)
+    {
+        Border? stackDef = null;
+        if (_stack.IsOpen && _stack.Top?.DefenderCard is Card defCard)
+            stackDef = FindBorderForCard(defCard);
+        var host = _interruptTargetHost
+                   ?? stackDef
+                   ?? PickOwnShip(controller);
+        if (host == null || host.Tag is not Card ship || !IsShipCard(ship))
+        {
+            ShowPlayError("Asteroid Sanctuary: play on your exposed ship.");
+            var hand = controller == 1 ? _handCards : _oppHandCards;
+            if (!hand.Contains(card)) hand.Add(card);
+            return;
+        }
+        if (GetBorderOwner(host) != controller && (ship.Controller != controller))
+        {
+            ShowPlayError("Asteroid Sanctuary: must be your ship.");
+            return;
+        }
+        if (IsShipCloaked(host))
+        {
+            ShowPlayError("Asteroid Sanctuary: ship must be exposed (not cloaked).");
+            return;
+        }
+        bool nav = EventRules.HasSkill(GetCrewOnShip(host), "Navigation", 2);
+        _attachedEvents.Add(new AttachedEvent
+        {
+            Card = card,
+            Kind = EventRules.Persist.None,
+            Owner = controller,
+            Host = host,
+            Countdown = 0
+        });
+        TurnExpiry.Register(_session, new ExpiringEffect
+        {
+            Key = $"Sanctuary|{card.InstanceId}",
+            Owner = controller,
+            Card = card,
+            Verb = TurnExpiry.VerbDiscard,
+            Note = "Asteroid Sanctuary"
+        });
+        StatusText.Text = nav
+            ? $"Asteroid Sanctuary on {ship.Name}: battles initiated against it are cancelled (2 Navigation)."
+            : $"Asteroid Sanctuary on {ship.Name} — needs 2 Navigation aboard to cancel battles.";
+        _session.Log.Add(_session.TurnNumber, $"P{controller}",
+            $"Asteroid Sanctuary on {ship.Name}");
+        UpdateHostBadge(host);
+    }
+
+    private void ApplyDistortionContinuum(Card card, int controller)
+    {
+        var host = _interruptTargetHost ?? PickOwnShip(controller);
+        if (host == null || host.Tag is not Card ship || !IsShipCard(ship))
+        {
+            ShowPlayError("Distortion of Space/Time Continuum: play on your non-AU ship.");
+            var hand = controller == 1 ? _handCards : _oppHandCards;
+            if (!hand.Contains(card)) hand.Add(card);
+            return;
+        }
+        if (CardIcons.HasAlternateUniverse(ship))
+        {
+            ShowPlayError("Distortion: target ship must be non-AU.");
+            return;
+        }
+        if (GetBorderOwner(host) != controller && ship.Controller != controller)
+        {
+            ShowPlayError("Distortion: must be your ship.");
+            return;
+        }
+        if (!OpponentPlayedAuThisTurn(controller)
+            && ShowCardReveal(card, "Distortion of Space/Time Continuum",
+                "Printed timing: play just after opponent plays an AU card. Continue anyway?",
+                RevealButtons.YesNo) != RevealAnswer.Yes)
+        {
+            var hand = controller == 1 ? _handCards : _oppHandCards;
+            if (!hand.Contains(card)) hand.Add(card);
+            return;
+        }
+        if (_attachedEvents.Any(e =>
+                InterruptRules.NameIs(e.Card, "Distortion of Space/Time Continuum")))
+        {
+            ShowPlayError("Distortion of Space/Time Continuum is unique — already in play.");
+            return;
+        }
+        _attachedEvents.Add(new AttachedEvent
+        {
+            Card = card,
+            Kind = EventRules.Persist.None,
+            Owner = controller,
+            Host = host
+        });
+        StatusText.Text = $"Distortion on {ship.Name}. Use the ship button to unstop / restore RANGE / unstop Away Team (then discard).";
+        _session.Log.Add(_session.TurnNumber, $"P{controller}", $"Distortion on {ship.Name}");
+        UpdateHostBadge(host);
+    }
+
+    private void UseDistortionOnShip(Border host)
+    {
+        var ae = _attachedEvents.FirstOrDefault(e =>
+            e.Host == host
+            && InterruptRules.NameIs(e.Card, "Distortion of Space/Time Continuum"));
+        if (ae == null) return;
+        var shipName = (host.Tag as Card)?.Name ?? "ship";
+        if (ShowCardReveal(ae.Card, "Distortion",
+                $"Unstop {shipName} and crew?", RevealButtons.YesNo) == RevealAnswer.Yes)
+        {
+            UnstopBorder(host);
+            if (_stackOnHost.TryGetValue(host, out var crew))
+                foreach (var b in crew) UnstopBorder(b);
+        }
+        else if (ShowCardReveal(ae.Card, "Distortion",
+                     $"Restore full RANGE on {shipName}?", RevealButtons.YesNo) == RevealAnswer.Yes)
+        {
+            if (host.Tag is Card sc)
+            {
+                int hull = GetHullDamage(host);
+                _shipRangeLeft[host] = BattleRules.EffectiveRange(sc, hull);
+                StatusText.Text = $"Distortion: {shipName} RANGE restored.";
+            }
+        }
+        else
+        {
+            var mission = FindMissionForDockable(host);
+            if (mission != null && _stackOnHost.TryGetValue(mission, out var away))
+            {
+                foreach (var b in away) UnstopBorder(b);
+                StatusText.Text = "Distortion: Away Team here unstopped.";
+            }
+            else
+                StatusText.Text = "Distortion: no Away Team here to unstop.";
+        }
+        _attachedEvents.Remove(ae);
+        SendCardTo(ae.Card, ae.Owner, TimingRules.Destination.Discard);
+        _session.Log.Add(_session.TurnNumber, $"P{ae.Owner}", "Distortion discarded after use.");
+        UpdateHostBadge(host);
+        ClearCardActionUi();
+    }
+
+    private void ApplyTachyonGrid(Card card, int controller)
+    {
+        if (CountExposedShips(controller) < 4)
+        {
+            ShowPlayError("Tachyon Detection Grid: you must control four exposed ships.");
+            var hand = controller == 1 ? _handCards : _oppHandCards;
+            if (!hand.Contains(card)) hand.Add(card);
+            return;
+        }
+        var host = _interruptTargetHost;
+        if (host == null || host.Tag is not Card ship || !IsShipCard(ship))
+        {
+            // Prefer a cloaked ship; otherwise a ship that can cloak.
+            host = TableCanvas.Children.OfType<Border>()
+                .FirstOrDefault(b => b.Tag is Card c && IsShipCard(c) && IsShipCloaked(b));
+            host ??= TableCanvas.Children.OfType<Border>()
+                .FirstOrDefault(b => b.Tag is Card c && IsShipCard(c) && ShipHasCloakingDevice(c));
+        }
+        if (host == null || host.Tag is not Card target || !IsShipCard(target))
+        {
+            ShowPlayError("Tachyon Detection Grid: no cloaked / cloak-capable ship.");
+            var hand = controller == 1 ? _handCards : _oppHandCards;
+            if (!hand.Contains(card)) hand.Add(card);
+            return;
+        }
+        _cloakedShips.Remove(host);
+        _cloakLocked.Add(host);
+        _attachedEvents.Add(new AttachedEvent
+        {
+            Card = card,
+            Kind = EventRules.Persist.None,
+            Owner = controller,
+            Host = host
+        });
+        StatusText.Text = $"{target.Name} de-cloaks and may not cloak while Tachyon Detection Grid remains.";
+        _session.Log.Add(_session.TurnNumber, $"P{controller}",
+            $"Tachyon Detection Grid on {target.Name}");
+        UpdateHostBadge(host);
+    }
+
+    private void UnstopBorder(Border border)
+    {
+        if (_stoppedBorders.Remove(border))
+            ApplyStoppedVisual(border, stopped: false);
+    }
+
+    private void ApplyAntiTimeExpire(AttachedEvent e)
+    {
+        // Each player shuffles all personnel they own in play into their draw deck.
+        for (int player = 1; player <= 2; player++)
+        {
+            var draw = player == 1 ? _drawCards : _oppDrawCards;
+            int n = 0;
+            foreach (var kv in _stackOnHost.ToList())
+            {
+                foreach (var b in kv.Value.ToList())
+                {
+                    if (b.Tag is not Card p || !ModifierRules.IsPersonnelCard(p)) continue;
+                    int o = p.OwnerPlayer != 0 ? p.OwnerPlayer : GetBorderOwner(b);
+                    if (o == 0) o = 1;
+                    if (o != player) continue;
+                    kv.Value.Remove(b);
+                    if (TableCanvas.Children.Contains(b)) TableCanvas.Children.Remove(b);
+                    draw.Add(p);
+                    n++;
+                }
+            }
+            for (int i = draw.Count - 1; i > 0; i--)
+            {
+                int j = Random.Shared.Next(i + 1);
+                (draw[i], draw[j]) = (draw[j], draw[i]);
+            }
+            _session.Log.Add(_session.TurnNumber, "sys",
+                $"Anti-Time Anomaly: P{player} shuffled {n} personnel into draw.");
+        }
+        _attachedEvents.Remove(e);
+        SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
+        RefreshZoneCounts();
+        StatusText.Text = "Anti-Time Anomaly expires — personnel in play shuffled into owners' draw decks.";
+    }
+
+    private void OfferAntiTimeDevronFlip(AttachedEvent anti, int turnPlayer)
+    {
+        int opp = turnPlayer == 1 ? 2 : 1;
+        var devron = _spacelineOrder.Where(b =>
+            b.Tag is Card m
+            && (m.Name ?? "").Contains("Devron", StringComparison.OrdinalIgnoreCase)).ToList();
+        if (devron.Count == 0)
+        {
+            _session.Log.AddDebug(_session.TurnNumber, "Anti-Time",
+                "No Devron System on the spaceline — start-of-turn flip skipped.");
+            return;
+        }
+        var ships = new List<Border>();
+        foreach (var loc in devron)
+        {
+            foreach (var dock in GetDockablesUnderMission(loc))
+            {
+                if (dock.Tag is Card c && IsShipCard(c))
+                    ships.Add(dock);
+            }
+        }
+        if (ships.Count == 0) return;
+        if (ShowCardReveal(anti.Card, "Anti-Time Anomaly",
+                $"P{opp}: flip one ship at a Devron System face-down/face-up?",
+                RevealButtons.YesNo) != RevealAnswer.Yes)
+            return;
+        var pick = ships.Count == 1 ? ships[0] : ShowTargetPickDialog(anti.Card, ships, "Flip which ship?");
+        if (pick == null) pick = ships[0];
+        pick.Opacity = pick.Opacity < 0.9 ? 1.0 : 0.4;
+        _session.Log.Add(_session.TurnNumber, $"P{opp}",
+            $"Anti-Time: flipped {(pick.Tag as Card)?.Name} at Devron.");
+    }
+
     private void DiscardRogueBorgUnit(RogueBorgUnit unit, string reason)
     {
         if (unit.Visual != null)
@@ -12845,6 +13835,15 @@ public partial class TableWindow : Window
             int n = units.Count;
             int str = RogueBorgStrengthOn(host);
             if (n == 0 || str <= 0) continue;
+            int shipOwner = GetBorderOwner(host);
+            if (shipOwner == 0) shipOwner = 1;
+            if (n < 3 && _attachedEvents.Any(e =>
+                    e.Kind == EventRules.Persist.IntruderField && e.Owner == shipOwner))
+            {
+                _session.Log.AddDebug(_session.TurnNumber, "Check",
+                    $"Intruder Force Field: {n} Rogue Borg < 3 on {ship.Name} — no invasion.");
+                continue;
+            }
 
             // All non-RB personnel on the ship (any owner) — battle every turn if anyone is present
             var defenders = new List<Border>();
@@ -12985,6 +13984,10 @@ public partial class TableWindow : Window
     private void ProcessStartOfTurnTimedEffects()
     {
         int turnPlayer = _session.ActivePlayer;
+        foreach (var anti in _attachedEvents.Where(e => e.Kind == EventRules.Persist.AntiTime).ToList())
+            OfferAntiTimeDevronFlip(anti, turnPlayer);
+        TryNullifyBaryonBuildup(turnPlayer);
+
         foreach (var ae in _attachedEvents
                      .Where(e => e.PhasePoint == TimingRules.TurnPhasePoint.StartOfTurn)
                      .ToList())
@@ -13294,6 +14297,12 @@ public partial class TableWindow : Window
             if (e.Kind == EventRules.Persist.PlasmaFire && e.Host != null
                 && e.Host.Tag is Card ship)
             {
+                if (HasThermalDeflectors())
+                {
+                    _session.Log.AddDebug(_session.TurnNumber, "Check",
+                        "Plasma Fire suppressed by Thermal Deflectors.");
+                    continue;
+                }
                 int shipOwner = GetBorderOwner(e.Host);
                 if (shipOwner == 0) shipOwner = e.Owner;
                 e.ScopePlayer ??= shipOwner;
@@ -13393,9 +14402,11 @@ public partial class TableWindow : Window
             if (e.Kind == EventRules.Persist.Kidnappers && e.Owner == owner)
                 RunKidnappers(owner, e.Card);
 
+            if (e.Kind == EventRules.Persist.NeuralServo && e.Owner == owner && e.Host != null)
+                RestoreNeuralServo(e);
+
             if (e.Kind == EventRules.Persist.AntiTime)
             {
-                // Countdown ticks every turn (both players) by default
                 e.TurnScope = TimingRules.TurnScope.EveryTurn;
                 e.PhasePoint = TimingRules.TurnPhasePoint.EndOfTurn;
                 int cd = e.Countdown;
@@ -13405,21 +14416,7 @@ public partial class TableWindow : Window
                 e.Countdown = cd;
                 if (done)
                 {
-                    // alle eigenen Personnel ins Draw
-                    foreach (var kv in _stackOnHost.ToList())
-                    {
-                        foreach (var b in kv.Value.ToList())
-                        {
-                            if (b.Tag is not Card p || !ModifierRules.IsPersonnelCard(p)) continue;
-                            int o = GetBorderOwner(b); if (o == 0) o = 1;
-                            kv.Value.Remove(b);
-                            if (TableCanvas.Children.Contains(b)) TableCanvas.Children.Remove(b);
-                            var draw = o == 1 ? _drawCards : _oppDrawCards;
-                            draw.Add(p);
-                        }
-                    }
-                    _attachedEvents.Remove(e);
-                    SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
+                    ApplyAntiTimeExpire(e);
                 }
             }
         }

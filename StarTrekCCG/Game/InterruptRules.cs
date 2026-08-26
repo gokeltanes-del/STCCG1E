@@ -56,7 +56,9 @@ public static class InterruptRules
         AlienGroupie,
         GroupieStop,
         RogueBorg,
-        Crosis
+        Crosis,
+        Distortion,
+        Tachyon
     }
 
     public sealed class Result
@@ -395,14 +397,14 @@ public static class InterruptRules
             "Tachyon Detection Grid" => new Result
             {
                 Kind = Kind.AttachShip,
-                Effect = Effect.None,
+                Effect = Effect.Tachyon,
                 DiscardAfter = false,
                 Message = "If you control four exposed ships: plays on a cloaked ship. It de-cloaks (even if stopped or cloaked this turn) and may not cloak."
             },
             "Distortion of Space/Time Continuum" => new Result
             {
                 Kind = Kind.AttachShip,
-                Effect = Effect.None,
+                Effect = Effect.Distortion,
                 DiscardAfter = false,
                 Message = "Unique. Plays on your non-AU ship just after opponent plays an AU card. You may discard this to unstop that ship and crew, OR restore full RANGE, OR unstop an Away Team here."
             },

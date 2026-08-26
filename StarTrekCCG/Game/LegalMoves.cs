@@ -6,10 +6,16 @@ namespace StarTrekCCG;
 
 /// <summary>
 /// Enumerates legal actions for one side. Same function later feeds hotseat, net, and AI.
-/// Standard moves + registry CanPlay + responses on the open window.
+/// Always call <see cref="CollectBoth"/> on a window change: the opponent may have
+/// responses (or later instants) while it is not their turn.
 /// </summary>
 public static class LegalMoves
 {
+    /// <summary>
+    /// Actions <paramref name="player"/> may take in this exact window.
+    /// Opponent gets responses when they are ResponsePlayer; otherwise an empty
+    /// off-turn list (later: "plays at any time" instants go here).
+    /// </summary>
     public static List<GameAction> Collect(GameState state, int player)
     {
         var list = new List<GameAction>();
@@ -18,15 +24,19 @@ public static class LegalMoves
 
         if (state.StackOpen)
         {
-            list.Add(GameAction.Pass(state.ResponsePlayer));
-            var hand = state.HandOf(state.ResponsePlayer);
+            if (player != state.ResponsePlayer)
+                return list;
+            list.Add(GameAction.Pass(player));
+            var hand = state.HandOf(player);
             if (state.StackTop != null)
             {
-                foreach (var c in TimingRules.LegalResponsesInHand(hand, state.StackTop, state.ResponsePlayer))
-                    list.Add(GameAction.Respond(state.ResponsePlayer, c));
+                foreach (var c in TimingRules.LegalResponsesInHand(hand, state.StackTop, player))
+                    list.Add(GameAction.Respond(player, c));
             }
             return list;
         }
+
+        CollectOffTurn(state, player, list);
 
         if (state.SeedPhase)
         {
@@ -53,13 +63,31 @@ public static class LegalMoves
         return list;
     }
 
+    /// <summary>Both seats — what net / AI must ask every window.</summary>
+    public static (List<GameAction> P1, List<GameAction> P2) CollectBoth(GameState state) =>
+        (Collect(state, 1), Collect(state, 2));
+
     public static IEnumerable<string> FormatLines(GameState state, int player)
     {
-        var moves = Collect(state, player);
-        yield return $"LegalMoves P{player} · T{state.TurnNumber} {state.Segment} · {moves.Count} action(s)";
+        var (p1, p2) = CollectBoth(state);
+        yield return $"LegalMoves T{state.TurnNumber} {state.Segment}"
+                     + (state.StackOpen ? $" · stack → P{state.ResponsePlayer}" : $" · active P{state.ActivePlayer}");
+        foreach (var line in FormatSide(1, p1, state.ActivePlayer, state.StackOpen ? state.ResponsePlayer : 0))
+            yield return line;
+        foreach (var line in FormatSide(2, p2, state.ActivePlayer, state.StackOpen ? state.ResponsePlayer : 0))
+            yield return line;
+        _ = player;
+    }
+
+    private static IEnumerable<string> FormatSide(int player, List<GameAction> moves, int active, int responder)
+    {
+        string tag = responder == player ? "respond"
+                   : active == player ? "turn"
+                   : "waiting";
+        yield return $"  P{player} [{tag}] · {moves.Count} action(s)";
         if (moves.Count == 0)
         {
-            yield return "  (none)";
+            yield return "    (none)";
             yield break;
         }
         int i = 1;
@@ -68,8 +96,19 @@ public static class LegalMoves
             string extra = "";
             var fx = EffectRegistry.Find(a.Card);
             if (fx != null) extra = "  {" + fx.TemplateId + "}";
-            yield return $"  {i++,2}. {a.Label}{extra}";
+            yield return $"    {i++,2}. {a.Label}{extra}";
         }
+    }
+
+    /// <summary>
+    /// Cards that do not need the turn (stack already handled above).
+    /// Hook for future "plays at any time" / just-after interrupts.
+    /// </summary>
+    private static void CollectOffTurn(GameState state, int player, List<GameAction> list)
+    {
+        _ = state;
+        _ = player;
+        _ = list;
     }
 
     private static void CollectSeed(GameState state, int player, List<GameAction> list)
@@ -333,8 +372,25 @@ public static class LegalMoves
                 });
             }
 
-            if (ship.Occupied)
-                list.Add(GameAction.Beam(player, ship.Card, note: "UI picks destination"));
+            if (ship.Occupied || ship.Aboard.Any(ModifierRules.IsPersonnelCard))
+                list.Add(GameAction.Beam(player, ship.Card, note: "from ship — UI picks destination"));
+        }
+
+        foreach (var fac in state.Facilities().Where(f =>
+                     f.Owner == player || f.Controller == player))
+        {
+            if (!fac.Occupied && !fac.Aboard.Any(ModifierRules.IsPersonnelCard))
+                continue;
+            list.Add(GameAction.Beam(player, fac.Card, note: "from facility — UI picks destination"));
+        }
+
+        foreach (var m in state.Missions())
+        {
+            bool mine = m.Aboard.Any(p =>
+                ModifierRules.IsPersonnelCard(p)
+                && (p.Controller == player || p.OwnerPlayer == player));
+            if (!mine) continue;
+            list.Add(GameAction.Beam(player, m.Card, note: "from mission — UI picks destination"));
         }
     }
 }

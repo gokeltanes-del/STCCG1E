@@ -108,6 +108,9 @@ public sealed class GameState
     public IEnumerable<BoardPiece> Ships() =>
         Board.Where(p => p.Kind == BoardPieceKind.Ship);
 
+    public IEnumerable<BoardPiece> Facilities() =>
+        Board.Where(p => p.Kind == BoardPieceKind.Facility);
+
     public IEnumerable<BoardPiece> Missions() =>
         Board.Where(p => p.Kind == BoardPieceKind.Mission);
 

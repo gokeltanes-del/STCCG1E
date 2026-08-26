@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+﻿using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace StarTrekCCG.Models;
 
@@ -92,6 +93,17 @@ public class Card
     /// <summary>False = Hidden Agenda / seed facedown / opponent private pile.</summary>
     [JsonIgnore]
     public bool FaceUp { get; set; } = true;
+
+    /// <summary>Frame of Mind: this copy is 3-3-3 Non-Aligned until cured.</summary>
+    [JsonIgnore]
+    public bool FramedOfMind { get; set; }
+
+    [JsonIgnore]
+    public List<string>? FrameSkills { get; set; }
+
+    /// <summary>Multi-affiliation current mode (FED/ROM/…). Empty = not chosen yet.</summary>
+    [JsonIgnore]
+    public string? CurrentAffiliation { get; set; }
 
     [JsonIgnore]
     public string Set => SetFolder ?? "Unknown";

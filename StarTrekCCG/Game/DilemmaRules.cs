@@ -39,7 +39,10 @@ public static class DilemmaRules
         Abduction,
         Phased,
         Cytherians,
-        BorgShip
+        BorgShip,
+        EdoProbe,
+        Conundrum,
+        FrameOfMind
     }
 
     public sealed class Result
@@ -77,6 +80,7 @@ public static class DilemmaRules
         public bool AtOwnOutpost { get; init; }
         /// <summary>True when The Traveler: Transcendence is affecting the attempting player.</summary>
         public bool TravelerAffecting { get; init; }
+        public bool ThermalDeflectors { get; init; }
     }
 
     public static Result Resolve(Ctx ctx)
@@ -295,28 +299,28 @@ public static class DilemmaRules
     {
         if (Sum(ctx).integ > 40)
             return new Result { Fate = Fate.Overcome, Message = "Conundrum: INTEGRITY>40." };
-        return Attach(ctx, PersistKind.None, 0,
-            "Conundrum: this ship must chase and attack an opponent's ship on this spaceline (sandbox: attempt ends, ship stopped).");
+        return new Result
+        {
+            Fate = Fate.EffectAndEnd,
+            StopTeam = false,
+            Message = "Conundrum: this ship must chase and attack an opponent's ship on this spaceline (normal speed)."
+        };
     }
 
     private static Result EdoProbeAu(Ctx ctx)
     {
         bool abandon = ctx.Confirm?.Invoke(
-            "Edo Probe: abandon this attempt until any player solves a different mission? (NO = continue, −10 if not solved this turn)")
+            "Edo Probe: abandon this attempt until any player completes a different mission? (NO = continue, −10 if not solved this turn)")
             ?? true;
         if (abandon)
-            return new Result
-            {
-                Fate = Fate.EndAttempt,
-                StopTeam = true,
-                Message = "Edo Probe: attempt abandoned until another mission is solved."
-            };
+            return Attach(ctx, PersistKind.EdoProbe, 0,
+                "Edo Probe: attempt abandoned until any player solves a different mission.");
         return new Result
         {
             Fate = Fate.Overcome,
             StopTeam = false,
             Score = 0,
-            Message = "Edo Probe: continue — lose 10 if this mission is not solved this turn (sandbox flag)."
+            Message = "Edo Probe: continue — lose 10 points if this mission is not solved this turn."
         };
     }
 
@@ -325,8 +329,10 @@ public static class DilemmaRules
         var victim = RandomOf(ctx, ctx.Team);
         if (victim == null)
             return new Result { Fate = Fate.Overcome, Message = "Frame of Mind: no personnel." };
-        return Attach(ctx, PersistKind.None, 0,
+        var r = Attach(ctx, PersistKind.FrameOfMind, 0,
             $"Frame of Mind on {victim.Name}: Non-Aligned 3-3-3, two skills (opponent's choice). Cure: 3 Empathy.");
+        r.Relocate = victim;
+        return r;
     }
 
     private static Result EmpathicEchoAu(Ctx ctx)
@@ -466,6 +472,8 @@ public static class DilemmaRules
 
     private static Result ThoughtFireAu(Ctx ctx)
     {
+        if (ctx.ThermalDeflectors)
+            return new Result { Fate = Fate.Overcome, Message = "Thought Fire nullified (Thermal Deflectors)." };
         // Printed: only if Traveler is affecting you; then low CUNN+INT die unless Empathy.
         if (!ctx.TravelerAffecting)
             return new Result { Fate = Fate.Overcome, Message = "Thought Fire: Traveler not affecting you — no effect." };
@@ -658,6 +666,8 @@ public static class DilemmaRules
 
     private static Result Firestorm(Ctx ctx)
     {
+        if (ctx.ThermalDeflectors)
+            return new Result { Fate = Fate.Overcome, Message = "Firestorm nullified (Thermal Deflectors)." };
         var r = new Result
         {
             Fate = Fate.Overcome,

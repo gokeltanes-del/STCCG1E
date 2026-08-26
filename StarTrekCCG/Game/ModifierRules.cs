@@ -11,6 +11,13 @@ namespace StarTrekCCG;
 /// </summary>
 public static class ModifierRules
 {
+    /// <summary>Table-wide events that change printed personnel (UI sets while events persist).</summary>
+    public static class TableBuffs
+    {
+        public static int YellowAlertPlayer;
+        public static int LowerDecksPlayer;
+    }
+
     public enum ModifierKind
     {
         AttrBonus,
@@ -110,6 +117,19 @@ public static class ModifierRules
         return t.Contains("personnel") || t.Contains("android") || t.Contains("animal");
     }
 
+    public static bool IsUniversalNonHolo(Card c)
+    {
+        string u = $"{c.Uniqueness} {c.Icons} {c.Name}";
+        bool univ = u.Contains("univ", StringComparison.OrdinalIgnoreCase)
+                    || (c.Name ?? "").StartsWith("Universal", StringComparison.OrdinalIgnoreCase)
+                    || (c.Icons ?? "").Contains("♦")
+                    || (c.Uniqueness ?? "").Contains("♦");
+        string blob = $"{c.Type} {c.Icons} {c.Characteristics} {c.Text}";
+        bool holo = blob.Contains("[Holo]", StringComparison.OrdinalIgnoreCase)
+                    || blob.Contains("Hologram", StringComparison.OrdinalIgnoreCase);
+        return univ && !holo;
+    }
+
     /// <summary>
     /// Effektives Profil einer Personnel-Karte bei given present-Karten (gleicher Host, inkl. Eq).
     /// Nur Modifier des <paramref name="owner"/> greifen auf „your personnel“.
@@ -126,6 +146,33 @@ public static class ModifierRules
         int integ = bi, cunn = bc, str = bs;
         var skills = new Dictionary<string, int>(baseSkills, StringComparer.OrdinalIgnoreCase);
         var applied = new List<Modifier>();
+
+        if (subject.FramedOfMind)
+        {
+            var kept = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            if (subject.FrameSkills != null)
+            {
+                foreach (var s in subject.FrameSkills)
+                    if (!string.IsNullOrWhiteSpace(s))
+                        kept[s] = baseSkills.GetValueOrDefault(s, 1);
+            }
+            return new EffectiveProfile
+            {
+                Card = subject,
+                Integrity = 3,
+                Cunning = 3,
+                Strength = 3,
+                BaseIntegrity = bi,
+                BaseCunning = bc,
+                BaseStrength = bs,
+                Skills = kept,
+                BaseSkills = baseSkills,
+                Applied = new List<Modifier>
+                {
+                    new("Frame of Mind", ModifierKind.AttrBonus, "ALL", 0, owner)
+                }
+            };
+        }
 
         if (!IsPersonnelCard(subject))
         {
@@ -187,6 +234,18 @@ public static class ModifierRules
                 skills[def.GrantedSkill] = skills.GetValueOrDefault(def.GrantedSkill) + 1;
                 applied.Add(new Modifier(eqName, ModifierKind.SkillGrant, def.GrantedSkill, 1, owner));
             }
+        }
+
+        if (TableBuffs.YellowAlertPlayer == owner)
+        {
+            cunn += 1;
+            applied.Add(new Modifier("Yellow Alert", ModifierKind.AttrBonus, "CUNNING", 1, owner));
+        }
+        if (TableBuffs.LowerDecksPlayer == owner
+            && IsUniversalNonHolo(subject))
+        {
+            integ += 2; cunn += 2; str += 2;
+            applied.Add(new Modifier("Lower Decks", ModifierKind.AttrBonus, "ALL", 2, owner));
         }
 
         // Artifact-as-Equipment: Varon-T Disruptor (STRENGTH ×2, own personnel)
