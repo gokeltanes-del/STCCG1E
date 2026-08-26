@@ -97,11 +97,19 @@ public static class DeckPlacementRules
             return false;
         }
 
-        // Seed: only cards that seed (doorways, "seeds or plays", facilities already handled).
+        // Seed: doorways / "seeds …" text / Cryosatellite payload (personnel under artifact).
         if (section == DeckSection.Seed)
         {
             if (t.Contains("doorway") || seedsByText) return true;
-            reason = $"{PrettyType(card)} belongs in the draw deck unless the card says it seeds.";
+
+            // Cryosatellite (AU): up to 3 AU personnel seed under the artifact.
+            // Deck presence of Cryosatellite is enforced in CanAdd (needs deck context).
+            if (IsPersonnelType(t) && HasAlternateUniverseIcon(card))
+                return true;
+
+            reason = IsPersonnelType(t)
+                ? "Personnel seed only under Cryosatellite (AU icon required). Add Cryosatellite to Seed first."
+                : $"{PrettyType(card)} belongs in the draw deck unless the card says it seeds.";
             return false;
         }
 
@@ -151,6 +159,33 @@ public static class DeckPlacementRules
                     reason = "No more than 2 copies of the same card may be seeded under missions (3.1).";
                     return false;
                 }
+                int seed30 = SeedCountToward30(deck);
+                if (seed30 + addQty > 30)
+                {
+                    reason = "Seed deck may contain at most 30 cards (missions/sites excluded) (3.1).";
+                    return false;
+                }
+            }
+            else if (IsPersonnelType(t))
+            {
+                if (!HasAlternateUniverseIcon(card))
+                {
+                    reason = "Only Alternate Universe ([AU]) personnel may seed under Cryosatellite.";
+                    return false;
+                }
+                if (!SeedContainsCryosatellite(deck))
+                {
+                    reason = "Add Cryosatellite to the seed deck before seeding personnel under it (max 3 AU).";
+                    return false;
+                }
+                int underCryo = CountSeedPersonnel(deck);
+                if (underCryo + addQty > 3)
+                {
+                    reason = "Cryosatellite: at most 3 AU personnel may seed under it.";
+                    return false;
+                }
+                // Same-title copies: still limited by global seed uniqueness patterns for non-universal;
+                // allow up to 2 of same name only if deck already permits (keep soft: no extra name lock).
                 int seed30 = SeedCountToward30(deck);
                 if (seed30 + addQty > 30)
                 {
@@ -210,6 +245,31 @@ public static class DeckPlacementRules
     private static int CountByType(IEnumerable<DeckEntry> list, string typeContains) =>
         list.Where(e => (e.Type ?? "").Contains(typeContains, StringComparison.OrdinalIgnoreCase))
             .Sum(e => e.Quantity);
+
+    private static int CountSeedPersonnel(Deck deck) =>
+        deck.SeedCards.Where(e => IsPersonnelType(e.Type ?? "")).Sum(e => e.Quantity);
+
+    private static bool SeedContainsCryosatellite(Deck deck) =>
+        deck.SeedCards.Any(e =>
+            string.Equals(e.Name, "Cryosatellite", StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsPersonnelType(string t) =>
+        t.Contains("personnel", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Lackey icons field typically includes [AU] for Alternate Universe cards.</summary>
+    private static bool HasAlternateUniverseIcon(Card card)
+    {
+        string blob = $"{card.Icons} {card.Characteristics} {card.Text} {card.SetFolder}";
+        if (blob.Contains("[AU]", StringComparison.OrdinalIgnoreCase)) return true;
+        if (blob.Contains("Alternate Universe", StringComparison.OrdinalIgnoreCase)) return true;
+        // Set folder from split_lackey_sets for AU expansion
+        string set = card.SetFolder ?? "";
+        if (set.Contains("Alternate", StringComparison.OrdinalIgnoreCase)
+            || set.Equals("AU", StringComparison.OrdinalIgnoreCase)
+            || set.Contains("Alternate_Universe", StringComparison.OrdinalIgnoreCase))
+            return true;
+        return false;
+    }
 
     private static bool NamesMatch(string? a, string? b) =>
         string.Equals(a, b, StringComparison.OrdinalIgnoreCase);

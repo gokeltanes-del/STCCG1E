@@ -70,8 +70,8 @@ public static class TreatyRules
             RegexOptions.IgnoreCase);
         if (mText.Success)
         {
-            string a = NormalizeTreatyToken(ReportingRules.NormalizeAffil(mText.Groups[1].Value));
-            string b = NormalizeTreatyToken(ReportingRules.NormalizeAffil(mText.Groups[2].Value));
+            string? a = NormalizeTreatyToken(ReportingRules.NormalizeAffil(mText.Groups[1].Value));
+            string? b = NormalizeTreatyToken(ReportingRules.NormalizeAffil(mText.Groups[2].Value));
             if (a != null && b != null)
                 return new TreatyLink(a, b, name);
         }

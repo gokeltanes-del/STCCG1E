@@ -73,6 +73,19 @@ public static class InterruptRules
     public static bool IsInterrupt(Card c) =>
         (c.Type ?? "").Contains("interrupt", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>Kevin Uxbridge / Kevin Uxbridge: Convergence — nullify event(s) in play.</summary>
+    public static bool IsKevinNullify(Card c) =>
+        (c.Name ?? "").StartsWith("Kevin Uxbridge", StringComparison.OrdinalIgnoreCase);
+
+    public static bool NameIs(Card? c, string name) =>
+        c != null && (c.Name ?? "").Equals(name, StringComparison.OrdinalIgnoreCase);
+
+    public static bool IsRogueBorg(Card? c) => NameIs(c, "Rogue Borg");
+    public static bool IsCrosis(Card? c) => NameIs(c, "Crosis");
+    public static bool IsTranswarpConduit(Card? c) => NameIs(c, "Transwarp Conduit");
+    public static bool IsAmandaOrQ2(Card? c) =>
+        NameIs(c, "Amanda Rogers") || NameIs(c, "Q2");
+
     /// <summary>Where the interrupt must be dropped (hand play).</summary>
     public enum PlayTarget
     {
@@ -89,7 +102,7 @@ public static class InterruptRules
         string n = (card.Name ?? "").Trim();
         string t = card.Text ?? "";
 
-        if (n.Equals("Kevin Uxbridge", StringComparison.OrdinalIgnoreCase))
+        if (IsKevinNullify(card))
             return PlayTarget.Event;
 
         if (n.Equals("Emergency Transporter Armbands", StringComparison.OrdinalIgnoreCase)
@@ -106,13 +119,16 @@ public static class InterruptRules
             || n.Equals("Transwarp Conduit", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Auto-Destruct Sequence", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Escape Pod", StringComparison.OrdinalIgnoreCase)
-            || n.Equals("Near-Warp Transport", StringComparison.OrdinalIgnoreCase))
+            || n.Equals("Near-Warp Transport", StringComparison.OrdinalIgnoreCase)
+            || n.Equals("Asteroid Sanctuary", StringComparison.OrdinalIgnoreCase)
+            || n.Equals("Distortion of Space/Time Continuum", StringComparison.OrdinalIgnoreCase))
             return PlayTarget.OwnShip;
 
         if (n.Equals("Loss of Orbital Stability", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Long-Range Scan", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Rogue Borg", StringComparison.OrdinalIgnoreCase)
-            || n.Equals("Crosis", StringComparison.OrdinalIgnoreCase))
+            || n.Equals("Crosis", StringComparison.OrdinalIgnoreCase)
+            || n.Equals("Tachyon Detection Grid", StringComparison.OrdinalIgnoreCase))
             return PlayTarget.AnyShip;
 
         if (ContainsIgnore(t, "Plays on your crew") || ContainsIgnore(t, "Plays on your Away Team")
@@ -140,186 +156,224 @@ public static class InterruptRules
         string n = (card.Name ?? "").Trim();
         return n switch
         {
-            "Amanda Rogers" or "Kevin Uxbridge" or "Q2" or "Energy Vortex"
-                or "The Devil" or "Hugh" or "Asteroid Sanctuary"
-                => new Result
-                {
-                    Kind = Kind.TimingOnly,
-                    Effect = Effect.TimingNullify,
-                    Message = "Response/Nullify (TimingRules).",
-                    DiscardAfter = !n.Equals("Amanda Rogers", StringComparison.OrdinalIgnoreCase)
-                                   && !n.Equals("Q2", StringComparison.OrdinalIgnoreCase),
-                    OutOfPlay = n.Equals("Amanda Rogers", StringComparison.OrdinalIgnoreCase)
-                                || n.Equals("Q2", StringComparison.OrdinalIgnoreCase)
-                },
+            "Amanda Rogers" => new Result
+            {
+                Kind = Kind.TimingOnly,
+                Effect = Effect.TimingNullify,
+                OutOfPlay = true,
+                DiscardAfter = false,
+                Message = "Nullifies an Interrupt being played (except Shield-icon). Place Amanda out-of-play."
+            },
+            "Kevin Uxbridge" => new Result
+            {
+                Kind = Kind.TimingOnly,
+                Effect = Effect.TimingNullify,
+                OutOfPlay = true,
+                DiscardAfter = false,
+                Message = "Nullifies an Event in play (except Shield-icon or Treaty). Place Kevin out-of-play."
+            },
+            "Q2" => new Result
+            {
+                Kind = Kind.TimingOnly,
+                Effect = Effect.TimingNullify,
+                OutOfPlay = true,
+                DiscardAfter = false,
+                Message = "Nullifies Amanda Rogers, Kevin Uxbridge, a [Q] dilemma, or a dilemma with Q in the title. Place Q2 out-of-play."
+            },
+            "Energy Vortex" => new Result
+            {
+                Kind = Kind.TimingOnly,
+                Effect = Effect.TimingNullify,
+                Message = "While opponent's normal card play is being played: cancel it (card returns to hand). Opponent may play a different card as that play."
+            },
+            "The Devil" => new Result
+            {
+                Kind = Kind.TimingOnly,
+                Effect = Effect.TimingNullify,
+                Message = "Nullifies Horga'hn OR Wind Dancer OR one Treaty."
+            },
+            "Hugh" => new Result
+            {
+                Kind = Kind.TimingOnly,
+                Effect = Effect.HughCancelBattle,
+                Message = "Cancel a battle just initiated by a Borg card or Borg Ship dilemma. OR kill all Rogue Borg at one location."
+            },
+            "Asteroid Sanctuary" => new Result
+            {
+                Kind = Kind.AttachShip,
+                Effect = Effect.Sanctuary,
+                DiscardAfter = false,
+                Message = "Plays on your exposed ship (even at start of battle). While your 2 Navigation aboard, cancel any battle initiated against it. Discard at end of turn."
+            },
 
             "Disruptor Overload" => new Result
             {
                 Kind = Kind.Instant,
                 Effect = Effect.DisruptorOverload,
-                Message = "Zerstört 1 Equipment (zufällig) an Crew/Away Team."
+                Message = "Plays on a crew or Away Team (not on a facility). Destroys one of that player's non-Shield equipment present (random)."
             },
             "Emergency Transporter Armbands" => new Result
             {
                 Kind = Kind.Instant,
                 Effect = Effect.EmergencyBeam,
-                Message = "Eigenes Personal an Location darf sofort beamen."
+                Message = "Plays on your crew or Away Team (even in battle or vs an [ETA] dilemma). Your personnel present may immediately beam away. Not while two adversaries are in combat."
             },
             "Escape Pod" => new Result
             {
                 Kind = Kind.Instant,
                 Effect = Effect.EscapePod,
                 DiscardAfter = false,
-                Message = "Nach Schiffsverlust: Crew hier parken (Sandbox-Marker)."
+                Message = "Just after your ship here is destroyed: relocate its crew(s) atop this card. Later relocate them to your ship here, then discard."
             },
             "Full Planet Scan" => new Result
             {
                 Kind = Kind.Instant,
                 Effect = Effect.PlanetScan,
-                Message = "Unterste Seed-Karte einer Planet-Mission anschauen (Computer Skill + Geology stoppen)."
+                Message = "Start of turn, your ship with ≥2 staffing icons at a planet mission: stop Computer Skill and Geology aboard to examine the bottom seed card here."
             },
             "Scan" => new Result
             {
                 Kind = Kind.Instant,
                 Effect = Effect.SpaceScan,
-                Message = "Unterste Seed-Karte einer Space-Mission anschauen (Computer Skill + Stellar Cartography)."
+                Message = "Start of turn, your ship with ≥2 staffing icons at a space mission: stop Computer Skill and Stellar Cartography aboard to examine the bottom seed card here."
             },
             "Life-form Scan" => new Result
             {
                 Kind = Kind.Instant,
                 Effect = Effect.LifeformScan,
-                Message = "Personal an einer Location prüfen (vereinfacht: Team-Übersicht)."
+                Message = "Examine the cards in your opponent's hand."
             },
             "Long-Range Scan" => new Result
             {
                 Kind = Kind.Instant,
                 Effect = Effect.LongRangeScan,
-                Message = "Karten an Bord eines Schiffs prüfen."
+                Message = "Examine the cards aboard a ship (except a ship with Long-Range Scan Shielding)."
             },
             "Honor Challenge" => new Result
             {
                 Kind = Kind.Instant,
                 Effect = Effect.HonorChallenge,
-                Message = "Zu Beginn Personnel Battle: Klingon+Honor tötet Treachery."
+                Message = "Start of a personnel battle: each of your Klingons with Honor may kill an opposing personnel present with Treachery. Cumulative."
             },
             "Incoming Message: Federation" or "Incoming Message: Klingon" or "Incoming Message: Romulan"
                 => new Result
                 {
                     Kind = Kind.AttachShip,
                     Effect = Effect.IncomingMessage,
-                    Message = "Schiff muss zur eigenen Facility derselben Affiliation (Sandbox: gestoppt bis Ankunft)."
+                    Message = "Plays on a matching-affiliation ship; it must do nothing but move toward that player's matching facility on this spaceline. Nullified on arrival (or if none)."
                 },
             "Jaglom Shrek: Information Broker" => new Result
             {
                 Kind = Kind.Instant,
                 Effect = Effect.JaglomLook,
-                Message = "Examine opponent's draw deck, then replace it unshuffled (order unchanged)."
+                Message = "Examine opponent's draw deck, then replace unshuffled."
             },
             "Klingon Death Yell" => new Result
             {
                 Kind = Kind.Instant,
                 Effect = Effect.DeathYell,
-                Message = "Nach Tod eines Klingon: Punkte (Sandbox: +5)."
+                Points = 5,
+                Message = "Just after a Klingon with Honor dies (limit one each): score 5 points."
             },
             "Klingon Right of Vengeance" => new Result
             {
                 Kind = Kind.Instant,
                 Effect = Effect.RightOfVengeance,
-                Message = "Nach Tod eines Klingon: Battle initiieren (Hinweis)."
+                Message = "Just after a personnel battle where a Klingon died: your Klingons present may immediately attack the same opponents, even without a leader (STRENGTH doubled this battle)."
             },
             "Loss of Orbital Stability" => new Result
             {
                 Kind = Kind.AttachShip,
                 Effect = Effect.LossOfOrbit,
-                Message = "Schiff orbitiert Planet: kein RANGE bis Zugende; SHIELDS≤4 → Zerstörung nächster Zug."
+                Message = "Plays on a ship orbiting a planet. NO RANGE until end of turn. If SHIELDS>4, discard this. Otherwise ship destroyed at end of owner's next turn. Cumulative."
             },
             "Near-Warp Transport" => new Result
             {
                 Kind = Kind.Instant,
                 Effect = Effect.NearWarp,
-                Message = "Bis 6 Karten von Schiff zu benachbarter Location beamen."
+                Message = "Beam up to six personnel and/or equipment from your exposed ship with transporters to an adjacent spaceline location."
             },
             "Palor Toff: Alien Trader" => new Result
             {
                 Kind = Kind.Instant,
                 Effect = Effect.PalorToff,
-                Message = "Tauscht sich gegen Nicht-Personnel aus dem Discard."
+                Message = "Exchange this card for any non-Personnel card in your discard pile."
             },
             "Particle Fountain" => new Result
             {
                 Kind = Kind.Instant,
                 Effect = Effect.ParticleFountain,
                 Points = 5,
-                Message = "Nach Planet-Solve mit 2 ENGINEER: +5."
+                Message = "Just after your Away Team solved a planet mission: if 2 ENGINEER in that Away Team, score 5 points."
             },
             "Ship Seizure" => new Result
             {
                 Kind = Kind.Instant,
                 Effect = Effect.ShipSeizure,
-                Message = "Eigenes Schiff mit Tractor: leeres gegnerisches Schiff hier discarded."
+                Message = "Plays on your ship with Tractor Beam. Discard another empty exposed ship here."
             },
             "Subspace Interference" => new Result
             {
                 Kind = Kind.Instant,
                 Effect = Effect.SubspaceInterference,
-                Message = "Nullifiziert Incoming Message / Hail / Subspace Schism."
+                Message = "Nullifies Incoming Message OR Hail OR Subspace Schism."
             },
             "Subspace Schism" => new Result
             {
                 Kind = Kind.AttachTable,
                 Effect = Effect.SubspaceSchism,
                 DiscardAfter = false,
-                Message = "Nächster Draw des Ziels: Karte discarded, nächste gezogen."
+                Message = "When a player would draw a card (limit once every turn): discard that card; they draw the next one."
             },
             "Temporal Rift" => new Result
             {
                 Kind = Kind.AttachTable,
                 Effect = Effect.TemporalRift,
                 DiscardAfter = false,
-                Countdown = 3,
-                Message = "Zeitort-Marker; Schiff/Dilemma hier (Sandbox)."
+                Countdown = 2,
+                Message = "Plays on table as a universal space time location; relocate one of your exposed ships OR a dilemma here. Counts down only at the start of your turn. When nullified, return that card."
             },
             "The Juggler" => new Result
             {
                 Kind = Kind.Instant,
                 Effect = Effect.TheJuggler,
-                Message = "Draw-Deck eines Spielers neu mischen."
+                Message = "Choose any player to re-shuffle the cards in their draw deck."
             },
             "Transwarp Conduit" => new Result
             {
                 Kind = Kind.AttachShip,
                 Effect = Effect.Transwarp,
                 DiscardAfter = false,
-                Message = "RANGE verdoppelt bis Zugende, dann discard."
+                Message = "Plays on a ship. Its full RANGE is doubled. Discard at end of turn."
             },
             "Vulcan Mindmeld" => new Result
             {
                 Kind = Kind.AttachTeam,
                 Effect = Effect.Mindmeld,
                 DiscardAfter = false,
-                Message = "Mindmeld-Personal erhält Skills eines anderen bis Zugende."
+                Message = "Plays on your Mindmeld personnel. Gains the skills of one of your other personnel present until end of turn, then discard."
             },
             "Wormhole" => new Result
             {
                 Kind = Kind.Instant,
                 Effect = Effect.Wormhole,
-                Message = "Zwei Wormholes: Schiff relocatiert und stoppt."
+                Message = "Requires two Wormholes. Play one on your exposed ship and the other at any location (even a time location). Ship relocates there and is stopped."
             },
             "Alien Groupie" => new Result
             {
                 Kind = Kind.AttachTeam,
                 Effect = Effect.AlienGroupie,
                 DiscardAfter = false,
-                Countdown = 3,
-                Message = "Nach Planet-Solve: 1 Male gestoppt bis Countdown."
+                Countdown = 2,
+                Message = "Plays on an Away Team that just solved a planet mission. One male present (random) is stopped until countdown 2 expires."
             },
             "Auto-Destruct Sequence" => new Result
             {
                 Kind = Kind.AttachShip,
                 Effect = Effect.AutoDestruct,
                 DiscardAfter = false,
-                Countdown = 2,
-                Message = "Countdown: Schiff zerstört, andere Schiffe SHIELDS&lt;8 damaged."
+                Countdown = 1,
+                Message = "Plays on your ship. When countdown 1 expires, destroy the ship; then damage all other ships present with SHIELDS<8."
             },
             "Rogue Borg" => new Result
             {
@@ -338,13 +392,201 @@ public static class InterruptRules
                 Message = "Plays on a ship. Doubles STRENGTH of all Rogue Borg present. "
                     + "Discard at start of next turn."
             },
-            "Tachyon Detection Grid" or "Distortion of Space/Time Continuum"
-                => new Result
-                {
-                    Kind = Kind.Instant,
-                    Effect = Effect.None,
-                    Message = $"\"{n}\" Premiere sandbox marker (full effect later)."
-                },
+            "Tachyon Detection Grid" => new Result
+            {
+                Kind = Kind.AttachShip,
+                Effect = Effect.None,
+                DiscardAfter = false,
+                Message = "If you control four exposed ships: plays on a cloaked ship. It de-cloaks (even if stopped or cloaked this turn) and may not cloak."
+            },
+            "Distortion of Space/Time Continuum" => new Result
+            {
+                Kind = Kind.AttachShip,
+                Effect = Effect.None,
+                DiscardAfter = false,
+                Message = "Unique. Plays on your non-AU ship just after opponent plays an AU card. You may discard this to unstop that ship and crew, OR restore full RANGE, OR unstop an Away Team here."
+            },
+
+            // ---------- Alternate Universe ----------
+            "Anti-Matter Spread" => new Result
+            {
+                Kind = Kind.Instant,
+                Effect = Effect.None,
+                Message = "Ship battle: opposing WEAPONS −1 per CUNNING<8 aboard (sandbox marker)."
+            },
+            "Barclay Transporter Phobia" => new Result
+            {
+                Kind = Kind.AttachTeam,
+                Effect = Effect.None,
+                DiscardAfter = false,
+                Message = "One personnel refuses transport until cured (Plexing) — sandbox attach."
+            },
+            "Brain Drain" => new Result
+            {
+                Kind = Kind.Instant,
+                Effect = Effect.None,
+                Message = "One personnel loses skills/CUNNING until EOT (once per turn) OR double Interphasic Plasma."
+            },
+            "Countermanda" => new Result
+            {
+                Kind = Kind.TimingOnly,
+                Effect = Effect.TimingNullify,
+                Message = "Nullify Telepathic Alien Kidnappers OR suspend Res-Q/Palor Toff and dig discard."
+            },
+            "Dead in Bed" => new Result
+            {
+                Kind = Kind.Instant,
+                Effect = Effect.None,
+                Message = "Kill one personnel currently in stasis."
+            },
+            "Destroy Radioactive Garbage Scow" => new Result
+            {
+                Kind = Kind.Instant,
+                Effect = Effect.None,
+                Message = "Discard Scow; kill personnel here not on ship unless Thermal Deflectors (sandbox)."
+            },
+            "Devidian Foragers" => new Result
+            {
+                Kind = Kind.Instant,
+                Effect = Effect.None,
+                Message = "Two personnel from a discard pile out-of-play; add attrs to one [AU] personnel this turn."
+            },
+            "Eyes in the Dark" => new Result
+            {
+                Kind = Kind.Instant,
+                Effect = Effect.None,
+                Message = "While facing a dilemma: if Empathy, add skills/attrs of one random personnel from an opponent ship."
+            },
+            "Fire Sculptor" => new Result
+            {
+                Kind = Kind.Instant,
+                Effect = Effect.None,
+                Message = "Move Plasma Fire / Warp Core Breach to nearest opponent ship OR melt one discard card OOP."
+            },
+            "Hail" => new Result
+            {
+                Kind = Kind.Instant,
+                Effect = Effect.None,
+                Message = "Ship flying by must stop here OR two ships cannot battle each other this turn."
+            },
+            "Howard Heirloom Candle" => new Result
+            {
+                Kind = Kind.Instant,
+                Effect = Effect.None,
+                Message = "Double Anaphasic/Empathic Echo OR nullify Coalescent Organism OR prevent morph."
+            },
+            "Humuhumunukunukuapua'a" => new Result
+            {
+                Kind = Kind.Instant,
+                Effect = Effect.None,
+                Message = "This turn at location: your Youth CUNNING/STR +4; opponent non-aligned −4."
+            },
+            "Incoming Message: Attack Authorization" => new Result
+            {
+                Kind = Kind.AttachShip,
+                Effect = Effect.IncomingMessage,
+                Message = "Federation ship with Treachery must attack a ship here (ignore if V.I.P. aboard)."
+            },
+            "Isabella" => new Result
+            {
+                Kind = Kind.AttachShip,
+                Effect = Effect.None,
+                DiscardAfter = false,
+                Countdown = 1,
+                Message = "Non-Borg ship at nebula destroyed end of your next turn unless Youth OR kill one Greed."
+            },
+            "Jamaharon" => new Result
+            {
+                Kind = Kind.Instant,
+                Effect = Effect.None,
+                Message = "AU interrupt: Jamaharon sandbox (full text later)."
+            },
+            "Kevin Uxbridge: Convergence" => new Result
+            {
+                Kind = Kind.TimingOnly,
+                Effect = Effect.TimingNullify,
+                Message = "Nullify multiple events at one spaceline location (Kevin Convergence)."
+            },
+            "La Forge Maneuver" => new Result
+            {
+                Kind = Kind.Instant,
+                Effect = Effect.None,
+                Message = "Ship battle maneuver (sandbox): WEAPONS/SHIELDS swing this battle."
+            },
+            "Latinum Payoff" => new Result
+            {
+                Kind = Kind.Instant,
+                Effect = Effect.None,
+                Points = 5,
+                Message = "Score points with Latinum/Ferengi condition (sandbox +5)."
+            },
+            "Phaser Burns" => new Result
+            {
+                Kind = Kind.Instant,
+                Effect = Effect.None,
+                Message = "Personnel battle: wounds / STRENGTH reduction (sandbox)."
+            },
+            "Rescue Captives" => new Result
+            {
+                Kind = Kind.Instant,
+                Effect = Effect.None,
+                Message = "Release captives to hand / outpost (sandbox)."
+            },
+            "Romulan Ambush" => new Result
+            {
+                Kind = Kind.Instant,
+                Effect = Effect.None,
+                Message = "Start of battle: Romulan ambush bonus (sandbox)."
+            },
+            "Security Sacrifice" => new Result
+            {
+                Kind = Kind.Instant,
+                Effect = Effect.None,
+                Message = "Sacrifice SECURITY to save another (sandbox)."
+            },
+            "Seize Wesley" => new Result
+            {
+                Kind = Kind.Instant,
+                Effect = Effect.None,
+                Message = "Capture/stop Wesley Crusher if present (sandbox)."
+            },
+            "Senior Staff Meeting" => new Result
+            {
+                Kind = Kind.Instant,
+                Effect = Effect.None,
+                Message = "Download / report officers meeting effect (sandbox)."
+            },
+            "Temporal Narcosis" => new Result
+            {
+                Kind = Kind.Instant,
+                Effect = Effect.None,
+                Message = "Stop personnel affected by time travel / AU (sandbox)."
+            },
+            "Thine Own Self" => new Result
+            {
+                Kind = Kind.Instant,
+                Effect = Effect.None,
+                Message = "Isolate / relocate one personnel (sandbox)."
+            },
+            "Vorgon Raiders" => new Result
+            {
+                Kind = Kind.Instant,
+                Effect = Effect.None,
+                Message = "Artifact / Tox Uthat interaction (sandbox)."
+            },
+            "Vulcan Nerve Pinch" => new Result
+            {
+                Kind = Kind.Instant,
+                Effect = Effect.None,
+                Message = "Stop one personnel present (Vulcan)."
+            },
+            "Wolf" => new Result
+            {
+                Kind = Kind.Instant,
+                Effect = Effect.None,
+                Message = "AU interrupt Wolf (sandbox marker)."
+            },
+
             _ => new Result
             {
                 Kind = Kind.Instant,

@@ -6,7 +6,8 @@ namespace StarTrekCCG;
 
 /// <summary>
 /// Spielzustand und Zugstruktur – UI-unabhängig.
-/// Compendium Kap. 5/6: Play (normal card play) → Execute orders → Draw (Zugende).
+/// Compendium Kap. 5/6: Play → Execute → Draw.
+/// Copy this whole file over the VS project GameSession.cs (PointsToWin, CheckVictory, OncePerGame).
 /// </summary>
 public sealed class GameSession
 {
@@ -58,7 +59,52 @@ public sealed class GameSession
         && !NormalCardPlayUsed
         && !NormalCardPlayForfeited;
 
+    /// <summary>Compendium default; some cards change the race.</summary>
+    public int PointsToWin { get; set; } = 100;
+
+    /// <summary>"Once per game" keys, e.g. "P1|SpecialDownload|Miles O'Brien".</summary>
+    public HashSet<string> OncePerGame { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Cleared at each EndTurn. Keys like "P1|RedAlert".</summary>
+    public HashSet<string> OncePerTurn { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Effects that expire at end of the current turn (card instance ids or names).</summary>
+    public HashSet<string> UntilEndOfTurn { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Structured until-EOT effects (Transwarp, temporary RANGE, …).</summary>
+    public List<ExpiringEffect> Expiring { get; } = new();
+
+    public int? Winner { get; private set; }
+
     public ActionLog Log { get; } = new();
+
+    public bool TryMarkOncePerGame(int player, string key)
+    {
+        string k = $"P{player}|{key}";
+        return OncePerGame.Add(k);
+    }
+
+    public bool HasOncePerGame(int player, string key) =>
+        OncePerGame.Contains($"P{player}|{key}");
+
+    public bool TryMarkOncePerTurn(int player, string key)
+    {
+        string k = $"P{player}|{key}";
+        return OncePerTurn.Add(k);
+    }
+
+    public int? CheckVictory(int scoreP1, int scoreP2)
+    {
+        if (Winner is > 0) return Winner;
+        if (scoreP1 >= PointsToWin && scoreP1 > scoreP2) Winner = 1;
+        else if (scoreP2 >= PointsToWin && scoreP2 > scoreP1) Winner = 2;
+        if (Winner is > 0)
+        {
+            Match = MatchPhase.Ended;
+            Log.Add(TurnNumber, "System", $"P{Winner} wins ({scoreP1}–{scoreP2}, target {PointsToWin}).");
+        }
+        return Winner;
+    }
 
     public void StartSeed()
     {
@@ -66,6 +112,11 @@ public sealed class GameSession
         ActivePlayer = 1;
         TurnNumber = 0;
         Segment = TurnSegment.Play;
+        Winner = null;
+        OncePerGame.Clear();
+        OncePerTurn.Clear();
+        UntilEndOfTurn.Clear();
+        Expiring.Clear();
         ResetTurnFlags();
         Log.Add(0, "System", "Seed-Phase gestartet");
     }
@@ -131,6 +182,9 @@ public sealed class GameSession
 
         Segment = TurnSegment.Play;
         ResetTurnFlags();
+        OncePerTurn.Clear();
+        // Until-EOT bag is drained in ProcessUntilEndOfTurnBag for the finishing player only.
+        // Do not clear Expiring / UntilEndOfTurn here — other player's effects must survive.
         Log.Add(TurnNumber, $"S{ActivePlayer}", "Zugbeginn – Play (optional 1 Karte aus der Hand)");
     }
 
@@ -191,23 +245,9 @@ public sealed class GameSession
     /// Compendium: Interrupt &amp; Doorway brauchen keine normal card play („at any time“).
     /// Personnel/Ship/Equipment reporten – zählen aber als die eine Card Play, wenn aus der Hand.
     /// </summary>
-    public static bool UsesNormalCardPlay(Card card)
-    {
-        string t = (card.Type ?? "").ToLowerInvariant();
-        if (t.Contains("interrupt")) return false;
-        if (t.Contains("doorway")) return false;
-        return true;
-    }
+    public static bool UsesNormalCardPlay(Card card) => CardKinds.UsesNormalCardPlay(card);
 
-    public static bool MustReportForDuty(Card card)
-    {
-        string t = (card.Type ?? "").ToLowerInvariant();
-        return t.Contains("personnel")
-               || t.Contains("ship")
-               || t.Contains("equipment")
-               || t.Contains("android")
-               || t.Contains("animal");
-    }
+    public static bool MustReportForDuty(Card card) => CardKinds.MustReportForDuty(card);
 }
 
 /// <summary>

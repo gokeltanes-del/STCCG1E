@@ -3,9 +3,8 @@
 namespace StarTrekCCG.Models;
 
 /// <summary>
-/// Basis-Modell für eine Star Trek CCG 1E Karte.
-/// Entspricht dem Output von split_lackey_sets.py (cards.json).
-/// Später werden wir Attribute sauber parsen (Integrity, Skills usw.).
+/// Printed card + per-copy runtime fields.
+/// Copy this file over Models/Card.cs in the VS project (do not keep the old Card without InstanceId).
 /// </summary>
 public class Card
 {
@@ -33,7 +32,6 @@ public class Card
     [JsonPropertyName("class")]
     public string? Class { get; set; }
 
-    // Diese Felder kommen als Strings aus Lackey (z.B. "7" oder "7 / 8")
     [JsonPropertyName("integrity_or_range")]
     public string? IntegrityOrRange { get; set; }
 
@@ -64,7 +62,6 @@ public class Card
     [JsonPropertyName("old_image_file")]
     public string? OldImageFile { get; set; }
 
-    // Weitere optionale Felder
     [JsonPropertyName("mission_dilemma_type")]
     public string? MissionDilemmaType { get; set; }
 
@@ -77,12 +74,28 @@ public class Card
     [JsonPropertyName("span")]
     public string? Span { get; set; }
 
-    // Laufzeit-Felder (nicht aus JSON)
     [JsonIgnore]
     public string? FullImagePath { get; set; }
+
+    /// <summary>Per-copy id in a running game. 0 = database prototype (not in play).</summary>
+    [JsonIgnore]
+    public int InstanceId { get; set; }
+
+    /// <summary>Player who owns the card (deck). 0 = shared / mission.</summary>
+    [JsonIgnore]
+    public int OwnerPlayer { get; set; }
+
+    /// <summary>Player who currently controls it (commandeer / Lore Returns / assimilation).</summary>
+    [JsonIgnore]
+    public int Controller { get; set; }
+
+    /// <summary>False = Hidden Agenda / seed facedown / opponent private pile.</summary>
+    [JsonIgnore]
+    public bool FaceUp { get; set; } = true;
 
     [JsonIgnore]
     public string Set => SetFolder ?? "Unknown";
 
-    public override string ToString() => $"{Name} ({Type})";
+    public override string ToString() =>
+        InstanceId > 0 ? $"{Name} ({Type}) #{InstanceId}" : $"{Name} ({Type})";
 }

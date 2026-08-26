@@ -73,6 +73,10 @@ public static class DilemmaRules
         public Func<string, IReadOnlyList<Card>, Card?>? PickYou { get; init; }
         public Func<string, IReadOnlyList<Card>, Card?>? PickOpp { get; init; }
         public Func<string, bool>? Confirm { get; init; }
+        /// <summary>True when the attempt is at the attempting player's outpost (Outpost Raid).</summary>
+        public bool AtOwnOutpost { get; init; }
+        /// <summary>True when The Traveler: Transcendence is affecting the attempting player.</summary>
+        public bool TravelerAffecting { get; init; }
     }
 
     public static Result Resolve(Ctx ctx)
@@ -91,7 +95,8 @@ public static class DilemmaRules
                 "Music OR Youth OR STRENGTH>9 OR Lwaxana Troi"),
             "Matriarchal Society" => Wall(ctx, ctx.Team.Count(IsFemale) >= 2, "mind. 2 Female"),
 
-            "Armus: Skin Of Evil" => KillRandomEnd(ctx, "Armus kills one random Away Team member."),
+            // Printed: "Kills one Away Team member (random selection)." — not a wall; survivors continue.
+            "Armus: Skin Of Evil" => KillAndContinue(ctx, "Armus kills one random Away Team member. Discard dilemma."),
             "Nausicaans" => UnlessThen(ctx, Sum(ctx).str > 44, KillRandom(ctx),
                 "STRENGTH>44", "Nausicaans kill one at random.", discardAlways: true),
             "Rebel Encounter" => Rebel(ctx),
@@ -104,7 +109,7 @@ public static class DilemmaRules
             "Anaphasic Organism" => UnlessThen(ctx, Skill(ctx, "MEDICAL") && Skill(ctx, "SECURITY"),
                 HighestFemale(ctx), "MEDICAL and SECURITY", "Highest female is discarded.", true),
             "El-Adrel Creature" => ElAdrel(ctx),
-            "Firestorm" => Firestorm(ctx),
+            "Firestorm" => Firestorm(ctx), // INTEGRITY<5 die; discard; attempt continues
             "Microvirus" => UnlessScoreOr(ctx, Skill(ctx, "MEDICAL") && Skill(ctx, "SECURITY"),
                 () => PickKill(ctx, opp: true, "Microvirus: opponent chooses (no inorganic).", exceptInorganic: true),
                 5, "MEDICAL and SECURITY"),
@@ -146,10 +151,10 @@ public static class DilemmaRules
                 StopTeam = false,
                 Message = "Scow auf der Mission: Attempt endet. Mission nicht versuchbar, bis abgeschleppt (Tractor + 2 ENGINEER)."
             },
-            "Hyper-Aging" => Attach(ctx, PersistKind.HyperAging, 3,
-                "Hyper-Aging (quarantine, countdown 3). Cure: 2 MEDICAL + SCIENCE."),
-            "REM Fatigue" => Attach(ctx, PersistKind.RemFatigue, 3,
-                "REM Fatigue (quarantine, countdown 3). Cure: 3 MEDICAL or dock."),
+            "Hyper-Aging" => Attach(ctx, PersistKind.HyperAging, 4,
+                "Hyper-Aging (quarantine, countdown 4). Cure: 2 MEDICAL + SCIENCE (score points)."),
+            "REM Fatigue" => Attach(ctx, PersistKind.RemFatigue, 4,
+                "REM Fatigue (quarantine, countdown 4). Cure: 3 MEDICAL or dock (score points)."),
             "Alien Abduction" => Abduction(ctx),
             "Phased Matter" => Phased(ctx),
             "Cytherians" => Attach(ctx, PersistKind.Cytherians, 0,
@@ -172,8 +177,330 @@ public static class DilemmaRules
             "Q" => Qdil(ctx),
             "Temporal Causality Loop" => Loop(ctx),
 
+            // ---------- Alternate Universe (printed text 2026-08-26) ----------
+            "Alien Labyrinth" => Wall(ctx,
+                HasNamedGear(ctx, "Tricorder") || Skill(ctx, "ENGINEER", 2),
+                "Tricorder OR 2 ENGINEER"),
+            "Hidden Entrance" => Wall(ctx,
+                ctx.Team.Any(p => (p.Name ?? "").Contains("Geordi", StringComparison.OrdinalIgnoreCase))
+                || (Skill(ctx, "ENGINEER") && Sum(ctx).cunn > 32),
+                "Geordi La Forge OR ENGINEER + CUNNING>32"),
+            "Malfunctioning Door" => Wall(ctx,
+                ctx.Team.Any(IsAndroid)
+                || ctx.Team.OrderByDescending(p => Eff(ctx, p).Strength).Take(4).Sum(p => Eff(ctx, p).Strength) > 27,
+                "Soong-Type android OR STRENGTH>27 from up to four"),
+            "Outpost Raid" => OutpostRaidAu(ctx),
+            "Zaldan" => ZaldanAu(ctx),
+            "Hunter Gangs" => HunterGangsAu(ctx),
+            "Punishment Zone" => KillRandomEnd(ctx,
+                "Punishment Zone: one random Away Team member killed (beam-up −5 / Fed ×2 not automated)."),
+            "Ferengi Attack" => FerengiAttackAu(ctx),
+            "Coalescent Organism" => CoalescentAu(ctx),
+            "The Gatherers" => GatherersAu(ctx),
+            "Thought Fire" => ThoughtFireAu(ctx),
+            "Interphasic Plasma Creatures" => InterphasicPlasmaAu(ctx),
+            "Parallel Romance" => ParallelRomanceAu(ctx),
+            "Quantum Singularity Lifeforms" => Attach(ctx, PersistKind.None, 0,
+                "If Romulan ship present: stasis here. Cure: Emergency Transporter Armbands / ENGINEER (sandbox)."),
+            "Rascals" => Attach(ctx, PersistKind.None, 0,
+                "Up to 4 unique crew become kids (STR 2, Youth). Cure: 2 MEDICAL + Biology."),
+            "Maman Picard" => new Result
+            {
+                Fate = Fate.EffectAndEnd,
+                StopTeam = true,
+                Message = "Federation ship: relocate to spaceline end (opponent chooses — sandbox marker)."
+            },
+            "Conundrum" => ConundrumAu(ctx),
+            "Edo Probe" => EdoProbeAu(ctx),
+            "Frame of Mind" => FrameOfMindAu(ctx),
+            "Empathic Echo" => EmpathicEchoAu(ctx),
+            "Cardassian Trap" => CardassianTrapAu(ctx),
+            "Royale Casino: Blackjack" => new Result
+            {
+                Fate = Fate.EffectAndEnd,
+                StopTeam = false,
+                Score = 0,
+                Message = "Royale Casino: Blackjack — sandbox: +0 (play CUNNING blackjack later)."
+            },
+            "The Higher... The Fewer" => new Result
+            {
+                Fate = Fate.EffectAndEnd,
+                StopTeam = false,
+                Score = -Math.Min(ctx.Team.Count, 20),
+                Message = $"The Higher… The Fewer: score −{Math.Min(ctx.Team.Count, 20)} (X = team size)."
+            },
+            "Worshiper" => WorshiperAu(ctx),
+
             _ => Fallback(ctx)
         };
+    }
+
+    private static bool HasNamedGear(Ctx ctx, string name) =>
+        ctx.Present.Any(c => (c.Name ?? "").Contains(name, StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsCardassian(Card p)
+    {
+        string blob = $"{p.Affiliation} {p.Icons} {p.Characteristics}";
+        return blob.Contains("[Car]", StringComparison.OrdinalIgnoreCase)
+               || blob.Contains("Cardassian", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsUniversalCard(Card c)
+    {
+        string u = c.Uniqueness ?? "";
+        string n = c.Name ?? "";
+        return u.Contains("univ", StringComparison.OrdinalIgnoreCase)
+               || n.StartsWith("❖")
+               || n.Contains("Universal", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static Result KillAndContinue(Ctx ctx, string msg)
+    {
+        var r = new Result { Fate = Fate.Overcome, StopTeam = false, Message = msg };
+        AddKill(r.Kill, RandomOf(ctx, ctx.Team));
+        return r;
+    }
+
+    private static Result FerengiAttackAu(Ctx ctx)
+    {
+        var tot = Sum(ctx);
+        bool ok = tot.cunn + tot.str > 68 || Skill(ctx, "Greed");
+        if (ok)
+            return new Result { Fate = Fate.Overcome, Message = "Ferengi Attack: CUNNING+STRENGTH>68 or Greed." };
+        var r = new Result
+        {
+            Fate = Fate.EffectAndEnd,
+            StopTeam = true,
+            Message = "Ferengi Attack: opponent kills one."
+        };
+        _tmp.Clear();
+        PickKill(ctx, opp: true, "Ferengi Attack: opponent chooses a victim.");
+        r.Kill.AddRange(_tmp);
+        _tmp.Clear();
+        return r;
+    }
+
+    private static Result CoalescentAu(Ctx ctx)
+    {
+        if (Skill(ctx, "Exobiology"))
+            return new Result { Fate = Fate.Overcome, Message = "Coalescent Organism: Exobiology present." };
+        var victim = RandomOf(ctx, ctx.Team);
+        var r = Attach(ctx, PersistKind.None, 1,
+            $"{victim?.Name ?? "A personnel"} marked by Coalescent Organism: dies at end of your next turn, then passes on (sandbox).");
+        r.Relocate = victim;
+        return r;
+    }
+
+    private static Result ConundrumAu(Ctx ctx)
+    {
+        if (Sum(ctx).integ > 40)
+            return new Result { Fate = Fate.Overcome, Message = "Conundrum: INTEGRITY>40." };
+        return Attach(ctx, PersistKind.None, 0,
+            "Conundrum: this ship must chase and attack an opponent's ship on this spaceline (sandbox: attempt ends, ship stopped).");
+    }
+
+    private static Result EdoProbeAu(Ctx ctx)
+    {
+        bool abandon = ctx.Confirm?.Invoke(
+            "Edo Probe: abandon this attempt until any player solves a different mission? (NO = continue, −10 if not solved this turn)")
+            ?? true;
+        if (abandon)
+            return new Result
+            {
+                Fate = Fate.EndAttempt,
+                StopTeam = true,
+                Message = "Edo Probe: attempt abandoned until another mission is solved."
+            };
+        return new Result
+        {
+            Fate = Fate.Overcome,
+            StopTeam = false,
+            Score = 0,
+            Message = "Edo Probe: continue — lose 10 if this mission is not solved this turn (sandbox flag)."
+        };
+    }
+
+    private static Result FrameOfMindAu(Ctx ctx)
+    {
+        var victim = RandomOf(ctx, ctx.Team);
+        if (victim == null)
+            return new Result { Fate = Fate.Overcome, Message = "Frame of Mind: no personnel." };
+        return Attach(ctx, PersistKind.None, 0,
+            $"Frame of Mind on {victim.Name}: Non-Aligned 3-3-3, two skills (opponent's choice). Cure: 3 Empathy.");
+    }
+
+    private static Result EmpathicEchoAu(Ctx ctx)
+    {
+        var empaths = ctx.Team.Where(p =>
+        {
+            foreach (var kv in Eff(ctx, p).Skills)
+                if (kv.Key.Contains("Empathy", StringComparison.OrdinalIgnoreCase)) return true;
+            return false;
+        }).ToList();
+        if (empaths.Count == 0)
+            return new Result { Fate = Fate.Overcome, Message = "Empathic Echo: no Empathy present — no target." };
+        if (Skill(ctx, "SECURITY") && Skill(ctx, "MEDICAL"))
+            return new Result { Fate = Fate.Overcome, Message = "Empathic Echo: SECURITY and MEDICAL present." };
+        var r = new Result
+        {
+            Fate = Fate.EffectAndEnd,
+            StopTeam = true,
+            Message = "Empathic Echo: Empathy personnel killed."
+        };
+        AddKill(r.Kill, RandomOf(ctx, empaths));
+        return r;
+    }
+
+    private static Result CardassianTrapAu(Ctx ctx)
+    {
+        if (Skill(ctx, "Empathy"))
+            return new Result { Fate = Fate.Overcome, Message = "Cardassian Trap: Empathy present." };
+        var pool = ctx.Team.Where(p => !IsCardassian(p) && !IsUniversalCard(p)).ToList();
+        if (pool.Count == 0) pool = ctx.Team.Where(p => !IsCardassian(p)).ToList();
+        var r = new Result
+        {
+            Fate = Fate.EffectAndEnd,
+            StopTeam = true,
+            Message = "Cardassian Trap: opponent captures one unique non-Cardassian (sandbox: discarded)."
+        };
+        AddKill(r.Kill, RandomOf(ctx, pool));
+        return r;
+    }
+
+    private static Result ZaldanAu(Ctx ctx)
+    {
+        bool ok = Skill(ctx, "Treachery", 2)
+                  || ctx.Team.Any(p => (p.Name ?? "").Contains("Wesley", StringComparison.OrdinalIgnoreCase))
+                  || Skill(ctx, "Exobiology")
+                  || ctx.Present.Any(c =>
+                      (c.Name ?? "").Contains("disruptor", StringComparison.OrdinalIgnoreCase)
+                      || ((c.Type ?? "").Contains("equipment", StringComparison.OrdinalIgnoreCase)
+                          && (c.Name ?? "").Contains("Phaser", StringComparison.OrdinalIgnoreCase)));
+        if (ok)
+            return new Result { Fate = Fate.Overcome, Message = "Zaldan: filter met." };
+        var r = new Result
+        {
+            Fate = Fate.EffectAndEnd,
+            StopTeam = true,
+            Message = "Zaldan kills two with Diplomacy (random)."
+        };
+        var dipl = ctx.Team.Where(p =>
+        {
+            foreach (var kv in MissionRules.ParsePersonnelSkills(p))
+                if (kv.Key.Contains("Diplomacy", StringComparison.OrdinalIgnoreCase)) return true;
+            return false;
+        }).ToList();
+        var pool = dipl.Count > 0 ? dipl : ctx.Team.ToList();
+        AddKill(r.Kill, RandomOf(ctx, pool));
+        AddKill(r.Kill, RandomOf(ctx, pool.Where(p => !r.Kill.Contains(p))));
+        return r;
+    }
+
+    private static Result InterphasicPlasmaAu(Ctx ctx)
+    {
+        if (Skill(ctx, "SCIENCE", 2) || Skill(ctx, "Mindmeld"))
+            return new Result { Fate = Fate.Overcome, Message = "Interphasic Plasma Creatures: 2 SCIENCE or Mindmeld." };
+        return Attach(ctx, PersistKind.None, 0,
+            "Interphasic Plasma Creatures on table: each personnel STRENGTH −2 (sandbox).");
+    }
+
+    private static Result OutpostRaidAu(Ctx ctx)
+    {
+        // Printed: at your outpost — two killed (opp choice) unless STRENGTH>81; elsewhere wall STRENGTH>18.
+        if (ctx.AtOwnOutpost)
+        {
+            if (Sum(ctx).str > 81)
+                return new Result { Fate = Fate.Overcome, Message = "Outpost Raid at outpost: STRENGTH>81." };
+            var r = new Result
+            {
+                Fate = Fate.EffectAndEnd,
+                StopTeam = true,
+                Message = "Outpost Raid at outpost: opponent kills two."
+            };
+            _tmp.Clear();
+            PickKill(ctx, opp: true, "Outpost Raid: first victim.");
+            PickKill(ctx, opp: true, "Outpost Raid: second victim.");
+            r.Kill.AddRange(_tmp);
+            _tmp.Clear();
+            return r;
+        }
+        return Wall(ctx, Sum(ctx).str > 18, "STRENGTH>18 (not at your outpost)");
+    }
+
+    private static Result HunterGangsAu(Ctx ctx)
+    {
+        var kills = new List<Card>();
+        var a = RandomOf(ctx, ctx.Team);
+        var b = RandomOf(ctx, ctx.Team.Where(p => !ReferenceEquals(p, a)));
+        foreach (var p in new[] { a, b })
+        {
+            if (p == null) continue;
+            int cunn = Eff(ctx, p).Cunning;
+            if (cunn % 2 != 0) AddKill(kills, p);
+        }
+        string msg = kills.Count == 0
+            ? "Hunter Gangs: both escape (even CUNNING)."
+            : $"Hunter Gangs: {kills.Count} killed (odd CUNNING).";
+        var r = new Result { Fate = Fate.EffectAndEnd, StopTeam = true, Message = msg };
+        r.Kill.AddRange(kills);
+        return r;
+    }
+
+    private static Result GatherersAu(Ctx ctx)
+    {
+        if (ctx.Team.Any(p => (p.Name ?? "").Contains("Marouk", StringComparison.OrdinalIgnoreCase))
+            || Sum(ctx).integ > 36)
+            return new Result { Fate = Fate.Overcome, Message = "The Gatherers: Marouk or INTEGRITY>36." };
+        var r = new Result
+        {
+            Fate = Fate.EffectAndEnd,
+            StopTeam = true,
+            Message = "The Gatherers: discard Equipment/Artifacts present + one random hand card (UI applies equipment)."
+        };
+        foreach (var e in ctx.Present.Where(c =>
+                     (c.Type ?? "").Contains("equipment", StringComparison.OrdinalIgnoreCase)
+                     || (c.Type ?? "").Contains("artifact", StringComparison.OrdinalIgnoreCase)))
+            AddKill(r.Kill, e);
+        return r;
+    }
+
+    private static Result ThoughtFireAu(Ctx ctx)
+    {
+        // Printed: only if Traveler is affecting you; then low CUNN+INT die unless Empathy.
+        if (!ctx.TravelerAffecting)
+            return new Result { Fate = Fate.Overcome, Message = "Thought Fire: Traveler not affecting you — no effect." };
+        if (Skill(ctx, "Empathy"))
+            return new Result { Fate = Fate.Overcome, Message = "Thought Fire: Empathy present." };
+        var r = new Result { Fate = Fate.EffectAndEnd, StopTeam = true, Message = "Thought Fire: (CUNNING+INTEGRITY)<12 die." };
+        foreach (var p in ctx.Team)
+        {
+            var e = Eff(ctx, p);
+            if (e.Cunning + e.Integrity < 12) AddKill(r.Kill, p);
+        }
+        return r;
+    }
+
+    private static Result ParallelRomanceAu(Ctx ctx)
+    {
+        var m = RandomOf(ctx, ctx.Team.Where(IsMale));
+        var f = RandomOf(ctx, ctx.Team.Where(IsFemale));
+        if (m == null || f == null)
+            return new Result { Fate = Fate.Overcome, Message = "Parallel Romance: no male+female — discarded." };
+        return Attach(ctx, PersistKind.None, 3,
+            $"Parallel Romance on {m.Name} & {f.Name}: stopped, STRENGTH −2 until countdown (sandbox).");
+    }
+
+    private static Result WorshiperAu(Ctx ctx)
+    {
+        // Skill counts as proxy for Greed vs Honor
+        int greed = SkillCount(ctx, "Greed") + SkillCount(ctx, "Treachery");
+        int honor = SkillCount(ctx, "Honor") + SkillCount(ctx, "Diplomacy");
+        if (greed > honor)
+            return new Result { Fate = Fate.Overcome, Score = 5, Message = "Worshiper: Greed>Honor → +5 (sandbox)." };
+        if (Skill(ctx, "Anthropology")
+            || ctx.Present.Any(c => (c.Name ?? "").Contains("Edo", StringComparison.OrdinalIgnoreCase)))
+            return new Result { Fate = Fate.Overcome, Message = "Worshiper: Anthropology / Edo Vessel." };
+        return new Result { Fate = Fate.EffectAndEnd, StopTeam = true, Message = "Worshiper: Away Team stopped." };
     }
 
     // ---- helpers ----
@@ -331,7 +658,12 @@ public static class DilemmaRules
 
     private static Result Firestorm(Ctx ctx)
     {
-        var r = new Result { Fate = Fate.EffectAndEnd, StopTeam = true, Message = "Firestorm: INTEGRITY<5 sterben." };
+        var r = new Result
+        {
+            Fate = Fate.Overcome,
+            StopTeam = false,
+            Message = "Firestorm: Away Team members with INTEGRITY<5 are killed. Discard dilemma."
+        };
         foreach (var p in ctx.Team.Where(p => Eff(ctx, p).Integrity < 5))
             r.Kill.Add(p);
         return r;

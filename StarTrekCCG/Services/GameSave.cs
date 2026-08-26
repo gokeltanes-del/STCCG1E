@@ -7,12 +7,17 @@ namespace StarTrekCCG;
 /// <summary>
 /// Table snapshot (positions + zone lists + session). Mechanics are not compiled into the file,
 /// so later code changes still load as long as card names/sets resolve.
-/// Format: STCCG1E-Save-v1
+/// Format: STCCG1E-Save-v1 (schema 2 adds instance/controller/stack/TurnScope).
+/// Copy this whole file over the VS project GameSave.cs — TableWindow needs these types.
 /// </summary>
 public sealed class GameSave
 {
     [JsonPropertyName("format")]
     public string Format { get; set; } = "STCCG1E-Save-v1";
+
+    /// <summary>1 = original. 2 = instance/controller/stack/TurnScope fields present.</summary>
+    [JsonPropertyName("schema")]
+    public int Schema { get; set; } = 2;
 
     [JsonPropertyName("savedUtc")]
     public DateTime SavedUtc { get; set; } = DateTime.UtcNow;
@@ -52,6 +57,12 @@ public sealed class GameSave
 
     [JsonPropertyName("log")]
     public List<LogSnap> Log { get; set; } = new();
+
+    [JsonPropertyName("stack")]
+    public StackWindowSnap? Stack { get; set; }
+
+    [JsonPropertyName("oncePerGame")]
+    public List<string> OncePerGame { get; set; } = new();
 }
 
 public sealed class SessionSnap
@@ -73,6 +84,9 @@ public sealed class SessionSnap
     public bool HorgahnExtraUsed { get; set; }
     public int IonizationBeamsThisTurn { get; set; }
     public int RedAlertPlaysLeft { get; set; }
+    public int PointsToWin { get; set; } = 100;
+    public int? Winner { get; set; }
+    public int NextInstanceId { get; set; }
 }
 
 public sealed class CardRef
@@ -80,6 +94,10 @@ public sealed class CardRef
     public string Name { get; set; } = "";
     public string? Set { get; set; }
     public string? Type { get; set; }
+    public int InstanceId { get; set; }
+    public int Owner { get; set; }
+    public int Controller { get; set; }
+    public bool FaceUp { get; set; } = true;
 }
 
 public sealed class TableCardSnap
@@ -98,6 +116,9 @@ public sealed class TableCardSnap
     public int? RangeLeft { get; set; }
     public int RepairTurns { get; set; }
     public int? SolvedBy { get; set; }
+    public int InstanceId { get; set; }
+    public int Controller { get; set; }
+    public bool FaceUp { get; set; } = true;
 }
 
 public sealed class StackSnap
@@ -117,6 +138,9 @@ public sealed class AttachedEventSnap
     public bool FaceUp { get; set; } = true;
     public string? EspionageAs { get; set; }
     public string? EspionageOn { get; set; }
+    public string? TurnScope { get; set; }
+    public string? PhasePoint { get; set; }
+    public int? ScopePlayer { get; set; }
 }
 
 public sealed class AttachedDilemmaSnap
@@ -133,4 +157,23 @@ public sealed class LogSnap
     public int Turn { get; set; }
     public string Actor { get; set; } = "";
     public string Text { get; set; } = "";
+}
+
+public sealed class StackWindowSnap
+{
+    public bool Open { get; set; }
+    public int ResponsePlayer { get; set; }
+    public int ConsecutivePasses { get; set; }
+    public List<StackItemSnap> Items { get; set; } = new();
+}
+
+public sealed class StackItemSnap
+{
+    public string Kind { get; set; } = "";
+    public int Controller { get; set; }
+    public string? Card { get; set; }
+    public string? Target { get; set; }
+    public string Summary { get; set; } = "";
+    public bool IsResponse { get; set; }
+    public bool Cancelled { get; set; }
 }

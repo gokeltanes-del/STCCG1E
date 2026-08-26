@@ -85,16 +85,13 @@ public static class TimingRules
         }
     }
 
-    public static bool IsInterrupt(Card c) =>
-        (c.Type ?? "").Contains("interrupt", StringComparison.OrdinalIgnoreCase);
+    public static bool IsInterrupt(Card c) => CardKinds.IsInterrupt(c);
 
-    public static bool IsEvent(Card c) =>
-        (c.Type ?? "").Contains("event", StringComparison.OrdinalIgnoreCase);
+    public static bool IsEvent(Card c) => CardKinds.IsEvent(c);
 
-    public static bool IsDoorway(Card c) =>
-        (c.Type ?? "").Contains("doorway", StringComparison.OrdinalIgnoreCase);
+    public static bool IsDoorway(Card c) => CardKinds.IsDoorway(c);
 
-    public static bool IsAnytimeType(Card c) => IsInterrupt(c) || IsDoorway(c);
+    public static bool IsAnytimeType(Card c) => CardKinds.IsAnytimeType(c);
 
     /// <summary>
     /// Premiere: Kevin may nullify an Event just played OR already in play,
@@ -114,12 +111,7 @@ public static class TimingRules
         return (true, "Nullify that Event.");
     }
 
-    public static bool HasShieldIcon(Card c)
-    {
-        string icons = (c.Icons ?? "") + " " + (c.Characteristics ?? "");
-        return icons.Contains("shield", StringComparison.OrdinalIgnoreCase)
-               || icons.Contains("[SHD]", StringComparison.OrdinalIgnoreCase);
-    }
+    public static bool HasShieldIcon(Card c) => CardIcons.Parse(c).Shield;
 
     public static bool IsCatalogResponse(Card c)
     {
@@ -236,8 +228,7 @@ public static class TimingRules
         string n = (response.Name ?? "").Trim();
         if (n.Equals("Amanda Rogers", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Kevin Uxbridge", StringComparison.OrdinalIgnoreCase)
-            || n.Equals("Q2", StringComparison.OrdinalIgnoreCase)
-            || n.Equals("The Devil", StringComparison.OrdinalIgnoreCase))
+            || n.Equals("Q2", StringComparison.OrdinalIgnoreCase))
             return Destination.OutOfPlay;
 
         // Sanctuary plays on the ship – vereinfacht: Discard nach Cancel (Effekt ist der Cancel)
@@ -259,7 +250,7 @@ public static class TimingRules
         // Interrupts immer (Responses möglich)
         if (IsInterrupt(card)) return true;
         // Events (Kevin, Devil, Treaties)
-        if (IsEvent(card)) return true;
+        if (IsEvent(card) || CardKinds.IsObjective(card)) return true;
         // Doorways: at any time als neue Action – Stack, damit Responses möglich sind
         if (IsDoorway(card)) return true;
         // Normal card play (Personnel/Ship/Eq) – Energy Vortex

@@ -67,6 +67,12 @@
                 <MenuItem Header="Inspect opponent discard (gallery)…" Click="DevInspectOppDiscard_Click"/>
                 <MenuItem Header="Inspect opponent draw (backs)…" Click="DevInspectOppDraw_Click"/>
                 <Separator/>
+                <MenuItem Header="Dump legal moves" Click="DevDumpLegalMoves_Click"
+                          ToolTip="Write Engine LegalMoves for the active player into Action History (debug)"/>
+                <MenuItem Header="Download from Q's Tent…" Click="DevTentDownload_Click"
+                          ToolTip="Needs an unlocked Tent and a Q's Tent doorway in hand"/>
+                <MenuItem Header="Flip own Hidden Agendas…" Click="DevFlipHiddenAgendas_Click"
+                          ToolTip="Flip face-down [HA] cards on your TABLE"/>
                 <MenuItem Header="Add card to game…" Click="DevAddCard_Click"
                           ToolTip="Search the database and inject a card into the active player's pile"/>
                 <MenuItem Header="Deck Builder…" Click="MenuDeckBuilder_Click"/>
@@ -391,7 +397,7 @@
                                 Background="#CC0A0A0F" Panel.ZIndex="210">
                                 <Border HorizontalAlignment="Center" VerticalAlignment="Center"
                                     Background="#252530" BorderBrush="#6A6A80" BorderThickness="1"
-                                    CornerRadius="10" Padding="16" Width="640" MaxHeight="560">
+                                    CornerRadius="10" Padding="16" Width="720" MaxHeight="640">
                                     <DockPanel>
                                         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
                                             <Button DockPanel.Dock="Right" Content="Copy" Click="BtnHistoryCopy_Click"
@@ -400,6 +406,17 @@
                                                 Padding="10,4"/>
                                             <TextBlock Text="Action History" Foreground="#FFE082"
                                                    FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+                                        </DockPanel>
+                                        <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0" LastChildFill="True">
+                                            <TextBlock DockPanel.Dock="Top" Text="Legal moves (engine)"
+                                                   Foreground="#9CDCFE" FontSize="13" FontWeight="SemiBold"
+                                                   Margin="0,0,0,4"/>
+                                            <ListBox x:Name="LegalMovesList" Height="150"
+                                                 Background="#14141C" BorderThickness="0"
+                                                 Foreground="#CE9178" FontSize="12"
+                                                 FontFamily="Consolas"
+                                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                                 ScrollViewer.VerticalScrollBarVisibility="Auto"/>
                                         </DockPanel>
                                         <ListBox x:Name="ActionHistoryList"
                                              Background="#1A1A22" BorderThickness="0"

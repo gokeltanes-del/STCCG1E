@@ -86,7 +86,30 @@ public static class EventRules
     }
 
     public static bool IsEvent(Card c) =>
-        (c.Type ?? "").Contains("event", StringComparison.OrdinalIgnoreCase);
+        CardKinds.IsEvent(c)
+        || (c.Type ?? "").Contains("event", StringComparison.OrdinalIgnoreCase);
+
+    public static bool NameIs(Card? c, string name) =>
+        c != null && (c.Name ?? "").Equals(name, StringComparison.OrdinalIgnoreCase);
+
+    public static bool IsGoddess(Card? c) => NameIs(c, "Goddess of Empathy");
+    public static bool IsStaticWarpBubble(Card? c) => NameIs(c, "Static Warp Bubble");
+    public static bool IsRedAlert(Card? c) => NameIs(c, "Red Alert!");
+    public static bool IsPlasmaFire(Card? c) => NameIs(c, "Plasma Fire");
+    public static bool IsWarpCoreBreach(Card? c) => NameIs(c, "Warp Core Breach");
+    public static bool IsYellowAlert(Card? c) => NameIs(c, "Yellow Alert");
+    public static bool IsThermalDeflectors(Card? c) => NameIs(c, "Thermal Deflectors");
+    public static bool IsWhereNoOneHasGoneBefore(Card? c) => NameIs(c, "Where No One Has Gone Before");
+    public static bool IsPatternEnhancers(Card? c) => NameIs(c, "Pattern Enhancers");
+    public static bool IsGenetronicReplicator(Card? c) => NameIs(c, "Genetronic Replicator");
+    public static bool IsLoreReturns(Card? c) => NameIs(c, "Lore Returns");
+    public static bool IsTravelerTranscendence(Card? c) => NameIs(c, "The Traveler: Transcendence");
+    public static bool IsNeuralServo(Card? c) => NameIs(c, "Neural Servo Device");
+    /// <summary>Prefer ArtifactRules for ownership; aliases keep Event table scans compiling.</summary>
+    public static bool IsToxUthat(Card? c) => ArtifactRules.IsToxUthat(c);
+    public static bool IsAntiTimeAnomaly(Card? c) => NameIs(c, "Anti-Time Anomaly");
+    public static bool IsTemporalCausalityLoop(Card? c) => NameIs(c, "Temporal Causality Loop");
+    public static bool IsHorgahn(Card? c) => ArtifactRules.IsHorgahn(c);
 
     public static TargetKind GetTargetKind(PlayResult r)
     {
@@ -132,7 +155,7 @@ public static class EventRules
                 Place = Place.Instant,
                 DiscardAfter = true,
                 DrawCards = 3,
-                Message = "One player draws 3 cards. Event discarded."
+                Message = "Choose a player to draw three cards. Discard event."
             },
             "Res-Q" => new PlayResult
             {
@@ -152,32 +175,32 @@ public static class EventRules
             {
                 Place = Place.OnShip,
                 Persist = Persist.Bynars,
-                Message = "On ship: WEAPONS +2 (cumulative)."
+                Message = "Plays on ship. WEAPONS +2 (cumulative)."
             },
             "Metaphasic Shields" => new PlayResult
             {
                 Place = Place.OnShip,
                 Persist = Persist.Metaphasic,
-                Message = "On ship: SHIELDS +2 per SCIENCE classification."
+                Message = "Plays on your ship. SHIELDS +2 for each of your SCIENCE-classification personnel present."
             },
             "Nutational Shields" => new PlayResult
             {
                 Place = Place.OnShip,
                 Persist = Persist.Nutational,
-                Message = "On ship: SHIELDS +2 per ENGINEER classification."
+                Message = "Plays on your ship. SHIELDS +2 for each of your ENGINEER-classification personnel present."
             },
             "Plasma Fire" => new PlayResult
             {
                 Place = Place.OnShip,
                 Persist = Persist.PlasmaFire,
-                Message = "On ship: damage at end of controller's turn. Nullify: SECURITY."
+                Message = "Plays on a non-Borg ship. End of each of its controller's turns: ship damaged. Nullify with SECURITY."
             },
             "Warp Core Breach" => new PlayResult
             {
                 Place = Place.OnShip,
                 Persist = Persist.WarpCore,
                 Countdown = 1,
-                Message = "On ship: destroyed at end of controller's next turn. Nullify: ENGINEER."
+                Message = "Plays on a non-Borg ship. End of its controller's next turn: ship destroyed. Nullify with ENGINEER."
             },
             "Spacedock" => new PlayResult
             {
@@ -189,19 +212,19 @@ public static class EventRules
             {
                 Place = Place.OnPlanet,
                 Persist = Persist.Ionization,
-                Message = "Planet: beam one at a time, max 3 per turn."
+                Message = "Plays on a planet (unique). Beam to/from here one at a time; max 3 personnel this way per controller per turn."
             },
             "Distortion Field" => new PlayResult
             {
                 Place = Place.OnPlanet,
                 Persist = Persist.Distortion,
-                Message = "Planet: flips each end of turn. Face-up = no beaming."
+                Message = "Plays on a planet (unique). End of each turn (even face-down): flip. Face-up: no beaming to/from here."
             },
             "Holo-Projectors" => new PlayResult
             {
                 Place = Place.OnPlanet,
                 Persist = Persist.HoloProjectors,
-                Message = "Planet: holograms may exist (sandbox marker)."
+                Message = "Plays on a planet. Holo cards may exist here. If nullified, holos that depended on this are erased."
             },
             "Espionage: Federation on Klingon" => Espionage("FED", "KLI"),
             "Espionage: Klingon on Federation" => Espionage("KLI", "FED"),
@@ -211,32 +234,32 @@ public static class EventRules
             {
                 Place = Place.OnMission,
                 Persist = Persist.QNet,
-                Message = "Between two locations: crossing requires 2 Diplomacy."
+                Message = "Plays between two adjacent spaceline locations. No ship may pass unless 2 Diplomacy aboard."
             },
             "Subspace Warp Rift" => new PlayResult
             {
                 Place = Place.OnMission,
                 Persist = Persist.Rift,
-                Message = "Location: flying past = damage; moving again after arrival = damage."
+                Message = "Ships that fly by here are damaged. Ships that move here are damaged if they move again the same turn (unless relocated)."
             },
             "Tetryon Field" => new PlayResult
             {
                 Place = Place.OnMission,
                 Persist = Persist.Tetryon,
-                Message = "Location: no flying past. After arrival, Navigation for further RANGE."
+                Message = "Ships may not fly by here. Ships that move here need Navigation aboard to use RANGE again this turn."
             },
             "Gaps in Normal Space" => new PlayResult
             {
                 Place = Place.OnMission,
                 Persist = Persist.Gaps,
-                Message = "Span-4 gap: arrival kills 1 personnel (random)."
+                Message = "Insert as a span-4 space location. When a ship moves here, randomly kill one personnel aboard. If nullified, cards here relocate to an adjacent location."
             },
             "Supernova" => new PlayResult
             {
                 Place = Place.OnMission,
                 Persist = Persist.Supernova,
                 NeedsToxUthat = true,
-                Message = "Requires Tox Uthat. Destroys ships/facilities; mission dead."
+                Message = "Requires Tox Uthat. Destroys all ships and facilities here. Mission becomes unattemptable space, loses gametext / points / affiliation icons."
             },
             "Goddess of Empathy" => new PlayResult
             {
@@ -248,13 +271,13 @@ public static class EventRules
             {
                 Place = Place.Table,
                 Persist = Persist.Probe,
-                Message = "Hands revealed (hotseat: both hands visible)."
+                Message = "Plays on table. Players play with their hands revealed."
             },
             "Static Warp Bubble" => new PlayResult
             {
                 Place = Place.Table,
                 Persist = Persist.StaticWarp,
-                Message = "Opponent discards 1 card at end of their turn."
+                Message = "At the end of each of their turns, opponent must discard a card (their choice)."
             },
             "The Traveler: Transcendence" => new PlayResult
             {
@@ -266,59 +289,60 @@ public static class EventRules
             {
                 Place = Place.Table,
                 Persist = Persist.Kidnappers,
-                Message = "End of turn: name a type; random opponent hand card matching type is discarded."
+                Message = "End of each turn: name a card type, then randomly select a card from opponent's hand; discard it if that type."
             },
             "Pattern Enhancers" => new PlayResult
             {
                 Place = Place.Table,
                 Persist = Persist.PatternEnhancers,
-                Message = "Ignore beam restrictions from dilemmas/events/missions."
+                Message = "Ignore dilemma/event/mission effects that prevent beaming or that target your just-beamed personnel or equipment."
             },
             "Red Alert!" => new PlayResult
             {
                 Place = Place.Table,
                 Persist = Persist.RedAlert,
-                Message = "On table until nullified. Each of your turns: instead of your one normal card play, "
-                          + "report up to 5 personnel and/or equipment from hand (to a legal facility). "
-                          + "Playing this event uses this turn's normal card play — the 5-play starts next turn. "
-                          + "No separate 'Use' click."
+                Message = "In place of your normal card play, report up to 5 personnel and/or equipment. "
+                          + "Playing this event spends this turn's card play (5-play from next turn). "
+                          + "When nullified, any player may immediately download Yellow Alert."
             },
             "Raise the Stakes" => new PlayResult
             {
                 Place = Place.Table,
                 Persist = Persist.RaiseStakes,
-                Message = "Opponent: you win immediately OR event stays (sandbox: stays on table)."
+                Message = "Opponent chooses: you win the game immediately, OR this stays on table "
+                          + "(winner may keep one random card from opponent's deck). Cumulative."
             },
             "Genetronic Replicator" => new PlayResult
             {
                 Place = Place.Table,
                 Persist = Persist.Table,
-                Message = "When personnel would die: stop 2 MEDICAL → return them to hand."
+                Message = "When a personnel is targeted to die, stop 2 MEDICAL present (not also targeted) to return that personnel to hand instead."
             },
             "Where No One Has Gone Before" => new PlayResult
             {
                 Place = Place.Table,
                 Persist = Persist.Table,
-                Message = "Spaceline ends are adjacent."
+                Message = "You may move ships between opposite ends of a spaceline as if those locations were adjacent."
             },
             "Lore's Fingernail" => new PlayResult
             {
                 Place = Place.Table,
                 Persist = Persist.Fingernail,
-                Message = "Inorganics (except holo) count as [Non] (sandbox marker)."
+                Message = "All inorganics (except holograms) become Non-Aligned."
             },
             "Neural Servo Device" => new PlayResult
             {
                 Place = Place.OnShip,
                 Persist = Persist.NeuralServo,
-                Message = "Non-Aligned ship without 2 SECURITY: control until end of turn (sandbox: stopped)."
+                Message = "Plays on a Non-Aligned ship without 2 SECURITY. Until end of turn you control ship and crew; they are not compatible with your other cards."
             },
             "Anti-Time Anomaly" => new PlayResult
             {
                 Place = Place.Table,
                 Persist = Persist.AntiTime,
                 Countdown = 3,
-                Message = "Countdown 3: then all your personnel into draw deck."
+                Message = "Countdown 3. Start of each turn: opponent may flip one ship at any Devron System. "
+                          + "When expired, each player shuffles all personnel they own (even uniqueness-only) into their draw deck."
             },
             "Lore Returns" => new PlayResult
             {
@@ -327,6 +351,105 @@ public static class EventRules
                 Message = "Plays on opponent's empty ship with Rogue Borg aboard. You gain control of those Rogue Borg; "
                     + "they commandeer the ship (Non-Aligned). While Rogue Borg aboard, ship is staffed and may battle / beam."
             },
+
+            // ---------- Alternate Universe ----------
+            "Baryon Buildup" => new PlayResult
+            {
+                Place = Place.OnShip,
+                Persist = Persist.Table,
+                Message = "On ship: RANGE −2 (cumulative). Nullify if empty and docked at your facility at start of turn."
+            },
+            "Captain's Log" => new PlayResult
+            {
+                Place = Place.Table,
+                Persist = Persist.Table,
+                Message = "Your ships with matching commander aboard: SHIELDS and WEAPONS +3 (Captain's Order)."
+            },
+            "Engage Shuttle Operations" => new PlayResult
+            {
+                Place = Place.Table,
+                Persist = Persist.Table,
+                Message = "Shuttle takeoff/land/load with Tractor + ENGINEER (sandbox marker)."
+            },
+            "Interrogation" => new PlayResult
+            {
+                Place = Place.Table,
+                Persist = Persist.Table,
+                Message = "On captive: once per turn 'How many lights?' → points / release (sandbox)."
+            },
+            "Intruder Force Field" => new PlayResult
+            {
+                Place = Place.Table,
+                Persist = Persist.Table,
+                Message = "Reverses Telepathic Alien Kidnappers vs you; Rogue Borg need 3+ to invade your ships."
+            },
+            "Klim Dokachin" => new PlayResult
+            {
+                Place = Place.Table,
+                Persist = Persist.Table,
+                Message = "Opponent loses regular draw if they played a unique personnel this turn."
+            },
+            "Lower Decks" => new PlayResult
+            {
+                Place = Place.Table,
+                Persist = Persist.Table,
+                Message = "Your non-holo universal personnel attributes +2 (Captain's Order)."
+            },
+            "Mot's Advice" => new PlayResult
+            {
+                Place = Place.OnShip,
+                Persist = Persist.Table,
+                Message = "On one personnel: gains Barbering while in play (sandbox on host)."
+            },
+            "Particle Scattering Field" => new PlayResult
+            {
+                Place = Place.OnShip,
+                Persist = Persist.Table,
+                Message = "On your ship with Particle Scattering Device: no planet beaming here; may discard anytime."
+            },
+            "Revolving Door" => new PlayResult
+            {
+                Place = Place.OnMission,
+                Persist = Persist.Table,
+                Message = "Closes a non-Shield Doorway / Iconian Gateway while face-up; may flip by discard (or nullifies itself)."
+            },
+            "Rishon Uxbridge" => new PlayResult
+            {
+                Place = Place.Table,
+                Persist = Persist.Table,
+                Message = "Plays atop an Event: that event is immune to Kevin Uxbridge."
+            },
+            "The Charybdis" => new PlayResult
+            {
+                Place = Place.Table,
+                Persist = Persist.Table,
+                Message = "Artifacts at completed missions cannot be acquired until Archaeology present."
+            },
+            "The Mask of Korgano" => new PlayResult
+            {
+                Place = Place.OnShip,
+                Persist = Persist.Table,
+                Message = "On your personnel: toggles [AU] icon while in play."
+            },
+            "Thermal Deflectors" => new PlayResult
+            {
+                Place = Place.Table,
+                Persist = Persist.Table,
+                Message = "Nullifies Firestorm, Thought Fire, Plasma Fire, Fire Sculptor, Phaser Burns while in play."
+            },
+            "Wartime Conditions" => new PlayResult
+            {
+                Place = Place.Table,
+                Persist = Persist.Table,
+                Message = "Only if a Fed ship was attacked: Federation may battle that affiliation at will."
+            },
+            "Yellow Alert" => new PlayResult
+            {
+                Place = Place.Table,
+                Persist = Persist.Table,
+                Message = "Cancels/prevents Red Alert!; your personnel CUNNING +1 (Captain's Order)."
+            },
+
             _ when TreatyRules.IsTreatyCard(ev) => new PlayResult
             {
                 Place = Place.Table,
@@ -348,7 +471,7 @@ public static class EventRules
         Persist = Persist.Espionage,
         EspionageAs = asAff,
         EspionageOn = onAff,
-        Message = $"Espionage: your cards may attempt [{onAff}] missions as [{asAff}]."
+        Message = $"Plays on a [{onAff}] mission. Your cards may attempt it as if [{asAff}]. Discard when that mission is solved."
     };
 
     public static bool IsGoddessException(Card interrupt)

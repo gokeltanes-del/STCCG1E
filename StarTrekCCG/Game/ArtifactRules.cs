@@ -34,7 +34,8 @@ public static class ArtifactRules
     }
 
     public static bool IsArtifact(Card c) =>
-        (c.Type ?? "").Contains("artifact", StringComparison.OrdinalIgnoreCase);
+        CardKinds.IsArtifact(c)
+        || (c.Type ?? "").Contains("artifact", StringComparison.OrdinalIgnoreCase);
 
     public static AcquireResult ResolveAcquire(Card artifact)
     {
@@ -46,73 +47,134 @@ public static class ArtifactRules
                 Name = n,
                 Kind = AcquireKind.ImmediateDiscard,
                 DownloadFromDraw = 3,
-                Message = "Bis zu 3 Karten vom Draw Deck auf die Hand (Download). Artifact discarded."
+                Message = "Immediately download to hand up to three cards from your draw deck (ignore opponent cards that prevent downloading). Discard artifact."
             },
             "Horga'hn" => new AcquireResult
             {
                 Name = n,
                 Kind = AcquireKind.PlaceOnTable,
                 GrantsHorgahn = true,
-                Message = "Horga'hn auf den Tisch: je Zug +1 normale Card Play ODER am Zugende +1 Draw."
+                Message = "Immediately plays on table. Each turn: extra normal card play OR extra card at end of turn."
             },
             "Interphase Generator" => new AcquireResult
             {
                 Name = n,
                 Kind = AcquireKind.UseAsEquipment,
-                Message = "Als Equipment: nullifiziert [IPG]-Dilemmas wo present."
+                Message = "Use as Equipment. Where present, nullifies [IPG] dilemmas."
             },
             "Varon-T Disruptor" => new AcquireResult
             {
                 Name = n,
                 Kind = AcquireKind.UseAsEquipment,
-                Message = "Als Equipment: verdoppelt STRENGTH deines Personals present."
+                Message = "Use as Equipment. Doubles the STRENGTH of each of your personnel present."
             },
             "Kurlan Naiskos" => new AcquireResult
             {
                 Name = n,
                 Kind = AcquireKind.ToHand,
-                Message = "In die Hand – später als Event auf ein Schiff (Attribute ×3 bei allen Classifications)."
+                Message = "Place in hand. Plays as Event on a ship: while OFFICER, ENGINEER, MEDICAL, SCIENCE, SECURITY, V.I.P. and CIVILIAN aboard, triples ship's attributes."
             },
             "Thought Maker" => new AcquireResult
             {
                 Name = n,
                 Kind = AcquireKind.ToHand,
-                Message = "In die Hand – Typ nennen, passende Karten aus Gegner-Draw nach unten legen."
+                Message = "Place in hand. Name a card type; take all cards of that type from opponent's draw deck, shuffle them, place on bottom of that deck."
             },
             "Tox Uthat" => new AcquireResult
             {
                 Name = n,
                 Kind = AcquireKind.ToHand,
-                Message = "In die Hand – Event/Interrupt vs. Supernova (wenn gespielt)."
+                Message = "Place in hand. As Event on table: you may not play Supernova this turn; discard if used to play Supernova. As Interrupt: nullify Supernova (discard artifact)."
             },
             "Vulcan Stone of Gol" => new AcquireResult
             {
                 Name = n,
                 Kind = AcquireKind.ToHand,
-                Message = "In die Hand – Event auf Away Team: ohne Youth und CUNNING≤7 sterben."
+                Message = "Place in hand. Plays as Event on any Away Team: kills all personnel present who do not have Youth or CUNNING>7. Discard artifact."
             },
             "Time Travel Pod" => new AcquireResult
             {
                 Name = n,
                 Kind = AcquireKind.PlaceOnTable,
-                Message = "Time Travel Pod auf den Tisch (Sandbox: Zeitort-Marker; Relocate vereinfacht)."
+                Message = "Immediately play on table as a universal space time location (countdown 2 while a ship is here). Relocate an opponent's ship here now, OR once relocate your ship here. When discarded, return that ship."
+            },
+            "Cryosatellite" => new AcquireResult
+            {
+                Name = n,
+                Kind = AcquireKind.ImmediateDiscard,
+                Message = "Seed at space. When earned: also earn one additional artifact and up to 3 AU personnel seeded here; then discard Cryosatellite."
+            },
+            "Data's Head" => new AcquireResult
+            {
+                Name = n,
+                Kind = AcquireKind.UseAsEquipment,
+                Message = "Use as Equipment. CUNNING=10 and Computer Skill. On a ship: RANGE, WEAPONS and SHIELDS +2 (not cumulative)."
+            },
+            "Iconian Gateway" => new AcquireResult
+            {
+                Name = n,
+                Kind = AcquireKind.ToHand,
+                Message = "Place in hand. Plays as Event on a planet mission: personnel present may walk to other planet missions."
+            },
+            "Ophidian Cane" => new AcquireResult
+            {
+                Name = n,
+                Kind = AcquireKind.ToHand,
+                Message = "Place in hand. As Interrupt: allow 3 through Devidian Door, OR double Devidian Foragers (four personnel), OR double Empathic Touch."
+            },
+            "Receptacle Stones" => new AcquireResult
+            {
+                Name = n,
+                Kind = AcquireKind.ToHand,
+                Message = "Place in hand. Plays as Event on crew of an opponent's ship: space dilemmas you encounter this turn also apply to that ship and crew."
+            },
+            "Ressikan Flute" => new AcquireResult
+            {
+                Name = n,
+                Kind = AcquireKind.PlaceOnTable,
+                Message = "Immediately score X points (X = different Music personnel present, limit 5), then play on table. Points may be nullified by The Devil. Not duplicatable."
+            },
+            "Samuel Clemens' Pocketwatch" => new AcquireResult
+            {
+                Name = n,
+                Kind = AcquireKind.ToHand,
+                Message = "Place in hand. As Interrupt: one action that must happen on your next turn (e.g. your card draw) happens now instead."
             },
             _ => new AcquireResult
             {
                 Name = n,
                 Kind = AcquireKind.ToHand,
-                Message = "Artifact verdient → Hand."
+                Message = $"Artifact {n} earned → hand."
             }
         };
     }
 
-    /// <summary>Varon-T: STRENGTH ×2 für own personnel present.</summary>
-    public static bool IsVaronT(Card c) =>
-        (c.Name ?? "").Equals("Varon-T Disruptor", StringComparison.OrdinalIgnoreCase);
+    public static bool NameIs(Card? c, string name) =>
+        c != null && (c.Name ?? "").Equals(name, StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>Interphase Generator als Equipment-Flag.</summary>
-    public static bool IsInterphaseGenerator(Card c) =>
-        (c.Name ?? "").Equals("Interphase Generator", StringComparison.OrdinalIgnoreCase);
+    // ----- Premiere -----
+    public static bool IsBetazoidGiftBox(Card? c) => NameIs(c, "Betazoid Gift Box");
+    public static bool IsHorgahn(Card? c) => NameIs(c, "Horga'hn");
+    public static bool IsInterphaseGenerator(Card? c) => NameIs(c, "Interphase Generator");
+    public static bool IsVaronT(Card? c) => NameIs(c, "Varon-T Disruptor");
+    public static bool IsKurlanNaiskos(Card? c) => NameIs(c, "Kurlan Naiskos");
+    public static bool IsThoughtMaker(Card? c) => NameIs(c, "Thought Maker");
+    public static bool IsToxUthat(Card? c) => NameIs(c, "Tox Uthat");
+    public static bool IsVulcanStoneOfGol(Card? c) => NameIs(c, "Vulcan Stone of Gol");
+    public static bool IsTimeTravelPod(Card? c) => NameIs(c, "Time Travel Pod");
+
+    // ----- Alternate Universe -----
+    public static bool IsCryosatellite(Card? c) => NameIs(c, "Cryosatellite");
+    public static bool IsDatasHead(Card? c) => NameIs(c, "Data's Head");
+    public static bool IsIconianGateway(Card? c) => NameIs(c, "Iconian Gateway");
+    public static bool IsOphidianCane(Card? c) => NameIs(c, "Ophidian Cane");
+    public static bool IsReceptacleStones(Card? c) => NameIs(c, "Receptacle Stones");
+    public static bool IsRessikanFlute(Card? c) => NameIs(c, "Ressikan Flute");
+    public static bool IsSamuelClemensPocketwatch(Card? c) => NameIs(c, "Samuel Clemens' Pocketwatch");
+
+    /// <summary>Artifacts that grant a lasting table flag after acquire (Horga'hn, Pod, …).</summary>
+    public static bool GrantsTablePermanent(Card? c) =>
+        IsHorgahn(c) || IsTimeTravelPod(c) || IsCryosatellite(c) || IsRessikanFlute(c);
 
     /// <summary>Kurlan: alle 7 Classifications an Bord?</summary>
     public static bool KurlanFullyStaffed(IEnumerable<Card> aboard)
