@@ -79,6 +79,9 @@ public static class InterruptRules
     public static bool IsKevinNullify(Card c) =>
         (c.Name ?? "").StartsWith("Kevin Uxbridge", StringComparison.OrdinalIgnoreCase);
 
+    public static bool IsDevil(Card c) =>
+        (c.Name ?? "").Equals("The Devil", StringComparison.OrdinalIgnoreCase);
+
     public static bool NameIs(Card? c, string name) =>
         c != null && (c.Name ?? "").Equals(name, StringComparison.OrdinalIgnoreCase);
 
@@ -104,7 +107,7 @@ public static class InterruptRules
         string n = (card.Name ?? "").Trim();
         string t = card.Text ?? "";
 
-        if (IsKevinNullify(card))
+        if (IsKevinNullify(card) || IsDevil(card))
             return PlayTarget.Event;
 
         if (n.Equals("Emergency Transporter Armbands", StringComparison.OrdinalIgnoreCase)

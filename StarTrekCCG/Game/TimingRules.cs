@@ -111,6 +111,22 @@ public static class TimingRules
         return (true, "Nullify that Event.");
     }
 
+    /// <summary>The Devil: Horga'hn, Wind Dancer, or a Treaty — in play or just played.</summary>
+    public static (bool ok, string reason) CanDevilTarget(Card card)
+    {
+        if (card == null)
+            return (false, "The Devil: no target.");
+        if (TreatyRules.IsTreatyCard(card) || (card.Name ?? "").Contains("Treaty", StringComparison.OrdinalIgnoreCase))
+            return (true, "Nullify that Treaty.");
+        string n = (card.Name ?? "").Trim();
+        if (n.Contains("Horga'hn", StringComparison.OrdinalIgnoreCase)
+            || n.Equals("Horgahn", StringComparison.OrdinalIgnoreCase))
+            return (true, "Nullify Horga'hn.");
+        if (n.Equals("Wind Dancer", StringComparison.OrdinalIgnoreCase))
+            return (true, "Nullify Wind Dancer.");
+        return (false, "The Devil nullifies Horga'hn, Wind Dancer, or one Treaty.");
+    }
+
     public static bool HasShieldIcon(Card c) => CardIcons.Parse(c).Shield;
 
     public static bool IsCatalogResponse(Card c)

@@ -556,4 +556,47 @@ public static class EventRules
         }
         return b;
     }
+
+    /// <summary>
+    /// One-line host-facing effect for the ship/facility detail pane.
+    /// Shows the live bonus when it depends on who is aboard — not the Persist enum name.
+    /// </summary>
+    public static string FormatHostEffectSummary(
+        Persist kind, Card card, IEnumerable<Card>? aboard, int countdown)
+    {
+        var list = aboard?.ToList() ?? new List<Card>();
+        string effect = kind switch
+        {
+            Persist.Nutational => ClassShieldsLine("ENGINEER", list),
+            Persist.Metaphasic => ClassShieldsLine("SCIENCE", list),
+            Persist.Bynars => "WEAPONS +2",
+            Persist.PlasmaFire => "damages ship each of controller's EOT (nullify with SECURITY)",
+            Persist.WarpCore => "destroys ship at controller's EOT (nullify with ENGINEER)",
+            Persist.Baryon => "RANGE −2",
+            Persist.NeuralServo => "control of this ship until EOT",
+            Persist.Distortion => "RANGE may be used to unstop",
+            Persist.ParticleScatter => "no beaming to/from this ship",
+            Persist.Spacedock => "docking here fully repairs",
+            Persist.CaptainsLog => "WEAPONS +3 / SHIELDS +3 if matching commander aboard",
+            Persist.LoreReturns => "this ship under opponent control",
+            Persist.YellowAlert => "ship on Yellow Alert",
+            Persist.Thermal => "WEAPONS may not be used",
+            _ => ""
+        };
+
+        string line = "Event: " + card.Name;
+        if (!string.IsNullOrEmpty(effect))
+            line += " — " + effect;
+        if (countdown > 0)
+            line += $"  ·  COUNTER {countdown}";
+        return line;
+    }
+
+    private static string ClassShieldsLine(string classification, List<Card> aboard)
+    {
+        int n = CountClass(aboard, classification);
+        int bonus = 2 * n;
+        string noun = n == 1 ? classification : classification + "s";
+        return $"SHIELDS +{bonus} ({n} {noun} aboard)";
+    }
 }

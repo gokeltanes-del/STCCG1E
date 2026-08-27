@@ -904,4 +904,35 @@ public static class DilemmaRules
             _ => false
         };
     }
+
+    /// <summary>One-line host-facing effect for ship/mission detail (not full card text).</summary>
+    public static string FormatHostEffectSummary(PersistKind kind, Card card, int countdown)
+    {
+        string effect = kind switch
+        {
+            PersistKind.Junior => "ENGINEER required ×3 or ship cannot move",
+            PersistKind.Scow => "ship cannot move (cure: tractor + 2 ENGINEER)",
+            PersistKind.HyperAging => "countdown; crew dies if not cured (MEDICAL×2 + SCIENCE)",
+            PersistKind.RemFatigue => "countdown; crew dies if not cured (MEDICAL×3)",
+            PersistKind.Nitrium => "countdown damage / destroy unless SCIENCE×2 or ENGINEER×2",
+            PersistKind.Menthar => "ship cannot move (cure: 2 ENGINEER)",
+            PersistKind.Tsiolkovsky => "attributes −3 until MEDICAL×3",
+            PersistKind.TwoDim => "ship cannot move (ENGINEER + SCIENCE)",
+            PersistKind.Cytherians => "must fly toward far end of spaceline",
+            PersistKind.Conundrum => "must chase opponent ship",
+            PersistKind.EdoProbe => "attempt this mission next or −10",
+            PersistKind.FrameOfMind => "personnel is 3-3-3 until 3 Empathy",
+            PersistKind.Abduction => "personnel held (cure: Leadership×3)",
+            PersistKind.Phased => "personnel phased (ENGINEER + SCIENCE)",
+            PersistKind.Ktarian => "stopped until CUNNING>30 or Android",
+            PersistKind.BorgShip => "Borg Ship dilemma remains",
+            _ => ""
+        };
+        string line = "Dilemma: " + card.Name;
+        if (!string.IsNullOrEmpty(effect))
+            line += " — " + effect;
+        if (countdown > 0)
+            line += $"  ·  COUNTER {countdown}";
+        return line;
+    }
 }

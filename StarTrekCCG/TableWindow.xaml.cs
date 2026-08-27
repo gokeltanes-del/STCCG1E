@@ -66,6 +66,9 @@ public partial class TableWindow : Window
     private Card? _detailCard;
     /// <summary>Host opened via double-click stack popup (ship/mission/facility).</summary>
     private Border? _detailHost;
+    private bool _detailPickMode;
+    private Card? _detailPickResult;
+    private System.Windows.Threading.DispatcherFrame? _detailPickFrame;
 
     private enum GameMode { Hotseat, Network, SingleAi }
     private GameMode _gameMode = GameMode.Hotseat;
@@ -294,6 +297,8 @@ public partial class TableWindow : Window
     private int _ionizationBeamsThisTurn;
     private int _redAlertPlaysLeft;
     private readonly HashSet<Border> _movedThisTurnAfterArrival = new();
+    /// <summary>Mission index this ship arrived at during the current turn (Rift / Tetryon “move again”).</summary>
+    private readonly Dictionary<Border, int> _arrivedMissionThisTurn = new();
     private readonly HashSet<Border> _cloakedShips = new();
     private readonly HashSet<Border> _cloakLocked = new();
     private bool _auPlayedThisTurnP1;
@@ -369,7 +374,15 @@ public partial class TableWindow : Window
             return;
         }
 
-        if (HistoryOverlay?.Visibility == Visibility.Visible) return;
+        if (HistoryOverlay?.Visibility == Visibility.Visible)
+        {
+            if ((Keyboard.Modifiers & ModifierKeys.Control) != 0 && key == Key.C)
+            {
+                CopyActionHistorySelection();
+                e.Handled = true;
+            }
+            return;
+        }
         if (TeamOverlay?.Visibility == Visibility.Visible) return;
         if (KidnapOverlay?.Visibility == Visibility.Visible) return;
 
@@ -1407,13 +1420,24 @@ public partial class TableWindow : Window
 
     private void BtnHistoryRefresh_Click(object sender, RoutedEventArgs e) => RefreshActionHistory();
 
-    private void BtnHistoryCopy_Click(object sender, RoutedEventArgs e)
+    private void BtnHistoryCopy_Click(object sender, RoutedEventArgs e) => CopyActionHistorySelection();
+
+    private void CopyActionHistorySelection()
     {
         try
         {
-            string text = string.Join(Environment.NewLine, _session.Log.FormatLines(500, includeDebug: _devShowDebugLog));
+            var selected = ActionHistoryList?.SelectedItems.Cast<object>()
+                .Select(o => o?.ToString() ?? "")
+                .Where(s => s.Length > 0)
+                .ToList() ?? new List<string>();
+            IEnumerable<string> lines = selected.Count > 0
+                ? selected
+                : _session.Log.FormatLines(500, includeDebug: _devShowDebugLog);
+            string text = string.Join(Environment.NewLine, lines);
             Clipboard.SetText(string.IsNullOrEmpty(text) ? "(empty)" : text);
-            StatusText.Text = "Action History copied to clipboard.";
+            StatusText.Text = selected.Count > 0
+                ? $"Copied {selected.Count} history line(s)."
+                : "Action History copied to clipboard.";
         }
         catch (Exception ex)
         {
@@ -3422,8 +3446,13 @@ public partial class TableWindow : Window
                 ReturnCardToHand(card, owner);
                 break;
             case TimingRules.Destination.OutOfPlay:
+                _tablePermanentCards.Remove(card);
+                _oppTablePermanentCards.Remove(card);
                 (owner == 2 ? _outOfPlayP2 : _outOfPlayP1).Add(card);
+                RebuildTablePermanentsPanel();
+                RefreshZoneCounts();
                 StatusText.Text = $"{card.Name} out-of-play.";
+                _session.Log.Add(_session.TurnNumber, $"P{owner}", $"{card.Name} → out-of-play");
                 break;
             case TimingRules.Destination.Table:
                 CommitCardToTable(card, owner);
@@ -3798,8 +3827,25 @@ public partial class TableWindow : Window
         cardBorder.Width = TableCardWidth;
         cardBorder.Height = TableCardHeight;
 
+        // Kevin / The Devil target a card already on TABLE — must NOT commit as a
+        // TABLE permanent first (that path opens the stack with no TargetCard).
+        if (!_seedPhaseActive && zref.ZoneName == "Hand"
+            && InterruptRules.IsInterrupt(card)
+            && (InterruptRules.IsKevinNullify(card) || InterruptRules.IsDevil(card)))
+        {
+            int owner = zref.Opponent ? 2 : 1;
+            if (TryPlayInterruptFromHand(card, cardBorder, windowPos, owner))
+                placedOk = true;
+            else if (TryReturnCardToZone(card, cardBorder, zref.ZoneName, windowPos, zref.Opponent))
+                placedOk = true;
+            else
+            {
+                ReturnFloatingToZone(card, cardBorder, zref.ZoneName, zref.Opponent);
+                placedOk = false;
+            }
+        }
         // TABLE drop first — do not treat the right column as "return to hand"
-        if (IsTablePermanentType(card) && IsPointOverOwnTable(windowPos)
+        else if (IsTablePermanentType(card) && IsPointOverOwnTable(windowPos)
             && EventBelongsOnTableColumn(card))
         {
             PlaceOnTablePermanents(card, cardBorder);
@@ -4243,6 +4289,15 @@ public partial class TableWindow : Window
                 DragLayer.Children.Remove(floating);
             if (TableCanvas.Children.Contains(floating))
                 TableCanvas.Children.Remove(floating);
+        }
+
+        if (!_seedPhaseActive && _session.Match == GameSession.MatchPhase.Play
+            && InterruptRules.IsInterrupt(card)
+            && (InterruptRules.IsKevinNullify(card) || InterruptRules.IsDevil(card)))
+        {
+            int owner = _activePlayer;
+            TryPlayInterruptFromHand(card, floating, new Point(-999, -999), owner);
+            return;
         }
 
         if (!_seedPhaseActive && _session.Match == GameSession.MatchPhase.Play)
@@ -6069,6 +6124,7 @@ public partial class TableWindow : Window
             _session.SuppressEndOfTurnDraw = true;
         _ionizationBeamsThisTurn = 0;
         _movedThisTurnAfterArrival.Clear();
+        _arrivedMissionThisTurn.Clear();
         _auPlayedThisTurnP1 = false;
         _auPlayedThisTurnP2 = false;
         _uniquePersonnelPlayedP1 = false;
@@ -7460,6 +7516,7 @@ public partial class TableWindow : Window
         _ionizationBeamsThisTurn = 0;
         _redAlertPlaysLeft = 0;
         _movedThisTurnAfterArrival.Clear();
+        _arrivedMissionThisTurn.Clear();
         _stack.Clear();
         _outOfPlayP1.Clear();
         _outOfPlayP2.Clear();
@@ -9782,15 +9839,37 @@ public partial class TableWindow : Window
         RemoveOrphanTableCopies(card);
         ClearEventTargetHighlights();
 
-        if (InterruptRules.IsKevinNullify(card))
+        if (InterruptRules.IsKevinNullify(card) || InterruptRules.IsDevil(card))
         {
+            bool devil = InterruptRules.IsDevil(card);
             var target = FindEventTargetAt(windowPos);
+            if (target != null)
+            {
+                var hit = devil ? TimingRules.CanDevilTarget(target) : TimingRules.CanKevinTargetEvent(target);
+                if (!hit.ok) target = null;
+            }
             if (target == null)
             {
-                ShowPlayError($"{card.Name}: drop onto an Event in play (TABLE or a host stack).");
+                var pool = devil ? CollectDevilTargetCards() : CollectKevinTargetEvents();
+                if (pool.Count == 0)
+                {
+                    ShowPlayError(devil
+                        ? $"{card.Name}: no Treaty / Horga'hn / Wind Dancer in play (drop on TABLE)."
+                        : $"{card.Name}: no legal Event in play (drop on TABLE, a host, or the gap between two missions).");
+                    return false;
+                }
+                target = PickCardFromList(
+                    devil
+                        ? "Click the Treaty, Horga'hn, or Wind Dancer to nullify."
+                        : "Click the Event to nullify (including Gaps / Q-Net between missions).",
+                    pool, card.Name ?? "Nullify", card);
+            }
+            if (target == null)
+            {
+                ShowPlayError($"{card.Name}: no target chosen.");
                 return false;
             }
-            var chk = TimingRules.CanKevinTargetEvent(target);
+            var chk = devil ? TimingRules.CanDevilTarget(target) : TimingRules.CanKevinTargetEvent(target);
             if (!chk.ok)
             {
                 ShowPlayError(chk.reason);
@@ -9958,6 +10037,11 @@ public partial class TableWindow : Window
         return false;
     }
 
+    private static bool IsNullifyBoardTarget(Card c) =>
+        EventRules.IsEvent(c) || TreatyRules.IsTreatyCard(c)
+        || ArtifactRules.IsHorgahn(c)
+        || (c.Name ?? "").Equals("Wind Dancer", StringComparison.OrdinalIgnoreCase);
+
     private Card? FindEventTargetAt(Point windowPos)
     {
         var hit = InputHitTest(windowPos) as DependencyObject;
@@ -9965,9 +10049,9 @@ public partial class TableWindow : Window
         {
             if (hit is FrameworkElement fe)
             {
-                if (fe.Tag is HostCardRef href && EventRules.IsEvent(href.Card))
+                if (fe.Tag is HostCardRef href && IsNullifyBoardTarget(href.Card))
                     return href.Card;
-                if (fe.Tag is Card c && EventRules.IsEvent(c))
+                if (fe.Tag is Card c && IsNullifyBoardTarget(c))
                     return c;
             }
             hit = VisualTreeHelper.GetParent(hit);
@@ -9990,31 +10074,100 @@ public partial class TableWindow : Window
             if (_stackOnHost.TryGetValue(b, out var list))
             {
                 foreach (var mb in list)
-                    if (mb.Tag is Card ec && EventRules.IsEvent(ec))
+                    if (mb.Tag is Card ec && IsNullifyBoardTarget(ec))
                         events.Add(ec);
             }
             foreach (var ae in _attachedEvents)
             {
                 if ((ReferenceEquals(ae.Host, b) || ReferenceEquals(ae.Host2, b))
-                    && EventRules.IsEvent(ae.Card) && !events.Contains(ae.Card))
+                    && IsNullifyBoardTarget(ae.Card) && !events.Contains(ae.Card))
                     events.Add(ae.Card);
             }
             if (events.Count == 1) return events[0];
             if (events.Count > 1)
                 return events[0];
         }
+
+        // Span events (Gaps / Q-Net) sit between Host and Host2 — hit the midpoint.
+        foreach (var ae in _attachedEvents)
+        {
+            if (ae.Host == null || ae.Host2 == null) continue;
+            if (!IsNullifyBoardTarget(ae.Card)) continue;
+            try
+            {
+                double lx = Canvas.GetLeft(ae.Host) + TableCardWidth;
+                double rx = Canvas.GetLeft(ae.Host2);
+                double midX = (lx + rx) / 2.0;
+                double midY = Canvas.GetTop(ae.Host) + TableCardHeight / 2.0;
+                var midWin = TableCanvas.TransformToAncestor(this).Transform(new Point(midX, midY));
+                if (Math.Abs(windowPos.X - midWin.X) <= TableCardWidth
+                    && Math.Abs(windowPos.Y - midWin.Y) <= TableCardHeight)
+                    return ae.Card;
+            }
+            catch { /* transform not ready */ }
+        }
         return null;
+    }
+
+    private List<Card> CollectKevinTargetEvents()
+    {
+        var list = new List<Card>();
+        void Add(Card? ev)
+        {
+            if (ev == null || !EventRules.IsEvent(ev)) return;
+            if (!TimingRules.CanKevinTargetEvent(ev).ok) return;
+            if (!list.Contains(ev)) list.Add(ev);
+        }
+        foreach (var ev in _tablePermanentCards) Add(ev);
+        foreach (var ev in _oppTablePermanentCards) Add(ev);
+        foreach (var ae in _attachedEvents) Add(ae.Card);
+        foreach (var kv in _stackOnHost)
+            foreach (var b in kv.Value)
+                if (b.Tag is Card c) Add(c);
+        return list;
+    }
+
+    private List<Card> CollectDevilTargetCards()
+    {
+        var list = new List<Card>();
+        void Add(Card? c)
+        {
+            if (c == null || !TimingRules.CanDevilTarget(c).ok) return;
+            if (!list.Contains(c)) list.Add(c);
+        }
+        foreach (var ev in _tablePermanentCards) Add(ev);
+        foreach (var ev in _oppTablePermanentCards) Add(ev);
+        foreach (var ae in _attachedEvents) Add(ae.Card);
+        foreach (var kv in _stackOnHost)
+            foreach (var b in kv.Value)
+                if (b.Tag is Card c) Add(c);
+        return list;
     }
 
     private void NullifyEventInPlay(Card ev, int byPlayer)
     {
+        var attached = _attachedEvents.Where(x => ReferenceEquals(x.Card, ev)).ToList();
         int owner = _tablePermanentCards.Contains(ev) ? 1
             : _oppTablePermanentCards.Contains(ev) ? 2
+            : attached.FirstOrDefault()?.Owner is int ao && ao is 1 or 2 ? ao
             : byPlayer;
 
-        RemoveCardFromTableColumn(ev);
-        foreach (var ae in _attachedEvents.Where(x => ReferenceEquals(x.Card, ev)).ToList())
+        foreach (var ae in attached)
+        {
+            if (ae.Host != null) UpdateHostBadge(ae.Host);
+            if (ae.Host2 != null) UpdateHostBadge(ae.Host2);
             _attachedEvents.Remove(ae);
+        }
+
+        // Gaps / Q-Net are inserted into the spaceline as a visible card.
+        var span = FindBorderForCard(ev);
+        if (span != null)
+        {
+            _spacelineOrder.Remove(span);
+            if (TableCanvas.Children.Contains(span))
+                TableCanvas.Children.Remove(span);
+            RelayoutMissionsOnSpaceline();
+        }
 
         foreach (var kv in _stackOnHost.ToList())
         {
@@ -10024,15 +10177,19 @@ public partial class TableWindow : Window
                 kv.Value.Remove(b);
                 if (TableCanvas.Children.Contains(b))
                     TableCanvas.Children.Remove(b);
+                UpdateHostBadge(kv.Key);
             }
         }
 
+        RemoveCardFromTableColumn(ev);
         SendCardTo(ev, owner, TimingRules.Destination.Discard);
         RebuildTablePermanentsPanel();
+        RefreshTableBuffs();
         if (_hostStripHost != null && _hostStripHost.Tag is Card hc)
             ShowHostContents(_hostStripHost, hc);
-        _session.Log.Add(_session.TurnNumber, $"P{byPlayer}", $"Nullified {ev.Name}");
-        StatusText.Text = $"{ev.Name} nullified.";
+        _session.Log.Add(_session.TurnNumber, $"P{byPlayer}",
+            $"Nullified {ev.Name} (owner P{owner} → discard)");
+        StatusText.Text = $"{ev.Name} nullified → P{owner} discard.";
     }
 
     private bool TryResolveInterruptPlay(Card card, int controller, bool isResponse, Card? target = null)
@@ -10062,8 +10219,15 @@ public partial class TableWindow : Window
         if (r.Kind == InterruptRules.Kind.TimingOnly)
         {
             // Catalog + registry own the card list; UI only applies nullify when a target event is present.
-            if (InterruptRules.IsKevinNullify(card) && target != null)
+            if ((InterruptRules.IsKevinNullify(card) || InterruptRules.IsDevil(card)) && target != null)
+            {
                 NullifyEventInPlay(target, controller);
+                if (InterruptRules.IsDevil(card) && ArtifactRules.IsHorgahn(target))
+                {
+                    _horgahnP1 = false;
+                    _horgahnP2 = false;
+                }
+            }
 
             if (r.OutOfPlay)
                 SendCardTo(card, controller, TimingRules.Destination.OutOfPlay);
@@ -10175,19 +10339,15 @@ public partial class TableWindow : Window
                 {
                     var disc = controller == 1 ? _discardCards : _oppDiscardCards;
                     var hand = controller == 1 ? _handCards : _oppHandCards;
-                    Card? pick = null;
-                    foreach (var c in disc.Where(c => !ModifierRules.IsPersonnelCard(c)).ToList())
-                    {
-                        if (ShowCardReveal(c, "Palor Toff", $"{c.Name} nehmen?", RevealButtons.YesNo) == RevealAnswer.Yes)
-                        {
-                            pick = c;
-                            break;
-                        }
-                    }
+                    var pool = disc.Where(c => !ModifierRules.IsPersonnelCard(c)).ToList();
+                    var pick = PickCardFromList(
+                        "Click a non-Personnel card from your discard pile.",
+                        pool, "Palor Toff", card);
                     if (pick != null)
                     {
                         disc.Remove(pick);
                         hand.Add(pick);
+                        StatusText.Text = $"Palor Toff: {pick.Name} to hand.";
                     }
                     break;
                 }
@@ -10277,28 +10437,12 @@ public partial class TableWindow : Window
                 }
             case InterruptRules.Effect.Wormhole:
                 {
-                    Border? shipB = null;
-                    foreach (var b in TableCanvas.Children.OfType<Border>())
-                    {
-                        if (b.Tag is Card sc && IsShipCard(sc) && GetBorderOwner(b) == controller)
-                        {
-                            if (ShowCardReveal(sc, "Wormhole", $"Schiff {sc.Name}?", RevealButtons.YesNo) == RevealAnswer.Yes)
-                            {
-                                shipB = b;
-                                break;
-                            }
-                        }
-                    }
-                    Border? dest = null;
-                    foreach (var m in _spacelineOrder)
-                    {
-                        if (ShowCardReveal(card, "Wormhole",
-                                $"Destination {(m.Tag as Card)?.Name}?", RevealButtons.YesNo) == RevealAnswer.Yes)
-                        {
-                            dest = m;
-                            break;
-                        }
-                    }
+                    var ships = TableCanvas.Children.OfType<Border>()
+                        .Where(b => b.Tag is Card sc && IsShipCard(sc) && GetBorderOwner(b) == controller)
+                        .ToList();
+                    Border? shipB = PickBorderFromList(card, ships, "Wormhole: which ship?");
+                    var dests = _spacelineOrder.ToList();
+                    Border? dest = PickBorderFromList(card, dests, "Wormhole: destination mission?");
                     if (shipB != null && dest != null)
                     {
                         // Relocate ship under mission visually via existing dock logic if any
@@ -10410,16 +10554,10 @@ public partial class TableWindow : Window
 
     private Border? PickOwnShip(int owner)
     {
-        foreach (var b in TableCanvas.Children.OfType<Border>())
-        {
-            if (b.Tag is Card sc && IsShipCard(sc) && GetBorderOwner(b) == owner)
-            {
-                if (ShowCardReveal(sc, "Choose ship", $"{sc.Name}?", RevealButtons.YesNo) == RevealAnswer.Yes)
-                    return b;
-            }
-        }
-        return TableCanvas.Children.OfType<Border>()
-            .FirstOrDefault(b => b.Tag is Card sc && IsShipCard(sc) && GetBorderOwner(b) == owner);
+        var ships = TableCanvas.Children.OfType<Border>()
+            .Where(b => b.Tag is Card sc && IsShipCard(sc) && GetBorderOwner(b) == owner)
+            .ToList();
+        return PickBorderFromList(null, ships, "Choose ship");
     }
 
     private Border? PickAnyHostWithEquipment()
@@ -10796,10 +10934,7 @@ public partial class TableWindow : Window
 
     private Border? ShowTargetPickDialog(Card ev, List<Border> candidates, string title)
     {
-        var labels = candidates.Select(b => (b.Tag as Card)?.Name ?? "?").ToList();
-        int idx = ShowIndexPickDialog($"{ev.Name}: {title}", labels);
-        if (idx < 0 || idx >= candidates.Count) return null;
-        return candidates[idx];
+        return PickBorderFromList(ev, candidates, title);
     }
 
     private int ShowIndexPickDialog(string title, List<string> labels)
@@ -11008,25 +11143,54 @@ public partial class TableWindow : Window
             return;
         }
 
-        if (InterruptRules.IsKevinNullify(card))
+        if (InterruptRules.IsKevinNullify(card) || InterruptRules.IsDevil(card))
         {
+            bool devil = InterruptRules.IsDevil(card);
+            bool Legal(Card ev) => devil
+                ? TimingRules.CanDevilTarget(ev).ok
+                : TimingRules.CanKevinTargetEvent(ev).ok;
             // Snapshot — AddTargetHalo mutates TableCanvas.Children
             foreach (var b in TableCanvas.Children.OfType<Border>().ToList())
             {
                 if (b.Tag is not Card) continue;
                 bool has = false;
                 if (_stackOnHost.TryGetValue(b, out var list))
-                    has = list.Any(x => x.Tag is Card c && EventRules.IsEvent(c)
-                                        && TimingRules.CanKevinTargetEvent(c).ok);
+                    has = list.Any(x => x.Tag is Card c && EventRules.IsEvent(c) && Legal(c));
                 if (!has)
                     has = _attachedEvents.Any(e =>
                         (ReferenceEquals(e.Host, b) || ReferenceEquals(e.Host2, b))
-                        && TimingRules.CanKevinTargetEvent(e.Card).ok);
+                        && Legal(e.Card));
                 if (has) AddTargetHalo(b, Color.FromRgb(220, 180, 60));
+            }
+            // Mid-gap halo for span events (Gaps / Q-Net) — Kevin only
+            foreach (var e in _attachedEvents)
+            {
+                if (e.Host == null || e.Host2 == null) continue;
+                if (!Legal(e.Card)) continue;
+                double lx = Canvas.GetLeft(e.Host) + TableCardWidth;
+                double rx = Canvas.GetLeft(e.Host2);
+                double x = (lx + rx) / 2.0 - TableCardWidth / 2.0;
+                var rect = new Rectangle
+                {
+                    Width = TableCardWidth,
+                    Height = TableCardHeight,
+                    Stroke = new SolidColorBrush(Color.FromRgb(220, 180, 60)),
+                    StrokeThickness = 2,
+                    StrokeDashArray = new DoubleCollection { 4, 3 },
+                    Fill = new SolidColorBrush(Color.FromArgb(50, 220, 180, 60)),
+                    IsHitTestVisible = false,
+                    RadiusX = 4,
+                    RadiusY = 4
+                };
+                Canvas.SetLeft(rect, x);
+                Canvas.SetTop(rect, Canvas.GetTop(e.Host));
+                Panel.SetZIndex(rect, 20);
+                TableCanvas.Children.Add(rect);
+                _targetHighlights.Add(rect);
             }
             void MarkEventMini(Border el, Card ev)
             {
-                if (!TimingRules.CanKevinTargetEvent(ev).ok) return;
+                if (!Legal(ev)) return;
                 el.BorderBrush = new SolidColorBrush(Color.FromRgb(255, 210, 80));
                 el.BorderThickness = new Thickness(2);
             }
@@ -11350,20 +11514,15 @@ public partial class TableWindow : Window
                 StatusText.Text = "Res-Q: Discard leer.";
                 return;
             }
-            Card? pick = null;
-            foreach (var c in disc.ToList())
-            {
-                if (ShowCardReveal(c, "Res-Q", $"{c.Name} auf die Hand?", RevealButtons.YesNo) == RevealAnswer.Yes)
-                {
-                    pick = c;
-                    break;
-                }
-            }
+            Card? pick = PickCardFromList(
+                "Click a card from your discard pile to take into hand.",
+                disc.ToList(), "Res-Q", ev);
             pick ??= disc[^1];
             disc.Remove(pick);
             hand.Add(pick);
             ShowActivePlayerHand();
             RefreshZoneCounts();
+            StatusText.Text = $"Res-Q: {pick.Name} to hand.";
         }
         RefreshZoneCounts();
     }
@@ -11408,17 +11567,8 @@ public partial class TableWindow : Window
                 SendCardTo(art, controller, TimingRules.Destination.Discard);
                 return true;
             }
-            Border target = planets[0];
-            foreach (var p in planets)
-            {
-                if (ShowCardReveal(art, "Stone of Gol – Ziel?",
-                        $"Attack away team at {(p.Tag as Card)?.Name}?",
-                        RevealButtons.YesNo) == RevealAnswer.Yes)
-                {
-                    target = p;
-                    break;
-                }
-            }
+            Border target = PickBorderFromList(art, planets, "Stone of Gol: attack away team at which planet?")
+                            ?? planets[0];
             int kills = 0;
             if (_stackOnHost.TryGetValue(target, out var team))
             {
@@ -11445,16 +11595,10 @@ public partial class TableWindow : Window
         if (ArtifactRules.IsThoughtMaker(art))
         {
             var types = new[] { "Personnel", "Ship", "Event", "Interrupt", "Equipment", "Dilemma", "Doorway" };
-            string chosen = types[0];
-            foreach (var t in types)
-            {
-                if (ShowCardReveal(art, "Thought Maker", $"Choose card type {t}?",
-                        RevealButtons.YesNo) == RevealAnswer.Yes)
-                {
-                    chosen = t;
-                    break;
-                }
-            }
+            var typeCards = types.Select(t => new Card { Name = t, Type = "Card type" }).ToList();
+            string chosen = PickCardFromList(
+                "Click the card type to send to the bottom of opponent's draw deck.",
+                typeCards, "Thought Maker", art)?.Name ?? types[0];
             var oppDraw = controller == 1 ? _oppDrawCards : _drawCards;
             var moved = oppDraw
                 .Where(c => (c.Type ?? "").Contains(chosen, StringComparison.OrdinalIgnoreCase))
@@ -11471,18 +11615,10 @@ public partial class TableWindow : Window
 
         if (ArtifactRules.IsKurlanNaiskos(art))
         {
-            Border? shipB = null;
-            foreach (var b in TableCanvas.Children.OfType<Border>())
-            {
-                if (b.Tag is not Card sc || !IsShipCard(sc)) continue;
-                if (GetBorderOwner(b) != controller) continue;
-                if (ShowCardReveal(art, "Kurlan Naiskos",
-                        $"Auf {sc.Name} spielen?", RevealButtons.YesNo) == RevealAnswer.Yes)
-                {
-                    shipB = b;
-                    break;
-                }
-            }
+            var ownShips = TableCanvas.Children.OfType<Border>()
+                .Where(b => b.Tag is Card sc && IsShipCard(sc) && GetBorderOwner(b) == controller)
+                .ToList();
+            Border? shipB = PickBorderFromList(art, ownShips, "Kurlan Naiskos: play on which ship?");
             if (shipB == null)
             {
                 StatusText.Text = "Kurlan: no ship chosen → kept in hand.";
@@ -11990,68 +12126,109 @@ public partial class TableWindow : Window
     }
 
     /// <summary>
-    /// Visual card picker (same overlay as Static Warp Bubble). No timer — click a card.
+    /// Visual card picker in the card-detail overlay (horizontal scroll strip).
+    /// Click a mini to choose. Close / Esc / click outside = cancel (null).
     /// </summary>
-    private Card? PickCardFromList(string prompt, IReadOnlyList<Card> pool, string title)
+    private Card? PickCardFromList(string prompt, IReadOnlyList<Card> pool, string title, Card? source = null)
     {
-        if (pool.Count == 0) return null;
-        if (pool.Count == 1)
-        {
-            ShowCardReveal(pool[0], title, $"{prompt}\n\nOnly option: {pool[0].Name}.", RevealButtons.Ok);
+        if (pool == null || pool.Count == 0) return null;
+        if (pool.Count == 1) return pool[0];
+        if (CardDetailOverlay == null || DetailStackCards == null)
             return pool[0];
-        }
 
-        if (KidnapOverlay == null)
-        {
-            // Fallback without MessageBox: first card
-            ShowCardReveal(pool[0], title, prompt + $"\n\nSelected: {pool[0].Name}", RevealButtons.Ok);
-            return pool[0];
-        }
+        _detailPickMode = true;
+        _detailPickResult = null;
+        _detailHost = null;
 
-        _handPickMandatory = true;
-        _handPickResult = null;
-        _handPickTimedOut = false;
-        _kidnapResolved = false;
-        _kidnapHand = pool.ToList();
+        ShowCardDetail(source ?? pool[0]);
+        if (DetailName != null && source == null)
+            DetailName.Text = title;
+        if (DetailText != null && source == null)
+            DetailText.Text = prompt;
 
-        KidnapTitle.Text = title;
-        KidnapHint.Text = prompt + "\nClick a card to choose.";
-        KidnapTypePanel.Children.Clear();
-        KidnapCardsPanel.Children.Clear();
-        if (BtnKidnapCancel != null)
-            BtnKidnapCancel.Visibility = Visibility.Collapsed;
+        FillDetailPickStrip(pool, title, prompt);
+        if (BtnDetailBack != null) BtnDetailBack.Visibility = Visibility.Collapsed;
+        if (BtnDetailBeamSelect != null) BtnDetailBeamSelect.Visibility = Visibility.Collapsed;
+        CardDetailOverlay.Visibility = Visibility.Visible;
 
-        foreach (var c in _kidnapHand)
-        {
-            var mini = CreateMiniCard(c, faceDown: false);
-            mini.Width = 96;
-            mini.Height = 134;
-            Card cardRef = c;
-            mini.MouseLeftButtonDown += (_, ev) =>
-            {
-                if (_kidnapResolved) return;
-                _kidnapResolved = true;
-                _handPickResult = cardRef;
-                if (_kidnapFrame != null) _kidnapFrame.Continue = false;
-                ev.Handled = true;
-            };
-            KidnapCardsPanel.Children.Add(mini);
-        }
-
-        KidnapOverlay.Visibility = Visibility.Visible;
-        _kidnapFrame = new System.Windows.Threading.DispatcherFrame();
-        try { System.Windows.Threading.Dispatcher.PushFrame(_kidnapFrame); }
+        _detailPickFrame = new System.Windows.Threading.DispatcherFrame();
+        try { System.Windows.Threading.Dispatcher.PushFrame(_detailPickFrame); }
         finally
         {
-            _kidnapFrame = null;
-            KidnapOverlay.Visibility = Visibility.Collapsed;
-            _handPickMandatory = false;
-            if (BtnKidnapCancel != null) BtnKidnapCancel.Visibility = Visibility.Visible;
+            _detailPickFrame = null;
+            _detailPickMode = false;
+            if (CardDetailOverlay != null)
+                CardDetailOverlay.Visibility = Visibility.Collapsed;
+            if (DetailStackCards != null)
+                DetailStackCards.Children.Clear();
+            if (DetailStackSection != null)
+                DetailStackSection.Visibility = Visibility.Collapsed;
         }
 
-        var chosen = _handPickResult ?? pool[0];
-        ShowCardReveal(chosen, title, $"{prompt}\n\nChosen: {chosen.Name}", RevealButtons.Ok);
-        return chosen;
+        return _detailPickResult;
+    }
+
+    private Border? PickBorderFromList(Card? source, IReadOnlyList<Border> candidates, string title)
+    {
+        if (candidates == null || candidates.Count == 0) return null;
+        if (candidates.Count == 1) return candidates[0];
+        var cards = candidates
+            .Select(b => b.Tag as Card)
+            .Where(c => c != null)
+            .Cast<Card>()
+            .ToList();
+        var pick = PickCardFromList("Click a card to choose.", cards, title, source);
+        if (pick == null) return null;
+        return candidates.FirstOrDefault(b => ReferenceEquals(b.Tag, pick));
+    }
+
+    /// <summary>
+    /// Player OR-choice (A or B or C). Reuses the detail-strip picker.
+    /// Returns the chosen label, or null if cancelled.
+    /// </summary>
+    private string? PickOption(string title, string prompt, params string[] options)
+    {
+        if (options == null || options.Length == 0) return null;
+        if (options.Length == 1) return options[0];
+        var cards = options.Select(o => new Card { Name = o, Type = "Choice" }).ToList();
+        return PickCardFromList(prompt, cards, title)?.Name;
+    }
+
+    private void FillDetailPickStrip(IReadOnlyList<Card> pool, string title, string prompt)
+    {
+        if (DetailStackSection == null || DetailStackCards == null) return;
+        DetailStackSection.Visibility = Visibility.Visible;
+        if (DetailStackTitle != null)
+            DetailStackTitle.Text = title;
+        if (DetailStackStats != null)
+            DetailStackStats.Text = prompt + "\nClick a card in the strip below.";
+        DetailStackCards.Children.Clear();
+        foreach (var c in pool)
+        {
+            var mini = CreateMiniCard(c, faceDown: false);
+            mini.Width = 72;
+            mini.Height = 100;
+            mini.Margin = new Thickness(3);
+            mini.Cursor = Cursors.Hand;
+            mini.BorderBrush = new SolidColorBrush(Color.FromRgb(80, 200, 120));
+            mini.BorderThickness = new Thickness(2);
+            mini.ToolTip = $"{c.Name}\nClick = choose";
+            Card cRef = c;
+            mini.MouseLeftButtonDown += (_, ev) =>
+            {
+                CompleteDetailPick(cRef);
+                ev.Handled = true;
+            };
+            DetailStackCards.Children.Add(mini);
+        }
+    }
+
+    private void CompleteDetailPick(Card? card)
+    {
+        if (!_detailPickMode) return;
+        _detailPickResult = card;
+        if (_detailPickFrame != null)
+            _detailPickFrame.Continue = false;
     }
 
     private void AwardDilemmaPoints(int pts)
@@ -14111,11 +14288,13 @@ public partial class TableWindow : Window
             }
             if (e.Kind == EventRules.Persist.Tetryon && h1 >= 0)
             {
-                if (fromIdx < h1 && toIdx > h1)
+                if (lo < h1 && hi > h1)
                     return "Tetryon Field: ships may not pass this location.";
-                if (toIdx == h1 && _movedThisTurnAfterArrival.Contains(ship)
+                // Printed: ships that move here need Navigation to use RANGE again this turn.
+                if (fromIdx == h1 && toIdx != h1
+                    && _arrivedMissionThisTurn.TryGetValue(ship, out int arrived) && arrived == h1
                     && !EventRules.HasSkill(crew, "Navigation"))
-                    return "Tetryon Field: Navigation required to continue.";
+                    return "Tetryon Field: Navigation required to use RANGE again this turn.";
             }
         }
         return null;
@@ -14129,15 +14308,23 @@ public partial class TableWindow : Window
         foreach (var e in _attachedEvents.ToList())
         {
             int h1 = IndexOfMission(e.Host);
-            if (e.Kind == EventRules.Persist.Rift && h1 >= 0 && fromIdx < h1 && toIdx > h1)
+            if (e.Kind == EventRules.Persist.Rift && h1 >= 0)
             {
-                ApplyHullDamage(ship, shipCard, Math.Min(100, GetHullDamage(ship) + 50));
-                _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}", "Subspace Warp Rift damage");
-            }
-            if (e.Kind == EventRules.Persist.Rift && dest != null && ReferenceEquals(e.Host, dest)
-                && _movedThisTurnAfterArrival.Contains(ship))
-            {
-                ApplyHullDamage(ship, shipCard, Math.Min(100, GetHullDamage(ship) + 50));
+                // Fly by: leave one side, end on the other (both directions).
+                bool flyBy = lo < h1 && hi > h1;
+                // Move to here, then move again same turn (unless this is the arrival itself).
+                bool leaveAfterArrival = fromIdx == h1 && toIdx != h1
+                    && _arrivedMissionThisTurn.TryGetValue(ship, out int arrived) && arrived == h1;
+                if (flyBy || leaveAfterArrival)
+                {
+                    ApplyHullDamage(ship, shipCard, Math.Min(100, GetHullDamage(ship) + 50));
+                    _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
+                        flyBy ? "Subspace Warp Rift: fly-by damage"
+                              : "Subspace Warp Rift: damaged for moving again after arriving");
+                    StatusText.Text = flyBy
+                        ? $"{shipCard.Name} damaged flying by Subspace Warp Rift."
+                        : $"{shipCard.Name} damaged — moved again after arriving at Subspace Warp Rift.";
+                }
             }
             if (e.Kind == EventRules.Persist.Gaps && dest != null &&
                 (ReferenceEquals(e.Host, dest) || ReferenceEquals(e.Host2, dest)))
@@ -14155,6 +14342,8 @@ public partial class TableWindow : Window
             }
         }
         _movedThisTurnAfterArrival.Add(ship);
+        if (toIdx >= 0)
+            _arrivedMissionThisTurn[ship] = toIdx;
 
         // Spacedock: dock at own outpost with Spacedock → full repair
         var mission = dest;
@@ -14493,6 +14682,21 @@ public partial class TableWindow : Window
             "Repair status",
             MessageBoxButton.OK,
             MessageBoxImage.Information);
+    }
+
+    private void SyncShipCombatVisuals(Border border)
+    {
+        int hull = GetHullDamage(border);
+        if (hull >= 50 && hull < 100)
+        {
+            border.RenderTransformOrigin = new Point(0.5, 0.5);
+            border.RenderTransform = new RotateTransform(180);
+        }
+        else
+        {
+            border.RenderTransform = Transform.Identity;
+        }
+        UpdateDamageBadge(border, hull);
     }
 
     private void UpdateDamageBadge(Border border, int hullPercent)
@@ -15172,7 +15376,7 @@ public partial class TableWindow : Window
             int z = DockSortKey(below[i]) == 0 ? 12 + i : 22 + i;
             Panel.SetZIndex(below[i], z);
             SetBorderOwner(below[i], 1);
-            below[i].RenderTransform = Transform.Identity;
+            SyncShipCombatVisuals(below[i]);
             UpdateHostBadge(below[i]);
         }
         for (int i = 0; i < above.Count; i++)
@@ -15183,7 +15387,7 @@ public partial class TableWindow : Window
             int z = DockSortKey(above[i]) == 0 ? 12 + i : 22 + i;
             Panel.SetZIndex(above[i], z);
             SetBorderOwner(above[i], 2);
-            above[i].RenderTransform = Transform.Identity;
+            SyncShipCombatVisuals(above[i]);
             UpdateHostBadge(above[i]);
         }
 
@@ -15427,23 +15631,26 @@ public partial class TableWindow : Window
         return text[..max].TrimEnd() + "…";
     }
 
-    /// <summary>Detail line for an attached event/dilemma, including countdown when set.</summary>
     /// <summary>
-    /// Status line only (name, counter, persist). Full card text lives in DetailText — do not duplicate.
+    /// Host-facing effect line. Uses live crew for class-scaled bonuses (Nutational / Metaphasic).
+    /// Persist enum names are never shown — they just echoed the card title.
     /// </summary>
-    private static string FormatAttachedCounterLine(string kind, Card card, int countdown, string? persistKind)
+    private string FormatAttachedHostEffectLine(
+        string kind, Card card, int countdown, string? persistKind, IEnumerable<Card>? aboard)
     {
+        if (kind == "Event"
+            && Enum.TryParse<EventRules.Persist>(persistKind, out var ek)
+            && ek != EventRules.Persist.None)
+            return EventRules.FormatHostEffectSummary(ek, card, aboard, countdown);
+
+        if (kind == "Dilemma"
+            && Enum.TryParse<DilemmaRules.PersistKind>(persistKind, out var dk)
+            && dk != DilemmaRules.PersistKind.None)
+            return DilemmaRules.FormatHostEffectSummary(dk, card, countdown);
+
         string line = $"{kind}: {card.Name}";
         if (countdown > 0)
             line += $"  ·  COUNTER {countdown}";
-        else if (!string.IsNullOrEmpty(persistKind)
-                 && !persistKind.Equals("None", StringComparison.OrdinalIgnoreCase)
-                 && !persistKind.Equals("PlasmaFire", StringComparison.OrdinalIgnoreCase))
-            line += $"  ·  {persistKind}";
-        // Plasma Fire has no numeric counter — damages every EOT of the ship's controller
-        if (persistKind != null
-            && persistKind.Equals("PlasmaFire", StringComparison.OrdinalIgnoreCase))
-            line += "  ·  damages each of controller's EOT";
         return line;
     }
 
@@ -15477,24 +15684,42 @@ public partial class TableWindow : Window
             DetailClass.Text = string.IsNullOrWhiteSpace(card.Class) ? "" : $"Class: {card.Class}";
             DetailStaff.Text = string.IsNullOrWhiteSpace(card.Staff) ? "" : $"Staffing: {card.Staff}";
 
-            var eventLines = new List<string>();
+            // Printed special equipment lives in Text (Holodeck, Tractor Beam) — keep it with stats.
+            string special = (card.Text ?? "").Trim();
+            if (string.IsNullOrEmpty(special) && !string.IsNullOrWhiteSpace(card.Characteristics))
+            {
+                special = string.Join(", ",
+                    card.Characteristics.Split(';', StringSplitOptions.RemoveEmptyEntries)
+                        .Select(s => s.Trim())
+                        .Where(s => !s.EndsWith(" ship", StringComparison.OrdinalIgnoreCase)
+                                    && !s.Contains("ship;", StringComparison.OrdinalIgnoreCase)));
+            }
             if (!string.IsNullOrWhiteSpace(card.Icons))
-                eventLines.Add($"Icons: {card.Icons}");
-            // Attached / stacked events on this ship (e.g. Plasma Fire, Bynars)
+                special = string.IsNullOrEmpty(special) ? $"Icons: {card.Icons}" : special + "\nIcons: " + card.Icons;
+            if (!string.IsNullOrEmpty(special))
+                DetailStaff.Text = string.IsNullOrEmpty(DetailStaff.Text)
+                    ? special
+                    : DetailStaff.Text + "\n" + special;
+            DetailText.Text = ""; // do not repeat special equipment in the body
+
+            var eventLines = new List<string>();
             Border? shipBorder = FindBorderForCard(card);
+            IEnumerable<Card> aboard = shipBorder == null
+                ? Enumerable.Empty<Card>()
+                : GetAllCardsOnHost(shipBorder, GetBorderOwner(shipBorder) == 0 ? 1 : GetBorderOwner(shipBorder));
             if (shipBorder != null)
             {
                 foreach (var ae in EventsOn(shipBorder))
-                    eventLines.Add(FormatAttachedCounterLine("Event", ae.Card, ae.Countdown, ae.Kind.ToString()));
+                    eventLines.Add(FormatAttachedHostEffectLine("Event", ae.Card, ae.Countdown, ae.Kind.ToString(), aboard));
                 foreach (var ad in _attachedDilemmas.Where(d => ReferenceEquals(d.Host, shipBorder)))
-                    eventLines.Add(FormatAttachedCounterLine("Dilemma", ad.Card, ad.Countdown, ad.Kind.ToString()));
+                    eventLines.Add(FormatAttachedHostEffectLine("Dilemma", ad.Card, ad.Countdown, ad.Kind.ToString(), aboard));
                 if (_stackOnHost.TryGetValue(shipBorder, out var stacked))
                 {
                     foreach (var b in stacked)
                     {
                         if (b.Tag is not Card ec || !EventRules.IsEvent(ec)) continue;
                         if (EventsOn(shipBorder).Any(ae => ReferenceEquals(ae.Card, ec))) continue;
-                        eventLines.Add(FormatAttachedCounterLine("Event", ec, 0, null));
+                        eventLines.Add(FormatAttachedHostEffectLine("Event", ec, 0, null, aboard));
                     }
                 }
             }
@@ -15510,13 +15735,16 @@ public partial class TableWindow : Window
             foreach (var ae in _attachedEvents.Where(e => ReferenceEquals(e.Card, card)))
             {
                 string hostName = (ae.Host?.Tag as Card)?.Name ?? "(no host)";
-                counterLines.Add(FormatAttachedCounterLine("Attached", card, ae.Countdown, ae.Kind.ToString())
+                IEnumerable<Card>? aboard = ae.Host == null
+                    ? null
+                    : GetAllCardsOnHost(ae.Host, GetBorderOwner(ae.Host) == 0 ? 1 : GetBorderOwner(ae.Host));
+                counterLines.Add(FormatAttachedHostEffectLine("Event", card, ae.Countdown, ae.Kind.ToString(), aboard)
                                  + $"  ·  on {hostName}");
             }
             foreach (var ad in _attachedDilemmas.Where(d => ReferenceEquals(d.Card, card)))
             {
                 string hostName = (ad.Host?.Tag as Card)?.Name ?? "(no host)";
-                counterLines.Add(FormatAttachedCounterLine("Attached", card, ad.Countdown, ad.Kind.ToString())
+                counterLines.Add(FormatAttachedHostEffectLine("Dilemma", card, ad.Countdown, ad.Kind.ToString(), null)
                                  + $"  ·  on {hostName}");
             }
             if (EventRules.IsRedAlert(card))
@@ -15529,10 +15757,21 @@ public partial class TableWindow : Window
         {
             // Effektive Werte, falls Karte auf einem Host present ist
             var presentCtx = FindPresentContextForCard(card);
+            string skillsLine = "";
             if (presentCtx != null)
             {
                 var ep = ModifierRules.ResolvePersonnel(card, presentCtx.Value.cards, presentCtx.Value.owner);
-                DetailAttributes.Text = ModifierRules.FormatProfileLines(ep);
+                var classKeys = new HashSet<string>(MissionRules.Classifications, StringComparer.OrdinalIgnoreCase);
+                DetailAttributes.Text = string.Join("\n",
+                    ModifierRules.FormatProfileLines(ep)
+                        .Split('\n')
+                        .Where(l => !l.StartsWith("Classification:", StringComparison.OrdinalIgnoreCase)
+                                    && !l.StartsWith("Skills:", StringComparison.OrdinalIgnoreCase)));
+                var skillParts = ep.Skills.Where(kv => !classKeys.Contains(kv.Key))
+                    .OrderBy(k => k.Key)
+                    .Select(kv => kv.Value > 1 ? $"{kv.Key}×{kv.Value}" : kv.Key);
+                if (skillParts.Any())
+                    skillsLine = string.Join(", ", skillParts);
             }
             else
             {
@@ -15540,31 +15779,27 @@ public partial class TableWindow : Window
                 if (!string.IsNullOrWhiteSpace(card.CunningOrWeapons)) attrs.Add($"CUNNING {card.CunningOrWeapons}");
                 if (!string.IsNullOrWhiteSpace(card.StrengthOrShields)) attrs.Add($"STRENGTH {card.StrengthOrShields}");
                 if (!string.IsNullOrWhiteSpace(card.Points)) attrs.Add($"POINTS {card.Points}");
-                DetailAttributes.Text = string.Join("  •  ", attrs);
-            }
-            if (string.IsNullOrWhiteSpace(DetailAttributes.Text) || presentCtx == null)
-            {
-                // keep stats from profile when present
-            }
-            DetailClass.Text = string.IsNullOrWhiteSpace(card.Class)
-                ? ""
-                : $"Classification: {card.Class}";
-            DetailStaff.Text = string.IsNullOrWhiteSpace(card.Staff) ? "" : $"Staffing: {card.Staff}";
-            if (presentCtx == null)
-            {
+                DetailAttributes.Text = string.Join("\n", attrs);
                 var parsed = MissionRules.ParsePersonnelSkills(card);
                 var classKeys = new HashSet<string>(MissionRules.Classifications, StringComparer.OrdinalIgnoreCase);
-                var onlySkills = parsed
+                skillsLine = string.Join(", ", parsed
                     .Where(kv => !classKeys.Contains(kv.Key))
                     .OrderBy(kv => kv.Key)
-                    .Select(kv => kv.Value > 1 ? $"{kv.Key}×{kv.Value}" : kv.Key);
-                DetailIcons.Text = string.IsNullOrWhiteSpace(card.Icons) ? "" : $"Icons: {card.Icons}";
-                if (onlySkills.Any())
-                    DetailIcons.Text = (string.IsNullOrEmpty(DetailIcons.Text) ? "" : DetailIcons.Text + "\n")
-                        + "Skills: " + string.Join(", ", onlySkills);
+                    .Select(kv => kv.Value > 1 ? $"{kv.Key}×{kv.Value}" : kv.Key));
             }
-            else
-                DetailIcons.Text = string.IsNullOrWhiteSpace(card.Icons) ? "" : $"Icons: {card.Icons}";
+
+            // Classification once (printed class). Icons next. Skills once. No card.Text dump.
+            string classLine = string.IsNullOrWhiteSpace(card.Class)
+                ? ""
+                : "Classification: " + card.Class.Trim();
+            if (!string.IsNullOrWhiteSpace(card.Icons))
+                classLine = string.IsNullOrEmpty(classLine)
+                    ? $"Icons: {card.Icons}"
+                    : classLine + "\nIcons: " + card.Icons;
+            DetailClass.Text = classLine;
+            DetailStaff.Text = string.IsNullOrEmpty(skillsLine) ? "" : "Skills: " + skillsLine;
+            DetailIcons.Text = "";
+            DetailText.Text = "";
         }
         else
         {
@@ -15577,6 +15812,8 @@ public partial class TableWindow : Window
             DetailStaff.Text = string.IsNullOrWhiteSpace(card.Staff) ? "" : $"Staffing: {card.Staff}";
             DetailIcons.Text = string.IsNullOrWhiteSpace(card.Icons) ? "" : $"Icons: {card.Icons}";
         }
+
+        UpdateDetailBackButton(card);
 
         if (!string.IsNullOrEmpty(card.FullImagePath) && System.IO.File.Exists(card.FullImagePath))
         {
@@ -15800,6 +16037,19 @@ public partial class TableWindow : Window
         CloseCardDetailPopup();
     }
 
+    private void UpdateDetailBackButton(Card shown)
+    {
+        if (BtnDetailBack == null) return;
+        bool hostOpen = _detailHost?.Tag is Card host && !ReferenceEquals(host, shown);
+        BtnDetailBack.Visibility = hostOpen ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void BtnDetailBack_Click(object sender, RoutedEventArgs e)
+    {
+        if (_detailHost?.Tag is not Card host) return;
+        ShowCardDetail(host);
+    }
+
     private void UpdateDetailBeamSelectButton(Border? host)
     {
         if (BtnDetailBeamSelect == null) return;
@@ -15856,6 +16106,11 @@ public partial class TableWindow : Window
 
     private void CloseCardDetailPopup()
     {
+        if (_detailPickMode)
+        {
+            CompleteDetailPick(null);
+            return;
+        }
         if (CardDetailOverlay != null)
             CardDetailOverlay.Visibility = Visibility.Collapsed;
         if (DetailStackCards != null)
@@ -15864,6 +16119,8 @@ public partial class TableWindow : Window
             DetailStackSection.Visibility = Visibility.Collapsed;
         if (BtnDetailBeamSelect != null)
             BtnDetailBeamSelect.Visibility = Visibility.Collapsed;
+        if (BtnDetailBack != null)
+            BtnDetailBack.Visibility = Visibility.Collapsed;
         _detailHost = null;
     }
 

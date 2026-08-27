@@ -308,53 +308,28 @@
                                 MouseLeftButtonDown="CardDetailOverlay_MouseLeftButtonDown">
                                 <Border HorizontalAlignment="Center" VerticalAlignment="Center"
                                     Background="#252530" BorderBrush="#6A6A80" BorderThickness="1"
-                                    CornerRadius="10" Padding="16" MaxWidth="920" MaxHeight="720"
+                                    CornerRadius="10" Padding="16" MaxWidth="960" MaxHeight="760"
+                                    MinWidth="720"
                                     MouseLeftButtonDown="CardDetailPanel_MouseLeftButtonDown">
-                                    <DockPanel>
-                                        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
-                                                HorizontalAlignment="Right" Margin="0,12,0,0">
-                                            <Button x:Name="BtnDetailBeamSelect" Content="Select none"
-                                                Padding="16,6" Margin="0,0,8,0"
-                                                Visibility="Collapsed"
-                                                Click="BtnDetailBeamSelect_Click"
-                                                Background="#2E5A3A" Foreground="#B8F0C8"
-                                                BorderBrush="#4A9A60" Cursor="Hand"
-                                                ToolTip="Toggle select all / select none for beam"/>
-                                            <Button Content="Close" Padding="16,6"
-                                                Click="BtnCardDetailClose_Click"
-                                                Background="#3A3A58" Foreground="White" BorderBrush="#5A5A78"
-                                                Cursor="Hand"/>
-                                        </StackPanel>
-                                        <!-- Stack contents: minis + optional crew stats (hosts only) -->
-                                        <Border x:Name="DetailStackSection" DockPanel.Dock="Bottom"
-                                            Visibility="Collapsed" Margin="0,12,0,0"
-                                            BorderBrush="#3A3A50" BorderThickness="0,1,0,0" Padding="0,10,0,0">
-                                            <DockPanel MaxHeight="260">
-                                                <TextBlock DockPanel.Dock="Top" x:Name="DetailStackTitle"
-                                                       Text="Contents" Foreground="#FFE082"
-                                                       FontSize="13" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                                                <ScrollViewer DockPanel.Dock="Top" MaxHeight="72"
-                                                          VerticalScrollBarVisibility="Auto"
-                                                          Margin="0,0,0,8">
-                                                    <TextBlock x:Name="DetailStackStats" Foreground="#B5CEA8"
-                                                           FontSize="11" FontFamily="Consolas"
-                                                           TextWrapping="Wrap"/>
-                                                </ScrollViewer>
-                                                <ScrollViewer VerticalScrollBarVisibility="Auto"
-                                                          HorizontalScrollBarVisibility="Disabled">
-                                                    <WrapPanel x:Name="DetailStackCards"/>
-                                                </ScrollViewer>
-                                            </DockPanel>
-                                        </Border>
-                                        <!-- Top: card image + text -->
-                                        <Grid>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="*" MinHeight="220"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+
+                                        <!-- Top-left: card image + text (grows; stack strip sits below) -->
+                                        <Grid Grid.Column="0" Grid.Row="0">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="Auto"/>
                                                 <ColumnDefinition Width="*"/>
                                             </Grid.ColumnDefinitions>
                                             <Border Grid.Column="0" Width="200" Margin="0,0,16,0"
                                                 BorderBrush="#555" BorderThickness="1" CornerRadius="4"
-                                                Background="#111"
+                                                Background="#111" VerticalAlignment="Top"
                                                 Cursor="Hand" ToolTip="Hold right mouse button to enlarge">
                                                 <Image x:Name="DetailImage" Stretch="Uniform"
                                                    RenderOptions.BitmapScalingMode="HighQuality"
@@ -364,8 +339,7 @@
                                             </Border>
                                             <ScrollViewer Grid.Column="1"
                                                       VerticalScrollBarVisibility="Auto"
-                                                      HorizontalScrollBarVisibility="Disabled"
-                                                      MaxHeight="420">
+                                                      HorizontalScrollBarVisibility="Disabled">
                                                 <StackPanel>
                                                     <TextBlock x:Name="DetailName" Text="–"
                                                            FontSize="16" FontWeight="Bold" Foreground="White"
@@ -390,7 +364,54 @@
                                                 </StackPanel>
                                             </ScrollViewer>
                                         </Grid>
-                                    </DockPanel>
+
+                                        <!-- Right column: Back / beam select / Close stacked above the strip -->
+                                        <StackPanel Grid.Column="1" Grid.Row="0" VerticalAlignment="Top"
+                                                Margin="12,0,0,0" Width="110">
+                                            <Button x:Name="BtnDetailBack" Content="◀ Back"
+                                                Padding="10,6" Margin="0,0,0,8"
+                                                Visibility="Collapsed"
+                                                Click="BtnDetailBack_Click"
+                                                Background="#2A3A58" Foreground="White" BorderBrush="#5A6A88"
+                                                Cursor="Hand"
+                                                ToolTip="Return to the host card (ship / facility / mission)"/>
+                                            <Button x:Name="BtnDetailBeamSelect" Content="Select none"
+                                                Padding="10,6" Margin="0,0,0,8"
+                                                Visibility="Collapsed"
+                                                Click="BtnDetailBeamSelect_Click"
+                                                Background="#2E5A3A" Foreground="#B8F0C8"
+                                                BorderBrush="#4A9A60" Cursor="Hand"
+                                                ToolTip="Toggle select all / select none for beam"/>
+                                            <Button Content="Close" Padding="10,6"
+                                                Click="BtnCardDetailClose_Click"
+                                                Background="#3A3A58" Foreground="White" BorderBrush="#5A5A78"
+                                                Cursor="Hand"/>
+                                        </StackPanel>
+
+                                        <!-- Bottom: crew text + single-row card strip with horizontal scrollbar -->
+                                        <Border x:Name="DetailStackSection" Grid.Column="0" Grid.ColumnSpan="2"
+                                            Grid.Row="1" Visibility="Collapsed" Margin="0,12,0,0"
+                                            BorderBrush="#3A3A50" BorderThickness="0,1,0,0" Padding="0,10,0,0">
+                                            <DockPanel>
+                                                <TextBlock DockPanel.Dock="Top" x:Name="DetailStackTitle"
+                                                       Text="Contents" Foreground="#FFE082"
+                                                       FontSize="13" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                                                <ScrollViewer DockPanel.Dock="Bottom"
+                                                          HorizontalScrollBarVisibility="Auto"
+                                                          VerticalScrollBarVisibility="Disabled"
+                                                          Height="118">
+                                                    <StackPanel x:Name="DetailStackCards" Orientation="Horizontal"/>
+                                                </ScrollViewer>
+                                                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                                          HorizontalScrollBarVisibility="Disabled"
+                                                          MaxHeight="140" Margin="0,0,0,8">
+                                                    <TextBlock x:Name="DetailStackStats" Foreground="#B5CEA8"
+                                                           FontSize="11" FontFamily="Consolas"
+                                                           TextWrapping="Wrap"/>
+                                                </ScrollViewer>
+                                            </DockPanel>
+                                        </Border>
+                                    </Grid>
                                 </Border>
                             </Border>
                             <Border x:Name="HistoryOverlay" Visibility="Collapsed"
@@ -401,7 +422,8 @@
                                     <DockPanel>
                                         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
                                             <Button DockPanel.Dock="Right" Content="Copy" Click="BtnHistoryCopy_Click"
-                                                Padding="10,4" Margin="6,0,0,0"/>
+                                                Padding="10,4" Margin="6,0,0,0"
+                                                ToolTip="Copy selected lines (Ctrl+C). Shift+click for a range. Copy with no selection copies all."/>
                                             <Button DockPanel.Dock="Right" Content="Close" Click="BtnHistoryClose_Click"
                                                 Padding="10,4"/>
                                             <TextBlock Text="Action History" Foreground="#FFE082"
@@ -422,6 +444,7 @@
                                              Background="#1A1A22" BorderThickness="0"
                                              Foreground="#B5CEA8" FontSize="12"
                                              FontFamily="Consolas"
+                                             SelectionMode="Extended"
                                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                              ScrollViewer.VerticalScrollBarVisibility="Auto"/>
                                     </DockPanel>
