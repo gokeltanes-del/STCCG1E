@@ -106,9 +106,14 @@ public static class LegalMoves
     /// </summary>
     private static void CollectOffTurn(GameState state, int player, List<GameAction> list)
     {
-        _ = state;
-        _ = player;
-        _ = list;
+        if (state.SeedPhase) return;
+        if (state.Match != GameSession.MatchPhase.Play) return;
+        if (player == state.ActivePlayer) return;
+        foreach (var card in state.HandOf(player))
+        {
+            if (!TimingRules.IsAnytimeType(card)) continue;
+            AddHandPlays(state, player, card, list);
+        }
     }
 
     private static void CollectSeed(GameState state, int player, List<GameAction> list)
@@ -296,20 +301,32 @@ public static class LegalMoves
             });
         }
 
-        var plasmaFx = EffectRegistry.ById("attach-eot");
-        if (plasmaFx == null) return;
+        var attachEot = EffectRegistry.ById("attach-eot");
+        if (attachEot == null) return;
 
         foreach (var ship in state.Ships())
         {
             bool fire = state.Board.Any(p =>
                 p.Persist == EventRules.Persist.PlasmaFire
                 && string.Equals(p.HostName, ship.Card.Name, System.StringComparison.OrdinalIgnoreCase));
-            if (!fire) continue;
+            if (fire)
+            {
+                var dummy = new Card { Name = "Plasma Fire", Type = "Event" };
+                var act = GameAction.Activate(player, dummy, ship.Card, "Nullify with SECURITY");
+                if (attachEot.CanPlay(state, act).ok)
+                    list.Add(act);
+            }
 
-            var dummy = new Card { Name = "Plasma Fire", Type = "Event" };
-            var act = GameAction.Activate(player, dummy, ship.Card, "Nullify with SECURITY");
-            if (plasmaFx.CanPlay(state, act).ok)
-                list.Add(act);
+            bool breach = state.Board.Any(p =>
+                p.Persist == EventRules.Persist.WarpCore
+                && string.Equals(p.HostName, ship.Card.Name, System.StringComparison.OrdinalIgnoreCase));
+            if (breach)
+            {
+                var dummy = new Card { Name = "Warp Core Breach", Type = "Event" };
+                var act = GameAction.Activate(player, dummy, ship.Card, "Nullify with ENGINEER");
+                if (attachEot.CanPlay(state, act).ok)
+                    list.Add(act);
+            }
         }
     }
 

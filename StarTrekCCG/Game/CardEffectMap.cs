@@ -18,7 +18,7 @@ public static class CardEffectMap
             ["Q2"] = "nullify-stack",
             ["Kevin Uxbridge"] = "nullify-inplay",
             ["Energy Vortex"] = "nullify-stack",
-            ["The Devil"] = "nullify-stack",
+            ["The Devil"] = "nullify-inplay",
             ["Hugh"] = "interrupt-play",
             ["Asteroid Sanctuary"] = "interrupt-play",
 

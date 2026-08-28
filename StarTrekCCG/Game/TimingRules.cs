@@ -15,6 +15,7 @@ public static class TimingRules
     public enum ActionKind
     {
         PlayCard,
+        EncounterDilemma,
         InitiateShipBattle,
         InitiatePersonnelBattle
     }
@@ -197,14 +198,11 @@ public static class TimingRules
 
         if (n.Equals("The Devil", StringComparison.OrdinalIgnoreCase))
         {
-            if (top.Kind != ActionKind.PlayCard || top.Card == null)
-                return (false, "The Devil: kein Treaty auf dem Stack.");
-            if (!TreatyRules.IsTreatyCard(top.Card)
-                && !(top.Card.Name ?? "").Contains("Treaty", StringComparison.OrdinalIgnoreCase)
-                && !(top.Card.Name ?? "").Contains("Horga'hn", StringComparison.OrdinalIgnoreCase)
-                && !(top.Card.Name ?? "").Contains("Wind Dancer", StringComparison.OrdinalIgnoreCase))
-                return (false, "The Devil nullifiziert Horga'hn, Wind Dancer oder ein Treaty.");
-            return (true, "Nullifiziert " + (top.Card.Name ?? "Ziel") + ".");
+            if (top.Card == null)
+                return (false, "The Devil: kein Ziel auf dem Stack.");
+            if (top.Kind is not (ActionKind.PlayCard or ActionKind.EncounterDilemma))
+                return (false, "The Devil: kein Treaty / Horga'hn / Wind Dancer auf dem Stack.");
+            return CanDevilTarget(top.Card);
         }
 
         if (n.Equals("Hugh", StringComparison.OrdinalIgnoreCase))

@@ -110,6 +110,12 @@ public static class InterruptRules
         if (IsKevinNullify(card) || IsDevil(card))
             return PlayTarget.Event;
 
+        var spec = PlayOnRules.Parse(card);
+        var fromText = PlayOnRules.ToInterruptTarget(spec);
+        if (fromText != PlayTarget.None)
+            return fromText;
+
+        // Cards whose printed line is "Plays to…" / "Examine…" without "Plays on".
         if (n.Equals("Emergency Transporter Armbands", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Vulcan Mindmeld", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Alien Groupie", StringComparison.OrdinalIgnoreCase))
@@ -118,34 +124,15 @@ public static class InterruptRules
         if (n.Equals("Disruptor Overload", StringComparison.OrdinalIgnoreCase))
             return PlayTarget.AnyCrew;
 
-        if (n.Equals("Incoming Message: Federation", StringComparison.OrdinalIgnoreCase)
-            || n.Equals("Incoming Message: Klingon", StringComparison.OrdinalIgnoreCase)
-            || n.Equals("Incoming Message: Romulan", StringComparison.OrdinalIgnoreCase)
-            || n.Equals("Transwarp Conduit", StringComparison.OrdinalIgnoreCase)
-            || n.Equals("Auto-Destruct Sequence", StringComparison.OrdinalIgnoreCase)
-            || n.Equals("Escape Pod", StringComparison.OrdinalIgnoreCase)
+        if (n.Equals("Escape Pod", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Near-Warp Transport", StringComparison.OrdinalIgnoreCase)
-            || n.Equals("Asteroid Sanctuary", StringComparison.OrdinalIgnoreCase)
-            || n.Equals("Distortion of Space/Time Continuum", StringComparison.OrdinalIgnoreCase))
+            || n.Equals("Distortion of Space/Time Continuum", StringComparison.OrdinalIgnoreCase)
+            || n.Equals("Incoming Message: Federation", StringComparison.OrdinalIgnoreCase)
+            || n.Equals("Incoming Message: Klingon", StringComparison.OrdinalIgnoreCase)
+            || n.Equals("Incoming Message: Romulan", StringComparison.OrdinalIgnoreCase))
             return PlayTarget.OwnShip;
 
-        if (n.Equals("Loss of Orbital Stability", StringComparison.OrdinalIgnoreCase)
-            || n.Equals("Long-Range Scan", StringComparison.OrdinalIgnoreCase)
-            || n.Equals("Rogue Borg", StringComparison.OrdinalIgnoreCase)
-            || n.Equals("Crosis", StringComparison.OrdinalIgnoreCase)
-            || n.Equals("Tachyon Detection Grid", StringComparison.OrdinalIgnoreCase))
-            return PlayTarget.AnyShip;
-
-        if (ContainsIgnore(t, "Plays on your crew") || ContainsIgnore(t, "Plays on your Away Team")
-            || ContainsIgnore(t, "Plays on crew or Away Team"))
-            return PlayTarget.OwnCrew;
-        if (ContainsIgnore(t, "Plays on a crew") || ContainsIgnore(t, "Plays on an Away Team"))
-            return PlayTarget.AnyCrew;
-        if (ContainsIgnore(t, "Plays on your ship"))
-            return PlayTarget.OwnShip;
-        // "Plays on a ship" / "Plays on an occupied ship" / "Plays on ship"
-        if (ContainsIgnore(t, "Plays on a ship") || ContainsIgnore(t, "Plays on an occupied ship")
-            || ContainsIgnore(t, "Plays on ship") || ContainsIgnore(t, "Plays on opponent's"))
+        if (n.Equals("Long-Range Scan", StringComparison.OrdinalIgnoreCase))
             return PlayTarget.AnyShip;
 
         return PlayTarget.None;

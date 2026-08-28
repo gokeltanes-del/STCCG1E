@@ -269,6 +269,10 @@ public partial class TableWindow : Window
     private bool _horgahnP1, _horgahnP2;
     /// <summary>Zusätzliche Normal-Play durch Horga'hn in diesem Zug bereits verbraucht.</summary>
     private bool _horgahnExtraPlayUsed;
+    /// <summary>Drag-Peek: host under cursor while a targeting card is held.</summary>
+    private Border? _peekHoverHost;
+    private System.Windows.Threading.DispatcherTimer? _peekHoverTimer;
+    private readonly HashSet<Card> _peekLegalTargets = new();
 
     private sealed class AttachedEvent
     {
@@ -1145,12 +1149,10 @@ public partial class TableWindow : Window
         var hand = player == 2 ? _oppHandCards : _handCards;
         hand.Remove(doorway);
 
-        var pick = ShowCardReveal(doorway, "Q's Tent",
-            "YES = choose a card from Q's Tent (discard this doorway).\n"
-            + "NO = random card (put this doorway on top of your draw deck).\n"
-            + "Either way: draw no cards this turn.",
-            RevealButtons.YesNo, doorway.Name);
-        bool choose = pick == RevealAnswer.Yes;
+        string tentPick = AskChoice(doorway, "Q's Tent",
+            "Either way: draw no cards this turn.",
+            "Choose a card", "Random card");
+        bool choose = tentPick.StartsWith("Choose", StringComparison.OrdinalIgnoreCase);
 
         Card? taken;
         if (choose)
@@ -1281,7 +1283,10 @@ public partial class TableWindow : Window
         RevealButtons buttons = RevealButtons.Ok,
         string? subtitle = null,
         int? autoCloseMs = null,
-        RevealAnswer autoDefault = RevealAnswer.No)
+        RevealAnswer autoDefault = RevealAnswer.No,
+        string? yesLabel = null,
+        string? noLabel = null,
+        bool randomOnTimeout = false)
     {
         if (CardRevealOverlay == null)
         {
@@ -1325,10 +1330,15 @@ public partial class TableWindow : Window
         BtnRevealNo.Visibility = choice ? Visibility.Visible : Visibility.Collapsed;
         if (playerPick)
         {
-            BtnRevealYes.Content = "Player 1";
-            BtnRevealNo.Content = "Player 2";
+            BtnRevealYes.Content = yesLabel ?? "Player 1";
+            BtnRevealNo.Content = noLabel ?? "Player 2";
         }
         else if (yesNo)
+        {
+            BtnRevealYes.Content = yesLabel ?? "Yes";
+            BtnRevealNo.Content = noLabel ?? "No";
+        }
+        else
         {
             BtnRevealYes.Content = "Yes";
             BtnRevealNo.Content = "No";
@@ -1341,8 +1351,12 @@ public partial class TableWindow : Window
             ShowCardDetail(card);
 
         // Choice dialogs get 10s unless caller overrides.
-        if (choice && autoCloseMs == null)
-            autoCloseMs = 10000;
+        // Timeout with no click: pick at random (not a hidden default).
+        if (choice)
+        {
+            if (autoCloseMs == null) autoCloseMs = 10000;
+            randomOnTimeout = true;
+        }
 
         System.Windows.Threading.DispatcherTimer? autoTimer = null;
         if (autoCloseMs is int ms && ms > 0)
@@ -1364,7 +1378,14 @@ public partial class TableWindow : Window
                 if (_revealFrame != null && _revealAnswer == RevealAnswer.None)
                 {
                     _revealTimedOut = true;
-                    CloseReveal(choice ? autoDefault : RevealAnswer.Ok);
+                    RevealAnswer def;
+                    if (choice && randomOnTimeout)
+                        def = _autoSeedRng.Next(2) == 0 ? RevealAnswer.Yes : RevealAnswer.No;
+                    else if (choice)
+                        def = autoDefault;
+                    else
+                        def = RevealAnswer.Ok;
+                    CloseReveal(def);
                 }
             };
             autoTimer.Start();
@@ -1415,6 +1436,50 @@ public partial class TableWindow : Window
         // No auto-timer — player confirms with OK
         ShowCardReveal(card, title + " — Result", body, RevealButtons.Ok, null);
     }
+
+    /// <summary>
+    /// Labeled OR-choice. Buttons show the option names (not Yes/No).
+    /// Timeout with no click → uniform random option, then a result overlay.
+    /// </summary>
+    private string AskChoice(Card? card, string title, string prompt, params string[] options)
+    {
+        if (options == null || options.Length == 0) return "";
+        var clean = options.Where(o => !string.IsNullOrWhiteSpace(o)).Select(o => o.Trim()).ToArray();
+        if (clean.Length == 0) return "";
+        if (clean.Length == 1) return clean[0];
+
+        string picked;
+        bool timed;
+        if (clean.Length == 2)
+        {
+            string body = string.IsNullOrWhiteSpace(prompt) ? $"Choose one:" : prompt;
+            var ans = ShowCardReveal(card, title, body, RevealButtons.YesNo,
+                yesLabel: clean[0], noLabel: clean[1], randomOnTimeout: true);
+            timed = _revealTimedOut;
+            picked = ans == RevealAnswer.Yes ? clean[0] : clean[1];
+        }
+        else
+        {
+            var fake = clean.Select(o => new Card { Name = o, Type = "Choice" }).ToList();
+            var cardPick = PickCardFromList(
+                string.IsNullOrWhiteSpace(prompt) ? "Click one option." : prompt,
+                fake, title, card);
+            timed = cardPick == null;
+            picked = cardPick?.Name ?? clean[_autoSeedRng.Next(clean.Length)];
+        }
+
+        string how = timed ? "No answer in time — random choice" : "Chosen";
+        _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
+            $"{title}: {picked}" + (timed ? " (timeout, random)" : ""));
+        StatusText.Text = $"{title}: {picked}";
+        if (timed)
+            AnnounceChoiceResult(card, title, $"{how}:\n{picked}");
+        return picked;
+    }
+
+    private int AskPlayer(Card? card, string title, string prompt) =>
+        AskChoice(card, title, prompt, "Player 1", "Player 2")
+            .StartsWith("Player 2", StringComparison.OrdinalIgnoreCase) ? 2 : 1;
     private void BtnRevealYes_Click(object sender, RoutedEventArgs e) => CloseReveal(RevealAnswer.Yes);
     private void BtnRevealNo_Click(object sender, RoutedEventArgs e) => CloseReveal(RevealAnswer.No);
 
@@ -2607,6 +2672,7 @@ public partial class TableWindow : Window
                 else
                     UpdateSnapPreviewFromWindow(winPos);
             }
+            UpdateStackPeek(winPos);
         }
     }
 
@@ -3785,6 +3851,7 @@ public partial class TableWindow : Window
         }
 
         HideSnapPreview();
+        CancelStackPeek(keepOverlay: true);
         ClearEventTargetHighlights();
         var cardBorder = _dragCard;
         _dragCard = null;
@@ -4354,6 +4421,8 @@ public partial class TableWindow : Window
         var list = owner == 2 ? _oppTablePermanentCards : _tablePermanentCards;
         if (!list.Contains(card))
             list.Add(card);
+        if (ArtifactRules.IsHorgahn(card))
+            SetHorgahnFlag(owner, true);
         RebuildTablePermanentsPanel();
 
         if (TreatyRules.IsTreatyCard(card) || TreatyRules.ParseTreaty(card) != null)
@@ -5052,10 +5121,11 @@ public partial class TableWindow : Window
             return true;
         }
         string a = compatible[0], b = compatible[1];
-        var pick = ShowCardReveal(card, "Affiliation mode",
-            $"Report {card.Name} as {DualAffiliationRules.DisplayName(a)} (Yes) or {DualAffiliationRules.DisplayName(b)} (No)?",
-            RevealButtons.YesNo);
-        DualAffiliationRules.TrySetMode(card, pick == RevealAnswer.Yes ? a : b);
+        string picked = AskChoice(card, "Report affiliation",
+            $"Report {card.Name} as which affiliation?",
+            DualAffiliationRules.DisplayName(a), DualAffiliationRules.DisplayName(b));
+        string mode = string.Equals(picked, DualAffiliationRules.DisplayName(a), StringComparison.OrdinalIgnoreCase) ? a : b;
+        DualAffiliationRules.TrySetMode(card, mode);
         return true;
     }
 
@@ -5122,15 +5192,18 @@ public partial class TableWindow : Window
     /// <summary>
     /// Eine Karte vom Draw auf die Hand legen (Sandbox).
     /// </summary>
-    private void DrawOneToHand(bool endOfTurn = false)
+    private void DrawOneToHand(bool endOfTurn = false) =>
+        DrawOneToHandFor(_activePlayer, endOfTurn);
+
+    private void DrawOneToHandFor(int player, bool endOfTurn = false)
     {
         if (_seedPhaseActive)
         {
             StatusText.Text = "SEED PHASE – finish seed before drawing";
             return;
         }
-        var draw = _activePlayer == 1 ? _drawCards : _oppDrawCards;
-        var hand = _activePlayer == 1 ? _handCards : _oppHandCards;
+        var draw = player == 1 ? _drawCards : _oppDrawCards;
+        var hand = player == 1 ? _handCards : _oppHandCards;
         if (draw.Count == 0)
         {
             StatusText.Text = "Draw-Deck ist leer";
@@ -5143,7 +5216,7 @@ public partial class TableWindow : Window
         RefreshZoneCounts();
         string why = endOfTurn ? "end of turn" : "manual (debug)";
         StatusText.Text =
-            $"P{_activePlayer} draws ({why}): {card.Name}  (Hand {hand.Count}, Draw {draw.Count})";
+            $"P{player} draws ({why}): {card.Name}  (Hand {hand.Count}, Draw {draw.Count})";
         if (!endOfTurn)
         {
             ShowCardDetail(card);
@@ -6137,7 +6210,7 @@ public partial class TableWindow : Window
 
         if (HasHorgahn(finishingPlayer) && !_horgahnExtraPlayUsed)
         {
-            DrawOneToHand(endOfTurn: true);
+            DrawOneToHandFor(finishingPlayer, endOfTurn: true);
             _session.Log.Add(_session.TurnNumber, $"P{finishingPlayer}", "Horga'hn extra draw");
             StatusText.Text = "Horga'hn: extra card at end of turn.";
         }
@@ -8551,6 +8624,123 @@ public partial class TableWindow : Window
         ClearZoneHighlight();
     }
 
+    private static bool DragWantsStackPeek(Card drag) =>
+        InterruptRules.IsKevinNullify(drag) || InterruptRules.IsDevil(drag);
+
+    private static bool IsLegalPeekTarget(Card drag, Card buried)
+    {
+        if (InterruptRules.IsDevil(drag))
+            return TimingRules.CanDevilTarget(buried).ok;
+        if (InterruptRules.IsKevinNullify(drag))
+            return TimingRules.CanKevinTargetEvent(buried).ok;
+        return false;
+    }
+
+    private List<Card> BuriedLegalOn(Border host, Card drag)
+    {
+        var list = new List<Card>();
+        void Add(Card? c)
+        {
+            if (c == null || !IsLegalPeekTarget(drag, c)) return;
+            if (!list.Contains(c)) list.Add(c);
+        }
+        if (_stackOnHost.TryGetValue(host, out var stacked))
+            foreach (var b in stacked)
+                if (b.Tag is Card c) Add(c);
+        foreach (var ae in EventsOn(host))
+            Add(ae.Card);
+        if (_lastEncounteredDilemma.TryGetValue(host, out var dil))
+            Add(dil);
+        return list;
+    }
+
+    private Border? FindHostUnderWindow(Point windowPos)
+    {
+        foreach (var b in TableCanvas.Children.OfType<Border>())
+        {
+            if (b.Tag is not Card hc) continue;
+            if (b.Visibility != Visibility.Visible) continue;
+            bool hostKind = IsShipCard(hc) || IsFacilityCard(hc)
+                            || string.Equals(hc.Type, "Mission", StringComparison.OrdinalIgnoreCase);
+            if (!hostKind) continue;
+            try
+            {
+                var tl = b.TransformToAncestor(this).Transform(new Point(0, 0));
+                var rect = new Rect(tl, b.RenderSize);
+                rect.Inflate(18, 18);
+                if (rect.Contains(windowPos))
+                    return b;
+            }
+            catch { }
+        }
+        return null;
+    }
+
+    private void UpdateStackPeek(Point windowPos)
+    {
+        if (_dragCard?.Tag is not Card drag || !DragWantsStackPeek(drag))
+        {
+            CancelStackPeek(keepOverlay: false);
+            return;
+        }
+        var host = FindHostUnderWindow(windowPos);
+        if (host == null || BuriedLegalOn(host, drag).Count == 0)
+        {
+            if (_peekHoverHost != null)
+                CancelStackPeek(keepOverlay: true);
+            return;
+        }
+        if (ReferenceEquals(host, _peekHoverHost))
+            return;
+        CancelStackPeek(keepOverlay: true);
+        _peekHoverHost = host;
+        _peekHoverTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(2)
+        };
+        var capturedHost = host;
+        var capturedDrag = drag;
+        _peekHoverTimer.Tick += (_, _) =>
+        {
+            _peekHoverTimer?.Stop();
+            OpenStackPeek(capturedHost, capturedDrag);
+        };
+        _peekHoverTimer.Start();
+        StatusText.Text = $"Hold over {((Card)host.Tag!).Name} to open stack (legal targets)…";
+    }
+
+    private void OpenStackPeek(Border host, Card drag)
+    {
+        if (host.Tag is not Card hostCard) return;
+        var legal = BuriedLegalOn(host, drag);
+        _peekLegalTargets.Clear();
+        foreach (var c in legal)
+            _peekLegalTargets.Add(c);
+        _detailHost = host;
+        ShowCardDetail(hostCard);
+        OpenCardDetailPopup();
+        StatusText.Text = legal.Count > 0
+            ? $"Drop on a highlighted card in {hostCard.Name} ({legal.Count} legal)."
+            : $"No legal target in {hostCard.Name}.";
+    }
+
+    private void CancelStackPeek(bool keepOverlay)
+    {
+        _peekHoverTimer?.Stop();
+        _peekHoverTimer = null;
+        _peekHoverHost = null;
+        if (!keepOverlay)
+        {
+            _peekLegalTargets.Clear();
+            if (_isDragging && CardDetailOverlay != null
+                && CardDetailOverlay.Visibility == Visibility.Visible
+                && _detailHost != null)
+            {
+                // leave overlay open so the drop can still hit a highlighted mini
+            }
+        }
+    }
+
     private void ShowOriginPreview(Point origin)
     {
         if (_originPreview == null)
@@ -9396,6 +9586,10 @@ public partial class TableWindow : Window
             _actionPanel.Children.Add(b);
         }
 
+        // Skill-nullify is not an action (7.10.0.1) — offer even if the ship is stopped.
+        if (isShip)
+            AddShipSkillNullifyButtons(cardBorder, AddBtn);
+
         if (_session.Segment == GameSession.TurnSegment.Execute)
         {
             if (isMultiPersonnel)
@@ -9423,12 +9617,6 @@ public partial class TableWindow : Window
                     if (GetHullDamage(cardBorder) > 0 && GetHullDamage(cardBorder) < 100)
                         AddBtn("Repair status", (_, _) => ShowRepairStatus(cardBorder, card));
                     AddBtn("Solvable missions?", (_, _) => HighlightSolvableMissions(GetCrewOnShip(cardBorder)));
-                    if (EventsOn(cardBorder).Any(ae => ae.Kind == EventRules.Persist.PlasmaFire)
-                        && EventRules.HasSkill(GetCrewOnShip(cardBorder), "SECURITY"))
-                    {
-                        AddBtn("Nullify Plasma Fire (SECURITY)", (_, _) =>
-                            TryNullifyPlasmaFire(cardBorder));
-                    }
                     if (ShipHasCloakingDevice(card) && !_cloakLocked.Contains(cardBorder))
                     {
                         AddBtn(IsShipCloaked(cardBorder) ? "Decloak" : "Cloak", (_, _) =>
@@ -9490,12 +9678,6 @@ public partial class TableWindow : Window
         }
         else if (_session.Segment == GameSession.TurnSegment.Play && isShip)
         {
-            if (EventsOn(cardBorder).Any(ae => ae.Kind == EventRules.Persist.PlasmaFire)
-                && EventRules.HasSkill(GetCrewOnShip(cardBorder), "SECURITY"))
-            {
-                AddBtn("Nullify Plasma Fire (SECURITY)", (_, _) =>
-                    TryNullifyPlasmaFire(cardBorder));
-            }
             foreach (var sd in CrewWithSpecialDownload(cardBorder))
             {
                 var src = sd;
@@ -9639,6 +9821,9 @@ public partial class TableWindow : Window
 
             _lastEncounteredDilemma[missionBorder] = seedCard;
             ShowCardDetail(seedCard);
+
+            if (TryNullifyEncounteredWindDancer(seedCard, missionBorder, seedStack))
+                continue;
 
             var present = CollectPresentAtMission(missionBorder, mission);
             Card? ship = null;
@@ -9975,11 +10160,50 @@ public partial class TableWindow : Window
 
     private bool HostMatchesInterruptTargetForCard(Border host, int owner, Card interrupt)
     {
+        var spec = PlayOnRules.Parse(interrupt);
+        if (spec.Host != PlayOnRules.Host.None)
+            return HostMatchesPlayOn(host, owner, spec);
         if (InterruptRules.IsRogueBorg(interrupt))
             return host.Tag is Card hc && IsShipCard(hc) && ShipIsOccupied(host);
         if (InterruptRules.IsCrosis(interrupt))
             return host.Tag is Card hc2 && IsShipCard(hc2);
         return HostMatchesInterruptTarget(host, owner, InterruptRules.GetPlayTarget(interrupt));
+    }
+
+    private bool HostMatchesPlayOn(Border host, int owner, PlayOnRules.Spec spec)
+    {
+        if (host.Tag is not Card hc) return false;
+        int ho = GetBorderOwner(host);
+        if (ho == 0) ho = owner;
+        bool ownHost = ho == owner;
+        bool isShip = IsShipCard(hc);
+        bool isFac = IsFacilityCard(hc);
+        bool isMission = IsMissionCard(hc);
+        string tn = ((hc.Type ?? "") + " " + (hc.Name ?? "")).ToLowerInvariant();
+        bool isOutpost = isFac && tn.Contains("outpost");
+
+        bool hostOk = spec.Host switch
+        {
+            PlayOnRules.Host.Ship => isShip,
+            PlayOnRules.Host.Outpost => isOutpost,
+            PlayOnRules.Host.Facility => isFac,
+            PlayOnRules.Host.Mission => isMission,
+            PlayOnRules.Host.PlanetMission => isMission && MissionRules.IsPlanetMission(hc),
+            PlayOnRules.Host.Crew => spec.Own ? HostHasPersonnelOf(host, owner) : HostHasPersonnelOf(host, 0),
+            _ => false
+        };
+        if (!hostOk) return false;
+
+        if (spec.Host is PlayOnRules.Host.Ship or PlayOnRules.Host.Outpost or PlayOnRules.Host.Facility)
+        {
+            if (spec.Own && !ownHost) return false;
+            if (spec.Opponent && ownHost) return false;
+        }
+        if (spec.Exposed && isShip && IsShipCloaked(host)) return false;
+        if (spec.Cloaked && isShip && !IsShipCloaked(host)) return false;
+        if (spec.Occupied && !ShipIsOccupied(host)) return false;
+        if (spec.Empty && ShipIsOccupied(host)) return false;
+        return true;
     }
 
     private bool HostMatchesInterruptTarget(Border host, int owner, InterruptRules.PlayTarget need)
@@ -9989,9 +10213,8 @@ public partial class TableWindow : Window
         if (ho == 0) ho = owner;
 
         bool isShip = IsShipCard(hc);
-        bool isFac = IsFacilityCard(hc);
         bool isMission = IsMissionCard(hc);
-        if (!isShip && !isFac && !isMission) return false;
+        if (!isShip && !isMission) return false;
 
         bool ownHost = ho == owner;
         bool hasOwnPersonnel = HostHasPersonnelOf(host, owner);
@@ -9999,8 +10222,8 @@ public partial class TableWindow : Window
 
         return need switch
         {
-            InterruptRules.PlayTarget.OwnShip => (isShip || isFac) && ownHost,
-            InterruptRules.PlayTarget.AnyShip => isShip || isFac,
+            InterruptRules.PlayTarget.OwnShip => isShip && ownHost,
+            InterruptRules.PlayTarget.AnyShip => isShip,
             InterruptRules.PlayTarget.OwnCrew => hasOwnPersonnel,
             InterruptRules.PlayTarget.AnyCrew => hasAnyPersonnel,
             _ => false
@@ -10141,7 +10364,60 @@ public partial class TableWindow : Window
         foreach (var kv in _stackOnHost)
             foreach (var b in kv.Value)
                 if (b.Tag is Card c) Add(c);
+        foreach (var dil in _lastEncounteredDilemma.Values)
+            Add(dil);
         return list;
+    }
+
+    /// <summary>
+    /// Wind Dancer is in play the moment it is encountered. The Devil may nullify it
+    /// before the filter is checked (Glossary nullify + printed Devil text).
+    /// </summary>
+    private bool TryNullifyEncounteredWindDancer(Card seedCard, Border missionBorder, List<Border> seedStack)
+    {
+        if (!TimingRules.CanDevilTarget(seedCard).ok) return false;
+        if (!(seedCard.Name ?? "").Equals("Wind Dancer", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        int attempter = _activePlayer;
+        foreach (int p in new[] { opponentOf(attempter), attempter })
+        {
+            var hand = p == 1 ? _handCards : _oppHandCards;
+            var devil = hand.FirstOrDefault(InterruptRules.IsDevil);
+            if (devil == null) continue;
+            var ans = ShowCardReveal(
+                devil,
+                "The Devil",
+                $"Wind Dancer just encountered at this mission.\nP{p}: play The Devil to nullify it?",
+                RevealButtons.YesNo,
+                "The Devil");
+            if (ans != RevealAnswer.Yes) continue;
+
+            hand.Remove(devil);
+            SendCardTo(devil, p, TimingRules.Destination.Discard);
+
+            int seedOwner = 0;
+            int ri = seedStack.FindLastIndex(b => b.Tag is Card c && ReferenceEquals(c, seedCard));
+            if (ri >= 0)
+            {
+                seedOwner = GetBorderOwner(seedStack[ri]);
+                seedStack.RemoveAt(ri);
+            }
+            if (seedOwner is not (1 or 2)) seedOwner = opponentOf(attempter);
+            _seedUnderMission[missionBorder] = seedStack;
+            UpdateSeedBadge(missionBorder);
+            SendCardTo(seedCard, seedOwner, TimingRules.Destination.Discard);
+            ShowCardReveal(seedCard, "Nullified",
+                "The Devil nullifies Wind Dancer. Mission attempt continues.",
+                RevealButtons.Ok, seedCard.Name);
+            _session.Log.Add(_session.TurnNumber, $"P{p}",
+                "The Devil nullifies encountered Wind Dancer");
+            StatusText.Text = "Wind Dancer nullified (The Devil). Attempt continues.";
+            ShowActivePlayerHand();
+            RefreshZoneCounts();
+            return true;
+        }
+        return false;
     }
 
     private void NullifyEventInPlay(Card ev, int byPlayer)
@@ -10224,8 +10500,10 @@ public partial class TableWindow : Window
                 NullifyEventInPlay(target, controller);
                 if (InterruptRules.IsDevil(card) && ArtifactRules.IsHorgahn(target))
                 {
-                    _horgahnP1 = false;
-                    _horgahnP2 = false;
+                    int ho = _tablePermanentCards.Contains(target) ? 1
+                        : _oppTablePermanentCards.Contains(target) ? 2
+                        : controller;
+                    SetHorgahnFlag(ho, false);
                 }
             }
 
@@ -10353,17 +10631,12 @@ public partial class TableWindow : Window
                 }
             case InterruptRules.Effect.TheJuggler:
                 {
-                    int who = ShowCardReveal(card, "The Juggler", "Choose whose draw deck is shuffled.",
-                        RevealButtons.PlayerPick) == RevealAnswer.Yes ? 1 : 2;
-                    bool timedJ = _revealTimedOut;
+                    int who = AskPlayer(card, "The Juggler", "Whose draw deck is shuffled?");
                     var draw = who == 1 ? _drawCards : _oppDrawCards;
-                    var shuffled = draw.OrderBy(_ => Guid.NewGuid()).ToList();
+                    var shuffled = draw.OrderBy(_ => _autoSeedRng.Next()).ToList();
                     draw.Clear();
                     draw.AddRange(shuffled);
                     _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}", $"Juggler → P{who}");
-                    AnnounceChoiceResult(card, "The Juggler",
-                        $"Player {who}'s draw deck was shuffled."
-                        + (timedJ ? "\n(No choice in time — default Player 1.)" : ""));
                     break;
                 }
             case InterruptRules.Effect.LifeformScan:
@@ -10699,15 +10972,8 @@ public partial class TableWindow : Window
             AssignTurnScopeForEvent(ae, r.Persist, controller, host);
             if (r.Persist == EventRules.Persist.Traveler)
             {
-                bool timed;
-                ae.TravelerPlayer = ShowCardReveal(ev, "The Traveler",
-                    "Choose which player gets the Traveler draw benefit.",
-                    RevealButtons.PlayerPick) == RevealAnswer.Yes
-                    ? 1 : 2;
-                timed = _revealTimedOut;
-                AnnounceChoiceResult(ev, "The Traveler",
-                    $"Draw benefit applies to Player {ae.TravelerPlayer}."
-                    + (timed ? "\n(No choice in time — default applied.)" : ""));
+                ae.TravelerPlayer = AskPlayer(ev, "The Traveler",
+                    "Which player gets the Traveler draw benefit?");
             }
             if ((r.Persist == EventRules.Persist.QNet || r.Persist == EventRules.Persist.Gaps)
                 && ae.Host2 == null)
@@ -10745,6 +11011,14 @@ public partial class TableWindow : Window
                 StatusText.Text =
                     $"Plasma Fire on {fireShip.Name}. Damages at the end of that ship's controller's turn. "
                     + "SECURITY may nullify (button on the ship).";
+            }
+            if (r.Persist == EventRules.Persist.WarpCore && host != null && host.Tag is Card wcbShip)
+            {
+                UpdateHostBadge(host);
+                ShowHostContents(host, wcbShip);
+                StatusText.Text =
+                    $"Warp Core Breach on {wcbShip.Name}. Destroys at the end of that ship's controller's next turn. "
+                    + "ENGINEER may nullify (button on the ship).";
             }
             if (r.Persist == EventRules.Persist.LoreReturns && host != null)
             {
@@ -11458,34 +11732,21 @@ public partial class TableWindow : Window
     {
         if (r.DrawCards > 0)
         {
-            int who = ShowCardReveal(ev, ev.Name ?? "Event",
-                "Choose which player draws 3 cards.",
-                RevealButtons.PlayerPick) == RevealAnswer.Yes
-                ? 1 : 2;
-            bool timed = _revealTimedOut;
+            int who = AskPlayer(ev, ev.Name ?? "Event",
+                $"Which player draws {r.DrawCards} card(s)?");
             int saved = _activePlayer;
             _activePlayer = who;
             for (int i = 0; i < r.DrawCards; i++)
                 DrawOneToHand();
             _activePlayer = saved;
             ShowActivePlayerHand();
-            AnnounceChoiceResult(ev, ev.Name ?? "Event",
-                $"Player {who} draws {r.DrawCards} card(s)."
-                + (timed ? "\n(No choice in time — default Player 1.)" : ""));
             _session.Log.Add(_session.TurnNumber, $"P{controller}",
                 $"{ev.Name}: P{who} draws {r.DrawCards}");
         }
         if (r.Masaka)
         {
-            // Default on timeout: the controller (who played the event)
-            var pick = ShowCardReveal(
-                ev, "Masaka Transformations",
-                "Choose which player's hand is placed under their draw deck and redrawn (same number).",
-                RevealButtons.PlayerPick,
-                ev.Name,
-                autoDefault: controller == 1 ? RevealAnswer.Yes : RevealAnswer.No);
-            bool timed = _revealTimedOut;
-            int who = pick == RevealAnswer.Yes ? 1 : 2;
+            int who = AskPlayer(ev, "Masaka Transformations",
+                "Whose hand is placed under their draw deck and redrawn (same number)?");
             var hand = who == 1 ? _handCards : _oppHandCards;
             var draw = who == 1 ? _drawCards : _oppDrawCards;
             int n = hand.Count;
@@ -11502,8 +11763,7 @@ public partial class TableWindow : Window
             StatusText.Text = $"Masaka Transformations: Player {who} ({n} cards).";
             _session.Log.Add(_session.TurnNumber, $"P{controller}", $"Masaka on P{who} ({n})");
             AnnounceChoiceResult(ev, "Masaka Transformations",
-                $"Effect applied to Player {who} ({n} cards redrawn)."
-                + (timed ? "\n(No choice in time — default: the player who played this event.)" : ""));
+                $"Effect applied to Player {who} ({n} cards redrawn).");
         }
         if (r.ResQ)
         {
@@ -11638,6 +11898,14 @@ public partial class TableWindow : Window
             return true;
         }
 
+        if (ArtifactRules.IsHorgahn(art))
+        {
+            CommitCardToTable(art, controller);
+            StatusText.Text =
+                "Horga'hn on table. Each turn: extra normal card play OR extra card at end of turn.";
+            return true;
+        }
+
         return false;
     }
 
@@ -11744,7 +12012,18 @@ public partial class TableWindow : Window
         catch { }
     }
 
-    private bool HasHorgahn(int player) => player == 1 ? _horgahnP1 : _horgahnP2;
+    private bool HasHorgahn(int player)
+    {
+        var table = player == 2 ? _oppTablePermanentCards : _tablePermanentCards;
+        if (table.Any(ArtifactRules.IsHorgahn)) return true;
+        return player == 1 ? _horgahnP1 : _horgahnP2;
+    }
+
+    private void SetHorgahnFlag(int player, bool on)
+    {
+        if (player == 1) _horgahnP1 = on;
+        else _horgahnP2 = on;
+    }
 
     /// <summary>
     /// The Traveler: Transcendence nullifies Static Warp Bubble while in play (both stay on table).
@@ -12189,9 +12468,7 @@ public partial class TableWindow : Window
     private string? PickOption(string title, string prompt, params string[] options)
     {
         if (options == null || options.Length == 0) return null;
-        if (options.Length == 1) return options[0];
-        var cards = options.Select(o => new Card { Name = o, Type = "Choice" }).ToList();
-        return PickCardFromList(prompt, cards, title)?.Name;
+        return AskChoice(null, title, prompt, options);
     }
 
     private void FillDetailPickStrip(IReadOnlyList<Card> pool, string title, string prompt)
@@ -12991,7 +13268,8 @@ public partial class TableWindow : Window
         var crew = GetCrewOnShip(attackerBorder);
         var check = BattleRules.CanInitiateShipAttack(
             attackerShip, crew, atkOwner, targetCard, defOwner,
-            GetHullDamage(attackerBorder), IsBorderStopped(attackerBorder));
+            GetHullDamage(attackerBorder), IsBorderStopped(attackerBorder),
+            _wartimeVsAffiliation);
 
         if (ReportingRules.GetAffiliations(targetCard).Contains("FED"))
         {
@@ -14114,10 +14392,13 @@ public partial class TableWindow : Window
         switch (persist)
         {
             case EventRules.Persist.WarpCore:
-                // "destroyed at end of controller's next turn"
+                // Printed: "At the end of its controller's next turn, destroys ship."
                 ae.TurnScope = TimingRules.TurnScope.SpecificPlayerNextTurn;
                 ae.PhasePoint = TimingRules.TurnPhasePoint.EndOfTurn;
-                ae.ScopePlayer = host != null && GetBorderOwner(host) is int o and > 0 ? o : controller;
+                int wcbOwner = host != null && GetBorderOwner(host) is int o and > 0 ? o : controller;
+                ae.ScopePlayer = wcbOwner;
+                // Skip the remainder of the controller's current turn when already their turn.
+                ae.Countdown = _session.ActivePlayer == wcbOwner ? 2 : 1;
                 break;
             case EventRules.Persist.PlasmaFire:
                 // Damages at end of each of that ship's controller's turns
@@ -14439,30 +14720,47 @@ public partial class TableWindow : Window
         return tokens.Contains("BORG");
     }
 
-    private void TryNullifyPlasmaFire(Border shipBorder)
+    /// <summary>
+    /// "May be nullified by SKILL" on a ship event (Plasma Fire / Warp Core Breach).
+    /// Meeting the condition is not an action (7.10.0.1). Uses NullifyEventInPlay so
+    /// the card leaves the host stack, not only the discard list.
+    /// </summary>
+    private void AddShipSkillNullifyButtons(Border shipBorder, Action<string, RoutedEventHandler> addBtn)
     {
-        if (!EventRules.HasSkill(GetCrewOnShip(shipBorder), "SECURITY"))
+        var crew = GetCrewOnShip(shipBorder);
+        var offered = new HashSet<EventRules.Persist>();
+        foreach (var ae in EventsOn(shipBorder))
         {
-            ShowPlayError("Need SECURITY aboard to nullify Plasma Fire.");
+            if (!offered.Add(ae.Kind)) continue;
+            string? skill = EventRules.SkillNullifier(ae.Kind);
+            if (skill == null) continue;
+            if (!EventRules.HasSkill(crew, skill)) continue;
+            string name = ae.Card.Name ?? ae.Kind.ToString();
+            var kind = ae.Kind;
+            addBtn($"Nullify {name} ({skill})", (_, _) =>
+                TryNullifyShipSkillEvent(shipBorder, kind, skill, name));
+        }
+    }
+
+    private void TryNullifyShipSkillEvent(
+        Border shipBorder, EventRules.Persist kind, string skill, string cardName)
+    {
+        if (!EventRules.HasSkill(GetCrewOnShip(shipBorder), skill))
+        {
+            ShowPlayError($"Need {skill} aboard to nullify {cardName}.");
             return;
         }
-        var fires = EventsOn(shipBorder).Where(ae => ae.Kind == EventRules.Persist.PlasmaFire).ToList();
-        if (fires.Count == 0)
+        var hits = EventsOn(shipBorder).Where(ae => ae.Kind == kind).ToList();
+        if (hits.Count == 0)
         {
-            ShowPlayError("No Plasma Fire on this ship.");
+            ShowPlayError($"No {cardName} on this ship.");
             return;
         }
-        foreach (var e in fires)
-        {
-            _attachedEvents.Remove(e);
-            SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
-        }
-        UpdateHostBadge(shipBorder);
+        foreach (var e in hits)
+            NullifyEventInPlay(e.Card, _activePlayer);
         if (shipBorder.Tag is Card sc)
             ShowHostContents(shipBorder, sc);
-        _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
-            $"Nullified Plasma Fire on {(shipBorder.Tag as Card)?.Name}");
-        StatusText.Text = "Plasma Fire nullified (SECURITY).";
+        StatusText.Text = $"{cardName} nullified ({skill}).";
     }
 
     private void ProcessEndOfTurnEvents(int owner)
@@ -14527,7 +14825,7 @@ public partial class TableWindow : Window
 
             if (e.Kind == EventRules.Persist.WarpCore && e.Host != null)
             {
-                // "End of owner's next turn" → only when finishing player is ship controller
+                // Destroy at end of controller's next turn. ENGINEER nullify is optional.
                 int shipOwner = GetBorderOwner(e.Host);
                 if (shipOwner == 0) shipOwner = e.Owner;
                 e.ScopePlayer ??= shipOwner;
@@ -14539,13 +14837,6 @@ public partial class TableWindow : Window
                         TimingRules.TurnPhasePoint.EndOfTurn, owner, e.ScopePlayer))
                     continue;
 
-                var crew = GetCrewOnShip(e.Host);
-                if (EventRules.HasSkill(crew, "ENGINEER"))
-                {
-                    _attachedEvents.Remove(e);
-                    SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
-                    continue;
-                }
                 int cd = e.Countdown;
                 bool explode = TimingRules.TickCountdown(
                     ref cd, e.TurnScope, e.PhasePoint,
@@ -14553,9 +14844,15 @@ public partial class TableWindow : Window
                 e.Countdown = cd;
                 if (explode && e.Host.Tag is Card ws)
                 {
+                    ShowCardReveal(e.Card, "Warp Core Breach",
+                        $"{ws.Name} is destroyed (end of controller's next turn).",
+                        RevealButtons.Ok, ws.Name, autoCloseMs: 4000);
                     DestroyShipOrFacility(e.Host, ws, shipOwner);
                     _attachedEvents.Remove(e);
-                    SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
+                    if (!_discardCards.Contains(e.Card) && !_oppDiscardCards.Contains(e.Card))
+                        SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
+                    _session.Log.Add(_session.TurnNumber, "sys",
+                        $"Warp Core Breach destroys {ws.Name}.");
                 }
             }
 
@@ -15031,7 +15328,8 @@ public partial class TableWindow : Window
         var atkPresent = GetAllCardsOnHost(sourceHost, atkOwner);
         var defPresent = GetAllCardsOnHost(targetHost, defOwner);
 
-        var check = BattleRules.CanInitiatePersonnelAttack(atkCards, defCards, atkOwner, defOwner);
+        var check = BattleRules.CanInitiatePersonnelAttack(
+            atkCards, defCards, atkOwner, defOwner, _wartimeVsAffiliation);
         if (!check.Ok)
         {
             ShowPlayError(check.Reason);
@@ -15902,6 +16200,12 @@ public partial class TableWindow : Window
             mini.Height = 100;
             mini.Margin = new Thickness(3);
             mini.Cursor = Cursors.Hand;
+            if (_peekLegalTargets.Contains(c))
+            {
+                mini.BorderBrush = new SolidColorBrush(Color.FromRgb(255, 210, 70));
+                mini.BorderThickness = new Thickness(3);
+                mini.Tag = c;
+            }
             if (!string.IsNullOrEmpty(badge))
                 mini.ToolTip = $"{c.Name}\n{badge}\nClick = show in this window · RMB hold = enlarge";
             else

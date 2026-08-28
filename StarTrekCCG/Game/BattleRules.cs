@@ -93,7 +93,8 @@ public static class BattleRules
         Card target,
         int targetOwner,
         int hullDamagePercent,
-        bool isStopped)
+        bool isStopped,
+        string? wartimeVs = null)
     {
         if (isStopped)
             return new AttackCheck(false, "Schiff ist gestoppt und kann nicht angreifen.");
@@ -126,7 +127,7 @@ public static class BattleRules
             // (Compendium: matching personnel; Leader separat)
         }
 
-        var affCheck = CheckAffiliationAttackRestriction(attackerShip, crew, target);
+        var affCheck = CheckAffiliationAttackRestriction(attackerShip, crew, target, wartimeVs);
         if (!affCheck.Ok)
             return affCheck;
 
@@ -178,7 +179,8 @@ public static class BattleRules
     public static AttackCheck CheckAffiliationAttackRestriction(
         Card attackerShip,
         IEnumerable<Card> crew,
-        Card target)
+        Card target,
+        string? wartimeVs = null)
     {
         var forceAff = ReportingRules.GetAffiliations(attackerShip);
         foreach (var p in crew)
@@ -195,17 +197,21 @@ public static class BattleRules
         bool targetBorg = targetAff.Contains("BORG");
         bool sameAff = forceAff.Overlaps(targetAff) && forceAff.Count > 0;
 
-        // Unrestricted (Premiere-relevant): Klingon, Ferengi, Non-Aligned
-        bool unrestricted = hasKli || hasFer || hasNon;
-
-        // Federation ohne unrestricted Partner: nur Borg
-        if (hasFed && !unrestricted)
+        // Federation force may not initiate battle except vs Borg,
+        // unless a card (e.g. Wartime Conditions) names the defending affiliation.
+        // A Non-Aligned or Klingon card in the same force does not lift this.
+        if (hasFed)
         {
-            if (!targetBorg)
-                return new AttackCheck(false,
-                    "Federation darf Ship Battle nur gegen Borg initiieren (Affiliation-Restriktion).");
-            return new AttackCheck(true, "Affiliation ok (FED vs Borg).");
+            if (targetBorg)
+                return new AttackCheck(true, "Affiliation ok (FED vs Borg).");
+            if (!string.IsNullOrEmpty(wartimeVs)
+                && targetAff.Contains(wartimeVs))
+                return new AttackCheck(true, $"Affiliation ok (Wartime Conditions vs {wartimeVs}).");
+            return new AttackCheck(false,
+                "Federation may not initiate battle except against Borg (unless a card allows it).");
         }
+
+        bool unrestricted = hasKli || hasFer || hasNon;
 
         // Standard: nicht gegen eigene Affiliation (außer unrestricted)
         if (sameAff && !unrestricted)
@@ -353,7 +359,8 @@ public static class BattleRules
         IReadOnlyList<Card> attackerForce,
         IReadOnlyList<Card> defenderForce,
         int attackerOwner,
-        int defenderOwner)
+        int defenderOwner,
+        string? wartimeVs = null)
     {
         if (attackerOwner == defenderOwner)
             return new AttackCheck(false, "You may only attack an opposing force.");
@@ -372,7 +379,7 @@ public static class BattleRules
         // Affiliation: repräsentatives Personal vs. repräsentatives Ziel
         var sampleAtk = atk[0];
         var sampleDef = def[0];
-        var aff = CheckAffiliationAttackRestriction(sampleAtk, atk, sampleDef);
+        var aff = CheckAffiliationAttackRestriction(sampleAtk, atk, sampleDef, wartimeVs);
         if (!aff.Ok)
             return aff;
 

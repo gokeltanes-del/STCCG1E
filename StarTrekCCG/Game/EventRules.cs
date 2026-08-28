@@ -210,14 +210,14 @@ public static class EventRules
             {
                 Place = Place.OnShip,
                 Persist = Persist.PlasmaFire,
-                Message = "Plays on a non-Borg ship. End of each of its controller's turns: ship damaged. Nullify with SECURITY."
+                Message = "Plays on a non-[Bor] ship. End of each of its controller's turns: ship damaged. May be nullified by SECURITY."
             },
             "Warp Core Breach" => new PlayResult
             {
                 Place = Place.OnShip,
                 Persist = Persist.WarpCore,
                 Countdown = 1,
-                Message = "Plays on a non-Borg ship. End of its controller's next turn: ship destroyed. Nullify with ENGINEER."
+                Message = "Plays on a non-[Bor] ship. End of its controller's next turn: ship destroyed. May be nullified by ENGINEER."
             },
             "Spacedock" => new PlayResult
             {
@@ -514,6 +514,17 @@ public static class EventRules
         return n;
     }
 
+    /// <summary>
+    /// Printed "May be nullified by SKILL" on a ship-hosted Premiere event.
+    /// SECURITY = Plasma Fire, ENGINEER = Warp Core Breach.
+    /// </summary>
+    public static string? SkillNullifier(Persist kind) => kind switch
+    {
+        Persist.PlasmaFire => "SECURITY",
+        Persist.WarpCore => "ENGINEER",
+        _ => null
+    };
+
     public static bool HasSkill(IEnumerable<Card> aboard, string skill, int need = 1)
     {
         int have = 0;
@@ -570,8 +581,8 @@ public static class EventRules
             Persist.Nutational => ClassShieldsLine("ENGINEER", list),
             Persist.Metaphasic => ClassShieldsLine("SCIENCE", list),
             Persist.Bynars => "WEAPONS +2",
-            Persist.PlasmaFire => "damages ship each of controller's EOT (nullify with SECURITY)",
-            Persist.WarpCore => "destroys ship at controller's EOT (nullify with ENGINEER)",
+            Persist.PlasmaFire => "damages ship each of controller's EOT (may be nullified by SECURITY)",
+            Persist.WarpCore => "destroys ship at end of controller's next turn (may be nullified by ENGINEER)",
             Persist.Baryon => "RANGE −2",
             Persist.NeuralServo => "control of this ship until EOT",
             Persist.Distortion => "RANGE may be used to unstop",

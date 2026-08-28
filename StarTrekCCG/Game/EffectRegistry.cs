@@ -81,15 +81,12 @@ internal sealed class NullifyInPlayEffect : IEffect
     public string DisplayName => "Nullify in-play (Kevin)";
 
     public bool Matches(Card card) =>
-        NameIs(card, "Kevin Uxbridge");
+        InterruptRules.IsKevinNullify(card) || InterruptRules.IsDevil(card);
 
     public (bool ok, string reason) CanPlay(GameState state, GameAction action)
     {
         if (action.Card == null) return (false, "No card.");
-        if (state.HasGoddess && action.Kind != GameActionKind.Respond)
-        {
-            // Kevin is a Goddess exception (EventRules.IsGoddessException).
-        }
+        bool devil = InterruptRules.IsDevil(action.Card);
 
         if (action.Kind == GameActionKind.Respond)
         {
@@ -100,15 +97,20 @@ internal sealed class NullifyInPlayEffect : IEffect
 
         var target = action.Target;
         if (target == null)
-            return (false, "Kevin Uxbridge: choose an Event in play.");
-        return TimingRules.CanKevinTargetEvent(target);
+            return (false, devil
+                ? "The Devil: choose a Treaty, Horga'hn, or Wind Dancer in play."
+                : "Kevin Uxbridge: choose an Event in play.");
+        return devil
+            ? TimingRules.CanDevilTarget(target)
+            : TimingRules.CanKevinTargetEvent(target);
     }
 
     public ApplyResult Apply(GameState state, GameAction action)
     {
         var ir = InterruptRules.Resolve(action.Card!);
+        string who = action.Card?.Name ?? "Nullify";
         string msg = action.Target != null
-            ? $"Nullify {action.Target.Name} (Kevin Uxbridge)."
+            ? $"Nullify {action.Target.Name} ({who})."
             : ir.Message;
         var result = new ApplyResult
         {
@@ -149,12 +151,19 @@ internal sealed class AttachEndOfTurnEffect : IEffect
         if (state.SeedPhase) return (false, "Not during seed.");
         if (action.Kind == GameActionKind.ActivateInPlay)
         {
-            // Nullify with SECURITY aboard the host ship.
+            bool warp = EventRules.NameIs(action.Card, "Warp Core Breach");
             var ship = state.Ships().FirstOrDefault(s =>
                 action.Target != null
                     ? NamesEqual(s.Card, action.Target)
-                    : s.Card.Name != null && HasPlasmaOn(state, s));
-            if (ship == null) return (false, "No ship with Plasma Fire.");
+                    : s.Card.Name != null && (warp ? HasWarpCoreOn(state, s) : HasPlasmaOn(state, s)));
+            if (ship == null)
+                return (false, warp ? "No ship with Warp Core Breach." : "No ship with Plasma Fire.");
+            if (warp)
+            {
+                if (!ship.HasEngineerAboard)
+                    return (false, "Need ENGINEER aboard to nullify Warp Core Breach.");
+                return (true, "Nullify Warp Core Breach.");
+            }
             if (!ship.HasSecurityAboard)
                 return (false, "Need SECURITY aboard to nullify Plasma Fire.");
             return (true, "Nullify Plasma Fire.");
@@ -174,7 +183,10 @@ internal sealed class AttachEndOfTurnEffect : IEffect
     {
         if (action.Kind == GameActionKind.ActivateInPlay)
         {
-            var r = ApplyResult.OkResult("Plasma Fire nullified (SECURITY).", TemplateId);
+            bool warp = EventRules.NameIs(action.Card, "Warp Core Breach");
+            var r = ApplyResult.OkResult(
+                warp ? "Warp Core Breach nullified (ENGINEER)." : "Plasma Fire nullified (SECURITY).",
+                TemplateId);
             r.Events.Add(new GameEvent
             {
                 Kind = GameEventKind.Detached,
@@ -210,6 +222,11 @@ internal sealed class AttachEndOfTurnEffect : IEffect
     private static bool HasPlasmaOn(GameState state, BoardPiece ship) =>
         state.Board.Any(p =>
             p.Persist == EventRules.Persist.PlasmaFire
+            && string.Equals(p.HostName, ship.Card.Name, StringComparison.OrdinalIgnoreCase));
+
+    private static bool HasWarpCoreOn(GameState state, BoardPiece ship) =>
+        state.Board.Any(p =>
+            p.Persist == EventRules.Persist.WarpCore
             && string.Equals(p.HostName, ship.Card.Name, StringComparison.OrdinalIgnoreCase));
 
     private static bool NamesEqual(Card a, Card b) =>
