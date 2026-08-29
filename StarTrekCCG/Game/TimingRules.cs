@@ -17,7 +17,8 @@ public static class TimingRules
         PlayCard,
         EncounterDilemma,
         InitiateShipBattle,
-        InitiatePersonnelBattle
+        InitiatePersonnelBattle,
+        DrawCard
     }
 
     public enum Destination
@@ -113,6 +114,19 @@ public static class TimingRules
     }
 
     /// <summary>The Devil: Horga'hn, Wind Dancer, or a Treaty — in play or just played.</summary>
+    /// <summary>Hugh: battle initiated by a [Bor] card, Borg Ship dilemma, or Rogue Borg.</summary>
+    public static bool IsHughBattleSource(Card? c)
+    {
+        if (c == null) return false;
+        string n = c.Name ?? "";
+        if (n.Equals("Rogue Borg", StringComparison.OrdinalIgnoreCase)) return true;
+        if (n.Contains("Borg Ship", StringComparison.OrdinalIgnoreCase)) return true;
+        if (ReportingRules.GetAffiliations(c).Contains("BORG")) return true;
+        string blob = $"{c.Icons} {c.Characteristics} {c.Affiliation} {c.Text}";
+        return blob.Contains("[Bor]", StringComparison.OrdinalIgnoreCase)
+               || blob.Contains("[Borg]", StringComparison.OrdinalIgnoreCase);
+    }
+
     public static (bool ok, string reason) CanDevilTarget(Card card)
     {
         if (card == null)
@@ -139,7 +153,8 @@ public static class TimingRules
             || n.Equals("Energy Vortex", StringComparison.OrdinalIgnoreCase)
             || n.Equals("The Devil", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Hugh", StringComparison.OrdinalIgnoreCase)
-            || n.Equals("Asteroid Sanctuary", StringComparison.OrdinalIgnoreCase);
+            || n.Equals("Asteroid Sanctuary", StringComparison.OrdinalIgnoreCase)
+            || n.Equals("Subspace Schism", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -185,6 +200,13 @@ public static class TimingRules
             return (true, "Nullifiziert " + tn + ".");
         }
 
+        if (n.Equals("Subspace Schism", StringComparison.OrdinalIgnoreCase))
+        {
+            if (top.Kind != ActionKind.DrawCard || top.Card == null)
+                return (false, "Subspace Schism: plays when a player would draw a card.");
+            return (true, "Discard that card; they draw the next one.");
+        }
+
         if (n.Equals("Energy Vortex", StringComparison.OrdinalIgnoreCase))
         {
             if (top.Kind != ActionKind.PlayCard || top.Card == null)
@@ -209,11 +231,8 @@ public static class TimingRules
         {
             if (top.Kind is not (ActionKind.InitiateShipBattle or ActionKind.InitiatePersonnelBattle))
                 return (false, "Hugh: keine Battle-Initiation auf dem Stack.");
-            bool borg = top.AttackerCard != null
-                        && ReportingRules.GetAffiliations(top.AttackerCard).Contains("BORG");
-            string tn = top.AttackerCard?.Name ?? "";
-            if (!borg && !tn.Contains("Borg Ship", StringComparison.OrdinalIgnoreCase))
-                return (false, "Hugh: Battle muss von einer Borg-Karte / Borg Ship ausgehen.");
+            if (!IsHughBattleSource(top.AttackerCard) && !IsHughBattleSource(top.Card))
+                return (false, "Hugh: Battle muss von einer [Bor]-Karte, Borg Ship oder Rogue Borg ausgehen.");
             return (true, "Bricht die Borg-Battle.");
         }
 

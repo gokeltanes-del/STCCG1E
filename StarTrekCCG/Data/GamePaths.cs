@@ -8,9 +8,10 @@ namespace StarTrekCCG;
 /// Resolves repo-relative data/asset folders (works from VS bin\ and from a published exe).
 ///
 /// Expected layout next to the .csproj / in output:
-///   Data/                  set folders with cards.json + card images
+///   Data/Sets/<SetName>/   cards.json + images  (legacy: Data/<SetName>/)
 ///   Assets/card_back.jpg
 ///   Assets/BoardBackgrounds/*.png
+///   Assets/Icons/Icon_{Token}.png   ([Cmd] → Icon_Cmd.png)
 ///
 /// Override: environment variable STCCG_DATA (legacy C:\STCCG_Data still works as fallback).
 /// </summary>
@@ -44,6 +45,8 @@ public static class GamePaths
 
         foreach (var root in CandidateRoots())
         {
+            string dataSets = Path.Combine(root, "Data", "Sets");
+            if (LooksLikeCardData(dataSets)) return dataSets;
             string data = Path.Combine(root, "Data");
             if (LooksLikeCardData(data)) return data;
             if (LooksLikeCardData(root)) return root;

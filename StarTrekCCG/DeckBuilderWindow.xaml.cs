@@ -503,11 +503,18 @@ public partial class DeckBuilderWindow : Window
         ClassText.Text = !string.IsNullOrWhiteSpace(card.Class) ? $"Class: {card.Class}" : "";
         ClassText.Visibility = string.IsNullOrWhiteSpace(card.Class) ? Visibility.Collapsed : Visibility.Visible;
 
-        StaffText.Text = !string.IsNullOrWhiteSpace(card.Staff) ? $"Staffing: {card.Staff}" : "";
-        StaffText.Visibility = string.IsNullOrWhiteSpace(card.Staff) ? Visibility.Collapsed : Visibility.Visible;
+        IconCatalog.FillStaffing(StaffRow, card, 22);
+        IconCatalog.Fill(IconRow, card, 22);
+        bool staffGlyphs = StaffRow.Children.Count > 0;
+        bool otherGlyphs = IconRow.Children.Count > 0;
 
-        IconsText.Text = !string.IsNullOrWhiteSpace(card.Icons) ? $"Icons: {card.Icons}" : "";
-        IconsText.Visibility = string.IsNullOrWhiteSpace(card.Icons) ? Visibility.Collapsed : Visibility.Visible;
+        StaffText.Text = !string.IsNullOrWhiteSpace(card.Staff) && !staffGlyphs
+            ? $"Staffing: {card.Staff}" : "";
+        StaffText.Visibility = string.IsNullOrEmpty(StaffText.Text) ? Visibility.Collapsed : Visibility.Visible;
+
+        IconsText.Text = !string.IsNullOrWhiteSpace(card.Icons) && !otherGlyphs
+            ? $"Icons: {card.Icons}" : "";
+        IconsText.Visibility = string.IsNullOrEmpty(IconsText.Text) ? Visibility.Collapsed : Visibility.Visible;
 
         CharacteristicsText.Text = !string.IsNullOrWhiteSpace(card.Characteristics) ? card.Characteristics : "";
         CharacteristicsText.Visibility = string.IsNullOrWhiteSpace(card.Characteristics) ? Visibility.Collapsed : Visibility.Visible;
@@ -674,6 +681,8 @@ public partial class DeckBuilderWindow : Window
         ClassText.Text = "";
         StaffText.Text = "";
         IconsText.Text = "";
+        IconCatalog.FillStaffing(StaffRow, null);
+        IconCatalog.Fill(IconRow, null);
         CharacteristicsText.Text = "";
         MissionInfoText.Text = "";
         CardTextBlock.Text = "";

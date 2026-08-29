@@ -75,7 +75,8 @@ public static class EventRules
         LowerDecks,
         ParticleScatter,
         IntruderField,
-        Wartime
+        Wartime,
+        IncomingMessage
     }
 
     public sealed class PlayResult
@@ -592,6 +593,7 @@ public static class EventRules
             Persist.LoreReturns => "this ship under opponent control",
             Persist.YellowAlert => "ship on Yellow Alert",
             Persist.Thermal => "WEAPONS may not be used",
+            Persist.IncomingMessage => "must do nothing but move to the targeted facility on this spaceline",
             _ => ""
         };
 

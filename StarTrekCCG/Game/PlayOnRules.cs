@@ -32,7 +32,8 @@ public static class PlayOnRules
         bool Exposed,
         bool Occupied,
         bool Empty,
-        bool Cloaked);
+        bool Cloaked,
+        string? Affiliation = null);
 
     public static bool IsShipHost(Host h) => h == Host.Ship;
     public static bool IsFacilityHost(Host h) => h is Host.Outpost or Host.Facility;
@@ -84,7 +85,29 @@ public static class PlayOnRules
             host = Host.Event;
 
         if (host == Host.None) return default;
-        return new Spec(host, own, opp, exposed, occupied, empty, cloaked);
+        return new Spec(host, own, opp, exposed, occupied, empty, cloaked, ParseAffiliationIcon(clause));
+    }
+
+    /// <summary>[Fed] ship / [Kli] facility — token inside the plays-on clause.</summary>
+    public static string? ParseAffiliationIcon(string? clause)
+    {
+        if (string.IsNullOrWhiteSpace(clause)) return null;
+        var m = Regex.Match(clause, @"\[(?<a>[^\]]+)\]");
+        if (!m.Success) return null;
+        string raw = m.Groups["a"].Value.Trim();
+        return raw.ToUpperInvariant() switch
+        {
+            "FED" or "FEDERATION" => "FED",
+            "KLI" or "KLINGON" => "KLI",
+            "ROM" or "ROMULAN" => "ROM",
+            "BAJ" or "BAJORAN" => "BAJ",
+            "CAR" or "CARD" or "CARDASSIAN" => "CARD",
+            "FER" or "FERENGI" => "FER",
+            "DOM" or "DOMINION" => "DOM",
+            "BOR" or "BORG" => "BORG",
+            "NA" or "NON" or "NON-ALIGNED" => "NA",
+            _ => raw.ToUpperInvariant()
+        };
     }
 
     /// <summary>Map to the interrupt drop-target enum used by TableWindow.</summary>

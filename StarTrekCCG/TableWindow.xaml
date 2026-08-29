@@ -204,9 +204,15 @@
                     </Border>
 
                     <Border x:Name="BoardFrameBorder" Grid.Row="1"
-                        Background="#121212" Margin="2" CornerRadius="3"
+                        Background="#0A0A12" Margin="2" CornerRadius="3"
                         BorderBrush="#4A8A60" BorderThickness="3" ClipToBounds="True">
                         <Grid>
+                            <!-- Fixed starfield: fills the frame, does not pan/zoom with cards -->
+                            <Image x:Name="BoardBackdrop"
+                               Stretch="UniformToFill"
+                               StretchDirection="Both"
+                               RenderOptions.BitmapScalingMode="HighQuality"
+                               IsHitTestVisible="False"/>
                             <!-- Active-player tint -->
                             <Border x:Name="BoardTintOverlay" Background="#121E18"
                                 Opacity="0.22" IsHitTestVisible="False"/>
@@ -218,16 +224,17 @@
                             <Border x:Name="BoardPlayHalo" Visibility="Collapsed"
                                 BorderBrush="#70E8FF" BorderThickness="5" CornerRadius="3"
                                 Background="#2800C0E8" IsHitTestVisible="False"/>
-                            <TextBlock Text="Mouse wheel = zoom  •  RMB = pan  •  Doorway on side deck = unlock"
+                            <TextBlock Text="Mouse wheel = zoom  •  RMB empty board = pan  •  scroll to stacked ships"
                                    Foreground="#444" FontSize="11" Margin="10,4,0,0"
                                    VerticalAlignment="Top" IsHitTestVisible="False"/>
                             <ScrollViewer x:Name="TableScroll"
                                       HorizontalScrollBarVisibility="Hidden"
                                       VerticalScrollBarVisibility="Hidden"
-                                      CanContentScroll="False">
+                                      CanContentScroll="False"
+                                      PanningMode="Both">
                                 <Canvas x:Name="TableCanvas"
                                     Width="2800" Height="1400"
-                                    Background="#1A1A1A"
+                                    Background="Transparent"
                                     MouseLeftButtonDown="TableCanvas_MouseLeftButtonDown"
                                     MouseWheel="TableCanvas_MouseWheel"
                                     MouseRightButtonDown="TableCanvas_MouseRightButtonDown"
@@ -353,6 +360,8 @@
                                                     <TextBlock x:Name="DetailClass"
                                                            Foreground="#DCDCAA" FontSize="11" Margin="0,0,0,2"
                                                            TextWrapping="Wrap"/>
+                                                    <WrapPanel x:Name="DetailStaffRow" Margin="0,2,0,2"/>
+                                                    <WrapPanel x:Name="DetailIconRow" Margin="0,2,0,6"/>
                                                     <TextBlock x:Name="DetailStaff"
                                                            Foreground="#9CDCFE" FontSize="11" Margin="0,0,0,2"
                                                            TextWrapping="Wrap"/>

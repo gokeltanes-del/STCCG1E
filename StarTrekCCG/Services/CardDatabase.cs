@@ -42,7 +42,11 @@ public class CardDatabase
             throw new DirectoryNotFoundException($"Datenordner nicht gefunden: {_dataRoot}");
         }
 
-        var setDirs = Directory.GetDirectories(_dataRoot);
+        // Data/PR/cards.json  or  Data/Sets/PR/cards.json
+        var setDirs = Directory.EnumerateFiles(_dataRoot, "cards.json", SearchOption.AllDirectories)
+            .Select(f => Path.GetDirectoryName(f)!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
         var options = new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true,

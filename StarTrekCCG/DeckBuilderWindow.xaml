@@ -156,6 +156,8 @@
                                        FontWeight="SemiBold" Margin="0,0,0,12"/>
 
                                 <TextBlock x:Name="ClassText" Foreground="#DCDCAA" FontSize="13" Margin="0,0,0,3"/>
+                                <WrapPanel x:Name="StaffRow" Margin="0,2,0,2"/>
+                                <WrapPanel x:Name="IconRow" Margin="0,2,0,6"/>
                                 <TextBlock x:Name="StaffText" Foreground="#9CDCFE" FontSize="13" Margin="0,0,0,3"/>
                                 <TextBlock x:Name="IconsText" Foreground="#C586C0" FontSize="13" Margin="0,0,0,3"/>
                                 <TextBlock x:Name="CharacteristicsText" Foreground="#888888" FontSize="12"

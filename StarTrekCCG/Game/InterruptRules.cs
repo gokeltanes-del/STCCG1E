@@ -82,12 +82,30 @@ public static class InterruptRules
     public static bool IsDevil(Card c) =>
         (c.Name ?? "").Equals("The Devil", StringComparison.OrdinalIgnoreCase);
 
+    public static bool IsHugh(Card? c) => NameIs(c, "Hugh");
+
     public static bool NameIs(Card? c, string name) =>
         c != null && (c.Name ?? "").Equals(name, StringComparison.OrdinalIgnoreCase);
 
     public static bool IsRogueBorg(Card? c) => NameIs(c, "Rogue Borg");
     public static bool IsCrosis(Card? c) => NameIs(c, "Crosis");
     public static bool IsTranswarpConduit(Card? c) => NameIs(c, "Transwarp Conduit");
+
+    public static bool IsIncomingMessage(Card? c) =>
+        (c?.Name ?? "").StartsWith("Incoming Message", StringComparison.OrdinalIgnoreCase);
+
+    public static bool IsSubspaceInterference(Card? c) => NameIs(c, "Subspace Interference");
+    public static bool IsSubspaceSchism(Card? c) => NameIs(c, "Subspace Schism");
+
+    /// <summary>Affiliation pip this Incoming Message cares about (title after the colon).</summary>
+    public static string? IncomingMessageAffiliation(Card? c)
+    {
+        string n = c?.Name ?? "";
+        int colon = n.IndexOf(':');
+        string tail = colon >= 0 ? n[(colon + 1)..].Trim() : n;
+        return PlayOnRules.ParseAffiliationIcon("[" + tail + "]")
+               ?? PlayOnRules.ParseAffiliationIcon(c?.Text);
+    }
     public static bool IsAmandaOrQ2(Card? c) =>
         NameIs(c, "Amanda Rogers") || NameIs(c, "Q2");
 
@@ -126,11 +144,11 @@ public static class InterruptRules
 
         if (n.Equals("Escape Pod", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Near-Warp Transport", StringComparison.OrdinalIgnoreCase)
-            || n.Equals("Distortion of Space/Time Continuum", StringComparison.OrdinalIgnoreCase)
-            || n.Equals("Incoming Message: Federation", StringComparison.OrdinalIgnoreCase)
-            || n.Equals("Incoming Message: Klingon", StringComparison.OrdinalIgnoreCase)
-            || n.Equals("Incoming Message: Romulan", StringComparison.OrdinalIgnoreCase))
+            || n.Equals("Distortion of Space/Time Continuum", StringComparison.OrdinalIgnoreCase))
             return PlayTarget.OwnShip;
+
+        if (IsIncomingMessage(card) || IsHugh(card))
+            return PlayTarget.AnyShip;
 
         if (n.Equals("Long-Range Scan", StringComparison.OrdinalIgnoreCase))
             return PlayTarget.AnyShip;
@@ -247,12 +265,13 @@ public static class InterruptRules
                 Effect = Effect.HonorChallenge,
                 Message = "Start of a personnel battle: each of your Klingons with Honor may kill an opposing personnel present with Treachery. Cumulative."
             },
-            "Incoming Message: Federation" or "Incoming Message: Klingon" or "Incoming Message: Romulan"
+            _ when IsIncomingMessage(card) && !n.Contains("Attack Authorization", StringComparison.OrdinalIgnoreCase)
                 => new Result
                 {
                     Kind = Kind.AttachShip,
                     Effect = Effect.IncomingMessage,
-                    Message = "Plays on a matching-affiliation ship; it must do nothing but move toward that player's matching facility on this spaceline. Nullified on arrival (or if none)."
+                    DiscardAfter = false,
+                    Message = "Plays on a matching-affiliation ship; its controller targets one of their matching facilities on this spaceline. Ship must do nothing but move toward it. Nullified on arrival (or if none)."
                 },
             "Jaglom Shrek: Information Broker" => new Result
             {
