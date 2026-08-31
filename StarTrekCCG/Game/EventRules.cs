@@ -224,7 +224,7 @@ public static class EventRules
             {
                 Place = Place.OnOutpost,
                 Persist = Persist.Spacedock,
-                Message = "On outpost: docking fully repairs."
+                Message = "Plays on your outpost. Any of your ships that docks here is fully repaired."
             },
             "Atmospheric Ionization" => new PlayResult
             {

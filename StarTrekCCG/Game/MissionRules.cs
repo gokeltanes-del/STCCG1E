@@ -62,6 +62,18 @@ public static class MissionRules
     /// </summary>
     public static Dictionary<string, int> ParsePersonnelSkills(Card personnel)
     {
+        var mode = DualAffiliationRules.ProfileFor(personnel);
+        if (mode != null)
+        {
+            var modeSkills = new Dictionary<string, int>(mode.Skills, StringComparer.OrdinalIgnoreCase);
+            string modeCls = (personnel.Class ?? "").Trim();
+            if (modeCls.Length > 0 && !modeSkills.ContainsKey(modeCls))
+                modeSkills[modeCls] = 1;
+            if (mode.Classification != null && !modeSkills.ContainsKey(mode.Classification))
+                modeSkills[mode.Classification] = 1;
+            return modeSkills;
+        }
+
         var skills = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
         void Add(string name, int n = 1)
@@ -142,6 +154,13 @@ public static class MissionRules
         int.TryParse((p.IntegrityOrRange ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int i);
         int.TryParse((p.CunningOrWeapons ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int c);
         int.TryParse((p.StrengthOrShields ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int st);
+        var mode = DualAffiliationRules.ProfileFor(p);
+        if (mode != null)
+        {
+            i += mode.IntegrityDelta;
+            c += mode.CunningDelta;
+            st += mode.StrengthDelta;
+        }
         return (i, c, st);
     }
 
@@ -197,6 +216,69 @@ public static class MissionRules
             parts.Add(p);
         }
         return parts;
+    }
+
+    public static List<string> SplitOrAlternatives(string req)
+    {
+        var bits = Regex.Split(req ?? "", @"\s+OR\s+", RegexOptions.IgnoreCase)
+            .Select(s => s.Trim())
+            .Where(s => s.Length > 0)
+            .ToList();
+        return bits.Count > 0 ? bits : new List<string> { (req ?? "").Trim() };
+    }
+
+    /// <summary>One alternative: "Diplomacy x5" or "CUNNING>30". Exact skill name, count >= need.</summary>
+    public static bool AlternativeMet(
+        string alt,
+        Dictionary<string, int> pool,
+        int integ, int cunn, int str,
+        out string detail)
+    {
+        alt = Regex.Replace(alt ?? "", @"^\[[^\]]+\]\s*", "").Trim();
+        var mAttr = Regex.Match(alt, @"^(INTEGRITY|CUNNING|STRENGTH)\s*(>|>=|<|<=)\s*(\d+)",
+            RegexOptions.IgnoreCase);
+        if (mAttr.Success)
+        {
+            string attr = mAttr.Groups[1].Value.ToUpperInvariant();
+            string op = mAttr.Groups[2].Value;
+            int need = int.Parse(mAttr.Groups[3].Value);
+            int have = attr switch
+            {
+                "INTEGRITY" => integ,
+                "CUNNING" => cunn,
+                "STRENGTH" => str,
+                _ => 0
+            };
+            bool ok = op switch
+            {
+                ">" => have > need,
+                ">=" => have >= need,
+                "<" => have < need,
+                "<=" => have <= need,
+                _ => have > need
+            };
+            detail = $"{attr} {op} {need} (have {have})";
+            return ok;
+        }
+
+        var mSkill = Regex.Match(alt,
+            @"^([A-Za-z][A-Za-z\s\-']+?)(?:\s*[xX×]\s*(\d+))?\.?$",
+            RegexOptions.IgnoreCase);
+        if (!mSkill.Success)
+        {
+            detail = alt + " (unparsed)";
+            return false;
+        }
+        string skill = mSkill.Groups[1].Value.Trim();
+        int needN = mSkill.Groups[2].Success ? int.Parse(mSkill.Groups[2].Value) : 1;
+        int haveN = 0;
+        foreach (var kv in pool)
+        {
+            if (kv.Key.Equals(skill, StringComparison.OrdinalIgnoreCase))
+                haveN += kv.Value;
+        }
+        detail = $"{skill} x{needN} (have {haveN})";
+        return haveN >= needN;
     }
 
     /// <summary>
@@ -336,63 +418,20 @@ public static class MissionRules
         var missing = new List<string>();
         foreach (var req in reqs)
         {
-            var mAttr = Regex.Match(req, @"^(INTEGRITY|CUNNING|STRENGTH)\s*(>|>=|<|<=)\s*(\d+)",
-                RegexOptions.IgnoreCase);
-            if (mAttr.Success)
+            var alts = SplitOrAlternatives(req);
+            bool anyOk = false;
+            var altFail = new List<string>();
+            foreach (var alt in alts)
             {
-                string attr = mAttr.Groups[1].Value.ToUpperInvariant();
-                string op = mAttr.Groups[2].Value;
-                int need = int.Parse(mAttr.Groups[3].Value);
-                int have = attr switch
-                {
-                    "INTEGRITY" => integ,
-                    "CUNNING" => cunn,
-                    "STRENGTH" => str,
-                    _ => 0
-                };
-                bool ok = op switch
-                {
-                    ">" => have > need,
-                    ">=" => have >= need,
-                    "<" => have < need,
-                    "<=" => have <= need,
-                    _ => have > need
-                };
-                CheckTrace.Cmp("Attribute", $"{attr} {op} {need}", have.ToString(), ok);
-                if (!ok) missing.Add($"{attr} {op} {need} (have {have})");
-                continue;
+                if (AlternativeMet(alt, pool, integ, cunn, str, out string detail))
+                    anyOk = true;
+                else
+                    altFail.Add(detail);
             }
-
-            var mSkill = Regex.Match(req, @"^([A-Za-z][A-Za-z\s\-']+?)(?:\s*x\s*(\d+))?$", RegexOptions.IgnoreCase);
-            if (mSkill.Success)
-            {
-                string skill = mSkill.Groups[1].Value.Trim();
-                // Strip leading affiliation icons from opponent-side skill lines
-                skill = Regex.Replace(skill, @"^\[[^\]]+\]\s*", "").Trim();
-                if (skill.Length == 0) continue;
-                int need = mSkill.Groups[2].Success ? int.Parse(mSkill.Groups[2].Value) : 1;
-                int have = 0;
-                var matchedKeys = new List<string>();
-                foreach (var kv in pool)
-                {
-                    bool hit = kv.Key.Equals(skill, StringComparison.OrdinalIgnoreCase)
-                        || kv.Key.StartsWith(skill, StringComparison.OrdinalIgnoreCase)
-                        || skill.StartsWith(kv.Key, StringComparison.OrdinalIgnoreCase);
-                    CheckTrace.Cmp("Skill key", skill, kv.Key, hit);
-                    if (hit)
-                    {
-                        have += kv.Value;
-                        matchedKeys.Add($"{kv.Key}×{kv.Value}");
-                    }
-                }
-                bool ok = have >= need;
-                CheckTrace.Line(
-                    $"Skill total: need '{skill}' x{need}  have {have}"
-                    + (matchedKeys.Count > 0 ? $" from [{string.Join(", ", matchedKeys)}]" : " from []")
-                    + $" → {(ok ? "MATCH" : "NO MATCH")}");
-                if (!ok)
-                    missing.Add($"{skill} x{need} (have {have})");
-            }
+            if (!anyOk)
+                missing.Add(alts.Count > 1
+                    ? "(" + string.Join(" OR ", altFail) + ")"
+                    : altFail.FirstOrDefault() ?? req);
         }
 
         if (missing.Count > 0)

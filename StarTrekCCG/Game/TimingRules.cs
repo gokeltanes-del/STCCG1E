@@ -18,7 +18,8 @@ public static class TimingRules
         EncounterDilemma,
         InitiateShipBattle,
         InitiatePersonnelBattle,
-        DrawCard
+        DrawCard,
+        ShipDestroyed
     }
 
     public enum Destination
@@ -154,7 +155,8 @@ public static class TimingRules
             || n.Equals("The Devil", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Hugh", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Asteroid Sanctuary", StringComparison.OrdinalIgnoreCase)
-            || n.Equals("Subspace Schism", StringComparison.OrdinalIgnoreCase);
+            || n.Equals("Subspace Schism", StringComparison.OrdinalIgnoreCase)
+            || n.Equals("Escape Pod", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -205,6 +207,15 @@ public static class TimingRules
             if (top.Kind != ActionKind.DrawCard || top.Card == null)
                 return (false, "Subspace Schism: plays when a player would draw a card.");
             return (true, "Discard that card; they draw the next one.");
+        }
+
+        if (n.Equals("Escape Pod", StringComparison.OrdinalIgnoreCase))
+        {
+            if (top.Kind != ActionKind.ShipDestroyed || top.Card == null)
+                return (false, "Escape Pod: plays just after your ship is destroyed.");
+            if (top.Controller != responseOwner)
+                return (false, "Escape Pod: that was not your ship.");
+            return (true, "Crew relocates onto Escape Pod.");
         }
 
         if (n.Equals("Energy Vortex", StringComparison.OrdinalIgnoreCase))

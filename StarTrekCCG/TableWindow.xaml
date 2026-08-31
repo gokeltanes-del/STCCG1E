@@ -44,6 +44,9 @@
                     <MenuItem x:Name="AidZoneCountsItem" Header="Zone / pile counts"
                               IsCheckable="True" IsChecked="True" Click="AidZoneCounts_Click"
                               ToolTip="Show number of cards in your zone piles"/>
+                    <MenuItem x:Name="AidSortHandItem" Header="Sort hand by type"
+                              IsCheckable="True" IsChecked="True" Click="AidSortHand_Click"
+                              ToolTip="Ship, Personnel, Equipment, Event, Interrupt, Doorway… Off keeps draw order. Random hand picks stay shuffled."/>
                 </MenuItem>
             </MenuItem>
             <MenuItem Header="_Developer">

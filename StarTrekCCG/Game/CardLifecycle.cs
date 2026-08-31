@@ -35,7 +35,8 @@ public enum CardStatus
     Cloaked = 16,
     Landed = 32,
     Quarantined = 64,
-    InPlayFaceDown = 128
+    InPlayFaceDown = 128,
+    Docked = 256
 }
 
 /// <summary>How often a printed ability may fire.</summary>

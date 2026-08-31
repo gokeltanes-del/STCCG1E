@@ -104,6 +104,26 @@ public static class CardKinds
     public static bool MustReportForDuty(Card card) =>
         Of(card) is CardKind.Personnel or CardKind.Ship or CardKind.Equipment;
 
+    /// <summary>Display order for a sorted hand. Does not change deck/draw order.</summary>
+    public static int HandSortRank(Card card) => Of(card) switch
+    {
+        CardKind.Ship => 0,
+        CardKind.Personnel => 1,
+        CardKind.Equipment => 2,
+        CardKind.Facility => 3,
+        CardKind.Event or CardKind.QEvent => 4,
+        CardKind.Interrupt or CardKind.QInterrupt or CardKind.InterruptEventHybrid => 5,
+        CardKind.Doorway => 6,
+        CardKind.Incident => 7,
+        CardKind.Objective => 8,
+        CardKind.Artifact or CardKind.QArtifact => 9,
+        CardKind.Tactic => 10,
+        CardKind.Site => 11,
+        CardKind.Tribble or CardKind.Trouble => 12,
+        CardKind.Dilemma or CardKind.QDilemma => 13,
+        _ => 20
+    };
+
     public static bool IsPersonnel(Card card) => Of(card) == CardKind.Personnel;
     public static bool IsShip(Card card) => Of(card) == CardKind.Ship;
     public static bool IsFacility(Card card) => Of(card) == CardKind.Facility;

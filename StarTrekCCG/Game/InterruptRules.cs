@@ -96,6 +96,8 @@ public static class InterruptRules
 
     public static bool IsSubspaceInterference(Card? c) => NameIs(c, "Subspace Interference");
     public static bool IsSubspaceSchism(Card? c) => NameIs(c, "Subspace Schism");
+    public static bool IsEscapePod(Card? c) => NameIs(c, "Escape Pod");
+    public static bool IsWormhole(Card? c) => NameIs(c, "Wormhole");
 
     /// <summary>Affiliation pip this Incoming Message cares about (title after the colon).</summary>
     public static string? IncomingMessageAffiliation(Card? c)
@@ -142,8 +144,7 @@ public static class InterruptRules
         if (n.Equals("Disruptor Overload", StringComparison.OrdinalIgnoreCase))
             return PlayTarget.AnyCrew;
 
-        if (n.Equals("Escape Pod", StringComparison.OrdinalIgnoreCase)
-            || n.Equals("Near-Warp Transport", StringComparison.OrdinalIgnoreCase)
+        if (n.Equals("Near-Warp Transport", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Distortion of Space/Time Continuum", StringComparison.OrdinalIgnoreCase))
             return PlayTarget.OwnShip;
 
@@ -152,6 +153,9 @@ public static class InterruptRules
 
         if (n.Equals("Long-Range Scan", StringComparison.OrdinalIgnoreCase))
             return PlayTarget.AnyShip;
+
+        if (IsWormhole(card))
+            return PlayTarget.OwnShip;
 
         return PlayTarget.None;
     }

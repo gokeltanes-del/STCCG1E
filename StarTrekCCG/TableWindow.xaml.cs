@@ -200,6 +200,7 @@ public partial class TableWindow : Window
     /// <summary>Dev: play Dilemma/Artifact from hand onto a mission (artifacts acquire immediately).</summary>
     private bool _devPlaySeedFromHand;
     private bool _aidZoneCounts = true;
+    private bool _aidSortHand = true;
 
     // ---------- Nur noch der zoombare Mittelbereich ----------
     // Alle Karten auf dem Spielfeld gleiche Größe
@@ -215,6 +216,8 @@ public partial class TableWindow : Window
     private const double ShipSnapRange = 280; // großzügiger für Host-/Mission-Snap
 
     private Border? _hostHighlight; // Umrandung am Ziel-Host während Drag
+    private Border? _currentSnapHost; // legal host currently in snap range
+    private Card? _tableColumnSnapCard; // Kevin/Devil snap on P1/P2 TABLE mini
     private Border? _zoneHighlightTarget; // Side-Deck-Zone während Doorway-Drag
     private Thickness _zoneHighlightPrevThickness;
     private Brush? _zoneHighlightPrevBrush;
@@ -274,11 +277,15 @@ public partial class TableWindow : Window
     private bool _horgahnExtraPlayUsed;
     /// <summary>Cards Energy Vortex returned to hand this turn — not legal as the replacement play.</summary>
     private readonly HashSet<Card> _energyVortexBlocked = new();
-    /// <summary>Subspace Schism: once every turn (any draw).</summary>
-    private bool _schismUsedThisTurn;
+    /// <summary>Subspace Schism: once every turn per player (resets with TurnNumber).</summary>
+    private readonly HashSet<int> _schismUsedBy = new();
+    private int _schismRound;
     /// <summary>EOT draw opened a Schism window — finish the turn after the stack clears.</summary>
     private bool _endTurnAfterDrawStack;
     private int _endTurnFinishingPlayer;
+    private int _pendingExtraDraws;
+    /// <summary>First Wormhole locked an exposed ship; second must drop on a location.</summary>
+    private Border? _wormholeShip;
     /// <summary>Drag-Peek: host under cursor while a targeting card is held.</summary>
     private Border? _peekHoverHost;
     private System.Windows.Threading.DispatcherTimer? _peekHoverTimer;
@@ -314,6 +321,17 @@ public partial class TableWindow : Window
     /// <summary>Mission index this ship arrived at during the current turn (Rift / Tetryon “move again”).</summary>
     private readonly Dictionary<Border, int> _arrivedMissionThisTurn = new();
     private readonly HashSet<Border> _cloakedShips = new();
+    /// <summary>Ship → facility it is docked at (7.1.4).</summary>
+    private readonly Dictionary<Border, Border> _dockedAt = new();
+    private sealed class EscapePodState
+    {
+        public Card Pod = null!;
+        public Border? Mission;
+        public int Owner;
+        public List<Card> Crew = new();
+    }
+    private readonly List<EscapePodState> _escapePods = new();
+    private bool _resolvingDestroy;
     private readonly HashSet<Border> _cloakLocked = new();
     private bool _auPlayedThisTurnP1;
     private bool _auPlayedThisTurnP2;
@@ -635,7 +653,7 @@ public partial class TableWindow : Window
         _handPickTimedOut = false;
         _kidnapResolved = false;
         _kidnapOwner = owner;
-        _kidnapHand = hand.ToList();
+        _kidnapHand = ShuffledCopy(hand);
 
         KidnapTitle.Text = title;
         KidnapHint.Text = hint + "  Click a card.  10s with no choice → one is chosen for you.";
@@ -1638,6 +1656,31 @@ public partial class TableWindow : Window
     private bool _pileResolved;
 
     /// <summary>Horizontal strip: Hand by default; other piles when selected; Host = crew.</summary>
+    private List<Card> CardsForStripDisplay(IReadOnlyList<Card> source, string zoneName)
+    {
+        if (source == null || source.Count == 0)
+            return new List<Card>();
+        bool sort = _aidSortHand && zoneName == "Hand";
+        if (!sort)
+            return source.ToList();
+        return source
+            .OrderBy(CardKinds.HandSortRank)
+            .ThenBy(c => c.Name ?? "", StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static List<Card> ShuffledCopy(IReadOnlyList<Card> source)
+    {
+        var list = source.ToList();
+        var rng = new Random();
+        for (int i = list.Count - 1; i > 0; i--)
+        {
+            int j = rng.Next(i + 1);
+            (list[i], list[j]) = (list[j], list[i]);
+        }
+        return list;
+    }
+
     private void RefreshHandStrips()
     {
         if (_inspectorMode == InspectorMode.OpponentPileInteract)
@@ -1688,7 +1731,7 @@ public partial class TableWindow : Window
                 : new SolidColorBrush(Color.FromRgb(0x9C, 0xDC, 0xFE));
         }
 
-        var cards = GetCardsForZone(zoneName, opponent);
+        var cards = CardsForStripDisplay(GetCardsForZone(zoneName, opponent), zoneName);
         int stripOwner = opponent ? 2 : 1;
         // Hotseat: both hands stay face-up so either player can play interrupts at any time.
         // Draw / seed / side decks remain hidden for the inactive player.
@@ -1910,7 +1953,7 @@ public partial class TableWindow : Window
         }
 
         // Keep that player's hand visible on the same strip so interrupts stay playable.
-        var hand = opponent ? _oppHandCards : _handCards;
+        var hand = CardsForStripDisplay(opponent ? _oppHandCards : _handCards, "Hand");
         if (hand.Count > 0)
         {
             panel.Children.Add(new TextBlock
@@ -2656,6 +2699,10 @@ public partial class TableWindow : Window
             {
                 // Karte snapt auf Discard-Zone
             }
+            else if (UpdateNullifyTableSnap(winPos))
+            {
+                // Kevin / Devil snap onto a TABLE-column event
+            }
             else if (UpdateTableSnap(winPos))
             {
                 // Event/Doorway/Objective snapt auf P1/P2 TABLE (rechts)
@@ -2856,6 +2903,58 @@ public partial class TableWindow : Window
     private Border? ActiveTableZoneBorder() =>
         _activePlayer == 2 ? OppTischZoneBorder : TischZoneBorder;
 
+    private bool UpdateNullifyTableSnap(Point windowPos)
+    {
+        if (_dragCard?.Tag is not Card drag) return false;
+        if (!InterruptRules.IsKevinNullify(drag) && !InterruptRules.IsDevil(drag))
+            return false;
+
+        bool Legal(Card ev) => InterruptRules.IsDevil(drag)
+            ? TimingRules.CanDevilTarget(ev).ok
+            : TimingRules.CanKevinTargetEvent(ev).ok;
+
+        Border? hitMini = null;
+        Card? hitCard = null;
+        foreach (var panel in new[] { TablePermanentsPanel, OppTablePermanentsPanel })
+        {
+            if (panel == null) continue;
+            foreach (var mini in panel.Children.OfType<Border>())
+            {
+                if (mini.Tag is not Card ev || !Legal(ev)) continue;
+                try
+                {
+                    var tl = mini.TransformToAncestor(this).Transform(new Point(0, 0));
+                    var rect = new Rect(tl, mini.RenderSize);
+                    rect.Inflate(10, 10);
+                    if (!rect.Contains(windowPos)) continue;
+                    hitMini = mini;
+                    hitCard = ev;
+                    break;
+                }
+                catch { }
+            }
+            if (hitMini != null) break;
+        }
+
+        _tableColumnSnapCard = hitCard;
+        HighlightKevinTableMinis(Legal);
+        if (hitMini != null && hitCard != null)
+        {
+            hitMini.BorderBrush = new SolidColorBrush(Color.FromRgb(40, 255, 120));
+            hitMini.BorderThickness = new Thickness(4);
+            hitMini.Effect = new System.Windows.Media.Effects.DropShadowEffect
+            {
+                Color = Color.FromRgb(40, 255, 120),
+                BlurRadius = 16,
+                ShadowDepth = 0,
+                Opacity = 0.95
+            };
+            StatusText.Text = $"Snap: {hitCard.Name} — drop to nullify.";
+            return true;
+        }
+        return false;
+    }
+
     private bool IsPointOverOwnTable(Point windowPos)
     {
         var box = ActiveTableZoneBorder();
@@ -2937,9 +3036,10 @@ public partial class TableWindow : Window
         }
         bool eventTarget = EventRules.IsEvent(card) && !_seedPhaseActive
                            && EventRules.NeedsTableHost(EventRules.GetTargetKind(EventRules.ResolvePlay(card)));
+        bool boardSnap = TargetingRules.UsesBoardSnap(card);
         if (!IsStackableCard(card) && !IsDockableUnderMission(card)
             && !(IsSeedableUnderMission(card) && _seedPhaseActive)
-            && !eventTarget)
+            && !eventTarget && !boardSnap)
         {
             HideSnapPreview();
             return;
@@ -3101,6 +3201,34 @@ public partial class TableWindow : Window
 
     private static int opponentOf(int p) => p == 1 ? 2 : 1;
 
+    private void SyncSchismRound()
+    {
+        int round = Math.Max(1, _session.TurnNumber);
+        if (_schismRound != round)
+        {
+            _schismUsedBy.Clear();
+            _schismRound = round;
+        }
+    }
+
+    private bool SchismAvailable(int player)
+    {
+        SyncSchismRound();
+        return !_schismUsedBy.Contains(player);
+    }
+
+    private void MarkSchismUsed(int player)
+    {
+        if (player is 1 or 2) _schismUsedBy.Add(player);
+    }
+
+    private List<Card> LegalResponsesFor(IEnumerable<Card> hand, TimingRules.PendingAction top, int owner)
+    {
+        return TimingRules.LegalResponsesInHand(hand, top, owner)
+            .Where(c => !InterruptRules.IsSubspaceSchism(c) || SchismAvailable(owner))
+            .ToList();
+    }
+
     private void ApplyResponseEffect(TimingRules.PendingAction response)
     {
         if (_stack.Items.Count < 2 || response.Card == null) return;
@@ -3110,6 +3238,10 @@ public partial class TableWindow : Window
 
         target.Cancelled = true;
         target.CancelledBy = response.Card.Name;
+        if (InterruptRules.IsSubspaceSchism(response.Card))
+            MarkSchismUsed(response.Controller);
+        if (InterruptRules.IsEscapePod(response.Card) && target.Kind == TimingRules.ActionKind.ShipDestroyed)
+            ApplyEscapePodFromResponse(response.Controller, target);
         StatusText.Text = $"Response {response.Card.Name}: {check.reason}";
     }
 
@@ -3206,22 +3338,25 @@ public partial class TableWindow : Window
             return;
         }
 
+        CloseCardDetailPopup();
         var top = _stack.Top;
-        int responder = _stack.ResponsePlayer;
+        int responder = FirstLegalResponder(top, _stack.ResponsePlayer);
+        _stack.ResponsePlayer = responder;
         var hand = responder == 1 ? _handCards : _oppHandCards;
-        var legal = TimingRules.LegalResponsesInHand(hand, top, responder);
+        var legal = LegalResponsesFor(hand, top, responder);
 
         Card? shown = top.Card ?? top.AttackerCard;
         RevealTitle.Text = top.IsResponse
             ? $"Response — Player {top.Controller}"
-            : $"Player {top.Controller} plays";
+            : top.Kind == TimingRules.ActionKind.DrawCard
+                ? $"Player {top.Controller} draws"
+                : $"Player {top.Controller} plays";
         RevealSubtitle.Text = shown != null
             ? $"{shown.Name}  ·  {shown.Type}"
             : top.Summary;
         RevealBody.Text = (shown?.Text ?? top.Summary) + "\n\n" + TimingRules.FormatStack(_stack);
 
         FillRevealImage(shown);
-        if (shown != null) ShowCardDetail(shown);
 
         BtnRevealYes.Visibility = Visibility.Collapsed;
         BtnRevealNo.Visibility = Visibility.Collapsed;
@@ -3231,7 +3366,7 @@ public partial class TableWindow : Window
         {
             int other = opponentOf(responder);
             var otherHand = other == 1 ? _handCards : _oppHandCards;
-            var otherLegal = TimingRules.LegalResponsesInHand(otherHand, top, other);
+            var otherLegal = LegalResponsesFor(otherHand, top, other);
 
             // Never open a second "respond to your own card?" window when you have nothing legal.
             // 1E: responses are almost always to the opponent's just-played action / initiation.
@@ -3249,29 +3384,18 @@ public partial class TableWindow : Window
                 return;
             }
 
-            // Opponent has nothing legal either → single center announce, then resolve
-            if (otherLegal.Count == 0)
+            // Nobody left who can respond — resolve, no extra empty window.
+            if (otherLegal.Count == 0 || _stack.ConsecutivePasses > 0)
             {
-                _announceKind = AnnounceKind.OkOnly;
-                RevealAudience.Text = "No legal responses — resolving.";
-                BtnRevealOk.Visibility = Visibility.Visible;
-                BtnRevealRespond.Visibility = Visibility.Collapsed;
-                BtnRevealPass.Visibility = Visibility.Collapsed;
-                CardRevealOverlay.Visibility = Visibility.Visible;
-                StatusText.Text = $"{top.Summary} — no responses.";
-                StartAnnounceDeadline(5000);
+                ResolveEntireStack();
                 return;
             }
 
-            // Opponent has nothing, but controller might — brief announce then hand window to controller
-            _announceKind = AnnounceKind.OkOnly;
-            RevealAudience.Text = $"Player {responder}: no legal response.";
-            BtnRevealOk.Visibility = Visibility.Visible;
-            BtnRevealRespond.Visibility = Visibility.Collapsed;
-            BtnRevealPass.Visibility = Visibility.Collapsed;
-            CardRevealOverlay.Visibility = Visibility.Visible;
-            StatusText.Text = $"{top.Summary} — P{responder} cannot respond.";
-            StartAnnounceDeadline(5000);
+            // This player has nothing — skip the empty 5s card and go to whoever can respond.
+            _stack.ConsecutivePasses++;
+            _session.Log.Add(_session.TurnNumber, $"P{responder}", "Pass (no legal response)");
+            _stack.ResponsePlayer = other;
+            ShowActionAnnounce();
             return;
         }
 
@@ -3392,12 +3516,16 @@ public partial class TableWindow : Window
         if (!_stack.IsOpen) return;
         _stack.ConsecutivePasses++;
         _session.Log.Add(_session.TurnNumber, $"P{_stack.ResponsePlayer}", "Pass (response)");
-        if (_stack.ConsecutivePasses >= 2)
+        int other = opponentOf(_stack.ResponsePlayer);
+        var otherHand = other == 1 ? _handCards : _oppHandCards;
+        bool otherCan = _stack.Top != null
+            && LegalResponsesFor(otherHand, _stack.Top, other).Count > 0;
+        if (_stack.ConsecutivePasses >= 2 || !otherCan)
         {
             ResolveEntireStack();
             return;
         }
-        _stack.ResponsePlayer = opponentOf(_stack.ResponsePlayer);
+        _stack.ResponsePlayer = other;
         RefreshResponseUi();
         ShowResponsePlayerHand();
     }
@@ -3430,6 +3558,8 @@ public partial class TableWindow : Window
         {
             if (a.Cancelled)
             {
+                if (InterruptRules.IsWormhole(a.Card))
+                    _wormholeShip = null;
                 var dest = a.CancelledBy != null
                            && a.CancelledBy.Equals("Energy Vortex", StringComparison.OrdinalIgnoreCase)
                     ? TimingRules.Destination.ReturnToHand
@@ -3513,7 +3643,7 @@ public partial class TableWindow : Window
             var hand = drawer == 1 ? _handCards : _oppHandCards;
             if (a.Cancelled)
             {
-                _schismUsedThisTurn = true;
+                /* marked when the Schism response resolved */
                 SendCardTo(a.Card, drawer, TimingRules.Destination.Discard);
                 StatusText.Text =
                     $"Subspace Schism discards {a.Card.Name}. P{drawer} draws the next card.";
@@ -3527,6 +3657,20 @@ public partial class TableWindow : Window
             RefreshZoneCounts();
             RefreshHandStrips();
             StatusText.Text = $"P{drawer} draws {a.Card.Name}.";
+            return;
+        }
+
+        if (a.Kind == TimingRules.ActionKind.ShipDestroyed)
+        {
+            var shipB = a.AttackerHost as Border;
+            if (shipB == null || a.Card == null) return;
+            if (a.Cancelled && string.Equals(a.CancelledBy, "Escape Pod", StringComparison.OrdinalIgnoreCase))
+            {
+                // Crew already moved in ApplyEscapePodFromResponse.
+            }
+            _resolvingDestroy = true;
+            DestroyShipOrFacility(shipB, a.Card, a.Controller);
+            _resolvingDestroy = false;
             return;
         }
 
@@ -4650,6 +4794,43 @@ public partial class TableWindow : Window
             Fill(OppTablePermanentsPanel, _oppTablePermanentCards);
     }
 
+    private static bool SameTableCard(Card a, Card b)
+    {
+        if (ReferenceEquals(a, b)) return true;
+        if (a.InstanceId != 0 && b.InstanceId != 0 && a.InstanceId == b.InstanceId)
+            return true;
+        return string.Equals(a.Name, b.Name, StringComparison.OrdinalIgnoreCase)
+               && string.Equals(a.SetFolder ?? "", b.SetFolder ?? "", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool TableListHas(List<Card> list, Card card) =>
+        list.Any(c => SameTableCard(c, card));
+
+    private static void DedupTablePermanents(List<Card> list)
+    {
+        for (int i = list.Count - 1; i >= 0; i--)
+        {
+            for (int j = 0; j < i; j++)
+            {
+                if (SameTableCard(list[i], list[j]))
+                {
+                    list.RemoveAt(i);
+                    break;
+                }
+            }
+        }
+    }
+
+    private Card? ResolveAttachedEventCard(CardRef? r, int owner)
+    {
+        if (r == null) return null;
+        var pool = owner == 2 ? _oppTablePermanentCards : _tablePermanentCards;
+        var existing = pool.FirstOrDefault(c =>
+            string.Equals(c.Name, r.Name, StringComparison.OrdinalIgnoreCase)
+            && (r.InstanceId == 0 || c.InstanceId == 0 || c.InstanceId == r.InstanceId));
+        return existing ?? ResolveCard(r);
+    }
+
 
     private void CommitFloatingToCanvas(Border floating, Point windowPos)
     {
@@ -5415,9 +5596,11 @@ public partial class TableWindow : Window
         var card = draw[0];
         draw.RemoveAt(0);
 
-        bool anyoneHasSchism = _handCards.Any(InterruptRules.IsSubspaceSchism)
-                               || _oppHandCards.Any(InterruptRules.IsSubspaceSchism);
-        if (!skipSchism && !_schismUsedThisTurn && anyoneHasSchism && !_stack.IsOpen)
+        SyncSchismRound();
+        bool anyoneHasSchism =
+            (SchismAvailable(1) && _handCards.Any(InterruptRules.IsSubspaceSchism))
+            || (SchismAvailable(2) && _oppHandCards.Any(InterruptRules.IsSubspaceSchism));
+        if (!skipSchism && anyoneHasSchism && !_stack.IsOpen)
         {
             _stack.Push(new TimingRules.PendingAction
             {
@@ -5918,6 +6101,15 @@ public partial class TableWindow : Window
         StatusText.Text = _aidZoneCounts
             ? "Player aid: zone pile counts on."
             : "Player aid: zone pile counts off.";
+    }
+
+    private void AidSortHand_Click(object sender, RoutedEventArgs e)
+    {
+        _aidSortHand = AidSortHandItem?.IsChecked == true;
+        RefreshHandStrips();
+        StatusText.Text = _aidSortHand
+            ? "Player aid: hand sorted by type."
+            : "Player aid: hand in draw order.";
     }
 
     private void RefreshDevSeedDisplay()
@@ -6445,18 +6637,48 @@ public partial class TableWindow : Window
     {
         if (HasHorgahn(finishingPlayer) && !_horgahnExtraPlayUsed)
         {
-            DrawOneToHandFor(finishingPlayer, endOfTurn: true, skipSchism: _schismUsedThisTurn);
+            _pendingExtraDraws++;
+            _horgahnExtraPlayUsed = true;
             _session.Log.Add(_session.TurnNumber, $"P{finishingPlayer}", "Horga'hn extra draw");
-            StatusText.Text = "Horga'hn: extra card at end of turn.";
         }
+
+        while (_pendingExtraDraws > 0)
+        {
+            _pendingExtraDraws--;
+            DrawOneToHandFor(finishingPlayer, endOfTurn: true,
+                skipSchism: !SchismAvailable(1) && !SchismAvailable(2));
+            if (_stack.IsOpen && _stack.Top?.Kind == TimingRules.ActionKind.DrawCard)
+            {
+                _endTurnAfterDrawStack = true;
+                _endTurnFinishingPlayer = finishingPlayer;
+                return;
+            }
+        }
+    }
+
+    private int FirstLegalResponder(TimingRules.PendingAction top, int preferred)
+    {
+        var hand = preferred == 1 ? _handCards : _oppHandCards;
+        if (LegalResponsesFor(hand, top, preferred).Count > 0)
+            return preferred;
+        // After a pass, do not bounce back to the player who already passed.
+        if (_stack.ConsecutivePasses > 0)
+            return preferred;
+        int other = opponentOf(preferred);
+        var otherHand = other == 1 ? _handCards : _oppHandCards;
+        if (LegalResponsesFor(otherHand, top, other).Count > 0)
+            return other;
+        return preferred;
     }
 
     private void CompleteTurnChange()
     {
         _endTurnAfterDrawStack = false;
         _horgahnExtraPlayUsed = false;
+        _pendingExtraDraws = 0;
         _energyVortexBlocked.Clear();
-        _schismUsedThisTurn = false;
+        SyncSchismRound();
+        _wormholeShip = null;
 
         _session.EndTurn();
 
@@ -7191,6 +7413,8 @@ public partial class TableWindow : Window
         PutZone("p1.site", _sitePileCards);
         PutZone("p1.tribble", _tribbleCards);
         PutZone("p1.side", _sideCards);
+        DedupTablePermanents(_tablePermanentCards);
+        PutZone("p1.table", _tablePermanentCards);
         PutZone("p1.oop", _outOfPlayP1);
         PutZone("p2.hand", _oppHandCards);
         PutZone("p2.draw", _oppDrawCards);
@@ -7206,6 +7430,8 @@ public partial class TableWindow : Window
         PutZone("p2.site", _oppSitePileCards);
         PutZone("p2.tribble", _oppTribbleCards);
         PutZone("p2.side", _oppSideCards);
+        DedupTablePermanents(_oppTablePermanentCards);
+        PutZone("p2.table", _oppTablePermanentCards);
         PutZone("p2.oop", _outOfPlayP2);
 
         var tableBorders = TableCanvas.Children.OfType<Border>().Where(b => b.Tag is Card).ToList();
@@ -7318,11 +7544,13 @@ public partial class TableWindow : Window
         _oppSideCards.Clear(); _oppDoorwayCards.Clear(); _oppMissionSeedCards.Clear();
         _oppDilemmaSeedCards.Clear(); _oppFacilitySeedCards.Clear();
         _outOfPlayP1.Clear(); _outOfPlayP2.Clear();
+        _tablePermanentCards.Clear(); _oppTablePermanentCards.Clear();
         _stackOnHost.Clear(); _seedUnderMission.Clear();
         _revealedArtifactsUnderMission.Clear(); _lastEncounteredDilemma.Clear();
         RemoveBorgShipToken();
         _solvedMissions.Clear(); _missionSolver.Clear();
         _hullDamagePercent.Clear(); _stoppedBorders.Clear();
+        _dockedAt.Clear();
         _repairTurnsAtOutpost.Clear(); _shipRangeLeft.Clear();
         _borderOwner.Clear(); _attachedDilemmas.Clear(); _attachedEvents.Clear();
         _missionsByQuadrant.Clear(); _spacelineOrder.Clear();
@@ -7361,6 +7589,7 @@ public partial class TableWindow : Window
         _sitePileCards.AddRange(Fill("p1.site"));
         _tribbleCards.AddRange(Fill("p1.tribble"));
         _sideCards.AddRange(Fill("p1.side"));
+        _tablePermanentCards.AddRange(Fill("p1.table"));
         _outOfPlayP1.AddRange(Fill("p1.oop"));
         _oppHandCards.AddRange(Fill("p2.hand"));
         _oppDrawCards.AddRange(Fill("p2.draw"));
@@ -7376,6 +7605,7 @@ public partial class TableWindow : Window
         _oppSitePileCards.AddRange(Fill("p2.site"));
         _oppTribbleCards.AddRange(Fill("p2.tribble"));
         _oppSideCards.AddRange(Fill("p2.side"));
+        _oppTablePermanentCards.AddRange(Fill("p2.table"));
         _outOfPlayP2.AddRange(Fill("p2.oop"));
 
         var byId = new Dictionary<int, Border>();
@@ -7462,7 +7692,7 @@ public partial class TableWindow : Window
 
         foreach (var ev in save.AttachedEvents)
         {
-            var card = ResolveCard(ev.Card);
+            var card = ResolveAttachedEventCard(ev.Card, ev.Owner);
             if (card == null) continue;
             if (!Enum.TryParse(ev.Kind, out EventRules.Persist kind))
                 kind = EventRules.Persist.Table;
@@ -7553,6 +7783,23 @@ public partial class TableWindow : Window
             $"Game loaded (T{_session.TurnNumber}, P{_session.ActivePlayer}, score {_scoreP1}/{_scoreP2})");
 
         if (WelcomeOverlay != null) WelcomeOverlay.Visibility = Visibility.Collapsed;
+
+        bool tableZonesSaved = (save.Zones.ContainsKey("p1.table") && save.Zones["p1.table"].Count > 0)
+                            || (save.Zones.ContainsKey("p2.table") && save.Zones["p2.table"].Count > 0);
+        if (!tableZonesSaved)
+        {
+            foreach (var ev in _attachedEvents)
+            {
+                if (ev.Host != null || ev.Host2 != null) continue;
+                if (ev.Card == null || !EventBelongsOnTableColumn(ev.Card)) continue;
+                var list = ev.Owner == 2 ? _oppTablePermanentCards : _tablePermanentCards;
+                if (!TableListHas(list, ev.Card))
+                    list.Add(ev.Card);
+            }
+        }
+        DedupTablePermanents(_tablePermanentCards);
+        DedupTablePermanents(_oppTablePermanentCards);
+        RebuildTablePermanentsPanel();
         RelayoutMissionsOnSpaceline();
         UpdateScoreDisplay();
         RefreshZoneCounts();
@@ -7827,7 +8074,12 @@ public partial class TableWindow : Window
         _horgahnP1 = _horgahnP2 = false;
         _horgahnExtraPlayUsed = false;
         _energyVortexBlocked.Clear();
-        _schismUsedThisTurn = false;
+        _schismUsedBy.Clear();
+        _schismRound = 0;
+        _escapePods.Clear();
+        _wormholeShip = null;
+        _pendingExtraDraws = 0;
+        _endTurnAfterDrawStack = false;
         _attachedEvents.Clear();
         _ionizationBeamsThisTurn = 0;
         _redAlertPlaysLeft = 0;
@@ -8475,6 +8727,11 @@ public partial class TableWindow : Window
 
         int owner = GetBorderOwner(shipBorder);
         if (owner == 0) owner = _activePlayer;
+        if (IsShipDocked(shipBorder))
+        {
+            StatusText.Text = $"{ship.Name} is docked — undock before flying.";
+            return false;
+        }
         if (owner != _activePlayer)
         {
             StatusText.Text = "Nur eigene Schiffe bewegen.";
@@ -8829,6 +9086,19 @@ public partial class TableWindow : Window
             previewTop = Canvas.GetTop(target) + DockSlotOffsetY(index, owner);
             showSlotPreview = true;
         }
+        else if (TargetingRules.UsesBoardSnap(card))
+        {
+            int owner = GetBorderOwner(dragging);
+            if (owner == 0) owner = _activePlayer;
+            target = NearestLegalSnapHost(card, owner, cx, cy, out double dist);
+            if (target == null || dist > ShipSnapRange * 1.6)
+            {
+                HideSnapPreview();
+                return;
+            }
+            previewLeft = Canvas.GetLeft(target);
+            previewTop = Canvas.GetTop(target);
+        }
         else
         {
             HideSnapPreview();
@@ -8866,6 +9136,7 @@ public partial class TableWindow : Window
                                  + BadgeAreaHeight; // inkl. Badge-Bereich
         Panel.SetZIndex(_hostHighlight!, 450);
         _hostHighlight.Visibility = Visibility.Visible;
+        _currentSnapHost = host;
     }
 
     private void EnsureHostHighlight()
@@ -8916,6 +9187,8 @@ public partial class TableWindow : Window
             _originPreview.Visibility = Visibility.Collapsed;
         if (_hostHighlight != null)
             _hostHighlight.Visibility = Visibility.Collapsed;
+        _currentSnapHost = null;
+        _tableColumnSnapCard = null;
         ClearZoneHighlight();
     }
 
@@ -8935,6 +9208,14 @@ public partial class TableWindow : Window
         return false;
     }
 
+    private List<Border>? StackOnHost(Border host)
+    {
+        if (_stackOnHost.TryGetValue(host, out var list)) return list;
+        foreach (var kv in _stackOnHost)
+            if (SameHostShip(kv.Key, host)) return kv.Value;
+        return null;
+    }
+
     private List<Card> BuriedLegalOn(Border host, Card drag)
     {
         var list = new List<Card>();
@@ -8943,7 +9224,10 @@ public partial class TableWindow : Window
             if (c == null || !IsLegalPeekTarget(drag, c)) return;
             if (!list.Contains(c)) list.Add(c);
         }
-        if (_stackOnHost.TryGetValue(host, out var stacked))
+        if (host.Tag is Card self && EventRules.IsEvent(self))
+            Add(self);
+        var stacked = StackOnHost(host);
+        if (stacked != null)
             foreach (var b in stacked)
                 if (b.Tag is Card c) Add(c);
         foreach (var ae in EventsOn(host))
@@ -8953,26 +9237,44 @@ public partial class TableWindow : Window
         return list;
     }
 
+    private Card? _peekSnapCard;
+
     private Border? FindHostUnderWindow(Point windowPos)
     {
+        Card? drag = _dragCard?.Tag as Card;
+        Border? bestLegal = null;
+        int bestLegalZ = int.MinValue;
+        Border? bestAny = null;
+        int bestAnyZ = int.MinValue;
         foreach (var b in TableCanvas.Children.OfType<Border>())
         {
             if (b.Tag is not Card hc) continue;
             if (b.Visibility != Visibility.Visible) continue;
             bool hostKind = IsShipCard(hc) || IsFacilityCard(hc)
-                            || string.Equals(hc.Type, "Mission", StringComparison.OrdinalIgnoreCase);
+                            || string.Equals(hc.Type, "Mission", StringComparison.OrdinalIgnoreCase)
+                            || (EventRules.IsEvent(hc) && _spacelineOrder.Contains(b));
             if (!hostKind) continue;
             try
             {
                 var tl = b.TransformToAncestor(this).Transform(new Point(0, 0));
-                var rect = new Rect(tl, b.RenderSize);
-                rect.Inflate(18, 18);
-                if (rect.Contains(windowPos))
-                    return b;
+                double w = b.ActualWidth > 1 ? b.ActualWidth
+                    : (b.Width > 1 ? b.Width : TableCardWidth);
+                double h = b.ActualHeight > 1 ? b.ActualHeight
+                    : (b.Height > 1 ? b.Height : TableCardHeight);
+                var rect = new Rect(tl, new Size(w, h));
+                rect.Inflate(28, 36);
+                if (!rect.Contains(windowPos)) continue;
             }
-            catch { }
+            catch { continue; }
+            int z = Panel.GetZIndex(b);
+            if (z >= bestAnyZ) { bestAny = b; bestAnyZ = z; }
+            if (drag != null && BuriedLegalOn(b, drag).Count > 0 && z >= bestLegalZ)
+            {
+                bestLegal = b;
+                bestLegalZ = z;
+            }
         }
-        return null;
+        return bestLegal ?? bestAny;
     }
 
     private void UpdateStackPeek(Point windowPos)
@@ -8982,7 +9284,9 @@ public partial class TableWindow : Window
             CancelStackPeek(keepOverlay: false);
             return;
         }
-        var host = FindHostUnderWindow(windowPos);
+        var host = _currentSnapHost != null && BuriedLegalOn(_currentSnapHost, drag).Count > 0
+            ? _currentSnapHost
+            : FindHostUnderWindow(windowPos);
         if (host == null || BuriedLegalOn(host, drag).Count == 0)
         {
             if (_peekHoverHost != null)
@@ -8990,12 +9294,15 @@ public partial class TableWindow : Window
             return;
         }
         if (ReferenceEquals(host, _peekHoverHost))
+        {
+            UpdatePeekSnapAt(windowPos);
             return;
+        }
         CancelStackPeek(keepOverlay: true);
         _peekHoverHost = host;
         _peekHoverTimer = new System.Windows.Threading.DispatcherTimer
         {
-            Interval = TimeSpan.FromSeconds(2)
+            Interval = TimeSpan.FromSeconds(1)
         };
         var capturedHost = host;
         var capturedDrag = drag;
@@ -9015,12 +9322,76 @@ public partial class TableWindow : Window
         _peekLegalTargets.Clear();
         foreach (var c in legal)
             _peekLegalTargets.Add(c);
+        if (legal.Count == 1)
+            _peekSnapCard = legal[0];
         _detailHost = host;
         ShowCardDetail(hostCard);
         OpenCardDetailPopup();
         StatusText.Text = legal.Count > 0
             ? $"Drop on a highlighted card in {hostCard.Name} ({legal.Count} legal)."
             : $"No legal target in {hostCard.Name}.";
+        ApplyPeekSnapStyle();
+    }
+
+    private void UpdatePeekSnapAt(Point windowPos)
+    {
+        if (DetailStackCards == null || _peekLegalTargets.Count == 0) return;
+        Card? hit = null;
+        foreach (var child in DetailStackCards.Children.OfType<FrameworkElement>())
+        {
+            var mini = child as Border ?? (child as Panel)?.Children.OfType<Border>().FirstOrDefault();
+            if (mini?.Tag is not Card c || !_peekLegalTargets.Contains(c)) continue;
+            try
+            {
+                var tl = mini.TransformToAncestor(this).Transform(new Point(0, 0));
+                var rect = new Rect(tl, mini.RenderSize);
+                rect.Inflate(8, 8);
+                if (rect.Contains(windowPos))
+                {
+                    hit = c;
+                    break;
+                }
+            }
+            catch { }
+        }
+        if (hit == null && CardDetailOverlay?.Visibility == Visibility.Visible)
+        {
+            try
+            {
+                var tl = CardDetailOverlay.TransformToAncestor(this).Transform(new Point(0, 0));
+                var rect = new Rect(tl, CardDetailOverlay.RenderSize);
+                if (rect.Contains(windowPos) && _peekLegalTargets.Count == 1)
+                    hit = _peekLegalTargets.First();
+            }
+            catch { }
+        }
+        if (ReferenceEquals(hit, _peekSnapCard) && hit != null) return;
+        _peekSnapCard = hit;
+        ApplyPeekSnapStyle();
+        if (hit != null)
+            StatusText.Text = $"Snap: {hit.Name} — drop to target.";
+    }
+
+    private void ApplyPeekSnapStyle()
+    {
+        if (DetailStackCards == null) return;
+        foreach (var child in DetailStackCards.Children.OfType<FrameworkElement>())
+        {
+            var mini = child as Border ?? (child as Panel)?.Children.OfType<Border>().FirstOrDefault();
+            if (mini?.Tag is not Card c || !_peekLegalTargets.Contains(c)) continue;
+            bool on = ReferenceEquals(c, _peekSnapCard);
+            mini.BorderBrush = new SolidColorBrush(on
+                ? Color.FromRgb(40, 255, 120)
+                : Color.FromRgb(80, 220, 255));
+            mini.BorderThickness = new Thickness(on ? 5 : 4);
+            mini.Effect = new System.Windows.Media.Effects.DropShadowEffect
+            {
+                Color = on ? Color.FromRgb(40, 255, 120) : Color.FromRgb(80, 220, 255),
+                BlurRadius = on ? 18 : 14,
+                ShadowDepth = 0,
+                Opacity = 0.95
+            };
+        }
     }
 
     private void CancelStackPeek(bool keepOverlay)
@@ -9028,6 +9399,8 @@ public partial class TableWindow : Window
         _peekHoverTimer?.Stop();
         _peekHoverTimer = null;
         _peekHoverHost = null;
+        if (!keepOverlay)
+            _peekSnapCard = null;
         if (!keepOverlay)
         {
             _peekLegalTargets.Clear();
@@ -9911,8 +10284,23 @@ public partial class TableWindow : Window
                 {
                     // Contents + crew stats: double-click host (detail popup)
                     AddBtn("Beam crew…", (_, _) => BeginBeamMode(cardBorder));
-                    AddBtn("Fly (highlight destinations)", (_, _) => BeginFlyHighlight(cardBorder, card));
-                    AddBtn("Attack ship…", (_, _) => BeginAttackMode(cardBorder, card));
+                    if (IsShipDocked(cardBorder))
+                    {
+                        AddBtn("Undock", (_, _) => TryUndockShip(cardBorder, card));
+                        if (EscapePodHere(cardBorder, GetBorderOwner(cardBorder) is int o and (1 or 2) ? o : _activePlayer) != null)
+                            AddBtn("Board Escape Pod crew", (_, _) => RecoverEscapePodCrew(cardBorder));
+                    }
+                    else
+                    {
+                        foreach (var fac in FacilitiesHereForDock(cardBorder))
+                        {
+                            var facB = fac;
+                            string fname = (facB.Tag as Card)?.Name ?? "facility";
+                            AddBtn($"Dock at {fname}", (_, _) => TryDockShip(cardBorder, card, facB));
+                        }
+                        AddBtn("Fly (highlight destinations)", (_, _) => BeginFlyHighlight(cardBorder, card));
+                        AddBtn("Attack ship…", (_, _) => BeginAttackMode(cardBorder, card));
+                    }
                     if (CanOfferPersonnelBattleFromShip(cardBorder))
                         AddBtn("Attack crew…", (_, _) => BeginPersonnelAttackFromHost(cardBorder));
                     if (GetHullDamage(cardBorder) > 0 && GetHullDamage(cardBorder) < 100)
@@ -10316,6 +10704,108 @@ public partial class TableWindow : Window
     /// Kevin (and similar) can be dropped on an Event in play: TABLE column or host strip.
     /// Other interrupts just open the action stack from either player's hand.
     /// </summary>
+    private int CountWormholesInHand(int owner)
+    {
+        var hand = owner == 2 ? _oppHandCards : _handCards;
+        return hand.Count(InterruptRules.IsWormhole);
+    }
+
+    private bool IsWormholeLocation(Border b) =>
+        b.Tag is Card c && (IsMissionCard(c) || CardKinds.IsTimeLocation(c));
+
+    private Border? FindWormholeLocationAt(Point windowPos)
+    {
+        var hit = InputHitTest(windowPos) as DependencyObject;
+        while (hit != null)
+        {
+            if (hit is Border b && IsWormholeLocation(b))
+                return b;
+            hit = VisualTreeHelper.GetParent(hit);
+        }
+        foreach (var b in TableCanvas.Children.OfType<Border>())
+        {
+            if (!IsWormholeLocation(b) || b.Visibility != Visibility.Visible) continue;
+            try
+            {
+                var tl = b.TransformToAncestor(this).Transform(new Point(0, 0));
+                var rect = new Rect(tl, b.RenderSize);
+                rect.Inflate(18, 18);
+                if (rect.Contains(windowPos)) return b;
+            }
+            catch { }
+        }
+        return null;
+    }
+
+    private void RelocateShipToLocation(Border ship, Border dest)
+    {
+        var from = FindMissionForDockable(ship);
+        int owner = GetBorderOwner(ship);
+        if (owner == 0) owner = _activePlayer;
+        Canvas.SetLeft(ship, Canvas.GetLeft(dest));
+        Canvas.SetTop(ship, Canvas.GetTop(dest) + DockSlotOffsetY(0, owner));
+        if (from != null && !ReferenceEquals(from, dest))
+            RelayoutDockablesUnderMission(from);
+        RelayoutDockablesUnderMission(dest);
+        MarkStopped(ship);
+        UpdateHostBadge(ship);
+    }
+
+    private bool TryPlayWormholeFromHand(Card card, Point windowPos, int owner)
+    {
+        if (_wormholeShip != null)
+        {
+            var dest = _currentSnapHost != null && IsWormholeLocation(_currentSnapHost)
+                ? _currentSnapHost
+                : FindWormholeLocationAt(windowPos);
+            if (dest == null)
+            {
+                ShowPlayError("Wormhole: drop the second card on a location (mission or time location).");
+                return false;
+            }
+            if (_wormholeShip.Tag is not Card shipCard || dest.Tag is not Card destCard)
+                return false;
+            RelocateShipToLocation(_wormholeShip, dest);
+            StatusText.Text = $"Wormhole: {shipCard.Name} → {destCard.Name} (stopped).";
+            _session.Log.Add(_session.TurnNumber, $"P{owner}",
+                $"Wormhole {shipCard.Name} → {destCard.Name}");
+            _wormholeShip = null;
+            BeginPlayCardStack(card, isResponse: false, controllerOverride: owner, target: destCard);
+            return true;
+        }
+
+        if (CountWormholesInHand(owner) < 1)
+        {
+            ShowPlayError("Wormhole requires two Wormholes. Play one on your exposed ship, the other on a location.");
+            return false;
+        }
+
+        var ship = _currentSnapHost != null
+                   && HostMatchesInterruptTargetForCard(_currentSnapHost, owner, card)
+            ? _currentSnapHost
+            : FindTeamOrShipHostAt(windowPos, owner, InterruptRules.PlayTarget.OwnShip, card);
+        if (ship == null || ship.Tag is not Card sc || !IsShipCard(sc))
+        {
+            ShowPlayError("Wormhole: play this copy on your exposed ship (not cloaked).");
+            return false;
+        }
+        if (!IsShipExposed(ship))
+        {
+            ShowPlayError("Wormhole: that ship is not exposed (cloaked ships are not exposed).");
+            return false;
+        }
+        if (GetBorderOwner(ship) != owner && GetBorderOwner(ship) != 0)
+        {
+            ShowPlayError("Wormhole: first copy plays on your exposed ship.");
+            return false;
+        }
+
+        _wormholeShip = ship;
+        BeginPlayCardStack(card, isResponse: false, controllerOverride: owner, target: sc);
+        StatusText.Text = $"Wormhole on {sc.Name}. Play the second Wormhole on a location.";
+        return true;
+    }
+
     private bool TryPlayInterruptFromHand(Card card, Border? floating, Point windowPos, int owner)
     {
         if (floating != null)
@@ -10327,6 +10817,22 @@ public partial class TableWindow : Window
         }
         RemoveOrphanTableCopies(card);
         ClearEventTargetHighlights();
+
+        if (InterruptRules.IsWormhole(card))
+            return TryPlayWormholeFromHand(card, windowPos, owner);
+
+        if (InterruptRules.IsEscapePod(card))
+        {
+            if (_stack.IsOpen && _stack.Top != null
+                && TimingRules.CanRespond(card, _stack.Top, owner).ok)
+            {
+                BeginPlayCardStack(card, isResponse: true, controllerOverride: owner,
+                    target: _stack.Top.Card);
+                return true;
+            }
+            ShowPlayError("Escape Pod plays just after your ship is destroyed.");
+            return false;
+        }
 
         if (InterruptRules.IsHugh(card))
         {
@@ -10415,7 +10921,10 @@ public partial class TableWindow : Window
         if (need is InterruptRules.PlayTarget.OwnCrew or InterruptRules.PlayTarget.AnyCrew
             or InterruptRules.PlayTarget.OwnShip or InterruptRules.PlayTarget.AnyShip)
         {
-            var host = FindTeamOrShipHostAt(windowPos, owner, need, card);
+            var host = _currentSnapHost != null
+                       && HostMatchesInterruptTargetForCard(_currentSnapHost, owner, card)
+                ? _currentSnapHost
+                : FindTeamOrShipHostAt(windowPos, owner, need, card);
             if (host == null)
             {
                 ShowPlayError($"{card.Name}: no legal target under the cursor. "
@@ -10506,6 +11015,13 @@ public partial class TableWindow : Window
 
     private bool HostMatchesInterruptTargetForCard(Border host, int owner, Card interrupt)
     {
+        if (InterruptRules.IsWormhole(interrupt))
+        {
+            if (_wormholeShip != null)
+                return IsWormholeLocation(host);
+            return host.Tag is Card wh && IsShipCard(wh)
+                   && GetBorderOwner(host) == owner && IsShipExposed(host);
+        }
         var spec = PlayOnRules.Parse(interrupt);
         if (spec.Host != PlayOnRules.Host.None)
             return HostMatchesPlayOn(host, owner, spec);
@@ -10561,7 +11077,7 @@ public partial class TableWindow : Window
             if (spec.Own && !ownHost) return false;
             if (spec.Opponent && ownHost) return false;
         }
-        if (spec.Exposed && isShip && IsShipCloaked(host)) return false;
+        if (spec.Exposed && isShip && !IsShipExposed(host)) return false;
         if (spec.Cloaked && isShip && !IsShipCloaked(host)) return false;
         if (spec.Occupied && !ShipIsOccupied(host)) return false;
         if (spec.Empty && ShipIsOccupied(host)) return false;
@@ -10641,6 +11157,14 @@ public partial class TableWindow : Window
 
     private Card? FindEventTargetAt(Point windowPos)
     {
+        var fromPeek = PeekTargetUnderDetail(windowPos);
+        if (fromPeek != null) return fromPeek;
+
+        if (_tableColumnSnapCard != null && IsNullifyBoardTarget(_tableColumnSnapCard))
+            return _tableColumnSnapCard;
+        Card? fromTableCol = EventOnTableColumnAt(windowPos);
+        if (fromTableCol != null) return fromTableCol;
+
         var hit = InputHitTest(windowPos) as DependencyObject;
         while (hit != null)
         {
@@ -10667,17 +11191,20 @@ public partial class TableWindow : Window
             }
             catch { continue; }
 
+            if (IsNullifyBoardTarget(hc))
+                return hc;
+
             var events = new List<Card>();
-            if (_stackOnHost.TryGetValue(b, out var list))
+            var stackedOn = StackOnHost(b);
+            if (stackedOn != null)
             {
-                foreach (var mb in list)
+                foreach (var mb in stackedOn)
                     if (mb.Tag is Card ec && IsNullifyBoardTarget(ec))
                         events.Add(ec);
             }
-            foreach (var ae in _attachedEvents)
+            foreach (var ae in EventsOn(b))
             {
-                if ((ReferenceEquals(ae.Host, b) || ReferenceEquals(ae.Host2, b))
-                    && IsNullifyBoardTarget(ae.Card) && !events.Contains(ae.Card))
+                if (IsNullifyBoardTarget(ae.Card) && !events.Contains(ae.Card))
                     events.Add(ae.Card);
             }
             if (events.Count == 1) return events[0];
@@ -10704,6 +11231,73 @@ public partial class TableWindow : Window
             catch { /* transform not ready */ }
         }
         return null;
+    }
+
+    private Card? PeekTargetUnderDetail(Point windowPos)
+    {
+        if (_peekLegalTargets.Count == 0) return null;
+        if (CardDetailOverlay == null || CardDetailOverlay.Visibility != Visibility.Visible)
+            return null;
+        try
+        {
+            var tl = CardDetailOverlay.TransformToAncestor(this).Transform(new Point(0, 0));
+            var rect = new Rect(tl, CardDetailOverlay.RenderSize);
+            if (!rect.Contains(windowPos)) return null;
+        }
+        catch { return null; }
+
+        var hit = InputHitTest(windowPos) as DependencyObject;
+        while (hit != null)
+        {
+            if (hit is FrameworkElement fe && fe.Tag is Card c && _peekLegalTargets.Contains(c))
+                return c;
+            hit = VisualTreeHelper.GetParent(hit);
+        }
+        if (_peekSnapCard != null && _peekLegalTargets.Contains(_peekSnapCard))
+            return _peekSnapCard;
+        return _peekLegalTargets.Count == 1 ? _peekLegalTargets.First() : null;
+    }
+
+    private Card? EventOnTableColumnAt(Point windowPos)
+    {
+        foreach (var panel in new[] { TablePermanentsPanel, OppTablePermanentsPanel })
+        {
+            if (panel == null) continue;
+            try
+            {
+                var tl = panel.TransformToAncestor(this).Transform(new Point(0, 0));
+                var rect = new Rect(tl, panel.RenderSize);
+                if (!rect.Contains(windowPos)) continue;
+            }
+            catch { continue; }
+            var hit = InputHitTest(windowPos) as DependencyObject;
+            while (hit != null)
+            {
+                if (hit is FrameworkElement fe && fe.Tag is Card c && IsNullifyBoardTarget(c))
+                    return c;
+                hit = VisualTreeHelper.GetParent(hit);
+            }
+            var singles = CollectKevinTargetEvents()
+                .Where(c => _tablePermanentCards.Contains(c) || _oppTablePermanentCards.Contains(c))
+                .ToList();
+            if (singles.Count == 1) return singles[0];
+        }
+        return null;
+    }
+
+    private void HighlightKevinTableMinis(Func<Card, bool> legal)
+    {
+        void Mark(Border el, Card ev)
+        {
+            if (!legal(ev)) return;
+            el.Effect = null;
+            el.BorderBrush = new SolidColorBrush(Color.FromRgb(255, 210, 80));
+            el.BorderThickness = new Thickness(3);
+        }
+        foreach (var mini in (TablePermanentsPanel?.Children.OfType<Border>() ?? Enumerable.Empty<Border>()).ToList())
+            if (mini.Tag is Card ev) Mark(mini, ev);
+        foreach (var mini in (OppTablePermanentsPanel?.Children.OfType<Border>() ?? Enumerable.Empty<Border>()).ToList())
+            if (mini.Tag is Card ev) Mark(mini, ev);
     }
 
     private List<Card> CollectKevinTargetEvents()
@@ -11196,21 +11790,10 @@ public partial class TableWindow : Window
                     break;
                 }
             case InterruptRules.Effect.Wormhole:
-                {
-                    var ships = TableCanvas.Children.OfType<Border>()
-                        .Where(b => b.Tag is Card sc && IsShipCard(sc) && GetBorderOwner(b) == controller)
-                        .ToList();
-                    Border? shipB = PickBorderFromList(card, ships, "Wormhole: which ship?");
-                    var dests = _spacelineOrder.ToList();
-                    Border? dest = PickBorderFromList(card, dests, "Wormhole: destination mission?");
-                    if (shipB != null && dest != null)
-                    {
-                        // Relocate ship under mission visually via existing dock logic if any
-                        MarkStopped(shipB);
-                        StatusText.Text = $"Wormhole: {(shipB.Tag as Card)?.Name} → {(dest.Tag as Card)?.Name} (stopped).";
-                    }
-                    break;
-                }
+                // Pair is resolved on drop (exposed ship, then location). Stack only announces.
+                break;
+            case InterruptRules.Effect.EscapePod:
+                break;
             case InterruptRules.Effect.Sanctuary:
                 ApplyAsteroidSanctuary(card, controller);
                 break;
@@ -11355,7 +11938,7 @@ public partial class TableWindow : Window
     private IEnumerable<AttachedEvent> EventsOn(Border? host) =>
         host == null
             ? Enumerable.Empty<AttachedEvent>()
-            : _attachedEvents.Where(e => ReferenceEquals(e.Host, host) || ReferenceEquals(e.Host2, host));
+            : _attachedEvents.Where(e => SameHostShip(e.Host, host) || SameHostShip(e.Host2, host));
 
     private bool TryResolveEventPlay(Card ev, int controller)
     {
@@ -11374,8 +11957,14 @@ public partial class TableWindow : Window
         if (EventRules.IsRedAlert(ev) && HasYellowAlert())
         {
             ShowPlayError("Yellow Alert prevents Red Alert!");
+            RemoveCardFromTableColumn(ev);
+            foreach (var ae in _attachedEvents.Where(e => ReferenceEquals(e.Card, ev)).ToList())
+                _attachedEvents.Remove(ae);
             var hand = controller == 1 ? _handCards : _oppHandCards;
             if (!hand.Contains(ev)) hand.Add(ev);
+            RebuildTablePermanentsPanel();
+            RefreshZoneCounts();
+            RefreshHandStrips();
             return true;
         }
         if (EventRules.IsWartimeConditions(ev) && string.IsNullOrEmpty(_wartimeVsAffiliation))
@@ -11874,10 +12463,138 @@ public partial class TableWindow : Window
         return best;
     }
 
+    /// <summary>
+    /// One list for halo + snap-in-field + drop. New cards join via PlayOnRules / named override.
+    /// </summary>
+    private List<Border> CollectLegalSnapHosts(Card card, int owner)
+    {
+        var list = new List<Border>();
+        void Add(Border? b)
+        {
+            if (b == null || list.Contains(b)) return;
+            if (b.Visibility != Visibility.Visible) return;
+            list.Add(b);
+        }
+
+        if (InterruptRules.IsWormhole(card))
+        {
+            if (_wormholeShip != null)
+            {
+                foreach (var b in TableCanvas.Children.OfType<Border>())
+                    if (IsWormholeLocation(b)) Add(b);
+                return list;
+            }
+            foreach (var b in TableCanvas.Children.OfType<Border>())
+            {
+                if (b.Tag is not Card hc || !IsShipCard(hc)) continue;
+                if (GetBorderOwner(b) != owner) continue;
+                if (IsShipExposed(b)) Add(b);
+            }
+            return list;
+        }
+
+        if (InterruptRules.IsHugh(card))
+        {
+            foreach (var b in TableCanvas.Children.OfType<Border>())
+            {
+                if (b.Tag is not Card hc) continue;
+                if ((IsShipCard(hc) && CountRogueBorgOn(b) > 0) || TimingRules.IsHughBattleSource(hc))
+                    Add(b);
+            }
+            Add(_borgShipToken);
+            return list;
+        }
+
+        if (InterruptRules.IsKevinNullify(card) || InterruptRules.IsDevil(card))
+        {
+            bool devil = InterruptRules.IsDevil(card);
+            bool Legal(Card ev) => devil
+                ? TimingRules.CanDevilTarget(ev).ok
+                : TimingRules.CanKevinTargetEvent(ev).ok;
+            foreach (var b in TableCanvas.Children.OfType<Border>())
+            {
+                if (b.Tag is not Card hc) continue;
+                if (Legal(hc)) { Add(b); continue; }
+                var stacked = StackOnHost(b);
+                bool has = stacked != null && stacked.Any(x => x.Tag is Card c && Legal(c));
+                if (!has)
+                    has = _attachedEvents.Any(e =>
+                        (SameHostShip(e.Host, b) || SameHostShip(e.Host2, b)) && Legal(e.Card));
+                if (has) Add(b);
+            }
+            return list;
+        }
+
+        if (EventRules.IsEvent(card) && !_seedPhaseActive)
+        {
+            var tk = EventRules.GetTargetKind(EventRules.ResolvePlay(card));
+            if (EventRules.NeedsTableHost(tk) && tk != EventRules.TargetKind.GapBetweenMissions)
+            {
+                foreach (var h in CollectEventTargets(card, owner, tk, EventRules.ResolvePlay(card).Place))
+                    Add(h);
+                return list;
+            }
+        }
+
+        if (InterruptRules.IsInterrupt(card) && InterruptRules.NeedsDropTarget(card))
+        {
+            foreach (var b in TableCanvas.Children.OfType<Border>())
+            {
+                if (b.Tag is not Card) continue;
+                if (HostMatchesInterruptTargetForCard(b, owner, card))
+                    Add(b);
+            }
+            return list;
+        }
+
+        return list;
+    }
+
+    private Border? NearestLegalSnapHost(Card card, int owner, double cx, double cy, out double distance)
+    {
+        Border? best = null;
+        distance = double.MaxValue;
+        foreach (var b in CollectLegalSnapHosts(card, owner))
+        {
+            double bw = b.Width > 0 ? b.Width : TableCardWidth;
+            double bh = b.Height > 0 ? b.Height : TableCardHeight;
+            double bx = Canvas.GetLeft(b) + bw / 2.0;
+            double by = Canvas.GetTop(b) + bh / 2.0;
+            double d = Math.Sqrt((cx - bx) * (cx - bx) + (cy - by) * (cy - by));
+            if (d < distance) { distance = d; best = b; }
+        }
+        return best;
+    }
+
     /// <summary>Highlight only legal drop targets for the card currently being played.</summary>
     private void ShowLegalPlayHighlights(Card card, bool fromHand)
     {
         ClearEventTargetHighlights();
+        int snapOwner = _zoneDragRef?.Opponent == true ? 2 : _activePlayer;
+        if (!_seedPhaseActive)
+        {
+            var snapHosts = CollectLegalSnapHosts(card, snapOwner);
+            if (snapHosts.Count > 0)
+            {
+                var color = Color.FromRgb(80, 200, 220);
+                foreach (var h in snapHosts)
+                    AddTargetHalo(h, color);
+                if (EventRules.IsEvent(card)
+                    && EventRules.GetTargetKind(EventRules.ResolvePlay(card))
+                       == EventRules.TargetKind.GapBetweenMissions)
+                { /* gap midpoints still drawn below */ }
+                else if (InterruptRules.IsKevinNullify(card) || InterruptRules.IsDevil(card))
+                {
+                    HighlightKevinTableMinis(c =>
+                        InterruptRules.IsDevil(card)
+                            ? TimingRules.CanDevilTarget(c).ok
+                            : TimingRules.CanKevinTargetEvent(c).ok);
+                    return;
+                }
+                else if (InterruptRules.IsInterrupt(card) || TargetingRules.UsesBoardSnap(card))
+                    return;
+            }
+        }
         if (_seedPhaseActive || (_devPlaySeedFromHand && fromHand && IsSeedableUnderMission(card)))
         {
             if (IsSeedableUnderMission(card))
@@ -11906,6 +12623,30 @@ public partial class TableWindow : Window
             return;
         }
 
+        if (InterruptRules.IsWormhole(card))
+        {
+            if (_wormholeShip != null)
+            {
+                foreach (var b in TableCanvas.Children.OfType<Border>().ToList())
+                {
+                    if (IsWormholeLocation(b))
+                        AddTargetHalo(b, Color.FromRgb(180, 120, 220));
+                }
+            }
+            else
+            {
+                int owner = _zoneDragRef?.Opponent == true ? 2 : _activePlayer;
+                foreach (var b in TableCanvas.Children.OfType<Border>().ToList())
+                {
+                    if (b.Tag is not Card hc || !IsShipCard(hc)) continue;
+                    if (GetBorderOwner(b) != owner) continue;
+                    if (!IsShipExposed(b)) continue;
+                    AddTargetHalo(b, Color.FromRgb(80, 200, 220));
+                }
+            }
+            return;
+        }
+
         if (InterruptRules.IsHugh(card))
         {
             foreach (var b in TableCanvas.Children.OfType<Border>().ToList())
@@ -11929,7 +12670,12 @@ public partial class TableWindow : Window
             // Snapshot — AddTargetHalo mutates TableCanvas.Children
             foreach (var b in TableCanvas.Children.OfType<Border>().ToList())
             {
-                if (b.Tag is not Card) continue;
+                if (b.Tag is not Card hc) continue;
+                if (Legal(hc))
+                {
+                    AddTargetHalo(b, Color.FromRgb(220, 180, 60));
+                    continue;
+                }
                 bool has = false;
                 if (_stackOnHost.TryGetValue(b, out var list))
                     has = list.Any(x => x.Tag is Card c && EventRules.IsEvent(c) && Legal(c));
@@ -12529,6 +13275,8 @@ public partial class TableWindow : Window
             SetHorgahnFlag(1, false);
             SetHorgahnFlag(2, false);
         }
+        if (EventRules.IsRedAlert(card))
+            OfferYellowAlertDownload("Red Alert! left play.");
     }
 
     private void SetHorgahnFlag(int player, bool on)
@@ -12601,6 +13349,69 @@ public partial class TableWindow : Window
         ShowCardReveal(ev, "Yellow Alert",
             "Red Alert! is cancelled and cannot be played while Yellow Alert remains. Your personnel CUNNING +1.",
             RevealButtons.Ok, ev.Name);
+        RebuildTablePermanentsPanel();
+        RefreshTableBuffs();
+    }
+
+    /// <summary>Red Alert printed: when nullified, any player may immediately download Yellow Alert.</summary>
+    private void OfferYellowAlertDownload(string why)
+    {
+        // "Any player" = each player may, not an exclusive P1-or-P2 pick.
+        foreach (int who in new[] { 1, 2 })
+        {
+            string ans = AskChoice(null, $"P{who}: Download Yellow Alert?",
+                why + " Any player may immediately download Yellow Alert.",
+                "Download Yellow Alert", "Pass");
+            if (!ans.StartsWith("Download", StringComparison.OrdinalIgnoreCase))
+                continue;
+            TryDownloadNamedCard(who, "Yellow Alert", toTable: true);
+        }
+    }
+
+    private bool TryDownloadNamedCard(int owner, string name, bool toTable)
+    {
+        var draw = owner == 2 ? _oppDrawCards : _drawCards;
+        var tent = owner == 2 ? _oppQsTentCards : _qsTentCards;
+        var req = new DownloadRules.Request
+        {
+            Player = owner,
+            Source = DownloadRules.Source.DrawDeck,
+            Dest = toTable ? DownloadRules.Dest.TableCore : DownloadRules.Dest.Hand,
+            NameEquals = name
+        };
+        var pool = DownloadRules.FilterSource(draw, req);
+        if (pool.Count == 0 && IsSideDeckUnlocked("Q's Tent", owner == 2))
+            pool = DownloadRules.FilterSource(tent, req);
+        if (pool.Count == 0)
+        {
+            ShowPlayError($"Download {name}: none in draw deck"
+                + (IsSideDeckUnlocked("Q's Tent", owner == 2) ? " or Q's Tent." : "."));
+            return false;
+        }
+        Card? taken = pool.Count == 1 ? pool[0]
+            : PickCardFromList($"Download {name}", pool, name);
+        if (taken == null) return false;
+        draw.Remove(taken);
+        tent.Remove(taken);
+        taken.FaceUp = true;
+        if (toTable && EventRules.IsEvent(taken))
+        {
+            TryResolveEventPlay(taken, owner);
+        }
+        else
+        {
+            var hand = owner == 2 ? _oppHandCards : _handCards;
+            if (!hand.Contains(taken)) hand.Add(taken);
+        }
+        ShowCardReveal(taken, "Download",
+            $"P{owner} downloads {taken.Name}" + (toTable ? " to table." : " to hand."),
+            RevealButtons.Ok, taken.Name);
+        RefreshHandStrips();
+        RefreshZoneCounts();
+        RebuildTablePermanentsPanel();
+        _session.Log.Add(_session.TurnNumber, $"P{owner}", $"Download {taken.Name}");
+        StatusText.Text = $"Download: {taken.Name}.";
+        return true;
     }
 
     private bool KlimBlocksDraw(int finishingPlayer)
@@ -14750,6 +15561,71 @@ public partial class TableWindow : Window
 
     private bool IsShipCloaked(Border ship) => _cloakedShips.Contains(ship);
 
+    /// <summary>Glossary: exposed = in play and not cloaked (landed/phased later).</summary>
+    private bool IsShipExposed(Border ship) => !IsShipCloaked(ship);
+
+    private bool IsShipDocked(Border ship) => _dockedAt.ContainsKey(ship);
+
+    private IEnumerable<Border> FacilitiesHereForDock(Border ship)
+    {
+        var here = FindMissionForDockable(ship);
+        if (here == null) yield break;
+        int owner = GetBorderOwner(ship);
+        if (owner == 0) owner = _activePlayer;
+        foreach (var b in GetDockablesUnderMission(here))
+        {
+            if (ReferenceEquals(b, ship)) continue;
+            if (b.Tag is not Card fc) continue;
+            if (!IsFacilityCard(fc) && !IsRepairFacility(fc)) continue;
+            int fo = GetBorderOwner(b);
+            if (fo != 0 && fo != owner) continue;
+            yield return b;
+        }
+    }
+
+    private bool FacilityHasSpacedock(Border facility) =>
+        _attachedEvents.Any(e => e.Kind == EventRules.Persist.Spacedock && ReferenceEquals(e.Host, facility));
+
+    private void TryDockShip(Border ship, Card shipCard, Border facility)
+    {
+        var here = FindMissionForDockable(ship);
+        var facHere = FindMissionForDockable(facility) ?? facility;
+        bool same = here != null && ReferenceEquals(here, facHere);
+        var chk = DockingRules.CanDock(shipCard, facility.Tag as Card ?? shipCard,
+            same, IsShipDocked(ship), IsShipCloaked(ship));
+        if (!chk.ok)
+        {
+            ShowPlayError(chk.reason);
+            return;
+        }
+        _dockedAt[ship] = facility;
+        if (FacilityHasSpacedock(facility))
+        {
+            RepairShipFully(ship, shipCard);
+            StatusText.Text = $"{shipCard.Name} docks at {(facility.Tag as Card)?.Name} — Spacedock fully repairs.";
+        }
+        else
+            StatusText.Text = $"{shipCard.Name} docks at {(facility.Tag as Card)?.Name}.";
+        _session.Log.Add(_session.TurnNumber, $"P{GetBorderOwner(ship)}",
+            $"{shipCard.Name} docked");
+        UpdateHostBadge(ship);
+        RefreshCardActionPanel(ship);
+    }
+
+    private void TryUndockShip(Border ship, Card shipCard)
+    {
+        if (!_dockedAt.Remove(ship))
+        {
+            ShowPlayError("That ship is not docked.");
+            return;
+        }
+        StatusText.Text = $"{shipCard.Name} undocks.";
+        _session.Log.Add(_session.TurnNumber, $"P{GetBorderOwner(ship)}",
+            $"{shipCard.Name} undocked");
+        UpdateHostBadge(ship);
+        RefreshCardActionPanel(ship);
+    }
+
     private void ToggleCloak(Border shipBorder, Card ship)
     {
         if (_cloakLocked.Contains(shipBorder))
@@ -15748,7 +16624,7 @@ public partial class TableWindow : Window
             }
 
             if (e.Kind == EventRules.Persist.Traveler && e.TravelerPlayer == owner)
-                DrawOneToHand(endOfTurn: true);
+                _pendingExtraDraws++;
 
             if (e.Kind == EventRules.Persist.Kidnappers && e.Owner == owner)
                 RunKidnappers(owner, e.Card);
@@ -15916,8 +16792,148 @@ public partial class TableWindow : Window
     /// <summary>
     /// Schiff/Facility zerstört: Crew+Equipment → Discard des Besitzers, Karte vom Tisch.
     /// </summary>
+    private bool HasEscapePodInHand(int owner)
+    {
+        var hand = owner == 2 ? _oppHandCards : _handCards;
+        return hand.Any(InterruptRules.IsEscapePod);
+    }
+
+    private EscapePodState? EscapePodHere(Border ship, int owner)
+    {
+        var here = FindMissionForDockable(ship);
+        if (here == null) return null;
+        return _escapePods.FirstOrDefault(p =>
+            p.Owner == owner && p.Mission != null && ReferenceEquals(p.Mission, here) && p.Crew.Count > 0);
+    }
+
+    private void ApplyEscapePodFromResponse(int owner, TimingRules.PendingAction destroyed)
+    {
+        var shipB = destroyed.AttackerHost as Border;
+        var mission = destroyed.DefenderHost as Border ?? (shipB != null ? FindMissionForDockable(shipB) : null);
+        var crew = new List<Card>();
+        if (shipB != null && _stackOnHost.TryGetValue(shipB, out var stacked))
+        {
+            foreach (var sb in stacked.ToList())
+            {
+                if (sb.Tag is not Card sc) continue;
+                if (!IsCrewType(sc) && !IsEquipmentType(sc) && !ModifierRules.IsPersonnelCard(sc))
+                    continue;
+                crew.Add(sc);
+                stacked.Remove(sb);
+                if (TableCanvas.Children.Contains(sb))
+                    TableCanvas.Children.Remove(sb);
+                if (mission != null)
+                    AttachCardToHost(sc, mission, owner);
+            }
+        }
+        var hand = owner == 2 ? _oppHandCards : _handCards;
+        var pod = hand.FirstOrDefault(InterruptRules.IsEscapePod);
+        if (pod != null)
+        {
+            hand.Remove(pod);
+            if (mission != null)
+            {
+                AttachCardToHost(pod, mission, owner);
+                _attachedEvents.Add(new AttachedEvent
+                {
+                    Card = pod,
+                    Kind = EventRules.Persist.None,
+                    Owner = owner,
+                    Host = mission
+                });
+            }
+        }
+        _escapePods.Add(new EscapePodState
+        {
+            Pod = pod ?? destroyed.Card!,
+            Mission = mission,
+            Owner = owner,
+            Crew = crew
+        });
+        StatusText.Text = crew.Count > 0
+            ? $"Escape Pod: {crew.Count} card(s) saved at {(mission?.Tag as Card)?.Name}."
+            : "Escape Pod: no crew to save.";
+        _session.Log.Add(_session.TurnNumber, $"P{owner}",
+            $"Escape Pod saved {crew.Count} from {destroyed.Card?.Name}");
+        RefreshHandStrips();
+        RefreshZoneCounts();
+    }
+
+    private void RecoverEscapePodCrew(Border ship)
+    {
+        int owner = GetBorderOwner(ship);
+        if (owner == 0) owner = _activePlayer;
+        var pod = EscapePodHere(ship, owner);
+        if (pod == null)
+        {
+            ShowPlayError("No Escape Pod crew here.");
+            return;
+        }
+        if (pod.Mission != null && _stackOnHost.TryGetValue(pod.Mission, out var at))
+        {
+            foreach (var c in pod.Crew.ToList())
+            {
+                var mini = at.FirstOrDefault(b => b.Tag is Card x && ReferenceEquals(x, c));
+                if (mini != null)
+                {
+                    at.Remove(mini);
+                    if (TableCanvas.Children.Contains(mini))
+                        TableCanvas.Children.Remove(mini);
+                }
+                AttachCardToHost(c, ship, owner);
+            }
+        }
+        else
+        {
+            foreach (var c in pod.Crew)
+                AttachCardToHost(c, ship, owner);
+        }
+        if (pod.Pod != null)
+        {
+            if (pod.Mission != null)
+            {
+                foreach (var ae in _attachedEvents.Where(e => ReferenceEquals(e.Card, pod.Pod)).ToList())
+                    _attachedEvents.Remove(ae);
+                if (_stackOnHost.TryGetValue(pod.Mission, out var stack))
+                {
+                    foreach (var b in stack.Where(x => x.Tag is Card c && ReferenceEquals(c, pod.Pod)).ToList())
+                    {
+                        stack.Remove(b);
+                        if (TableCanvas.Children.Contains(b))
+                            TableCanvas.Children.Remove(b);
+                    }
+                }
+            }
+            SendCardTo(pod.Pod, owner, TimingRules.Destination.Discard);
+        }
+        _escapePods.Remove(pod);
+        UpdateHostBadge(ship);
+        if (pod.Mission != null) UpdateHostBadge(pod.Mission);
+        StatusText.Text = $"Escape Pod crew boarded {(ship.Tag as Card)?.Name}.";
+        RefreshZoneCounts();
+    }
+
     private void DestroyShipOrFacility(Border border, Card card, int owner)
     {
+        var mission = FindMissionForDockable(border);
+        if (!_resolvingDestroy && IsShipCard(card)
+            && HasEscapePodInHand(owner) && !_stack.IsOpen)
+        {
+            _stack.Push(new TimingRules.PendingAction
+            {
+                Kind = TimingRules.ActionKind.ShipDestroyed,
+                Controller = owner,
+                Card = card,
+                AttackerHost = border,
+                DefenderHost = mission,
+                Summary = $"P{owner} ship destroyed: {card.Name}"
+            });
+            OpenResponseWindow(owner);
+            ScheduleActionAnnounce(400);
+            StatusText.Text = $"{card.Name} destroyed — Escape Pod response window.";
+            return;
+        }
+
         bool opp = owner == 2;
         var discardList = opp ? _oppDiscardCards : _discardCards;
 
@@ -15967,8 +16983,6 @@ public partial class TableWindow : Window
                 TableCanvas.Children.Remove(hb2);
             _hostBadgesP2.Remove(border);
         }
-
-        var mission = FindMissionForDockable(border);
 
         if (TableCanvas.Children.Contains(border))
             TableCanvas.Children.Remove(border);
@@ -17172,10 +18186,19 @@ public partial class TableWindow : Window
             mini.Height = 100;
             mini.Margin = new Thickness(3);
             mini.Cursor = Cursors.Hand;
-            if (_peekLegalTargets.Contains(c))
+            if (_peekLegalTargets.Contains(c)
+                || _peekLegalTargets.Any(t =>
+                    string.Equals(t.Name, c.Name, StringComparison.OrdinalIgnoreCase)))
             {
-                mini.BorderBrush = new SolidColorBrush(Color.FromRgb(255, 210, 70));
-                mini.BorderThickness = new Thickness(3);
+                mini.BorderBrush = new SolidColorBrush(Color.FromRgb(80, 220, 255));
+                mini.BorderThickness = new Thickness(4);
+                mini.Effect = new System.Windows.Media.Effects.DropShadowEffect
+                {
+                    Color = Color.FromRgb(80, 220, 255),
+                    BlurRadius = 14,
+                    ShadowDepth = 0,
+                    Opacity = 0.95
+                };
                 mini.Tag = c;
             }
             if (!string.IsNullOrEmpty(badge))
