@@ -260,7 +260,7 @@ Session-Felder (Turn, Segment, Stack, Score, Treaties, WNOHGB, OncePerGame, EOT-
 
 Probe: Beam 3 Leute auf die Nebula, sofort Fly. `state:` muss `crewOn=3` zeigen. Dump und Engine-Staffing gleich.
 
-### E2 — Capture nur noch Session + Fallback
+### E2 — Capture nur noch Session + Fallback ✓ 2026-09-02
 
 `CaptureEngineState` schrumpft: keine 80-Zeilen-Schleife über `_borderOwner` für Schiffe, wenn der Store Occupants hat.
 
@@ -348,7 +348,7 @@ Dazu, sobald E1 lebt:
 ## Todos (lebendig)
 
 - [x] E1 ToGameState + Capture bevorzugt Store
-- [ ] E2 Capture ohne Border-Schleife für Occupants
+- [x] E2 Capture ohne Border-Schleife für Occupants (2026-09-02)
 - [ ] E3 RangeLeft + Stopped auf Instanz
 - [ ] E3b Cloak / Dock / Hull (nach E3)
 - [ ] E4 InPlay-Query, dann Nebula/Lore
@@ -399,6 +399,6 @@ Fix-Protokoll RULES.md unverändert (A Karte / B Phrase / C Grundlage).
 
 Antwort immer: Schritt, Klasse, Dateien neu/geändert, was bewusst nicht angefasst.
 
-Nächster Schritt nur: E2 (Capture-Fallback)
+Nächster Schritt nur: E3 (Status an Instanz — RangeLeft + Stopped)
 Kein Big-Bang. Premiere.
 ```

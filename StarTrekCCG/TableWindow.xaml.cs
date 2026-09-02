@@ -833,6 +833,9 @@ public partial class TableWindow : Window
     private GameState CaptureEngineState()
     {
         var board = new List<BoardPiece>();
+        var store = BoardStore.Current;
+        bool storeReady = store.Spaceline.Locations.Count > 0;
+        var fallbackHosts = new List<string>();
 
         foreach (var kv in _borderOwner)
         {
@@ -840,8 +843,33 @@ public partial class TableWindow : Window
             var kind = MapBoardKind(c);
             int owner = kv.Value;
             var aboard = new List<Card>();
-            if (kind is BoardPieceKind.Ship or BoardPieceKind.Facility or BoardPieceKind.Mission)
+            bool missionSolved = false;
+            bool attemptBlocked = false;
+            string? attemptBlock = null;
+            int rangeLeft = -1;
+            bool stopped = IsBorderStopped(kv.Key);
+            bool staffed = false;
+            string? staffReason = null;
+            string? hostName = null;
+            int spacelineIndex = -1;
+            IReadOnlyList<Card> crewSnap = aboard;
+
+            // E2: when BoardStore has this ship/facility Occupant, skip UI crew/staff/host walks.
+            // RangeLeft / Stopped stay UI until E3. MergeStorePreferred fills Aboard/Staffed/HostName.
+            bool storeHasHost = (kind is BoardPieceKind.Ship or BoardPieceKind.Facility)
+                                && c.InstanceId > 0
+                                && store.FindOccupant(c.InstanceId) != null;
+
+            if (storeHasHost)
             {
+                if (kind == BoardPieceKind.Ship)
+                    rangeLeft = GetRemainingRange(kv.Key, c);
+            }
+            else if (kind is BoardPieceKind.Ship or BoardPieceKind.Facility or BoardPieceKind.Mission)
+            {
+                if (kind is BoardPieceKind.Ship or BoardPieceKind.Facility)
+                    fallbackHosts.Add($"{c.Name}#{c.InstanceId}");
+
                 int who = owner == 0 ? 1 : owner;
                 aboard = GetAllCardsOnHost(kv.Key, who);
                 if (kind == BoardPieceKind.Mission)
@@ -862,13 +890,23 @@ public partial class TableWindow : Window
                             if (b.Tag is Card sc) aboard.Add(sc);
                     }
                 }
-            }
 
-            bool missionSolved = false;
-            bool attemptBlocked = false;
-            string? attemptBlock = null;
-            int rangeLeft = -1;
-            bool stopped = IsBorderStopped(kv.Key);
+                crewSnap = aboard;
+                if (kind == BoardPieceKind.Ship)
+                {
+                    rangeLeft = GetRemainingRange(kv.Key, c);
+                    var crew = GetCrewOnShip(kv.Key);
+                    crewSnap = crew.Count > 0 ? crew.ToList() : aboard;
+                    int staffOwner = owner == 0 ? _activePlayer : owner;
+                    var staff = MovementRules.IsShipStaffed(c, crew, GetActiveTreaties(staffOwner));
+                    staffed = staff.Ok || ShipStaffedByRogueBorg(kv.Key);
+                    staffReason = staffed
+                        ? (staff.Ok ? staff.Reason : "Rogue Borg + Lore Returns")
+                        : staff.Reason;
+                    var at = FindMissionForDockable(kv.Key);
+                    hostName = (at?.Tag as Card)?.Name;
+                }
+            }
 
             if (kind == BoardPieceKind.Mission)
             {
@@ -886,29 +924,6 @@ public partial class TableWindow : Window
                     attemptBlocked = true;
                     attemptBlock = "Supernova: this mission can no longer be attempted.";
                 }
-            }
-            bool staffed = false;
-            string? staffReason = null;
-            string? hostName = null;
-            int spacelineIndex = -1;
-
-            IReadOnlyList<Card> crewSnap = aboard;
-            if (kind == BoardPieceKind.Ship)
-            {
-                rangeLeft = GetRemainingRange(kv.Key, c);
-                var crew = GetCrewOnShip(kv.Key);
-                crewSnap = crew.Count > 0 ? crew.ToList() : aboard;
-                int staffOwner = owner == 0 ? _activePlayer : owner;
-                var staff = MovementRules.IsShipStaffed(c, crew, GetActiveTreaties(staffOwner));
-                staffed = staff.Ok || ShipStaffedByRogueBorg(kv.Key);
-                staffReason = staffed
-                    ? (staff.Ok ? staff.Reason : "Rogue Borg + Lore Returns")
-                    : staff.Reason;
-                var at = FindMissionForDockable(kv.Key);
-                hostName = (at?.Tag as Card)?.Name;
-            }
-            else if (kind == BoardPieceKind.Mission)
-            {
                 spacelineIndex = IndexOfMission(kv.Key);
             }
 
@@ -921,7 +936,7 @@ public partial class TableWindow : Window
                 InstanceId = c.InstanceId,
                 FaceUp = c.FaceUp,
                 HostName = hostName,
-                Occupied = (kind == BoardPieceKind.Ship && ShipIsOccupied(kv.Key))
+                Occupied = (kind == BoardPieceKind.Ship && !storeHasHost && ShipIsOccupied(kv.Key))
                            || ((kind == BoardPieceKind.Facility || kind == BoardPieceKind.Mission)
                                && aboard.Any(ModifierRules.IsPersonnelCard)),
                 HasSecurityAboard = QuietHasSkill(aboard, "SECURITY"),
@@ -1020,16 +1035,18 @@ public partial class TableWindow : Window
             UntilEndOfTurnKeys = _session.UntilEndOfTurn.ToList()
         };
 
-        var store = BoardStore.Current;
         var state = store.ToGameState(seed);
         string line = BoardStore.FormatStateLine(state);
         if (line != _lastEngineStateLine)
         {
             _lastEngineStateLine = line;
-            string src = store.Spaceline.Locations.Count > 0 ? "store" : "fallback";
+            string src = storeReady ? "store" : "fallback";
             DebugLog.Engine(_session.TurnNumber, _activePlayer, $"capture: source={src}");
+            if (fallbackHosts.Count > 0)
+                DebugLog.Engine(_session.TurnNumber, _activePlayer,
+                    $"state-fallback: hosts={string.Join(",", fallbackHosts)}");
             DebugLog.Engine(_session.TurnNumber, _activePlayer, line);
-            if (store.Spaceline.Locations.Count > 0)
+            if (storeReady)
                 DebugLog.Engine(_session.TurnNumber, _activePlayer, store.FormatDumpCrewLine());
         }
         return state;

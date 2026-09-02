@@ -4,6 +4,12 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-02 (Foundation E2 — Capture store-first)
+
+**Engine** — `CaptureEngineState`: HostName/Staffed/Aboard from BoardStore Occupant when present; UI border crew/staff walks only as fallback, logged `state-fallback:` / `capture: source=store|fallback`. RangeLeft/Stopped still UI (E3). Dual-run kept. [C — Grundlage]
+
+---
+
 ## 2026-09-02 (Foundation E1 — ToGameState)
 
 **Engine** — `BoardStore.ToBoardPieces` / `ToGameState(GameStateSeed)`. Capture bevorzugt Store-Board + Crew, UI-Board nur wenn Spaceline leer (Seed). Status (RANGE/Stopped) Overlay. Log `state:` / `capture: source=store|fallback`. [C · Grundlage]
