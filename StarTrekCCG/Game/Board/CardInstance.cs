@@ -1,0 +1,60 @@
+﻿using StarTrekCCG.Models;
+
+namespace StarTrekCCG;
+
+/// <summary>
+/// In-play copy. Printed ink stays on <see cref="Card"/>; this object is identity + later status.
+/// Do not copy Region/Span/STRENGTH here — ask Printed or ModifierRules.
+/// </summary>
+public abstract class CardInstance
+{
+    protected CardInstance(Card printed)
+    {
+        Printed = printed;
+    }
+
+    public Card Printed { get; }
+
+    public int InstanceId => Printed.InstanceId;
+    public int Owner => Printed.OwnerPlayer;
+    public int Controller => Printed.Controller;
+    public string Name => Printed.Name ?? "?";
+
+    public override string ToString() => DebugLog.Card(Printed);
+}
+
+public sealed class PersonnelInstance : CardInstance
+{
+    public PersonnelInstance(Card printed) : base(printed) { }
+}
+
+public sealed class ShipInstance : CardInstance
+{
+    public ShipInstance(Card printed) : base(printed) { }
+}
+
+public sealed class FacilityInstance : CardInstance
+{
+    public FacilityInstance(Card printed) : base(printed) { }
+}
+
+public sealed class EventInstance : CardInstance
+{
+    public EventInstance(Card printed) : base(printed) { }
+}
+
+public sealed class EquipmentInstance : CardInstance
+{
+    public EquipmentInstance(Card printed) : base(printed) { }
+}
+
+public sealed class MissionInstance : CardInstance
+{
+    public MissionInstance(Card printed) : base(printed) { }
+}
+
+/// <summary>Dilemma, Artifact, Doorway, Interrupt, … until a typed role is needed.</summary>
+public sealed class OtherInstance : CardInstance
+{
+    public OtherInstance(Card printed) : base(printed) { }
+}

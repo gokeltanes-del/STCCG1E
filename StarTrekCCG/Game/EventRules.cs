@@ -526,24 +526,29 @@ public static class EventRules
         _ => null
     };
 
-    public static bool HasSkill(IEnumerable<Card> aboard, string skill, int need = 1)
+    public static bool SkillNameMatches(string have, string need)
+    {
+        if (string.IsNullOrWhiteSpace(have) || string.IsNullOrWhiteSpace(need)) return false;
+        return have.Equals(need, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static int CountSkill(IEnumerable<Card> aboard, string skill)
     {
         int have = 0;
-        foreach (var p in aboard.Where(ModifierRules.IsPersonnelCard))
+        foreach (var p in aboard)
         {
+            if (!ModifierRules.IsPersonnelCard(p)) continue;
             foreach (var kv in MissionRules.ParsePersonnelSkills(p))
             {
-                bool hit = kv.Key.Equals(skill, StringComparison.OrdinalIgnoreCase)
-                    || kv.Key.Contains(skill, StringComparison.OrdinalIgnoreCase);
-                CheckTrace.Cmp($"Skill on '{p.Name}'", skill, kv.Key, hit);
-                if (hit)
+                if (SkillNameMatches(kv.Key, skill))
                     have += kv.Value;
             }
         }
-        bool ok = have >= need;
-        CheckTrace.Line($"HasSkill '{skill}' x{need} have {have} → {(ok ? "MATCH" : "NO MATCH")}");
-        return ok;
+        return have;
     }
+
+    public static bool HasSkill(IEnumerable<Card> aboard, string skill, int need = 1) =>
+        CountSkill(aboard, skill) >= need;
 
     public static int WeaponsBonusFromEvents(IEnumerable<(Persist kind, Card ev)> attached)
     {

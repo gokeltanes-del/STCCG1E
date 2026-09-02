@@ -24,15 +24,7 @@ public static class ReportingRules
     }
 
     /// <summary>Muss die Karte reporten (nicht einfach auf den Tisch)?</summary>
-    public static bool MustReportForDuty(Card card)
-    {
-        string t = (card.Type ?? "").ToLowerInvariant();
-        return t.Contains("personnel")
-               || t.Contains("ship")
-               || t.Contains("equipment")
-               || t.Contains("android")
-               || t.Contains("animal");
-    }
+    public static bool MustReportForDuty(Card card) => CardKinds.MustReportForDuty(card);
 
     public static bool IsFacilityHost(Card host)
     {
@@ -108,6 +100,14 @@ public static class ReportingRules
     /// <summary>Affiliation aus Feld oder Kartenname (z.B. „Federation Outpost“).</summary>
     public static HashSet<string> GetAffiliations(Card card)
     {
+        if (DualAffiliationRules.IsMulti(card))
+            return DualAffiliationRules.ActiveAffiliations(card);
+        // Commandeer / Lore Returns / Frame: live mode overrides printed affiliation.
+        if (!string.IsNullOrWhiteSpace(card.CurrentAffiliation))
+            return new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                NormalizeAffil(card.CurrentAffiliation)
+            };
         var set = ParseAffiliationTokens(card.Affiliation);
         if (set.Count > 0) return set;
         return ParseAffiliationTokens(card.Name);

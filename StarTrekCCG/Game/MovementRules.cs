@@ -62,11 +62,21 @@ public static class MovementRules
             return new StaffResult(false, $"Staffing „{staff}“: mindestens 1 Personal nötig (vereinfacht).", 0, 0, 0, 0);
         }
 
-        if (!HasMatchingAffiliation(ship, crew, treaties))
+        if (crew.Count == 0)
         {
             return new StaffResult(false,
+                $"Kein Personal an Bord von {ship.Name} — matching affiliation und Staffing fehlen.",
+                0, 0, cmdNeed, stfNeed);
+        }
+
+        if (!HasMatchingAffiliation(ship, crew, treaties))
+        {
+            string aboard = string.Join(", ",
+                crew.Select(p => $"{p.Name}[{p.Affiliation ?? "?"}]"));
+            return new StaffResult(false,
                 $"Keine matching affiliation an Bord (Schiff: {ship.Affiliation ?? "?"}" +
-                (treaties is { Count: > 0 } ? ", Treaty geprüft" : "") + ").",
+                (treaties is { Count: > 0 } ? ", Treaty geprüft" : "") +
+                $"). Crew: {aboard}.",
                 0, 0, cmdNeed, stfNeed);
         }
 
@@ -159,21 +169,35 @@ public static class MovementRules
         IReadOnlyList<Card> orderedMissions,
         int fromIndex,
         int toIndex,
-        Func<int, bool>? forOwnerAtIndex = null)
+        Func<int, bool>? forOwnerAtIndex = null,
+        bool wrapEnds = false)
     {
         if (fromIndex < 0 || toIndex < 0 || fromIndex >= orderedMissions.Count || toIndex >= orderedMissions.Count)
             return int.MaxValue / 4;
         if (fromIndex == toIndex) return 0;
 
-        int step = toIndex > fromIndex ? 1 : -1;
-        int cost = 0;
-        for (int i = fromIndex + step; ; i += step)
+        int Linear(int step)
         {
-            bool forOwner = forOwnerAtIndex?.Invoke(i) ?? true;
-            cost += GetMissionSpan(orderedMissions[i], forOwner);
-            if (i == toIndex) break;
+            int n = orderedMissions.Count;
+            int cost = 0;
+            int i = fromIndex;
+            int guard = 0;
+            do
+            {
+                i = (i + step + n) % n;
+                bool forOwner = forOwnerAtIndex?.Invoke(i) ?? true;
+                cost += GetMissionSpan(orderedMissions[i], forOwner);
+                if (++guard > n + 1) break;
+            } while (i != toIndex);
+            return cost;
         }
-        return cost;
+
+        int directStep = toIndex > fromIndex ? 1 : -1;
+        int direct = Linear(directStep);
+        if (!wrapEnds || orderedMissions.Count < 2)
+            return direct;
+        int around = Linear(-directStep);
+        return Math.Min(direct, around);
     }
 
     public static MoveResult CanMoveShip(
@@ -184,16 +208,138 @@ public static class MovementRules
         int fromIndex,
         int toIndex,
         IReadOnlyList<TreatyRules.TreatyLink>? treaties = null,
-        Func<int, bool>? forOwnerAtIndex = null)
+        Func<int, bool>? forOwnerAtIndex = null,
+        bool wrapEnds = false,
+        bool skipStaffing = false)
     {
-        var staff = IsShipStaffed(ship, crew, treaties);
-        if (!staff.Ok)
-            return new MoveResult(false, staff.Reason, 0, remainingRange);
+        if (!skipStaffing)
+        {
+            var staff = IsShipStaffed(ship, crew, treaties);
+            if (!staff.Ok)
+                return new MoveResult(false, staff.Reason, 0, remainingRange);
+        }
 
         if (fromIndex == toIndex)
             return new MoveResult(false, "Schiff ist bereits an dieser Mission.", 0, remainingRange);
 
-        int cost = RangeCostBetween(orderedMissions, fromIndex, toIndex, forOwnerAtIndex);
+        int cost = RangeCostBetween(orderedMissions, fromIndex, toIndex, forOwnerAtIndex, wrapEnds);
+        if (cost > remainingRange)
+        {
+            return new MoveResult(false,
+                $"RANGE zu gering: braucht {cost}, übrig {remainingRange} (voller RANGE {GetShipRange(ship)}).",
+                cost, remainingRange);
+        }
+
+        return new MoveResult(true, $"Bewegung ok, kostet {cost} RANGE.", cost, remainingRange - cost);
+    }
+
+    /// <summary>RANGE along Board locations (Gaps = own Span). Q-Net = BarrierAfter.</summary>
+    public static int RangeCostBetween(
+        IReadOnlyList<Location> line,
+        int fromIndex,
+        int toIndex,
+        bool wrapEnds = false)
+    {
+        if (line == null || fromIndex < 0 || toIndex < 0
+            || fromIndex >= line.Count || toIndex >= line.Count)
+            return int.MaxValue / 4;
+        if (fromIndex == toIndex) return 0;
+
+        int Linear(int step)
+        {
+            int n = line.Count;
+            int cost = 0;
+            int i = fromIndex;
+            int guard = 0;
+            do
+            {
+                i = (i + step + n) % n;
+                cost += Math.Max(0, line[i].Span);
+                if (++guard > n + 1) break;
+            } while (i != toIndex);
+            return cost;
+        }
+
+        int directStep = toIndex > fromIndex ? 1 : -1;
+        int direct = Linear(directStep);
+        if (!wrapEnds || line.Count < 2)
+            return direct;
+        return Math.Min(direct, Linear(-directStep));
+    }
+
+    public static bool PathBlocked(
+        IReadOnlyList<Location> line,
+        int fromIndex,
+        int toIndex,
+        bool wrapEnds,
+        out bool usedWrap)
+    {
+        usedWrap = false;
+        if (line == null || fromIndex < 0 || toIndex < 0
+            || fromIndex >= line.Count || toIndex >= line.Count || fromIndex == toIndex)
+            return false;
+
+        bool Blocked(int step)
+        {
+            int n = line.Count;
+            int i = fromIndex;
+            int guard = 0;
+            while (i != toIndex)
+            {
+                if (step > 0 && line[i].BarrierAfter) return true;
+                if (step < 0)
+                {
+                    int prev = (i + n - 1) % n;
+                    if (line[prev].BarrierAfter) return true;
+                }
+                i = (i + step + n) % n;
+                if (++guard > n + 1) return true;
+            }
+            return false;
+        }
+
+        int directStep = toIndex > fromIndex ? 1 : -1;
+        bool directBlocked = Blocked(directStep);
+        if (!wrapEnds || line.Count < 2)
+            return directBlocked;
+
+        int dCost = RangeCostBetween(line, fromIndex, toIndex, wrapEnds: false);
+        int wCost = RangeCostBetween(line, fromIndex, toIndex, wrapEnds: true);
+        // wrapEnds:true returns min(direct, around). If around is cheaper, check that path.
+        if (wCost < dCost)
+        {
+            usedWrap = true;
+            return Blocked(-directStep);
+        }
+        return directBlocked;
+    }
+
+    public static MoveResult CanMoveShip(
+        Card ship,
+        IEnumerable<Card> crew,
+        int remainingRange,
+        IReadOnlyList<Location> line,
+        int fromIndex,
+        int toIndex,
+        IReadOnlyList<TreatyRules.TreatyLink>? treaties = null,
+        bool wrapEnds = false,
+        bool skipStaffing = false)
+    {
+        if (!skipStaffing)
+        {
+            var staff = IsShipStaffed(ship, crew, treaties);
+            if (!staff.Ok)
+                return new MoveResult(false, staff.Reason, 0, remainingRange);
+        }
+
+        if (fromIndex == toIndex)
+            return new MoveResult(false, "Schiff ist bereits an dieser Location.", 0, remainingRange);
+
+        bool blocked = PathBlocked(line, fromIndex, toIndex, wrapEnds, out _);
+        if (blocked && !EventRules.HasSkill(crew, "Diplomacy", 2))
+            return new MoveResult(false, "Q-Net: 2 Diplomacy required aboard.", 0, remainingRange);
+
+        int cost = RangeCostBetween(line, fromIndex, toIndex, wrapEnds);
         if (cost > remainingRange)
         {
             return new MoveResult(false,

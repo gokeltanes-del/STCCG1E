@@ -857,6 +857,7 @@ public partial class DeckBuilderWindow : Window
         {
             Title = "Save deck",
             Filter = "STCCG Deck (*.stdeck)|*.stdeck",
+            InitialDirectory = GamePaths.DecksRoot,
             FileName = $"{_currentDeck.Name}.stdeck",
             DefaultExt = ".stdeck",
             AddExtension = true
@@ -883,7 +884,8 @@ public partial class DeckBuilderWindow : Window
         var dialog = new OpenFileDialog
         {
             Title = "Load deck",
-            Filter = "STCCG Deck (*.stdeck)|*.stdeck"
+            Filter = "STCCG Deck (*.stdeck)|*.stdeck",
+            InitialDirectory = GamePaths.DecksRoot
         };
 
         if (dialog.ShowDialog() == true)

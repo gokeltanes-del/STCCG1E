@@ -315,69 +315,91 @@ public static class EngineAuthority
     public static (bool ok, string reason, int cost, int rangeLeft) TryEvaluateFlyPath(
         GameState state, int player, Card ship, BoardPiece piece, Card destination)
     {
-        var ordered = state.OrderedMissions();
-        if (ordered.Count == 0)
-            return (false, "No spaceline missions.", 0, piece.RangeLeft);
+        string q = "Alpha";
+        var here = BoardStore.Current.LocationOfOccupant(piece.InstanceId);
+        if (!string.IsNullOrWhiteSpace(here?.Quadrant)) q = here!.Quadrant!;
+        var line = BoardStore.Current.Spaceline.Locations
+            .Where(l => l.Kind is LocationKind.Mission or LocationKind.Span or LocationKind.TimeLocation
+                        && string.Equals(l.Quadrant ?? "Alpha", q, StringComparison.OrdinalIgnoreCase))
+            .ToList();
 
         int fromIdx = -1;
-        if (!string.IsNullOrEmpty(piece.HostName))
+        if (here != null)
         {
-            for (int i = 0; i < ordered.Count; i++)
+            for (int i = 0; i < line.Count; i++)
+                if (ReferenceEquals(line[i], here)) { fromIdx = i; break; }
+        }
+        if (fromIdx < 0 && !string.IsNullOrEmpty(piece.HostName))
+        {
+            for (int i = 0; i < line.Count; i++)
             {
-                if (string.Equals(ordered[i].Name, piece.HostName, StringComparison.OrdinalIgnoreCase))
-                {
-                    fromIdx = i;
-                    break;
-                }
+                if (string.Equals(line[i].Printed?.Name, piece.HostName, StringComparison.OrdinalIgnoreCase))
+                { fromIdx = i; break; }
             }
         }
-        if (fromIdx < 0)
-            return (false, "Ship is not anchored on the spaceline.", 0, piece.RangeLeft);
 
         int toIdx = -1;
-        for (int i = 0; i < ordered.Count; i++)
+        for (int i = 0; i < line.Count; i++)
         {
-            if (ReferenceEquals(ordered[i], destination)
-                || string.Equals(ordered[i].Name, destination.Name, StringComparison.OrdinalIgnoreCase))
-            {
-                toIdx = i;
-                break;
-            }
+            var p = line[i].Printed;
+            if (p == null) continue;
+            if (ReferenceEquals(p, destination)
+                || (destination.InstanceId > 0 && p.InstanceId == destination.InstanceId)
+                || string.Equals(p.Name, destination.Name, StringComparison.OrdinalIgnoreCase))
+            { toIdx = i; break; }
         }
+
+        string hops = FormatFlyHops(line, fromIdx, toIdx);
+        DebugLog.Move(state.TurnNumber, player,
+            $"fly-eval {DebugLog.Card(ship)} host={piece.HostName ?? "?"} " +
+            $"from[{fromIdx}]={(fromIdx >= 0 && fromIdx < line.Count ? line[fromIdx].Label : "?")} " +
+            $"to[{toIdx}]={(toIdx >= 0 && toIdx < line.Count ? line[toIdx].Label : destination.Name ?? "?")} " +
+            $"line={line.Count} remain={piece.RangeLeft} {hops}");
+
+        if (line.Count == 0)
+            return (false, "No spaceline locations on the board.", 0, piece.RangeLeft);
+        if (fromIdx < 0)
+            return (false, "Ship is not anchored on the spaceline.", 0, piece.RangeLeft);
         if (toIdx < 0)
             return (false, "Destination is not on the spaceline.", 0, piece.RangeLeft);
         if (toIdx == fromIdx)
-            return (false, "Ship is already at this mission.", 0, piece.RangeLeft);
+            return (false, "Ship is already at this location.", 0, piece.RangeLeft);
 
         int remain = piece.RangeLeft >= 0
             ? piece.RangeLeft
             : MovementRules.GetShipRange(ship);
         var treaties = state.TreatiesOf(player);
-
-        MovementRules.MoveResult move;
-        bool endsHop = state.HasWhereNoOneHasGoneBefore
-                       && ordered.Count >= 2
-                       && ((fromIdx == 0 && toIdx == ordered.Count - 1)
-                           || (toIdx == 0 && fromIdx == ordered.Count - 1));
-        if (endsHop)
-        {
-            int cost = MovementRules.GetMissionSpan(ordered[toIdx], forOwner: true);
-            move = cost <= remain
-                ? new MovementRules.MoveResult(true, "Ends adjacent (WNOHGB).", cost, remain - cost)
-                : new MovementRules.MoveResult(false, "RANGE too low (WNOHGB).", cost, remain);
-        }
-        else
-        {
-            move = MovementRules.CanMoveShip(
-                ship, piece.Aboard, remain, ordered, fromIdx, toIdx, treaties);
-        }
+        bool wrap = state.HasWnohgb(player) && line.Count >= 2;
+        var move = MovementRules.CanMoveShip(
+            ship, piece.Aboard, remain, line, fromIdx, toIdx, treaties,
+            wrapEnds: wrap, skipStaffing: piece.Staffed);
 
         if (!move.Ok)
-            return (false, move.Reason, move.RangeCost, remain);
+            return (false, move.Reason + " · " + hops, move.RangeCost, remain);
 
         return (true,
             $"Fly {ship.Name} → {destination.Name}: cost {move.RangeCost}, left {move.RangeLeft}.",
             move.RangeCost, move.RangeLeft);
+    }
+
+    private static string FormatFlyHops(IReadOnlyList<Location> line, int fromIdx, int toIdx)
+    {
+        if (fromIdx < 0 || toIdx < 0 || fromIdx >= line.Count || toIdx >= line.Count || fromIdx == toIdx)
+            return "hops=-";
+        int step = toIdx > fromIdx ? 1 : -1;
+        var parts = new List<string>();
+        int i = fromIdx;
+        int guard = 0;
+        int total = 0;
+        do
+        {
+            i += step;
+            if (i < 0 || i >= line.Count) break;
+            total += Math.Max(0, line[i].Span);
+            parts.Add($"{line[i].Label}={line[i].Span}");
+            if (++guard > line.Count + 1) break;
+        } while (i != toIdx);
+        return $"hops[{total}]: " + string.Join(" + ", parts);
     }
 
     private static ApplyResult EvaluateBeam(GameState state, GameAction action)

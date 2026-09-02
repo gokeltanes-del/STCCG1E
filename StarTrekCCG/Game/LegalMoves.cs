@@ -343,6 +343,7 @@ public static class LegalMoves
                 list.Add(probe);
         }
 
+        // Name list — Fly apply uses BoardStore. Keep until LegalMoves reads Locations.
         var ordered = state.OrderedMissions();
 
         foreach (var ship in state.Ships().Where(s =>

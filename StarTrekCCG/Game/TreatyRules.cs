@@ -194,6 +194,27 @@ public static class TreatyRules
         return false;
     }
 
+    /// <summary>
+    /// Ship/facility: personnel must match host affiliation (or treaty / NA).
+    /// Equipment has no affiliation lock. Missions (planet AT) are not locked.
+    /// </summary>
+    public static bool CanOccupyHost(Card occupant, Card host, IReadOnlyList<TreatyLink>? treaties)
+    {
+        string ht = (host.Type ?? "").ToLowerInvariant();
+        string ot = (occupant.Type ?? "").ToLowerInvariant();
+        if (ht.Contains("mission"))
+        {
+            // 7.1.1.0.1: you may not beam cards into space.
+            // Planet (and dual-icon) missions may hold an Away Team; space may not.
+            if (ot.Contains("event") || ot.Contains("interrupt") || ot.Contains("dilemma"))
+                return true;
+            return MissionRules.IsPlanetMission(host);
+        }
+        if (ot.Contains("equipment") || ot.Contains("event") || ot.Contains("interrupt"))
+            return true;
+        return CardsCompatibleUnderTreaties(occupant, host, treaties);
+    }
+
     public static bool CardsCompatibleUnderTreaties(
         Card a,
         Card b,

@@ -24,22 +24,61 @@ public static class RequiredMoveRules
         if (count <= 0 || from == dest) return null;
         if (from < 0 || dest < 0 || from >= count || dest >= count) return null;
 
-        int directNext = dest > from ? from + 1 : from - 1;
-        int directHops = Math.Abs(dest - from);
-        bool atEnd = from == 0 || from == count - 1;
-        int wrapNext = from == 0 ? count - 1 : 0;
-        int wrapHops = wrap && count >= 2 && atEnd ? count - directHops : int.MaxValue;
-
-        if (wrapHops < directHops)
-            return new Hop(wrapNext, true);
-        if (wrapHops == directHops && spanEntering != null)
+        int left = from - 1;
+        int right = from + 1;
+        if (wrap && count >= 2)
         {
-            int wrapSpan = spanEntering(wrapNext) + RemainingSpan(wrapNext, dest, count, wrap, spanEntering);
-            int dirSpan = spanEntering(directNext) + RemainingSpan(directNext, dest, count, wrap, spanEntering);
-            if (wrapSpan < dirSpan)
-                return new Hop(wrapNext, true);
+            if (left < 0) left = count - 1;
+            if (right >= count) right = 0;
         }
-        return new Hop(directNext, false);
+
+        Hop? Pick(int idx, bool isWrap) =>
+            idx >= 0 && idx < count ? new Hop(idx, isWrap) : null;
+
+        var l = Pick(left, wrap && from == 0 && left == count - 1);
+        var r = Pick(right, wrap && from == count - 1 && right == 0);
+        if (l == null) return r;
+        if (r == null) return l;
+
+        int hopsL = HopCount(l.Value.Next, dest, count, wrap);
+        int hopsR = HopCount(r.Value.Next, dest, count, wrap);
+        if (hopsL < hopsR) return l;
+        if (hopsR < hopsL) return r;
+        if (spanEntering != null)
+        {
+            int sl = spanEntering(l.Value.Next);
+            int sr = spanEntering(r.Value.Next);
+            if (sl < sr) return l;
+            if (sr < sl) return r;
+        }
+        return dest > from ? r : l;
+    }
+
+    /// <summary>
+    /// Shortest hop that this ship can actually pay for this turn.
+    /// If the wrap/short hop costs more RANGE than remains, take the other way.
+    /// </summary>
+    public static Hop? NextAffordable(
+        int from, int dest, int count, bool wrap, int remain, Func<int, int> spanEntering)
+    {
+        var pref = NextToward(from, dest, count, wrap, spanEntering);
+        if (pref == null) return null;
+        if (spanEntering(pref.Value.Next) <= remain) return pref;
+
+        int left = from - 1, right = from + 1;
+        if (wrap && count >= 2)
+        {
+            if (left < 0) left = count - 1;
+            if (right >= count) right = 0;
+        }
+        int other = pref.Value.Next == left ? right : left;
+        if (other >= 0 && other < count && other != pref.Value.Next
+            && spanEntering(other) <= remain)
+        {
+            bool w = wrap && ((from == 0 && other == count - 1) || (from == count - 1 && other == 0));
+            return new Hop(other, w);
+        }
+        return pref;
     }
 
     private static int RemainingSpan(int from, int dest, int count, bool wrap, Func<int, int> spanEntering)

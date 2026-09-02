@@ -94,7 +94,8 @@ public static class BattleRules
         int targetOwner,
         int hullDamagePercent,
         bool isStopped,
-        string? wartimeVs = null)
+        string? wartimeVs = null,
+        bool loreStaffed = false)
     {
         if (isStopped)
             return new AttackCheck(false, "Schiff ist gestoppt und kann nicht angreifen.");
@@ -116,7 +117,7 @@ public static class BattleRules
             return new AttackCheck(false, $"„{attackerShip.Name}“ hat keine WEAPONS.");
 
         var crew = crewOnBoard?.ToList() ?? new List<Card>();
-        if (!HasLeader(crew))
+        if (!HasLeader(crew) && !loreStaffed)
             return new AttackCheck(false, "Kein Leader an Bord (OFFICER oder Leadership nötig).");
 
         // Matching affiliation an Bord (Staffing-ähnlich)

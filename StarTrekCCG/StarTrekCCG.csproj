@@ -18,6 +18,19 @@
 		<Content Include="Data\Sets\**">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
+
+		<Content Include="Data\Decks\**">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+		<Content Include="Data\SaveGames\**">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+		
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Folder Include="Data\Decks\" />
+	  <Folder Include="Data\SaveGames\" />
 	</ItemGroup>
 
 </Project>

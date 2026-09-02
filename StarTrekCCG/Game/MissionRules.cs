@@ -299,6 +299,11 @@ public static class MissionRules
         var m2 = Regex.Match(s, @"\d+");
         if (m2.Success && int.TryParse(m2.Value, out v))
             return v;
+        var fromText = Regex.Match(mission.Text ?? "", @"\bspan\s+(\d+)\b", RegexOptions.IgnoreCase);
+        if (fromText.Success && int.TryParse(fromText.Groups[1].Value, out v))
+            return Math.Max(0, v);
+        if (EventRules.NameIs(mission, "Gaps in Normal Space"))
+            return 4;
         return 0;
     }
 
@@ -338,9 +343,20 @@ public static class MissionRules
     /// Mission affiliation icons restrict which personnel may attempt.
     /// Empty / neutral mission → anyone. Otherwise at least one matching personnel affiliation required.
     /// </summary>
-    public static bool TeamMatchesMissionAffiliation(Card mission, IEnumerable<Card> team)
+    public static bool TeamMatchesMissionAffiliation(
+        Card mission,
+        IEnumerable<Card> team,
+        IEnumerable<string>? extraMissionIcons = null)
     {
         var need = ParseAffiliationTokens(mission.Affiliation);
+        if (extraMissionIcons != null)
+        {
+            foreach (var x in extraMissionIcons)
+            {
+                string n = NormalizeAffiliationToken(x);
+                if (n.Length > 0) need.Add(n);
+            }
+        }
         if (need.Count == 0)
         {
             CheckTrace.Line($"Affiliation: mission '{mission.Name}' has no affiliation icons → any team ok");
@@ -368,7 +384,8 @@ public static class MissionRules
         IEnumerable<Card> team,
         int dilemmasRemaining,
         int attemptingPlayer = 0,
-        int missionOwner = 0)
+        int missionOwner = 0,
+        IEnumerable<string>? extraMissionIcons = null)
     {
         var teamList = team.ToList();
         if (teamList.Count == 0)
@@ -377,7 +394,7 @@ public static class MissionRules
         _ = dilemmasRemaining;
 
         // Affiliation gate (Fed mission ≠ Klingon attempt, etc.)
-        if (!TeamMatchesMissionAffiliation(mission, teamList))
+        if (!TeamMatchesMissionAffiliation(mission, teamList, extraMissionIcons))
         {
             string need = string.Join("/", ParseAffiliationTokens(mission.Affiliation));
             return new AttemptResult(false,

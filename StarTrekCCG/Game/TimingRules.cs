@@ -97,8 +97,9 @@ public static class TimingRules
     public static bool IsAnytimeType(Card c) => CardKinds.IsAnytimeType(c);
 
     /// <summary>
-    /// Premiere: Kevin may nullify an Event just played OR already in play,
-    /// except treaties, [SHD] events, and Static Warp Bubble.
+    /// Premiere JSON + App. A: "Nullifies an [Event] (except a [Shield] or Treaty)."
+    /// Static Warp Bubble is a normal Event (Traveler: Transcendence nullifies it;
+    /// Rishon / [Shield] are the Kevin immunities, not SWB itself).
     /// </summary>
     public static (bool ok, string reason) CanKevinTargetEvent(Card ev)
     {
@@ -108,9 +109,6 @@ public static class TimingRules
             return (false, "Kevin Uxbridge: that Event has a Shield icon.");
         if (TreatyRules.IsTreatyCard(ev))
             return (false, "Kevin Uxbridge: treaties are immune.");
-        string n = (ev.Name ?? "").Trim();
-        if (n.Equals("Static Warp Bubble", StringComparison.OrdinalIgnoreCase))
-            return (false, "Static Warp Bubble is immune to Kevin Uxbridge.");
         return (true, "Nullify that Event.");
     }
 

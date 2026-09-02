@@ -12,6 +12,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
+using System.Windows.Media.Media3D;
 using System.Windows.Shapes;
 using static StarTrekCCG.BattleRules;
 
@@ -73,6 +74,8 @@ public partial class TableWindow : Window
     private enum GameMode { Hotseat, Network, SingleAi }
     private GameMode _gameMode = GameMode.Hotseat;
     private readonly GameSession _session = new();
+    /// <summary>E1: last compact state: line so Capture does not flood the log.</summary>
+    private string? _lastEngineStateLine;
     private BitmapImage? _cardBackImage;
     private int _activePlayer = 1; // 1 = unten (Startspieler), 2 = oben
     private int _turnNumber = 1;
@@ -218,6 +221,8 @@ public partial class TableWindow : Window
     private Border? _hostHighlight; // Umrandung am Ziel-Host während Drag
     private Border? _currentSnapHost; // legal host currently in snap range
     private Card? _tableColumnSnapCard; // Kevin/Devil snap on P1/P2 TABLE mini
+    private List<TargetSite> _targetSites = new();
+    private TargetSite? _snapSite;
     private Border? _zoneHighlightTarget; // Side-Deck-Zone während Doorway-Drag
     private Thickness _zoneHighlightPrevThickness;
     private Brush? _zoneHighlightPrevBrush;
@@ -968,7 +973,7 @@ public partial class TableWindow : Window
             });
         }
 
-        return new GameState
+        var seed = new GameStateSeed
         {
             Match = _session.Match,
             Segment = _session.Segment,
@@ -989,7 +994,7 @@ public partial class TableWindow : Window
             ScoreP2 = _scoreP2,
             HandP1 = _handCards.ToList(),
             HandP2 = _oppHandCards.ToList(),
-            Board = board,
+            UiBoard = board,
             HasGoddess = HasTableCard(EventRules.IsGoddess),
             TentOpenP1 = IsSideDeckUnlocked("Q's Tent", opponent: false),
             TentOpenP2 = IsSideDeckUnlocked("Q's Tent", opponent: true),
@@ -1002,17 +1007,32 @@ public partial class TableWindow : Window
                 .ToList(),
             TreatiesP1 = GetActiveTreaties(1),
             TreatiesP2 = GetActiveTreaties(2),
-            HasWhereNoOneHasGoneBefore = HasTableCard(EventRules.IsWhereNoOneHasGoneBefore),
+            HasWhereNoOneHasGoneBeforeP1 = _tablePermanentCards.Any(EventRules.IsWhereNoOneHasGoneBefore),
+            HasWhereNoOneHasGoneBeforeP2 = _oppTablePermanentCards.Any(EventRules.IsWhereNoOneHasGoneBefore),
             TentDownloadUsedP1 = DownloadRules.TentDownloadUsedThisTurn(_session, 1),
             TentDownloadUsedP2 = DownloadRules.TentDownloadUsedThisTurn(_session, 2),
             OncePerGameKeys = _session.OncePerGame.ToList(),
             StoppedInstanceIds = _stoppedBorders
-                .Select(b => b.Tag is Card c ? c.InstanceId : 0)
+                .Select(b => b.Tag is Card sc ? sc.InstanceId : 0)
                 .Where(id => id != 0)
                 .Distinct()
                 .ToList(),
             UntilEndOfTurnKeys = _session.UntilEndOfTurn.ToList()
         };
+
+        var store = BoardStore.Current;
+        var state = store.ToGameState(seed);
+        string line = BoardStore.FormatStateLine(state);
+        if (line != _lastEngineStateLine)
+        {
+            _lastEngineStateLine = line;
+            string src = store.Spaceline.Locations.Count > 0 ? "store" : "fallback";
+            DebugLog.Engine(_session.TurnNumber, _activePlayer, $"capture: source={src}");
+            DebugLog.Engine(_session.TurnNumber, _activePlayer, line);
+            if (store.Spaceline.Locations.Count > 0)
+                DebugLog.Engine(_session.TurnNumber, _activePlayer, store.FormatDumpCrewLine());
+        }
+        return state;
     }
 
     private void RefreshLegalMovesPanel()
@@ -1047,6 +1067,199 @@ public partial class TableWindow : Window
             _session.Log.AddDebug(_session.TurnNumber, "LegalMoves", line);
         RefreshActionHistory();
         StatusText.Text = "Legal moves dumped to Action History (debug).";
+    }
+
+    private void DevDumpBoard_Click(object sender, RoutedEventArgs e)
+    {
+        SyncBoardFromTable();
+        var lines = BoardStore.Current.DumpLines().ToList();
+        var snap = CaptureEngineState();
+        lines.Add(BoardStore.FormatStateLine(snap));
+        lines.Add(BoardStore.Current.FormatDumpCrewLine());
+        DebugLog.Block(DebugLog.Channel.Board, _session.TurnNumber, _activePlayer, "Board", lines);
+        foreach (var line in lines)
+            _session.Log.AddDebug(_session.TurnNumber, "Board", line);
+        RefreshActionHistory();
+        StatusText.Text = $"Board dump: {BoardStore.Current.Spaceline.Locations.Count} location(s), {BoardStore.Current.ById.Count} instance(s).";
+    }
+
+    /// <summary>Schritt 2: copy UI truth into BoardStore. Does not change the canvas.</summary>
+    private void SyncBoardFromTable(bool logDual = true)
+    {
+        var store = BoardStore.Current;
+        store.Clear();
+
+        foreach (var c in _handCards) store.HandP1.Add(store.Wrap(c).InstanceId);
+        foreach (var c in _oppHandCards) store.HandP2.Add(store.Wrap(c).InstanceId);
+        foreach (var c in _tablePermanentCards) store.TableP1.Add(store.Wrap(c).InstanceId);
+        foreach (var c in _oppTablePermanentCards) store.TableP2.Add(store.Wrap(c).InstanceId);
+
+        var missionCells = _spacelineOrder
+            .Where(b => b.Tag is Card mc && IsMissionCard(mc))
+            .ToList();
+        var cellByMission = new Dictionary<int, Border>();
+        foreach (var cell in missionCells)
+        {
+            if (cell.Tag is not Card printed) continue;
+            var loc = AddMissionLocation(store, cell, printed);
+            if (printed.InstanceId > 0)
+                cellByMission[printed.InstanceId] = cell;
+            store.Spaceline.Add(loc);
+        }
+
+        // Gaps / Q-Net: AttachedEvent Host+Host2 is the rule source (span card
+        // may be missing from _spacelineOrder after load or a drag path).
+        var placedSpanIds = new HashSet<int>();
+        foreach (var ae in _attachedEvents)
+        {
+            if (ae.Kind is not (EventRules.Persist.Gaps or EventRules.Persist.QNet))
+                continue;
+            PlaceAttachedSpan(store, ae, placedSpanIds);
+        }
+
+        foreach (var cell in _spacelineOrder)
+        {
+            if (cell.Tag is not Card sc || !IsSpacelineSpanCard(sc)) continue;
+            if (sc.InstanceId > 0 && placedSpanIds.Contains(sc.InstanceId)) continue;
+            var ends = SpanEndpoints(cell);
+            var fake = new AttachedEvent
+            {
+                Card = sc,
+                Kind = EventRules.NameIs(sc, "Q-Net")
+                    ? EventRules.Persist.QNet
+                    : EventRules.Persist.Gaps,
+                Owner = GetBorderOwner(cell),
+                Host = ends.left,
+                Host2 = ends.right
+            };
+            PlaceAttachedSpan(store, fake, placedSpanIds);
+        }
+
+        if (!logDual) return;
+        var uiParts = new List<string>();
+        foreach (var cell in missionCells)
+        {
+            if (cell.Tag is not Card mc) continue;
+            uiParts.Add(DebugLog.Card(mc));
+            foreach (var ae in _attachedEvents)
+            {
+                if (ae.Kind is not (EventRules.Persist.Gaps or EventRules.Persist.QNet))
+                    continue;
+                var left = ae.Host != null ? ResolveOnSpaceline(ae.Host) : null;
+                if (!ReferenceEquals(left, cell)) continue;
+                if (ae.Kind == EventRules.Persist.QNet)
+                    uiParts.Add("Q-Net");
+                else
+                    uiParts.Add(ae.Card != null ? DebugLog.Card(ae.Card) : "Gaps");
+            }
+        }
+        var boardParts = new List<string>();
+        foreach (var l in store.Spaceline.Locations)
+        {
+            boardParts.Add(l.Label);
+            if (l.BarrierAfter) boardParts.Add("Q-Net");
+        }
+        string ui = string.Join(" | ", uiParts);
+        string board = string.Join(" | ", boardParts);
+        DebugLog.Dual(_session.TurnNumber, _activePlayer, "spaceline", ui, board);
+    }
+
+    private Location AddMissionLocation(BoardStore store, Border cell, Card printed)
+    {
+        var loc = new Location
+        {
+            Id = store.Spaceline.NextId(),
+            Kind = CardKinds.Of(printed) == CardKind.TimeLocation
+                ? LocationKind.TimeLocation
+                : LocationKind.Mission,
+            Printed = printed,
+            Quadrant = GetNativeQuadrant(printed),
+            Span = MovementRules.GetMissionSpan(printed, forOwner: true)
+        };
+        var wrapped = store.Wrap(printed);
+        if (wrapped is MissionInstance mi) loc.Mission = mi;
+
+        foreach (var dock in GetDockablesUnderMission(cell))
+        {
+            if (dock.Tag is not Card dc) continue;
+            var inst = store.Wrap(dc);
+            var occ = new Occupant(inst);
+            FillForceFromHost(store, occ.Crew, dock);
+            loc.Occupants.Add(occ);
+        }
+
+        if (_stackOnHost.TryGetValue(cell, out var stacked))
+        {
+            foreach (var b in stacked)
+            {
+                if (b.Tag is not Card sc) continue;
+                if (IsDockableUnderMission(sc)) continue;
+                int o = CardOwner(b);
+                if (o != 2) o = 1;
+                var inst = store.Wrap(sc);
+                var force = o == 2 ? loc.AwayTeamP2 : loc.AwayTeamP1;
+                if (inst is PersonnelInstance p) force.Personnel.Add(p);
+                else if (inst is EquipmentInstance eq) force.Equipment.Add(eq);
+            }
+        }
+
+        return loc;
+    }
+
+    private void PlaceAttachedSpan(BoardStore store, AttachedEvent ae, HashSet<int> placedSpanIds)
+    {
+        if (ae.Card != null && ae.Card.InstanceId > 0 && !placedSpanIds.Add(ae.Card.InstanceId))
+            return;
+
+        Border? leftB = ae.Host != null ? ResolveOnSpaceline(ae.Host) : null;
+        Card? leftCard = leftB?.Tag as Card;
+        int leftIdx = -1;
+        if (leftCard != null)
+        {
+            for (int i = 0; i < store.Spaceline.Locations.Count; i++)
+            {
+                var p = store.Spaceline.Locations[i].Printed;
+                if (p != null && (ReferenceEquals(p, leftCard) ||
+                    (p.InstanceId > 0 && p.InstanceId == leftCard.InstanceId)))
+                {
+                    leftIdx = i;
+                    break;
+                }
+            }
+        }
+
+        if (ae.Kind == EventRules.Persist.QNet)
+        {
+            if (ae.Card != null) store.Wrap(ae.Card);
+            if (leftIdx >= 0)
+                store.Spaceline.Locations[leftIdx].BarrierAfter = true;
+            return;
+        }
+
+        var gapsCard = ae.Card;
+        var loc = new Location
+        {
+            Id = store.Spaceline.NextId(),
+            Kind = LocationKind.Span,
+            Printed = gapsCard,
+            Quadrant = leftB != null ? GetSpacelineQuadrant(leftB) : "Alpha",
+            Span = 4
+        };
+        if (gapsCard != null) store.Wrap(gapsCard);
+        int insertAt = leftIdx >= 0 ? leftIdx + 1 : store.Spaceline.Locations.Count;
+        store.Spaceline.Insert(insertAt, loc);
+    }
+
+    private void FillForceFromHost(BoardStore store, Force force, Border host)
+    {
+        if (!_stackOnHost.TryGetValue(host, out var stacked)) return;
+        foreach (var b in stacked)
+        {
+            if (b.Tag is not Card c) continue;
+            var inst = store.Wrap(c);
+            if (inst is PersonnelInstance p) force.Personnel.Add(p);
+            else if (inst is EquipmentInstance eq) force.Equipment.Add(eq);
+        }
     }
 
     private void DevTentDownload_Click(object sender, RoutedEventArgs e)
@@ -1540,6 +1753,10 @@ public partial class TableWindow : Window
 
     private void TableWindow_Loaded(object sender, RoutedEventArgs e)
     {
+        DebugLog.StartSession("TableWindow");
+        DebugLog.Enabled = DevFileLogItem?.IsChecked != false;
+        DebugLog.HistorySink = (turn, actor, text) =>
+            _session.Log.AddDebug(turn, actor, text);
         CheckTrace.Emit = msg =>
         {
             if (_devShowDebugLog)
@@ -2699,6 +2916,14 @@ public partial class TableWindow : Window
             {
                 // Karte snapt auf Discard-Zone
             }
+            else if (UpdateHandReturnSnap(winPos))
+            {
+                // Karte zurück in die Hand — kein Play
+            }
+            else if (CardDetailOverlay?.Visibility == Visibility.Visible && _peekLegalTargets.Count > 0)
+            {
+                // Peek lock: only the open detail strip may snap.
+            }
             else if (UpdateNullifyTableSnap(winPos))
             {
                 // Kevin / Devil snap onto a TABLE-column event
@@ -2728,7 +2953,7 @@ public partial class TableWindow : Window
                         Canvas.SetTop(floating, pos.Y - _dragOffset.Y);
                     }
                 }
-                else
+                else if (!(CardDetailOverlay?.Visibility == Visibility.Visible && _peekLegalTargets.Count > 0))
                     UpdateSnapPreviewFromWindow(winPos);
             }
             UpdateStackPeek(winPos);
@@ -2774,6 +2999,52 @@ public partial class TableWindow : Window
         }
         catch { }
         return true;
+    }
+
+    private bool UpdateHandReturnSnap(Point windowPos)
+    {
+        if (_zoneDragRef == null || _zoneDragRef.ZoneName != "Hand")
+        {
+            HighlightHandReturn(false);
+            return false;
+        }
+        var strip = _zoneDragRef.Opponent ? OppHandStripBorder : PlayerHandStripBorder;
+        var zoneBox = FindZoneBorder("Hand", _zoneDragRef.Opponent);
+        bool over = (strip != null && IsPointOverElement(strip, windowPos))
+                    || (zoneBox != null && IsPointNearElement(zoneBox, windowPos, 20));
+        if (!over)
+        {
+            HighlightHandReturn(false);
+            return false;
+        }
+        HighlightHandReturn(true);
+        return true;
+    }
+
+    private Border? _handReturnPrev;
+    private Brush? _handReturnPrevBrush;
+    private Thickness _handReturnPrevThickness;
+
+    private void HighlightHandReturn(bool on)
+    {
+        if (!on)
+        {
+            if (_handReturnPrev != null)
+            {
+                _handReturnPrev.BorderBrush = _handReturnPrevBrush;
+                _handReturnPrev.BorderThickness = _handReturnPrevThickness;
+                _handReturnPrev = null;
+            }
+            return;
+        }
+        var strip = _zoneDragRef?.Opponent == true ? OppHandStripBorder : PlayerHandStripBorder;
+        if (strip == null || ReferenceEquals(_handReturnPrev, strip)) return;
+        HighlightHandReturn(false);
+        _handReturnPrev = strip;
+        _handReturnPrevBrush = strip.BorderBrush;
+        _handReturnPrevThickness = strip.BorderThickness;
+        strip.BorderBrush = new SolidColorBrush(Color.FromRgb(80, 220, 120));
+        strip.BorderThickness = new Thickness(3);
     }
 
     /// <summary>
@@ -2949,6 +3220,8 @@ public partial class TableWindow : Window
                 ShadowDepth = 0,
                 Opacity = 0.95
             };
+            _snapSite = new TargetSite(TargetSiteKind.TableCard, hitCard, hitCard, null,
+                TargetWhy.Nullify, "Nullify that Event.");
             StatusText.Text = $"Snap: {hitCard.Name} — drop to nullify.";
             return true;
         }
@@ -3149,6 +3422,15 @@ public partial class TableWindow : Window
 
         int next = opponentOf(controller);
         OpenResponseWindow(next);
+        // Schism (and other responses) used to always open a second 10s window.
+        // Skip it when nobody has a legal response to the response itself (Amanda/Q2).
+        if (isResponse && _stack.Top != null
+            && LegalResponsesFor(_handCards, _stack.Top, 1).Count == 0
+            && LegalResponsesFor(_oppHandCards, _stack.Top, 2).Count == 0)
+        {
+            ResolveEntireStack();
+            return;
+        }
         // Card is already on the table / discarded-from-hand: pause, then announce
         ScheduleActionAnnounce(isResponse ? 400 : 600);
     }
@@ -3814,16 +4096,13 @@ public partial class TableWindow : Window
         int defWeapons = BattleRules.GetWeapons(defenderCard);
         if (defWeapons > 0 && !IsBorderStopped(defenderBorder))
         {
-            var rf = MessageBox.Show(
-                $"Ship Battle: {attackerShip.Name} greift {defenderCard.Name} an.\n\n" +
-                $"Angreifer WEAPONS {BattleRules.GetWeapons(attackerShip)} · " +
-                $"Ziel SHIELDS {BattleRules.GetShields(defenderCard)}.\n\n" +
-                $"Verteidiger (S{defOwner}): Return Fire?\n" +
-                $"(target would have WEAPONS {defWeapons})",
-                "Ship Battle – Return Fire",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
-            returnFire = rf == MessageBoxResult.Yes;
+            string pick = AskChoice(defenderCard, "Return Fire?",
+                $"{attackerShip.Name} attacks {defenderCard.Name}.\n" +
+                $"Attacker WEAPONS {BattleRules.GetWeapons(attackerShip)} · " +
+                $"target SHIELDS {BattleRules.GetShields(defenderCard)}.\n" +
+                $"P{defOwner}: return fire (WEAPONS {defWeapons})?",
+                "Return Fire", "No");
+            returnFire = pick.StartsWith("Return", StringComparison.OrdinalIgnoreCase);
         }
         ResolveShipBattle(attackerBorder, attackerShip, defenderBorder, defenderCard, returnFire);
     }
@@ -3866,7 +4145,8 @@ public partial class TableWindow : Window
         }
 
         _session.Log.Add(_session.TurnNumber, $"P{atkOwner}", result.LogSummary);
-        MessageBox.Show(result.LogSummary, "Personnel Battle", MessageBoxButton.OK, MessageBoxImage.Information);
+        ShowCardReveal(atkCards.FirstOrDefault() ?? defCards.FirstOrDefault(),
+            "Personnel Battle", result.LogSummary, RevealButtons.Ok);
         StatusText.Text = result.LogSummary.Replace('\n', ' ');
         if (a.AttackerHost is Border src && src.Tag is Card sc)
             ShowHostContents(src, sc);
@@ -4158,9 +4438,17 @@ public partial class TableWindow : Window
         cardBorder.Width = TableCardWidth;
         cardBorder.Height = TableCardHeight;
 
+        // Drop back on own hand = cancel play, never resolve Kevin/Devil.
+        if (zref.ZoneName == "Hand"
+            && TryReturnCardToZone(card, cardBorder, zref.ZoneName, windowPos, zref.Opponent))
+        {
+            EndTargetSession();
+            ClearEventTargetHighlights();
+            placedOk = true;
+        }
         // Kevin / The Devil target a card already on TABLE — must NOT commit as a
         // TABLE permanent first (that path opens the stack with no TargetCard).
-        if (!_seedPhaseActive && zref.ZoneName == "Hand"
+        else if (!_seedPhaseActive && zref.ZoneName == "Hand"
             && InterruptRules.IsInterrupt(card)
             && (InterruptRules.IsKevinNullify(card) || InterruptRules.IsDevil(card)))
         {
@@ -5289,51 +5577,135 @@ public partial class TableWindow : Window
             dockByMission[m] = GetDockablesUnderMission(m).ToList();
         }
 
-        var order = _spacelineOrder;
+        var display = BuildSpacelineDisplayOrder();
+        if (display.Count == 0) return;
 
         double width = 0;
-        for (int i = 0; i < order.Count; i++)
+        for (int i = 0; i < display.Count; i++)
         {
             if (i > 0)
             {
-                string pq = GetSpacelineQuadrant(order[i - 1]);
-                string cq = GetSpacelineQuadrant(order[i]);
+                string pq = GetSpacelineQuadrant(display[i - 1]);
+                string cq = GetSpacelineQuadrant(display[i]);
                 width += (pq != cq) ? (TableCardWidth + MissionGap) : MissionGap;
             }
             width += TableCardWidth;
         }
 
-        double x = Math.Max(40, TableCanvas.Width / 2.0 - width / 2.0);
-        for (int i = 0; i < order.Count; i++)
+        double canvasW = TableCanvas.ActualWidth;
+        if (double.IsNaN(canvasW) || canvasW < 200)
+            canvasW = TableCanvas.Width;
+        if (double.IsNaN(canvasW) || canvasW < 200)
+            canvasW = 1600;
+        double x = Math.Max(40, canvasW / 2.0 - width / 2.0);
+        for (int i = 0; i < display.Count; i++)
         {
             if (i > 0)
             {
-                string pq = GetSpacelineQuadrant(order[i - 1]);
-                string cq = GetSpacelineQuadrant(order[i]);
+                string pq = GetSpacelineQuadrant(display[i - 1]);
+                string cq = GetSpacelineQuadrant(display[i]);
                 x += (pq != cq) ? (TableCardWidth + MissionGap) : MissionGap;
             }
-            Canvas.SetTop(order[i], SpacelineY);
-            // Shared + unique: face the player whose turn it is; show that player's printed copy.
-            ApplyMissionFaceVisual(order[i], x);
-            if (order[i].Tag is Card oc && IsMissionCard(oc))
+            var cell = display[i];
+            Canvas.SetTop(cell, SpacelineY);
+            if (cell.Tag is Card spanCard && IsSpacelineSpanCard(spanCard))
             {
-                UpdateSeedBadge(order[i]);
-                // Move known dockables to the new column, then tidy slots
-                if (dockByMission.TryGetValue(order[i], out var docks))
+                cell.RenderTransform = Transform.Identity;
+                Canvas.SetLeft(cell, x);
+                Panel.SetZIndex(cell, 9);
+            }
+            else
+            {
+                ApplyMissionFaceVisual(cell, x);
+            }
+            if (cell.Tag is Card oc && IsMissionCard(oc))
+            {
+                UpdateSeedBadge(cell);
+                if (dockByMission.TryGetValue(cell, out var docks))
                 {
                     foreach (var d in docks)
                         Canvas.SetLeft(d, x);
                 }
-                RelayoutDockablesUnderMission(order[i]);
+                RelayoutDockablesUnderMission(cell);
             }
-            if (_missionSolvedLabels.TryGetValue(order[i], out var solvedLbl))
+            if (_missionSolvedLabels.TryGetValue(cell, out var solvedLbl))
             {
                 Canvas.SetLeft(solvedLbl, x);
                 Canvas.SetTop(solvedLbl, SpacelineY - 16);
             }
-            LayoutSharedMissionCopies(order[i], x);
+            if (cell.Tag is Card mc && IsMissionCard(mc))
+                LayoutSharedMissionCopies(cell, x);
             x += TableCardWidth;
         }
+    }
+
+    /// <summary>Missions in seed order, each Gaps/Q-Net spliced after its left-hand mission.</summary>
+    private List<Border> BuildSpacelineDisplayOrder()
+    {
+        var missions = _spacelineOrder
+            .Where(b => b.Tag is Card c && IsMissionCard(c))
+            .ToList();
+        var spans = _spacelineOrder
+            .Where(b => b.Tag is Card c && IsSpacelineSpanCard(c))
+            .ToList();
+        var used = new HashSet<Border>();
+        var display = new List<Border>();
+        for (int i = 0; i < missions.Count; i++)
+        {
+            display.Add(missions[i]);
+            foreach (var span in spans)
+            {
+                if (!used.Add(span)) continue;
+                var (left, right) = SpanEndpoints(span);
+                bool afterThis = left != null && ReferenceEquals(left, missions[i]);
+                if (!afterThis && right != null && i + 1 < missions.Count
+                    && ReferenceEquals(right, missions[i + 1])
+                    && (left == null || missions.IndexOf(left) <= i))
+                    afterThis = true;
+                if (!afterThis)
+                {
+                    used.Remove(span);
+                    continue;
+                }
+                display.Add(span);
+            }
+        }
+        foreach (var span in spans)
+            if (used.Add(span))
+                display.Add(span);
+        return display;
+    }
+
+    private (Border? left, Border? right) SpanEndpoints(Border span)
+    {
+        var card = span.Tag as Card;
+        var ae = _attachedEvents.FirstOrDefault(e =>
+            ReferenceEquals(e.Card, card)
+            && e.Kind is EventRules.Persist.QNet or EventRules.Persist.Gaps);
+        if (ae?.Host != null && ae.Host2 != null)
+            return (ResolveOnSpaceline(ae.Host), ResolveOnSpaceline(ae.Host2));
+
+        int i = _spacelineOrder.IndexOf(span);
+        Border? left = null, right = null;
+        for (int j = i - 1; j >= 0; j--)
+            if (_spacelineOrder[j].Tag is Card c && IsMissionCard(c))
+            { left = _spacelineOrder[j]; break; }
+        for (int j = i + 1; j < _spacelineOrder.Count; j++)
+            if (_spacelineOrder[j].Tag is Card c && IsMissionCard(c))
+            { right = _spacelineOrder[j]; break; }
+        return (left, right);
+    }
+
+    private Border ResolveOnSpaceline(Border b)
+    {
+        if (_spacelineOrder.Contains(b)) return b;
+        if (b.Tag is not Card c) return b;
+        return _spacelineOrder.FirstOrDefault(x =>
+                   x.Tag is Card xc
+                   && (ReferenceEquals(xc, c)
+                       || string.Equals(xc.Name, c.Name, StringComparison.OrdinalIgnoreCase)
+                          && IsMissionCard(xc)))
+               ?? b;
     }
 
     private void AttachSharedMissionCopy(Border primary, Border copy)
@@ -5848,7 +6220,8 @@ public partial class TableWindow : Window
         var dialog = new OpenFileDialog
         {
             Title = "Deck laden",
-            Filter = "STCCG Deck (*.stdeck)|*.stdeck"
+            Filter = "STCCG Deck (*.stdeck)|*.stdeck",
+            InitialDirectory = GamePaths.DecksRoot
         };
         if (dialog.ShowDialog() != true) return;
 
@@ -5901,7 +6274,8 @@ public partial class TableWindow : Window
         var dialog = new OpenFileDialog
         {
             Title = "Load Player 2 deck",
-            Filter = "STCCG Deck (*.stdeck)|*.stdeck"
+            Filter = "STCCG Deck (*.stdeck)|*.stdeck",
+            InitialDirectory = GamePaths.DecksRoot
         };
         if (dialog.ShowDialog() != true) return;
 
@@ -6066,6 +6440,38 @@ public partial class TableWindow : Window
         StatusText.Text = _devShowDebugLog
             ? "Dev: Debug: lines visible in Action History."
             : "Dev: Debug: lines hidden from Action History.";
+    }
+
+    private void DevFileLog_Click(object sender, RoutedEventArgs e)
+    {
+        DebugLog.Enabled = DevFileLogItem?.IsChecked != false;
+        if (DebugLog.Enabled && !DebugLog.IsOpen)
+            DebugLog.StartSession("menu");
+        DebugLog.Write(DebugLog.Channel.System, _session.TurnNumber, _activePlayer,
+            DebugLog.Enabled ? "file logging on" : "file logging off");
+        StatusText.Text = DebugLog.Enabled
+            ? (DebugLog.CurrentPath != null
+                ? "File log: " + System.IO.Path.GetFileName(DebugLog.CurrentPath)
+                : "File log on.")
+            : "File log off.";
+    }
+
+    private void DevOpenLogFile_Click(object sender, RoutedEventArgs e)
+    {
+        if (!DebugLog.IsOpen)
+            DebugLog.StartSession("open");
+        if (!DebugLog.TryOpenFile())
+        {
+            StatusText.Text = DebugLog.CurrentPath != null
+                ? "Could not open " + DebugLog.CurrentPath
+                : "No log file yet.";
+        }
+    }
+
+    private void DevOpenLogFolder_Click(object sender, RoutedEventArgs e)
+    {
+        if (!DebugLog.TryOpenFolder())
+            StatusText.Text = "Could not open " + GamePaths.LogsRoot;
     }
 
     private void DevPlaySeedFromHand_Click(object sender, RoutedEventArgs e)
@@ -6577,6 +6983,7 @@ public partial class TableWindow : Window
             _session.AdvanceSegment();
             SyncSessionToUi();
             OnTurnContextChanged(_session.StatusLine() + " – execute orders.");
+            ProcessIncomingMessageMoves(_session.ActivePlayer);
             return;
         }
 
@@ -6600,7 +7007,6 @@ public partial class TableWindow : Window
         // Compendium 8: "at end of turn" effects first, THEN the end-of-turn draw.
         // Static Warp Bubble must discard from the current hand, not the card just drawn.
         int finishingPlayer = _session.ActivePlayer;
-        ProcessIncomingMessageMoves(finishingPlayer);
         ProcessEndOfTurnRepairs(finishingPlayer);
         ProcessEndOfTurnDilemmas(finishingPlayer);
         ProcessEndOfTurnEvents(finishingPlayer);
@@ -6685,6 +7091,7 @@ public partial class TableWindow : Window
         UnstopAllCards(); // Compendium: Stopped endet zu Beginn des nächsten Zugs (hier Zugwechsel)
         ResetShipRangesForTurn();
         RefreshRedAlertForTurn();
+        ProcessIncomingMessageMoves(_session.ActivePlayer);
         ProcessStartOfTurnTimedEffects();
         ProcessStartOfTurnDilemmas(_session.ActivePlayer);
         SyncSessionToUi();
@@ -6804,7 +7211,8 @@ public partial class TableWindow : Window
         var dlg = new OpenFileDialog
         {
             Title = title,
-            Filter = "STCCG Deck (*.stdeck)|*.stdeck"
+            Filter = "STCCG Deck (*.stdeck)|*.stdeck",
+            InitialDirectory = GamePaths.DecksRoot
         };
         return dlg.ShowDialog() == true ? dlg.FileName : null;
     }
@@ -7264,7 +7672,8 @@ public partial class TableWindow : Window
             {
                 Title = "Save game",
                 Filter = "STCCG save (*.stsave)|*.stsave",
-                FileName = $"game_{DateTime.Now:yyyyMMdd_HHmm}.stsave"
+                FileName = $"game_{DateTime.Now:yyyyMMdd_HHmm}.stsave",
+                InitialDirectory = GamePaths.SaveGamesRoot
             };
             if (dlg.ShowDialog() != true) return;
             // Sync UI counters into session before capture
@@ -7273,7 +7682,8 @@ public partial class TableWindow : Window
             var snap = CaptureGameSave();
             var json = JsonSerializer.Serialize(snap, new JsonSerializerOptions { WriteIndented = true });
             System.IO.File.WriteAllText(dlg.FileName, json);
-            _session.Log.Add(_session.TurnNumber, "Pystem", $"Game saved: {System.IO.Path.GetFileName(dlg.FileName)}");
+            _session.Log.Add(_session.TurnNumber, "System", $"Game saved: {System.IO.Path.GetFileName(dlg.FileName)}");
+            DebugLog.Save(_session.TurnNumber, _activePlayer, "wrote " + dlg.FileName);
             StatusText.Text = $"Saved {System.IO.Path.GetFileName(dlg.FileName)}";
         }
         catch (Exception ex)
@@ -7290,7 +7700,8 @@ public partial class TableWindow : Window
             var dlg = new OpenFileDialog
             {
                 Title = "Load game",
-                Filter = "STCCG save (*.stsave)|*.stsave"
+                Filter = "STCCG save (*.stsave)|*.stsave",
+                InitialDirectory = GamePaths.SaveGamesRoot
             };
             if (dlg.ShowDialog() != true) return;
             var snap = JsonSerializer.Deserialize<GameSave>(
@@ -7303,6 +7714,9 @@ public partial class TableWindow : Window
                 return;
             }
             ApplyGameSave(snap);
+            DebugLog.Divider("load " + System.IO.Path.GetFileName(dlg.FileName));
+            DebugLog.Save(_session.TurnNumber, _activePlayer,
+                $"loaded {System.IO.Path.GetFileName(dlg.FileName)} T{_turnNumber} P{_activePlayer}");
             StatusText.Text =
                 $"Loaded · T{_turnNumber} · P{_activePlayer} · P1 {_scoreP1} / P2 {_scoreP2}";
         }
@@ -7888,6 +8302,9 @@ public partial class TableWindow : Window
         ShowStackContents("Hand", opponent: false);
         SetTischZoneHighlight(false);
         ClearZoneHighlight();
+        SyncBoardFromTable();
+        foreach (var line in BoardStore.Current.DumpLines())
+            _session.Log.AddDebug(_session.TurnNumber, "Board", line);
     }
 
     private static void ShuffleList<T>(IList<T> list)
@@ -8519,7 +8936,20 @@ public partial class TableWindow : Window
         {
             var host = TrySnapToHost(cardBorder);
             if (host != null)
-                AddCardToHostStack(host, cardBorder);
+            {
+                if (!_seedPhaseActive
+                    && cardBorder.Tag is Card rider
+                    && host.Tag is Card hostCard
+                    && !TreatyRules.CanOccupyHost(rider, hostCard, GetActiveTreaties(_activePlayer)))
+                {
+                    string why = CardKinds.IsMission(hostCard) && !MissionRules.IsPlanetMission(hostCard)
+                        ? $"{rider.Name} cannot beam into space at {hostCard.Name} (7.1.1.0.1)."
+                        : $"{rider.Name} cannot board {hostCard.Name} without a matching Treaty.";
+                    ShowPlayError(why);
+                }
+                else
+                    AddCardToHostStack(host, cardBorder);
+            }
         }
         else if (card != null && IsFacilityCard(card))
         {
@@ -8656,26 +9086,34 @@ public partial class TableWindow : Window
 
     private List<Card> GetCrewOnShip(Border shipBorder)
     {
-        // Nur Personal im Host-Stapel DIESES Schiffs (nicht Outpost!)
         var list = new List<Card>();
-        if (!_stackOnHost.TryGetValue(shipBorder, out var stacked))
-            return list;
-        foreach (var sb in stacked)
+        var seen = new HashSet<int>();
+        if (shipBorder.Tag is Card ship)
         {
-            if (sb.Tag is not Card c) continue;
-            if (IsCrewType(c) || (c.Type ?? "").Contains("personnel", StringComparison.OrdinalIgnoreCase))
-                list.Add(c);
+            foreach (var c in BoardStore.Current.CrewPersonnel(ship.InstanceId))
+            {
+                int id = c.InstanceId > 0 ? c.InstanceId : c.GetHashCode();
+                if (seen.Add(id)) list.Add(c);
+            }
+        }
+
+        if (_stackOnHost.TryGetValue(shipBorder, out var stacked))
+        {
+            foreach (var sb in stacked)
+            {
+                if (sb.Tag is not Card c) continue;
+                if (!IsCrewType(c) && !(c.Type ?? "").Contains("personnel", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                int id = c.InstanceId > 0 ? c.InstanceId : c.GetHashCode();
+                if (seen.Add(id)) list.Add(c);
+            }
         }
         return list;
     }
 
-    private List<Card> GetOrderedMissionCards()
-    {
-        return _spacelineOrder
-            .Where(b => b.Tag is Card c && IsMissionCard(c))
-            .Select(b => (Card)b.Tag!)
-            .ToList();
-    }
+    /// <summary>Gaps is a landable span-4 location. Q-Net is a barrier, not a stop.</summary>
+    private static bool IsLandableLocation(Card c) =>
+        IsMissionCard(c) || EventRules.NameIs(c, "Gaps in Normal Space");
 
     private static bool IsSpacelineSpanCard(Card c)
     {
@@ -8751,15 +9189,20 @@ public partial class TableWindow : Window
             return false;
         }
 
-        int fromIdx = IndexOfMission(fromMission);
-        int toIdx = IndexOfMission(toMission);
+        var uiLine = MissionsOnSameSpaceline(fromMission ?? toMission);
+        int uiFrom = fromMission == null ? -1 : uiLine.IndexOf(fromMission);
+        int uiTo = uiLine.IndexOf(toMission);
+
+        var boardLine = FlyBoardLine(fromMission ?? toMission);
+        int fromIdx = BoardIndexOf(boardLine, fromMission);
+        int toIdx = BoardIndexOf(boardLine, toMission);
         if (fromIdx < 0 || toIdx < 0)
         {
-            StatusText.Text = "Mission nicht auf der Spaceline.";
+            StatusText.Text = "Location nicht auf dem Board.";
             return false;
         }
 
-        var imBlock = IncomingMessageMoveCheck(shipBorder, fromMission, toMission, fromIdx, toIdx);
+        var imBlock = IncomingMessageMoveCheck(shipBorder, fromMission, toMission, uiFrom, uiTo);
         if (imBlock != null)
         {
             ShowPlayError(imBlock);
@@ -8767,52 +9210,27 @@ public partial class TableWindow : Window
         }
 
         int remain = GetRemainingRange(shipBorder, ship);
-        var missions = GetOrderedMissionCards();
 
-        var block = CheckEventMovement(shipBorder, ship, fromIdx, toIdx, crew);
+        var block = CheckEventMovement(shipBorder, ship, uiFrom, uiTo, crew);
         if (block != null)
         {
             StatusText.Text = block;
             return false;
         }
 
-        // Where No One Has Gone Before: Enden als benachbart
-        bool endsHop = HasTableCard(EventRules.IsWhereNoOneHasGoneBefore)
-                       && missions.Count >= 2
-                       && ((fromIdx == 0 && toIdx == missions.Count - 1)
-                           || (toIdx == 0 && fromIdx == missions.Count - 1));
-
-        int mover = _activePlayer;
-        bool SpanForOwner(int missionIndex)
-        {
-            if (missionIndex < 0 || missionIndex >= _spacelineOrder.Count) return true;
-            int mo = GetBorderOwner(_spacelineOrder[missionIndex]);
-            return mo == 0 || mo == mover;
-        }
-
-        MovementRules.MoveResult move;
-        if (endsHop)
-        {
-            int cost = MovementRules.GetMissionSpan(missions[toIdx], SpanForOwner(toIdx));
-            if (cost > remain)
-            {
-                StatusText.Text = "Where No One Has Gone Before: RANGE reicht nicht.";
-                return false;
-            }
-            move = new MovementRules.MoveResult(true, "Ends adjacent (WNOHGB).", cost, remain - cost);
-        }
-        else
-        {
-            move = MovementRules.CanMoveShip(ship, crew, remain, missions, fromIdx, toIdx,
-                GetActiveTreaties(_activePlayer), SpanForOwner);
-        }
+        bool wrap = PlayerHasWnohgb(_activePlayer) && boardLine.Count >= 2;
+        var move = MovementRules.CanMoveShip(ship, crew, remain, boardLine, fromIdx, toIdx,
+            GetActiveTreaties(_activePlayer), wrapEnds: wrap,
+            skipStaffing: ShipStaffedByRogueBorg(shipBorder));
         if (!move.Ok)
         {
             StatusText.Text = move.Reason;
             return false;
         }
 
-        ApplyEventAfterMove(shipBorder, ship, fromIdx, toIdx, crew);
+        ApplyEventAfterMove(shipBorder, ship,
+            fromMission != null ? IndexOfMission(fromMission) : -1,
+            IndexOfMission(toMission), crew);
 
         _shipRangeLeft[shipBorder] = move.RangeLeft;
         StatusText.Text =
@@ -8820,6 +9238,8 @@ public partial class TableWindow : Window
             $"(noch {move.RangeLeft}/{MovementRules.GetShipRange(ship)}) · {staff.Reason}";
         _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
             $"{ship.Name} moved, cost {move.RangeCost}, left {move.RangeLeft}");
+        DebugLog.MoveShip(_session.TurnNumber, _activePlayer, ship,
+            fromMission?.Tag as Card, toMission.Tag as Card, move.RangeCost, move.RangeLeft);
         var arrived = FindMissionForDockable(shipBorder);
         if (arrived != null) ResolveRequiredArrival(shipBorder, arrived);
         return true;
@@ -8883,14 +9303,24 @@ public partial class TableWindow : Window
     {
         if (IsRogueBorgCard(c))
         {
-            if (!ShipHasLoreReturns(host)) return false;
-            int o = GetBorderOwner(cardBorder);
-            if (o == 0) o = CardOwner(cardBorder);
             var unit = _rogueBorg.FirstOrDefault(r => ReferenceEquals(r.Visual, cardBorder)
-                                                      || ReferenceEquals(r.Card, c) && ReferenceEquals(r.Host, host));
-            if (unit != null && unit.Controller != 0)
-                o = unit.Controller;
-            return o == _activePlayer;
+                                                      || ReferenceEquals(r.Card, c) && SameHostShip(r.Host, host));
+            int o = unit is { Controller: 1 or 2 } ? unit.Controller
+                : (GetBorderOwner(cardBorder) is 1 or 2 ? GetBorderOwner(cardBorder) : CardOwner(cardBorder));
+            if (o != _activePlayer) return false;
+            if (host.Tag is Card hc && IsShipCard(hc) && ShipHasLoreReturns(host))
+                return true;
+            // Planet → commandeered ship at this location (Lore: "beam your Rogue Borg")
+            var mission = host.Tag is Card mc && IsMissionCard(mc) ? host : FindMissionForDockable(host);
+            if (mission == null) return false;
+            foreach (var dock in GetDockablesUnderMission(mission))
+            {
+                if (dock.Tag is Card ds && IsShipCard(ds)
+                    && ShipHasLoreReturns(dock)
+                    && GetBorderOwner(dock) == _activePlayer)
+                    return true;
+            }
+            return false;
         }
         if (!IsBeamableCard(c)) return false;
         return CardOwner(cardBorder) == _activePlayer || GetBorderOwner(cardBorder) == _activePlayer;
@@ -9192,20 +9622,13 @@ public partial class TableWindow : Window
         ClearZoneHighlight();
     }
 
-    private static bool DragWantsStackPeek(Card drag) =>
-        InterruptRules.IsKevinNullify(drag) || InterruptRules.IsDevil(drag)
-        || InterruptRules.IsHugh(drag);
+    private static bool DragWantsStackPeek(Card drag) => TargetQuery.WantsBuriedPeek(drag);
 
     private static bool IsLegalPeekTarget(Card drag, Card buried)
     {
-        if (InterruptRules.IsDevil(drag))
-            return TimingRules.CanDevilTarget(buried).ok;
-        if (InterruptRules.IsKevinNullify(drag))
-            return TimingRules.CanKevinTargetEvent(buried).ok;
         if (InterruptRules.IsHugh(drag))
-            return TimingRules.IsHughBattleSource(buried)
-                   || InterruptRules.IsRogueBorg(buried);
-        return false;
+            return TimingRules.IsHughBattleSource(buried) && !InterruptRules.IsRogueBorg(buried);
+        return TargetQuery.IsLegal(drag, buried);
     }
 
     private List<Border>? StackOnHost(Border host)
@@ -9232,8 +9655,246 @@ public partial class TableWindow : Window
                 if (b.Tag is Card c) Add(c);
         foreach (var ae in EventsOn(host))
             Add(ae.Card);
+        foreach (var rb in RogueBorgUnitsOn(host))
+            Add(rb.Card);
         if (_lastEncounteredDilemma.TryGetValue(host, out var dil))
             Add(dil);
+        if (_targetSites.Count > 0 && host.Tag is Card hc)
+        {
+            foreach (var s in _targetSites)
+            {
+                // Gaps/Q-Net sit BETWEEN missions. Never treat them as "on" a mission.
+                if (s.Kind == TargetSiteKind.GapSpan) continue;
+                if (s.Host2 != null) continue;
+                if (s.Card != null && IsSpacelineSpanCard(s.Card)) continue;
+                if (TargetQuery.SiteBelongsToHost(s, hc)) Add(s.Card);
+            }
+        }
+        return list;
+    }
+
+    private List<TargetQuery.InPlay> CollectNullifyInPlay()
+    {
+        var raw = new List<TargetQuery.InPlay>();
+        void Add(Card? c, Card? host, Card? host2, TargetSiteKind kind)
+        {
+            if (c != null) raw.Add(new TargetQuery.InPlay(c, host, host2, kind));
+        }
+        foreach (var ev in _tablePermanentCards)
+            Add(ev, ev, null, TargetSiteKind.TableCard);
+        foreach (var ev in _oppTablePermanentCards)
+            Add(ev, ev, null, TargetSiteKind.TableCard);
+        foreach (var ae in _attachedEvents)
+        {
+            var face = FindBorderForCard(ae.Card);
+            TargetSiteKind kind;
+            if (ae.Host != null && ae.Host2 != null && face == null)
+                kind = TargetSiteKind.GapSpan;
+            else if (face != null && _spacelineOrder.Contains(face))
+                kind = TargetSiteKind.HostFace;
+            else if (ae.Host != null)
+                kind = TargetSiteKind.BuriedCard;
+            else
+                kind = TargetSiteKind.TableCard;
+            Add(ae.Card, ae.Host?.Tag as Card, ae.Host2?.Tag as Card, kind);
+        }
+        foreach (var kv in _stackOnHost)
+        {
+            var hostCard = kv.Key.Tag as Card;
+            foreach (var b in kv.Value)
+                if (b.Tag is Card c)
+                    Add(c, hostCard, null, TargetSiteKind.BuriedCard);
+        }
+        foreach (var b in TableCanvas.Children.OfType<Border>())
+        {
+            if (b.Visibility != Visibility.Visible || b.Tag is not Card c) continue;
+            if (EventRules.IsEvent(c) && _spacelineOrder.Contains(b))
+                Add(c, c, null, TargetSiteKind.HostFace);
+        }
+        return raw;
+    }
+
+    private List<TargetSite> CollectSitesForDrag(Card drag)
+    {
+        if (TargetQuery.IsNullifyDrag(drag))
+            return TargetQuery.NullifySites(drag, CollectNullifyInPlay());
+        var list = new List<TargetSite>();
+        if (TargetQuery.IsGapPlay(drag))
+        {
+            SyncBoardFromTable(logDual: false);
+            var boardGaps = TargetQuery.GapSites(BoardStore.Current.Spaceline.Locations);
+            if (boardGaps.Count > 0)
+            {
+                DebugLog.Target(_session.TurnNumber, _activePlayer,
+                    $"sites {DebugLog.Card(drag)} board-gaps={boardGaps.Count}");
+                return boardGaps;
+            }
+            foreach (var (left, right) in ListSameQuadrantGaps())
+            {
+                if (left.Tag is not Card lc || right.Tag is not Card rc) continue;
+                list.Add(new TargetSite(TargetSiteKind.GapSpan, lc, lc, rc, TargetWhy.PlayOn,
+                    "Play between these missions."));
+            }
+            DebugLog.Target(_session.TurnNumber, _activePlayer,
+                $"sites {DebugLog.Card(drag)} ui-gaps={list.Count}");
+            return list;
+        }
+        if (TargetQuery.IsPlayOnDrag(drag))
+        {
+            int player = _activePlayer;
+            SyncBoardFromTable(logDual: false);
+            var pieces = BoardPlayOnPieces();
+            var boardSites = TargetQuery.PlayOnSites(drag, player, pieces);
+            if (boardSites.Count > 0)
+            {
+                DebugLog.Target(_session.TurnNumber, player,
+                    $"sites {DebugLog.Card(drag)} board-playon={boardSites.Count}");
+                return boardSites;
+            }
+            foreach (var b in TableCanvas.Children.OfType<Border>())
+            {
+                if (b.Visibility != Visibility.Visible || b.Tag is not Card c) continue;
+                var chk = TargetQuery.CanPlayOn(drag, c, FactsFor(b), player);
+                if (!chk.ok) continue;
+                list.Add(new TargetSite(TargetSiteKind.HostFace, c, c, null, TargetWhy.PlayOn, chk.reason));
+            }
+            DebugLog.Target(_session.TurnNumber, player,
+                $"sites {DebugLog.Card(drag)} ui-playon={list.Count}");
+            return list;
+        }
+
+        bool seedNow = _seedPhaseActive || _devPlaySeedFromHand;
+        if (seedNow && IsSeedableUnderMission(drag))
+        {
+            foreach (var m in AllMissionBorders())
+            {
+                if (m.Tag is not Card mc) continue;
+                var chk = CanSeedCardUnderMission(drag, mc);
+                if (!chk.ok) continue;
+                list.Add(new TargetSite(TargetSiteKind.LocationSlot, mc, mc, null, TargetWhy.Seed, chk.reason));
+            }
+            return list;
+        }
+        if (seedNow && IsFacilityCard(drag))
+        {
+            foreach (var m in AllMissionBorders())
+            {
+                if (m.Tag is not Card mc) continue;
+                var chk = CanSeedFacilityAtMission(drag, mc);
+                if (!chk.ok) continue;
+                list.Add(new TargetSite(TargetSiteKind.LocationSlot, mc, mc, null, TargetWhy.Seed, chk.reason));
+            }
+            return list;
+        }
+        if (!_seedPhaseActive && ReportingRules.MustReportForDuty(drag))
+        {
+            int player = _activePlayer;
+            foreach (var b in CollectLegalReportHosts(drag, player))
+            {
+                if (b.Tag is not Card hc) continue;
+                list.Add(new TargetSite(TargetSiteKind.HostFace, hc, hc, null, TargetWhy.Report,
+                    "Report to this facility."));
+            }
+        }
+        return list;
+    }
+
+    private IEnumerable<(Card card, TargetQuery.HostFacts facts)> BoardPlayOnPieces()
+    {
+        foreach (var loc in BoardStore.Current.Spaceline.Locations)
+        {
+            if (loc.Printed != null)
+                yield return (loc.Printed, FactsForPrinted(loc.Printed));
+            foreach (var occ in loc.Occupants)
+                yield return (occ.Card.Printed, FactsForPrinted(occ.Card.Printed));
+        }
+    }
+
+    private TargetQuery.HostFacts FactsForPrinted(Card c)
+    {
+        var face = FindBorderForCard(c);
+        if (face != null)
+            return FactsFor(face);
+
+        bool ship = IsShipCard(c);
+        bool fac = IsFacilityCard(c);
+        bool mission = IsMissionCard(c);
+        var occ = BoardStore.Current.FindOccupant(c.InstanceId);
+        int owner = c.Controller != 0 ? c.Controller : (c.OwnerPlayer != 0 ? c.OwnerPlayer : _activePlayer);
+        int crewN = occ?.Crew.Personnel.Count ?? 0;
+        int sec = 0;
+        if (occ != null)
+            sec = EventRules.CountSkill(occ.Crew.Personnel.Select(p => p.Printed), "SECURITY");
+        string tn = ((c.Type ?? "") + " " + (c.Name ?? "")).ToLowerInvariant();
+        return new TargetQuery.HostFacts(
+            Owner: owner,
+            Exposed: false,
+            Cloaked: false,
+            Occupied: crewN > 0,
+            EmptyOfPersonnel: crewN == 0,
+            HasRogueBorg: false,
+            SecurityCount: sec,
+            IsShip: ship,
+            IsFacility: fac,
+            IsOutpost: fac && tn.Contains("outpost"),
+            IsMission: mission,
+            IsPlanetMission: mission && MissionRules.IsPlanetMission(c),
+            IsNonAlignedShip: ship && IsNonAlignedShip(c),
+            IsBorgShip: ship && IsBorgAffiliation(c));
+    }
+
+    private TargetQuery.HostFacts FactsFor(Border host)
+    {
+        var c = host.Tag as Card;
+        int owner = GetBorderOwner(host);
+        if (owner == 0) owner = 1;
+        bool ship = c != null && IsShipCard(c);
+        bool fac = c != null && IsFacilityCard(c);
+        string tn = (((c?.Type ?? "") + " " + (c?.Name ?? "")).ToLowerInvariant());
+        int sec = 0;
+        if (ship)
+            sec = EventRules.CountSkill(GetCrewOnShip(host), "SECURITY");
+        return new TargetQuery.HostFacts(
+            Owner: owner,
+            Exposed: ship && IsShipExposed(host),
+            Cloaked: ship && IsShipCloaked(host),
+            Occupied: ShipIsOccupied(host),
+            EmptyOfPersonnel: !HostHasPersonnelOf(host, 0),
+            HasRogueBorg: CountRogueBorgOn(host) > 0,
+            SecurityCount: sec,
+            IsShip: ship,
+            IsFacility: fac,
+            IsOutpost: fac && tn.Contains("outpost"),
+            IsMission: c != null && IsMissionCard(c),
+            IsPlanetMission: c != null && IsMissionCard(c) && MissionRules.IsPlanetMission(c),
+            IsNonAlignedShip: ship && c != null && IsNonAlignedShip(c),
+            IsBorgShip: ship && c != null && IsBorgAffiliation(c));
+    }
+
+    private void BeginTargetSession(Card drag)
+    {
+        _targetSites = CollectSitesForDrag(drag);
+        _snapSite = null;
+    }
+
+    private void EndTargetSession()
+    {
+        _targetSites.Clear();
+        _snapSite = null;
+    }
+
+    private List<Card> CollectNullifyPool(Card drag, Border? hostFilter = null)
+    {
+        var sites = _targetSites.Count > 0 ? _targetSites : CollectSitesForDrag(drag);
+        IEnumerable<TargetSite> q = sites;
+        if (hostFilter?.Tag is Card hc)
+        {
+            var onHost = sites.Where(s => TargetQuery.SiteBelongsToHost(s, hc)).ToList();
+            if (onHost.Count > 0) q = onHost;
+        }
+        var list = new List<Card>();
+        foreach (var s in q)
+            if (!list.Contains(s.Card)) list.Add(s.Card);
         return list;
     }
 
@@ -9251,7 +9912,6 @@ public partial class TableWindow : Window
             if (b.Tag is not Card hc) continue;
             if (b.Visibility != Visibility.Visible) continue;
             bool hostKind = IsShipCard(hc) || IsFacilityCard(hc)
-                            || string.Equals(hc.Type, "Mission", StringComparison.OrdinalIgnoreCase)
                             || (EventRules.IsEvent(hc) && _spacelineOrder.Contains(b));
             if (!hostKind) continue;
             try
@@ -9284,9 +9944,22 @@ public partial class TableWindow : Window
             CancelStackPeek(keepOverlay: false);
             return;
         }
+        // Detail overlay covers the ship — keep mini-snap alive while the cursor
+        // is over the overlay even if the canvas host is no longer under the pointer.
+        if (CardDetailOverlay?.Visibility == Visibility.Visible && _peekLegalTargets.Count > 0)
+        {
+            if (PointOverPeekUi(windowPos))
+            {
+                UpdatePeekSnapAt(windowPos);
+                return;
+            }
+            // Detail is open: ignore the board under/around it.
+            return;
+        }
         var host = _currentSnapHost != null && BuriedLegalOn(_currentSnapHost, drag).Count > 0
             ? _currentSnapHost
             : FindHostUnderWindow(windowPos);
+        host = OwningHostOf(host) ?? host;
         if (host == null || BuriedLegalOn(host, drag).Count == 0)
         {
             if (_peekHoverHost != null)
@@ -9315,62 +9988,162 @@ public partial class TableWindow : Window
         StatusText.Text = $"Hold over {((Card)host.Tag!).Name} to open stack (legal targets)…";
     }
 
+    /// <summary>
+    /// After peek opens: only this host's sites stay legal. Board-wide glows go away.
+    /// </summary>
+    private void NarrowSessionToPeekHost(Border host)
+    {
+        if (host.Tag is not Card hc) return;
+        if (_targetSites.Count > 0)
+            _targetSites = _targetSites.Where(s => TargetQuery.SiteBelongsToHost(s, hc)
+                                                   && s.Kind != TargetSiteKind.GapSpan
+                                                   && s.Host2 == null
+                                                   && (s.Card == null || !IsSpacelineSpanCard(s.Card)))
+                                       .ToList();
+        ClearEventTargetHighlights();
+        AddTargetHalo(host, Color.FromRgb(40, 255, 120));
+        ApplyPeekSnapStyle();
+    }
+
+    private Border? OwningHostOf(Border? piece)
+    {
+        if (piece == null) return null;
+        if (piece.Tag is Card c && (IsShipCard(c) || IsFacilityCard(c) || IsMissionCard(c)))
+            return piece;
+        foreach (var kv in _stackOnHost)
+        {
+            if (kv.Value.Contains(piece)) return kv.Key;
+            if (piece.Tag is Card pc && kv.Value.Any(b => ReferenceEquals(b.Tag, pc)))
+                return kv.Key;
+        }
+        if (piece.Tag is Card ev)
+        {
+            var ae = _attachedEvents.FirstOrDefault(e => ReferenceEquals(e.Card, ev) && e.Host != null);
+            if (ae?.Host != null) return ae.Host;
+        }
+        return piece;
+    }
+
     private void OpenStackPeek(Border host, Card drag)
     {
+        host = OwningHostOf(host) ?? host;
         if (host.Tag is not Card hostCard) return;
         var legal = BuriedLegalOn(host, drag);
         _peekLegalTargets.Clear();
         foreach (var c in legal)
             _peekLegalTargets.Add(c);
-        if (legal.Count == 1)
-            _peekSnapCard = legal[0];
+        _peekSnapCard = null;
         _detailHost = host;
         ShowCardDetail(hostCard);
         OpenCardDetailPopup();
+        if (legal.Count == 1 && (DetailStackCards == null || DetailStackCards.Children.Count == 0))
+        {
+            if (DetailStackSection != null) DetailStackSection.Visibility = Visibility.Visible;
+            if (DetailStackCards != null)
+            {
+                var mini = CreateMiniCard(legal[0], faceDown: false);
+                mini.Width = 72;
+                mini.Height = 100;
+                mini.Margin = new Thickness(3);
+                mini.Tag = legal[0];
+                DetailStackCards.Children.Add(mini);
+            }
+        }
+        NarrowSessionToPeekHost(host);
         StatusText.Text = legal.Count > 0
             ? $"Drop on a highlighted card in {hostCard.Name} ({legal.Count} legal)."
             : $"No legal target in {hostCard.Name}.";
         ApplyPeekSnapStyle();
+        Dispatcher.BeginInvoke(new Action(ApplyPeekSnapStyle),
+            System.Windows.Threading.DispatcherPriority.Loaded);
+    }
+
+    /// <summary>Run / other ContentElements are not Visuals — GetParent throws.</summary>
+    private static DependencyObject? ParentOf(DependencyObject? node)
+    {
+        if (node == null) return null;
+        if (node is Visual or Visual3D)
+            return VisualTreeHelper.GetParent(node);
+        if (node is FrameworkContentElement fce)
+            return fce.Parent ?? LogicalTreeHelper.GetParent(node);
+        try { return LogicalTreeHelper.GetParent(node); }
+        catch { return null; }
     }
 
     private void UpdatePeekSnapAt(Point windowPos)
     {
         if (DetailStackCards == null || _peekLegalTargets.Count == 0) return;
         Card? hit = null;
-        foreach (var child in DetailStackCards.Children.OfType<FrameworkElement>())
+        var tree = InputHitTest(windowPos) as DependencyObject;
+        while (tree != null)
         {
-            var mini = child as Border ?? (child as Panel)?.Children.OfType<Border>().FirstOrDefault();
-            if (mini?.Tag is not Card c || !_peekLegalTargets.Contains(c)) continue;
-            try
+            if (tree is FrameworkElement fe && fe.Tag is Card tagged
+                && PeekSetContains(tagged))
             {
-                var tl = mini.TransformToAncestor(this).Transform(new Point(0, 0));
-                var rect = new Rect(tl, mini.RenderSize);
-                rect.Inflate(8, 8);
-                if (rect.Contains(windowPos))
+                hit = tagged;
+                break;
+            }
+            tree = ParentOf(tree);
+        }
+        if (hit == null)
+        {
+            foreach (var child in DetailStackCards.Children.OfType<FrameworkElement>())
+            {
+                var mini = child as Border ?? (child as Panel)?.Children.OfType<Border>().FirstOrDefault();
+                if (mini?.Tag is not Card c || !PeekSetContains(c)) continue;
+                try
                 {
-                    hit = c;
-                    break;
+                    var tl = mini.TransformToAncestor(this).Transform(new Point(0, 0));
+                    double w = mini.ActualWidth > 1 ? mini.ActualWidth
+                        : (mini.RenderSize.Width > 1 ? mini.RenderSize.Width : 72);
+                    double h = mini.ActualHeight > 1 ? mini.ActualHeight
+                        : (mini.RenderSize.Height > 1 ? mini.RenderSize.Height : 100);
+                    var rect = new Rect(tl, new Size(w, h));
+                    rect.Inflate(14, 14);
+                    if (rect.Contains(windowPos))
+                    {
+                        hit = c;
+                        break;
+                    }
                 }
+                catch { }
             }
-            catch { }
         }
-        if (hit == null && CardDetailOverlay?.Visibility == Visibility.Visible)
-        {
-            try
-            {
-                var tl = CardDetailOverlay.TransformToAncestor(this).Transform(new Point(0, 0));
-                var rect = new Rect(tl, CardDetailOverlay.RenderSize);
-                if (rect.Contains(windowPos) && _peekLegalTargets.Count == 1)
-                    hit = _peekLegalTargets.First();
-            }
-            catch { }
-        }
-        if (ReferenceEquals(hit, _peekSnapCard) && hit != null) return;
+        if (ReferenceEquals(hit, _peekSnapCard)) return;
         _peekSnapCard = hit;
         ApplyPeekSnapStyle();
         if (hit != null)
+        {
+            var hostCard = _peekHoverHost?.Tag as Card ?? _detailHost?.Tag as Card;
+            _snapSite = new TargetSite(TargetSiteKind.BuriedCard, hit, hostCard, null,
+                TargetWhy.Nullify, "Nullify that Event.");
             StatusText.Text = $"Snap: {hit.Name} — drop to target.";
+        }
+        else
+            _snapSite = null;
     }
+
+    private bool PointOverPeekUi(Point windowPos)
+    {
+        bool Over(FrameworkElement? el)
+        {
+            if (el == null || el.Visibility != Visibility.Visible) return false;
+            try
+            {
+                var tl = el.TransformToAncestor(this).Transform(new Point(0, 0));
+                var sz = el.RenderSize;
+                if (sz.Width < 2 || sz.Height < 2)
+                    sz = new Size(Math.Max(el.ActualWidth, 2), Math.Max(el.ActualHeight, 2));
+                return new Rect(tl, sz).Contains(windowPos);
+            }
+            catch { return false; }
+        }
+        return Over(CardDetailOverlay) || Over(DetailStackSection) || Over(DetailStackCards);
+    }
+
+    private bool PeekSetContains(Card c) =>
+        _peekLegalTargets.Contains(c)
+        || _peekLegalTargets.Any(t => string.Equals(t.Name, c.Name, StringComparison.OrdinalIgnoreCase));
 
     private void ApplyPeekSnapStyle()
     {
@@ -9378,8 +10151,10 @@ public partial class TableWindow : Window
         foreach (var child in DetailStackCards.Children.OfType<FrameworkElement>())
         {
             var mini = child as Border ?? (child as Panel)?.Children.OfType<Border>().FirstOrDefault();
-            if (mini?.Tag is not Card c || !_peekLegalTargets.Contains(c)) continue;
-            bool on = ReferenceEquals(c, _peekSnapCard);
+            if (mini?.Tag is not Card c || !PeekSetContains(c)) continue;
+            bool on = _peekSnapCard != null && PeekSetContains(_peekSnapCard)
+                      && (ReferenceEquals(c, _peekSnapCard)
+                          || string.Equals(c.Name, _peekSnapCard.Name, StringComparison.OrdinalIgnoreCase));
             mini.BorderBrush = new SolidColorBrush(on
                 ? Color.FromRgb(40, 255, 120)
                 : Color.FromRgb(80, 220, 255));
@@ -9436,11 +10211,7 @@ public partial class TableWindow : Window
         _originPreview.Visibility = Visibility.Visible;
     }
 
-    private int CountDockablesUnderMission(Border mission, Border? exclude)
-    {
-        return GetDockablesUnderMission(mission, exclude).Count;
-    }
-
+    /// <summary>View only — pixel column under/over a mission face. Board occupants come from Sync.</summary>
     private List<Border> GetDockablesUnderMission(Border mission, Border? exclude = null)
     {
         double missionLeft = Canvas.GetLeft(mission);
@@ -9508,15 +10279,36 @@ public partial class TableWindow : Window
         return best; // nächste legale Facility (auch wenn weiter weg)
     }
 
+    private readonly Dictionary<Border, Border> _dockableAtMission = new();
+
     private Border? FindMissionForDockable(Border dockable)
     {
+        if (_dockableAtMission.TryGetValue(dockable, out var pinned)
+            && pinned != null
+            && TableCanvas.Children.Contains(pinned)
+            && pinned.Tag is Card pc && IsLandableLocation(pc))
+            return pinned;
+
         double left = Canvas.GetLeft(dockable);
+        if (double.IsNaN(left)) left = 0;
+        Border? best = null;
+        double bestDx = double.MaxValue;
         foreach (var m in TableCanvas.Children.OfType<Border>())
         {
-            if (m.Tag is not Card c || !string.Equals(c.Type, "Mission", StringComparison.OrdinalIgnoreCase))
-                continue;
-            if (Math.Abs(Canvas.GetLeft(m) - left) < 45)
-                return m;
+            if (m.Tag is not Card c || !IsLandableLocation(c)) continue;
+            double mx = Canvas.GetLeft(m);
+            if (double.IsNaN(mx)) continue;
+            double dx = Math.Abs(mx - left);
+            if (dx < bestDx)
+            {
+                bestDx = dx;
+                best = m;
+            }
+        }
+        if (best != null && bestDx < 90)
+        {
+            _dockableAtMission[dockable] = best;
+            return best;
         }
         return null;
     }
@@ -9639,6 +10431,12 @@ public partial class TableWindow : Window
         }
 
         UpdateHostBadge(host);
+        if (host.Tag is Card hostPrinted && cardBorder.Tag is Card stackedCard)
+        {
+            int ctrl = GetBorderOwner(cardBorder);
+            if (ctrl != 1 && ctrl != 2) ctrl = _activePlayer;
+            BoardStore.Current.ApplyHosted(stackedCard, hostPrinted, ctrl);
+        }
     }
 
     private void RemoveCardFromHostStack(Border host, Border cardBorder)
@@ -9658,6 +10456,8 @@ public partial class TableWindow : Window
                 $"{card.Name} ← left {hostCard.Name}");
         }
         UpdateHostBadge(host);
+        if (cardBorder.Tag is Card left)
+            BoardStore.Current.RemoveFromForces(left.InstanceId);
     }
 
     private void UpdateHostBadge(Border host)
@@ -10429,7 +11229,7 @@ public partial class TableWindow : Window
             return;
         }
 
-        if (!MissionRules.TeamMatchesMissionAffiliation(mission, team))
+        if (!MissionRules.TeamMatchesMissionAffiliation(mission, team, EspionageIconsOn(missionBorder, _activePlayer)))
         {
             string need = string.Join("/", MissionRules.ParseAffiliationTokens(mission.Affiliation));
             ShowPlayError($"Cannot attempt {mission.Name}: requires affiliation {need}.");
@@ -10646,7 +11446,8 @@ public partial class TableWindow : Window
             ? _activePlayer
             : GetBorderOwner(missionBorder);
         var result = MissionRules.CanSolve(mission, team, dilemmasRemaining: 0,
-            attemptingPlayer: _activePlayer, missionOwner: missionOwner);
+            attemptingPlayer: _activePlayer, missionOwner: missionOwner,
+            extraMissionIcons: EspionageIconsOn(missionBorder, _activePlayer));
         if (!result.Ok)
         {
             ShowCardReveal(mission, "Mission not solved",
@@ -10720,7 +11521,7 @@ public partial class TableWindow : Window
         {
             if (hit is Border b && IsWormholeLocation(b))
                 return b;
-            hit = VisualTreeHelper.GetParent(hit);
+            hit = ParentOf(hit);
         }
         foreach (var b in TableCanvas.Children.OfType<Border>())
         {
@@ -10737,9 +11538,8 @@ public partial class TableWindow : Window
         return null;
     }
 
-    private void RelocateShipToLocation(Border ship, Border dest)
+    private void RelocateShipAlongSpaceline(Border ship, Border? from, Border dest)
     {
-        var from = FindMissionForDockable(ship);
         int owner = GetBorderOwner(ship);
         if (owner == 0) owner = _activePlayer;
         Canvas.SetLeft(ship, Canvas.GetLeft(dest));
@@ -10747,8 +11547,14 @@ public partial class TableWindow : Window
         if (from != null && !ReferenceEquals(from, dest))
             RelayoutDockablesUnderMission(from);
         RelayoutDockablesUnderMission(dest);
-        MarkStopped(ship);
         UpdateHostBadge(ship);
+    }
+
+    private void RelocateShipToLocation(Border ship, Border dest)
+    {
+        var from = FindMissionForDockable(ship);
+        RelocateShipAlongSpaceline(ship, from, dest);
+        MarkStopped(ship);
     }
 
     private bool TryPlayWormholeFromHand(Card card, Point windowPos, int owner)
@@ -10878,35 +11684,45 @@ public partial class TableWindow : Window
 
         if (InterruptRules.IsKevinNullify(card) || InterruptRules.IsDevil(card))
         {
+            var handStrip = _activePlayer == 2 ? OppHandStripBorder : PlayerHandStripBorder;
+            if (handStrip != null && IsPointOverElement(handStrip, windowPos))
+                return false;
             bool devil = InterruptRules.IsDevil(card);
-            var target = FindEventTargetAt(windowPos);
-            if (target != null)
-            {
-                var hit = devil ? TimingRules.CanDevilTarget(target) : TimingRules.CanKevinTargetEvent(target);
-                if (!hit.ok) target = null;
-            }
+            Card? target = _snapSite?.Card ?? _peekSnapCard ?? _tableColumnSnapCard;
+            if (target == null && _peekLegalTargets.Count == 1)
+                target = _peekLegalTargets.First();
+            if (target == null)
+                target = FindEventTargetAt(windowPos, card);
+            if (target != null && !TargetQuery.IsLegal(card, target))
+                target = null;
+            if (target != null && _peekLegalTargets.Count > 0 && !PeekSetContains(target))
+                target = null;
             if (target == null)
             {
-                var pool = devil ? CollectDevilTargetCards() : CollectKevinTargetEvents();
-                if (pool.Count == 0)
+                // Only the host under the cursor — never the whole-game picker.
+                var host = _peekHoverHost ?? _currentSnapHost ?? FindHostUnderWindow(windowPos);
+                var pool = CollectNullifyPool(card, host);
+                if (pool.Count == 1)
+                    target = pool[0];
+                else if (pool.Count == 0)
                 {
                     ShowPlayError(devil
-                        ? $"{card.Name}: no Treaty / Horga'hn / Wind Dancer in play (drop on TABLE)."
-                        : $"{card.Name}: no legal Event in play (drop on TABLE, a host, or the gap between two missions).");
+                        ? $"{card.Name}: drop on the Treaty / Horga'hn / Wind Dancer (or return to hand)."
+                        : $"{card.Name}: drop on the Event to nullify (or return to hand).");
                     return false;
                 }
-                target = PickCardFromList(
-                    devil
-                        ? "Click the Treaty, Horga'hn, or Wind Dancer to nullify."
-                        : "Click the Event to nullify (including Gaps / Q-Net between missions).",
-                    pool, card.Name ?? "Nullify", card);
+                else
+                {
+                    ShowPlayError($"{card.Name}: hover the stack and snap one Event — not a global picker.");
+                    return false;
+                }
             }
             if (target == null)
             {
                 ShowPlayError($"{card.Name}: no target chosen.");
                 return false;
             }
-            var chk = devil ? TimingRules.CanDevilTarget(target) : TimingRules.CanKevinTargetEvent(target);
+            var chk = TargetQuery.CanTarget(card, target);
             if (!chk.ok)
             {
                 ShowPlayError(chk.reason);
@@ -10914,6 +11730,7 @@ public partial class TableWindow : Window
             }
             TraceEngine(GameAction.Play(owner, card, target));
             BeginPlayCardStack(card, isResponse: _stack.IsOpen, controllerOverride: owner, target: target);
+            EndTargetSession();
             return true;
         }
 
@@ -10970,7 +11787,7 @@ public partial class TableWindow : Window
             }
             if (hit is Border b && b.Tag is Card && Matches(b))
                 return b;
-            hit = VisualTreeHelper.GetParent(hit);
+            hit = ParentOf(hit);
         }
 
         // Geometry fallback (zoom-safe: screen corners → window coords, padded hit box)
@@ -11030,9 +11847,13 @@ public partial class TableWindow : Window
         if (InterruptRules.IsHugh(interrupt))
         {
             if (host.Tag is not Card hh) return false;
-            if (IsShipCard(hh) && (CountRogueBorgOn(host) > 0 || TimingRules.IsHughBattleSource(hh)))
+            if (TimingRules.IsHughBattleSource(hh) && !InterruptRules.IsRogueBorg(hh) && !IsShipCard(hh))
                 return true;
-            if (InterruptRules.IsRogueBorg(hh)) return true;
+            if (IsMissionCard(hh))
+            {
+                foreach (var dock in GetDockablesUnderMission(host).Concat(new[] { host }))
+                    if (CountRogueBorgOn(dock) > 0) return true;
+            }
             return false;
         }
         if (InterruptRules.IsCrosis(interrupt))
@@ -11155,27 +11976,28 @@ public partial class TableWindow : Window
         || ArtifactRules.IsHorgahn(c)
         || (c.Name ?? "").Equals("Wind Dancer", StringComparison.OrdinalIgnoreCase);
 
-    private Card? FindEventTargetAt(Point windowPos)
+    private Card? FindEventTargetAt(Point windowPos, Card drag)
     {
         var fromPeek = PeekTargetUnderDetail(windowPos);
         if (fromPeek != null) return fromPeek;
 
-        if (_tableColumnSnapCard != null && IsNullifyBoardTarget(_tableColumnSnapCard))
+        if (_tableColumnSnapCard != null && TargetQuery.IsLegal(drag, _tableColumnSnapCard))
             return _tableColumnSnapCard;
         Card? fromTableCol = EventOnTableColumnAt(windowPos);
-        if (fromTableCol != null) return fromTableCol;
+        if (fromTableCol != null && TargetQuery.IsLegal(drag, fromTableCol))
+            return fromTableCol;
 
         var hit = InputHitTest(windowPos) as DependencyObject;
         while (hit != null)
         {
             if (hit is FrameworkElement fe)
             {
-                if (fe.Tag is HostCardRef href && IsNullifyBoardTarget(href.Card))
+                if (fe.Tag is HostCardRef href && TargetQuery.IsLegal(drag, href.Card))
                     return href.Card;
-                if (fe.Tag is Card c && IsNullifyBoardTarget(c))
+                if (fe.Tag is Card c && TargetQuery.IsLegal(drag, c))
                     return c;
             }
-            hit = VisualTreeHelper.GetParent(hit);
+            hit = ParentOf(hit);
         }
 
         // Dropped on a ship / mission / facility that has an attached event
@@ -11191,7 +12013,7 @@ public partial class TableWindow : Window
             }
             catch { continue; }
 
-            if (IsNullifyBoardTarget(hc))
+            if (TargetQuery.IsLegal(drag, hc))
                 return hc;
 
             var events = new List<Card>();
@@ -11199,24 +12021,30 @@ public partial class TableWindow : Window
             if (stackedOn != null)
             {
                 foreach (var mb in stackedOn)
-                    if (mb.Tag is Card ec && IsNullifyBoardTarget(ec))
+                    if (mb.Tag is Card ec && TargetQuery.IsLegal(drag, ec))
                         events.Add(ec);
             }
             foreach (var ae in EventsOn(b))
             {
-                if (IsNullifyBoardTarget(ae.Card) && !events.Contains(ae.Card))
+                if (TargetQuery.IsLegal(drag, ae.Card) && !events.Contains(ae.Card))
                     events.Add(ae.Card);
+            }
+            if (_targetSites.Count > 0)
+            {
+                foreach (var s in _targetSites)
+                    if (TargetQuery.SiteBelongsToHost(s, hc) && !events.Contains(s.Card))
+                        events.Add(s.Card);
             }
             if (events.Count == 1) return events[0];
             if (events.Count > 1)
-                return events[0];
+                return null;
         }
 
         // Span events (Gaps / Q-Net) sit between Host and Host2 — hit the midpoint.
         foreach (var ae in _attachedEvents)
         {
             if (ae.Host == null || ae.Host2 == null) continue;
-            if (!IsNullifyBoardTarget(ae.Card)) continue;
+            if (!TargetQuery.IsLegal(drag, ae.Card)) continue;
             try
             {
                 double lx = Canvas.GetLeft(ae.Host) + TableCardWidth;
@@ -11251,7 +12079,7 @@ public partial class TableWindow : Window
         {
             if (hit is FrameworkElement fe && fe.Tag is Card c && _peekLegalTargets.Contains(c))
                 return c;
-            hit = VisualTreeHelper.GetParent(hit);
+            hit = ParentOf(hit);
         }
         if (_peekSnapCard != null && _peekLegalTargets.Contains(_peekSnapCard))
             return _peekSnapCard;
@@ -11275,7 +12103,7 @@ public partial class TableWindow : Window
             {
                 if (hit is FrameworkElement fe && fe.Tag is Card c && IsNullifyBoardTarget(c))
                     return c;
-                hit = VisualTreeHelper.GetParent(hit);
+                hit = ParentOf(hit);
             }
             var singles = CollectKevinTargetEvents()
                 .Where(c => _tablePermanentCards.Contains(c) || _oppTablePermanentCards.Contains(c))
@@ -11303,37 +12131,27 @@ public partial class TableWindow : Window
     private List<Card> CollectKevinTargetEvents()
     {
         var list = new List<Card>();
-        void Add(Card? ev)
+        foreach (var row in CollectNullifyInPlay())
         {
-            if (ev == null || !EventRules.IsEvent(ev)) return;
-            if (!TimingRules.CanKevinTargetEvent(ev).ok) return;
-            if (!list.Contains(ev)) list.Add(ev);
+            if (!TimingRules.CanKevinTargetEvent(row.Card).ok) continue;
+            if (!list.Contains(row.Card)) list.Add(row.Card);
         }
-        foreach (var ev in _tablePermanentCards) Add(ev);
-        foreach (var ev in _oppTablePermanentCards) Add(ev);
-        foreach (var ae in _attachedEvents) Add(ae.Card);
-        foreach (var kv in _stackOnHost)
-            foreach (var b in kv.Value)
-                if (b.Tag is Card c) Add(c);
         return list;
     }
 
     private List<Card> CollectDevilTargetCards()
     {
         var list = new List<Card>();
-        void Add(Card? c)
+        foreach (var row in CollectNullifyInPlay())
         {
-            if (c == null || !TimingRules.CanDevilTarget(c).ok) return;
-            if (!list.Contains(c)) list.Add(c);
+            if (!TimingRules.CanDevilTarget(row.Card).ok) continue;
+            if (!list.Contains(row.Card)) list.Add(row.Card);
         }
-        foreach (var ev in _tablePermanentCards) Add(ev);
-        foreach (var ev in _oppTablePermanentCards) Add(ev);
-        foreach (var ae in _attachedEvents) Add(ae.Card);
-        foreach (var kv in _stackOnHost)
-            foreach (var b in kv.Value)
-                if (b.Tag is Card c) Add(c);
         foreach (var dil in _lastEncounteredDilemma.Values)
-            Add(dil);
+        {
+            if (dil != null && TimingRules.CanDevilTarget(dil).ok && !list.Contains(dil))
+                list.Add(dil);
+        }
         return list;
     }
 
@@ -11359,12 +12177,15 @@ public partial class TableWindow : Window
         while (hit != null)
         {
             if (hit is FrameworkElement fe && fe.Tag is Card c
-                && (InterruptRules.IsRogueBorg(c) || TimingRules.IsHughBattleSource(c)))
+                && TimingRules.IsHughBattleSource(c)
+                && !InterruptRules.IsRogueBorg(c) && !IsShipCard(c))
                 return c;
-            if (hit is Border b && b.Tag is Card hc
-                && IsShipCard(hc) && CountRogueBorgOn(b) > 0)
-                return hc;
-            hit = VisualTreeHelper.GetParent(hit);
+            if (hit is Border b && b.Tag is Card hc && IsMissionCard(hc))
+            {
+                foreach (var dock in GetDockablesUnderMission(b).Concat(new[] { b }))
+                    if (CountRogueBorgOn(dock) > 0) return hc;
+            }
+            hit = ParentOf(hit);
         }
         return null;
     }
@@ -11381,13 +12202,17 @@ public partial class TableWindow : Window
         foreach (var b in TableCanvas.Children.OfType<Border>())
         {
             if (b.Tag is not Card c) continue;
-            if (IsShipCard(c) && (TimingRules.IsHughBattleSource(c) || CountRogueBorgOn(b) > 0))
+            if (IsMissionCard(c))
+            {
+                foreach (var dock in GetDockablesUnderMission(b).Concat(new[] { b }))
+                    if (CountRogueBorgOn(dock) > 0) { Add(c); break; }
+            }
+            else if (TimingRules.IsHughBattleSource(c) && !IsShipCard(c))
                 Add(c);
         }
         if (_borgShipToken?.Tag is Card tok) Add(tok);
         foreach (var d in _attachedDilemmas)
             if (d.Kind == DilemmaRules.PersistKind.BorgShip) Add(d.Card);
-        foreach (var rb in _rogueBorg) Add(rb.Card);
         return list;
     }
 
@@ -11432,17 +12257,15 @@ public partial class TableWindow : Window
             foreach (var dock in GetDockablesUnderMission(mission).Concat(new[] { mission }))
                 victims.AddRange(RogueBorgUnitsOn(dock).ToList());
             int n = victims.Count;
+            var hosts = victims.Select(v => v.Host).Where(h => h != null).Distinct().ToList();
             foreach (var rb in victims)
-            {
-                _rogueBorg.Remove(rb);
-                if (rb.Visual != null && TableCanvas.Children.Contains(rb.Visual))
-                    TableCanvas.Children.Remove(rb.Visual);
-                SendCardTo(rb.Card, rb.Controller is 1 or 2 ? rb.Controller : controller,
-                    TimingRules.Destination.Discard);
-            }
+                DiscardRogueBorgUnit(rb, "Hugh");
             StatusText.Text = $"Hugh kills {n} Rogue Borg at this location.";
             _session.Log.Add(_session.TurnNumber, $"P{controller}", $"Hugh kills {n} Rogue Borg");
-            if (loc.Tag is Card hc) UpdateHostBadge(loc);
+            foreach (var h in hosts)
+                UpdateHostBadge(h);
+            if (_detailHost != null && hosts.Contains(_detailHost) && _detailHost.Tag is Card hc)
+                ShowHostContents(_detailHost, hc);
             return;
         }
 
@@ -11510,6 +12333,8 @@ public partial class TableWindow : Window
 
         foreach (var ae in attached)
         {
+            if (EventRules.IsLoreReturns(ev) && ae.Host != null)
+                RevertLoreReturnsControl(ae.Host);
             if (ae.Host != null) UpdateHostBadge(ae.Host);
             if (ae.Host2 != null) UpdateHostBadge(ae.Host2);
             _attachedEvents.Remove(ae);
@@ -11928,17 +12753,43 @@ public partial class TableWindow : Window
         HasTableCard(c => (c?.Name ?? "").Equals(name, StringComparison.OrdinalIgnoreCase));
 
     private bool HasTableCard(Func<Card?, bool> pred) =>
-        _tablePermanentCards.Concat(_oppTablePermanentCards).Any(pred)
-        || _attachedEvents.Any(e => pred(e.Card));
+        _tablePermanentCards.Concat(_oppTablePermanentCards).Any(pred);
+
+    /// <summary>Event on that player's TABLE column only (WNOHGB "You may…").</summary>
+    private bool PlayerHasTableCard(int player, Func<Card?, bool> pred) =>
+        (player == 2 ? _oppTablePermanentCards : _tablePermanentCards).Any(pred);
+
+    private bool PlayerHasWnohgb(int player) =>
+        PlayerHasTableCard(player, EventRules.IsWhereNoOneHasGoneBefore);
 
     private bool HasPatternEnhancers() =>
         _attachedEvents.Any(e => e.Kind == EventRules.Persist.PatternEnhancers)
         || HasTableCard(EventRules.IsPatternEnhancers);
 
+    /// <summary>Espionage on this mission: add [As] icon for that player if mission is [On].</summary>
+    private IEnumerable<string> EspionageIconsOn(Border mission, int player)
+    {
+        var printed = MissionRules.ParseAffiliationTokens((mission.Tag as Card)?.Affiliation);
+        foreach (var e in EventsOn(mission))
+        {
+            if (e.Kind != EventRules.Persist.Espionage || e.Owner != player) continue;
+            if (string.IsNullOrEmpty(e.EspionageAs) || string.IsNullOrEmpty(e.EspionageOn)) continue;
+            if (!printed.Contains(MissionRules.NormalizeAffiliationToken(e.EspionageOn)))
+                continue;
+            yield return e.EspionageAs;
+        }
+    }
+
     private IEnumerable<AttachedEvent> EventsOn(Border? host) =>
         host == null
             ? Enumerable.Empty<AttachedEvent>()
-            : _attachedEvents.Where(e => SameHostShip(e.Host, host) || SameHostShip(e.Host2, host));
+            : _attachedEvents.Where(e =>
+            {
+                // Gaps / Q-Net live on the spaceline, not on the two neighbouring missions.
+                if (e.Kind is EventRules.Persist.Gaps or EventRules.Persist.QNet)
+                    return false;
+                return SameHostShip(e.Host, host) || SameHostShip(e.Host2, host);
+            });
 
     private bool TryResolveEventPlay(Card ev, int controller)
     {
@@ -12058,6 +12909,11 @@ public partial class TableWindow : Window
             {
                 ae.Host2 = PickAdjacentMission(host);
             }
+            if (r.Persist is EventRules.Persist.QNet or EventRules.Persist.Gaps)
+            {
+                ClearEventTargetHighlights();
+                RelayoutMissionsOnSpaceline();
+            }
             if (r.Persist == EventRules.Persist.RedAlert)
             {
                 // Playing Red Alert is this turn's normal card play.
@@ -12175,55 +13031,9 @@ public partial class TableWindow : Window
         var candidates = new List<Border>();
         foreach (var b in TableCanvas.Children.OfType<Border>())
         {
-            if (b.Tag is not Card c) continue;
-            if (tk == EventRules.TargetKind.Ship || place == EventRules.Place.OnShip)
-            {
-                if (!IsShipCard(c)) continue;
-                string n = ev.Name ?? "";
-                if (EventRules.IsLoreReturns(ev))
-                {
-                    // Opponent's empty ship with Rogue Borg aboard
-                    int ho = GetBorderOwner(b);
-                    if (ho == 0) ho = 1;
-                    if (ho == controller) continue;
-                    if (CountRogueBorgOn(b) == 0) continue;
-                    if (HostHasPersonnelOf(b, 0)) continue; // must be empty of personnel
-                    candidates.Add(b);
-                    continue;
-                }
-                bool anyShip = EventRules.IsPlasmaFire(ev)
-                               || EventRules.IsWarpCoreBreach(ev)
-                               || EventRules.IsNeuralServo(ev);
-                if ((EventRules.IsPlasmaFire(ev) || EventRules.IsWarpCoreBreach(ev))
-                    && IsBorgAffiliation(c))
-                    continue; // non-[Bor] ships only
-                if (EventRules.IsNeuralServo(ev))
-                {
-                    if (!IsNonAlignedShip(c)) continue;
-                    if (EventRules.HasSkill(GetCrewOnShip(b), "SECURITY", 2)) continue;
-                    candidates.Add(b);
-                    continue;
-                }
-                if (anyShip || GetBorderOwner(b) == controller)
-                    candidates.Add(b);
-            }
-            else if (tk == EventRules.TargetKind.PlanetMission || place == EventRules.Place.OnPlanet)
-            {
-                if (string.Equals(c.Type, "Mission", StringComparison.OrdinalIgnoreCase)
-                    && MissionRules.IsPlanetMission(c))
-                    candidates.Add(b);
-            }
-            else if (tk == EventRules.TargetKind.Mission || place == EventRules.Place.OnMission)
-            {
-                if (string.Equals(c.Type, "Mission", StringComparison.OrdinalIgnoreCase))
-                    candidates.Add(b);
-            }
-            else if (tk == EventRules.TargetKind.Outpost || place == EventRules.Place.OnOutpost)
-            {
-                if ((c.Type ?? "").Contains("facility", StringComparison.OrdinalIgnoreCase)
-                    && GetBorderOwner(b) == controller)
-                    candidates.Add(b);
-            }
+            if (b.Visibility != Visibility.Visible || b.Tag is not Card c) continue;
+            if (TargetQuery.CanPlayOn(ev, c, FactsFor(b), controller).ok)
+                candidates.Add(b);
         }
         return candidates.Distinct().ToList();
     }
@@ -12270,6 +13080,7 @@ public partial class TableWindow : Window
         return pairs[idx].left;
     }
 
+    /// <summary>View only — midpoint paint + fallback if BoardStore has no locations yet.</summary>
     private List<(Border left, Border right)> ListSameQuadrantGaps()
     {
         var list = new List<(Border, Border)>();
@@ -12403,19 +13214,25 @@ public partial class TableWindow : Window
 
     private Border PlaceSpanOnSpaceline(Card ev, Border left, Border right, int owner)
     {
+        left = ResolveOnSpaceline(left);
+        right = ResolveOnSpaceline(right);
         int i1 = _spacelineOrder.IndexOf(left);
         int i2 = _spacelineOrder.IndexOf(right);
         if (i1 < 0) i1 = 0;
-        if (i2 < 0) i2 = i1 + 1;
+        if (i2 < 0) i2 = Math.Min(i1 + 1, _spacelineOrder.Count);
         int insert = Math.Min(i1, i2) + 1;
+        if (insert < 0) insert = 0;
+        if (insert > _spacelineOrder.Count) insert = _spacelineOrder.Count;
 
-        var border = AddCardToTable(ev, 0, SpacelineY, TableCardWidth);
+        double guessX = Canvas.GetLeft(left);
+        if (double.IsNaN(guessX)) guessX = 40;
+        guessX += TableCardWidth + MissionGap;
+        var border = AddCardToTable(ev, guessX, SpacelineY, TableCardWidth);
         border.BorderBrush = new SolidColorBrush(Color.FromRgb(180, 120, 220));
         border.BorderThickness = new Thickness(2);
         border.ToolTip = (ev.Name ?? "Span") + "\nSpan event between missions";
         SetBorderOwner(border, owner);
-        if (insert < 0) insert = 0;
-        if (insert > _spacelineOrder.Count) insert = _spacelineOrder.Count;
+        Panel.SetZIndex(border, 9);
         _spacelineOrder.Insert(insert, border);
         RelayoutMissionsOnSpaceline();
         StatusText.Text = $"{ev.Name} inserted on spaceline between {(left.Tag as Card)?.Name} and {(right.Tag as Card)?.Name}.";
@@ -12498,8 +13315,21 @@ public partial class TableWindow : Window
             foreach (var b in TableCanvas.Children.OfType<Border>())
             {
                 if (b.Tag is not Card hc) continue;
-                if ((IsShipCard(hc) && CountRogueBorgOn(b) > 0) || TimingRules.IsHughBattleSource(hc))
+                if (InterruptRules.IsRogueBorg(hc)) continue;
+                if (TimingRules.IsHughBattleSource(hc) && !IsShipCard(hc))
                     Add(b);
+                else if (IsMissionCard(hc))
+                {
+                    foreach (var dock in GetDockablesUnderMission(b).Concat(new[] { b }))
+                        if (CountRogueBorgOn(dock) > 0) { Add(b); break; }
+                }
+            }
+            foreach (var d in _attachedDilemmas)
+            {
+                if (d.Kind != DilemmaRules.PersistKind.BorgShip) continue;
+                var span = FindBorderForCard(d.Card);
+                if (span != null) Add(span);
+                if (d.Host != null) Add(d.Host);
             }
             Add(_borgShipToken);
             return list;
@@ -12511,6 +13341,12 @@ public partial class TableWindow : Window
             bool Legal(Card ev) => devil
                 ? TimingRules.CanDevilTarget(ev).ok
                 : TimingRules.CanKevinTargetEvent(ev).ok;
+            foreach (var e in _attachedEvents)
+            {
+                if (!Legal(e.Card)) continue;
+                var span = FindBorderForCard(e.Card);
+                if (span != null) Add(span);
+            }
             foreach (var b in TableCanvas.Children.OfType<Border>())
             {
                 if (b.Tag is not Card hc) continue;
@@ -12518,8 +13354,14 @@ public partial class TableWindow : Window
                 var stacked = StackOnHost(b);
                 bool has = stacked != null && stacked.Any(x => x.Tag is Card c && Legal(c));
                 if (!has)
+                {
+                    // Halo the ship/mission only when the event has no face of its own
+                    // (Q-Net / Gaps on the spaceline snap to that card, not the missions).
                     has = _attachedEvents.Any(e =>
-                        (SameHostShip(e.Host, b) || SameHostShip(e.Host2, b)) && Legal(e.Card));
+                        Legal(e.Card)
+                        && (SameHostShip(e.Host, b) || SameHostShip(e.Host2, b))
+                        && FindBorderForCard(e.Card) == null);
+                }
                 if (has) Add(b);
             }
             return list;
@@ -12573,6 +13415,26 @@ public partial class TableWindow : Window
         int snapOwner = _zoneDragRef?.Opponent == true ? 2 : _activePlayer;
         if (!_seedPhaseActive)
         {
+            // Named overrides own their halo color + TABLE / gap extras.
+            // Do not return after a generic cyan pass — that skipped Q-Net midpoints
+            // and painted Hugh ships cyan instead of the ship target color.
+            if (InterruptRules.IsKevinNullify(card) || InterruptRules.IsDevil(card))
+            {
+                BeginTargetSession(card);
+                HighlightNullifySnapTargets(card, snapOwner);
+                return;
+            }
+            if (InterruptRules.IsHugh(card))
+            {
+                HighlightHughSnapTargets(card, snapOwner);
+                return;
+            }
+            if (TargetQuery.IsPlayOnDrag(card) || TargetQuery.IsGapPlay(card))
+            {
+                BeginTargetSession(card);
+                HighlightPlayOnSites();
+                return;
+            }
             var snapHosts = CollectLegalSnapHosts(card, snapOwner);
             if (snapHosts.Count > 0)
             {
@@ -12583,37 +13445,14 @@ public partial class TableWindow : Window
                     && EventRules.GetTargetKind(EventRules.ResolvePlay(card))
                        == EventRules.TargetKind.GapBetweenMissions)
                 { /* gap midpoints still drawn below */ }
-                else if (InterruptRules.IsKevinNullify(card) || InterruptRules.IsDevil(card))
-                {
-                    HighlightKevinTableMinis(c =>
-                        InterruptRules.IsDevil(card)
-                            ? TimingRules.CanDevilTarget(c).ok
-                            : TimingRules.CanKevinTargetEvent(c).ok);
-                    return;
-                }
                 else if (InterruptRules.IsInterrupt(card) || TargetingRules.UsesBoardSnap(card))
                     return;
             }
         }
         if (_seedPhaseActive || (_devPlaySeedFromHand && fromHand && IsSeedableUnderMission(card)))
         {
-            if (IsSeedableUnderMission(card))
-            {
-                foreach (var m in AllMissionBorders())
-                {
-                    if (m.Tag is not Card mc) continue;
-                    if (!CanSeedCardUnderMission(card, mc).ok) continue;
-                    AddTargetHalo(m, Color.FromRgb(220, 160, 60));
-                }
-            }
-            else if (IsFacilityCard(card))
-            {
-                foreach (var m in AllMissionBorders())
-                {
-                    if (m.Tag is Card mc && CanSeedFacilityAtMission(card, mc).ok)
-                        AddTargetHalo(m, Color.FromRgb(40, 180, 140));
-                }
-            }
+            BeginTargetSession(card);
+            HighlightPlayOnSites();
             return;
         }
 
@@ -12647,87 +13486,6 @@ public partial class TableWindow : Window
             return;
         }
 
-        if (InterruptRules.IsHugh(card))
-        {
-            foreach (var b in TableCanvas.Children.OfType<Border>().ToList())
-            {
-                if (b.Tag is not Card hc) continue;
-                bool ok = (IsShipCard(hc) && CountRogueBorgOn(b) > 0)
-                          || TimingRules.IsHughBattleSource(hc);
-                if (ok) AddTargetHalo(b, Color.FromRgb(180, 40, 40));
-            }
-            if (_borgShipToken != null)
-                AddTargetHalo(_borgShipToken, Color.FromRgb(180, 40, 40));
-            return;
-        }
-
-        if (InterruptRules.IsKevinNullify(card) || InterruptRules.IsDevil(card))
-        {
-            bool devil = InterruptRules.IsDevil(card);
-            bool Legal(Card ev) => devil
-                ? TimingRules.CanDevilTarget(ev).ok
-                : TimingRules.CanKevinTargetEvent(ev).ok;
-            // Snapshot — AddTargetHalo mutates TableCanvas.Children
-            foreach (var b in TableCanvas.Children.OfType<Border>().ToList())
-            {
-                if (b.Tag is not Card hc) continue;
-                if (Legal(hc))
-                {
-                    AddTargetHalo(b, Color.FromRgb(220, 180, 60));
-                    continue;
-                }
-                bool has = false;
-                if (_stackOnHost.TryGetValue(b, out var list))
-                    has = list.Any(x => x.Tag is Card c && EventRules.IsEvent(c) && Legal(c));
-                if (!has)
-                    has = _attachedEvents.Any(e =>
-                        (ReferenceEquals(e.Host, b) || ReferenceEquals(e.Host2, b))
-                        && Legal(e.Card));
-                if (has) AddTargetHalo(b, Color.FromRgb(220, 180, 60));
-            }
-            // Mid-gap halo for span events (Gaps / Q-Net) — Kevin only
-            foreach (var e in _attachedEvents)
-            {
-                if (e.Host == null || e.Host2 == null) continue;
-                if (!Legal(e.Card)) continue;
-                double lx = Canvas.GetLeft(e.Host) + TableCardWidth;
-                double rx = Canvas.GetLeft(e.Host2);
-                double x = (lx + rx) / 2.0 - TableCardWidth / 2.0;
-                var rect = new Rectangle
-                {
-                    Width = TableCardWidth,
-                    Height = TableCardHeight,
-                    Stroke = new SolidColorBrush(Color.FromRgb(220, 180, 60)),
-                    StrokeThickness = 2,
-                    StrokeDashArray = new DoubleCollection { 4, 3 },
-                    Fill = new SolidColorBrush(Color.FromArgb(50, 220, 180, 60)),
-                    IsHitTestVisible = false,
-                    RadiusX = 4,
-                    RadiusY = 4
-                };
-                Canvas.SetLeft(rect, x);
-                Canvas.SetTop(rect, Canvas.GetTop(e.Host));
-                Panel.SetZIndex(rect, 20);
-                TableCanvas.Children.Add(rect);
-                _targetHighlights.Add(rect);
-            }
-            void MarkEventMini(Border el, Card ev)
-            {
-                if (!Legal(ev)) return;
-                el.BorderBrush = new SolidColorBrush(Color.FromRgb(255, 210, 80));
-                el.BorderThickness = new Thickness(2);
-            }
-            foreach (var mini in (OppStripPanel?.Children.OfType<Border>() ?? Enumerable.Empty<Border>()).ToList())
-                if (mini.Tag is HostCardRef href) MarkEventMini(mini, href.Card);
-            foreach (var mini in (PlayerStripPanel?.Children.OfType<Border>() ?? Enumerable.Empty<Border>()).ToList())
-                if (mini.Tag is HostCardRef href) MarkEventMini(mini, href.Card);
-            foreach (var mini in (TablePermanentsPanel?.Children.OfType<Border>() ?? Enumerable.Empty<Border>()).ToList())
-                if (mini.Tag is Card ev) MarkEventMini(mini, ev);
-            foreach (var mini in (OppTablePermanentsPanel?.Children.OfType<Border>() ?? Enumerable.Empty<Border>()).ToList())
-                if (mini.Tag is Card ev) MarkEventMini(mini, ev);
-            return;
-        }
-
         if (fromHand && InterruptRules.IsInterrupt(card)
             && InterruptRules.GetPlayTarget(card) is InterruptRules.PlayTarget.OwnCrew
                 or InterruptRules.PlayTarget.AnyCrew
@@ -12756,9 +13514,8 @@ public partial class TableWindow : Window
 
         if (fromHand && ReportingRules.MustReportForDuty(card))
         {
-            int owner = _zoneDragRef?.Opponent == true ? 2 : _activePlayer;
-            foreach (var h in CollectLegalReportHosts(card, owner))
-                AddTargetHalo(h, Color.FromRgb(80, 200, 120));
+            BeginTargetSession(card);
+            HighlightPlayOnSites();
             return;
         }
 
@@ -12857,6 +13614,68 @@ public partial class TableWindow : Window
 
     }
 
+    /// <summary>
+    /// Kevin / Devil: TABLE minis + ship stacks + Q-Net/Gaps face or midpoint.
+    /// One path for halo (start-drag) so CollectLegalSnapHosts and this stay aligned.
+    /// </summary>
+    private void HighlightNullifySnapTargets(Card card, int owner)
+    {
+        bool devil = InterruptRules.IsDevil(card);
+        bool Legal(Card ev) => devil
+            ? TimingRules.CanDevilTarget(ev).ok
+            : TimingRules.CanKevinTargetEvent(ev).ok;
+
+        var gold = Color.FromRgb(220, 180, 60);
+        foreach (var h in CollectLegalSnapHosts(card, owner))
+            AddTargetHalo(h, gold);
+
+        foreach (var e in _attachedEvents)
+        {
+            if (e.Host == null || e.Host2 == null) continue;
+            if (!Legal(e.Card)) continue;
+            if (FindBorderForCard(e.Card) != null) continue; // face already halo'd
+            double lx = Canvas.GetLeft(e.Host) + TableCardWidth;
+            double rx = Canvas.GetLeft(e.Host2);
+            double x = (lx + rx) / 2.0 - TableCardWidth / 2.0;
+            var rect = new Rectangle
+            {
+                Width = TableCardWidth,
+                Height = TableCardHeight,
+                Stroke = new SolidColorBrush(gold),
+                StrokeThickness = 2,
+                StrokeDashArray = new DoubleCollection { 4, 3 },
+                Fill = new SolidColorBrush(Color.FromArgb(50, gold.R, gold.G, gold.B)),
+                IsHitTestVisible = false,
+                RadiusX = 4,
+                RadiusY = 4
+            };
+            Canvas.SetLeft(rect, x);
+            Canvas.SetTop(rect, Canvas.GetTop(e.Host));
+            Panel.SetZIndex(rect, 20);
+            TableCanvas.Children.Add(rect);
+            _targetHighlights.Add(rect);
+        }
+
+        HighlightKevinTableMinis(Legal);
+        void MarkStrip(Border el, Card ev)
+        {
+            if (!Legal(ev)) return;
+            el.BorderBrush = new SolidColorBrush(Color.FromRgb(255, 210, 80));
+            el.BorderThickness = new Thickness(2);
+        }
+        foreach (var mini in (OppStripPanel?.Children.OfType<Border>() ?? Enumerable.Empty<Border>()).ToList())
+            if (mini.Tag is HostCardRef href) MarkStrip(mini, href.Card);
+        foreach (var mini in (PlayerStripPanel?.Children.OfType<Border>() ?? Enumerable.Empty<Border>()).ToList())
+            if (mini.Tag is HostCardRef href) MarkStrip(mini, href.Card);
+    }
+
+    private void HighlightHughSnapTargets(Card card, int owner)
+    {
+        var red = Color.FromRgb(180, 40, 40);
+        foreach (var h in CollectLegalSnapHosts(card, owner))
+            AddTargetHalo(h, red);
+    }
+
     private void AddTargetHalo(Border host, Color color)
     {
         var rect = new Rectangle
@@ -12875,6 +13694,46 @@ public partial class TableWindow : Window
         Panel.SetZIndex(rect, 20);
         TableCanvas.Children.Add(rect);
         _targetHighlights.Add(rect);
+    }
+
+    private void HighlightPlayOnSites()
+    {
+        var hostColor = Color.FromRgb(80, 200, 220);
+        var gapColor = Color.FromRgb(180, 120, 220);
+        foreach (var s in _targetSites)
+        {
+            if (s.Kind == TargetSiteKind.GapSpan && s.Host != null && s.Host2 != null)
+            {
+                var left = FindBorderForCard(s.Host);
+                var right = FindBorderForCard(s.Host2);
+                if (left == null || right == null) continue;
+                double lx = Canvas.GetLeft(left) + TableCardWidth;
+                double rx = Canvas.GetLeft(right);
+                double x = (lx + rx) / 2.0 - TableCardWidth / 2.0;
+                var rect = new Rectangle
+                {
+                    Width = TableCardWidth,
+                    Height = TableCardHeight,
+                    Stroke = new SolidColorBrush(gapColor),
+                    StrokeThickness = 2,
+                    StrokeDashArray = new DoubleCollection { 4, 3 },
+                    Fill = new SolidColorBrush(Color.FromArgb(50, gapColor.R, gapColor.G, gapColor.B)),
+                    IsHitTestVisible = false,
+                    RadiusX = 4,
+                    RadiusY = 4
+                };
+                Canvas.SetLeft(rect, x);
+                Canvas.SetTop(rect, SpacelineY);
+                Panel.SetZIndex(rect, 8);
+                TableCanvas.Children.Add(rect);
+                _targetHighlights.Add(rect);
+            }
+            else
+            {
+                var b = FindBorderForCard(s.Card);
+                if (b != null) AddTargetHalo(b, hostColor);
+            }
+        }
     }
 
     private void ShowEventTargetHighlights(Card ev)
@@ -12945,6 +13804,23 @@ public partial class TableWindow : Window
             TableCanvas.Children.Remove(r);
         _targetHighlights.Clear();
         SetBoardPlayHalo(false);
+        HighlightHandReturn(false);
+        RebuildTablePermanentsPanel();
+        void ResetStrip(Panel? panel)
+        {
+            if (panel == null) return;
+            foreach (var mini in panel.Children.OfType<Border>())
+            {
+                mini.Effect = null;
+                if (mini.Tag is HostCardRef)
+                {
+                    mini.BorderBrush = new SolidColorBrush(Color.FromRgb(90, 90, 90));
+                    mini.BorderThickness = new Thickness(1);
+                }
+            }
+        }
+        ResetStrip(PlayerStripPanel);
+        ResetStrip(OppStripPanel);
     }
 
     private Border? PickAdjacentMission(Border? from)
@@ -14273,7 +15149,8 @@ public partial class TableWindow : Window
                 ? _activePlayer
                 : GetBorderOwner(mb);
             var check = MissionRules.CanSolve(mission, teamList, dilemmasRemaining: 0,
-                attemptingPlayer: _activePlayer, missionOwner: missionOwner);
+                attemptingPlayer: _activePlayer, missionOwner: missionOwner,
+                extraMissionIcons: EspionageIconsOn(mb, _activePlayer));
             if (!check.Ok) continue;
             if (dil > 0)
             {
@@ -14343,8 +15220,8 @@ public partial class TableWindow : Window
                 if (o != owner) continue; // eigene Schiffe/Outposts
                 targets.Add(dock);
             }
-            // Planet als Ziel, wenn Quelle Schiff/Outpost ist
-            if (!sourceIsMission)
+            // Planet surface only — 7.1.1.0.1 no beaming into space
+            if (!sourceIsMission && mission.Tag is Card mc && MissionRules.IsPlanetMission(mc))
                 targets.Add(mission);
         }
 
@@ -14408,37 +15285,35 @@ public partial class TableWindow : Window
 
         _cardActionMode = CardActionMode.FlyPickMission;
         int remain = GetRemainingRange(shipBorder, ship);
-        var missions = GetOrderedMissionCards();
-        bool wnohgb = HasTableCard(EventRules.IsWhereNoOneHasGoneBefore) && missions.Count >= 2;
-        int marked = 0;
-        for (int i = 0; i < _spacelineOrder.Count; i++)
+        var boardLine = FlyBoardLine(fromMission);
+        int fromL = BoardIndexOf(boardLine, fromMission);
+        if (fromL < 0)
         {
-            if (i == fromIdx) continue;
-            bool endsHop = wnohgb
-                && ((fromIdx == 0 && i == missions.Count - 1)
-                    || (i == 0 && fromIdx == missions.Count - 1));
-            bool ok;
-            if (endsHop)
-            {
-                int cost = MovementRules.GetMissionSpan(missions[i], forOwner: true);
-                ok = cost <= remain;
-            }
-            else
-            {
-                var move = MovementRules.CanMoveShip(ship, crew, remain, missions, fromIdx, i,
-                    GetActiveTreaties(_activePlayer));
-                ok = move.Ok;
-            }
-            if (!ok) continue;
-            AddTargetHighlight(_spacelineOrder[i], Color.FromArgb(90, 80, 160, 255));
+            ShowPlayError("Schiff-Location steht nicht auf dem Board.");
+            return;
+        }
+        bool wnohgb = PlayerHasWnohgb(_activePlayer) && boardLine.Count >= 2;
+        int marked = 0;
+        for (int i = 0; i < boardLine.Count; i++)
+        {
+            if (i == fromL) continue;
+            var move = MovementRules.CanMoveShip(ship, crew, remain, boardLine, fromL, i,
+                GetActiveTreaties(_activePlayer), wrapEnds: wnohgb,
+                skipStaffing: ShipStaffedByRogueBorg(shipBorder));
+            if (!move.Ok) continue;
+            var face = FaceForLocation(boardLine[i]);
+            if (face == null) continue;
+            AddTargetHighlight(face, Color.FromArgb(90, 80, 160, 255));
             marked++;
         }
 
+        DebugLog.Move(_session.TurnNumber, _activePlayer,
+            $"fly-mark {DebugLog.Card(ship)} from[{fromL}]={boardLine[fromL].Label} remain={remain} marked={marked}/{boardLine.Count}");
         StatusText.Text = marked == 0
-            ? $"No mission in RANGE (left {remain})."
-            : $"FLY: {marked} mission(s) marked (RANGE {remain})"
-              + (wnohgb ? " · WNOHGB: ends are adjacent." : "")
-              + ". Click a mission or drag the ship.";
+            ? $"No location in RANGE (left {remain})."
+            : $"FLY: {marked} location(s) marked (RANGE {remain})"
+              + (wnohgb ? " · WNOHGB: shorter wrap counts." : "")
+              + ". Click a mission or Gaps.";
     }
 
     private void AddTargetHighlight(Border target, Color fill)
@@ -14474,18 +15349,14 @@ public partial class TableWindow : Window
 
         if (_cardActionMode == CardActionMode.FlyPickMission)
         {
-            if (!string.Equals((clicked.Tag as Card)?.Type, "Mission", StringComparison.OrdinalIgnoreCase))
+            if (clicked.Tag is not Card destCard || !IsLandableLocation(destCard))
                 return false;
             if (_actionSourceHost.Tag is not Card ship) return false;
             var from = FindMissionForDockable(_actionSourceHost);
             if (!TryMoveShipWithRules(_actionSourceHost, ship, from, clicked))
                 return true;
-            int owner = GetBorderOwner(_actionSourceHost);
-            Canvas.SetLeft(_actionSourceHost, Canvas.GetLeft(clicked));
-            Canvas.SetTop(_actionSourceHost, Canvas.GetTop(clicked) + DockSlotOffsetY(0, owner));
-            if (from != null) RelayoutDockablesUnderMission(from);
-            RelayoutDockablesUnderMission(clicked);
-            UpdateHostBadge(_actionSourceHost);
+            RelocateShipAlongSpaceline(_actionSourceHost, from, clicked);
+            SyncBoardFromTable();
             var shipRef = _actionSourceHost;
             ClearCardActionUi();
             SetSelection(shipRef);
@@ -14608,9 +15479,9 @@ public partial class TableWindow : Window
         var check = BattleRules.CanInitiateShipAttack(
             attackerShip, crew, atkOwner, targetCard, defOwner,
             GetHullDamage(attackerBorder), IsBorderStopped(attackerBorder),
-            _wartimeVsAffiliation);
+            _wartimeVsAffiliation, ShipStaffedByRogueBorg(attackerBorder));
 
-        if (ReportingRules.GetAffiliations(targetCard).Contains("FED"))
+        if (check.Ok && ReportingRules.GetAffiliations(targetCard).Contains("FED"))
         {
             var atkAff = ReportingRules.GetAffiliations(attackerShip).FirstOrDefault();
             if (!string.IsNullOrEmpty(atkAff))
@@ -14708,15 +15579,9 @@ public partial class TableWindow : Window
         bool atkDestroyed = (atkDmg?.Destroyed ?? false) || GetHullDamage(attackerBorder) >= 100;
 
         if (defDestroyed)
-        {
-            logLines.Add($"DESTROYED: {defenderCard.Name} → Discard (P{defOwner})");
-            DestroyShipOrFacility(defenderBorder, defenderCard, defOwner);
-        }
+            logLines.Add($"DESTROYED: {defenderCard.Name} (P{defOwner}) — Escape Pod may respond.");
         if (atkDestroyed)
-        {
-            logLines.Add($"DESTROYED: {attackerShip.Name} → Discard (P{atkOwner})");
-            DestroyShipOrFacility(attackerBorder, attackerShip, atkOwner);
-        }
+            logLines.Add($"DESTROYED: {attackerShip.Name} (P{atkOwner}) — Escape Pod may respond.");
 
         // Überlebende Forces stoppen
         if (!atkDestroyed && attackerBorder.Parent != null)
@@ -14742,7 +15607,12 @@ public partial class TableWindow : Window
             (atkDestroyed ? " · attacker DESTROYED" : "") +
             " · survivors stopped.";
 
-        MessageBox.Show(summary, "Ship Battle – Ergebnis", MessageBoxButton.OK, MessageBoxImage.Information);
+        ShowCardReveal(defenderCard, "Ship Battle", summary, RevealButtons.Ok, attackerShip.Name);
+
+        if (defDestroyed)
+            DestroyShipOrFacility(defenderBorder, defenderCard, defOwner);
+        if (atkDestroyed)
+            DestroyShipOrFacility(attackerBorder, attackerShip, atkOwner);
     }
 
     private void ApplyHullDamage(Border border, Card card, int hullPercent)
@@ -15001,22 +15871,67 @@ public partial class TableWindow : Window
         int destL = line.IndexOf(dest);
         if (fromL < 0 || toL < 0 || destL < 0)
             return "Required move: destination is not on this spaceline (same quadrant).";
-        bool wrap = HasTableCard(EventRules.IsWhereNoOneHasGoneBefore);
-        if (!RequiredMoveRules.IsToward(fromL, toL, destL, line.Count, wrap))
-            return "Required move: take the shortest path on this spaceline (WNOHGB wrap if shorter).";
-        return null;
+        int mover = GetBorderOwner(ship);
+        if (mover == 0) mover = _activePlayer;
+        bool wrap = WnohgbWrapFor(mover);
+        int remain = ship.Tag is Card sc ? GetRemainingRange(ship, sc) : 0;
+        var hop = RequiredMoveRules.NextAffordable(fromL, destL, line.Count, wrap, remain,
+            i => SpanEntering(line[i]));
+        bool useWrap = wrap && hop is { Wrap: true };
+        if (toL == destL) return null;
+        if (hop != null && toL == hop.Value.Next) return null;
+        if (RequiredMoveRules.IsToward(fromL, toL, destL, line.Count, useWrap))
+            return null;
+        return "Required move: take the shortest path you can pay for (WNOHGB wrap if shorter and in RANGE).";
     }
 
+    private List<Location> FlyBoardLine(Border? piece)
+    {
+        SyncBoardFromTable(logDual: false);
+        string q = piece != null ? LocationQuadrant(piece) : "Alpha";
+        return BoardStore.Current.Spaceline.Locations
+            .Where(l => l.Kind is LocationKind.Mission or LocationKind.Span or LocationKind.TimeLocation
+                        && string.Equals(l.Quadrant ?? "Alpha", q, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    private int BoardIndexOf(IReadOnlyList<Location> line, Border? piece)
+    {
+        if (piece?.Tag is not Card card) return -1;
+        for (int i = 0; i < line.Count; i++)
+        {
+            var p = line[i].Printed;
+            if (p == null) continue;
+            if (ReferenceEquals(p, card)) return i;
+            if (p.InstanceId > 0 && p.InstanceId == card.InstanceId) return i;
+        }
+        return -1;
+    }
+
+    private Border? FaceForLocation(Location loc)
+    {
+        if (loc.Printed == null) return null;
+        var face = FindBorderForCard(loc.Printed);
+        if (face != null) return face;
+        return _spacelineOrder.FirstOrDefault(b =>
+            b.Tag is Card c && loc.Printed.InstanceId > 0 && c.InstanceId == loc.Printed.InstanceId);
+    }
+
+    /// <summary>View only — IM / required-move still use this Border list. Fly uses FlyBoardLine.</summary>
     private List<Border> MissionsOnSameSpaceline(Border? piece)
     {
         string q = piece != null ? LocationQuadrant(piece) : "Alpha";
         return _spacelineOrder
-            .Where(b => b.Tag is Card c && IsMissionCard(c)
-                        && string.Equals(GetNativeQuadrant(c), q, StringComparison.OrdinalIgnoreCase))
+            .Where(b => b.Tag is Card c && IsLandableLocation(c)
+                        && string.Equals(
+                            IsMissionCard(c) ? GetNativeQuadrant(c) : GetSpacelineQuadrant(b),
+                            q, StringComparison.OrdinalIgnoreCase))
             .ToList();
     }
 
-    private bool WnohgbWrap => HasTableCard(EventRules.IsWhereNoOneHasGoneBefore);
+    private bool WnohgbWrap => PlayerHasWnohgb(_activePlayer);
+
+    private bool WnohgbWrapFor(int player) => PlayerHasWnohgb(player);
 
     private int SpanEntering(Border mission)
     {
@@ -15101,12 +16016,24 @@ public partial class TableWindow : Window
             if (o == 0) o = 1;
             if (o != player) continue;
 
+            if (IsShipDocked(shipB))
+            {
+                _dockedAt.Remove(shipB);
+                _session.Log.Add(_session.TurnNumber, $"P{player}",
+                    $"{ship.Name} undocks (required move 7.10)");
+            }
+
             int guard = 0;
             while (guard++ < 20 && GetRemainingRange(shipB, ship) > 0)
             {
                 var from = FindMissionForDockable(shipB);
                 var dest = RequiredMoveDestination(shipB);
-                if (from == null || dest == null) break;
+                if (from == null || dest == null)
+                {
+                    _session.Log.Add(_session.TurnNumber, "sys",
+                        $"IM {ship.Name}: no from/dest (from={(from?.Tag as Card)?.Name ?? "—"})");
+                    break;
+                }
                 if (ReferenceEquals(from, dest))
                 {
                     ResolveRequiredArrival(shipB, dest);
@@ -15115,13 +16042,23 @@ public partial class TableWindow : Window
                 var line = MissionsOnSameSpaceline(from);
                 int fromL = line.IndexOf(from);
                 int destL = line.IndexOf(dest);
-                if (fromL < 0 || destL < 0) break;
-                var hop = RequiredMoveRules.NextToward(fromL, destL, line.Count, WnohgbWrap,
-                    i => SpanEntering(line[i]));
+                if (fromL < 0 || destL < 0)
+                {
+                    _session.Log.Add(_session.TurnNumber, "sys",
+                        $"IM {ship.Name}: dest not on this spaceline");
+                    break;
+                }
+                var hop = RequiredMoveRules.NextAffordable(fromL, destL, line.Count, WnohgbWrapFor(o),
+                    GetRemainingRange(shipB, ship), i => SpanEntering(line[i]));
                 if (hop == null) break;
                 var step = line[hop.Value.Next];
                 if (!TryMoveShipWithRules(shipB, ship, from, step))
+                {
+                    _session.Log.Add(_session.TurnNumber, "sys",
+                        $"IM hop failed {ship.Name} → {(step.Tag as Card)?.Name}: {StatusText.Text}");
                     break;
+                }
+                RelocateShipAlongSpaceline(shipB, from, step);
             }
         }
     }
@@ -15178,9 +16115,8 @@ public partial class TableWindow : Window
             if (b.Tag is not Card fc || !IsFacilityCard(fc)) continue;
             int o = GetBorderOwner(b);
             if (o == 0) o = 1;
-            if (o != shipController) continue;
-            if (!string.IsNullOrEmpty(needAffil) && !CardMatchesAffiliation(fc, needAffil)) continue;
-            if (!string.Equals(LocationQuadrant(b), line, StringComparison.OrdinalIgnoreCase))
+            bool sameQ = string.Equals(LocationQuadrant(b), line, StringComparison.OrdinalIgnoreCase);
+            if (!TargetQuery.CanImFacility(fc, o, shipController, needAffil, sameQ).ok)
                 continue;
             list.Add(b);
         }
@@ -15220,6 +16156,10 @@ public partial class TableWindow : Window
             return;
         }
 
+        ClearEventTargetHighlights();
+        foreach (var f in facilities)
+            AddTargetHalo(f, Color.FromRgb(80, 200, 220));
+
         Border dest = facilities[0];
         if (facilities.Count > 1)
         {
@@ -15227,6 +16167,7 @@ public partial class TableWindow : Window
                 $"P{shipCtrl}: choose your {need} facility on this spaceline.");
             if (pick != null) dest = pick;
         }
+        ClearEventTargetHighlights();
 
         var mini = CreateFloatingCard(card);
         mini.Visibility = Visibility.Collapsed;
@@ -15257,6 +16198,8 @@ public partial class TableWindow : Window
         var there = FindMissionForDockable(dest) ?? dest;
         if (here != null && ReferenceEquals(here, there))
             ResolveIncomingMessageArrival(host, "already at the facility's location");
+        else if (shipCtrl == _activePlayer && !_seedPhaseActive)
+            ProcessIncomingMessageMoves(shipCtrl);
     }
 
     private void ResolveIncomingMessageArrival(Border ship, string why)
@@ -15268,8 +16211,17 @@ public partial class TableWindow : Window
             if (ae.Host != null)
             {
                 var stacked = FindBorderForCard(ae.Card);
-                if (stacked != null) RemoveCardFromHostStack(ae.Host, stacked);
+                if (stacked != null)
+                {
+                    RemoveCardFromHostStack(ae.Host, stacked);
+                    stacked.Visibility = Visibility.Collapsed;
+                    if (TableCanvas.Children.Contains(stacked))
+                        TableCanvas.Children.Remove(stacked);
+                }
             }
+            var leftover = FindBorderForCard(ae.Card);
+            if (leftover != null && TableCanvas.Children.Contains(leftover))
+                TableCanvas.Children.Remove(leftover);
             SendCardTo(ae.Card, ae.Owner, TimingRules.Destination.Discard);
             StatusText.Text = $"{ae.Card.Name} nullified ({why}).";
             _session.Log.Add(_session.TurnNumber, "sys", $"{ae.Card.Name} nullified — {why}");
@@ -15516,6 +16468,9 @@ public partial class TableWindow : Window
         SetBorderOwner(host, controller);
         ship.Controller = controller;
         ship.CurrentAffiliation = "NA";
+        var at = FindMissionForDockable(host);
+        if (at != null)
+            RelayoutDockablesUnderMission(at);
 
         ShowCardReveal(ev, "Lore Returns",
             $"You control the Rogue Borg aboard {ship.Name}.\n"
@@ -15524,9 +16479,31 @@ public partial class TableWindow : Window
             RevealButtons.Ok, ship.Name);
         StatusText.Text = $"Lore Returns: P{controller} commandeers {ship.Name} with Rogue Borg.";
         _session.Log.Add(_session.TurnNumber, $"P{controller}",
-            $"Lore Returns commandeers {ship.Name}");
+            $"Lore Returns commandeers {ship.Name} (was P{ship.OwnerPlayer})");
         UpdateHostBadge(host);
         return true;
+    }
+
+    /// <summary>Kevin/Devil nullify Lore Returns: printed owner resumes control even if Rogue Borg remain.</summary>
+    private void RevertLoreReturnsControl(Border host)
+    {
+        if (host.Tag is not Card ship || !IsShipCard(ship)) return;
+        int orig = ship.OwnerPlayer is 1 or 2 ? ship.OwnerPlayer : GetBorderOwner(host);
+        if (orig is not (1 or 2)) orig = 1;
+        SetBorderOwner(host, orig);
+        ship.Controller = orig;
+        ship.CurrentAffiliation = "";
+        foreach (var rb in RogueBorgUnitsOn(host))
+        {
+            rb.Controller = 0;
+            if (rb.Visual != null)
+                SetBorderOwner(rb.Visual, 0);
+        }
+        var at = FindMissionForDockable(host);
+        if (at != null)
+            RelayoutDockablesUnderMission(at);
+        _session.Log.Add(_session.TurnNumber, "sys",
+            $"Lore Returns ends: {ship.Name} returns to P{orig}");
     }
 
     private void NoteAuPlay(Card? card, int player)
@@ -16000,18 +16977,21 @@ public partial class TableWindow : Window
     {
         if (unit.Visual != null)
         {
-            if (_stackOnHost.TryGetValue(unit.Host, out var list))
-                list.Remove(unit.Visual);
+            if (unit.Host != null)
+                RemoveCardFromHostStack(unit.Host, unit.Visual);
             if (TableCanvas.Children.Contains(unit.Visual))
                 TableCanvas.Children.Remove(unit.Visual);
         }
         _rogueBorg.Remove(unit);
-        int owner = unit.Controller != 0 ? unit.Controller : unit.PlayedBy;
-        if (owner == 0) owner = 1;
+        // Glossary discard pile: owner's pile, not the current controller / Hugh player.
+        int owner = unit.Card.OwnerPlayer is 1 or 2
+            ? unit.Card.OwnerPlayer
+            : (unit.PlayedBy is 1 or 2 ? unit.PlayedBy : 1);
         SendCardTo(unit.Card, owner, TimingRules.Destination.Discard);
         _session.Log.Add(_session.TurnNumber, "sys",
-            $"Rogue Borg discarded ({reason})");
-        UpdateHostBadge(unit.Host);
+            $"Rogue Borg discarded ({reason}) → P{owner} discard");
+        if (unit.Host != null)
+            UpdateHostBadge(unit.Host);
     }
 
     /// <summary>
@@ -16348,8 +17328,10 @@ public partial class TableWindow : Window
                         : $"{shipCard.Name} damaged — moved again after arriving at Subspace Warp Rift.";
                 }
             }
+            bool destIsGaps = dest?.Tag is Card dc && EventRules.NameIs(dc, "Gaps in Normal Space");
             if (e.Kind == EventRules.Persist.Gaps && dest != null &&
-                (ReferenceEquals(e.Host, dest) || ReferenceEquals(e.Host2, dest)))
+                (destIsGaps || ReferenceEquals(FindBorderForCard(e.Card), dest)
+                 || ReferenceEquals(e.Host, dest) || ReferenceEquals(e.Host2, dest)))
             {
                 if (_stackOnHost.TryGetValue(ship, out var list))
                 {
@@ -17293,6 +18275,14 @@ public partial class TableWindow : Window
             return true;
         }
 
+        if (targetHost.Tag is Card destAsMission
+            && CardKinds.IsMission(destAsMission)
+            && !MissionRules.IsPlanetMission(destAsMission))
+        {
+            ShowPlayError("You may not beam cards into space (7.1.1.0.1).");
+            return true;
+        }
+
         if (!CanBeamAtMission(srcMission, plannedCount: Math.Max(1, _beamSelected.Count)))
             return true;
 
@@ -17306,6 +18296,23 @@ public partial class TableWindow : Window
         {
             ShowPlayError("No cards selected to beam (checkboxes in the detail window).");
             return true;
+        }
+
+        if (targetHost.Tag is Card destHostCard)
+        {
+            var treaties = GetActiveTreaties(_activePlayer);
+            var blocked = toMove
+                .Select(b => b.Tag as Card)
+                .Where(c => c != null && !TreatyRules.CanOccupyHost(c!, destHostCard, treaties))
+                .Select(c => c!.Name)
+                .ToList();
+            if (blocked.Count > 0)
+            {
+                ShowPlayError(
+                    $"Cannot beam {string.Join(", ", blocked)} onto {destHostCard.Name} — " +
+                    "incompatible affiliation (need a Treaty). Equipment is unrestricted.");
+                return true;
+            }
         }
 
         foreach (var b in toMove.ToList())
@@ -17331,6 +18338,7 @@ public partial class TableWindow : Window
             StatusText.Text = $"Beamed {toMove.Count} card(s) {fromName} → {tc.Name}.";
             _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
                 $"Beam: {names}  ({fromName} → {tc.Name})");
+            SyncBoardFromTable();
             ClearCardActionUi();
             SetSelection(targetHost);
             ShowHostContents(targetHost, tc);
@@ -17338,6 +18346,7 @@ public partial class TableWindow : Window
         else
         {
             _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}", $"Beam {toMove.Count} cards");
+            SyncBoardFromTable();
             ClearCardActionUi();
             SetSelection(targetHost);
         }
@@ -17553,6 +18562,7 @@ public partial class TableWindow : Window
             int z = DockSortKey(below[i]) == 0 ? 12 + i : 22 + i;
             Panel.SetZIndex(below[i], z);
             SetBorderOwner(below[i], 1);
+            _dockableAtMission[below[i]] = mission;
             SyncShipCombatVisuals(below[i]);
             UpdateHostBadge(below[i]);
         }
@@ -17564,6 +18574,7 @@ public partial class TableWindow : Window
             int z = DockSortKey(above[i]) == 0 ? 12 + i : 22 + i;
             Panel.SetZIndex(above[i], z);
             SetBorderOwner(above[i], 2);
+            _dockableAtMission[above[i]] = mission;
             SyncShipCombatVisuals(above[i]);
             UpdateHostBadge(above[i]);
         }
@@ -17848,7 +18859,7 @@ public partial class TableWindow : Window
                 e.Handled = true;
                 return;
             }
-            src = VisualTreeHelper.GetParent(src);
+            src = ParentOf(src);
         }
 
         _isPanning = true;
@@ -18123,6 +19134,22 @@ public partial class TableWindow : Window
         bool isHostKind = isMission || IsShipCard(hostCard) || IsFacilityCard(hostCard);
         if (!isHostKind)
         {
+            if (_peekLegalTargets.Count > 0)
+            {
+                DetailStackSection.Visibility = Visibility.Visible;
+                if (DetailStackTitle != null)
+                    DetailStackTitle.Text = "Legal targets";
+                foreach (var c in _peekLegalTargets)
+                {
+                    var mini = CreateMiniCard(c, faceDown: false);
+                    mini.Width = 72;
+                    mini.Height = 100;
+                    mini.Margin = new Thickness(3);
+                    mini.Tag = c;
+                    DetailStackCards.Children.Add(mini);
+                }
+                return;
+            }
             DetailStackSection.Visibility = Visibility.Collapsed;
             return;
         }
@@ -18186,6 +19213,7 @@ public partial class TableWindow : Window
             mini.Height = 100;
             mini.Margin = new Thickness(3);
             mini.Cursor = Cursors.Hand;
+            mini.Tag = c;
             if (_peekLegalTargets.Contains(c)
                 || _peekLegalTargets.Any(t =>
                     string.Equals(t.Name, c.Name, StringComparison.OrdinalIgnoreCase)))
@@ -18199,7 +19227,6 @@ public partial class TableWindow : Window
                     ShadowDepth = 0,
                     Opacity = 0.95
                 };
-                mini.Tag = c;
             }
             if (!string.IsNullOrEmpty(badge))
                 mini.ToolTip = $"{c.Name}\n{badge}\nClick = show in this window · RMB hold = enlarge";
@@ -18313,7 +19340,9 @@ public partial class TableWindow : Window
             foreach (var b in list)
             {
                 if (b.Tag is not Card c) continue;
-                if (EventRules.IsEvent(c) && EventsOn(host).Any(ae => ReferenceEquals(ae.Card, c)))
+                if (EventsOn(host).Any(ae => ReferenceEquals(ae.Card, c)))
+                    continue;
+                if (InterruptRules.IsCrosis(c) && HostHasCrosis(host))
                     continue;
                 AddStackMini(c, cardBorder: b);
             }

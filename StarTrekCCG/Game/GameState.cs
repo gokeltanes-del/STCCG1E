@@ -6,8 +6,53 @@ using StarTrekCCG.Models;
 namespace StarTrekCCG;
 
 /// <summary>
+/// Session + UI-only fields for <see cref="BoardStore.ToGameState"/>.
+/// Locations / occupants / TABLE ids come from the store when it has them.
+/// </summary>
+public sealed class GameStateSeed
+{
+    public GameSession.MatchPhase Match { get; init; }
+    public GameSession.TurnSegment Segment { get; init; }
+    public int ActivePlayer { get; init; } = 1;
+    public int TurnNumber { get; init; } = 1;
+    public bool SeedPhase { get; init; }
+    public int SeedSubPhase { get; init; }
+    public IReadOnlyList<Card> SeedPileP1 { get; init; } = Array.Empty<Card>();
+    public IReadOnlyList<Card> SeedPileP2 { get; init; } = Array.Empty<Card>();
+    public int CryoPersonnelSeededP1 { get; init; }
+    public int CryoPersonnelSeededP2 { get; init; }
+    public bool NormalCardPlayAvailable { get; init; }
+    public bool NormalCardPlayUsed { get; init; }
+    public bool StackOpen { get; init; }
+    public int ResponsePlayer { get; init; }
+    public TimingRules.PendingAction? StackTop { get; init; }
+    public int ScoreP1 { get; init; }
+    public int ScoreP2 { get; init; }
+    public IReadOnlyList<Card> HandP1 { get; init; } = Array.Empty<Card>();
+    public IReadOnlyList<Card> HandP2 { get; init; } = Array.Empty<Card>();
+    public IReadOnlyList<BoardPiece> UiBoard { get; init; } = Array.Empty<BoardPiece>();
+    public bool HasGoddess { get; init; }
+    public bool TentOpenP1 { get; init; }
+    public bool TentOpenP2 { get; init; }
+    public int TentCountP1 { get; init; }
+    public int TentCountP2 { get; init; }
+    public IReadOnlyList<string> Spaceline { get; init; } = Array.Empty<string>();
+    public IReadOnlyList<TreatyRules.TreatyLink> TreatiesP1 { get; init; } =
+        Array.Empty<TreatyRules.TreatyLink>();
+    public IReadOnlyList<TreatyRules.TreatyLink> TreatiesP2 { get; init; } =
+        Array.Empty<TreatyRules.TreatyLink>();
+    public bool HasWhereNoOneHasGoneBeforeP1 { get; init; }
+    public bool HasWhereNoOneHasGoneBeforeP2 { get; init; }
+    public bool TentDownloadUsedP1 { get; init; }
+    public bool TentDownloadUsedP2 { get; init; }
+    public IReadOnlyList<string> OncePerGameKeys { get; init; } = Array.Empty<string>();
+    public IReadOnlyList<int> StoppedInstanceIds { get; init; } = Array.Empty<int>();
+    public IReadOnlyList<string> UntilEndOfTurnKeys { get; init; } = Array.Empty<string>();
+}
+
+/// <summary>
 /// Engine-facing snapshot. No layout pixels, no card-text cache as source of truth.
-/// TableWindow captures this from its lists; later a real store can own it.
+/// Board pieces prefer <see cref="BoardStore"/>; session fields come from <see cref="GameStateSeed"/>.
 /// </summary>
 public sealed class GameState
 {
@@ -51,7 +96,16 @@ public sealed class GameState
     public IReadOnlyList<TreatyRules.TreatyLink> TreatiesP2 { get; init; } =
         Array.Empty<TreatyRules.TreatyLink>();
 
-    public bool HasWhereNoOneHasGoneBefore { get; init; }
+    /// <summary>WNOHGB on P1 TABLE. Printed: "You may move ships…" = controller only.</summary>
+    public bool HasWhereNoOneHasGoneBeforeP1 { get; init; }
+    /// <summary>WNOHGB on P2 TABLE.</summary>
+    public bool HasWhereNoOneHasGoneBeforeP2 { get; init; }
+    /// <summary>Either player has WNOHGB (legacy callers). Fly/RANGE use <see cref="HasWnohgb"/>.</summary>
+    public bool HasWhereNoOneHasGoneBefore =>
+        HasWhereNoOneHasGoneBeforeP1 || HasWhereNoOneHasGoneBeforeP2;
+
+    public bool HasWnohgb(int player) =>
+        player == 2 ? HasWhereNoOneHasGoneBeforeP2 : HasWhereNoOneHasGoneBeforeP1;
 
     public bool TentDownloadUsedP1 { get; init; }
     public bool TentDownloadUsedP2 { get; init; }
@@ -91,6 +145,9 @@ public sealed class GameState
 
     public SeedSubPhase CurrentSeedPhase => SeedRules.FromInt(SeedSubPhase);
 
+    /// <summary>
+    /// Name-order snapshot for LegalMoves / IM. Live Fly RANGE uses BoardStore.Locations.
+    /// </summary>
     public List<Card> OrderedMissions()
     {
         var list = new List<Card>();
@@ -98,7 +155,11 @@ public sealed class GameState
         {
             var m = Missions().FirstOrDefault(p =>
                 string.Equals(p.Card.Name, name, StringComparison.OrdinalIgnoreCase));
-            if (m != null) list.Add(m.Card);
+            if (m != null) { list.Add(m.Card); continue; }
+            // Gaps in Normal Space sits on the spaceline as a landable location.
+            var loc = Board.FirstOrDefault(p =>
+                string.Equals(p.Card.Name, name, StringComparison.OrdinalIgnoreCase));
+            if (loc != null) list.Add(loc.Card);
         }
         if (list.Count == 0)
             list.AddRange(Missions().OrderBy(p => p.SpacelineIndex).Select(p => p.Card));

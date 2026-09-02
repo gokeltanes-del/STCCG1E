@@ -7,8 +7,8 @@ namespace StarTrekCCG;
 ///
 /// 1. Parse printed "Plays on …" via PlayOnRules (ship / mission / facility / exposed / own).
 /// 2. Named overrides stay in InterruptRules / EventRules (Wormhole pair, Kevin, Hugh, Gaps).
-/// 3. TableWindow.CollectLegalSnapHosts is the only list:
-///      halo = that list, snap-in-field = nearest in range, drop = must hit that list.
+/// 3. TargetQuery.NullifySites / CanTarget = legality (Kevin, Devil, later PlayOn).
+/// 4. TableWindow.TargetSession maps sites → glow / 1s peek / snap / place-choose.
 /// New sets hook in by extending PlayOnRules.Parse or one named override — not a new drag path.
 /// </summary>
 public static class TargetingRules

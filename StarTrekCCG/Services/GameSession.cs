@@ -288,8 +288,9 @@ public sealed class ActionLog
     private void AddCore(int turn, string actor, string text, bool debug)
     {
         _entries.Add(new Entry(DateTime.UtcNow, turn, actor, text, debug));
-        if (_entries.Count > 800)
-            _entries.RemoveRange(0, _entries.Count - 800);
+        if (_entries.Count > 2500)
+            _entries.RemoveRange(0, _entries.Count - 2500);
+        try { DebugLog.FromActionLog(turn, actor, text, debug); } catch { }
         Changed?.Invoke();
     }
 

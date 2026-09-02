@@ -21,6 +21,32 @@ public static class GamePaths
     public static string AssetsRoot { get; } = ResolveAssetsRoot();
     public static string BoardBackgrounds => Path.Combine(AssetsRoot, "BoardBackgrounds");
 
+    /// <summary>Data/ folder that contains Sets, Decks, SaveGames.</summary>
+    public static string DataFolder
+    {
+        get
+        {
+            string root = DataRoot;
+            string name = Path.GetFileName(root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            if (name.Equals("Sets", StringComparison.OrdinalIgnoreCase))
+            {
+                string? parent = Path.GetDirectoryName(root);
+                if (!string.IsNullOrEmpty(parent)) return parent;
+            }
+            return root;
+        }
+    }
+
+    public static string DecksRoot => EnsureDir(Path.Combine(DataFolder, "Decks"));
+    public static string SaveGamesRoot => EnsureDir(Path.Combine(DataFolder, "SaveGames"));
+    public static string LogsRoot => EnsureDir(Path.Combine(DataFolder, "Logs"));
+
+    private static string EnsureDir(string path)
+    {
+        try { Directory.CreateDirectory(path); } catch { }
+        return path;
+    }
+
     public static string? FindCardBack()
     {
         foreach (var p in new[]
