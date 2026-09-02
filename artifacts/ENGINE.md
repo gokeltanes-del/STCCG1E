@@ -270,6 +270,14 @@ Probe: Beam 3 Leute auf die Nebula, sofort Fly. `state:` muss `crewOn=3` zeigen.
 
 Probe: gleiches Beam→Fly. Log ohne `state-fallback:` für das Schiff.
 
+
+### E2b — Store-Staffing Treaty / Rogue Borg (offen)
+
+Nach E2: `BoardStore.ToBoardPieces` / store-first Capture nutzt `IsShipStaffed(printed, aboard)` **ohne** Treaties und ohne Rogue-Borg-Pfad. UI-Fallback hatte die volleren Args. Premiere-Normalcrew ok; Overlay kann Treaty/Rogue nicht nachziehen, solange Occupant im Store ist.
+
+- Nicht E3 vorziehen.
+- Schließen wenn Probespiel Treaty-Mix oder Rogue-Borg-Staffing falsch denied/allowed.
+
 ### E3 — Status an der Instanz / am Occupant
 
 Felder (minimal):
