@@ -61,7 +61,8 @@ BenchmarkDotNet.Artifacts/
 # .NET Core
 project.lock.json
 project.fragment.lock.json
-artifacts/
+# Project docs/data live in /artifacts — do not ignore (was .NET Core template ignore)
+# artifacts/
 
 # ASP.NET Scaffolding
 ScaffoldingReadMe.txt
