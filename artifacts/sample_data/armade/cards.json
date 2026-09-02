@@ -1,0 +1,32 @@
+[
+  {
+    "name": "U.S.S. Jupiter",
+    "type": "Ship",
+    "affiliation": "Federation",
+    "set_folder": "armade",
+    "release_raw": "armade",
+    "rarity_info": "P",
+    "uniqueness": "",
+    "class": "Akira Class",
+    "integrity_or_range": "9",
+    "cunning_or_weapons": "8",
+    "strength_or_shields": "8",
+    "points": "",
+    "icons": "",
+    "staff": "[Cmd][Stf][Stf]",
+    "characteristics": "Federation ship; Holodeck; Tractor Beam;",
+    "text": "Holodeck, Tractor Beam DL/ {Chain Reaction Pulsar}",
+    "old_image_file": "ussjupiter",
+    "image": "armade_Ship_U.S.S._Jupiter.jpg",
+    "mission_dilemma_type": "",
+    "region": "",
+    "quadrant": "",
+    "span": "",
+    "requires": "",
+    "persona": "",
+    "command": "Satelk",
+    "reports": "",
+    "names": "",
+    "property": "Armada"
+  }
+]

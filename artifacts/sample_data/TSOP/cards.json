@@ -1,0 +1,32 @@
+[
+  {
+    "name": "Fiona McKenzie 2E (This Side of Paradise)",
+    "type": "Personnel",
+    "affiliation": "Starfleet",
+    "set_folder": "TSOP",
+    "release_raw": "TSOP",
+    "rarity_info": "43 V",
+    "uniqueness": "",
+    "class": "SECURITY",
+    "integrity_or_range": "7",
+    "cunning_or_weapons": "6",
+    "strength_or_shields": "7",
+    "points": "",
+    "icons": "[22][AU][Stf]",
+    "staff": "",
+    "characteristics": "Human; Female; MACO;",
+    "text": "SECURITY Exobiology Leadership Navigation Transporter Skill DL/ {Raktajino}",
+    "old_image_file": "brokenbow_70",
+    "image": "TSOP_Personnel_Fiona_McKenzie_2E_(This_Side_of_Paradise).jpg",
+    "mission_dilemma_type": "",
+    "region": "",
+    "quadrant": "",
+    "span": "",
+    "requires": "",
+    "persona": "",
+    "command": "",
+    "reports": "",
+    "names": "",
+    "property": "ENT"
+  }
+]

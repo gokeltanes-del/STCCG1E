@@ -1,0 +1,32 @@
+[
+  {
+    "name": "Sensitive Search",
+    "type": "Mission",
+    "affiliation": "[FED][ROM][KLI]",
+    "set_folder": "warppack",
+    "release_raw": "warppack",
+    "rarity_info": "P",
+    "uniqueness": "",
+    "class": "",
+    "integrity_or_range": "",
+    "cunning_or_weapons": "",
+    "strength_or_shields": "",
+    "points": "30",
+    "icons": "",
+    "staff": "",
+    "characteristics": "",
+    "text": "Computer Skill + CUNNING>28",
+    "old_image_file": "sensitivesearch",
+    "image": "warppack_Mission_Sensitive_Search.jpg",
+    "mission_dilemma_type": "[P]",
+    "region": "",
+    "quadrant": "Alpha",
+    "span": "4",
+    "requires": "",
+    "persona": "",
+    "command": "",
+    "reports": "",
+    "names": "",
+    "property": ""
+  }
+]
