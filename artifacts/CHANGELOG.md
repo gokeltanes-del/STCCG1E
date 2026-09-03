@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-03 (Fix — E2 Beam hang)
+
+**Engine** — Beam no longer freezes the WPF UI. Root cause: `Log.Changed` → `RefreshActionHistory` → `LegalMoves` fly-eval `DebugLog.Move` → `HistorySink` → `AddDebug` → `Changed` again (dispatcher flood). E2 store-first made ships Staffed so Fly-eval ran after Beam's log. Guard + coalesce refresh; skip HistorySink while refreshing. E2 store-first Capture kept. [C]
+
+---
 ## 2026-09-02 (Foundation E2 — Capture store-first)
 
 **Engine** — `CaptureEngineState`: HostName/Staffed/Aboard from BoardStore Occupant when present; UI border crew/staff walks only as fallback, logged `state-fallback:` / `capture: source=store|fallback`. RangeLeft/Stopped still UI (E3). Dual-run kept. [C — Grundlage]

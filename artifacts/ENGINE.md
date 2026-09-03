@@ -273,6 +273,11 @@ Probe: gleiches Beam→Fly. Log ohne `state-fallback:` für das Schiff.
 
 ### E2b — Store-Staffing Treaty / Rogue Borg (offen)
 
+
+### E2 caveat — Action History / LegalMoves cascade (fixed 2026-09-03)
+
+E2 store-first correctly fills `Staffed`/`Aboard` from Occupants. After Beam (or any `Log.Add`), `Log.Changed` refreshed Action History + LegalMoves; `TryEvaluateFlyPath` `DebugLog.Move` hit `HistorySink` → `AddDebug` → `Changed` again and flooded the dispatcher (UI hang). Fix: coalesce/suppress refresh while `_historyRefreshing`; HistorySink no-ops during that window. Keep E2 store-first.
+
 Nach E2: `BoardStore.ToBoardPieces` / store-first Capture nutzt `IsShipStaffed(printed, aboard)` **ohne** Treaties und ohne Rogue-Borg-Pfad. UI-Fallback hatte die volleren Args. Premiere-Normalcrew ok; Overlay kann Treaty/Rogue nicht nachziehen, solange Occupant im Store ist.
 
 - Nicht E3 vorziehen.

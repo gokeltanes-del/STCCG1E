@@ -76,6 +76,10 @@ public partial class TableWindow : Window
     private readonly GameSession _session = new();
     /// <summary>E1: last compact state: line so Capture does not flood the log.</summary>
     private string? _lastEngineStateLine;
+    // Log.Changed -> RefreshActionHistory -> LegalMoves fly-eval DebugLog.Move -> HistorySink
+    // -> AddDebug -> Changed again. Without these guards the dispatcher queue never drains (Beam hang).
+    private bool _historyRefreshing;
+    private bool _historyRefreshQueued;
     private BitmapImage? _cardBackImage;
     private int _activePlayer = 1; // 1 = unten (Startspieler), 2 = oben
     private int _turnNumber = 1;
@@ -371,7 +375,16 @@ public partial class TableWindow : Window
     {
         InitializeComponent();
         Loaded += TableWindow_Loaded;
-        _session.Log.Changed = () => Dispatcher.BeginInvoke(RefreshActionHistory);
+        _session.Log.Changed = () =>
+        {
+            if (_historyRefreshing || _historyRefreshQueued) return;
+            _historyRefreshQueued = true;
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                _historyRefreshQueued = false;
+                RefreshActionHistory();
+            }));
+        };
     }
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -816,15 +829,25 @@ public partial class TableWindow : Window
         return line;
     }
 
+
     private void RefreshActionHistory()
     {
         if (ActionHistoryList == null) return;
-        ActionHistoryList.Items.Clear();
-        foreach (var line in _session.Log.FormatLines(100, includeDebug: _devShowDebugLog))
-            ActionHistoryList.Items.Add(line);
-        if (ActionHistoryList.Items.Count > 0)
-            ActionHistoryList.ScrollIntoView(ActionHistoryList.Items[^1]);
-        RefreshLegalMovesPanel();
+        if (_historyRefreshing) return;
+        _historyRefreshing = true;
+        try
+        {
+            ActionHistoryList.Items.Clear();
+            foreach (var line in _session.Log.FormatLines(100, includeDebug: _devShowDebugLog))
+                ActionHistoryList.Items.Add(line);
+            if (ActionHistoryList.Items.Count > 0)
+                ActionHistoryList.ScrollIntoView(ActionHistoryList.Items[^1]);
+            RefreshLegalMovesPanel();
+        }
+        finally
+        {
+            _historyRefreshing = false;
+        }
     }
 
     /// <summary>
@@ -1772,8 +1795,13 @@ public partial class TableWindow : Window
     {
         DebugLog.StartSession("TableWindow");
         DebugLog.Enabled = DevFileLogItem?.IsChecked != false;
+        // File log always gets Move/Beam/Target. Action History skip while refreshing —
+        // LegalMoves fly-eval is extremely chatty and used to re-enter via Changed.
         DebugLog.HistorySink = (turn, actor, text) =>
+        {
+            if (_historyRefreshing) return;
             _session.Log.AddDebug(turn, actor, text);
+        };
         CheckTrace.Emit = msg =>
         {
             if (_devShowDebugLog)
