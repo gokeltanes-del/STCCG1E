@@ -305,7 +305,13 @@ Logger: `[Move] range #275 left=8 source=instance`.
 - UI `_shipRangeLeft` / `_stoppedBorders` remain mirrors (`SetShipRangeLeft`, `MarkStopped`/`Unstop*`, `ApplyUiStatusToStore` on Sync).
 - `CaptureEngineState` / `OverlayStatus` / `GetRemainingRange` / `IsBorderStopped` prefer store with UI fallback.
 - `StoppedInstanceIds` collected from `ById` when store has instances.
-- Cloak / Dock / Hull → **E3b** (not this chat).
+- Cloak / Dock / Hull — **E3b done 2026-09-03**.
+
+**Done 2026-09-03 (E3b Cloak + Dock + Hull):**
+- `ShipInstance.Cloaked`, `ShipInstance.DockedAtId`, `ShipInstance.HullPercent` — source of truth after Sync / write-through.
+- UI `_cloakedShips` / `_dockedAt` / `_hullDamagePercent` remain mirrors (`SetShipCloaked`, `SetShipDockedAt`, `SetHullDamagePercent`, `ApplyUiStatusToStore` on Sync).
+- `CaptureEngineState` / `OverlayStatus` / `ToGameState` / `IsShipCloaked` / `IsShipDocked` / `GetHullDamage` prefer store with UI fallback.
+- Log `cloak/dock/hull #id ... source=instance` on toggle/dock/damage.
 
 
 ### E4 — In-Play / Unique / Persona
@@ -373,7 +379,7 @@ Dazu, sobald E1 lebt:
 - [x] E1 ToGameState + Capture bevorzugt Store
 - [x] E2 Capture ohne Border-Schleife für Occupants (2026-09-02)
 - [x] E3 RangeLeft + Stopped auf Instanz (2026-09-03)
-- [ ] E3b Cloak / Dock / Hull (nach E3)
+- [x] E3b Cloak / Dock / Hull (2026-09-03)
 - [ ] E4 InPlay-Query, dann Nebula/Lore
 - [ ] E5 LegalMoves-Fly
 - [ ] E6 IM auf Locations
@@ -422,6 +428,6 @@ Fix-Protokoll RULES.md unverändert (A Karte / B Phrase / C Grundlage).
 
 Antwort immer: Schritt, Klasse, Dateien neu/geändert, was bewusst nicht angefasst.
 
-Nächster Schritt nur: E3b (Cloak / Dock / Hull) oder E4 Unique
+Nächster Schritt nur: E4 Unique
 Kein Big-Bang. Premiere.
 ```

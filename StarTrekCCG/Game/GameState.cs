@@ -225,6 +225,11 @@ public sealed class BoardPiece
     public string? AttemptBlockReason { get; init; }
     public int RangeLeft { get; init; } = -1;
     public bool Stopped { get; init; }
+    public bool Cloaked { get; init; }
+    /// <summary>Facility InstanceId when docked; 0 = not docked.</summary>
+    public int DockedAtId { get; init; }
+    /// <summary>Hull damage 0-100. -1 = unset.</summary>
+    public int HullPercent { get; init; } = -1;
 
     /// <summary>Ship staffing satisfied (or Rogue Borg + Lore).</summary>
     public bool Staffed { get; init; }

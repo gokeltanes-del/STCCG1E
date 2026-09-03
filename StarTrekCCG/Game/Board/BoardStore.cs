@@ -122,7 +122,7 @@ public sealed class BoardStore
 
     /// <summary>
     /// Ships, facilities, missions, span locations, TABLE cards from the store.
-    /// Attached events overlaid in ToGameState. E3: RangeLeft / Stopped come from instances.
+    /// Attached events overlaid in ToGameState. E3/E3b: RangeLeft / Stopped / Cloak / Dock / Hull from instances.
     /// </summary>
     public List<BoardPiece> ToBoardPieces()
     {
@@ -161,7 +161,17 @@ public sealed class BoardStore
                     staffReason = staff.Reason;
                 }
 
-                int rangeLeft = occ.Card is ShipInstance shipInst ? shipInst.RangeLeft : -1;
+                int rangeLeft = -1;
+                bool cloaked = false;
+                int dockedAtId = 0;
+                int hullPercent = -1;
+                if (occ.Card is ShipInstance shipInst)
+                {
+                    rangeLeft = shipInst.RangeLeft;
+                    cloaked = shipInst.Cloaked;
+                    dockedAtId = shipInst.DockedAtId;
+                    hullPercent = shipInst.HullPercent;
+                }
                 list.Add(new BoardPiece
                 {
                     Card = printed,
@@ -180,7 +190,10 @@ public sealed class BoardStore
                     SpacelineIndex = i,
                     Aboard = aboard,
                     RangeLeft = rangeLeft,
-                    Stopped = occ.Card.Stopped
+                    Stopped = occ.Card.Stopped,
+                    Cloaked = cloaked,
+                    DockedAtId = dockedAtId,
+                    HullPercent = hullPercent
                 });
                 if (occ.InstanceId > 0) seen.Add(occ.InstanceId);
             }
@@ -280,7 +293,10 @@ public sealed class BoardStore
             int crew = ship.Aboard?.Count(ModifierRules.IsPersonnelCard) ?? 0;
             string rangeBit = ship.RangeLeft >= 0 ? $" range={ship.RangeLeft}" : "";
             string stopBit = ship.Stopped ? " stopped=1" : "";
-            parts.Add($"{ShortName(ship.Card)}#{ship.InstanceId} aboard={crew} staffed={(ship.Staffed ? 1 : 0)}{rangeBit}{stopBit} host={ship.HostName ?? "-"}");
+            string cloakBit = ship.Cloaked ? " cloaked=1" : "";
+            string dockBit = ship.DockedAtId > 0 ? $" dock={ship.DockedAtId}" : "";
+            string hullBit = ship.HullPercent > 0 ? $" hull={ship.HullPercent}" : "";
+            parts.Add($"{ShortName(ship.Card)}#{ship.InstanceId} aboard={crew} staffed={(ship.Staffed ? 1 : 0)}{rangeBit}{stopBit}{cloakBit}{dockBit}{hullBit} host={ship.HostName ?? "-"}");
         }
         return "state: " + string.Join(" ", parts);
     }
@@ -349,7 +365,7 @@ public sealed class BoardStore
         return merged;
     }
 
-    /// <summary>E3: RangeLeft / Stopped prefer store; solved / persist still UI. Crew / host stay store.</summary>
+    /// <summary>E3/E3b: RangeLeft / Stopped / Cloak / Dock / Hull prefer store; solved / persist still UI. Crew / host stay store.</summary>
     private static BoardPiece OverlayStatus(BoardPiece store, BoardPiece ui) => new()
     {
         Card = store.Card,
@@ -373,6 +389,9 @@ public sealed class BoardStore
         AttemptBlockReason = ui.AttemptBlockReason,
         RangeLeft = store.RangeLeft >= 0 ? store.RangeLeft : ui.RangeLeft,
         Stopped = store.Stopped || ui.Stopped,
+        Cloaked = store.Cloaked || ui.Cloaked,
+        DockedAtId = store.DockedAtId > 0 ? store.DockedAtId : ui.DockedAtId,
+        HullPercent = store.HullPercent >= 0 ? store.HullPercent : ui.HullPercent,
         Staffed = ui.Staffed || store.Staffed,
         StaffReason = ui.Staffed ? ui.StaffReason : store.StaffReason,
         SpacelineIndex = store.SpacelineIndex >= 0 ? store.SpacelineIndex : ui.SpacelineIndex,

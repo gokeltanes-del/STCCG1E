@@ -37,6 +37,15 @@ public sealed class ShipInstance : CardInstance
 
     /// <summary>E3: remaining RANGE this turn. -1 = unset (UI dict fills). UI <c>_shipRangeLeft</c> mirrors.</summary>
     public int RangeLeft { get; set; } = -1;
+
+    /// <summary>E3b: cloaked. UI <c>_cloakedShips</c> mirrors this.</summary>
+    public bool Cloaked { get; set; }
+
+    /// <summary>E3b: facility InstanceId when docked; 0 = not docked. UI <c>_dockedAt</c> mirrors.</summary>
+    public int DockedAtId { get; set; }
+
+    /// <summary>E3b: hull damage 0-100. -1 = unset (UI dict fills). UI <c>_hullDamagePercent</c> mirrors.</summary>
+    public int HullPercent { get; set; } = -1;
 }
 
 public sealed class FacilityInstance : CardInstance

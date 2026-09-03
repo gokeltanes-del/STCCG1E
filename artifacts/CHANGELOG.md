@@ -4,6 +4,12 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-03 (Foundation E3b — Cloak + Dock + Hull on instance)
+
+**Engine** — `ShipInstance.Cloaked` / `DockedAtId` / `HullPercent` are source of truth; UI `_cloakedShips` / `_dockedAt` / `_hullDamagePercent` stay mirrors. [C — Grundlage]
+
+---
+
 ## 2026-09-03 (Fix — Fly ship lookup by InstanceId)
 
 **Engine** — Fly resolves ship by InstanceId not name (two U.S.S. Nebula). Klasse C.

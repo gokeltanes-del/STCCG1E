@@ -871,6 +871,9 @@ public partial class TableWindow : Window
             string? attemptBlock = null;
             int rangeLeft = -1;
             bool stopped = IsBorderStopped(kv.Key);
+            bool cloaked = IsShipCloaked(kv.Key);
+            int dockedAtId = GetDockedAtInstanceId(kv.Key);
+            int hullPercent = GetHullDamage(kv.Key);
             bool staffed = false;
             string? staffReason = null;
             string? hostName = null;
@@ -878,7 +881,7 @@ public partial class TableWindow : Window
             IReadOnlyList<Card> crewSnap = aboard;
 
             // E2: when BoardStore has this ship/facility Occupant, skip UI crew/staff/host walks.
-            // E3: RangeLeft / Stopped prefer instance (UI dicts mirror).
+            // E3/E3b: RangeLeft / Stopped / Cloak / Dock / Hull prefer instance (UI dicts mirror).
             bool storeHasHost = (kind is BoardPieceKind.Ship or BoardPieceKind.Facility)
                                 && c.InstanceId > 0
                                 && store.FindOccupant(c.InstanceId) != null;
@@ -886,8 +889,16 @@ public partial class TableWindow : Window
             if (c.InstanceId > 0 && store.ById.TryGetValue(c.InstanceId, out var statusInst))
             {
                 stopped = statusInst.Stopped || stopped;
-                if (statusInst is ShipInstance statusShip && statusShip.RangeLeft >= 0)
-                    rangeLeft = statusShip.RangeLeft;
+                if (statusInst is ShipInstance statusShip)
+                {
+                    if (statusShip.RangeLeft >= 0)
+                        rangeLeft = statusShip.RangeLeft;
+                    cloaked = statusShip.Cloaked || cloaked;
+                    if (statusShip.DockedAtId > 0)
+                        dockedAtId = statusShip.DockedAtId;
+                    if (statusShip.HullPercent >= 0)
+                        hullPercent = statusShip.HullPercent;
+                }
             }
 
             if (storeHasHost)
@@ -976,6 +987,9 @@ public partial class TableWindow : Window
                 AttemptBlockReason = attemptBlock,
                 RangeLeft = rangeLeft,
                 Stopped = stopped,
+                Cloaked = cloaked,
+                DockedAtId = dockedAtId,
+                HullPercent = hullPercent,
                 Staffed = staffed,
                 StaffReason = staffReason,
                 SpacelineIndex = spacelineIndex,
@@ -1182,7 +1196,7 @@ public partial class TableWindow : Window
             PlaceAttachedSpan(store, fake, placedSpanIds);
         }
 
-        // E3: UI dicts remain mirrors; copy RangeLeft / Stopped onto fresh wraps.
+        // E3/E3b: UI dicts remain mirrors; copy RangeLeft / Stopped / Cloak / Dock / Hull onto fresh wraps.
         ApplyUiStatusToStore(store);
 
         if (!logDual) return;
@@ -8024,7 +8038,7 @@ public partial class TableWindow : Window
         RemoveBorgShipToken();
         _solvedMissions.Clear(); _missionSolver.Clear();
         _hullDamagePercent.Clear(); _stoppedBorders.Clear();
-        _dockedAt.Clear();
+        _dockedAt.Clear(); _cloakedShips.Clear();
         _repairTurnsAtOutpost.Clear(); _shipRangeLeft.Clear();
         _borderOwner.Clear(); _attachedDilemmas.Clear(); _attachedEvents.Clear();
         _missionsByQuadrant.Clear(); _spacelineOrder.Clear();
@@ -8102,7 +8116,7 @@ public partial class TableWindow : Window
             if (!snap.Visible) border.Visibility = Visibility.Collapsed;
             if (snap.Hull > 0)
             {
-                _hullDamagePercent[border] = snap.Hull;
+                SetHullDamagePercent(border, snap.Hull);
                 if (snap.Hull >= 50 && snap.Hull < 100)
                 {
                     border.RenderTransformOrigin = new Point(0.5, 0.5);
@@ -8583,6 +8597,8 @@ public partial class TableWindow : Window
         _missionSolver.Clear();
         _hullDamagePercent.Clear();
         _stoppedBorders.Clear();
+        _cloakedShips.Clear();
+        _dockedAt.Clear();
         _repairTurnsAtOutpost.Clear();
         foreach (var kv in _damageBadges.ToList())
         {
@@ -9156,6 +9172,69 @@ public partial class TableWindow : Window
             if (store.ById.TryGetValue(c.InstanceId, out var inst))
                 inst.Stopped = true;
         }
+        foreach (var b in _cloakedShips)
+        {
+            if (b.Tag is not Card c || c.InstanceId <= 0) continue;
+            if (store.ById.TryGetValue(c.InstanceId, out var inst) && inst is ShipInstance sh)
+                sh.Cloaked = true;
+        }
+        foreach (var kv in _dockedAt)
+        {
+            if (kv.Key.Tag is not Card c || c.InstanceId <= 0) continue;
+            int facId = kv.Value.Tag is Card fc ? fc.InstanceId : 0;
+            if (store.ById.TryGetValue(c.InstanceId, out var inst) && inst is ShipInstance sh)
+                sh.DockedAtId = facId;
+        }
+        foreach (var kv in _hullDamagePercent)
+        {
+            if (kv.Key.Tag is not Card c || c.InstanceId <= 0) continue;
+            if (store.ById.TryGetValue(c.InstanceId, out var inst) && inst is ShipInstance sh)
+                sh.HullPercent = kv.Value;
+        }
+    }
+
+    private void SetShipCloaked(Border ship, bool cloaked)
+    {
+        if (cloaked) _cloakedShips.Add(ship);
+        else _cloakedShips.Remove(ship);
+        if (ship.Tag is Card c && c.InstanceId > 0
+            && BoardStore.Current.ById.TryGetValue(c.InstanceId, out var inst)
+            && inst is ShipInstance sh)
+            sh.Cloaked = cloaked;
+    }
+
+    private void SetShipDockedAt(Border ship, Border? facility)
+    {
+        if (facility == null)
+            _dockedAt.Remove(ship);
+        else
+            _dockedAt[ship] = facility;
+        if (ship.Tag is Card c && c.InstanceId > 0
+            && BoardStore.Current.ById.TryGetValue(c.InstanceId, out var inst)
+            && inst is ShipInstance sh)
+            sh.DockedAtId = facility?.Tag is Card fc ? fc.InstanceId : 0;
+    }
+
+    private void SetHullDamagePercent(Border border, int hullPercent)
+    {
+        hullPercent = Math.Clamp(hullPercent, 0, 100);
+        _hullDamagePercent[border] = hullPercent;
+        if (border.Tag is Card c && c.InstanceId > 0
+            && BoardStore.Current.ById.TryGetValue(c.InstanceId, out var inst)
+            && inst is ShipInstance sh)
+            sh.HullPercent = hullPercent;
+    }
+
+    private int GetDockedAtInstanceId(Border ship)
+    {
+        if (ship.Tag is Card c && c.InstanceId > 0
+            && BoardStore.Current.ById.TryGetValue(c.InstanceId, out var inst)
+            && inst is ShipInstance sh
+            && sh.DockedAtId > 0)
+            return sh.DockedAtId;
+        if (_dockedAt.TryGetValue(ship, out var fac) && fac?.Tag is Card fc)
+            return fc.InstanceId;
+        return 0;
     }
 
     private int GetRemainingRange(Border shipBorder, Card ship)
@@ -9190,7 +9269,26 @@ public partial class TableWindow : Window
     }
 
     private int GetHullDamage(Border border)
-        => _hullDamagePercent.TryGetValue(border, out int h) ? h : 0;
+    {
+        // E3b: prefer instance (source of truth); UI dict is mirror.
+        if (border.Tag is Card c && c.InstanceId > 0
+            && BoardStore.Current.ById.TryGetValue(c.InstanceId, out var inst)
+            && inst is ShipInstance sh
+            && sh.HullPercent >= 0)
+        {
+            _hullDamagePercent[border] = sh.HullPercent;
+            return sh.HullPercent;
+        }
+        if (_hullDamagePercent.TryGetValue(border, out int h))
+        {
+            if (border.Tag is Card c2 && c2.InstanceId > 0
+                && BoardStore.Current.ById.TryGetValue(c2.InstanceId, out var inst2)
+                && inst2 is ShipInstance sh2)
+                sh2.HullPercent = h;
+            return h;
+        }
+        return 0;
+    }
 
     private bool IsBorderStopped(Border border)
     {
@@ -15737,7 +15835,10 @@ public partial class TableWindow : Window
     private void ApplyHullDamage(Border border, Card card, int hullPercent)
     {
         hullPercent = Math.Clamp(hullPercent, 0, 100);
-        _hullDamagePercent[border] = hullPercent;
+        SetHullDamagePercent(border, hullPercent);
+        if (card.InstanceId > 0)
+            DebugLog.Move(_session.TurnNumber, GetBorderOwner(border),
+                $"hull #{card.InstanceId} pct={hullPercent} source=instance");
 
         // Neuer Schaden → Repair-Fortschritt zurücksetzen
         if (hullPercent > 0)
@@ -16137,7 +16238,7 @@ public partial class TableWindow : Window
 
             if (IsShipDocked(shipB))
             {
-                _dockedAt.Remove(shipB);
+                SetShipDockedAt(shipB, null);
                 _session.Log.Add(_session.TurnNumber, $"P{player}",
                     $"{ship.Name} undocks (required move 7.10)");
             }
@@ -16655,12 +16756,27 @@ public partial class TableWindow : Window
                || t.Contains("[Cloak]", StringComparison.OrdinalIgnoreCase);
     }
 
-    private bool IsShipCloaked(Border ship) => _cloakedShips.Contains(ship);
+    private bool IsShipCloaked(Border ship)
+    {
+        if (ship.Tag is Card c && c.InstanceId > 0
+            && BoardStore.Current.ById.TryGetValue(c.InstanceId, out var inst)
+            && inst is ShipInstance sh)
+            return sh.Cloaked || _cloakedShips.Contains(ship);
+        return _cloakedShips.Contains(ship);
+    }
 
     /// <summary>Glossary: exposed = in play and not cloaked (landed/phased later).</summary>
     private bool IsShipExposed(Border ship) => !IsShipCloaked(ship);
 
-    private bool IsShipDocked(Border ship) => _dockedAt.ContainsKey(ship);
+    private bool IsShipDocked(Border ship)
+    {
+        if (ship.Tag is Card c && c.InstanceId > 0
+            && BoardStore.Current.ById.TryGetValue(c.InstanceId, out var inst)
+            && inst is ShipInstance sh
+            && sh.DockedAtId > 0)
+            return true;
+        return _dockedAt.ContainsKey(ship);
+    }
 
     private IEnumerable<Border> FacilitiesHereForDock(Border ship)
     {
@@ -16694,7 +16810,10 @@ public partial class TableWindow : Window
             ShowPlayError(chk.reason);
             return;
         }
-        _dockedAt[ship] = facility;
+        SetShipDockedAt(ship, facility);
+        if (shipCard.InstanceId > 0)
+            DebugLog.Move(_session.TurnNumber, GetBorderOwner(ship),
+                $"dock #{shipCard.InstanceId} at=#{(facility.Tag as Card)?.InstanceId ?? 0} source=instance");
         if (FacilityHasSpacedock(facility))
         {
             RepairShipFully(ship, shipCard);
@@ -16710,11 +16829,15 @@ public partial class TableWindow : Window
 
     private void TryUndockShip(Border ship, Card shipCard)
     {
-        if (!_dockedAt.Remove(ship))
+        if (!IsShipDocked(ship))
         {
             ShowPlayError("That ship is not docked.");
             return;
         }
+        SetShipDockedAt(ship, null);
+        if (shipCard.InstanceId > 0)
+            DebugLog.Move(_session.TurnNumber, GetBorderOwner(ship),
+                $"dock #{shipCard.InstanceId} at=0 source=instance");
         StatusText.Text = $"{shipCard.Name} undocks.";
         _session.Log.Add(_session.TurnNumber, $"P{GetBorderOwner(ship)}",
             $"{shipCard.Name} undocked");
@@ -16739,16 +16862,14 @@ public partial class TableWindow : Window
             ShowPlayError("Incoming Message: ship may not cloak (7.10).");
             return;
         }
-        if (IsShipCloaked(shipBorder))
-        {
-            _cloakedShips.Remove(shipBorder);
-            StatusText.Text = $"{ship.Name} decloaks.";
-        }
-        else
-        {
-            _cloakedShips.Add(shipBorder);
-            StatusText.Text = $"{ship.Name} cloaks (exposed ships cannot be targeted the same way).";
-        }
+        bool nowCloaked = !IsShipCloaked(shipBorder);
+        SetShipCloaked(shipBorder, nowCloaked);
+        StatusText.Text = nowCloaked
+            ? $"{ship.Name} cloaks (exposed ships cannot be targeted the same way)."
+            : $"{ship.Name} decloaks.";
+        if (ship.InstanceId > 0)
+            DebugLog.Move(_session.TurnNumber, _activePlayer,
+                $"cloak #{ship.InstanceId} cloaked={(nowCloaked ? 1 : 0)} source=instance");
         _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
             $"{ship.Name} {(IsShipCloaked(shipBorder) ? "cloaked" : "decloaked")}.");
         UpdateHostBadge(shipBorder);
@@ -17003,7 +17124,10 @@ public partial class TableWindow : Window
             if (!hand.Contains(card)) hand.Add(card);
             return;
         }
-        _cloakedShips.Remove(host);
+        SetShipCloaked(host, false);
+        if (target.InstanceId > 0)
+            DebugLog.Move(_session.TurnNumber, controller,
+                $"cloak #{target.InstanceId} cloaked=0 source=instance");
         _cloakLocked.Add(host);
         _attachedEvents.Add(new AttachedEvent
         {
@@ -17787,7 +17911,7 @@ public partial class TableWindow : Window
 
     private void RepairShipFully(Border shipBorder, Card ship)
     {
-        _hullDamagePercent.Remove(shipBorder);
+        SetHullDamagePercent(shipBorder, 0);
         _repairTurnsAtOutpost.Remove(shipBorder);
         shipBorder.RenderTransform = null;
         shipBorder.Opacity = 1.0;
@@ -18098,9 +18222,19 @@ public partial class TableWindow : Window
         _tablePermanentCards.Remove(card);
         _oppTablePermanentCards.Remove(card);
         _hullDamagePercent.Remove(border);
+        _cloakedShips.Remove(border);
+        _dockedAt.Remove(border);
         if (_stoppedBorders.Remove(border) && card.InstanceId > 0
             && BoardStore.Current.ById.TryGetValue(card.InstanceId, out var deadStop))
             deadStop.Stopped = false;
+        if (card.InstanceId > 0
+            && BoardStore.Current.ById.TryGetValue(card.InstanceId, out var deadShipInst)
+            && deadShipInst is ShipInstance deadSh)
+        {
+            deadSh.Cloaked = false;
+            deadSh.DockedAtId = 0;
+            deadSh.HullPercent = -1;
+        }
         _repairTurnsAtOutpost.Remove(border);
         ClearShipRangeLeft(border);
         _borderOwner.Remove(border);
@@ -18840,7 +18974,8 @@ public partial class TableWindow : Window
     {
         _borderOwner[b] = playerId;
         // Hotseat: never flip/rotate cards by owner — only hull damage may rotate
-        if (!_hullDamagePercent.TryGetValue(b, out int hull) || hull < 50 || hull >= 100)
+        int hull = GetHullDamage(b);
+        if (hull < 50 || hull >= 100)
             b.RenderTransform = Transform.Identity;
     }
 
