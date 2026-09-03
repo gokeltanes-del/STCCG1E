@@ -300,6 +300,14 @@ UI-Dict bleibt Spiegel bis 2 Spiele grün.
 
 Logger: `[Move] range #275 left=8 source=instance`.
 
+**Done 2026-09-03 (RangeLeft + Stopped only):**
+- `CardInstance.Stopped`, `ShipInstance.RangeLeft` — source of truth after Sync / write-through.
+- UI `_shipRangeLeft` / `_stoppedBorders` remain mirrors (`SetShipRangeLeft`, `MarkStopped`/`Unstop*`, `ApplyUiStatusToStore` on Sync).
+- `CaptureEngineState` / `OverlayStatus` / `GetRemainingRange` / `IsBorderStopped` prefer store with UI fallback.
+- `StoppedInstanceIds` collected from `ById` when store has instances.
+- Cloak / Dock / Hull → **E3b** (not this chat).
+
+
 ### E4 — In-Play / Unique / Persona
 
 `PlayRules` + Report fragen `BoardStore.InPlay(player, name|persona)`, nicht Canvas-Namen.
@@ -362,7 +370,7 @@ Dazu, sobald E1 lebt:
 
 - [x] E1 ToGameState + Capture bevorzugt Store
 - [x] E2 Capture ohne Border-Schleife für Occupants (2026-09-02)
-- [ ] E3 RangeLeft + Stopped auf Instanz
+- [x] E3 RangeLeft + Stopped auf Instanz (2026-09-03)
 - [ ] E3b Cloak / Dock / Hull (nach E3)
 - [ ] E4 InPlay-Query, dann Nebula/Lore
 - [ ] E5 LegalMoves-Fly
@@ -412,6 +420,6 @@ Fix-Protokoll RULES.md unverändert (A Karte / B Phrase / C Grundlage).
 
 Antwort immer: Schritt, Klasse, Dateien neu/geändert, was bewusst nicht angefasst.
 
-Nächster Schritt nur: E3 (Status an Instanz — RangeLeft + Stopped)
+Nächster Schritt nur: E3b (Cloak / Dock / Hull) oder E4 Unique
 Kein Big-Bang. Premiere.
 ```

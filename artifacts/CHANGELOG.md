@@ -4,6 +4,12 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-03 (Foundation E3 — RangeLeft + Stopped on instance)
+
+**Engine** — `ShipInstance.RangeLeft` + `CardInstance.Stopped` are source of truth for Capture/`ToGameState`/Overlay; UI `_shipRangeLeft` / `_stoppedBorders` stay mirrors (write-through + Sync copy). Log `range #id left=N source=instance` on Fly. Cloak/Dock/Hull deferred to E3b. Dual-run kept; E2 hang fix untouched. [C — Grundlage]
+
+---
+
 ## 2026-09-03 (Fix — E2 Beam hang)
 
 **Engine** — Beam no longer freezes the WPF UI. Root cause: `Log.Changed` → `RefreshActionHistory` → `LegalMoves` fly-eval `DebugLog.Move` → `HistorySink` → `AddDebug` → `Changed` again (dispatcher flood). E2 store-first made ships Staffed so Fly-eval ran after Beam's log. Guard + coalesce refresh; skip HistorySink while refreshing. E2 store-first Capture kept. [C]

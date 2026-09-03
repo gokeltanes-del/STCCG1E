@@ -878,14 +878,21 @@ public partial class TableWindow : Window
             IReadOnlyList<Card> crewSnap = aboard;
 
             // E2: when BoardStore has this ship/facility Occupant, skip UI crew/staff/host walks.
-            // RangeLeft / Stopped stay UI until E3. MergeStorePreferred fills Aboard/Staffed/HostName.
+            // E3: RangeLeft / Stopped prefer instance (UI dicts mirror).
             bool storeHasHost = (kind is BoardPieceKind.Ship or BoardPieceKind.Facility)
                                 && c.InstanceId > 0
                                 && store.FindOccupant(c.InstanceId) != null;
 
+            if (c.InstanceId > 0 && store.ById.TryGetValue(c.InstanceId, out var statusInst))
+            {
+                stopped = statusInst.Stopped || stopped;
+                if (statusInst is ShipInstance statusShip && statusShip.RangeLeft >= 0)
+                    rangeLeft = statusShip.RangeLeft;
+            }
+
             if (storeHasHost)
             {
-                if (kind == BoardPieceKind.Ship)
+                if (kind == BoardPieceKind.Ship && rangeLeft < 0)
                     rangeLeft = GetRemainingRange(kv.Key, c);
             }
             else if (kind is BoardPieceKind.Ship or BoardPieceKind.Facility or BoardPieceKind.Mission)
@@ -1174,6 +1181,9 @@ public partial class TableWindow : Window
             };
             PlaceAttachedSpan(store, fake, placedSpanIds);
         }
+
+        // E3: UI dicts remain mirrors; copy RangeLeft / Stopped onto fresh wraps.
+        ApplyUiStatusToStore(store);
 
         if (!logDual) return;
         var uiParts = new List<string>();
@@ -7153,7 +7163,12 @@ public partial class TableWindow : Window
     {
         if (_stoppedBorders.Count == 0) return;
         foreach (var b in _stoppedBorders.ToList())
+        {
             ApplyStoppedVisual(b, stopped: false);
+            if (b.Tag is Card c && c.InstanceId > 0
+                && BoardStore.Current.ById.TryGetValue(c.InstanceId, out var inst))
+                inst.Stopped = false;
+        }
         _stoppedBorders.Clear();
         _session.Log.Add(_session.TurnNumber, "Pystem", "All stopped cards are active again.");
     }
@@ -8096,7 +8111,8 @@ public partial class TableWindow : Window
                 UpdateDamageBadge(border, snap.Hull);
             }
             if (snap.Stopped) MarkStopped(border);
-            if (snap.RangeLeft.HasValue) _shipRangeLeft[border] = snap.RangeLeft.Value;
+            if (snap.RangeLeft.HasValue)
+                SetShipRangeLeft(border, card, snap.RangeLeft.Value);
             if (snap.RepairTurns > 0) _repairTurnsAtOutpost[border] = snap.RepairTurns;
             if (snap.SolvedBy is 1 or 2)
             {
@@ -9102,15 +9118,65 @@ public partial class TableWindow : Window
             {
                 int hull = GetHullDamage(b);
                 int baryon = EventsOn(b).Count(e => e.Kind == EventRules.Persist.Baryon) * 2;
-                _shipRangeLeft[b] = Math.Max(0, BattleRules.EffectiveRange(c, hull) - baryon);
+                SetShipRangeLeft(b, c, Math.Max(0, BattleRules.EffectiveRange(c, hull) - baryon));
             }
+        }
+    }
+
+    /// <summary>E3: UI dict mirror + ShipInstance.RangeLeft when present.</summary>
+    private void SetShipRangeLeft(Border shipBorder, Card ship, int left)
+    {
+        _shipRangeLeft[shipBorder] = left;
+        if (ship.InstanceId > 0
+            && BoardStore.Current.ById.TryGetValue(ship.InstanceId, out var inst)
+            && inst is ShipInstance sh)
+            sh.RangeLeft = left;
+    }
+
+    private void ClearShipRangeLeft(Border border)
+    {
+        _shipRangeLeft.Remove(border);
+        if (border.Tag is Card c && c.InstanceId > 0
+            && BoardStore.Current.ById.TryGetValue(c.InstanceId, out var inst)
+            && inst is ShipInstance sh)
+            sh.RangeLeft = -1;
+    }
+
+    private void ApplyUiStatusToStore(BoardStore store)
+    {
+        foreach (var kv in _shipRangeLeft)
+        {
+            if (kv.Key.Tag is not Card c || c.InstanceId <= 0) continue;
+            if (store.ById.TryGetValue(c.InstanceId, out var inst) && inst is ShipInstance sh)
+                sh.RangeLeft = kv.Value;
+        }
+        foreach (var b in _stoppedBorders)
+        {
+            if (b.Tag is not Card c || c.InstanceId <= 0) continue;
+            if (store.ById.TryGetValue(c.InstanceId, out var inst))
+                inst.Stopped = true;
         }
     }
 
     private int GetRemainingRange(Border shipBorder, Card ship)
     {
+        // E3: prefer instance (source of truth); UI dict is mirror.
+        if (ship.InstanceId > 0
+            && BoardStore.Current.ById.TryGetValue(ship.InstanceId, out var inst)
+            && inst is ShipInstance sh
+            && sh.RangeLeft >= 0)
+        {
+            _shipRangeLeft[shipBorder] = sh.RangeLeft;
+            return sh.RangeLeft;
+        }
         if (_shipRangeLeft.TryGetValue(shipBorder, out int left))
+        {
+            if (ship.InstanceId > 0
+                && BoardStore.Current.ById.TryGetValue(ship.InstanceId, out var inst2)
+                && inst2 is ShipInstance sh2)
+                sh2.RangeLeft = left;
             return left;
+        }
         int hull = GetHullDamage(shipBorder);
         int full = BattleRules.EffectiveRange(ship, hull);
         int junior = _attachedDilemmas.Count(a =>
@@ -9119,7 +9185,7 @@ public partial class TableWindow : Window
         foreach (var j in _attachedDilemmas.Where(a =>
                      a.Kind == DilemmaRules.PersistKind.Junior && ReferenceEquals(a.Host, shipBorder)))
             full = Math.Max(0, full - Math.Max(0, j.Countdown));
-        _shipRangeLeft[shipBorder] = full;
+        SetShipRangeLeft(shipBorder, ship, full);
         return full;
     }
 
@@ -9127,7 +9193,12 @@ public partial class TableWindow : Window
         => _hullDamagePercent.TryGetValue(border, out int h) ? h : 0;
 
     private bool IsBorderStopped(Border border)
-        => _stoppedBorders.Contains(border);
+    {
+        if (border.Tag is Card c && c.InstanceId > 0
+            && BoardStore.Current.ById.TryGetValue(c.InstanceId, out var inst))
+            return inst.Stopped || _stoppedBorders.Contains(border);
+        return _stoppedBorders.Contains(border);
+    }
 
     private List<Card> GetCrewOnShip(Border shipBorder)
     {
@@ -9277,7 +9348,10 @@ public partial class TableWindow : Window
             fromMission != null ? IndexOfMission(fromMission) : -1,
             IndexOfMission(toMission), crew);
 
-        _shipRangeLeft[shipBorder] = move.RangeLeft;
+        SetShipRangeLeft(shipBorder, ship, move.RangeLeft);
+        if (ship.InstanceId > 0)
+            DebugLog.Move(_session.TurnNumber, _activePlayer,
+                $"range #{ship.InstanceId} left={move.RangeLeft} source=instance");
         StatusText.Text =
             $"{ship.Name} → {((Card)toMission.Tag!).Name} · −{move.RangeCost} RANGE " +
             $"(noch {move.RangeLeft}/{MovementRules.GetShipRange(ship)}) · {staff.Reason}";
@@ -12682,7 +12756,7 @@ public partial class TableWindow : Window
                         int left = GetRemainingRange(shipB, sc);
                         int used = Math.Max(0, printed - left);
                         // Full RANGE is doubled; RANGE already spent this turn still counts.
-                        _shipRangeLeft[shipB] = Math.Max(0, printed * 2 - used);
+                        SetShipRangeLeft(shipB, sc, Math.Max(0, printed * 2 - used));
                         // discard end of turn via attached dilemma-like flag on attached events list reuse
                         _attachedEvents.Add(new AttachedEvent
                         {
@@ -15681,9 +15755,9 @@ public partial class TableWindow : Window
             {
                 int eff = BattleRules.EffectiveRange(card, hullPercent);
                 if (_shipRangeLeft.TryGetValue(border, out int left) && left > eff)
-                    _shipRangeLeft[border] = eff;
+                    SetShipRangeLeft(border, card, eff);
                 else if (!_shipRangeLeft.ContainsKey(border))
-                    _shipRangeLeft[border] = eff;
+                    SetShipRangeLeft(border, card, eff);
             }
         }
         else if (hullPercent <= 0)
@@ -16882,7 +16956,7 @@ public partial class TableWindow : Window
             if (host.Tag is Card sc)
             {
                 int hull = GetHullDamage(host);
-                _shipRangeLeft[host] = BattleRules.EffectiveRange(sc, hull);
+                SetShipRangeLeft(host, sc, BattleRules.EffectiveRange(sc, hull));
                 StatusText.Text = $"Distortion: {shipName} RANGE restored.";
             }
         }
@@ -16948,6 +17022,9 @@ public partial class TableWindow : Window
     {
         if (_stoppedBorders.Remove(border))
             ApplyStoppedVisual(border, stopped: false);
+        if (border.Tag is Card c && c.InstanceId > 0
+            && BoardStore.Current.ById.TryGetValue(c.InstanceId, out var inst))
+            inst.Stopped = false;
     }
 
     private void ApplyAntiTimeExpire(AttachedEvent e)
@@ -17718,7 +17795,7 @@ public partial class TableWindow : Window
 
         // RANGE wieder voll (nächster Zug / sofort für Rest des Spiels)
         int full = MovementRules.GetShipRange(ship);
-        _shipRangeLeft[shipBorder] = full;
+        SetShipRangeLeft(shipBorder, ship, full);
 
         _session.Log.Add(_session.TurnNumber, $"P{GetBorderOwner(shipBorder)}",
             $"Repaired {ship.Name} (Rotation Damage cleared)");
@@ -17799,6 +17876,9 @@ public partial class TableWindow : Window
     {
         _stoppedBorders.Add(border);
         ApplyStoppedVisual(border, stopped: true);
+        if (border.Tag is Card c && c.InstanceId > 0
+            && BoardStore.Current.ById.TryGetValue(c.InstanceId, out var inst))
+            inst.Stopped = true;
     }
 
     private void ApplyStoppedVisual(Border border, bool stopped)
@@ -17977,7 +18057,9 @@ public partial class TableWindow : Window
                 if (TableCanvas.Children.Contains(sb))
                     TableCanvas.Children.Remove(sb);
                 _hullDamagePercent.Remove(sb);
-                _stoppedBorders.Remove(sb);
+                if (_stoppedBorders.Remove(sb) && sb.Tag is Card stopCard && stopCard.InstanceId > 0
+                    && BoardStore.Current.ById.TryGetValue(stopCard.InstanceId, out var stopInst))
+                    stopInst.Stopped = false;
                 if (_damageBadges.TryGetValue(sb, out var db))
                 {
                     if (TableCanvas.Children.Contains(db))
@@ -18016,9 +18098,11 @@ public partial class TableWindow : Window
         _tablePermanentCards.Remove(card);
         _oppTablePermanentCards.Remove(card);
         _hullDamagePercent.Remove(border);
-        _stoppedBorders.Remove(border);
+        if (_stoppedBorders.Remove(border) && card.InstanceId > 0
+            && BoardStore.Current.ById.TryGetValue(card.InstanceId, out var deadStop))
+            deadStop.Stopped = false;
         _repairTurnsAtOutpost.Remove(border);
-        _shipRangeLeft.Remove(border);
+        ClearShipRangeLeft(border);
         _borderOwner.Remove(border);
 
         if (mission != null)
@@ -18294,7 +18378,9 @@ public partial class TableWindow : Window
 
         if (TableCanvas.Children.Contains(border))
             TableCanvas.Children.Remove(border);
-        _stoppedBorders.Remove(border);
+        if (_stoppedBorders.Remove(border) && border.Tag is Card remCard && remCard.InstanceId > 0
+            && BoardStore.Current.ById.TryGetValue(remCard.InstanceId, out var remInst))
+            remInst.Stopped = false;
         _borderOwner.Remove(border);
         RefreshZoneCounts();
     }

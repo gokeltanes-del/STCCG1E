@@ -122,7 +122,7 @@ public sealed class BoardStore
 
     /// <summary>
     /// Ships, facilities, missions, span locations, TABLE cards from the store.
-    /// Attached events and UI status (RANGE / Stopped) are overlaid in ToGameState.
+    /// Attached events overlaid in ToGameState. E3: RangeLeft / Stopped come from instances.
     /// </summary>
     public List<BoardPiece> ToBoardPieces()
     {
@@ -161,6 +161,7 @@ public sealed class BoardStore
                     staffReason = staff.Reason;
                 }
 
+                int rangeLeft = occ.Card is ShipInstance shipInst ? shipInst.RangeLeft : -1;
                 list.Add(new BoardPiece
                 {
                     Card = printed,
@@ -177,7 +178,9 @@ public sealed class BoardStore
                     Staffed = staffed,
                     StaffReason = staffReason,
                     SpacelineIndex = i,
-                    Aboard = aboard
+                    Aboard = aboard,
+                    RangeLeft = rangeLeft,
+                    Stopped = occ.Card.Stopped
                 });
                 if (occ.InstanceId > 0) seen.Add(occ.InstanceId);
             }
@@ -263,7 +266,7 @@ public sealed class BoardStore
             TentDownloadUsedP1 = seed.TentDownloadUsedP1,
             TentDownloadUsedP2 = seed.TentDownloadUsedP2,
             OncePerGameKeys = seed.OncePerGameKeys,
-            StoppedInstanceIds = seed.StoppedInstanceIds,
+            StoppedInstanceIds = CollectStoppedInstanceIds(seed),
             UntilEndOfTurnKeys = seed.UntilEndOfTurnKeys
         };
     }
@@ -275,7 +278,9 @@ public sealed class BoardStore
         foreach (var ship in state.Ships())
         {
             int crew = ship.Aboard?.Count(ModifierRules.IsPersonnelCard) ?? 0;
-            parts.Add($"{ShortName(ship.Card)}#{ship.InstanceId} aboard={crew} staffed={(ship.Staffed ? 1 : 0)} host={ship.HostName ?? "-"}");
+            string rangeBit = ship.RangeLeft >= 0 ? $" range={ship.RangeLeft}" : "";
+            string stopBit = ship.Stopped ? " stopped=1" : "";
+            parts.Add($"{ShortName(ship.Card)}#{ship.InstanceId} aboard={crew} staffed={(ship.Staffed ? 1 : 0)}{rangeBit}{stopBit} host={ship.HostName ?? "-"}");
         }
         return "state: " + string.Join(" ", parts);
     }
@@ -304,6 +309,21 @@ public sealed class BoardStore
         return resolved.Count == ids.Count ? resolved : fallback;
     }
 
+    private IReadOnlyList<int> CollectStoppedInstanceIds(GameStateSeed seed)
+    {
+        if (ById.Count == 0)
+            return seed.StoppedInstanceIds;
+        var fromStore = ById.Values
+            .Where(i => i.Stopped && i.InstanceId > 0)
+            .Select(i => i.InstanceId)
+            .Distinct()
+            .ToList();
+        // UI fallback when Sync has not copied stops onto fresh wraps yet.
+        if (fromStore.Count == 0 && seed.StoppedInstanceIds.Count > 0)
+            return seed.StoppedInstanceIds;
+        return fromStore;
+    }
+
     private static List<BoardPiece> MergeStorePreferred(
         List<BoardPiece> storePieces,
         IReadOnlyList<BoardPiece> uiBoard)
@@ -329,7 +349,7 @@ public sealed class BoardStore
         return merged;
     }
 
-    /// <summary>RANGE / Stopped / solved stay UI until E3. Crew / host stay store.</summary>
+    /// <summary>E3: RangeLeft / Stopped prefer store; solved / persist still UI. Crew / host stay store.</summary>
     private static BoardPiece OverlayStatus(BoardPiece store, BoardPiece ui) => new()
     {
         Card = store.Card,
@@ -351,8 +371,8 @@ public sealed class BoardStore
         MissionSolved = ui.MissionSolved,
         AttemptBlocked = ui.AttemptBlocked,
         AttemptBlockReason = ui.AttemptBlockReason,
-        RangeLeft = ui.RangeLeft,
-        Stopped = ui.Stopped,
+        RangeLeft = store.RangeLeft >= 0 ? store.RangeLeft : ui.RangeLeft,
+        Stopped = store.Stopped || ui.Stopped,
         Staffed = ui.Staffed || store.Staffed,
         StaffReason = ui.Staffed ? ui.StaffReason : store.StaffReason,
         SpacelineIndex = store.SpacelineIndex >= 0 ? store.SpacelineIndex : ui.SpacelineIndex,
