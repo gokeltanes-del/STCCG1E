@@ -318,6 +318,8 @@ Logger: `[Move] range #275 left=8 source=instance`.
 
 Logger: `[Play] unique deny Nebula #283 have=#240 controller=2`.
 
+Fly ship BoardPiece lookup (`EvaluateFly`) is instance-id first (ReferenceEquals / InstanceId); printed-name match only when InstanceId is 0. Two Nebula copies no longer steal each other's RANGE/origin — that hole is closed here and is **not** mixed into E3 range.
+
 ### E5 — LegalMoves-Fly liest Locations
 
 `state.OrderedMissions()` nur noch Fallback. Collect nutzt dieselbe Location-Liste wie `MovementRules.CanMoveShip(Location[])`.

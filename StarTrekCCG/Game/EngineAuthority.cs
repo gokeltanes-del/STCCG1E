@@ -255,10 +255,13 @@ public static class EngineAuthority
         if (ship == null || !CardKinds.IsShip(ship))
             return ApplyResult.Deny("No ship.", "fly", action.Player);
 
+        // Prefer InstanceId over printed name so two U.S.S. Nebula copies do not share RANGE/origin.
         var piece = state.Board.FirstOrDefault(p =>
             p.Kind == BoardPieceKind.Ship
             && (ReferenceEquals(p.Card, ship)
-                || string.Equals(p.Card.Name, ship.Name, StringComparison.OrdinalIgnoreCase)));
+                || (ship.InstanceId > 0 && p.InstanceId == ship.InstanceId)
+                || (ship.InstanceId == 0
+                    && string.Equals(p.Card.Name, ship.Name, StringComparison.OrdinalIgnoreCase))));
         if (piece != null)
         {
             if (piece.Stopped || state.IsStoppedInstance(piece.InstanceId))

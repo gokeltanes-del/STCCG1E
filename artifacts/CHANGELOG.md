@@ -4,6 +4,12 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-03 (Fix — Fly ship lookup by InstanceId)
+
+**Engine** — Fly resolves ship by InstanceId not name (two U.S.S. Nebula). Klasse C.
+
+---
+
 ## 2026-09-03 (Foundation E3 — RangeLeft + Stopped on instance)
 
 **Engine** — `ShipInstance.RangeLeft` + `CardInstance.Stopped` are source of truth for Capture/`ToGameState`/Overlay; UI `_shipRangeLeft` / `_stoppedBorders` stay mirrors (write-through + Sync copy). Log `range #id left=N source=instance` on Fly. Cloak/Dock/Hull deferred to E3b. Dual-run kept; E2 hang fix untouched. [C — Grundlage]
