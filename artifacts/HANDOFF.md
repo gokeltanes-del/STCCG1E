@@ -27,7 +27,7 @@ Grok project: Star Trek CCG 1E (stccg-1e)
 
 ## Goals
 ### Short-term
-1. Finish E4 test+push
+1. Finish E4 Owner-fix Lore retest + push
 2. E5, E6
 3. Extract TableWindow altcode / per-card effects into Game/*Rules, BoardStore, templates — solid foundation before adding new cards
 4. Keep A/B/C process; Premiere-first

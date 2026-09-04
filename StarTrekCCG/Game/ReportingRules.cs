@@ -293,10 +293,10 @@ public static class ReportingRules
 
             if (string.Equals(PlayRules.PersonaKey(other), key, StringComparison.OrdinalIgnoreCase))
             {
-                int ctrl = other.Controller != 0 ? other.Controller : other.OwnerPlayer;
+                int owner = other.OwnerPlayer != 0 ? other.OwnerPlayer : other.Controller;
                 string haveBit = other.InstanceId > 0 ? $"#{other.InstanceId}" : DebugLog.Card(other);
-                DebugLog.Play(0, ctrl,
-                    $"unique deny {DebugLog.Card(reporting)} have={haveBit} controller={ctrl}");
+                DebugLog.Play(0, owner,
+                    $"unique deny {DebugLog.Card(reporting)} have={haveBit} owner={owner}");
                 return new ReportResult(false,
                     $"Persona/Unique: „{reporting.Name}“ - du hast bereits „{other.Name}“ im Spiel.");
             }

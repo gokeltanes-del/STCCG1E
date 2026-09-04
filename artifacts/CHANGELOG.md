@@ -4,6 +4,12 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-04 (Fix — E4 Unique/Persona by Owner)
+
+**Engine** — Unique/Enigma/Persona deny uses `BoardStore.InPlay(..., Owner)` (Glossary: restrict stays with owner under Lore/capture/commandeer). Opponent may still field their own copy. Log `unique deny … owner=`. [C — Grundlage]
+
+---
+
 ## 2026-09-04 (Foundation E4 — InPlay/Unique/Persona by instance)
 
 **Engine** — `BoardStore.InPlay` / `InPlayInstances` query spaceline+TABLE by Controller (Owner separate for Lore). `PlayRules`/Report unique deny by InstanceId+persona; log `unique deny Nebula #283 have=#240 controller=2`. Attempt/HiddenAgenda InstanceId-first. [C — Grundlage]

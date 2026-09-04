@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using StarTrekCCG.Models;
@@ -500,20 +500,20 @@ public sealed class BoardStore
 
     public enum InPlaySide
     {
-        /// <summary>Who currently controls the card (Lore commandeer). Default for unique/persona.</summary>
+        /// <summary>Who currently controls the card (Lore commandeer).</summary>
         Controller,
-        /// <summary>Printed owner / seed owner. Separate from Controller.</summary>
+        /// <summary>Printed owner / seed owner. Default for unique/persona (Glossary: restrict stays with owner).</summary>
         Owner
     }
 
     /// <summary>
     /// E4: In-play instances from spaceline (missions, occupants, forces) + TABLE.
-    /// Hands excluded. Prefer <see cref="InPlaySide.Controller"/> for unique/persona.
+    /// Hands excluded. Prefer <see cref="InPlaySide.Owner"/> for unique/persona.
     /// Optional <paramref name="nameOrPersona"/> filters by <see cref="PlayRules.PersonaKey"/>.
     /// </summary>
     public IEnumerable<CardInstance> InPlayInstances(
         int player = 0,
-        InPlaySide side = InPlaySide.Controller,
+        InPlaySide side = InPlaySide.Owner,
         string? nameOrPersona = null)
     {
         string? key = string.IsNullOrWhiteSpace(nameOrPersona)
@@ -541,7 +541,7 @@ public sealed class BoardStore
     /// <summary>E4: Printed cards in play (see <see cref="InPlayInstances"/>).</summary>
     public IEnumerable<Card> InPlay(
         int player = 0,
-        InPlaySide side = InPlaySide.Controller,
+        InPlaySide side = InPlaySide.Owner,
         string? nameOrPersona = null) =>
         InPlayInstances(player, side, nameOrPersona).Select(i => i.Printed);
 
@@ -553,7 +553,7 @@ public sealed class BoardStore
         int player,
         string personaKey,
         int excludeInstanceId = 0,
-        InPlaySide side = InPlaySide.Controller)
+        InPlaySide side = InPlaySide.Owner)
     {
         foreach (var inst in InPlayInstances(player, side, personaKey))
         {

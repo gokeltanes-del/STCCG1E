@@ -90,12 +90,13 @@ public static class PlayRules
 
     /// <summary>
     /// Darf diese Karte ins Spiel kommen, gegeben alle bereits im Spiel befindlichen Karten?
-    /// controlledInPlay = Karten unter Control des Spielers (Unique/Enigma); allInPlay = beide.
+    /// ownedInPlay = Karten mit Owner=Spieler (Unique/Enigma/Persona; gilt auch unter Opponent-Control/Lore);
+    /// allInPlay = beide (not-duplicatable).
     /// E4: Match per PersonaKey + InstanceId (nicht nur Namens-String / ReferenceEquals).
     /// </summary>
     public static EnterPlayResult CanEnterPlay(
         Card card,
-        IEnumerable<Card> controlledInPlay,
+        IEnumerable<Card> ownedInPlay,
         IEnumerable<Card> allInPlay,
         int player = 0)
     {
@@ -110,7 +111,7 @@ public static class PlayRules
 
             case UniquenessKind.Unique:
             case UniquenessKind.Enigma:
-                var ownedConflict = FindPersonaConflict(card, controlledInPlay, key);
+                var ownedConflict = FindPersonaConflict(card, ownedInPlay, key);
                 if (ownedConflict != null)
                 {
                     LogUniqueDeny(card, ownedConflict, player, kind);
@@ -137,7 +138,7 @@ public static class PlayRules
     }
 
     /// <summary>
-    /// E4: Unique/persona against <see cref="BoardStore.InPlay"/> by Controller.
+    /// E4: Unique/persona against <see cref="BoardStore.InPlay"/> by Owner (Glossary: restrict stays with owner even after loss of control / Lore).
     /// Falls back to empty lists when the store has no spaceline/TABLE surface yet.
     /// </summary>
     public static EnterPlayResult CanEnterPlay(Card card, int player, BoardStore? store = null)
@@ -146,9 +147,9 @@ public static class PlayRules
         if (!store.HasInPlaySurface)
             return CanEnterPlay(card, Array.Empty<Card>(), Array.Empty<Card>(), player);
 
-        var controlled = store.InPlay(player, BoardStore.InPlaySide.Controller).ToList();
+        var owned = store.InPlay(player, BoardStore.InPlaySide.Owner).ToList();
         var all = store.InPlay().ToList();
-        return CanEnterPlay(card, controlled, all, player);
+        return CanEnterPlay(card, owned, all, player);
     }
 
     /// <summary>
@@ -170,10 +171,10 @@ public static class PlayRules
 
     private static void LogUniqueDeny(Card attempting, Card have, int player, UniquenessKind kind)
     {
-        int ctrl = have.Controller != 0 ? have.Controller : (have.OwnerPlayer != 0 ? have.OwnerPlayer : player);
-        int who = player != 0 ? player : ctrl;
+        int owner = have.OwnerPlayer != 0 ? have.OwnerPlayer : (have.Controller != 0 ? have.Controller : player);
+        int who = player != 0 ? player : owner;
         string label = kind == UniquenessKind.NotDuplicatable ? "not-dup deny" : "unique deny";
         string haveBit = have.InstanceId > 0 ? $"#{have.InstanceId}" : DebugLog.Card(have);
-        DebugLog.Play(0, who, $"{label} {DebugLog.Card(attempting)} have={haveBit} controller={ctrl}");
+        DebugLog.Play(0, who, $"{label} {DebugLog.Card(attempting)} have={haveBit} owner={owner}");
     }
 }

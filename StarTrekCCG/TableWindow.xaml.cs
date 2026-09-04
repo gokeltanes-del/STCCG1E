@@ -4402,8 +4402,8 @@ public partial class TableWindow : Window
         foreach (var b in TableCanvas.Children.OfType<Border>())
         {
             if (b.Tag is not Card c) continue;
-            // E4: prefer Card.Controller (Lore commandeer) over border owner paint.
-            int o = c.Controller != 0 ? c.Controller : GetBorderOwner(b);
+            // E4: Unique/persona by Owner (Glossary); Lore control does not free the persona slot.
+            int o = c.OwnerPlayer != 0 ? c.OwnerPlayer : GetBorderOwner(b);
             if (o == 0) o = 1;
             if (o != owner) continue;
             // Missionen z├ñhlen f├╝r not-duplicatable / shared sp├ñter
@@ -4434,7 +4434,7 @@ public partial class TableWindow : Window
         if (_seedPhaseActive) return true;
         if (_session.Match != GameSession.MatchPhase.Play) return true;
 
-        // E4: BoardStore.InPlay by Controller (Owner vs Controller / Lore); canvas fallback.
+        // E4: BoardStore.InPlay by Owner (persona restrict stays with owner / Lore); canvas fallback.
         PlayRules.EnterPlayResult result;
         if (BoardStore.Current.HasInPlaySurface)
             result = PlayRules.CanEnterPlay(card, _activePlayer, BoardStore.Current);
@@ -5913,9 +5913,9 @@ public partial class TableWindow : Window
             return (false, $"{card.Name} has no affiliation mode compatible with {host.Name}.");
 
         // Persona-Limit zusätzlich
-        // E4: unique/persona by Controller from BoardStore when ready.
+        // E4: unique/persona by Owner from BoardStore when ready.
         var owned = BoardStore.Current.HasInPlaySurface
-            ? BoardStore.Current.InPlay(player, BoardStore.InPlaySide.Controller).ToList()
+            ? BoardStore.Current.InPlay(player, BoardStore.InPlaySide.Owner).ToList()
             : CollectCardsInPlay(player == 2);
         var persona = ReportingRules.CheckPersonaLimit(card, owned);
         if (!persona.Ok)

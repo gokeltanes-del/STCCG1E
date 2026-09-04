@@ -318,13 +318,15 @@ Logger: `[Move] range #275 left=8 source=instance`.
 
 `PlayRules` + Report fragen `BoardStore.InPlay(player, name|persona)`, nicht Canvas-Namen.
 
-- Owner vs Controller getrennt (Lore).
+- Unique/Persona nach **Owner** (Glossary: Restrict bleibt auch bei loss of control / Lore). Controller getrennt (commandeer), aber Unique-Slot = Owner.
 - Universal / Enigma / unique wie `PlayRules.GetUniqueness` schon kann.
 - Dann erst das geparkte Nebula/Lore-Loch.
 
-Logger: `[Play] unique deny Nebula #283 have=#240 controller=2`.
+Logger: `[Play] unique deny Nebula #283 have=#240 owner=2`.
 
-**Done 2026-09-04:** `BoardStore.InPlay` / `InPlayInstances` (Controller vs Owner). `PlayRules` + Report wired; Attempt/HiddenAgenda InstanceId-first.
+**Done 2026-09-04:** `BoardStore.InPlay` / `InPlayInstances` (Owner default for unique/persona; Controller side still available). `PlayRules` + Report wired; Attempt/HiddenAgenda InstanceId-first.
+
+**Fix 2026-09-04 (Spock):** Unique/Persona after **Owner**, not Controller — owned instance in play (even under Lore/opponent control) blocks another copy for that owner; opponent may still play their own.
 
 Fly ship BoardPiece lookup (`EvaluateFly`) is instance-id first (ReferenceEquals / InstanceId); printed-name match only when InstanceId is 0. Two Nebula copies no longer steal each other's RANGE/origin — that hole is closed here and is **not** mixed into E3 range.
 
