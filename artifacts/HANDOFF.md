@@ -20,24 +20,23 @@ Grok project: Star Trek CCG 1E (stccg-1e)
 5. Do NOT touch uncommitted / in-progress Engine work belonging to another bot without Captain OK
 
 ## Current foundation status (2026-09-04)
-- Board 0-6 done; E1–E3b on GitHub (through d9877bc)
-- **E4 Unique/InPlay DONE and on origin tip `eff6ce2`**
-  - Unique by **Owner/Persona** (not Controller) — Spock Glossary ruling
-  - Restriction remains if owner loses control
-  - Related local history already on origin with it: `56e6790` (E4 Unique/InPlay), `2166c03` (HANDOFF+FEATURES docs), `eff6ce2` (Owner fix)
-- **E5 LegalMoves-Fly reading Locations — NEXT / IN PROGRESS**
-- E6 IM/Required-Move Locations local — awaiting Pepsch retest; no push until green
-  - Data has local commit `484fd6e` (Engine E5: LegalMoves Fly destinations from Locations) ahead of origin — **not pushed**; Pepsch build/test then push when green
-  - Leave E5 Engine/Game C# alone unless you are Data on that task
-- Then: **E6** Incoming Message / Required-Move on Locations
-- Before new cards: extract TableWindow altcode / card effects into proper layers (`Game/*Rules`, BoardStore, templates)
-- Parked: Fed 7.4.1 battle initiation; E2b Treaty/Rogue staffing on store path; Lore fly staffing is not E4
+- Board 0-6 done; E1-E5 on origin (E5 tip history through `484fd6e`+)
+- **E4 Unique/InPlay DONE** (`eff6ce2`+): Unique by Owner/Persona (Spock Glossary), not Controller
+- **E5 LegalMoves-Fly Locations DONE** (`484fd6e`+)
+- **E6 IM/Required-Move Locations** (`7bf128f`+): Pepsch push in progress 2026-09-04
+- **Next after E6 push:** TableWindow extract of altcode / card effects into `Game/*Rules`, BoardStore, templates — BEFORE new Premiere card waves
+- Parked bugs (post-E6 smoke; see FEATURES P1):
+  1. Gaps extra kill / missing kill log
+  2. IM Fed false already-at-facility nullify
+  3. Wormhole broken again
+  4. Debug dump omits ships on Gaps
+- Also parked: Fed 7.4.1 battle initiation; E2b Treaty/Rogue staffing on store path
 
 ## Goals
 ### Short-term
-1. Pepsch: retest E5 Fly Locations locally → push when green; then E6 IM/Required-Move Locations
-2. E6 after E5 green
-3. Extract TableWindow altcode / per-card effects into Game/*Rules, BoardStore, templates — solid foundation before adding new cards
+1. Pepsch: finish E6 push when green
+2. TableWindow altcode / per-card effects extract — foundation before new cards
+3. Parked smoke bugs via Data (ranked in FEATURES)
 4. Keep A/B/C process; Premiere-first
 
 ### Long-term
