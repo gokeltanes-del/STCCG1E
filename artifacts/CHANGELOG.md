@@ -4,6 +4,12 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-04 (Foundation E5 — LegalMoves-Fly Locations)
+
+**Engine** — `LegalMoves` Fly Collect uses `BoardStore` Location line via `EngineAuthority.FlyLineForPiece` (same as `CanMoveShip(Location[])` / `TryEvaluateFlyPath`); `OrderedMissions()` name list only as fallback. [C — Grundlage]
+
+---
+
 ## 2026-09-04 (Fix — E4 Unique/Persona by Owner)
 
 **Engine** — Unique/Enigma/Persona deny uses `BoardStore.InPlay(..., Owner)` (Glossary: restrict stays with owner under Lore/capture/commandeer). Opponent may still field their own copy. Log `unique deny … owner=`. [C — Grundlage]

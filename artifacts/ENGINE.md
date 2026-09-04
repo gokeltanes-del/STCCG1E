@@ -334,6 +334,8 @@ Fly ship BoardPiece lookup (`EvaluateFly`) is instance-id first (ReferenceEquals
 
 `state.OrderedMissions()` nur noch Fallback. Collect nutzt dieselbe Location-Liste wie `MovementRules.CanMoveShip(Location[])`.
 
+**Done 2026-09-04:** `EngineAuthority.FlyLineForPiece` shared with `TryEvaluateFlyPath`; `LegalMoves.AddExecuteOrders` destinations from BoardStore Locations (Printed); `OrderedMissions()` only when line empty.
+
 ### E6 — IM / Required-Move auf Locations
 
 `MissionsOnSameSpaceline` bleibt Paint. Hop-Kosten wie Fly.
@@ -385,7 +387,7 @@ Dazu, sobald E1 lebt:
 - [x] E3 RangeLeft + Stopped auf Instanz (2026-09-03)
 - [x] E3b Cloak / Dock / Hull (2026-09-03)
 - [x] E4 InPlay-Query, dann Nebula/Lore (2026-09-04)
-- [ ] E5 LegalMoves-Fly
+- [x] E5 LegalMoves-Fly (2026-09-04)
 - [ ] E6 IM auf Locations
 - [ ] Kevin-Snap von Store (nur wenn Probespiel blockiert)
 - [ ] Attached Events als Store-Liste (nicht E1)
@@ -432,6 +434,6 @@ Fix-Protokoll RULES.md unverändert (A Karte / B Phrase / C Grundlage).
 
 Antwort immer: Schritt, Klasse, Dateien neu/geändert, was bewusst nicht angefasst.
 
-Nächster Schritt nur: E5 LegalMoves-Fly
+Nächster Schritt nur: E6 IM auf Locations
 Kein Big-Bang. Premiere.
 ```

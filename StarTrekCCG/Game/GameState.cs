@@ -146,7 +146,7 @@ public sealed class GameState
     public SeedSubPhase CurrentSeedPhase => SeedRules.FromInt(SeedSubPhase);
 
     /// <summary>
-    /// Name-order snapshot for LegalMoves / IM. Live Fly RANGE uses BoardStore.Locations.
+    /// E5: name-order fallback for LegalMoves Fly when BoardStore line empty; IM may still use names.
     /// </summary>
     public List<Card> OrderedMissions()
     {

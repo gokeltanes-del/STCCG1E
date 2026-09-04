@@ -343,17 +343,33 @@ public static class LegalMoves
                 list.Add(probe);
         }
 
-        // Name list — Fly apply uses BoardStore. Keep until LegalMoves reads Locations.
-        var ordered = state.OrderedMissions();
-
+        // E5: Fly destinations from BoardStore Locations (same line as CanMoveShip / TryEvaluateFlyPath).
+        // OrderedMissions() only when the store line is empty.
         foreach (var ship in state.Ships().Where(s =>
                      (s.Owner == player || s.Controller == player)
                      && !s.Stopped
                      && s.Staffed
                      && s.RangeLeft != 0))
         {
+            var line = EngineAuthority.FlyLineForPiece(ship);
+            List<Card> destinations;
+            if (line.Count > 0)
+            {
+                destinations = new List<Card>();
+                foreach (var loc in line)
+                {
+                    if (loc.Printed == null) continue;
+                    if (!destinations.Contains(loc.Printed))
+                        destinations.Add(loc.Printed);
+                }
+            }
+            else
+            {
+                destinations = state.OrderedMissions();
+            }
+
             bool anyDest = false;
-            foreach (var dest in ordered)
+            foreach (var dest in destinations)
             {
                 if (!string.IsNullOrEmpty(ship.HostName)
                     && string.Equals(ship.HostName, dest.Name, System.StringComparison.OrdinalIgnoreCase))

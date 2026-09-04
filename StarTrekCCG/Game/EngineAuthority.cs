@@ -318,18 +318,41 @@ public static class EngineAuthority
     }
 
     /// <summary>
+    /// E5: Same Location line LegalMoves Collect and CanMoveShip(Location[]) use for Fly.
+    /// Quadrant of the ship's current occupant location (Alpha default).
+    /// </summary>
+    public static List<Location> FlyLineForPiece(BoardPiece piece)
+    {
+        string q = "Alpha";
+        var here = BoardStore.Current.LocationOfOccupant(piece.InstanceId);
+        if (!string.IsNullOrWhiteSpace(here?.Quadrant)) q = here!.Quadrant!;
+        else if (!string.IsNullOrEmpty(piece.HostName))
+        {
+            foreach (var loc in BoardStore.Current.Spaceline.Locations)
+            {
+                if (string.Equals(loc.Printed?.Name, piece.HostName, StringComparison.OrdinalIgnoreCase)
+                    && !string.IsNullOrWhiteSpace(loc.Quadrant))
+                {
+                    q = loc.Quadrant!;
+                    break;
+                }
+            }
+        }
+
+        return BoardStore.Current.Spaceline.Locations
+            .Where(l => l.Kind is LocationKind.Mission or LocationKind.Span or LocationKind.TimeLocation
+                        && string.Equals(l.Quadrant ?? "Alpha", q, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    /// <summary>
     /// Shared RANGE/spaceline check for Authority and (via Evaluate) LegalMoves.
     /// </summary>
     public static (bool ok, string reason, int cost, int rangeLeft) TryEvaluateFlyPath(
         GameState state, int player, Card ship, BoardPiece piece, Card destination)
     {
-        string q = "Alpha";
         var here = BoardStore.Current.LocationOfOccupant(piece.InstanceId);
-        if (!string.IsNullOrWhiteSpace(here?.Quadrant)) q = here!.Quadrant!;
-        var line = BoardStore.Current.Spaceline.Locations
-            .Where(l => l.Kind is LocationKind.Mission or LocationKind.Span or LocationKind.TimeLocation
-                        && string.Equals(l.Quadrant ?? "Alpha", q, StringComparison.OrdinalIgnoreCase))
-            .ToList();
+        var line = FlyLineForPiece(piece);
 
         int fromIdx = -1;
         if (here != null)
