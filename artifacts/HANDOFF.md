@@ -26,6 +26,7 @@ Grok project: Star Trek CCG 1E (stccg-1e)
   - Restriction remains if owner loses control
   - Related local history already on origin with it: `56e6790` (E4 Unique/InPlay), `2166c03` (HANDOFF+FEATURES docs), `eff6ce2` (Owner fix)
 - **E5 LegalMoves-Fly reading Locations — NEXT / IN PROGRESS**
+- E6 IM/Required-Move Locations local — awaiting Pepsch retest; no push until green
   - Data has local commit `484fd6e` (Engine E5: LegalMoves Fly destinations from Locations) ahead of origin — **not pushed**; Pepsch build/test then push when green
   - Leave E5 Engine/Game C# alone unless you are Data on that task
 - Then: **E6** Incoming Message / Required-Move on Locations

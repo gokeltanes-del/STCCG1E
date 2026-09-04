@@ -16097,19 +16097,19 @@ public partial class TableWindow : Window
     {
         var dest = RequiredMoveDestination(ship);
         if (dest == null) return null;
-        var line = MissionsOnSameSpaceline(fromMission ?? dest);
+        // E6: hop geometry on BoardStore Locations (same line / Span as Fly); paint list unused here.
+        var line = FlyBoardLine(fromMission ?? dest);
         if (line.Count == 0) return "Required move: no spaceline.";
-        int fromL = line.IndexOf(fromMission ?? FindMissionForDockable(ship)!);
-        int toL = line.IndexOf(toMission);
-        int destL = line.IndexOf(dest);
+        int fromL = BoardIndexOf(line, fromMission ?? FindMissionForDockable(ship));
+        int toL = BoardIndexOf(line, toMission);
+        int destL = BoardIndexOf(line, dest);
         if (fromL < 0 || toL < 0 || destL < 0)
             return "Required move: destination is not on this spaceline (same quadrant).";
         int mover = GetBorderOwner(ship);
         if (mover == 0) mover = _activePlayer;
         bool wrap = WnohgbWrapFor(mover);
         int remain = ship.Tag is Card sc ? GetRemainingRange(ship, sc) : 0;
-        var hop = RequiredMoveRules.NextAffordable(fromL, destL, line.Count, wrap, remain,
-            i => SpanEntering(line[i]));
+        var hop = RequiredMoveRules.NextAffordable(fromL, destL, line, wrap, remain);
         bool useWrap = wrap && hop is { Wrap: true };
         if (toL == destL) return null;
         if (hop != null && toL == hop.Value.Next) return null;
@@ -16150,7 +16150,7 @@ public partial class TableWindow : Window
             b.Tag is Card c && loc.Printed.InstanceId > 0 && c.InstanceId == loc.Printed.InstanceId);
     }
 
-    /// <summary>View only — IM / required-move still use this Border list. Fly uses FlyBoardLine.</summary>
+    /// <summary>E6: View/paint only (glow, far-end pick). IM/Required-Move hops use FlyBoardLine.</summary>
     private List<Border> MissionsOnSameSpaceline(Border? piece)
     {
         string q = piece != null ? LocationQuadrant(piece) : "Alpha";
@@ -16173,6 +16173,9 @@ public partial class TableWindow : Window
         bool own = mo == 0 || mo == _activePlayer;
         return MovementRules.GetMissionSpan(c, own);
     }
+
+    /// <summary>E6: hop cost from BoardStore Location.Span (same as Fly CanMoveShip).</summary>
+    private static int SpanEntering(Location loc) => Math.Max(0, loc.Span);
 
     private Border? ResolveFarEndMission(Border fromPiece)
     {
@@ -16272,19 +16275,27 @@ public partial class TableWindow : Window
                     ResolveRequiredArrival(shipB, dest);
                     break;
                 }
-                var line = MissionsOnSameSpaceline(from);
-                int fromL = line.IndexOf(from);
-                int destL = line.IndexOf(dest);
+                // E6: Required-Move hops on Locations (Span like Fly); UI face via FaceForLocation.
+                var line = FlyBoardLine(from);
+                int fromL = BoardIndexOf(line, from);
+                int destL = BoardIndexOf(line, dest);
                 if (fromL < 0 || destL < 0)
                 {
                     _session.Log.Add(_session.TurnNumber, "sys",
                         $"IM {ship.Name}: dest not on this spaceline");
                     break;
                 }
-                var hop = RequiredMoveRules.NextAffordable(fromL, destL, line.Count, WnohgbWrapFor(o),
-                    GetRemainingRange(shipB, ship), i => SpanEntering(line[i]));
+                var hop = RequiredMoveRules.NextAffordable(fromL, destL, line, WnohgbWrapFor(o),
+                    GetRemainingRange(shipB, ship));
                 if (hop == null) break;
-                var step = line[hop.Value.Next];
+                var stepLoc = line[hop.Value.Next];
+                var step = FaceForLocation(stepLoc);
+                if (step == null)
+                {
+                    _session.Log.Add(_session.TurnNumber, "sys",
+                        $"IM {ship.Name}: no UI face for {stepLoc.Label}");
+                    break;
+                }
                 if (!TryMoveShipWithRules(shipB, ship, from, step))
                 {
                     _session.Log.Add(_session.TurnNumber, "sys",

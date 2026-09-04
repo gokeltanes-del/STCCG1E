@@ -4,6 +4,12 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-04 (Foundation E6 — IM/Required-Move Locations)
+
+**Engine** — Incoming Message / required-move hops use `FlyBoardLine` + `Location.Span` (same as Fly); `MissionsOnSameSpaceline` remains paint. [C — Grundlage]
+
+---
+
 ## 2026-09-04 (Foundation E5 — LegalMoves-Fly Locations)
 
 **Engine** — `LegalMoves` Fly Collect uses `BoardStore` Location line via `EngineAuthority.FlyLineForPiece` (same as `CanMoveShip(Location[])` / `TryEvaluateFlyPath`); `OrderedMissions()` name list only as fallback. [C — Grundlage]

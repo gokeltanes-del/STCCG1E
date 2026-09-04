@@ -340,6 +340,8 @@ Fly ship BoardPiece lookup (`EvaluateFly`) is instance-id first (ReferenceEquals
 
 `MissionsOnSameSpaceline` bleibt Paint. Hop-Kosten wie Fly.
 
+**Done 2026-09-04:** `IncomingMessageMoveCheck` / `ProcessIncomingMessageMoves` hops on `FlyBoardLine` + `Location.Span`; `RequiredMoveRules.NextAffordable(Location[])`; paint glow/far-end still `MissionsOnSameSpaceline`.
+
 ---
 
 ## Danach wieder Karten (A)
@@ -388,7 +390,7 @@ Dazu, sobald E1 lebt:
 - [x] E3b Cloak / Dock / Hull (2026-09-03)
 - [x] E4 InPlay-Query, dann Nebula/Lore (2026-09-04)
 - [x] E5 LegalMoves-Fly (2026-09-04)
-- [ ] E6 IM auf Locations
+- [x] E6 IM auf Locations (2026-09-04)
 - [ ] Kevin-Snap von Store (nur wenn Probespiel blockiert)
 - [ ] Attached Events als Store-Liste (nicht E1)
 
@@ -434,6 +436,6 @@ Fix-Protokoll RULES.md unverändert (A Karte / B Phrase / C Grundlage).
 
 Antwort immer: Schritt, Klasse, Dateien neu/geändert, was bewusst nicht angefasst.
 
-Nächster Schritt nur: E6 IM auf Locations
+Nächster Schritt nur: TableWindow-Altcode/Effekte schichten (nach Foundation)
 Kein Big-Bang. Premiere.
 ```

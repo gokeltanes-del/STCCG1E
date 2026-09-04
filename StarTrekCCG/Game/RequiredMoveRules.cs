@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 
 namespace StarTrekCCG;
 
@@ -100,6 +101,15 @@ public static class RequiredMoveRules
         if (from == dest) return false;
         return HopCount(to, dest, count, wrap) < HopCount(from, dest, count, wrap);
     }
+
+
+    /// <summary>E6: same hops using BoardStore Location.Span (Fly parity).</summary>
+    public static Hop? NextAffordable(
+        int from, int dest, IReadOnlyList<Location> line, bool wrap, int remain) =>
+        NextAffordable(from, dest, line.Count, wrap, remain, i => Math.Max(0, line[i].Span));
+
+    public static int FarEndIndex(int from, IReadOnlyList<Location> line) =>
+        FarEndIndex(from, line.Count, i => Math.Max(0, line[i].Span));
 
     /// <summary>12.6: more missions that way, then more span. −1 = exact tie.</summary>
     public static int FarEndIndex(int from, int count, Func<int, int> spanEntering)
