@@ -1,5 +1,5 @@
-﻿# STCCG 1E - Handoff
-Last updated: 2026-09-05 (night handoff - morning test)
+# STCCG 1E - Handoff
+Last updated: 2026-09-05 (final night handoff - Pepsch morning)
 Repo: https://github.com/gokeltanes-del/STCCG1E
 Local VS: C:\Dev\StarTrekCCG\StarTrekCCG
 Workflow: Josef edit locally -> Pepsch builds/tests in VS -> push only when green.
@@ -21,21 +21,24 @@ Grok project: Star Trek CCG 1E (stccg-1e)
 
 ---
 
-## Night section (2026-09-05) - will refresh when Data finishes
+## Night / morning section (2026-09-05) - Data night extract COMPLETE
 
-**Local tip (Josef):** `ca5372b` - Extract Slice 4: Lore/Hugh decide gates
+### Status tip (local, NOT pushed)
+**Local tip (Josef):** HEAD = this handoff (`Docs: final night handoff for Pepsch morning`); parent `08bdce6` Docs: HANDOFF tip after Slice 3/4 extracts — verify with `git log -1 --oneline`
 **Origin tip:** `7bf128f` - Engine E6 (IM/Required-Move hops on Locations)
-**Branch:** `master` ahead of `origin/master` by **9** commits. **Do not assume pushed.** NO PUSH until Pepsch morning test is green.
+**Branch:** `master` ahead of `origin/master` by **11** commits. **Do not assume pushed.** NO PUSH until Pepsch morning test is green.
 
-### Morning test (Pepsch)
-1. Rebuild from local tip (ahead of origin - do not assume pushed)
-2. Gaps: neighbor mission no kill; land on Gaps = exactly 1 kill + log
-3. Wormhole: need 2 in hand; pair play + relocate
-4. Smoke: Q-Net 2 Diplomacy, IM to facility, Red Alert
-5. Optional: Lore Returns commandeer gates; Hugh cancel/kill modes
+### Morning test checklist (Pepsch)
+1. Rebuild local tip
+2. Gaps: neighbor (e.g. Lonka) NO kill; land on Gaps = exactly 1 kill + log line
+3. Wormhole: 2 in hand, pair + relocate
+4. Optional smoke: Q-Net 2 Diplomacy, IM, Red Alert, Lore/Hugh/Kevin if easy
+5. Green -> push entire local stack; Red -> Ist/Soll no push
 
-### Local unpushed stack (as of start of night run - verify with `git log -8 --oneline`)
+### Unpushed stack (newest first - verify with `git log -12 --oneline`)
 ```
+HEAD Docs: final night handoff for Pepsch morning
+08bdce6 Docs: HANDOFF tip after Slice 3/4 extracts
 ca5372b Extract Slice 4: Lore/Hugh decide gates
 9f37417 Extract Slice 3: IncomingMessageRules gates
 26db024 Docs: night handoff for morning test
@@ -44,23 +47,22 @@ db9c30b Extract Slice 2: Wormhole pair rules + relocate sync
 8388d48 Docs: HANDOFF E6 done, TableWindow next, parked bugs
 8bc5e98 Docs: TableWindow inventory for extract prep
 f47469b Fix: Gaps kill only on Gaps location + log
+d5bbeb5 Docs: FEATURES/HANDOFF after E6 - TableWindow next, parked smoke bugs
 ```
-Unpushed (~9): tip through `d5bbeb5`. Origin starts at `7bf128f`. Verify with `git log`.
+Night new: `08bdce6` Docs HANDOFF tip; `ca5372b` Slice 4 LoreReturnsDenyReason + DecideHugh + KevinEventAtLocation; `9f37417` Slice 3 IncomingMessageRules; plus earlier `f47469b` Gaps, `8bc5e98` inventar, `65d152e` Slice1 Hazards, `db9c30b` Slice2 Wormhole, `26db024` night handoff, `8388d48` docs, `d5bbeb5`, etc. Origin starts at `7bf128f`.
 
-### Parked still open
-- IM Fed false already-at-facility (FindMissionForDockable)
+### Done night extract
+- Slice1 MovementHazardRules
+- Slice2 Wormhole
+- Slice3 IncomingMessageRules (EarlyReject/DecideApply/IsAlreadyAtFacility) - note FindMissionForDockable bug NOT fixed
+- Slice4 LoreReturnsDenyReason + DecideHugh + KevinEventAtLocation
+
+### Still parked
+- IM FindMissionForDockable false already-at-facility
 - dump omits ships on Gaps
-- (Gaps/Wormhole hopefully fixed in unpushed commits - retest)
 
-### Next after green push
-Continue TableWindow extract per TABLEWINDOW_INVENTORY.md; then Premiere A/B cards.
-
-### Extract progress (Data - local, await Pepsch)
-- Slice 1 done locally: `MovementHazardRules` (Q-Net/Tetryon/Rift/Gaps decide; View applies) - `65d152e` (+ Gaps kill Host/Host2 in `f47469b`)
-- Slice 2 done locally: Wormhole pair (`InterruptRules` gates + hit-test/sync) - `db9c30b`
-- Slice 3 done locally: Incoming Message apply gates (`IncomingMessageRules`) - `9f37417`
-- Slice 4 done locally: Lore Returns + Hugh decide gates (`EventRules` / `InterruptRules`) - `ca5372b`
-- Night extract run finished (Slices 3+4); await Pepsch morning test â€” **NO PUSH**
+### Next after green push + Captain Go
+Inventar next: InstantEvent/NamedAu templates, Dilemma/Artifact Apply. No big-bang. No new cards until extract further.
 
 ---
 
@@ -97,4 +99,3 @@ Stable BoardStore+GameState truth; TableWindow view; Premiere then expansions; l
 
 ## Docs map
 PROJECT.md, ENGINE.md, RULES.md, RULES_CHECKLIST.md, CHANGELOG.md, FEATURES.md (Seven), TABLEWINDOW_INVENTORY.md, HANDOFF.md (this)
-
