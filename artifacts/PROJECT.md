@@ -2,9 +2,11 @@
 
 Private, nicht-kommerzielle C# / .NET 8 / WPF-App (Hotseat zuerst, später Netz + KI).  
 Repo: https://github.com/gokeltanes-del/STCCG1E  
-**Stand:** 2026-09-02
+**Stand:** 2026-09-04
 
-Docs live under `artifacts/`; board+foundation are in `ENGINE.md`.
+Docs live under `artifacts/`; board+foundation are in `ENGINE.md`.  
+**Resume / bot handoff:** `artifacts/HANDOFF.md` (read first on every new chat).  
+**Team:** Captain (goals + docs), Data (engine / Klasse C), Spock (rules A/B + Compendium), Seven (checklist + `FEATURES.md` backlog). Feature backlog: `artifacts/FEATURES.md`.
 
 Daten: Lackey → `split_lackey_sets.py` → pro Set `cards.json` + Bilder (`GamePaths` / `C:\STCCG_Data`).  
 Regelbuch: `rules/Compendium_Rulebook.pdf` (2.7.4).  
@@ -65,7 +67,7 @@ Suche so: Karten-Felder → `Models/Card.cs` · Legalität → `Game/LegalMoves.
 Projekt: Star Trek CCG 1E private C# WPF App (nicht-kommerziell)
 GitHub: https://github.com/gokeltanes-del/STCCG1E
 Tech: C# / .NET 8 / WPF / VS2022
-Docs: artifacts/PROJECT.md · artifacts/ENGINE.md · artifacts/RULES.md · artifacts/RULES_CHECKLIST.md · artifacts/CHANGELOG.md
+Docs: artifacts/HANDOFF.md (resume) · artifacts/PROJECT.md · artifacts/ENGINE.md · artifacts/RULES.md · artifacts/RULES_CHECKLIST.md · artifacts/CHANGELOG.md · artifacts/FEATURES.md
 Regelbuch: artifacts/rules/Compendium_Rulebook.pdf (2.7.4)
   Lookup-Pflicht: Checklist-§ → Glossary → Temporary Rulings → Appendix A Errata → Appendix B
 
@@ -96,18 +98,19 @@ Start: Nutzer nennt den Foundation-Schritt (E1…) oder — nach E4 — den Bug 
 
 ### Als Nächstes
 
-1. Foundation **E2** — Capture ohne Border-Schleife für Occupants, Fallback loggen.  
-2. Danach E3 (RangeLeft + Stopped an Instanz), E4 Unique. Nebula/Lore und Galaxy-Staffing nicht einzeln.  
-Chat-Start: unten in `ENGINE.md`.
+**Kurzfristig (siehe auch `HANDOFF.md`):**  
+1. E4 Unique/InPlay fertig testen (two-Nebula) und pushen (Pepsch).  
+2. E5 LegalMoves-Fly locations, dann E6 IM/Required-Move locations.  
+3. **Vor neuen Karten:** TableWindow-Altcode / per-card effects in `Game/*Rules`, BoardStore, Templates extrahieren — solide Foundation zuerst.  
+4. A/B/C-Prozess halten; Premiere-first. Team: Captain / Data / Spock / Seven.
 
 Probespiel-Löcher, die das Board später schluckt (nicht einzeln flicken):
 
 - USS Galaxy Staffing-False-Deny  
-- Unique-Nebula vs zweite Kopie unter Lore  
-- Time Location / Snare / Clock als Required Action ❌
+- Unique-Nebula vs zweite Kopie unter Lore (E4 lokal)  
+- Time Location / Snare / Clock als Required Action ?
 
-**Nicht jetzt:** Netz, KI, Sites/Tactics voll, Borg 7.3, Mirror, Big-Bang-UI-Refactor, volles stopped/disabled/stasis-System. Targeting-Feinschliff nur wenn ein Probespiel-Bug blockiert.
-
+**Nicht jetzt:** Netz, KI, Sites/Tactics voll, Borg 7.3, Mirror, Big-Bang-UI-Refactor, volles stopped/disabled/stasis-System. Targeting-Feinschliff nur wenn ein Probespiel-Bug blockiert. Neue Premiere-Wellen erst nach TableWindow-Extraktion.
 ---
 
 ## Architektur
