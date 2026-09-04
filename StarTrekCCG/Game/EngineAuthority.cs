@@ -174,10 +174,12 @@ public static class EngineAuthority
                 "Not a Hidden Agenda card.",
                 "hidden-agenda", action.Player, action.Card);
 
+        // E4: instance-id first (two same-name Hidden Agenda cards).
         var piece = state.Board.FirstOrDefault(p =>
             ReferenceEquals(p.Card, action.Card)
-            || (p.InstanceId != 0 && p.InstanceId == action.Card.InstanceId)
-            || string.Equals(p.Card.Name, action.Card.Name, StringComparison.OrdinalIgnoreCase));
+            || (action.Card.InstanceId > 0 && p.InstanceId == action.Card.InstanceId)
+            || (action.Card.InstanceId == 0
+                && string.Equals(p.Card.Name, action.Card.Name, StringComparison.OrdinalIgnoreCase)));
         bool faceUp = piece?.FaceUp ?? action.Card.FaceUp;
         if (faceUp)
             return ApplyResult.Deny(
@@ -214,10 +216,13 @@ public static class EngineAuthority
         if (mission == null || !CardKinds.IsMission(mission))
             return ApplyResult.Deny("No mission target.", "attempt", action.Player);
 
+        // E4: instance-id first (two same-name missions).
         var piece = state.Board.FirstOrDefault(p =>
             p.Kind == BoardPieceKind.Mission
             && (ReferenceEquals(p.Card, mission)
-                || string.Equals(p.Card.Name, mission.Name, StringComparison.OrdinalIgnoreCase)));
+                || (mission.InstanceId > 0 && p.InstanceId == mission.InstanceId)
+                || (mission.InstanceId == 0
+                    && string.Equals(p.Card.Name, mission.Name, StringComparison.OrdinalIgnoreCase))));
         if (piece != null)
         {
             if (piece.MissionSolved)

@@ -287,12 +287,18 @@ public static class ReportingRules
         foreach (var other in ownedInPlay)
         {
             if (ReferenceEquals(other, reporting)) continue;
+            // E4: instance identity — same InstanceId is the same copy, not a second unique.
+            if (reporting.InstanceId > 0 && other.InstanceId == reporting.InstanceId) continue;
             if (PersonaFamily(other) != family) continue;
 
             if (string.Equals(PlayRules.PersonaKey(other), key, StringComparison.OrdinalIgnoreCase))
             {
+                int ctrl = other.Controller != 0 ? other.Controller : other.OwnerPlayer;
+                string haveBit = other.InstanceId > 0 ? $"#{other.InstanceId}" : DebugLog.Card(other);
+                DebugLog.Play(0, ctrl,
+                    $"unique deny {DebugLog.Card(reporting)} have={haveBit} controller={ctrl}");
                 return new ReportResult(false,
-                    $"Persona/Unique: „{reporting.Name}“ – du hast bereits „{other.Name}“ im Spiel.");
+                    $"Persona/Unique: „{reporting.Name}“ - du hast bereits „{other.Name}“ im Spiel.");
             }
         }
 

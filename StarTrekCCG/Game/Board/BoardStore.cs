@@ -497,6 +497,153 @@ public sealed class BoardStore
         return space > 0 && n.Length - space < 12 ? n[(space + 1)..] : n;
     }
 
+
+    public enum InPlaySide
+    {
+        /// <summary>Who currently controls the card (Lore commandeer). Default for unique/persona.</summary>
+        Controller,
+        /// <summary>Printed owner / seed owner. Separate from Controller.</summary>
+        Owner
+    }
+
+    /// <summary>
+    /// E4: In-play instances from spaceline (missions, occupants, forces) + TABLE.
+    /// Hands excluded. Prefer <see cref="InPlaySide.Controller"/> for unique/persona.
+    /// Optional <paramref name="nameOrPersona"/> filters by <see cref="PlayRules.PersonaKey"/>.
+    /// </summary>
+    public IEnumerable<CardInstance> InPlayInstances(
+        int player = 0,
+        InPlaySide side = InPlaySide.Controller,
+        string? nameOrPersona = null)
+    {
+        string? key = string.IsNullOrWhiteSpace(nameOrPersona)
+            ? null
+            : nameOrPersona.Trim().ToLowerInvariant();
+
+        foreach (var inst in EnumerateInPlayInstances())
+        {
+            if (player > 0)
+            {
+                int who = side == InPlaySide.Controller
+                    ? EffectiveController(inst)
+                    : EffectiveOwner(inst);
+                if (who != player) continue;
+            }
+
+            if (key != null
+                && !string.Equals(PlayRules.PersonaKey(inst.Printed), key, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            yield return inst;
+        }
+    }
+
+    /// <summary>E4: Printed cards in play (see <see cref="InPlayInstances"/>).</summary>
+    public IEnumerable<Card> InPlay(
+        int player = 0,
+        InPlaySide side = InPlaySide.Controller,
+        string? nameOrPersona = null) =>
+        InPlayInstances(player, side, nameOrPersona).Select(i => i.Printed);
+
+    /// <summary>
+    /// E4: First in-play instance with the same persona for <paramref name="player"/>,
+    /// excluding <paramref name="excludeInstanceId"/> (the card about to enter play).
+    /// </summary>
+    public CardInstance? FindConflictingUnique(
+        int player,
+        string personaKey,
+        int excludeInstanceId = 0,
+        InPlaySide side = InPlaySide.Controller)
+    {
+        foreach (var inst in InPlayInstances(player, side, personaKey))
+        {
+            if (excludeInstanceId > 0 && inst.InstanceId == excludeInstanceId)
+                continue;
+            return inst;
+        }
+        return null;
+    }
+
+    /// <summary>True when spaceline or TABLE has content (store usable for InPlay).</summary>
+    public bool HasInPlaySurface =>
+        Spaceline.Locations.Count > 0 || TableP1.Count > 0 || TableP2.Count > 0;
+
+    private IEnumerable<CardInstance> EnumerateInPlayInstances()
+    {
+        var seen = new HashSet<int>();
+
+        foreach (var loc in Spaceline.Locations)
+        {
+            if (loc.Printed != null)
+            {
+                var missionInst = ResolveInstance(loc.Printed);
+                if (missionInst != null && TryAddSeen(seen, missionInst.InstanceId))
+                    yield return missionInst;
+            }
+
+            foreach (var occ in loc.Occupants)
+            {
+                if (TryAddSeen(seen, occ.InstanceId))
+                    yield return occ.Card;
+
+                foreach (var p in occ.Crew.Personnel)
+                {
+                    if (TryAddSeen(seen, p.InstanceId))
+                        yield return p;
+                }
+                foreach (var e in occ.Crew.Equipment)
+                {
+                    if (TryAddSeen(seen, e.InstanceId))
+                        yield return e;
+                }
+            }
+
+            foreach (var p in loc.AwayTeamP1.Personnel.Concat(loc.AwayTeamP2.Personnel))
+            {
+                if (TryAddSeen(seen, p.InstanceId))
+                    yield return p;
+            }
+            foreach (var e in loc.AwayTeamP1.Equipment.Concat(loc.AwayTeamP2.Equipment))
+            {
+                if (TryAddSeen(seen, e.InstanceId))
+                    yield return e;
+            }
+        }
+
+        foreach (int id in TableP1.Concat(TableP2))
+        {
+            if (id <= 0 || !seen.Add(id)) continue;
+            if (ById.TryGetValue(id, out var inst))
+                yield return inst;
+        }
+    }
+
+    private CardInstance? ResolveInstance(Card printed)
+    {
+        if (printed.InstanceId > 0 && ById.TryGetValue(printed.InstanceId, out var inst))
+            return inst;
+        // Mission columns may only hold Printed until Wrap runs.
+        return printed.InstanceId > 0 ? Wrap(printed) : null;
+    }
+
+    private static bool TryAddSeen(HashSet<int> seen, int instanceId)
+    {
+        if (instanceId <= 0) return true;
+        return seen.Add(instanceId);
+    }
+
+    private static int EffectiveController(CardInstance inst)
+    {
+        int c = inst.Controller;
+        return c != 0 ? c : inst.Owner;
+    }
+
+    private static int EffectiveOwner(CardInstance inst)
+    {
+        int o = inst.Owner;
+        return o != 0 ? o : inst.Controller;
+    }
+
     public IEnumerable<string> DumpLines()
     {
         yield return "Board dump";

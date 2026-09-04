@@ -324,6 +324,8 @@ Logger: `[Move] range #275 left=8 source=instance`.
 
 Logger: `[Play] unique deny Nebula #283 have=#240 controller=2`.
 
+**Done 2026-09-04:** `BoardStore.InPlay` / `InPlayInstances` (Controller vs Owner). `PlayRules` + Report wired; Attempt/HiddenAgenda InstanceId-first.
+
 Fly ship BoardPiece lookup (`EvaluateFly`) is instance-id first (ReferenceEquals / InstanceId); printed-name match only when InstanceId is 0. Two Nebula copies no longer steal each other's RANGE/origin — that hole is closed here and is **not** mixed into E3 range.
 
 ### E5 — LegalMoves-Fly liest Locations
@@ -380,7 +382,7 @@ Dazu, sobald E1 lebt:
 - [x] E2 Capture ohne Border-Schleife für Occupants (2026-09-02)
 - [x] E3 RangeLeft + Stopped auf Instanz (2026-09-03)
 - [x] E3b Cloak / Dock / Hull (2026-09-03)
-- [ ] E4 InPlay-Query, dann Nebula/Lore
+- [x] E4 InPlay-Query, dann Nebula/Lore (2026-09-04)
 - [ ] E5 LegalMoves-Fly
 - [ ] E6 IM auf Locations
 - [ ] Kevin-Snap von Store (nur wenn Probespiel blockiert)
@@ -428,6 +430,6 @@ Fix-Protokoll RULES.md unverändert (A Karte / B Phrase / C Grundlage).
 
 Antwort immer: Schritt, Klasse, Dateien neu/geändert, was bewusst nicht angefasst.
 
-Nächster Schritt nur: E4 Unique
+Nächster Schritt nur: E5 LegalMoves-Fly
 Kein Big-Bang. Premiere.
 ```

@@ -1,4 +1,4 @@
-using Microsoft.Win32;
+﻿using Microsoft.Win32;
 using StarTrekCCG.Models;
 using StarTrekCCG.Services;
 using System;
@@ -4383,7 +4383,8 @@ public partial class TableWindow : Window
         UpdatePhaseControls();
     }
 
-    /// <summary>Alle Karten "im Spiel" für Unique-Checks (Hosts, Dockables, Tisch, …).</summary>
+
+    /// <summary>Alle Karten "im Spiel" f├╝r Unique-Checks (Hosts, Dockables, Tisch, ÔÇª).</summary>
     private List<Card> CollectCardsInPlay(bool opponent)
     {
         var list = new List<Card>();
@@ -4401,10 +4402,11 @@ public partial class TableWindow : Window
         foreach (var b in TableCanvas.Children.OfType<Border>())
         {
             if (b.Tag is not Card c) continue;
-            int o = GetBorderOwner(b);
+            // E4: prefer Card.Controller (Lore commandeer) over border owner paint.
+            int o = c.Controller != 0 ? c.Controller : GetBorderOwner(b);
             if (o == 0) o = 1;
             if (o != owner) continue;
-            // Missionen zählen für not-duplicatable / shared später
+            // Missionen z├ñhlen f├╝r not-duplicatable / shared sp├ñter
             Add(c);
             if (_stackOnHost.TryGetValue(b, out var stacked))
             {
@@ -4415,6 +4417,7 @@ public partial class TableWindow : Window
 
         return list;
     }
+
 
     private List<Card> CollectAllCardsInPlay()
     {
@@ -4431,9 +4434,16 @@ public partial class TableWindow : Window
         if (_seedPhaseActive) return true;
         if (_session.Match != GameSession.MatchPhase.Play) return true;
 
-        var owned = CollectCardsInPlay(_activePlayer == 2);
-        var all = CollectAllCardsInPlay();
-        var result = PlayRules.CanEnterPlay(card, owned, all);
+        // E4: BoardStore.InPlay by Controller (Owner vs Controller / Lore); canvas fallback.
+        PlayRules.EnterPlayResult result;
+        if (BoardStore.Current.HasInPlaySurface)
+            result = PlayRules.CanEnterPlay(card, _activePlayer, BoardStore.Current);
+        else
+        {
+            var owned = CollectCardsInPlay(_activePlayer == 2);
+            var all = CollectAllCardsInPlay();
+            result = PlayRules.CanEnterPlay(card, owned, all, _activePlayer);
+        }
         if (!result.Ok)
         {
             denyReason = result.Reason;
@@ -5903,7 +5913,10 @@ public partial class TableWindow : Window
             return (false, $"{card.Name} has no affiliation mode compatible with {host.Name}.");
 
         // Persona-Limit zusätzlich
-        var owned = CollectCardsInPlay(player == 2);
+        // E4: unique/persona by Controller from BoardStore when ready.
+        var owned = BoardStore.Current.HasInPlaySurface
+            ? BoardStore.Current.InPlay(player, BoardStore.InPlaySide.Controller).ToList()
+            : CollectCardsInPlay(player == 2);
         var persona = ReportingRules.CheckPersonaLimit(card, owned);
         if (!persona.Ok)
             return (false, persona.Reason);

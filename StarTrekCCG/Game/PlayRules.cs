@@ -90,12 +90,14 @@ public static class PlayRules
 
     /// <summary>
     /// Darf diese Karte ins Spiel kommen, gegeben alle bereits im Spiel befindlichen Karten?
-    /// ownedInPlay = Karten des Besitzers; allInPlay = beide Spieler.
+    /// controlledInPlay = Karten unter Control des Spielers (Unique/Enigma); allInPlay = beide.
+    /// E4: Match per PersonaKey + InstanceId (nicht nur Namens-String / ReferenceEquals).
     /// </summary>
     public static EnterPlayResult CanEnterPlay(
         Card card,
-        IEnumerable<Card> ownedInPlay,
-        IEnumerable<Card> allInPlay)
+        IEnumerable<Card> controlledInPlay,
+        IEnumerable<Card> allInPlay,
+        int player = 0)
     {
         bool free = PlaysForFree(card);
         var kind = GetUniqueness(card);
@@ -108,23 +110,23 @@ public static class PlayRules
 
             case UniquenessKind.Unique:
             case UniquenessKind.Enigma:
-                bool ownedCopy = ownedInPlay.Any(c =>
-                    string.Equals(PersonaKey(c), key, StringComparison.OrdinalIgnoreCase));
-                if (ownedCopy)
+                var ownedConflict = FindPersonaConflict(card, controlledInPlay, key);
+                if (ownedConflict != null)
                 {
+                    LogUniqueDeny(card, ownedConflict, player, kind);
                     return new EnterPlayResult(false,
-                        $"„{card.Name}“ ist {(kind == UniquenessKind.Enigma ? "Enigma" : "unique")} – du hast bereits eine Kopie im Spiel.",
+                        $"„{card.Name}“ ist {(kind == UniquenessKind.Enigma ? "Enigma" : "unique")} - du hast bereits eine Kopie im Spiel.",
                         free);
                 }
                 return new EnterPlayResult(true, "", free);
 
             case UniquenessKind.NotDuplicatable:
-                bool anyCopy = allInPlay.Any(c =>
-                    string.Equals(PersonaKey(c), key, StringComparison.OrdinalIgnoreCase));
-                if (anyCopy)
+                var anyConflict = FindPersonaConflict(card, allInPlay, key);
+                if (anyConflict != null)
                 {
+                    LogUniqueDeny(card, anyConflict, player, kind);
                     return new EnterPlayResult(false,
-                        $"„{card.Name}“ ist not duplicatable – es liegt bereits eine Kopie im Spiel.",
+                        $"„{card.Name}“ ist not duplicatable - es liegt bereits eine Kopie im Spiel.",
                         free);
                 }
                 return new EnterPlayResult(true, "", free);
@@ -132,5 +134,46 @@ public static class PlayRules
             default:
                 return new EnterPlayResult(true, "", free);
         }
+    }
+
+    /// <summary>
+    /// E4: Unique/persona against <see cref="BoardStore.InPlay"/> by Controller.
+    /// Falls back to empty lists when the store has no spaceline/TABLE surface yet.
+    /// </summary>
+    public static EnterPlayResult CanEnterPlay(Card card, int player, BoardStore? store = null)
+    {
+        store ??= BoardStore.Current;
+        if (!store.HasInPlaySurface)
+            return CanEnterPlay(card, Array.Empty<Card>(), Array.Empty<Card>(), player);
+
+        var controlled = store.InPlay(player, BoardStore.InPlaySide.Controller).ToList();
+        var all = store.InPlay().ToList();
+        return CanEnterPlay(card, controlled, all, player);
+    }
+
+    /// <summary>
+    /// Same persona in play, excluding the card about to enter (InstanceId) and ReferenceEquals.
+    /// </summary>
+    public static Card? FindPersonaConflict(Card card, IEnumerable<Card> inPlay, string? personaKey = null)
+    {
+        string key = personaKey ?? PersonaKey(card);
+        foreach (var other in inPlay)
+        {
+            if (ReferenceEquals(other, card)) continue;
+            if (card.InstanceId > 0 && other.InstanceId == card.InstanceId) continue;
+            if (!string.Equals(PersonaKey(other), key, StringComparison.OrdinalIgnoreCase))
+                continue;
+            return other;
+        }
+        return null;
+    }
+
+    private static void LogUniqueDeny(Card attempting, Card have, int player, UniquenessKind kind)
+    {
+        int ctrl = have.Controller != 0 ? have.Controller : (have.OwnerPlayer != 0 ? have.OwnerPlayer : player);
+        int who = player != 0 ? player : ctrl;
+        string label = kind == UniquenessKind.NotDuplicatable ? "not-dup deny" : "unique deny";
+        string haveBit = have.InstanceId > 0 ? $"#{have.InstanceId}" : DebugLog.Card(have);
+        DebugLog.Play(0, who, $"{label} {DebugLog.Card(attempting)} have={haveBit} controller={ctrl}");
     }
 }
