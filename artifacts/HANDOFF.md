@@ -54,6 +54,6 @@ PROJECT.md, ENGINE.md, RULES.md, RULES_CHECKLIST.md, CHANGELOG.md, FEATURES.md (
 
 ## Extract progress (Data)
 - Slice 1 done locally: `MovementHazardRules` (Q-Net/Tetryon/Rift/Gaps decide; View applies)
-- Slice 2 proposed: Wormhole pair play
+- Slice 2 done locally: Wormhole pair (`InterruptRules` gates + hit-test/sync)
 - Gaps kill Host/Host2 fix included in `f47469b` / Slice 1; await Pepsch retest+push
 - Still parked: IM already-at-facility, Wormhole broken, dump@Gaps

@@ -11742,7 +11742,8 @@ public partial class TableWindow : Window
     }
 
     private bool IsWormholeLocation(Border b) =>
-        b.Tag is Card c && (IsMissionCard(c) || CardKinds.IsTimeLocation(c));
+        b.Tag is Card c && InterruptRules.IsWormholeLocationCard(
+            IsMissionCard(c), CardKinds.IsTimeLocation(c));
 
     private Border? FindWormholeLocationAt(Point windowPos)
     {
@@ -11753,17 +11754,13 @@ public partial class TableWindow : Window
                 return b;
             hit = ParentOf(hit);
         }
+        // Same window-space rects as other snap hit-tests (PointToScreen), not TransformToAncestor.
         foreach (var b in TableCanvas.Children.OfType<Border>())
         {
             if (!IsWormholeLocation(b) || b.Visibility != Visibility.Visible) continue;
-            try
-            {
-                var tl = b.TransformToAncestor(this).Transform(new Point(0, 0));
-                var rect = new Rect(tl, b.RenderSize);
-                rect.Inflate(18, 18);
-                if (rect.Contains(windowPos)) return b;
-            }
-            catch { }
+            if (!TryGetBorderWindowRect(b, out var rect)) continue;
+            rect.Inflate(18, 18);
+            if (rect.Contains(windowPos)) return b;
         }
         return null;
     }
@@ -11785,6 +11782,8 @@ public partial class TableWindow : Window
         var from = FindMissionForDockable(ship);
         RelocateShipAlongSpaceline(ship, from, dest);
         MarkStopped(ship);
+        // Keep BoardStore SoT in sync after interrupt relocate (Fly/IM read Locations).
+        SyncBoardFromTable(logDual: false);
     }
 
     private bool TryPlayWormholeFromHand(Card card, Point windowPos, int owner)
@@ -11805,12 +11804,15 @@ public partial class TableWindow : Window
             StatusText.Text = $"Wormhole: {shipCard.Name} → {destCard.Name} (stopped).";
             _session.Log.Add(_session.TurnNumber, $"P{owner}",
                 $"Wormhole {shipCard.Name} → {destCard.Name}");
+            DebugLog.Move(_session.TurnNumber, owner,
+                $"wormhole {DebugLog.Card(shipCard)} → {DebugLog.Card(destCard)}");
             _wormholeShip = null;
             BeginPlayCardStack(card, isResponse: false, controllerOverride: owner, target: destCard);
             return true;
         }
 
-        if (CountWormholesInHand(owner) < 1)
+        // Need two copies in hand to start (card still counted in hand at this point).
+        if (!InterruptRules.CanStartWormholePair(CountWormholesInHand(owner)))
         {
             ShowPlayError("Wormhole requires two Wormholes. Play one on your exposed ship, the other on a location.");
             return false;
@@ -11825,14 +11827,16 @@ public partial class TableWindow : Window
             ShowPlayError("Wormhole: play this copy on your exposed ship (not cloaked).");
             return false;
         }
-        if (!IsShipExposed(ship))
+        int shipOwner = GetBorderOwner(ship);
+        if (shipOwner == 0) shipOwner = owner;
+        if (!InterruptRules.CanWormholeFirstOnShip(
+                isShip: true,
+                ownedByPlayer: shipOwner == owner,
+                exposed: IsShipExposed(ship)))
         {
-            ShowPlayError("Wormhole: that ship is not exposed (cloaked ships are not exposed).");
-            return false;
-        }
-        if (GetBorderOwner(ship) != owner && GetBorderOwner(ship) != 0)
-        {
-            ShowPlayError("Wormhole: first copy plays on your exposed ship.");
+            ShowPlayError(IsShipExposed(ship)
+                ? "Wormhole: first copy plays on your exposed ship."
+                : "Wormhole: that ship is not exposed (cloaked ships are not exposed).");
             return false;
         }
 
@@ -12066,8 +12070,10 @@ public partial class TableWindow : Window
         {
             if (_wormholeShip != null)
                 return IsWormholeLocation(host);
-            return host.Tag is Card wh && IsShipCard(wh)
-                   && GetBorderOwner(host) == owner && IsShipExposed(host);
+            if (host.Tag is not Card wh || !IsShipCard(wh)) return false;
+            int o = GetBorderOwner(host);
+            if (o == 0) o = owner;
+            return InterruptRules.CanWormholeFirstOnShip(true, o == owner, IsShipExposed(host));
         }
         var spec = PlayOnRules.Parse(interrupt);
         if (spec.Host != PlayOnRules.Host.None)

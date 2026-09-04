@@ -33,13 +33,13 @@ Asteroid Sanctuary, Distortion of Space/Time Continuum, Gaps in Normal Space, Q-
 1. Gaps Host/Host2 kill — **fixed** `f47469b` (await Pepsch retest/push)
 2. Dump omits ships on Gaps
 3. IM false already-at-facility
-4. Wormhole broken (Pepsch)
+4. Wormhole broken (Pepsch) — addressed in Slice 2 locally; retest
 5. Fed 7.4.1; E2b Treaty/Rogue store staffing
 
 ## Suggested extract order (Captain may reorder)
 
 1. Movement onEnter hazards — **Slice 1 DONE** (`MovementHazardRules`)
-2. Wormhole pair play (parked bug + InterruptRules)
+2. Wormhole pair play — **Slice 2 DONE** (`InterruptRules` gates + sync/hit-test)
 3. Incoming Message apply/arrival (facility lookup)
 4. Kevin/Hugh/LoreReturns Apply blocks
 5. ApplyInstantEvent / ApplyNamedAuInterrupt → templates

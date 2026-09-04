@@ -99,6 +99,17 @@ public static class InterruptRules
     public static bool IsEscapePod(Card? c) => NameIs(c, "Escape Pod");
     public static bool IsWormhole(Card? c) => NameIs(c, "Wormhole");
 
+    /// <summary>Extract Slice 2: pair gate — need two Wormholes in hand to start the first.</summary>
+    public static bool CanStartWormholePair(int wormholesInHand) => wormholesInHand >= 2;
+
+    /// <summary>First copy: own exposed (not cloaked) ship.</summary>
+    public static bool CanWormholeFirstOnShip(bool isShip, bool ownedByPlayer, bool exposed) =>
+        isShip && ownedByPlayer && exposed;
+
+    /// <summary>Second copy: mission or time location (printed rules).</summary>
+    public static bool IsWormholeLocationCard(bool isMission, bool isTimeLocation) =>
+        isMission || isTimeLocation;
+
     /// <summary>Affiliation pip this Incoming Message cares about (title after the colon).</summary>
     public static string? IncomingMessageAffiliation(Card? c)
     {
