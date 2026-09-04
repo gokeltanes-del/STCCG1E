@@ -4,6 +4,12 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-05 (Extract Slice 3 - IncomingMessageRules)
+
+**Engine** - Incoming Message apply early gates in `IncomingMessageRules` (`EarlyReject` / `IsAlreadyAtFacility` / `SameLocation`); TableWindow still attaches, highlights, picks facility, and moves. Attach-before-arrival order preserved; FindMissionForDockable parked bug untouched. [C - Grundlage]
+
+---
+
 ## 2026-09-05 (Extract Slice 2 — Wormhole pair)
 
 **Engine** — Wormhole pair gates in `InterruptRules` (`CanStartWormholePair` needs 2 in hand, `CanWormholeFirstOnShip`, `IsWormholeLocationCard`). Second-drop hit-test uses window rects; relocate syncs BoardStore. [C — Grundlage]

@@ -40,7 +40,7 @@ Asteroid Sanctuary, Distortion of Space/Time Continuum, Gaps in Normal Space, Q-
 
 1. Movement onEnter hazards — **Slice 1 DONE** (`MovementHazardRules`)
 2. Wormhole pair play — **Slice 2 DONE** (`InterruptRules` gates + sync/hit-test)
-3. Incoming Message apply/arrival (facility lookup)
+3. Incoming Message apply/arrival (facility lookup) - **Slice 3 DONE** (`IncomingMessageRules`)
 4. Kevin/Hugh/LoreReturns Apply blocks
 5. ApplyInstantEvent / ApplyNamedAuInterrupt → templates
 6. Dilemma/Artifact Apply remnants

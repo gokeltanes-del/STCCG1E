@@ -57,6 +57,7 @@ Continue TableWindow extract per TABLEWINDOW_INVENTORY.md; then Premiere A/B car
 ### Extract progress (Data - local, await Pepsch)
 - Slice 1 done locally: `MovementHazardRules` (Q-Net/Tetryon/Rift/Gaps decide; View applies) - `65d152e` (+ Gaps kill Host/Host2 in `f47469b`)
 - Slice 2 done locally: Wormhole pair (`InterruptRules` gates + hit-test/sync) - `db9c30b`
+- Slice 3 done locally: Incoming Message apply gates (`IncomingMessageRules`) - pending hash
 - This night section may be updated again when Data finishes further work
 
 ---

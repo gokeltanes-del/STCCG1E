@@ -12508,6 +12508,7 @@ public partial class TableWindow : Window
         ShowPlayError("Hugh: no just-initiated Borg battle and no Rogue Borg at the target.");
     }
 
+
     /// <summary>
     /// Wind Dancer is in play the moment it is encountered. The Devil may nullify it
     /// before the filter is checked (Glossary nullify + printed Devil text).
@@ -16376,28 +16377,40 @@ public partial class TableWindow : Window
     private void ApplyIncomingMessage(Card card, int playedBy)
     {
         var host = _interruptTargetHost;
-        if (host == null || host.Tag is not Card ship || !IsShipCard(ship))
+        bool hostIsShip = host != null && host.Tag is Card shipCard && IsShipCard(shipCard);
+        Card? ship = hostIsShip ? (Card)host!.Tag! : null;
+
+        string? need = InterruptRules.IncomingMessageAffiliation(card)
+                       ?? PlayOnRules.Parse(card).Affiliation;
+        bool affiliationOk = !hostIsShip
+            || string.IsNullOrEmpty(need)
+            || CardMatchesAffiliation(ship!, need);
+
+        int shipCtrl = 0;
+        List<Border> facilities = new();
+        if (hostIsShip && affiliationOk)
+        {
+            shipCtrl = GetBorderOwner(host!);
+            if (shipCtrl == 0) shipCtrl = 1;
+            facilities = CollectIncomingMessageFacilities(host!, shipCtrl, need ?? "");
+        }
+
+        var early = IncomingMessageRules.EarlyReject(hostIsShip, affiliationOk, facilities.Count);
+        if (early == IncomingMessageRules.ImApplyOutcome.NeedShipHost)
         {
             ShowPlayError($"{card.Name}: drop on a matching ship.");
             var hand = playedBy == 1 ? _handCards : _oppHandCards;
             if (!hand.Contains(card)) hand.Add(card);
             return;
         }
-
-        string? need = InterruptRules.IncomingMessageAffiliation(card)
-                       ?? PlayOnRules.Parse(card).Affiliation;
-        if (!string.IsNullOrEmpty(need) && !CardMatchesAffiliation(ship, need))
+        if (early == IncomingMessageRules.ImApplyOutcome.AffiliationMismatch)
         {
             ShowPlayError($"{card.Name}: target ship is not {need}.");
             var hand = playedBy == 1 ? _handCards : _oppHandCards;
             if (!hand.Contains(card)) hand.Add(card);
             return;
         }
-
-        int shipCtrl = GetBorderOwner(host);
-        if (shipCtrl == 0) shipCtrl = 1;
-        var facilities = CollectIncomingMessageFacilities(host, shipCtrl, need ?? "");
-        if (facilities.Count == 0)
+        if (early == IncomingMessageRules.ImApplyOutcome.NullifyNoFacility)
         {
             ShowCardReveal(card, card.Name,
                 "No matching facility on this spaceline (same quadrant). Interrupt is nullified.",
@@ -16423,7 +16436,7 @@ public partial class TableWindow : Window
         mini.Visibility = Visibility.Collapsed;
         if (!TableCanvas.Children.Contains(mini))
             TableCanvas.Children.Add(mini);
-        AddCardToHostStack(host, mini);
+        AddCardToHostStack(host!, mini);
 
         _attachedEvents.Add(new AttachedEvent
         {
@@ -16436,18 +16449,21 @@ public partial class TableWindow : Window
 
         string facName = (dest.Tag as Card)?.Name ?? "facility";
         ShowCardReveal(card, card.Name,
-            $"{ship.Name} must do nothing but move toward {facName} on this spaceline.\n"
+            $"{ship!.Name} must do nothing but move toward {facName} on this spaceline.\n"
             + "Nullified on arrival. Crew may not leave or initiate battle. Return fire allowed.",
             RevealButtons.Ok, ship.Name);
         StatusText.Text = $"{card.Name} on {ship.Name} → {facName}.";
         _session.Log.Add(_session.TurnNumber, $"P{playedBy}",
             $"{card.Name} on {ship.Name} → {facName}");
-        UpdateHostBadge(host);
+        UpdateHostBadge(host!);
 
-        var here = FindMissionForDockable(host);
+        // Attach first, then arrival check (do not change FindMissionForDockable — parked false-already-at).
+        var here = FindMissionForDockable(host!);
         var there = FindMissionForDockable(dest) ?? dest;
-        if (here != null && ReferenceEquals(here, there))
-            ResolveIncomingMessageArrival(host, "already at the facility's location");
+        if (IncomingMessageRules.IsAlreadyAtFacility(
+                here != null,
+                ReferenceEquals(here, there)))
+            ResolveIncomingMessageArrival(host!, "already at the facility's location");
         else if (shipCtrl == _activePlayer && !_seedPhaseActive)
             ProcessIncomingMessageMoves(shipCtrl);
     }
