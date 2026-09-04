@@ -23,7 +23,7 @@ Grok project: Star Trek CCG 1E (stccg-1e)
 
 ## Night section (2026-09-05) - will refresh when Data finishes
 
-**Local tip (Josef):** `b8f1f0c` - Extract Slice 4: Lore/Hugh decide gates
+**Local tip (Josef):** `ca5372b` - Extract Slice 4: Lore/Hugh decide gates
 **Origin tip:** `7bf128f` - Engine E6 (IM/Required-Move hops on Locations)
 **Branch:** `master` ahead of `origin/master` by **9** commits. **Do not assume pushed.** NO PUSH until Pepsch morning test is green.
 
@@ -36,7 +36,7 @@ Grok project: Star Trek CCG 1E (stccg-1e)
 
 ### Local unpushed stack (as of start of night run - verify with `git log -8 --oneline`)
 ```
-bbdbaed Extract Slice 4: Lore/Hugh decide gates
+ca5372b Extract Slice 4: Lore/Hugh decide gates
 9f37417 Extract Slice 3: IncomingMessageRules gates
 26db024 Docs: night handoff for morning test
 db9c30b Extract Slice 2: Wormhole pair rules + relocate sync
@@ -59,7 +59,7 @@ Continue TableWindow extract per TABLEWINDOW_INVENTORY.md; then Premiere A/B car
 - Slice 1 done locally: `MovementHazardRules` (Q-Net/Tetryon/Rift/Gaps decide; View applies) - `65d152e` (+ Gaps kill Host/Host2 in `f47469b`)
 - Slice 2 done locally: Wormhole pair (`InterruptRules` gates + hit-test/sync) - `db9c30b`
 - Slice 3 done locally: Incoming Message apply gates (`IncomingMessageRules`) - `9f37417`
-- Slice 4 done locally: Lore Returns + Hugh decide gates (`EventRules` / `InterruptRules`) - `b8f1f0c`
+- Slice 4 done locally: Lore Returns + Hugh decide gates (`EventRules` / `InterruptRules`) - `ca5372b`
 - Night extract run finished (Slices 3+4); await Pepsch morning test â€” **NO PUSH**
 
 ---
