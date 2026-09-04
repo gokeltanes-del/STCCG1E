@@ -2,7 +2,7 @@
 Last updated: 2026-09-04
 Repo: https://github.com/gokeltanes-del/STCCG1E
 Local VS: C:\\Dev\\StarTrekCCG\\StarTrekCCG
-Workflow: Captain edits locally → Pepsch builds/tests in VS → push only when green.
+Workflow: Josef edit locally → Pepsch builds/tests in VS → push only when green.
 
 ## Team
 - Captain - Project Captain (Pepsch talks mainly here); goals + HANDOFF/PROJECT/CHANGELOG/ENGINE
@@ -20,24 +20,31 @@ Grok project: Star Trek CCG 1E (stccg-1e)
 5. Do NOT touch uncommitted / in-progress Engine work belonging to another bot without Captain OK
 
 ## Current foundation status (2026-09-04)
-- Board 0-6 done; E1-E5 on origin (E5 tip history through `484fd6e`+)
-- **E4 Unique/InPlay DONE** (`eff6ce2`+): Unique by Owner/Persona (Spock Glossary), not Controller
-- **E5 LegalMoves-Fly Locations DONE** (`484fd6e`+)
-- **E6 IM/Required-Move Locations** (`7bf128f`+): Pepsch push in progress 2026-09-04
-- **Next after E6 push:** TableWindow extract of altcode / card effects into `Game/*Rules`, BoardStore, templates — BEFORE new Premiere card waves
-- Parked bugs (post-E6 smoke; see FEATURES P1):
-  1. Gaps extra kill / missing kill log
-  2. IM Fed false already-at-facility nullify
-  3. Wormhole broken again
-  4. Debug dump omits ships on Gaps
-- Also parked: Fed 7.4.1 battle initiation; E2b Treaty/Rogue staffing on store path
+- Board 0-6 done
+- **Foundation E1–E6 COMPLETE** and pushed; Pepsch tip when pushed was `7bf128f` (Engine E6: IM/Required-Move hops on Locations)
+  - E1 ToGameState | E2 Capture-Fallback | E3 Status an Instanz | E3b
+  - E4 Unique/InPlay by Owner/Persona (`eff6ce2`+)
+  - E5 LegalMoves-Fly destinations from Locations (`484fd6e`+)
+  - **E6 Incoming Message / Required-Move hops on Locations DONE** (`7bf128f`)
+- **NEXT: TableWindow extract** — pull card/rules truth out of TableWindow into `Game/*Rules`, BoardStore, templates, etc.
+  - No big-bang UI rewrite; Premiere-first after extract
+  - Solid foundation before adding new Premiere card waves
+- Leave Engine/Game C# alone unless you are Data on the assigned extract (or an explicitly assigned bugfix)
+
+## Parked bugs (must stay visible)
+1. **Gaps in Normal Space:** Buruk mystery kill on Shattered→Lonka before Gaps; kill events missing from debug log
+2. **IM Federation:** false nullify "already at the facility's location" (Nebula@Cultural vs Fed Outpost@Avert)
+3. **Wormhole** no longer works (Pepsch 2026-09-04)
+4. **Engine dump** often omits ships sitting on Gaps (state still has them)
+
+Also parked (not current focus): Fed 7.4.1 battle initiation; E2b Treaty/Rogue staffing on store path; Lore fly staffing is not E4
 
 ## Goals
 ### Short-term
-1. Pepsch: finish E6 push when green
-2. TableWindow altcode / per-card effects extract — foundation before new cards
-3. Parked smoke bugs via Data (ranked in FEATURES)
-4. Keep A/B/C process; Premiere-first
+1. **TableWindow extract** (card/rules truth → Game/*Rules, BoardStore, etc.) — no big-bang UI rewrite
+2. Premiere-first after extract
+3. Keep parked bugs visible; fix when they block playtests
+4. Keep A/B/C process; Josef edit, Pepsch test, push when green
 
 ### Long-term
 Stable BoardStore+GameState truth; TableWindow view; Premiere then expansions; later net+AI; private non-commercial

@@ -79,7 +79,7 @@ Engine: GameState + GameAction + EngineAuthority + LegalMoves.Collect / CollectB
 Board 0–6: artifacts/ENGINE.md (fertig).
 Foundation: artifacts/ENGINE.md
   E1 ToGameState | E2 Capture-Fallback | E3 Status an Instanz |
-  E4 Unique-Query | E5 LegalMoves-Fly | E6 IM-Locations
+  E4 Unique-Query | E5 LegalMoves-Fly | E6 IM-Locations  (E1-E6 COMPLETE, tip 7bf128f)
   Dual-Run neben UI-Dicts. TableWindow = View.
 
 Karten: Models/Card.cs · Legalität: LegalMoves + EngineAuthority · Texte: Game/*Rules
@@ -92,18 +92,17 @@ Fix-Protokoll (RULES.md):
   3. gleiches Loch: A→B oder B→C. Engine nur dann.
 Antwort immer: Klasse, §, Dateien, was bewusst nicht angefasst.
 
-Start: Nutzer nennt den Foundation-Schritt (E1…) oder — nach E5 — den Bug / die Karte.
+Start: Foundation E1-E6 done; Nutzer nennt TableWindow-Extract-Schritt oder den Bug / die Karte.
 Änderungen in allen bearbeiteten Dateien nennen.
 ```
 
 ### Als Nächstes
 
 **Kurzfristig (siehe auch `HANDOFF.md`):**  
-1. E5 LegalMoves-Fly Locations (lokal `484fd6e`, noch nicht gepusht) — Pepsch testen und pushen wenn green; dann E6 IM/Required-Move Locations.  
-2. E6 nach E5 green.  
-3. **Vor neuen Karten:** TableWindow-Altcode / per-card effects in `Game/*Rules`, BoardStore, Templates extrahieren — solide Foundation zuerst.  
-4. A/B/C-Prozess halten; Premiere-first. Team: Captain / Data / Spock / Seven.
-
+1. **Foundation E1–E6 COMPLETE** (Pepsch tip when pushed `7bf128f`; E6 IM/Required-Move DONE).  
+2. **NEXT: TableWindow extract** — card/rules truth out of TableWindow into `Game/*Rules`, BoardStore, Templates — no big-bang UI rewrite; Premiere-first after extract.  
+3. Keep parked bugs visible (Gaps Buruk mystery kill; IM Fed false nullify; Wormhole broken; dump omits Gaps ships) — see HANDOFF.  
+4. A/B/C-Prozess halten; Premiere-first. Team: Captain / Data / Spock / Seven. Workflow: Josef edit, Pepsch test, push when green.
 Probespiel-Löcher, die das Board später schluckt (nicht einzeln flicken):
 
 - USS Galaxy Staffing-False-Deny  
