@@ -92,22 +92,22 @@ Fix-Protokoll (RULES.md):
   3. gleiches Loch: A→B oder B→C. Engine nur dann.
 Antwort immer: Klasse, §, Dateien, was bewusst nicht angefasst.
 
-Start: Nutzer nennt den Foundation-Schritt (E1…) oder — nach E4 — den Bug / die Karte.
+Start: Nutzer nennt den Foundation-Schritt (E1…) oder — nach E5 — den Bug / die Karte.
 Änderungen in allen bearbeiteten Dateien nennen.
 ```
 
 ### Als Nächstes
 
 **Kurzfristig (siehe auch `HANDOFF.md`):**  
-1. E4 Unique/InPlay fertig testen (two-Nebula) und pushen (Pepsch).  
-2. E5 LegalMoves-Fly locations, dann E6 IM/Required-Move locations.  
+1. E5 LegalMoves-Fly Locations (lokal `484fd6e`, noch nicht gepusht) — Pepsch testen und pushen wenn green; dann E6 IM/Required-Move Locations.  
+2. E6 nach E5 green.  
 3. **Vor neuen Karten:** TableWindow-Altcode / per-card effects in `Game/*Rules`, BoardStore, Templates extrahieren — solide Foundation zuerst.  
 4. A/B/C-Prozess halten; Premiere-first. Team: Captain / Data / Spock / Seven.
 
 Probespiel-Löcher, die das Board später schluckt (nicht einzeln flicken):
 
 - USS Galaxy Staffing-False-Deny  
-- Unique-Nebula vs zweite Kopie unter Lore (E4 lokal)  
+- Unique-Nebula vs zweite Kopie unter Lore (E4 done/pushed Owner-based)  
 - Time Location / Snare / Clock als Required Action ?
 
 **Nicht jetzt:** Netz, KI, Sites/Tactics voll, Borg 7.3, Mirror, Big-Bang-UI-Refactor, volles stopped/disabled/stasis-System. Targeting-Feinschliff nur wenn ein Probespiel-Bug blockiert. Neue Premiere-Wellen erst nach TableWindow-Extraktion.
