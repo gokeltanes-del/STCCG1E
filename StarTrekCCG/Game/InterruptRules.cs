@@ -111,6 +111,26 @@ public static class InterruptRules
         isMission || isTimeLocation;
 
     /// <summary>Affiliation pip this Incoming Message cares about (title after the colon).</summary>
+    public enum HughResolveMode
+    {
+        CancelJustInitiatedBattle,
+        BlockBorgShipPulse,
+        KillRogueBorgAtLocation,
+        Fail
+    }
+
+    /// <summary>Extract Slice 4: Hugh resolve priority — battle cancel, Borg Ship pulse block, kill Rogue Borg, else fail.</summary>
+    public static HughResolveMode DecideHugh(
+        bool hasJustInitiatedHughBattleOnStack,
+        bool targetIsBorgShipDilemma,
+        bool rogueBorgPresentAtResolvedLocation)
+    {
+        if (hasJustInitiatedHughBattleOnStack) return HughResolveMode.CancelJustInitiatedBattle;
+        if (targetIsBorgShipDilemma) return HughResolveMode.BlockBorgShipPulse;
+        if (rogueBorgPresentAtResolvedLocation) return HughResolveMode.KillRogueBorgAtLocation;
+        return HughResolveMode.Fail;
+    }
+
     public static string? IncomingMessageAffiliation(Card? c)
     {
         string n = c?.Name ?? "";

@@ -578,6 +578,22 @@ public static class EventRules
     /// One-line host-facing effect for the ship/facility detail pane.
     /// Shows the live bonus when it depends on who is aboard — not the Persist enum name.
     /// </summary>
+
+    /// <summary>Extract Slice 4: Lore Returns apply gates. Null = legal to commandeer.</summary>
+    public static string? LoreReturnsDenyReason(
+        bool hostIsShip, bool isOpponentShip, bool hasRogueBorg, bool hasAnyPersonnel)
+    {
+        if (!hostIsShip) return "Lore Returns: target must be a ship.";
+        if (!isOpponentShip) return "Lore Returns: must be an opponent's ship.";
+        if (!hasRogueBorg) return "Lore Returns: no Rogue Borg aboard.";
+        if (hasAnyPersonnel) return "Lore Returns: ship must be empty of personnel.";
+        return null;
+    }
+
+    /// <summary>Kevin Uxbridge: Convergence — event attached at location (host / host2 / dockable mission).</summary>
+    public static bool KevinEventAtLocation(bool hostIsLoc, bool host2IsLoc, bool hostDockableMissionIsLoc) =>
+        hostIsLoc || host2IsLoc || hostDockableMissionIsLoc;
+
     public static string FormatHostEffectSummary(
         Persist kind, Card card, IEnumerable<Card>? aboard, int countdown)
     {

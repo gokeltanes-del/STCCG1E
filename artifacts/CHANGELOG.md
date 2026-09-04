@@ -4,6 +4,12 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-05 (Extract Slice 4 - Lore/Hugh decide gates)
+
+**Engine** - Lore Returns deny reasons in `EventRules.LoreReturnsDenyReason`; Hugh resolve modes in `InterruptRules.DecideHugh`; optional `KevinEventAtLocation` for Convergence filter. TableWindow keeps discard/UI/side effects. [C - Grundlage]
+
+---
+
 ## 2026-09-05 (Extract Slice 3 - IncomingMessageRules)
 
 **Engine** - Incoming Message apply early gates in `IncomingMessageRules` (`EarlyReject` / `IsAlreadyAtFacility` / `SameLocation`); TableWindow still attaches, highlights, picks facility, and moves. Attach-before-arrival order preserved; FindMissionForDockable parked bug untouched. [C - Grundlage]

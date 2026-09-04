@@ -1,4 +1,4 @@
-# STCCG 1E - Handoff
+﻿# STCCG 1E - Handoff
 Last updated: 2026-09-05 (night handoff - morning test)
 Repo: https://github.com/gokeltanes-del/STCCG1E
 Local VS: C:\Dev\StarTrekCCG\StarTrekCCG
@@ -23,28 +23,29 @@ Grok project: Star Trek CCG 1E (stccg-1e)
 
 ## Night section (2026-09-05) - will refresh when Data finishes
 
-**Local tip (Josef):** `db9c30b` - Extract Slice 2: Wormhole pair rules + relocate sync
+**Local tip (Josef):** `b8f1f0c` - Extract Slice 4: Lore/Hugh decide gates
 **Origin tip:** `7bf128f` - Engine E6 (IM/Required-Move hops on Locations)
-**Branch:** `master` ahead of `origin/master` by **6** commits. **Do not assume pushed.** NO PUSH until Pepsch morning test is green.
+**Branch:** `master` ahead of `origin/master` by **9** commits. **Do not assume pushed.** NO PUSH until Pepsch morning test is green.
 
 ### Morning test (Pepsch)
 1. Rebuild from local tip (ahead of origin - do not assume pushed)
 2. Gaps: neighbor mission no kill; land on Gaps = exactly 1 kill + log
 3. Wormhole: need 2 in hand; pair play + relocate
 4. Smoke: Q-Net 2 Diplomacy, IM to facility, Red Alert
+5. Optional: Lore Returns commandeer gates; Hugh cancel/kill modes
 
 ### Local unpushed stack (as of start of night run - verify with `git log -8 --oneline`)
 ```
+bbdbaed Extract Slice 4: Lore/Hugh decide gates
+9f37417 Extract Slice 3: IncomingMessageRules gates
+26db024 Docs: night handoff for morning test
 db9c30b Extract Slice 2: Wormhole pair rules + relocate sync
 65d152e Extract Slice 1: MovementHazardRules from TableWindow
 8388d48 Docs: HANDOFF E6 done, TableWindow next, parked bugs
 8bc5e98 Docs: TableWindow inventory for extract prep
 f47469b Fix: Gaps kill only on Gaps location + log
-d5bbeb5 Docs: FEATURES/HANDOFF after E6 - TableWindow next, parked smoke bugs
-7bf128f Engine E6: IM/Required-Move hops on Locations
-e6dd252 Docs: FEATURES P0 E6 next after E5 on origin
 ```
-Unpushed (6): `db9c30b` through `d5bbeb5`. Origin starts at `7bf128f`.
+Unpushed (~9): tip through `d5bbeb5`. Origin starts at `7bf128f`. Verify with `git log`.
 
 ### Parked still open
 - IM Fed false already-at-facility (FindMissionForDockable)
@@ -57,8 +58,9 @@ Continue TableWindow extract per TABLEWINDOW_INVENTORY.md; then Premiere A/B car
 ### Extract progress (Data - local, await Pepsch)
 - Slice 1 done locally: `MovementHazardRules` (Q-Net/Tetryon/Rift/Gaps decide; View applies) - `65d152e` (+ Gaps kill Host/Host2 in `f47469b`)
 - Slice 2 done locally: Wormhole pair (`InterruptRules` gates + hit-test/sync) - `db9c30b`
-- Slice 3 done locally: Incoming Message apply gates (`IncomingMessageRules`) - pending hash
-- This night section may be updated again when Data finishes further work
+- Slice 3 done locally: Incoming Message apply gates (`IncomingMessageRules`) - `9f37417`
+- Slice 4 done locally: Lore Returns + Hugh decide gates (`EventRules` / `InterruptRules`) - `b8f1f0c`
+- Night extract run finished (Slices 3+4); await Pepsch morning test â€” **NO PUSH**
 
 ---
 

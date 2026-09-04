@@ -12458,54 +12458,63 @@ public partial class TableWindow : Window
             x.Kind is TimingRules.ActionKind.InitiateShipBattle
                 or TimingRules.ActionKind.InitiatePersonnelBattle
             && (TimingRules.IsHughBattleSource(x.AttackerCard) || TimingRules.IsHughBattleSource(x.Card)));
-        if (battle != null)
-        {
-            battle.Cancelled = true;
-            battle.CancelledBy = "Hugh";
-            StatusText.Text = "Hugh cancels the Borg / Borg Ship / Rogue Borg battle.";
-            _session.Log.Add(_session.TurnNumber, $"P{controller}", "Hugh cancels battle");
-            return;
-        }
+        bool hasJustInitiated = battle != null;
+        bool targetIsBorgShipDilemma = target != null && TimingRules.IsHughBattleSource(target)
+            && (target.Name ?? "").Contains("Borg Ship", StringComparison.OrdinalIgnoreCase);
 
-        if (target != null && TimingRules.IsHughBattleSource(target)
-            && (target.Name ?? "").Contains("Borg Ship", StringComparison.OrdinalIgnoreCase))
+        Border? loc = null;
+        if (!hasJustInitiated && !targetIsBorgShipDilemma)
         {
-            _hughBlocksBorgShipAttack = true;
-            StatusText.Text = "Hugh: Borg Ship dilemma will not attack this pulse.";
-            _session.Log.Add(_session.TurnNumber, $"P{controller}", "Hugh blocks Borg Ship attack");
-            return;
-        }
-
-        Border? loc = ResolveHughRogueBorgHost(target);
-        if (loc != null && CountRogueBorgOn(loc) == 0)
-        {
-            var mission = FindMissionForDockable(loc) ?? loc;
-            foreach (var dock in GetDockablesUnderMission(mission).Concat(new[] { mission }))
+            loc = ResolveHughRogueBorgHost(target);
+            if (loc != null && CountRogueBorgOn(loc) == 0)
             {
-                if (CountRogueBorgOn(dock) > 0) { loc = dock; break; }
+                var mission = FindMissionForDockable(loc) ?? loc;
+                foreach (var dock in GetDockablesUnderMission(mission).Concat(new[] { mission }))
+                {
+                    if (CountRogueBorgOn(dock) > 0) { loc = dock; break; }
+                }
             }
         }
+        bool roguePresent = loc != null && CountRogueBorgOn(loc) > 0;
 
-        if (loc != null && CountRogueBorgOn(loc) > 0)
+        switch (InterruptRules.DecideHugh(hasJustInitiated, targetIsBorgShipDilemma, roguePresent))
         {
-            var mission = FindMissionForDockable(loc) ?? loc;
-            var victims = new List<RogueBorgUnit>();
-            foreach (var dock in GetDockablesUnderMission(mission).Concat(new[] { mission }))
-                victims.AddRange(RogueBorgUnitsOn(dock).ToList());
-            int n = victims.Count;
-            var hosts = victims.Select(v => v.Host).Where(h => h != null).Distinct().ToList();
-            foreach (var rb in victims)
-                DiscardRogueBorgUnit(rb, "Hugh");
-            StatusText.Text = $"Hugh kills {n} Rogue Borg at this location.";
-            _session.Log.Add(_session.TurnNumber, $"P{controller}", $"Hugh kills {n} Rogue Borg");
-            foreach (var h in hosts)
-                UpdateHostBadge(h);
-            if (_detailHost != null && hosts.Contains(_detailHost) && _detailHost.Tag is Card hc)
-                ShowHostContents(_detailHost, hc);
-            return;
-        }
+            case InterruptRules.HughResolveMode.CancelJustInitiatedBattle:
+                battle!.Cancelled = true;
+                battle.CancelledBy = "Hugh";
+                StatusText.Text = "Hugh cancels the Borg / Borg Ship / Rogue Borg battle.";
+                _session.Log.Add(_session.TurnNumber, $"P{controller}", "Hugh cancels battle");
+                return;
 
-        ShowPlayError("Hugh: no just-initiated Borg battle and no Rogue Borg at the target.");
+            case InterruptRules.HughResolveMode.BlockBorgShipPulse:
+                _hughBlocksBorgShipAttack = true;
+                StatusText.Text = "Hugh: Borg Ship dilemma will not attack this pulse.";
+                _session.Log.Add(_session.TurnNumber, $"P{controller}", "Hugh blocks Borg Ship attack");
+                return;
+
+            case InterruptRules.HughResolveMode.KillRogueBorgAtLocation:
+            {
+                var mission = FindMissionForDockable(loc!) ?? loc!;
+                var victims = new List<RogueBorgUnit>();
+                foreach (var dock in GetDockablesUnderMission(mission).Concat(new[] { mission }))
+                    victims.AddRange(RogueBorgUnitsOn(dock).ToList());
+                int n = victims.Count;
+                var hosts = victims.Select(v => v.Host).Where(h => h != null).Distinct().ToList();
+                foreach (var rb in victims)
+                    DiscardRogueBorgUnit(rb, "Hugh");
+                StatusText.Text = $"Hugh kills {n} Rogue Borg at this location.";
+                _session.Log.Add(_session.TurnNumber, $"P{controller}", $"Hugh kills {n} Rogue Borg");
+                foreach (var h in hosts)
+                    UpdateHostBadge(h);
+                if (_detailHost != null && hosts.Contains(_detailHost) && _detailHost.Tag is Card hc)
+                    ShowHostContents(_detailHost, hc);
+                return;
+            }
+
+            default:
+                ShowPlayError("Hugh: no just-initiated Borg battle and no Rogue Borg at the target.");
+                return;
+        }
     }
 
 
@@ -14772,9 +14781,10 @@ public partial class TableWindow : Window
         if (loc == null) loc = locs[0];
         int n = 0;
         foreach (var e in _attachedEvents.Where(ae =>
-                     ReferenceEquals(ae.Host, loc)
-                     || ReferenceEquals(ae.Host2, loc)
-                     || (ae.Host != null && FindMissionForDockable(ae.Host) == loc)).ToList())
+                     EventRules.KevinEventAtLocation(
+                         ReferenceEquals(ae.Host, loc),
+                         ReferenceEquals(ae.Host2, loc),
+                         ae.Host != null && FindMissionForDockable(ae.Host) == loc)).ToList())
         {
             _attachedEvents.Remove(e);
             SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
@@ -16702,28 +16712,20 @@ public partial class TableWindow : Window
 
     private bool TryApplyLoreReturns(Card ev, Border host, int controller)
     {
-        if (host.Tag is not Card ship || !IsShipCard(ship))
-        {
-            ShowPlayError("Lore Returns: target must be a ship.");
-            return false;
-        }
+        bool hostIsShip = host.Tag is Card shipProbe && IsShipCard(shipProbe);
         int ho = GetBorderOwner(host);
         if (ho == 0) ho = 1;
-        if (ho == controller)
+        var deny = EventRules.LoreReturnsDenyReason(
+            hostIsShip,
+            hostIsShip && ho != controller,
+            CountRogueBorgOn(host) > 0,
+            HostHasPersonnelOf(host, 0));
+        if (deny != null)
         {
-            ShowPlayError("Lore Returns: must be an opponent's ship.");
+            ShowPlayError(deny);
             return false;
         }
-        if (CountRogueBorgOn(host) == 0)
-        {
-            ShowPlayError("Lore Returns: no Rogue Borg aboard.");
-            return false;
-        }
-        if (HostHasPersonnelOf(host, 0))
-        {
-            ShowPlayError("Lore Returns: ship must be empty of personnel.");
-            return false;
-        }
+        var ship = (Card)host.Tag!;
 
         foreach (var rb in RogueBorgUnitsOn(host))
         {
