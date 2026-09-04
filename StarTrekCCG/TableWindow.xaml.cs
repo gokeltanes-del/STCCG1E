@@ -17545,49 +17545,24 @@ public partial class TableWindow : Window
 
     private string? CheckEventMovement(Border ship, Card shipCard, int fromIdx, int toIdx, List<Card> crew)
     {
-        int lo = Math.Min(fromIdx, toIdx);
-        int hi = Math.Max(fromIdx, toIdx);
-        foreach (var e in _attachedEvents)
-        {
-            int h1 = IndexOfMission(e.Host);
-            int h2 = IndexOfMission(e.Host2);
-            if (e.Kind == EventRules.Persist.QNet)
-            {
-                bool crosses = (h1 >= 0 && h2 >= 0 && lo <= Math.Min(h1, h2) && hi >= Math.Max(h1, h2) && fromIdx != toIdx)
-                               || (h1 >= 0 && fromIdx < h1 && toIdx > h1);
-                if (crosses && !EventRules.HasSkill(crew, "Diplomacy", 2))
-                    return "Q-Net: 2 Diplomacy required aboard.";
-            }
-            if (e.Kind == EventRules.Persist.Tetryon && h1 >= 0)
-            {
-                if (lo < h1 && hi > h1)
-                    return "Tetryon Field: ships may not pass this location.";
-                // Printed: ships that move here need Navigation to use RANGE again this turn.
-                if (fromIdx == h1 && toIdx != h1
-                    && _arrivedMissionThisTurn.TryGetValue(ship, out int arrived) && arrived == h1
-                    && !EventRules.HasSkill(crew, "Navigation"))
-                    return "Tetryon Field: Navigation required to use RANGE again this turn.";
-            }
-        }
-        return null;
+        // Extract Slice 1: decide in MovementHazardRules; View only supplies indices/crew.
+        bool arrivedAtFrom = _arrivedMissionThisTurn.TryGetValue(ship, out int arrived) && arrived == fromIdx;
+        var hazards = _attachedEvents.Select(e => new MovementHazardRules.HazardEvent(
+            e.Kind, IndexOfMission(e.Host), IndexOfMission(e.Host2), DestIsGapsLocation: false));
+        return MovementHazardRules.CheckMovement(hazards, fromIdx, toIdx, crew, arrivedAtFrom);
     }
 
     private void ApplyEventAfterMove(Border ship, Card shipCard, int fromIdx, int toIdx, List<Card> crew)
     {
-        int lo = Math.Min(fromIdx, toIdx);
-        int hi = Math.Max(fromIdx, toIdx);
         var dest = (toIdx >= 0 && toIdx < _spacelineOrder.Count) ? _spacelineOrder[toIdx] : null;
         foreach (var e in _attachedEvents.ToList())
         {
             int h1 = IndexOfMission(e.Host);
             if (e.Kind == EventRules.Persist.Rift && h1 >= 0)
             {
-                // Fly by: leave one side, end on the other (both directions).
-                bool flyBy = lo < h1 && hi > h1;
-                // Move to here, then move again same turn (unless this is the arrival itself).
-                bool leaveAfterArrival = fromIdx == h1 && toIdx != h1
-                    && _arrivedMissionThisTurn.TryGetValue(ship, out int arrived) && arrived == h1;
-                if (flyBy || leaveAfterArrival)
+                bool arrivedAtRift = _arrivedMissionThisTurn.TryGetValue(ship, out int arrived) && arrived == h1;
+                var (applyRift, flyBy) = MovementHazardRules.RiftDamage(fromIdx, toIdx, h1, arrivedAtRift);
+                if (applyRift)
                 {
                     ApplyHullDamage(ship, shipCard, Math.Min(100, GetHullDamage(ship) + 50));
                     _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
@@ -17598,10 +17573,11 @@ public partial class TableWindow : Window
                         : $"{shipCard.Name} damaged — moved again after arriving at Subspace Warp Rift.";
                 }
             }
-            // Gaps kill only when landing ON the Gaps span location — not on Host/Host2 endpoints.
+            // Gaps kill only on Gaps span (rules); View discards + logs.
             bool destIsGaps = dest?.Tag is Card dc && EventRules.NameIs(dc, "Gaps in Normal Space");
             bool destIsGapsFace = dest != null && ReferenceEquals(FindBorderForCard(e.Card), dest);
-            if (e.Kind == EventRules.Persist.Gaps && dest != null && (destIsGaps || destIsGapsFace))
+            if (e.Kind == EventRules.Persist.Gaps
+                && MovementHazardRules.GapsKillOnArrival(destIsGaps || destIsGapsFace))
             {
                 if (_stackOnHost.TryGetValue(ship, out var list))
                 {

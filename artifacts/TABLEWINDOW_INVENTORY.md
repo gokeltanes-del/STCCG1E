@@ -38,7 +38,7 @@ Asteroid Sanctuary, Distortion of Space/Time Continuum, Gaps in Normal Space, Q-
 
 ## Suggested extract order (Captain may reorder)
 
-1. Movement onEnter hazards (Gaps/Rift/Q-Net/Tetryon) — small, already half-engine
+1. Movement onEnter hazards — **Slice 1 DONE** (`MovementHazardRules`)
 2. Wormhole pair play (parked bug + InterruptRules)
 3. Incoming Message apply/arrival (facility lookup)
 4. Kevin/Hugh/LoreReturns Apply blocks

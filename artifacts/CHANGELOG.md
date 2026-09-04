@@ -4,6 +4,12 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-05 (Extract Slice 1 — MovementHazardRules)
+
+**Engine** — Q-Net/Tetryon check + Rift/Gaps after-move decisions live in `MovementHazardRules` (no WPF); TableWindow applies damage/discard/status. Gaps kill still only on Gaps location. [C — Grundlage]
+
+---
+
 ## 2026-09-05 (Fix — Gaps kill only on Gaps location)
 
 **Engine** — `ApplyEventAfterMove` Gaps random kill only when destination is the Gaps span (not Host/Host2 neighbor missions). Kill writes Action History + `gaps-kill` debug. [C — Grundlage]

@@ -51,3 +51,9 @@ Stable BoardStore+GameState truth; TableWindow view; Premiere then expansions; l
 
 ## Docs map
 PROJECT.md, ENGINE.md, RULES.md, RULES_CHECKLIST.md, CHANGELOG.md, FEATURES.md (Seven), HANDOFF.md (this)
+
+## Extract progress (Data)
+- Slice 1 done locally: `MovementHazardRules` (Q-Net/Tetryon/Rift/Gaps decide; View applies)
+- Slice 2 proposed: Wormhole pair play
+- Gaps kill Host/Host2 fix included in `f47469b` / Slice 1; await Pepsch retest+push
+- Still parked: IM already-at-facility, Wormhole broken, dump@Gaps
