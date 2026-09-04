@@ -17598,10 +17598,10 @@ public partial class TableWindow : Window
                         : $"{shipCard.Name} damaged — moved again after arriving at Subspace Warp Rift.";
                 }
             }
+            // Gaps kill only when landing ON the Gaps span location — not on Host/Host2 endpoints.
             bool destIsGaps = dest?.Tag is Card dc && EventRules.NameIs(dc, "Gaps in Normal Space");
-            if (e.Kind == EventRules.Persist.Gaps && dest != null &&
-                (destIsGaps || ReferenceEquals(FindBorderForCard(e.Card), dest)
-                 || ReferenceEquals(e.Host, dest) || ReferenceEquals(e.Host2, dest)))
+            bool destIsGapsFace = dest != null && ReferenceEquals(FindBorderForCard(e.Card), dest);
+            if (e.Kind == EventRules.Persist.Gaps && dest != null && (destIsGaps || destIsGapsFace))
             {
                 if (_stackOnHost.TryGetValue(ship, out var list))
                 {
@@ -17610,7 +17610,16 @@ public partial class TableWindow : Window
                     {
                         var victim = crewB[new Random().Next(crewB.Count)];
                         if (victim.Tag is Card vc)
-                            DiscardPersonnelBorder(victim, vc, GetBorderOwner(victim) == 0 ? _activePlayer : GetBorderOwner(victim));
+                        {
+                            int vo = GetBorderOwner(victim);
+                            if (vo == 0) vo = _activePlayer;
+                            DiscardPersonnelBorder(victim, vc, vo);
+                            _session.Log.Add(_session.TurnNumber, $"P{vo}",
+                                $"Gaps in Normal Space: {vc.Name} killed on {shipCard.Name}");
+                            DebugLog.Move(_session.TurnNumber, vo,
+                                $"gaps-kill {DebugLog.Card(vc)} on {DebugLog.Card(shipCard)}");
+                            StatusText.Text = $"Gaps: {vc.Name} killed aboard {shipCard.Name}.";
+                        }
                     }
                 }
             }

@@ -4,6 +4,12 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-05 (Fix — Gaps kill only on Gaps location)
+
+**Engine** — `ApplyEventAfterMove` Gaps random kill only when destination is the Gaps span (not Host/Host2 neighbor missions). Kill writes Action History + `gaps-kill` debug. [C — Grundlage]
+
+---
+
 ## 2026-09-04 (Foundation E6 — IM/Required-Move Locations)
 
 **Engine** — Incoming Message / required-move hops use `FlyBoardLine` + `Location.Span` (same as Fly); `MissionsOnSameSpaceline` remains paint. [C — Grundlage]
