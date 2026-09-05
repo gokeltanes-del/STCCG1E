@@ -28,6 +28,7 @@ Grok project: Star Trek CCG 1E (stccg-1e)
 **Push:** Pepsch when ready â€” Gaps green; Slice 8 stack included. After push: bot clones / context restart OK.
 
 ### Pending / recently green
+- Outpost repair leave-reset (docked-only) + Status UX (Buff/Debuff/Timer/Stasis) — local package tip (verify git log -1)
 - Gaps nullify relocate â€” **Pepsch GRÃœN** (`bb163ed`)
 - Slice 7 Sanctuary + Tachyon/Transwarp fix â€” earlier green
 - Slice 8 EOT extract â€” Plasma/WarpCore/SWB(+Traveler) green per Captain notes; confirm Transwarp EOT + Gaps/Q-Net regression with Gaps fix

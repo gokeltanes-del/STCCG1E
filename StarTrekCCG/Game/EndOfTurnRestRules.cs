@@ -11,9 +11,22 @@ public static class EndOfTurnRestRules
 {
     public enum RepairAction { SkipHull, ResetProgress, Progress, FullyRepair }
 
+    /// <summary>Undock / leave location: clear repair progress if any.</summary>
+    public static bool ShouldClearRepairOnLeave(int turnsAlreadyAtFacility) =>
+        turnsAlreadyAtFacility > 0;
+
+    /// <summary>EN amber detail line while docked repair is in progress / starting.</summary>
+    public static string FormatOutpostRepairStatusLine(int turnsAlreadyAtFacility)
+    {
+        int left = 2 - turnsAlreadyAtFacility;
+        if (left <= 1)
+            return "Outpost repair: clears end of next turn (1 left)";
+        return "Outpost repair: clears in 2 turns";
+    }
+
     /// <summary>
-    /// Outpost repair: 2 consecutive turns at own repair facility → full repair.
-    /// Leaving the facility resets progress.
+    /// Outpost repair: 2 consecutive turns docked at own repair facility -> full repair.
+    /// Progress only while docked at own repair facility; undock/leave resets.
     /// </summary>
     public static RepairAction DecideRepair(
         int hullPercent,

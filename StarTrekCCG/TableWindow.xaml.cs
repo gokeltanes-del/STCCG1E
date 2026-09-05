@@ -259,6 +259,8 @@ public partial class TableWindow : Window
         public required Border Host { get; init; }
         public Card? Extra { get; set; }
         public Border? Dest { get; set; }
+        /// <summary>Personnel held in stasis by Abduction / Phased Matter etc.</summary>
+        public List<Card> Held { get; } = new();
     }
 
     private readonly List<AttachedDilemma> _attachedDilemmas = new();
@@ -9271,7 +9273,10 @@ public partial class TableWindow : Window
     private void SetShipDockedAt(Border ship, Border? facility)
     {
         if (facility == null)
+        {
             _dockedAt.Remove(ship);
+            ClearRepairProgressOnLeave(ship);
+        }
         else
             _dockedAt[ship] = facility;
         if (ship.Tag is Card c && c.InstanceId > 0
@@ -9533,6 +9538,7 @@ public partial class TableWindow : Window
             fromMission?.Tag as Card, toMission.Tag as Card, move.RangeCost, move.RangeLeft);
         var arrived = FindMissionForDockable(shipBorder);
         if (arrived != null) ResolveRequiredArrival(shipBorder, arrived);
+        ClearRepairProgressOnLeave(shipBorder);
         return true;
     }
 
@@ -15271,16 +15277,19 @@ public partial class TableWindow : Window
 
     private static string FormatDilemmaVictims(DilemmaRules.Result r)
     {
-        if (r.Kill == null || r.Kill.Count == 0) return "";
-        bool stasis = r.Persist == DilemmaRules.PersistKind.Phased
-                      || r.Persist == DilemmaRules.PersistKind.Abduction;
+        bool stasis = DilemmaRules.IsStasisPersist(r.Persist);
+        var victims = new List<Card>();
+        if (r.Kill != null) victims.AddRange(r.Kill.Where(c => c != null)!);
+        if (r.Relocate != null && stasis && !victims.Contains(r.Relocate))
+            victims.Add(r.Relocate);
+        if (victims.Count == 0) return "";
         string names = string.Join(", ",
-            r.Kill.Where(c => c != null).Select(c => c.Name ?? "?").Distinct());
+            victims.Select(c => c.Name ?? "?").Distinct());
         if (names.Length == 0) return "";
         if (stasis)
-            return r.Kill.Count == 1
-                ? $"Held / relocated: {names}."
-                : $"Held / relocated: {names}.";
+            return victims.Count == 1
+                ? $"placed in stasis: {names}."
+                : $"placed in stasis: {names}.";
         bool eq = r.Kill.All(c => c != null && ModifierRules.IsEquipmentCard(c));
         if (eq)
             return r.Kill.Count == 1
@@ -15302,12 +15311,29 @@ public partial class TableWindow : Window
     {
         // Kills / Equipment destroy
         bool stasis = DilemmaRules.IsStasisPersist(r.Persist);
+        var stasisHeld = new List<Card>();
+        if (stasis && r.Relocate != null)
+        {
+            stasisHeld.Add(r.Relocate);
+            var rb = teamBorders.FirstOrDefault(x => x.Tag is Card c && ReferenceEquals(c, r.Relocate));
+            if (rb != null)
+            {
+                MarkStopped(rb);
+                ApplyStasisVisual(rb, true);
+            }
+        }
         foreach (var victim in r.Kill.ToList())
         {
             var b = teamBorders.FirstOrDefault(x => x.Tag is Card c && ReferenceEquals(c, victim));
             if (stasis)
             {
-                if (b != null) MarkStopped(b); // Stasis-Sandbox: gestoppt
+                if (victim != null && !stasisHeld.Contains(victim))
+                    stasisHeld.Add(victim);
+                if (b != null)
+                {
+                    MarkStopped(b); // Stasis-Sandbox: gestoppt
+                    ApplyStasisVisual(b, true);
+                }
                 continue;
             }
             if (victim == null) continue;
@@ -15395,7 +15421,7 @@ public partial class TableWindow : Window
                     host = missionBorder;
                     break;
             }
-            _attachedDilemmas.Add(new AttachedDilemma
+            var attached = new AttachedDilemma
             {
                 Card = seedCard,
                 Kind = r.Persist,
@@ -15405,7 +15431,15 @@ public partial class TableWindow : Window
                 Dest = r.Persist == DilemmaRules.PersistKind.Cytherians
                     ? ResolveFarEndMission(host)
                     : null
-            });
+            };
+            if (DilemmaRules.IsStasisPersist(r.Persist))
+            {
+                foreach (var h in stasisHeld.Distinct())
+                    attached.Held.Add(h);
+                if (r.Relocate != null && !attached.Held.Contains(r.Relocate))
+                    attached.Held.Add(r.Relocate);
+            }
+            _attachedDilemmas.Add(attached);
             if (r.Persist == DilemmaRules.PersistKind.BorgShip)
             {
                 PlaceBorgShipToken(seedCard, host);
@@ -16294,6 +16328,7 @@ public partial class TableWindow : Window
 
             if (DilemmaRules.CanCure(a.Kind, present, ho))
             {
+                ClearStasisForDilemma(a);
                 _attachedDilemmas.Remove(a);
                 if (EndOfTurnRestRules.CureAward(a.Kind == DilemmaRules.PersistKind.HyperAging || a.Kind == DilemmaRules.PersistKind.RemFatigue) == EndOfTurnRestRules.DilemmaCurePoints.Five)
                     AwardDilemmaPoints(5);
@@ -17935,6 +17970,7 @@ public partial class TableWindow : Window
             var present = GetAllCardsOnHost(a.Host, ho);
             if (DilemmaRules.CanCure(a.Kind, present, ho))
             {
+                ClearStasisForDilemma(a);
                 _attachedDilemmas.Remove(a);
                 continue;
             }
@@ -18317,21 +18353,254 @@ public partial class TableWindow : Window
     }
 
 
+
+    private void ApplyStasisVisual(Border border, bool inStasis)
+    {
+        if (inStasis)
+        {
+            border.BorderBrush = new SolidColorBrush(Color.FromRgb(0x70, 0xE0, 0xFF));
+            border.BorderThickness = new Thickness(2);
+            border.Effect = new System.Windows.Media.Effects.DropShadowEffect
+            {
+                Color = Color.FromRgb(0xB0, 0x60, 0xFF),
+                BlurRadius = 16,
+                ShadowDepth = 0,
+                Opacity = 0.95
+            };
+        }
+        else
+        {
+            // Restore neutral unless still peeked/selected elsewhere; stopped opacity stays via ApplyStoppedVisual
+            if (border.Effect is System.Windows.Media.Effects.DropShadowEffect dse
+                && (dse.Color == Color.FromRgb(0xB0, 0x60, 0xFF)
+                    || dse.Color == Color.FromRgb(0x70, 0xE0, 0xFF)))
+                border.Effect = null;
+            if (border.BorderBrush is SolidColorBrush scb
+                && scb.Color == Color.FromRgb(0x70, 0xE0, 0xFF))
+            {
+                border.BorderBrush = new SolidColorBrush(Color.FromRgb(90, 90, 90));
+                border.BorderThickness = new Thickness(1);
+            }
+        }
+    }
+
+    private void ClearStasisForDilemma(AttachedDilemma a)
+    {
+        if (!DilemmaRules.IsStasisPersist(a.Kind)) return;
+        foreach (var card in a.Held.ToList())
+        {
+            var b = FindBorderForCard(card);
+            if (b != null)
+                ApplyStasisVisual(b, false);
+        }
+        a.Held.Clear();
+    }
+
+    private bool IsCardInStasis(Card card) =>
+        _attachedDilemmas.Any(d =>
+            DilemmaRules.IsStasisPersist(d.Kind)
+            && d.Held.Any(h => ReferenceEquals(h, card)
+                               || string.Equals(h.Name, card.Name, StringComparison.OrdinalIgnoreCase)));
+
+    private AttachedDilemma? FindStasisDilemmaForCard(Card card) =>
+        _attachedDilemmas.FirstOrDefault(d =>
+            DilemmaRules.IsStasisPersist(d.Kind)
+            && d.Held.Any(h => ReferenceEquals(h, card)
+                               || string.Equals(h.Name, card.Name, StringComparison.OrdinalIgnoreCase)));
+
+    private static Brush BrushForDetailStatus(DetailStatusTone tone) => tone switch
+    {
+        DetailStatusTone.Buff => new SolidColorBrush(Color.FromRgb(0x6A, 0xD0, 0x8A)),
+        DetailStatusTone.Debuff => new SolidColorBrush(Color.FromRgb(0xE0, 0x6A, 0x6A)),
+        DetailStatusTone.Timer => new SolidColorBrush(Color.FromRgb(0xE0, 0xB0, 0x40)),
+        DetailStatusTone.Stasis => new SolidColorBrush(Color.FromRgb(0x90, 0xC0, 0xFF)),
+        _ => new SolidColorBrush(Color.FromRgb(0xB0, 0xB0, 0xB8))
+    };
+
+    private void ClearDetailStatusBlock()
+    {
+        if (DetailStatusBlock == null) return;
+        DetailStatusBlock.Children.Clear();
+    }
+
+    private void AddDetailStatusLine(string text, DetailStatusTone tone)
+    {
+        if (DetailStatusBlock == null || string.IsNullOrWhiteSpace(text)) return;
+        DetailStatusBlock.Children.Add(new TextBlock
+        {
+            Text = text,
+            FontSize = 11,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = BrushForDetailStatus(tone),
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 0, 2)
+        });
+    }
+
+    private void ApplyStatusVisualToMini(Border mini, Card card)
+    {
+        if (IsCardInStasis(card))
+        {
+            ApplyStasisVisual(mini, true);
+            return;
+        }
+        // Amber timer / red debuff / green buff badge via border for attached effects on this card itself
+        foreach (var ae in _attachedEvents.Where(e => ReferenceEquals(e.Card, card)))
+        {
+            var tone = DetailStatusRules.ToneForEvent(ae.Kind, ae.Countdown);
+            ApplyToneBorder(mini, tone);
+            return;
+        }
+        foreach (var ad in _attachedDilemmas.Where(d => ReferenceEquals(d.Card, card)))
+        {
+            var tone = DetailStatusRules.ToneForDilemma(ad.Kind, ad.Countdown);
+            ApplyToneBorder(mini, tone);
+            return;
+        }
+    }
+
+    private static void ApplyToneBorder(Border mini, DetailStatusTone tone)
+    {
+        var brush = BrushForDetailStatus(tone);
+        mini.BorderBrush = brush;
+        mini.BorderThickness = new Thickness(2);
+        if (tone is DetailStatusTone.Timer or DetailStatusTone.Stasis or DetailStatusTone.Debuff)
+        {
+            mini.Effect = new System.Windows.Media.Effects.DropShadowEffect
+            {
+                Color = ((SolidColorBrush)brush).Color,
+                BlurRadius = 12,
+                ShadowDepth = 0,
+                Opacity = 0.85
+            };
+        }
+    }
+
+    private void RefreshDetailStatusBlock(Card card)
+    {
+        ClearDetailStatusBlock();
+        string type = (card.Type ?? "").ToLowerInvariant();
+
+        // Personnel: In stasis line
+        if (CardKinds.IsPersonnel(card))
+        {
+            var dil = FindStasisDilemmaForCard(card);
+            if (dil != null)
+            {
+                AddDetailStatusLine(
+                    DetailStatusRules.FormatInStasisLine(dil.Card.Name ?? "stasis",
+                        DetailStatusRules.StasisCureHint(dil.Kind)),
+                    DetailStatusTone.Stasis);
+            }
+        }
+
+        // Ship: outpost repair amber timer
+        if (type.Contains("ship"))
+        {
+            Border? shipBorder = FindBorderForCard(card);
+            if (shipBorder != null)
+            {
+                int hull = GetHullDamage(shipBorder);
+                int owner = GetBorderOwner(shipBorder);
+                if (owner == 0) owner = _activePlayer;
+                int turns = _repairTurnsAtOutpost.GetValueOrDefault(shipBorder, 0);
+                bool atRepair = IsShipAtOwnRepairFacility(shipBorder, owner);
+                if (hull > 0 && hull < 100 && (turns > 0 || atRepair))
+                {
+                    AddDetailStatusLine(
+                        EndOfTurnRestRules.FormatOutpostRepairStatusLine(turns),
+                        DetailStatusTone.Timer);
+                }
+
+                foreach (var ae in EventsOn(shipBorder))
+                {
+                    var tone = DetailStatusRules.ToneForEvent(ae.Kind, ae.Countdown);
+                    string line = FormatAttachedHostEffectLine("Event", ae.Card, ae.Countdown, ae.Kind.ToString(),
+                        GetAllCardsOnHost(shipBorder, owner));
+                    AddDetailStatusLine(line, tone);
+                }
+                foreach (var ad in _attachedDilemmas.Where(d => ReferenceEquals(d.Host, shipBorder)))
+                {
+                    var tone = DetailStatusRules.ToneForDilemma(ad.Kind, ad.Countdown);
+                    string line = FormatAttachedHostEffectLine("Dilemma", ad.Card, ad.Countdown, ad.Kind.ToString(), null);
+                    AddDetailStatusLine(line, tone);
+                }
+            }
+        }
+
+        // Mission: Held/Stasis section + attached dilemma tones
+        if (type.Contains("mission"))
+        {
+            Border? missionBorder = FindBorderForCard(card);
+            if (missionBorder != null)
+            {
+                foreach (var ad in _attachedDilemmas.Where(d => ReferenceEquals(d.Host, missionBorder)))
+                {
+                    var tone = DetailStatusRules.ToneForDilemma(ad.Kind, ad.Countdown);
+                    if (DilemmaRules.IsStasisPersist(ad.Kind) && ad.Held.Count > 0)
+                    {
+                        string names = string.Join(", ", ad.Held.Select(h => h.Name ?? "?"));
+                        AddDetailStatusLine(
+                            DetailStatusRules.FormatHeldStasisSectionLine(ad.Card.Name ?? "?", names),
+                            DetailStatusTone.Stasis);
+                    }
+                    else
+                    {
+                        string line = FormatAttachedHostEffectLine("Dilemma", ad.Card, ad.Countdown, ad.Kind.ToString(), null);
+                        AddDetailStatusLine(line, tone);
+                    }
+                }
+                foreach (var ae in EventsOn(missionBorder))
+                {
+                    var tone = DetailStatusRules.ToneForEvent(ae.Kind, ae.Countdown);
+                    string line = FormatAttachedHostEffectLine("Event", ae.Card, ae.Countdown, ae.Kind.ToString(), null);
+                    AddDetailStatusLine(line, tone);
+                }
+            }
+        }
+
+        // Dilemma / Event card itself: show tone for live attachments
+        if (EventRules.IsEvent(card) || CardKinds.IsDilemma(card))
+        {
+            foreach (var ae in _attachedEvents.Where(e => ReferenceEquals(e.Card, card)))
+            {
+                var tone = DetailStatusRules.ToneForEvent(ae.Kind, ae.Countdown);
+                string hostName = (ae.Host?.Tag as Card)?.Name ?? "(no host)";
+                AddDetailStatusLine($"{FormatAttachedHostEffectLine("Event", card, ae.Countdown, ae.Kind.ToString(), null)}  on {hostName}", tone);
+            }
+            foreach (var ad in _attachedDilemmas.Where(d => ReferenceEquals(d.Card, card)))
+            {
+                var tone = DetailStatusRules.ToneForDilemma(ad.Kind, ad.Countdown);
+                string hostName = (ad.Host?.Tag as Card)?.Name ?? "(no host)";
+                if (DilemmaRules.IsStasisPersist(ad.Kind) && ad.Held.Count > 0)
+                {
+                    string names = string.Join(", ", ad.Held.Select(h => h.Name ?? "?"));
+                    AddDetailStatusLine(
+                        DetailStatusRules.FormatHeldStasisSectionLine(ad.Card.Name ?? "?", names) + $"  on {hostName}",
+                        DetailStatusTone.Stasis);
+                }
+                else
+                    AddDetailStatusLine($"{FormatAttachedHostEffectLine("Dilemma", card, ad.Countdown, ad.Kind.ToString(), null)}  on {hostName}", tone);
+            }
+        }
+    }
+
+    private void ClearRepairProgressOnLeave(Border shipBorder)
+    {
+        int turns = _repairTurnsAtOutpost.GetValueOrDefault(shipBorder, 0);
+        if (!EndOfTurnRestRules.ShouldClearRepairOnLeave(turns)) return;
+        _repairTurnsAtOutpost.Remove(shipBorder);
+        UpdateDamageBadge(shipBorder, GetHullDamage(shipBorder));
+    }
+
     private bool IsShipAtOwnRepairFacility(Border shipBorder, int owner)
     {
-        var mission = FindMissionForDockable(shipBorder);
-        if (mission == null) return false;
-
-        foreach (var dock in GetDockablesUnderMission(mission))
-        {
-            if (ReferenceEquals(dock, shipBorder)) continue;
-            if (dock.Tag is not Card fc) continue;
-            if (!IsRepairFacility(fc)) continue;
-            int fo = GetBorderOwner(dock);
-            if (fo == 0) fo = 1;
-            if (fo == owner) return true;
-        }
-        return false;
+        if (!IsShipDocked(shipBorder)) return false;
+        if (!_dockedAt.TryGetValue(shipBorder, out var fac) || fac == null) return false;
+        if (fac.Tag is not Card fc || !IsRepairFacility(fc)) return false;
+        int fo = GetBorderOwner(fac);
+        if (fo == 0) fo = 1;
+        return fo == owner;
     }
 
     private static bool IsRepairFacility(Card c)
@@ -19641,6 +19910,7 @@ public partial class TableWindow : Window
     private void ShowCardDetail(Card card)
     {
         _detailCard = card;
+        ClearDetailStatusBlock();
         DetailName.Text = card.Name;
         DetailType.Text = $"{card.Type}" + (string.IsNullOrEmpty(card.Affiliation) ? "" : $"  •  {card.Affiliation}");
         DetailText.Text = string.IsNullOrWhiteSpace(card.Text) ? "" : card.Text;
@@ -19795,6 +20065,7 @@ public partial class TableWindow : Window
 
         IconCatalog.FillStaffing(DetailStaffRow, card, 22);
         IconCatalog.Fill(DetailIconRow, card, 22);
+        RefreshDetailStatusBlock(card);
         UpdateDetailBackButton(card);
 
         if (!string.IsNullOrEmpty(card.FullImagePath) && System.IO.File.Exists(card.FullImagePath))
@@ -19922,6 +20193,7 @@ public partial class TableWindow : Window
             mini.Margin = new Thickness(3);
             mini.Cursor = Cursors.Hand;
             mini.Tag = c;
+            ApplyStatusVisualToMini(mini, c);
             if (_peekLegalTargets.Contains(c)
                 || _peekLegalTargets.Any(t =>
                     string.Equals(t.Name, c.Name, StringComparison.OrdinalIgnoreCase)))

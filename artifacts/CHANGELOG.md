@@ -4,6 +4,12 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-05 (Fix - Outpost repair leave-reset + Status UX)
+
+**Engine/UX** - Outpost repair progress only while **docked** at own repair facility; undock/fly clears counter immediately (Spock Soll). Card detail Status-Block: Green Buff / Red Debuff / Amber Timer; repair amber EN line; stasis cyan/violet glow + `In stasis` / `placed in stasis`; mission Held/Stasis (dilemma + personnel). Crew-minis same badge colors. Bewusst nicht: UX EN Timer nick, Persist/Battle extract, Premiere waves. [C]
+
+---
+
 ## 2026-09-05 (Extract Slice 9 - EOT-rest decide gates)
 
 **Engine** - `EndOfTurnRestRules` decide gates: outpost repair 2-turn, Rogue Borg invade (+IFF), Edo continue -10, SOT Crosis/NextTurn discard, dilemma cure award / Junior destroy / countdown expired. TableWindow keeps Apply (repair/battle/discard/UI). Borg Ship EOT battle stays in TW. Next: Persist branches, then Battle-Decide. [C - Grundlage]
