@@ -1,17 +1,16 @@
 # STCCG 1E - Features backlog
-Last updated: 2026-09-04
+Last updated: 2026-09-05
 
 Living list - **Seven owns ranking.** Reorder freely when checklist coverage or Captain goals shift.
 See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md.
 
 ## P0 - Foundation (do first)
-- **TableWindow extract** (card/rules truth out of TableWindow into Game/*Rules, BoardStore, templates) — **before new Premiere card waves**; no big-bang UI rewrite; Premiere-first after extract
+- **TableWindow extract** (card/rules truth out of TableWindow into Game/*Rules, BoardStore, templates) - **before new Premiere card waves**; no big-bang UI rewrite; Premiere-first after extract
 
-## P1 - Parked bugs (must stay visible)
-1. Gaps in Normal Space: Buruk mystery kill on Shattered→Lonka before Gaps; kill events missing from debug log
-2. IM Federation: false nullify "already at the facility's location" (Nebula@Cultural vs Fed Outpost@Avert)
-3. Wormhole no longer works (Pepsch 2026-09-04)
-4. Engine dump often omits ships sitting on Gaps (state still has them)
+## P1 - Parked
+- Hugh <-> Borg Ship Dilemma (Spock: Dilemma only, not Borg-affiliation ships; remaining edge after Rogue-green)
+- IM Federation: false nullify already-at-facility (if still open after fix pack)
+- Engine dump omits ships on Gaps (if still open)
 - Fed 7.4.1 battle initiation (Spock/Data)
 - E2b Treaty/Rogue staffing on store path
 
@@ -25,9 +24,11 @@ See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md.
 - AI
 
 ## Done recently
-- E6 IM / Required-Move locations (`7bf128f`, pushed, 2026-09-04) — Foundation E1–E6 complete
-- E5 LegalMoves-Fly locations (`484fd6e`+, on origin, 2026-09-04)
-- E4 Unique/InPlay/Persona by Owner (`eff6ce2`+, on origin, 2026-09-04)
+- Fix pack Pepsch-green 2026-09-05 (push pending): Wormhole pair, WNOHGB wrap, Kevin miss->hand + Event picker, Hugh Rogue (local tip `5b319c1`+)
+- Gaps kill only on Gaps location + log (`f47469b`+)
+- E6 IM / Required-Move (`7bf128f`+, origin) - Foundation E1-E6 complete
+- E5 LegalMoves-Fly (`484fd6e`+)
+- E4 Unique/InPlay/Persona by Owner (`eff6ce2`+)
 
 ## Notes
 - Private, non-commercial
