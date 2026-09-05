@@ -1,5 +1,5 @@
 # STCCG 1E - Handoff
-Last updated: 2026-09-05 (Extract Slice 5 InstantEvent/NamedAu)
+Last updated: 2026-09-05 (Extract Slice 5+6 InstantEvent/NamedAu + Dilemma/Artifact)
 Repo: https://github.com/gokeltanes-del/STCCG1E
 Local VS: C:\Dev\StarTrekCCG\StarTrekCCG
 Workflow: Josef edit locally -> Pepsch builds/tests in VS -> push only when green.
@@ -31,19 +31,19 @@ Grok project: Star Trek CCG 1E (stccg-1e)
 ### Retest checklist (Pepsch) - push blocked until green
 1. Rebuild local tip (`dotnet build StarTrekCCG/StarTrekCCG.csproj -c Debug`)
 2. Gaps/Q-Net/Red Alert still GREEN (regression)
-3. **Wormhole:** 2 copies in hand → drop first on exposed ship → second on location + relocate/stop
-4. **WNOHGB:** play on TABLE → wrap-around fly / IM on WNOHGB spaceline (Q-Net path uses shorter wrap when clear)
-5. **Kevin:** miss target → card back in hand (not destroyed); can nullify TABLE + attached Events (picker if multi)
-6. **Hugh:** Rogue Borg → drop on ship/location, no detail-pick; Borg Ship option only if Dilemma revealed+present
-7. Green → push entire local stack; Red → Ist/Soll no push
+3. **Wormhole:** 2 copies in hand â†’ drop first on exposed ship â†’ second on location + relocate/stop
+4. **WNOHGB:** play on TABLE â†’ wrap-around fly / IM on WNOHGB spaceline (Q-Net path uses shorter wrap when clear)
+5. **Kevin:** miss target â†’ card back in hand (not destroyed); can nullify TABLE + attached Events (picker if multi)
+6. **Hugh:** Rogue Borg â†’ drop on ship/location, no detail-pick; Borg Ship option only if Dilemma revealed+present
+7. Green â†’ push entire local stack; Red â†’ Ist/Soll no push
 
 ### Unpushed fix stack (newest first - verify `git log -20 --oneline`)
 Look for: Hugh fail/hand; Hugh host-match; WNOHGB PathBlocked; Kevin/Hugh Spock; WNOHGB wrap; Wormhole pair-check; night extract slices.
 
 ### Root causes (for Pepsch notes)
-1. Wormhole: drag `RemoveCardFromZone` before pair-count → counted 1 of 2; fixed `CountWormholesForPairStart`
+1. Wormhole: drag `RemoveCardFromZone` before pair-count â†’ counted 1 of 2; fixed `CountWormholesForPairStart`
 2. WNOHGB: hazard/Q-Net treated wrap as crossing whole line; wrap path + PathBlocked fallback
-3. Kevin: miss still committed/discarded; removed hover-only UX; TABLE+attached pool + cancel→hand
+3. Kevin: miss still committed/discarded; removed hover-only UX; TABLE+attached pool + cancelâ†’hand
 4. Hugh: Borg-affil ships wrongly in picker; Spock = Dilemma only when revealed; Rogue Borg direct drop
 
 ### Still parked
@@ -52,9 +52,12 @@ Look for: Hugh fail/hand; Hugh host-match; WNOHGB PathBlocked; Kevin/Hugh Spock;
 - dump omits ships on Gaps
 
 ### Next after green push + Captain Go
-Inventar next: Dilemma/Artifact Apply (Slice 6). Slice 5 InstantEvent/NamedAu DONE. No big-bang. No new Premiere cards until extract further.
+Inventar: Slices 1-6 DONE (hazards, Wormhole, IM, Lore/Hugh, InstantEvent/NamedAu, Dilemma/Artifact). Next after push: Premiere A waves / remaining TW clusters. No big-bang. No new Premiere cards until Captain Go.
 
 ---
+
+### Tip note after extracts
+Local tip includes Slice 5+6 decide-gate extracts (ahead of origin). **NO PUSH.** Parked unchanged: Hugh Borg Ship Dilemma; IM FindMissionForDockable false already-at; dump omits ships on Gaps.
 
 ## Current foundation status (2026-09-04 / still true)
 - Board 0-6 done

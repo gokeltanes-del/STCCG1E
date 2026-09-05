@@ -14377,10 +14377,13 @@ public partial class TableWindow : Window
             (art.Text ?? "") + "\n\n→ " + acq.Message,
             RevealButtons.Ok, art.Name);
 
-        switch (acq.Kind)
+        var place = ArtifactRules.DecideAcquirePlacement(
+            acq.Kind, MissionRules.IsPlanetMission(mission));
+
+        switch (place)
         {
-            case ArtifactRules.AcquireKind.ImmediateDiscard:
-                if (acq.DownloadFromDraw > 0)
+            case ArtifactRules.AcquirePlacement.ImmediateDiscard:
+                if (ArtifactRules.ShouldDownloadOnAcquire(acq))
                 {
                     var draw = _activePlayer == 1 ? _drawCards : _oppDrawCards;
                     var hand = _activePlayer == 1 ? _handCards : _oppHandCards;
@@ -14401,7 +14404,7 @@ public partial class TableWindow : Window
                 }
                 break;
 
-            case ArtifactRules.AcquireKind.PlaceOnTable:
+            case ArtifactRules.AcquirePlacement.PlaceOnTable:
                 if (acq.GrantsHorgahn)
                 {
                     if (_activePlayer == 1) _horgahnP1 = true;
@@ -14411,23 +14414,26 @@ public partial class TableWindow : Window
                 StatusText.Text = acq.Message;
                 break;
 
-            case ArtifactRules.AcquireKind.UseAsEquipment:
-                // Am Away Team (Planet) bzw. auf erstes Schiff (Space) ablegen
+            case ArtifactRules.AcquirePlacement.EquipmentOnPlanetMission:
+                AttachCardToHost(art, missionBorder, _activePlayer);
+                StatusText.Text = acq.Message;
+                break;
+
+            case ArtifactRules.AcquirePlacement.EquipmentPreferOwnShip:
+            {
                 Border host = missionBorder;
-                if (!MissionRules.IsPlanetMission(mission))
+                foreach (var dock in GetDockablesUnderMission(missionBorder))
                 {
-                    foreach (var dock in GetDockablesUnderMission(missionBorder))
+                    if (dock.Tag is Card dc && IsShipCard(dc) && GetBorderOwner(dock) == _activePlayer)
                     {
-                        if (dock.Tag is Card dc && IsShipCard(dc) && GetBorderOwner(dock) == _activePlayer)
-                        {
-                            host = dock;
-                            break;
-                        }
+                        host = dock;
+                        break;
                     }
                 }
                 AttachCardToHost(art, host, _activePlayer);
                 StatusText.Text = acq.Message;
                 break;
+            }
 
             default: // ToHand
                 if (_activePlayer == 1) _handCards.Add(art);
@@ -14441,6 +14447,7 @@ public partial class TableWindow : Window
             $"Artifact {art.Name}: {acq.Kind}");
         RefreshZoneCounts();
     }
+
 
     /// <summary>Artifact/Equipment als Border auf Host-Stapel legen.</summary>
     private void RemoveCardFromTableColumn(Card card)
@@ -15083,8 +15090,7 @@ public partial class TableWindow : Window
         List<Border> seedStack)
     {
         // Kills / Equipment destroy
-        bool stasis = r.Persist == DilemmaRules.PersistKind.Phased
-                      || r.Persist == DilemmaRules.PersistKind.Abduction;
+        bool stasis = DilemmaRules.IsStasisPersist(r.Persist);
         foreach (var victim in r.Kill.ToList())
         {
             var b = teamBorders.FirstOrDefault(x => x.Tag is Card c && ReferenceEquals(c, victim));
@@ -15130,20 +15136,14 @@ public partial class TableWindow : Window
             RefreshZoneCounts();
         }
 
-        bool removeFromSeed = r.Fate is DilemmaRules.Fate.EffectAndEnd
-                              or DilemmaRules.Fate.AttachAndEnd
-                              or DilemmaRules.Fate.EndAttempt
-                              or DilemmaRules.Fate.Overcome;
-        if (r.Fate == DilemmaRules.Fate.WallFailed)
-            removeFromSeed = false;
+        bool removeFromSeed = DilemmaRules.ShouldRemoveFromSeed(r.Fate);
 
         if (removeFromSeed && seedStack.Count > 0)
         {
             // Track overcome/removed seeds for Temporal Causality Loop re-seed
             if (_attemptMission != null && ReferenceEquals(_attemptMission, missionBorder)
-                && (r.Fate == DilemmaRules.Fate.Overcome
-                    || (r.Fate == DilemmaRules.Fate.EffectAndEnd
-                        && !EventRules.IsTemporalCausalityLoop(seedCard))))
+                && DilemmaRules.ShouldTrackOvercomeDiscard(
+                    r.Fate, EventRules.IsTemporalCausalityLoop(seedCard)))
             {
                 _attemptDiscards.Add((seedCard, _activePlayer, missionBorder, wasSeed: true));
             }
@@ -15157,28 +15157,32 @@ public partial class TableWindow : Window
         }
 
         // Temporal Causality Loop fail: restore cards discarded this attempt, re-seed seeds
-        if (EventRules.IsTemporalCausalityLoop(seedCard)
-            && r.Fate == DilemmaRules.Fate.EffectAndEnd)
+        if (DilemmaRules.ShouldRestoreTemporalLoop(
+                EventRules.IsTemporalCausalityLoop(seedCard), r.Fate))
         {
             ApplyTemporalCausalityLoopRestore(missionBorder, seedCard);
         }
 
         if (r.Fate == DilemmaRules.Fate.AttachAndEnd)
         {
-            Border host = r.Persist is DilemmaRules.PersistKind.Scow or DilemmaRules.PersistKind.BorgShip
-                          or DilemmaRules.PersistKind.Abduction or DilemmaRules.PersistKind.Phased
-                          or DilemmaRules.PersistKind.HyperAging
-                ? missionBorder
-                : (shipBorder ?? missionBorder);
-            if (r.Persist == DilemmaRules.PersistKind.BorgShip)
+            Border host = missionBorder;
+            switch (DilemmaRules.DecideAttachHost(r.Persist))
             {
-                host = FindFurthestMission(missionBorder) ?? missionBorder;
-                // One-way trip: from furthest end back toward the encounter end, then off the spaceline
-                int farIdx = _spacelineOrder.IndexOf(host);
-                int nearIdx = _spacelineOrder.IndexOf(missionBorder);
-                if (farIdx < 0) farIdx = _spacelineOrder.Count - 1;
-                if (nearIdx < 0) nearIdx = 0;
-                _borgShipDir = farIdx >= nearIdx ? -1 : 1;
+                case DilemmaRules.AttachHostPreference.FurthestMission:
+                    host = FindFurthestMission(missionBorder) ?? missionBorder;
+                    // One-way trip: from furthest end back toward the encounter end, then off the spaceline
+                    int farIdx = _spacelineOrder.IndexOf(host);
+                    int nearIdx = _spacelineOrder.IndexOf(missionBorder);
+                    if (farIdx < 0) farIdx = _spacelineOrder.Count - 1;
+                    if (nearIdx < 0) nearIdx = 0;
+                    _borgShipDir = farIdx >= nearIdx ? -1 : 1;
+                    break;
+                case DilemmaRules.AttachHostPreference.ShipOrMission:
+                    host = shipBorder ?? missionBorder;
+                    break;
+                default:
+                    host = missionBorder;
+                    break;
             }
             _attachedDilemmas.Add(new AttachedDilemma
             {
@@ -15205,24 +15209,23 @@ public partial class TableWindow : Window
                 $"Attached {seedCard.Name} ({r.Persist}) @ {(host.Tag as Card)?.Name}");
         }
 
-        if (r.Score > 0 && r.Fate != DilemmaRules.Fate.Overcome)
+        if (DilemmaRules.ShouldAwardScoreOnApply(r.Score, r.Fate))
             AwardDilemmaPoints(r.Score);
 
-        if ((seedCard.Name ?? "").Equals("Edo Probe", StringComparison.OrdinalIgnoreCase)
-            && r.Fate == DilemmaRules.Fate.Overcome)
+        if (DilemmaRules.IsEdoContinuePenalty(seedCard.Name, r.Fate))
         {
             _edoContinuePenalty[missionBorder] = _activePlayer;
             _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
                 "Edo Probe: −10 if this mission is not solved this turn.");
         }
 
-        if ((seedCard.Name ?? "").Equals("Conundrum", StringComparison.OrdinalIgnoreCase)
-            && r.Fate == DilemmaRules.Fate.EffectAndEnd)
+        if (DilemmaRules.IsConundrumChase(seedCard.Name, r.Fate))
             ApplyConundrumChase(shipBorder ?? missionBorder, seedCard);
 
         if (r.Persist == DilemmaRules.PersistKind.FrameOfMind && r.Relocate != null)
             ApplyFrameOfMind(r.Relocate, missionBorder, shipBorder);
     }
+
 
     /// <summary>
     /// Temporal Causality Loop fail: return personnel/equipment discarded from this attempt

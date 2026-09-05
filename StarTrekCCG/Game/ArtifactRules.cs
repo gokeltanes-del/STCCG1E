@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using StarTrekCCG.Models;
@@ -207,4 +207,29 @@ public static class ArtifactRules
             h.Equals(n, StringComparison.OrdinalIgnoreCase)
             || (n == "V.I.P." && h.Contains("VIP", StringComparison.OrdinalIgnoreCase))));
     }
+// ---- Extract Slice 6: ApplyArtifactAcquire placement gates (no WPF) ----
+
+    public enum AcquirePlacement
+    {
+        ImmediateDiscard,
+        PlaceOnTable,
+        EquipmentOnPlanetMission,
+        EquipmentPreferOwnShip,
+        ToHand
+    }
+
+    /// <summary>Where an earned artifact goes after ResolveAcquire.Kind.</summary>
+    public static AcquirePlacement DecideAcquirePlacement(AcquireKind kind, bool isPlanetMission) =>
+        kind switch
+        {
+            AcquireKind.ImmediateDiscard => AcquirePlacement.ImmediateDiscard,
+            AcquireKind.PlaceOnTable => AcquirePlacement.PlaceOnTable,
+            AcquireKind.UseAsEquipment => isPlanetMission
+                ? AcquirePlacement.EquipmentOnPlanetMission
+                : AcquirePlacement.EquipmentPreferOwnShip,
+            _ => AcquirePlacement.ToHand
+        };
+
+    public static bool ShouldDownloadOnAcquire(AcquireResult acq) =>
+        acq.Kind == AcquireKind.ImmediateDiscard && acq.DownloadFromDraw > 0;
 }

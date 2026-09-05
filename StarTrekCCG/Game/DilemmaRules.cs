@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using StarTrekCCG.Models;
@@ -935,4 +935,48 @@ public static class DilemmaRules
             line += $"  ·  COUNTER {countdown}";
         return line;
     }
+// ---- Extract Slice 6: ApplyDilemmaResult decide gates (no WPF) ----
+
+    /// <summary>Overcome / effect / attach / end-attempt remove the seed; WallFailed keeps it.</summary>
+    public static bool ShouldRemoveFromSeed(Fate fate) =>
+        fate is Fate.EffectAndEnd or Fate.AttachAndEnd or Fate.EndAttempt or Fate.Overcome;
+
+    /// <summary>Track overcome/removed seeds for Temporal Causality Loop re-seed (not the loop card itself).</summary>
+    public static bool ShouldTrackOvercomeDiscard(Fate fate, bool isTemporalCausalityLoopSeed) =>
+        fate == Fate.Overcome
+        || (fate == Fate.EffectAndEnd && !isTemporalCausalityLoopSeed);
+
+    public enum AttachHostPreference
+    {
+        Mission,
+        ShipOrMission,
+        FurthestMission
+    }
+
+    /// <summary>Where AttachAndEnd dilemmas prefer to host.</summary>
+    public static AttachHostPreference DecideAttachHost(PersistKind persist) =>
+        persist switch
+        {
+            PersistKind.BorgShip => AttachHostPreference.FurthestMission,
+            PersistKind.Scow or PersistKind.Abduction or PersistKind.Phased or PersistKind.HyperAging
+                => AttachHostPreference.Mission,
+            _ => AttachHostPreference.ShipOrMission
+        };
+
+    public static bool IsStasisPersist(PersistKind persist) =>
+        persist is PersistKind.Phased or PersistKind.Abduction;
+
+    public static bool ShouldAwardScoreOnApply(int score, Fate fate) =>
+        score > 0 && fate != Fate.Overcome;
+
+    public static bool ShouldRestoreTemporalLoop(bool isTemporalCausalityLoop, Fate fate) =>
+        isTemporalCausalityLoop && fate == Fate.EffectAndEnd;
+
+    public static bool IsEdoContinuePenalty(string? seedName, Fate fate) =>
+        (seedName ?? "").Equals("Edo Probe", StringComparison.OrdinalIgnoreCase)
+        && fate == Fate.Overcome;
+
+    public static bool IsConundrumChase(string? seedName, Fate fate) =>
+        (seedName ?? "").Equals("Conundrum", StringComparison.OrdinalIgnoreCase)
+        && fate == Fate.EffectAndEnd;
 }

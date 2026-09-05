@@ -2,7 +2,7 @@
 
 Last updated: 2026-09-05  
 Source: `StarTrekCCG/TableWindow.xaml.cs` (~19921 lines, ~581 private methods)  
-Owner: Data â€” after Foundation E1â€“E6; before Premiere A/B card waves.  
+Owner: Data Ã¢â‚¬â€ after Foundation E1Ã¢â‚¬â€œE6; before Premiere A/B card waves.  
 Scope: catalog altcode / per-card Apply hooks to pull into `Game/*Rules`, BoardStore, templates. **No big-bang split.**
 
 ## Priority extract clusters (effect-ish)
@@ -32,21 +32,25 @@ Asteroid Sanctuary, Distortion of Space/Time Continuum, Gaps in Normal Space, Q-
 
 
 0. Hugh Borg Ship Dilemma branch (parked)
-1. Gaps Host/Host2 kill â€” **fixed** `f47469b` (await Pepsch retest/push)
+1. Gaps Host/Host2 kill Ã¢â‚¬â€ **fixed** `f47469b` (await Pepsch retest/push)
 2. Dump omits ships on Gaps
 3. IM false already-at-facility
-4. Wormhole broken (Pepsch) â€” addressed in Slice 2 locally; retest
+4. Wormhole broken (Pepsch) Ã¢â‚¬â€ addressed in Slice 2 locally; retest
 5. Fed 7.4.1; E2b Treaty/Rogue store staffing
 
 ## Suggested extract order (Captain may reorder)
 
-1. Movement onEnter hazards â€” **Slice 1 DONE** (`MovementHazardRules`)
-2. Wormhole pair play â€” **Slice 2 DONE** (`InterruptRules` gates + sync/hit-test)
+1. Movement onEnter hazards Ã¢â‚¬â€ **Slice 1 DONE** (`MovementHazardRules`)
+2. Wormhole pair play Ã¢â‚¬â€ **Slice 2 DONE** (`InterruptRules` gates + sync/hit-test)
 3. Incoming Message apply/arrival (facility lookup) - **Slice 3 DONE** (`IncomingMessageRules`)
 4. Kevin/Hugh/LoreReturns Apply blocks - **Slice 4 DONE** (`EventRules` Lore/Kevin + `InterruptRules.DecideHugh`)
 5. ApplyInstantEvent / ApplyNamedAuInterrupt - **Slice 5 DONE** (`InstantEventRules` / `NamedInterruptRules`)
-6. Dilemma/Artifact Apply remnants
+6. Dilemma/Artifact Apply remnants - **Slice 6 DONE** (`DilemmaRules` apply gates / `ArtifactRules` placement)
 7. Only then Premiere A card waves
+
+## Tip note after extracts
+
+Slices 1-6 decide gates extracted; local tip ahead of origin. **NO PUSH** until Pepsch retest green. Parked: Hugh Borg Ship Dilemma; IM FindMissionForDockable; dump@Gaps.
 
 ## Deliberately not in first extract wave
 
