@@ -1,18 +1,16 @@
-# STCCG 1E - Features backlog
+﻿# STCCG 1E - Features backlog
 Last updated: 2026-09-05
 
 Living list - **Seven owns ranking.** Reorder freely when checklist coverage or Captain goals shift.
 See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md.
 
 ## P0 - Foundation (do first)
-- **TableWindow extract** (in progress, Data) - Welle 1 Slices 1-8 DONE locally; OPEN: Battle-Decide thin, EOT rest, Persist branches
-  - Gaps nullify relocate Pepsch green (`bb163ed`); Slice 8 stack await final push green
+- **TableWindow extract** (in progress, Data) - Welle 1 Slices 1-8 DONE (`447beac` green+push); **Slice 9 EOT-rest** in progress; then Persist → Battle
   - Premiere A card waves: **only Captain Go** (see CODE_PLACEMENT.md)
   - **Before new Premiere card waves**; no big-bang UI rewrite
-- **Glossary/Compendium full coverage (Seven+Spock)** - track FULL rulebook/Glossary Sonderfaelle vs what code already does (not only Premiere cards already implemented). Extend checklist cells; coordinate Ist/Soll with Spock.
+- **Glossary/Compendium full coverage (Seven+Spock)** - Welle 1 Timing/Actions/Nullify core done; **Hugh/Borg CanRespond DONE** (`447beac`); **Welle 2 Control/Owner/Present ACTIVE** (Docs only). Track FULL Glossary vs code; Ist/Soll with Spock.
 
 ## P1 - Parked
-- Hugh <-> Borg Ship Dilemma (Spock: Dilemma only, not Borg-affiliation ships)
 - IM Federation: false nullify already-at-facility / FindMissionForDockable
 - Engine dump omits ships on Gaps
 - Distortion (no AU to test)
@@ -21,6 +19,7 @@ See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md.
 
 ## P2 - Premiere hardening
 - Premiere A/B hardening from RULES_CHECKLIST gaps
+- Premiere-Dilemmas einzeln erst nach offenen Extract-Punkten + Captain Go
 - Keep Klasse A/B/C process; no fundamentalsystem on speculation
 
 ## P3 - Later (UX / ideas - not now)
@@ -34,13 +33,14 @@ See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md.
 - AI
 
 ## Done recently
+- Hugh/Borg Ship CanRespond + EOT battle window (`447beac` Pepsch green+push 2026-09-05): Dilemma-only, same-loc Attack, Direct Hit/docked shields, cloaked skip, no RF after Destroy
 - Gaps nullify relocate (`bb163ed`, Pepsch green 2026-09-05)
-- Extract Slice 7-8 local (Ship effects + EOT/Gaps/Q-Net Is*)
+- Extract Slice 7-8 (Ship effects + EOT/Gaps/Q-Net Is*)
 - Extract Slice 5+6 on origin (`0acd027`): InstantEvent/NamedInterrupt + Dilemma/Artifact Apply
-- Fix pack + Nacht-Extract; Foundation E1-E6 complete
+- Foundation E1-E6 complete
 
 ## Notes
 - Private, non-commercial
 - BoardStore + GameState = truth; TableWindow = view
 - Captain sets goals; Seven maintains this ranking
-- Workflow: Josef edit, Pepsch test, push when green
+- Workflow: Josef edit+commit, Pepsch test, push when green (no bot-push)
