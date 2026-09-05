@@ -5,11 +5,13 @@ Living list - **Seven owns ranking.** Reorder freely when checklist coverage or 
 See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md.
 
 ## P0 - Foundation (do first)
-- **TableWindow extract** (card/rules truth out of TableWindow into Game/*Rules, BoardStore, templates) - **before new Premiere card waves**; no big-bang UI rewrite; Premiere-first after extract
+- **TableWindow extract** (in progress, Data) - further slices of already-built card/rules truth into Game/*Rules, BoardStore, templates
+  - Inventar next (per HANDOFF): InstantEvent/NamedAu templates, Dilemma/Artifact Apply
+  - **Before new Premiere card waves**; no big-bang UI rewrite; Premiere-first after extract
 
 ## P1 - Parked
 - Hugh <-> Borg Ship Dilemma (Spock: Dilemma only, not Borg-affiliation ships; remaining edge after Rogue-green)
-- IM Federation: false nullify already-at-facility (if still open after fix pack)
+- IM Federation: false nullify already-at-facility (if still open)
 - Engine dump omits ships on Gaps (if still open)
 - Fed 7.4.1 battle initiation (Spock/Data)
 - E2b Treaty/Rogue staffing on store path
@@ -24,9 +26,8 @@ See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md.
 - AI
 
 ## Done recently
-- Fix pack Pepsch-green 2026-09-05 (push pending): Wormhole pair, WNOHGB wrap, Kevin miss->hand + Event picker, Hugh Rogue (local tip `5b319c1`+)
-- Gaps kill only on Gaps location + log (`f47469b`+)
-- E6 IM / Required-Move (`7bf128f`+, origin) - Foundation E1-E6 complete
+- Fix pack + Nacht-Extract on origin (`ffe29b4` tip, 2026-09-05): Wormhole pair, WNOHGB wrap, Kevin miss->hand + Event picker, Hugh Rogue/fail-hand; Gaps kill-on-Gaps + log
+- E6 IM / Required-Move (`7bf128f`+) - Foundation E1-E6 complete
 - E5 LegalMoves-Fly (`484fd6e`+)
 - E4 Unique/InPlay/Persona by Owner (`eff6ce2`+)
 
