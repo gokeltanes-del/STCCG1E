@@ -4175,13 +4175,48 @@ public partial class TableWindow : Window
         int atkW = borgAtk ? 24 : BattleRules.GetWeapons(attackerShip);
         bool returnFire = false;
         int defWeapons = BattleRules.GetWeapons(defenderCard);
-        // Spock: docked ships may not fire; Borg dilemma still opens dialog for uncloaked undocked.
-        bool canReturn = defWeapons > 0 && !IsBorderStopped(defenderBorder) && !IsShipDocked(defenderBorder);
+
+        // Predict Open Fire: no Return Fire prompt if defender would be destroyed (Direct Hit).
+        int defOwnerForCrew = GetBorderOwner(defenderBorder);
+        if (defOwnerForCrew == 0) defOwnerForCrew = defOwner;
+        var defEv = EventsOn(defenderBorder).Select(e => (e.Kind, e.Card));
+        int defMult = BattleRules.KurlanMultiplier(GetAllCardsOnHost(defenderBorder, defOwnerForCrew));
+        int defShieldBonus = BattleRules.GetShields(defenderCard) * (defMult - 1)
+                             + EventRules.ShieldsBonusFromEvents(defEv, GetAllCardsOnHost(defenderBorder, defOwnerForCrew));
+        int facShields = 0;
+        if (IsShipDocked(defenderBorder) && _dockedAt.TryGetValue(defenderBorder, out var fac)
+            && fac?.Tag is Card fc)
+            facShields = BattleRules.GetShields(fc);
+        int printedAtkW = BattleRules.GetWeapons(attackerShip);
+        int atkBonus = borgAtk
+            ? Math.Max(0, atkW - printedAtkW)
+            : 0;
+        if (!borgAtk)
+        {
+            int atkOwner = GetBorderOwner(attackerBorder);
+            if (atkOwner == 0) atkOwner = 1;
+            int atkMult = BattleRules.KurlanMultiplier(GetAllCardsOnHost(attackerBorder, atkOwner));
+            var atkEv = EventsOn(attackerBorder).Select(e => (e.Kind, e.Card));
+            atkBonus = printedAtkW * (atkMult - 1) + EventRules.WeaponsBonusFromEvents(atkEv);
+        }
+        var predicted = BattleRules.ResolveFire(
+            new[] { (attackerShip, atkBonus) },
+            defenderCard,
+            targetShieldsBonus: defShieldBonus,
+            facilityShieldsIfDocked: facShields);
+        bool wouldDestroy = BattleRules.ApplyRotationDamage(
+            GetHullDamage(defenderBorder), predicted.Result).Destroyed;
+
+        // Spock: docked may not fire. Pepsch: no RF offer after Direct Hit destroy.
+        bool canReturn = defWeapons > 0 && !IsBorderStopped(defenderBorder)
+                         && !IsShipDocked(defenderBorder) && !wouldDestroy;
         if (canReturn)
         {
             string pick = AskChoice(defenderCard, "Return Fire?",
-                $"{attackerShip.Name} attacks {defenderCard.Name}.\n" +
-                $"Attacker WEAPONS {atkW} vs target SHIELDS {BattleRules.GetShields(defenderCard)}.\n" +
+                $"{attackerShip.Name} attacks {defenderCard.Name}.
+" +
+                $"Attacker WEAPONS {atkW} vs target SHIELDS {BattleRules.GetShields(defenderCard)}.
+" +
                 $"P{defOwner}: return fire (WEAPONS {defWeapons})?",
                 "Return Fire", "No");
             returnFire = pick.StartsWith("Return", StringComparison.OrdinalIgnoreCase);
@@ -16926,10 +16961,12 @@ public partial class TableWindow : Window
         if (_borgShipToken == null) return;
         double left = Canvas.GetLeft(hostMission);
         double top = Canvas.GetTop(hostMission);
-        // Sit slightly above the mission on the spaceline (self-controlling ship)
+        // Stack like other ships at this location (next free slot below), never same Y as Enterprise.
+        var others = GetDockablesUnderMission(hostMission, exclude: _borgShipToken);
+        int below = others.Count(b => Canvas.GetTop(b) > top + 20);
         Canvas.SetLeft(_borgShipToken, left);
-        Canvas.SetTop(_borgShipToken, top + UnderMissionGap); // like a ship at location, not overlapping mission
-        Panel.SetZIndex(_borgShipToken, 40);
+        Canvas.SetTop(_borgShipToken, top + UnderMissionGap * (below + 1));
+        Panel.SetZIndex(_borgShipToken, 30 + below);
     }
 
     private void RemoveBorgShipToken()

@@ -4,6 +4,12 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-05 (Fix - Borg Ship stack + no RF after destroy)
+
+**Engine** - Borg Ship token stacks in next free slot under mission (not same Y as ships). Return Fire prompt skipped when Open Fire would destroy defender. [C]
+
+---
+
 ## 2026-09-05 (Fix - Borg Ship EOT battle + Hugh window)
 
 **Engine** - EOT Borg Ship: queue InitiateShipBattle (cloaked skipped); Hugh response cancels rest of turn; Resolve WEAPONS 24 + docked half facility shields; BeginNext after cancel/resolve. [C]
