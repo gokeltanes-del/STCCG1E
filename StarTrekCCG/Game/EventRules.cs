@@ -108,6 +108,8 @@ public static class EventRules
     public static bool IsPlasmaFire(Card? c) => NameIs(c, "Plasma Fire");
     public static bool IsWarpCoreBreach(Card? c) => NameIs(c, "Warp Core Breach");
     public static bool IsYellowAlert(Card? c) => NameIs(c, "Yellow Alert");
+    public static bool IsGapsInNormalSpace(Card? c) => NameIs(c, "Gaps in Normal Space");
+    public static bool IsQNet(Card? c) => NameIs(c, "Q-Net");
     public static bool IsThermalDeflectors(Card? c) => NameIs(c, "Thermal Deflectors");
     public static bool IsBaryonBuildup(Card? c) => NameIs(c, "Baryon Buildup");
     public static bool IsKlimDokachin(Card? c) => NameIs(c, "Klim Dokachin");

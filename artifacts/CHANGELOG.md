@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-05 (Extract Slice 8 - EndOfTurn attached-event decide)
+
+**Engine** - `EndOfTurnEventRules` decide gates for ProcessEndOfTurnEvents (Transwarp discard, Distortion flip, Plasma Fire, Warp Core, Static Warp, Traveler draw, Kidnappers, NeuralServo, Anti-Time). `EventRules.IsGapsInNormalSpace` / `IsQNet`. TableWindow keeps damage/destroy/UI/pick. [C - Grundlage]
+
+---
 ## 2026-09-05 (Fix - Tachyon gate + Transwarp drop host)
 
 **Engine** - Tachyon Detection Grid: gate >=4 Controller ships in play (cloaked count; not "four exposed"); target cloaked only (Phased != cloaked); force-decloak + cloak-lock rest of turn via TurnExpiry. Transwarp Conduit: RANGE x2 on drop/stack host, no ship picker. [C]

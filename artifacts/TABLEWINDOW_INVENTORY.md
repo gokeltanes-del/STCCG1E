@@ -24,11 +24,11 @@ Scope: catalog altcode / per-card Apply hooks to pull into `Game/*Rules`, BoardS
 
 AntiTime, Baryon, CaptainsLog, Distortion, Espionage, Gaps, Goddess, IncomingMessage, IntruderField, Ionization, Kidnappers, Klim, LoreReturns, LowerDecks, NeuralServo, ParticleScatter, PatternEnhancers, PlasmaFire, QNet, RaiseStakes, RedAlert, Rift, Spacedock, StaticWarp, Supernova, Table, Tetryon, Thermal, Traveler, WarpCore, YellowAlert (+ None)
 
-## NameIs hardcodes in TableWindow (2 remaining)
+## NameIs hardcodes in TableWindow
 
-Gaps in Normal Space, Q-Net
+Gaps / Q-Net -> `EventRules.IsGapsInNormalSpace` / `IsQNet` (**Slice 8**)
 
-(Slice 7: Asteroid Sanctuary / Distortion of Space/Time Continuum / Tachyon Detection Grid -> InterruptRules.Is* helpers)
+(Slice 7: Asteroid Sanctuary / Distortion / Tachyon / Transwarp -> InterruptRules.Is* helpers)
 
 ## Parked smoke bugs (not this inventory)
 
@@ -48,11 +48,13 @@ Gaps in Normal Space, Q-Net
 4. Kevin/Hugh/LoreReturns Apply blocks - **Slice 4 DONE** (`EventRules` Lore/Kevin + `InterruptRules.DecideHugh`)
 5. ApplyInstantEvent / ApplyNamedAuInterrupt - **Slice 5 DONE** (`InstantEventRules` / `NamedInterruptRules`)
 6. Dilemma/Artifact Apply remnants - **Slice 6 DONE** (`DilemmaRules` apply gates / `ArtifactRules` placement)
-7. Only then Premiere A card waves
+7. Sanctuary/Distortion/Tachyon/Transwarp - **Slice 7 DONE** (`InterruptShipEffectRules`)
+8. EOT attached events - **Slice 8 DONE** (`EndOfTurnEventRules` + Gaps/Q-Net Is*)
+9. Only then Premiere A card waves (Captain Go)
 
 ## Tip note after extracts
 
-Slices 1-7 decide gates extracted; local tip ahead of origin. **NO PUSH** until Pepsch retest green. Parked unchanged: Hugh Borg Ship Dilemma; IM FindMissionForDockable; dump@Gaps.
+Slices 1-8 decide gates extracted; local tip ahead of origin. **NO PUSH** until Pepsch retest green. Parked unchanged: Hugh Borg Ship Dilemma; IM FindMissionForDockable; dump@Gaps; Distortion (no AU).
 
 ## Deliberately not in first extract wave
 

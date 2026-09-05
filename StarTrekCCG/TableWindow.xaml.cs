@@ -1186,7 +1186,7 @@ public partial class TableWindow : Window
             var fake = new AttachedEvent
             {
                 Card = sc,
-                Kind = EventRules.NameIs(sc, "Q-Net")
+                Kind = EventRules.IsQNet(sc)
                     ? EventRules.Persist.QNet
                     : EventRules.Persist.Gaps,
                 Owner = GetBorderOwner(cell),
@@ -9344,7 +9344,7 @@ public partial class TableWindow : Window
 
     /// <summary>Gaps is a landable span-4 location. Q-Net is a barrier, not a stop.</summary>
     private static bool IsLandableLocation(Card c) =>
-        IsMissionCard(c) || EventRules.NameIs(c, "Gaps in Normal Space");
+        IsMissionCard(c) || EventRules.IsGapsInNormalSpace(c);
 
     private static bool IsSpacelineSpanCard(Card c)
     {
@@ -17765,7 +17765,7 @@ public partial class TableWindow : Window
                 }
             }
             // Gaps kill only on Gaps span (rules); View discards + logs.
-            bool destIsGaps = dest?.Tag is Card dc && EventRules.NameIs(dc, "Gaps in Normal Space");
+            bool destIsGaps = dest?.Tag is Card dc && EventRules.IsGapsInNormalSpace(dc);
             bool destIsGapsFace = dest != null && ReferenceEquals(FindBorderForCard(e.Card), dest);
             if (e.Kind == EventRules.Persist.Gaps
                 && MovementHazardRules.GapsKillOnArrival(destIsGaps || destIsGapsFace))
@@ -17936,14 +17936,15 @@ public partial class TableWindow : Window
     {
         foreach (var e in _attachedEvents.ToList())
         {
-            if (InterruptRules.IsTranswarpConduit(e.Card) && e.Owner == owner)
+            if (EndOfTurnEventRules.ShouldDiscardTranswarp(
+                    InterruptRules.IsTranswarpConduit(e.Card), e.Owner == owner))
             {
                 _attachedEvents.Remove(e);
                 SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
                 continue;
             }
 
-            if (e.Kind == EventRules.Persist.Distortion)
+            if (EndOfTurnEventRules.ShouldFlipDistortion(e.Kind == EventRules.Persist.Distortion))
             {
                 e.FaceUp = !e.FaceUp;
                 _session.Log.Add(_session.TurnNumber, "sys",
@@ -17953,28 +17954,30 @@ public partial class TableWindow : Window
             if (e.Kind == EventRules.Persist.PlasmaFire && e.Host != null
                 && e.Host.Tag is Card ship)
             {
-                if (HasThermalDeflectors())
-                {
-                    _session.Log.AddDebug(_session.TurnNumber, "Check",
-                        "Plasma Fire suppressed by Thermal Deflectors.");
-                    continue;
-                }
                 int shipOwner = GetBorderOwner(e.Host);
                 if (shipOwner == 0) shipOwner = e.Owner;
                 e.ScopePlayer ??= shipOwner;
                 e.TurnScope = TimingRules.TurnScope.EachSubjectTurn;
                 e.PhasePoint = TimingRules.TurnPhasePoint.EndOfTurn;
-                if (!TimingRules.ShouldProcessOnTurn(
-                        e.TurnScope, e.PhasePoint,
-                        TimingRules.TurnPhasePoint.EndOfTurn, owner, e.ScopePlayer))
+                bool timingOk = TimingRules.ShouldProcessOnTurn(
+                    e.TurnScope, e.PhasePoint,
+                    TimingRules.TurnPhasePoint.EndOfTurn, owner, e.ScopePlayer);
+                var plan = EndOfTurnEventRules.DecidePlasmaFire(
+                    HasThermalDeflectors(), timingOk, GetHullDamage(e.Host));
+                if (plan.Action == EndOfTurnEventRules.PlasmaAction.SkipThermal)
+                {
+                    _session.Log.AddDebug(_session.TurnNumber, "Check",
+                        "Plasma Fire suppressed by Thermal Deflectors.");
+                    continue;
+                }
+                if (plan.Action == EndOfTurnEventRules.PlasmaAction.SkipTiming)
                     continue;
 
                 // "May be nullified by SECURITY" is optional — not automatic.
-                int next = Math.Min(100, GetHullDamage(e.Host) + 50);
-                ApplyHullDamage(e.Host, ship, next);
+                ApplyHullDamage(e.Host, ship, plan.NextHullPercent);
                 _session.Log.Add(_session.TurnNumber, "sys",
-                    $"Plasma Fire damages {ship.Name} (HULL {next}%).");
-                if (next >= 100)
+                    $"Plasma Fire damages {ship.Name} (HULL {plan.NextHullPercent}%).");
+                if (plan.DestroyShip)
                 {
                     ShowCardReveal(e.Card, "Plasma Fire",
                         $"{ship.Name} is destroyed by Plasma Fire (HULL 100%).",
@@ -17986,7 +17989,7 @@ public partial class TableWindow : Window
                 else
                 {
                     ShowCardReveal(e.Card, "Plasma Fire",
-                        $"{ship.Name} is damaged (HULL {next}%).\n"
+                        $"{ship.Name} is damaged (HULL {plan.NextHullPercent}%).\n"
                         + "May be nullified later if SECURITY is aboard.",
                         RevealButtons.Ok, ship.Name, autoCloseMs: 4000);
                 }
@@ -18000,18 +18003,23 @@ public partial class TableWindow : Window
                 e.ScopePlayer ??= shipOwner;
                 e.TurnScope = TimingRules.TurnScope.SpecificPlayerNextTurn;
                 e.PhasePoint = TimingRules.TurnPhasePoint.EndOfTurn;
-
-                if (!TimingRules.ShouldProcessOnTurn(
-                        e.TurnScope, e.PhasePoint,
-                        TimingRules.TurnPhasePoint.EndOfTurn, owner, e.ScopePlayer))
-                    continue;
-
-                int cd = e.Countdown;
-                bool explode = TimingRules.TickCountdown(
-                    ref cd, e.TurnScope, e.PhasePoint,
+                bool timingOk = TimingRules.ShouldProcessOnTurn(
+                    e.TurnScope, e.PhasePoint,
                     TimingRules.TurnPhasePoint.EndOfTurn, owner, e.ScopePlayer);
-                e.Countdown = cd;
-                if (explode && e.Host.Tag is Card ws)
+                var plan = EndOfTurnEventRules.DecideWarpCore(
+                    timingOk, e.Countdown,
+                    cd =>
+                    {
+                        bool explode = TimingRules.TickCountdown(
+                            ref cd, e.TurnScope, e.PhasePoint,
+                            TimingRules.TurnPhasePoint.EndOfTurn, owner, e.ScopePlayer);
+                        return (cd, explode);
+                    });
+                e.Countdown = plan.CountdownAfter;
+                if (plan.Action == EndOfTurnEventRules.WarpCoreAction.SkipTiming)
+                    continue;
+                if (plan.Action == EndOfTurnEventRules.WarpCoreAction.Explode
+                    && e.Host.Tag is Card ws)
                 {
                     ShowCardReveal(e.Card, "Warp Core Breach",
                         $"{ws.Name} is destroyed (end of controller's next turn).",
@@ -18025,17 +18033,17 @@ public partial class TableWindow : Window
                 }
             }
 
-            if (e.Kind == EventRules.Persist.StaticWarp && e.Owner != owner)
+            if (e.Kind == EventRules.Persist.StaticWarp)
             {
-                // The Traveler: Transcendence continuously nullifies Static Warp Bubble
-                if (IsTravelerInPlay())
+                var hand = owner == 1 ? _handCards : _oppHandCards;
+                var sw = EndOfTurnEventRules.DecideStaticWarp(
+                    e.Owner == owner, IsTravelerInPlay(), hand.Count > 0);
+                if (sw == EndOfTurnEventRules.StaticWarpAction.SkipTraveler)
                 {
                     _session.Log.AddDebug(_session.TurnNumber, "Check",
                         "Static Warp Bubble: suppressed by The Traveler: Transcendence in play");
-                    continue;
                 }
-                var hand = owner == 1 ? _handCards : _oppHandCards;
-                if (hand.Count > 0)
+                else if (sw == EndOfTurnEventRules.StaticWarpAction.NeedHandDiscard)
                 {
                     var pick = PickHandCardToDiscard(owner,
                         "Static Warp Bubble",
@@ -18051,34 +18059,40 @@ public partial class TableWindow : Window
                 }
             }
 
-            if (e.Kind == EventRules.Persist.Traveler && e.TravelerPlayer == owner)
+            if (EndOfTurnEventRules.ShouldGrantTravelerExtraDraw(
+                    e.Kind == EventRules.Persist.Traveler, e.TravelerPlayer == owner))
                 _pendingExtraDraws++;
 
-            if (e.Kind == EventRules.Persist.Kidnappers && e.Owner == owner)
+            if (EndOfTurnEventRules.ShouldRunKidnappers(
+                    e.Kind == EventRules.Persist.Kidnappers, e.Owner == owner))
                 RunKidnappers(owner, e.Card);
 
-            if (e.Kind == EventRules.Persist.NeuralServo && e.Owner == owner && e.Host != null)
+            if (EndOfTurnEventRules.ShouldRestoreNeuralServo(
+                    e.Kind == EventRules.Persist.NeuralServo, e.Owner == owner, e.Host != null))
                 RestoreNeuralServo(e);
 
             if (e.Kind == EventRules.Persist.AntiTime)
             {
                 e.TurnScope = TimingRules.TurnScope.EveryTurn;
                 e.PhasePoint = TimingRules.TurnPhasePoint.EndOfTurn;
-                int cd = e.Countdown;
-                bool done = TimingRules.TickCountdown(
-                    ref cd, e.TurnScope, e.PhasePoint,
-                    TimingRules.TurnPhasePoint.EndOfTurn, owner, e.ScopePlayer);
-                e.Countdown = cd;
-                if (done)
-                {
+                var plan = EndOfTurnEventRules.DecideAntiTime(
+                    e.Countdown,
+                    cd =>
+                    {
+                        bool done = TimingRules.TickCountdown(
+                            ref cd, e.TurnScope, e.PhasePoint,
+                            TimingRules.TurnPhasePoint.EndOfTurn, owner, e.ScopePlayer);
+                        return (cd, done);
+                    });
+                e.Countdown = plan.CountdownAfter;
+                if (plan.Expire)
                     ApplyAntiTimeExpire(e);
-                }
             }
         }
         RefreshZoneCounts();
     }
 
-    /// <summary>Schiff an derselben Location wie eigenes Outpost/HQ (Repair-Facility).</summary>
+
     private bool IsShipAtOwnRepairFacility(Border shipBorder, int owner)
     {
         var mission = FindMissionForDockable(shipBorder);

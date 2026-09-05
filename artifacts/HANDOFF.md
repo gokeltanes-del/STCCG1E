@@ -1,5 +1,5 @@
 # STCCG 1E - Handoff
-Last updated: 2026-09-05 (Extract Slice 7 Sanctuary/Distortion/Tachyon/Transwarp)
+Last updated: 2026-09-05 (Extract Slice 8 EndOfTurnEventRules)
 Repo: https://github.com/gokeltanes-del/STCCG1E
 Local VS: C:\Dev\StarTrekCCG\StarTrekCCG
 Workflow: Josef edit locally -> Pepsch builds/tests in VS -> push only when green.
@@ -50,6 +50,12 @@ Look for: Hugh fail/hand; Hugh host-match; WNOHGB PathBlocked; Kevin/Hugh Spock;
 ### Retest add-on (2026-09-05) - Tachyon + Transwarp (Data, local, NO PUSH)
 8. **Transwarp Conduit:** drop on a ship → that host RANGE×2 this turn; **no** ship picker
 9. **Tachyon Detection Grid:** need ≥4 ships you control in play (cloaked count); drop on cloaked ship → decloak + no recloak rest of turn; <4 → deny with count; Sanctuary untouched
+
+
+### Extract Slice 8 (2026-09-05) - local, NO PUSH
+- `EndOfTurnEventRules` + `EventRules.IsGapsInNormalSpace` / `IsQNet`
+- Retest: Plasma Fire EOT +50 HULL / destroy@100; Thermal suppress; Warp Core countdown destroy; Static Warp hand discard (Traveler suppress); Transwarp EOT discard; Gaps/Q-Net still behave
+- Parked unchanged: Hugh Borg Ship Dilemma; IM FindMissionForDockable; dump@Gaps; Distortion (no AU)
 
 ### Still parked
 - Hugh Borg Ship Dilemma branch
