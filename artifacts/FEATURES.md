@@ -23,7 +23,12 @@ See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md.
 - Keep Klasse A/B/C process; no fundamentalsystem on speculation
 
 ## P3 - Later (UX / ideas - not now)
-- **Ship visual states (both players always see):** Stopped ~ half-transparent, Damaged ~ red tint; **Cloaked** needs a clear shared cue (e.g. badge). Placeholder for further states once Spock delivers the rules list. Do not implement until Captain prioritizes.
+- **Ship visual states (both players always see)** — Spock Premiere priority (2026-09-05); do not implement until Captain prioritizes:
+  - Today-ish: Stopped ~ half-transparent, Damaged ~ red tint (Rotation/HULL)
+  - Needs clear cue: **Cloaked** (e.g. badge)
+  - Premiere next: Docked, RANGE-left, Controller≠Owner
+  - After that: Staffed-Warnung, Commandeered, Phased, Landed, Carried, Tractor, Off-spaceline (Engage Cloak/Rift), Attachments-Badges
+  - Sources (Spock): Glossary cloaking/phasing, movement, damage/HULL, mission attempt, unique/owner
 - **Idea (Rules+Gameplay first, not UX-first):** Cloaked ships truly invisible to the opponent. Park as concept only - no implementation.
 - More expansion sets (after Premiere solid)
 - Net play
