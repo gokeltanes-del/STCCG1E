@@ -3,7 +3,7 @@ ACTIVE 2026-09-05 · Seven (Code?) + Spock (Soll + Quellen)
 Parent: `GLOSSARY_COVERAGE.md` · Lookup: Checklist ? Glossary ? Temp Rulings ? App A/B  
 Kein Code in dieser Welle.
 
-**Code?-Snapshot Seven 2026-09-05:** actions/responses/anytime/nullify/7.4.1/present = partial; Gaps = done. Checklist-Zellen bleiben ?? (kein Flip bei partial).
+**Code?-Snapshot Seven FINAL Welle1:** Gaps done; 1-4+6-7 partial; Hugh CanRespond PARKED; Checklist ??; Batches 1-5 complete
 
 ---
 
@@ -54,7 +54,7 @@ Kein Code in dieser Welle.
 - Counter-attack (nächster Zug am Attack-Location): kein Leader / keine Affiliation-Restriction nötig; optional.
 - Nach Battle: Beteiligte **stopped**.
 **Quellen:** Glossary *battle* / *battle - initiating*; Rulebook/Compendium battle; Checklist 7.4.1 ?? (Fed nur vs Borg notiert).
-**Code?** partial -- BattleRules Leader + Fed-only-vs-Borg; Counter/mixed offen
+**Code?** partial -- BattleRules Leader + Fed/Borg + wartimeVs partial; Counter-attack gate open (Batch 4)
 
 ---
 
@@ -65,7 +65,7 @@ Kein Code in dieser Welle.
 - **aboard** ˜ present für viele Space-Dilemmas (nur attempting Crew während Attempt).
 - **here / there:** im Site-Kontext = an diesem Site; im Spaceline/Timeline-Kontext = **anywhere at that location** (Planet-Oberfläche, Orbit-Ship, Facility dort).
 **Quellen:** Glossary *present*; *here*; Checklist 12.4 ??.
-**Code?** partial -- Location-Host (CL 12.4); nicht glossary-vollstaendig
+**Code?** partial -- Location-Host; Glossary present/here incomplete - deepen Welle 2 (Batch 5)
 
 ---
 
