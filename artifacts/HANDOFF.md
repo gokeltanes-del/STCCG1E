@@ -1,100 +1,68 @@
 # STCCG 1E - Handoff
-Last updated: 2026-09-05 (Extract Slice 8 EndOfTurnEventRules)
+Last updated: 2026-09-05 (spawn-ready: Gaps nullify green; Slice 8 + Gaps fix local)
 Repo: https://github.com/gokeltanes-del/STCCG1E
 Local VS: C:\Dev\StarTrekCCG\StarTrekCCG
 Workflow: Josef edit locally -> Pepsch builds/tests in VS -> push only when green.
 
 ## Team
 - Captain - Project Captain (Pepsch talks mainly here); goals + HANDOFF/PROJECT/CHANGELOG/ENGINE
-- Data - Engine Designer + Klasse C coder (was STCCG_Engine)
-- Spock - Rules A/B + card text + Compendium (was STCCG_Rules)
-- Seven - RULES_CHECKLIST coverage + FEATURES.md backlog
+- Data - Engine Designer + Klasse C coder (BoardStore/GameState/EngineAuthority/LegalMoves + TableWindow extract). **No separate coder.**
+- Spock - Rules A/B + card text + Compendium/Glossary Ist/Soll
+- Seven - RULES_CHECKLIST + FEATURES backlog; **with Spock: full Glossary/Compendium coverage (not only "what we coded")**
 Channel: STCCG Team
 Grok project: Star Trek CCG 1E (stccg-1e)
 
-## On every new chat (all bots)
-1. Read this HANDOFF.md
-2. Read artifacts/PROJECT.md + your specialty docs
-3. Check git tip / local ahead commits (`git status`, `git log -3 --oneline`)
-4. Ask Captain only if status unclear
-5. Do NOT touch uncommitted / in-progress Engine work belonging to another bot without Captain OK
+## On EVERY new chat / bot clone (all bots)
+1. Read **this HANDOFF.md** end-to-end
+2. Read `artifacts/PROJECT.md` + your specialty docs
+3. Data also: `artifacts/ENGINE.md`, `artifacts/CODE_PLACEMENT.md`, `artifacts/TABLEWINDOW_INVENTORY.md`
+4. Spock/Seven also: `artifacts/RULES.md`, `RULES_CHECKLIST.md`, Compendium PDF / Glossary
+5. `git status` + `git log -5 --oneline` on Josef — tip may be **ahead of origin**
+6. Ask Captain only if status unclear
+7. Do NOT touch another bot's in-progress Engine work without Captain OK
+8. German short replies with Pepsch (Data/Captain style: Schritt, Klasse, Dateien, bewusst nicht)
 
----
+## Current tip (2026-09-05) — VERIFY on Josef
+**Local tip:** `bb163ed` Fix Gaps nullify relocate (and beneath: Slice 8 `d5bd830`, Tachyon/Transwarp `2ad73e1`, Slice 7…)
+**Origin:** may lag — `git status` may show ahead N. **NO PUSH** until Pepsch says green for the whole pending stack.
+Pepsch confirmed **Gaps nullify relocate works** (2026-09-05). Still confirm Slice-8 items not yet signed off (Transwarp EOT discard etc.) before push if not already green.
 
-## Pepsch retest section (2026-09-05) - Data fixes COMPLETE locally
+### Pending / recently green
+- Gaps nullify relocate — **Pepsch GRÜN** (`bb163ed`)
+- Slice 7 Sanctuary + Tachyon/Transwarp fix — earlier green
+- Slice 8 EOT extract — Plasma/WarpCore/SWB(+Traveler) green per Captain notes; confirm Transwarp EOT + Gaps/Q-Net regression with Gaps fix
+- Distortion — deferred (no AU)
 
-### Status tip (local, NOT pushed)
-**Local tip (Josef):** verify with `git log -1 --oneline` (Hugh fail/hand + prior Wormhole/WNOHGB/Kevin/Hugh stack)
-**Origin tip:** `7bf128f` - Engine E6 (IM/Required-Move hops on Locations)
-**Branch:** `master` ahead of `origin/master`. **Do not assume pushed.** NO PUSH until Pepsch retest is green.
+### Parked (do not silently "fix" in extract)
+1. Hugh Borg Ship Dilemma branch
+2. IM FindMissionForDockable false already-at-facility
+3. Engine dump omits ships on Gaps
+4. Distortion (no AU to test)
 
-### Retest checklist (Pepsch) - push blocked until green
-1. Rebuild local tip (`dotnet build StarTrekCCG/StarTrekCCG.csproj -c Debug`)
-2. Gaps/Q-Net/Red Alert still GREEN (regression)
-3. **Wormhole:** 2 copies in hand â†’ drop first on exposed ship â†’ second on location + relocate/stop
-4. **WNOHGB:** play on TABLE â†’ wrap-around fly / IM on WNOHGB spaceline (Q-Net path uses shorter wrap when clear)
-5. **Kevin:** miss target â†’ card back in hand (not destroyed); can nullify TABLE + attached Events (picker if multi)
-6. **Hugh:** Rogue Borg â†’ drop on ship/location, no detail-pick; Borg Ship option only if Dilemma revealed+present
-7. Green â†’ push entire local stack; Red â†’ Ist/Soll no push
+## Foundation
+Board 0–6 + Engine E1–E6 **COMPLETE** (pushed earlier). Dual-run BoardStore; no big-bang TableWindow split.
 
-### Unpushed fix stack (newest first - verify `git log -20 --oneline`)
-Look for: Hugh fail/hand; Hugh host-match; WNOHGB PathBlocked; Kevin/Hugh Spock; WNOHGB wrap; Wormhole pair-check; night extract slices.
+## TableWindow extract status
+**Welle 1 (Inventar suggested order) Slices 1–8 DONE locally** — decide gates in `Game/*Rules`.
+- OPEN after Welle 1: Battle-Decide thin; EOT rest (Rogue Borg, Borg Ship, repairs, dilemma EOT); Persist branches (~32) stepwise
+- Premiere A card waves: **only Captain Go** — see `CODE_PLACEMENT.md`
+- Inventory: `artifacts/TABLEWINDOW_INVENTORY.md`
 
-### Root causes (for Pepsch notes)
-1. Wormhole: drag `RemoveCardFromZone` before pair-count â†’ counted 1 of 2; fixed `CountWormholesForPairStart`
-2. WNOHGB: hazard/Q-Net treated wrap as crossing whole line; wrap path + PathBlocked fallback
-3. Kevin: miss still committed/discarded; removed hover-only UX; TABLE+attached pool + cancelâ†’hand
-4. Hugh: Borg-affil ships wrongly in picker; Spock = Dilemma only when revealed; Rogue Borg direct drop
+## Where new code goes
+**`artifacts/CODE_PLACEMENT.md`** — Decide in Rules, Apply in TableWindow, Board for location/status. Read before any new card/verb.
 
-
-### Retest add-on (2026-09-05) - Tachyon + Transwarp (Data, local, NO PUSH)
-8. **Transwarp Conduit:** drop on a ship → that host RANGE×2 this turn; **no** ship picker
-9. **Tachyon Detection Grid:** need ≥4 ships you control in play (cloaked count); drop on cloaked ship → decloak + no recloak rest of turn; <4 → deny with count; Sanctuary untouched
-
-
-### Extract Slice 8 (2026-09-05) - local, NO PUSH
-- `EndOfTurnEventRules` + `EventRules.IsGapsInNormalSpace` / `IsQNet`
-- Retest: Plasma Fire EOT +50 HULL / destroy@100; Thermal suppress; Warp Core countdown destroy; Static Warp hand discard (Traveler suppress); Transwarp EOT discard; Gaps/Q-Net still behave
-- Parked unchanged: Hugh Borg Ship Dilemma; IM FindMissionForDockable; dump@Gaps; Distortion (no AU)
-
-
-### Fix Gaps-Nullify Relocate (2026-09-05) - local, NO PUSH
-- Spock: nullifier chooses adjacent; cards on Gaps discard; ships relocate immediately in NullifyEventInPlay
-- Retest: ship on Gaps → Kevin nullify Gaps → Prompt P-nullifier with 2 adjacent → ship lands there; no hang between missions
-
-### Still parked
-- Hugh Borg Ship Dilemma branch
-- IM FindMissionForDockable false already-at-facility
-- dump omits ships on Gaps
-
-### Next after green push + Captain Go
-Inventar: Slices 1-7 DONE (hazards, Wormhole, IM, Lore/Hugh, InstantEvent/NamedAu, Dilemma/Artifact, Sanctuary/Distortion/Tachyon/Transwarp). Next after push: Premiere A waves / remaining TW clusters. No big-bang. No new Premiere cards until Captain Go.
-
----
-
-### Tip note after extracts
-Local tip includes Slice 7 decide-gate extract (ahead of origin). **NO PUSH.** Parked unchanged: Hugh Borg Ship Dilemma; IM FindMissionForDockable false already-at; dump omits ships on Gaps.
-
-## Current foundation status (2026-09-04 / still true)
-- Board 0-6 done
-- **Foundation E1-E6 COMPLETE** and pushed; Pepsch tip when pushed was `7bf128f`
-- Leave Engine/Game C# alone unless you are Data on the assigned extract (or an explicitly assigned bugfix)
-
-## Parked bugs (must stay visible)
-1. **Gaps in Normal Space:** hopefully fixed in `f47469b` - keep watching
-2. **IM Federation:** false nullify already-at-facility - **still open**
-3. **Wormhole** - fixed locally (pair-check after drag) - retest
-4. **Engine dump** omits ships on Gaps - **still open**
+## Fix protocol
+Class A card / B phrase / C foundation. Lookup: Checklist → Glossary → Temp Rulings → App A → App B. One chat ≈ one step. CHANGELOG one line per playable change.
 
 ## Goals
 ### Short-term
-1. **Pepsch retest** this fix stack; push only when green
-2. **TableWindow extract** continues after push
-3. Premiere-first after extract
-4. Keep parked bugs visible
+1. Pepsch finish Slice-8 / stack retest → push when green
+2. Continue extract OPEN clusters on Captain Go
+3. Premiere-first after extract Welle 1 solid
+4. Seven+Spock: Glossary/Compendium full pass vs code
 
 ### Long-term
-Stable BoardStore+GameState truth; TableWindow view; Premiere then expansions; later net+AI; private non-commercial
+BoardStore+GameState truth; TableWindow view; Premiere then expansions; later net+AI; private non-commercial
 
 ## Docs map
-See PROJECT.md / ENGINE.md / RULES_CHECKLIST.md / FEATURES.md / CHANGELOG.md / TABLEWINDOW_INVENTORY.md
+HANDOFF (this) · PROJECT · ENGINE · CODE_PLACEMENT · TABLEWINDOW_INVENTORY · RULES · RULES_CHECKLIST · FEATURES · CHANGELOG

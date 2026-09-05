@@ -2,10 +2,12 @@
 
 Private, nicht-kommerzielle C# / .NET 8 / WPF-App (Hotseat zuerst, später Netz + KI).  
 Repo: https://github.com/gokeltanes-del/STCCG1E  
-**Stand:** 2026-09-04
+**Stand:** 2026-09-05
 
 Docs live under `artifacts/`; board+foundation are in `ENGINE.md`.  
-**Resume / bot handoff:** `artifacts/HANDOFF.md` (read first on every new chat).  
+**Resume / bot handoff:** `artifacts/HANDOFF.md` (read first on every new chat).
+**Code placement (new cards/verbs):** `artifacts/CODE_PLACEMENT.md`.
+**Extract inventory:** `artifacts/TABLEWINDOW_INVENTORY.md`.  
 **Team:** Captain (goals + docs), Data (engine / Klasse C), Spock (rules A/B + Compendium), Seven (checklist + `FEATURES.md` backlog). Feature backlog: `artifacts/FEATURES.md`.
 
 Daten: Lackey → `split_lackey_sets.py` → pro Set `cards.json` + Bilder (`GamePaths` / `C:\STCCG_Data`).  

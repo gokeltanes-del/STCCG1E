@@ -54,7 +54,7 @@ Gaps / Q-Net -> `EventRules.IsGapsInNormalSpace` / `IsQNet` (**Slice 8**)
 
 ## Tip note after extracts
 
-Slices 1-8 decide gates extracted; local tip ahead of origin. **NO PUSH** until Pepsch retest green. Parked unchanged: Hugh Borg Ship Dilemma; IM FindMissionForDockable; dump@Gaps; Distortion (no AU).
+Slices 1-8 decide gates extracted; Gaps nullify relocate `bb163ed` Pepsch green. Local tip may be ahead of origin — **NO PUSH** until Pepsch signs full stack. Parked: Hugh Borg Ship Dilemma; IM FindMissionForDockable; dump@Gaps; Distortion (no AU). Placement strategy: `artifacts/CODE_PLACEMENT.md`.
 
 ## Deliberately not in first extract wave
 

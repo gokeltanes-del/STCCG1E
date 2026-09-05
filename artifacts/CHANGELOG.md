@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-05 (Docs - spawn + CODE_PLACEMENT)
+
+**Docs** - HANDOFF spawn-ready tip `bb163ed`; `CODE_PLACEMENT.md` (Decide=Rules / Apply=TW / Board); PROJECT pointers. Gaps nullify Pepsch green. [C]
+
+---
 ## 2026-09-05 (Fix - Gaps nullify relocate)
 
 **Engine** - Kevin/nullify Gaps: before span remove, discard cards on Gaps event; nullifier chooses one of two adjacent locations; relocate ships/facilities there (`GapsNullifyRules` + RelocateOccupantsAfterGapsNullify). No hanging between missions. [C]
