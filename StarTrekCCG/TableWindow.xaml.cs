@@ -11741,6 +11741,19 @@ public partial class TableWindow : Window
         return hand.Count(InterruptRules.IsWormhole);
     }
 
+    /// <summary>
+    /// Drag removes the card from hand before drop (~RemoveCardFromZone).
+    /// Pair-start must still count the Wormhole being played.
+    /// </summary>
+    private int CountWormholesForPairStart(int owner, Card playing)
+    {
+        var hand = owner == 2 ? _oppHandCards : _handCards;
+        int n = hand.Count(InterruptRules.IsWormhole);
+        if (InterruptRules.IsWormhole(playing) && !hand.Contains(playing))
+            n++;
+        return n;
+    }
+
     private bool IsWormholeLocation(Border b) =>
         b.Tag is Card c && InterruptRules.IsWormholeLocationCard(
             IsMissionCard(c), CardKinds.IsTimeLocation(c));
@@ -11811,8 +11824,11 @@ public partial class TableWindow : Window
             return true;
         }
 
-        // Need two copies in hand to start (card still counted in hand at this point).
-        if (!InterruptRules.CanStartWormholePair(CountWormholesInHand(owner)))
+        // Drag already removed this card from hand — count it back in for the pair gate.
+        int wormholes = CountWormholesForPairStart(owner, card);
+        DebugLog.Move(_session.TurnNumber, owner,
+            $"wormhole pair-check count={wormholes} (hand+playing)");
+        if (!InterruptRules.CanStartWormholePair(wormholes))
         {
             ShowPlayError("Wormhole requires two Wormholes. Play one on your exposed ship, the other on a location.");
             return false;
