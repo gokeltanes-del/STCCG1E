@@ -5,9 +5,14 @@ Living list - **Seven owns ranking.** Reorder freely when checklist coverage or 
 See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md.
 
 ## P0 - Foundation (do first)
-- **TableWindow extract** (in progress, Data) - Welle 1 Slices 1-8 DONE (`447beac` green+push); **Slice 9 EOT-rest** in progress; then Persist → Battle
+- **TableWindow extract** (in progress, Data) - Welle 1 Slices 1-8 DONE (`447beac` green+push); **Slice 9 EOT-rest** tip `227aa65` + Repair Leave-Reset in Status-UX pack; then Persist then Battle
   - Premiere A card waves: **only Captain Go** (see CODE_PLACEMENT.md)
   - **Before new Premiere card waves**; no big-bang UI rewrite
+- **Status-UX / Stasis-Held (Pepsch Go 2026-09-05, Data on Josef)** - one pack with Repair Leave-Reset:
+  - Outpost/Spacedock repair: Undock/Leave/Fly → Counter 0; Detail amber EN `Outpost repair: clears end of next turn (N left)`
+  - Detail Status-Block colors: Green Buff / Red Debuff / Amber Timer; Crew-Minis same badges
+  - Stasis: Cyan/Violet glow + Detail `In stasis`; Mission Held-Panel (Dilemma + Personnel) for Alien Abduction etc.
+  - Coverage: mark done after Pepsch green (Seven); Spock Soll stasis/Alien Abduction delivered
 - **Glossary/Compendium full coverage (Seven+Spock)** - Welle 1 Timing/Actions/Nullify core done; **Hugh/Borg CanRespond DONE** (`447beac`); **Welle 2 Control/Owner/Present ACTIVE** (Docs only). Track FULL Glossary vs code; Ist/Soll with Spock.
 
 ## P1 - Parked
