@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-05 (Extract Slice 7 - Sanctuary/Distortion/Tachyon decide gates)
+
+**Engine** - Premiere interrupt ship-effect gates in InterruptShipEffectRules (SanctuaryDeny / DistortionDeny / TachyonDeny / TranswarpDeny); NameIs helpers on InterruptRules. TableWindow keeps AskPlayer / attach / TurnExpiry / cloak / status. [C - Grundlage]
+
+---
 ## 2026-09-05 (Extract Slice 6 - Dilemma/Artifact Apply gates)
 
 **Engine** - `DilemmaRules` apply gates (seed-remove, attach-host preference, stasis, score, TCL/Edo/Conundrum); `ArtifactRules.DecideAcquirePlacement` / `ShouldDownloadOnAcquire`. TableWindow keeps kills/attach/UI/side effects. [C - Grundlage]

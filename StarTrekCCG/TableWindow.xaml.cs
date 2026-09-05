@@ -3945,9 +3945,9 @@ public partial class TableWindow : Window
 
             if (a.IsResponse)
             {
-                bool attachStay = InterruptRules.NameIs(a.Card, "Asteroid Sanctuary")
-                                  || InterruptRules.NameIs(a.Card, "Distortion of Space/Time Continuum")
-                                  || InterruptRules.NameIs(a.Card, "Tachyon Detection Grid");
+                bool attachStay = InterruptRules.IsAsteroidSanctuary(a.Card)
+                                  || InterruptRules.IsDistortionContinuum(a.Card)
+                                  || InterruptRules.IsTachyonDetectionGrid(a.Card);
                 // Kevin (etc.) may still need TargetCard nullify when used as a response
                 if ((TimingRules.IsInterrupt(a.Card) || InterruptRules.IsInterrupt(a.Card))
                     && (a.TargetCard != null || attachStay))
@@ -12961,6 +12961,9 @@ public partial class TableWindow : Window
             case InterruptRules.Effect.Transwarp:
                 {
                     Border? shipB = PickOwnShip(controller);
+                    bool hasOwn = shipB != null && shipB.Tag is Card;
+                    if (InterruptShipEffectRules.TranswarpDeny(hasOwn) != null)
+                        break;
                     if (shipB != null && shipB.Tag is Card sc)
                     {
                         int printed = BattleRules.EffectiveRange(sc, GetHullDamage(shipB));
@@ -17107,30 +17110,31 @@ public partial class TableWindow : Window
         var host = _interruptTargetHost
                    ?? stackDef
                    ?? PickOwnShip(controller);
-        if (host == null || host.Tag is not Card ship || !IsShipCard(ship))
+        bool hostIsShip = host != null && host.Tag is Card shipProbe && IsShipCard(shipProbe);
+        Card? ship = hostIsShip ? (Card)host!.Tag! : null;
+        bool isYours = hostIsShip
+            && (GetBorderOwner(host!) == controller || ship!.Controller == controller);
+        bool exposed = hostIsShip && !IsShipCloaked(host!);
+        bool nav = hostIsShip && EventRules.HasSkill(GetCrewOnShip(host!), "Navigation", 2);
+        var deny = InterruptShipEffectRules.SanctuaryDeny(hostIsShip, isYours, exposed, nav);
+        if (deny != null)
         {
-            ShowPlayError("Asteroid Sanctuary: play on your exposed ship.");
-            var hand = controller == 1 ? _handCards : _oppHandCards;
-            if (!hand.Contains(card)) hand.Add(card);
+            ShowPlayError(deny);
+            if (!hostIsShip)
+            {
+                var hand = controller == 1 ? _handCards : _oppHandCards;
+                if (!hand.Contains(card)) hand.Add(card);
+            }
             return;
         }
-        if (GetBorderOwner(host) != controller && (ship.Controller != controller))
-        {
-            ShowPlayError("Asteroid Sanctuary: must be your ship.");
-            return;
-        }
-        if (IsShipCloaked(host))
-        {
-            ShowPlayError("Asteroid Sanctuary: ship must be exposed (not cloaked).");
-            return;
-        }
-        bool nav = EventRules.HasSkill(GetCrewOnShip(host), "Navigation", 2);
+        var shipCard = ship!;
+        var hostBorder = host!;
         _attachedEvents.Add(new AttachedEvent
         {
             Card = card,
             Kind = EventRules.Persist.None,
             Owner = controller,
-            Host = host,
+            Host = hostBorder,
             Countdown = 0
         });
         TurnExpiry.Register(_session, new ExpiringEffect
@@ -17142,31 +17146,31 @@ public partial class TableWindow : Window
             Note = "Asteroid Sanctuary"
         });
         StatusText.Text = nav
-            ? $"Asteroid Sanctuary on {ship.Name}: battles initiated against it are cancelled (2 Navigation)."
-            : $"Asteroid Sanctuary on {ship.Name} — needs 2 Navigation aboard to cancel battles.";
+            ? $"Asteroid Sanctuary on {shipCard.Name}: battles initiated against it are cancelled (2 Navigation)."
+            : $"Asteroid Sanctuary on {shipCard.Name} — needs 2 Navigation aboard to cancel battles.";
         _session.Log.Add(_session.TurnNumber, $"P{controller}",
-            $"Asteroid Sanctuary on {ship.Name}");
-        UpdateHostBadge(host);
+            $"Asteroid Sanctuary on {shipCard.Name}");
+        UpdateHostBadge(hostBorder);
     }
 
     private void ApplyDistortionContinuum(Card card, int controller)
     {
         var host = _interruptTargetHost ?? PickOwnShip(controller);
-        if (host == null || host.Tag is not Card ship || !IsShipCard(ship))
+        bool hostIsShip = host != null && host.Tag is Card shipProbe && IsShipCard(shipProbe);
+        Card? ship = hostIsShip ? (Card)host!.Tag! : null;
+        bool isYours = hostIsShip
+            && (GetBorderOwner(host!) == controller || ship!.Controller == controller);
+        bool shipIsAu = hostIsShip && CardIcons.HasAlternateUniverse(ship!);
+        // Structural gates before AU-timing AskPlayer (UI stays in TW).
+        var early = InterruptShipEffectRules.DistortionDeny(hostIsShip, isYours, shipIsAu, alreadyInPlay: false);
+        if (early != null)
         {
-            ShowPlayError("Distortion of Space/Time Continuum: play on your non-AU ship.");
-            var hand = controller == 1 ? _handCards : _oppHandCards;
-            if (!hand.Contains(card)) hand.Add(card);
-            return;
-        }
-        if (CardIcons.HasAlternateUniverse(ship))
-        {
-            ShowPlayError("Distortion: target ship must be non-AU.");
-            return;
-        }
-        if (GetBorderOwner(host) != controller && ship.Controller != controller)
-        {
-            ShowPlayError("Distortion: must be your ship.");
+            ShowPlayError(early);
+            if (!hostIsShip)
+            {
+                var hand = controller == 1 ? _handCards : _oppHandCards;
+                if (!hand.Contains(card)) hand.Add(card);
+            }
             return;
         }
         if (!OpponentPlayedAuThisTurn(controller)
@@ -17178,29 +17182,33 @@ public partial class TableWindow : Window
             if (!hand.Contains(card)) hand.Add(card);
             return;
         }
-        if (_attachedEvents.Any(e =>
-                InterruptRules.NameIs(e.Card, "Distortion of Space/Time Continuum")))
+        bool alreadyInPlay = _attachedEvents.Any(e =>
+            InterruptRules.IsDistortionContinuum(e.Card));
+        var deny = InterruptShipEffectRules.DistortionDeny(hostIsShip, isYours, shipIsAu, alreadyInPlay);
+        if (deny != null)
         {
-            ShowPlayError("Distortion of Space/Time Continuum is unique — already in play.");
+            ShowPlayError(deny);
             return;
         }
+        var shipCard = ship!;
+        var hostBorder = host!;
         _attachedEvents.Add(new AttachedEvent
         {
             Card = card,
             Kind = EventRules.Persist.None,
             Owner = controller,
-            Host = host
+            Host = hostBorder
         });
-        StatusText.Text = $"Distortion on {ship.Name}. Use the ship button to unstop / restore RANGE / unstop Away Team (then discard).";
-        _session.Log.Add(_session.TurnNumber, $"P{controller}", $"Distortion on {ship.Name}");
-        UpdateHostBadge(host);
+        StatusText.Text = $"Distortion on {shipCard.Name}. Use the ship button to unstop / restore RANGE / unstop Away Team (then discard).";
+        _session.Log.Add(_session.TurnNumber, $"P{controller}", $"Distortion on {shipCard.Name}");
+        UpdateHostBadge(hostBorder);
     }
 
     private void UseDistortionOnShip(Border host)
     {
         var ae = _attachedEvents.FirstOrDefault(e =>
             e.Host == host
-            && InterruptRules.NameIs(e.Card, "Distortion of Space/Time Continuum"));
+            && InterruptRules.IsDistortionContinuum(e.Card));
         if (ae == null) return;
         var shipName = (host.Tag as Card)?.Name ?? "ship";
         if (ShowCardReveal(ae.Card, "Distortion",
@@ -17240,13 +17248,7 @@ public partial class TableWindow : Window
 
     private void ApplyTachyonGrid(Card card, int controller)
     {
-        if (CountExposedShips(controller) < 4)
-        {
-            ShowPlayError("Tachyon Detection Grid: you must control four exposed ships.");
-            var hand = controller == 1 ? _handCards : _oppHandCards;
-            if (!hand.Contains(card)) hand.Add(card);
-            return;
-        }
+        int exposedCount = CountExposedShips(controller);
         var host = _interruptTargetHost;
         if (host == null || host.Tag is not Card ship || !IsShipCard(ship))
         {
@@ -17256,13 +17258,16 @@ public partial class TableWindow : Window
             host ??= TableCanvas.Children.OfType<Border>()
                 .FirstOrDefault(b => b.Tag is Card c && IsShipCard(c) && ShipHasCloakingDevice(c));
         }
-        if (host == null || host.Tag is not Card target || !IsShipCard(target))
+        bool hasTarget = host != null && host.Tag is Card targetProbe && IsShipCard(targetProbe);
+        var deny = InterruptShipEffectRules.TachyonDeny(exposedCount, hasTarget);
+        if (deny != null)
         {
-            ShowPlayError("Tachyon Detection Grid: no cloaked / cloak-capable ship.");
+            ShowPlayError(deny);
             var hand = controller == 1 ? _handCards : _oppHandCards;
             if (!hand.Contains(card)) hand.Add(card);
             return;
         }
+        var target = (Card)host!.Tag!;
         SetShipCloaked(host, false);
         if (target.InstanceId > 0)
             DebugLog.Move(_session.TurnNumber, controller,

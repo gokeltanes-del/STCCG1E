@@ -1,5 +1,5 @@
 # STCCG 1E - Handoff
-Last updated: 2026-09-05 (Extract Slice 5+6 InstantEvent/NamedAu + Dilemma/Artifact)
+Last updated: 2026-09-05 (Extract Slice 7 Sanctuary/Distortion/Tachyon/Transwarp)
 Repo: https://github.com/gokeltanes-del/STCCG1E
 Local VS: C:\Dev\StarTrekCCG\StarTrekCCG
 Workflow: Josef edit locally -> Pepsch builds/tests in VS -> push only when green.
@@ -52,12 +52,12 @@ Look for: Hugh fail/hand; Hugh host-match; WNOHGB PathBlocked; Kevin/Hugh Spock;
 - dump omits ships on Gaps
 
 ### Next after green push + Captain Go
-Inventar: Slices 1-6 DONE (hazards, Wormhole, IM, Lore/Hugh, InstantEvent/NamedAu, Dilemma/Artifact). Next after push: Premiere A waves / remaining TW clusters. No big-bang. No new Premiere cards until Captain Go.
+Inventar: Slices 1-7 DONE (hazards, Wormhole, IM, Lore/Hugh, InstantEvent/NamedAu, Dilemma/Artifact, Sanctuary/Distortion/Tachyon/Transwarp). Next after push: Premiere A waves / remaining TW clusters. No big-bang. No new Premiere cards until Captain Go.
 
 ---
 
 ### Tip note after extracts
-Local tip includes Slice 5+6 decide-gate extracts (ahead of origin). **NO PUSH.** Parked unchanged: Hugh Borg Ship Dilemma; IM FindMissionForDockable false already-at; dump omits ships on Gaps.
+Local tip includes Slice 7 decide-gate extract (ahead of origin). **NO PUSH.** Parked unchanged: Hugh Borg Ship Dilemma; IM FindMissionForDockable false already-at; dump omits ships on Gaps.
 
 ## Current foundation status (2026-09-04 / still true)
 - Board 0-6 done

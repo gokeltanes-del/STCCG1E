@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using StarTrekCCG.Models;
@@ -90,6 +90,9 @@ public static class InterruptRules
     public static bool IsRogueBorg(Card? c) => NameIs(c, "Rogue Borg");
     public static bool IsCrosis(Card? c) => NameIs(c, "Crosis");
     public static bool IsTranswarpConduit(Card? c) => NameIs(c, "Transwarp Conduit");
+    public static bool IsAsteroidSanctuary(Card? c) => NameIs(c, "Asteroid Sanctuary");
+    public static bool IsDistortionContinuum(Card? c) => NameIs(c, "Distortion of Space/Time Continuum");
+    public static bool IsTachyonDetectionGrid(Card? c) => NameIs(c, "Tachyon Detection Grid");
 
     public static bool IsIncomingMessage(Card? c) =>
         (c?.Name ?? "").StartsWith("Incoming Message", StringComparison.OrdinalIgnoreCase);

@@ -24,9 +24,11 @@ Scope: catalog altcode / per-card Apply hooks to pull into `Game/*Rules`, BoardS
 
 AntiTime, Baryon, CaptainsLog, Distortion, Espionage, Gaps, Goddess, IncomingMessage, IntruderField, Ionization, Kidnappers, Klim, LoreReturns, LowerDecks, NeuralServo, ParticleScatter, PatternEnhancers, PlasmaFire, QNet, RaiseStakes, RedAlert, Rift, Spacedock, StaticWarp, Supernova, Table, Tetryon, Thermal, Traveler, WarpCore, YellowAlert (+ None)
 
-## NameIs hardcodes in TableWindow (5)
+## NameIs hardcodes in TableWindow (2 remaining)
 
-Asteroid Sanctuary, Distortion of Space/Time Continuum, Gaps in Normal Space, Q-Net, Tachyon Detection Grid
+Gaps in Normal Space, Q-Net
+
+(Slice 7: Asteroid Sanctuary / Distortion of Space/Time Continuum / Tachyon Detection Grid -> InterruptRules.Is* helpers)
 
 ## Parked smoke bugs (not this inventory)
 
@@ -50,7 +52,7 @@ Asteroid Sanctuary, Distortion of Space/Time Continuum, Gaps in Normal Space, Q-
 
 ## Tip note after extracts
 
-Slices 1-6 decide gates extracted; local tip ahead of origin. **NO PUSH** until Pepsch retest green. Parked: Hugh Borg Ship Dilemma; IM FindMissionForDockable; dump@Gaps.
+Slices 1-7 decide gates extracted; local tip ahead of origin. **NO PUSH** until Pepsch retest green. Parked unchanged: Hugh Borg Ship Dilemma; IM FindMissionForDockable; dump@Gaps.
 
 ## Deliberately not in first extract wave
 
