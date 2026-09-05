@@ -9438,14 +9438,23 @@ public partial class TableWindow : Window
 
         int remain = GetRemainingRange(shipBorder, ship);
 
-        var block = CheckEventMovement(shipBorder, ship, uiFrom, uiTo, crew);
+        bool wrap = WnohgbRules.WrapAllowed(PlayerHasWnohgb(_activePlayer), boardLine.Count);
+        int directCost = MovementRules.RangeCostBetween(boardLine, fromIdx, toIdx, wrapEnds: false);
+        int wrapCost = MovementRules.RangeCostBetween(boardLine, fromIdx, toIdx, wrapEnds: true);
+        var block = CheckEventMovementOnLine(
+            shipBorder, ship, fromIdx, toIdx, crew,
+            wrapEnds: wrap, lineCount: boardLine.Count,
+            directCost: directCost, wrapCost: wrapCost,
+            indexOfHost: h => BoardIndexOf(boardLine, h));
         if (block != null)
         {
             StatusText.Text = block;
             return false;
         }
 
-        bool wrap = PlayerHasWnohgb(_activePlayer) && boardLine.Count >= 2;
+        if (wrap)
+            DebugLog.Move(_session.TurnNumber, _activePlayer,
+                $"wnohgb wrap={(WnohgbRules.UseWrapPath(wrap, directCost, wrapCost))} direct={directCost} wrapCost={wrapCost} from[{fromIdx}] to[{toIdx}]");
         var move = MovementRules.CanMoveShip(ship, crew, remain, boardLine, fromIdx, toIdx,
             GetActiveTreaties(_activePlayer), wrapEnds: wrap,
             skipStaffing: ShipStaffedByRogueBorg(shipBorder));
@@ -13022,7 +13031,11 @@ public partial class TableWindow : Window
         (player == 2 ? _oppTablePermanentCards : _tablePermanentCards).Any(pred);
 
     private bool PlayerHasWnohgb(int player) =>
-        PlayerHasTableCard(player, EventRules.IsWhereNoOneHasGoneBefore);
+        PlayerHasTableCard(player, EventRules.IsWhereNoOneHasGoneBefore)
+        || _attachedEvents.Any(e =>
+            e.Kind == EventRules.Persist.Table
+            && e.Owner == player
+            && EventRules.IsWhereNoOneHasGoneBefore(e.Card));
 
     private bool HasPatternEnhancers() =>
         _attachedEvents.Any(e => e.Kind == EventRules.Persist.PatternEnhancers)
@@ -15555,7 +15568,7 @@ public partial class TableWindow : Window
             ShowPlayError("Schiff-Location steht nicht auf dem Board.");
             return;
         }
-        bool wnohgb = PlayerHasWnohgb(_activePlayer) && boardLine.Count >= 2;
+        bool wnohgb = WnohgbRules.WrapAllowed(PlayerHasWnohgb(_activePlayer), boardLine.Count);
         int marked = 0;
         for (int i = 0; i < boardLine.Count; i++)
         {
@@ -17585,11 +17598,22 @@ public partial class TableWindow : Window
 
     private string? CheckEventMovement(Border ship, Card shipCard, int fromIdx, int toIdx, List<Card> crew)
     {
-        // Extract Slice 1: decide in MovementHazardRules; View only supplies indices/crew.
+        // Legacy paint-index path — prefer overload with Location line + WNOHGB wrap.
+        return CheckEventMovementOnLine(ship, shipCard, fromIdx, toIdx, crew, wrapEnds: false, lineCount: 0,
+            directCost: int.MaxValue, wrapCost: int.MaxValue, indexOfHost: IndexOfMission);
+    }
+
+    private string? CheckEventMovementOnLine(
+        Border ship, Card shipCard, int fromIdx, int toIdx, List<Card> crew,
+        bool wrapEnds, int lineCount, int directCost, int wrapCost,
+        Func<Border?, int> indexOfHost)
+    {
         bool arrivedAtFrom = _arrivedMissionThisTurn.TryGetValue(ship, out int arrived) && arrived == fromIdx;
         var hazards = _attachedEvents.Select(e => new MovementHazardRules.HazardEvent(
-            e.Kind, IndexOfMission(e.Host), IndexOfMission(e.Host2), DestIsGapsLocation: false));
-        return MovementHazardRules.CheckMovement(hazards, fromIdx, toIdx, crew, arrivedAtFrom);
+            e.Kind, indexOfHost(e.Host), indexOfHost(e.Host2), DestIsGapsLocation: false));
+        return MovementHazardRules.CheckMovement(
+            hazards, fromIdx, toIdx, crew, arrivedAtFrom,
+            wrapEnds, lineCount, directCost, wrapCost);
     }
 
     private void ApplyEventAfterMove(Border ship, Card shipCard, int fromIdx, int toIdx, List<Card> crew)

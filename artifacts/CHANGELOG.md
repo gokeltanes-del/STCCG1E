@@ -4,6 +4,12 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-05 (Fix — WNOHGB wrap path)
+
+**Engine** — WnohgbRules: ends adjacent for controller; hazard check uses wrap path (Q-Net no longer blocks End↔End as if crossing the middle). Debug wnohgb wrap=. [C]
+
+---
+
 ## 2026-09-05 (Fix — Wormhole pair-check after drag)
 
 **Engine** — Pair-start counts the Wormhole being played; drag removes it from hand before drop so a 2-copy hand no longer fails as count=1. [C]
