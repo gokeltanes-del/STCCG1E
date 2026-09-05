@@ -4213,17 +4213,15 @@ public partial class TableWindow : Window
         if (canReturn)
         {
             string pick = AskChoice(defenderCard, "Return Fire?",
-                $"{attackerShip.Name} attacks {defenderCard.Name}.
-" +
-                $"Attacker WEAPONS {atkW} vs target SHIELDS {BattleRules.GetShields(defenderCard)}.
-" +
+                $"{attackerShip.Name} attacks {defenderCard.Name}.\n" +
+                $"Attacker WEAPONS {atkW} vs target SHIELDS {BattleRules.GetShields(defenderCard)}.\n" +
                 $"P{defOwner}: return fire (WEAPONS {defWeapons})?",
                 "Return Fire", "No");
             returnFire = pick.StartsWith("Return", StringComparison.OrdinalIgnoreCase);
         }
         else if (IsShipDocked(defenderBorder))
         {
-            StatusText.Text = $"{defenderCard.Name} is docked — cannot return fire.";
+            StatusText.Text = $"{defenderCard.Name} is docked - cannot return fire.";
         }
         ResolveShipBattle(attackerBorder, attackerShip, defenderBorder, defenderCard, returnFire);
     }
