@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace StarTrekCCG;
 
@@ -35,20 +35,24 @@ public static class InterruptShipEffectRules
     }
 
     /// <summary>
-    /// Tachyon Detection Grid apply gates. Null = legal to de-cloak / lock / attach.
+    /// Tachyon Detection Grid (Spock 2026-09-05): need >=4 Controller ships in play
+    /// (cloaked count). Target must be cloaked (Phased is not cloaked).
+    /// Null = force-decloak + lock rest of turn.
     /// </summary>
-    public static string? TachyonDeny(int exposedShipCountYouControl, bool hasCloakedOrCloakCapableTarget)
+    public static string? TachyonDeny(int controllerShipsInPlay, bool targetIsCloaked)
     {
-        if (exposedShipCountYouControl < 4)
-            return "Tachyon Detection Grid: you must control four exposed ships.";
-        if (!hasCloakedOrCloakCapableTarget)
-            return "Tachyon Detection Grid: no cloaked / cloak-capable ship.";
+        if (controllerShipsInPlay < 4)
+            return "Tachyon Detection Grid: you must control four ships in play (have "
+                   + controllerShipsInPlay + ").";
+        if (!targetIsCloaked)
+            return "Tachyon Detection Grid: play on a cloaked ship (Phased is not cloaked).";
         return null;
     }
 
     /// <summary>
-    /// Transwarp Conduit: needs an own-ship pick. Null = apply RANGE double + attach + EOT discard.
+    /// Transwarp Conduit: drop host must be a ship. Null = RANGE x2 on that host.
+    /// No picker — use the drop/stack target host.
     /// </summary>
-    public static string? TranswarpDeny(bool hasOwnShipTarget) =>
-        hasOwnShipTarget ? null : "Transwarp Conduit: play on your ship.";
+    public static string? TranswarpDeny(bool hostIsShip) =>
+        hostIsShip ? null : "Transwarp Conduit: play on a ship.";
 }

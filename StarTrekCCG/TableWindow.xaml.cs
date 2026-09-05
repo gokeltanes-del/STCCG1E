@@ -1392,6 +1392,8 @@ public partial class TableWindow : Window
             {
                 SendCardTo(fx.Card, fx.Owner > 0 ? fx.Owner : finishingPlayer,
                     TimingRules.Destination.Discard);
+                foreach (var ae in _attachedEvents.Where(e => ReferenceEquals(e.Card, fx.Card) && e.Host != null))
+                    _cloakLocked.Remove(ae.Host!);
                 _attachedEvents.RemoveAll(e => ReferenceEquals(e.Card, fx.Card));
                 _session.Log.Add(_session.TurnNumber, $"P{finishingPlayer}",
                     $"Until end of turn: discarded {fx.Card.Name}"
@@ -12127,6 +12129,10 @@ public partial class TableWindow : Window
             if (o == 0) o = owner;
             return InterruptRules.CanWormholeFirstOnShip(true, o == owner, IsShipExposed(host));
         }
+        if (InterruptRules.IsTranswarpConduit(interrupt))
+            return host.Tag is Card tw && IsShipCard(tw);
+        if (InterruptRules.IsTachyonDetectionGrid(interrupt))
+            return host.Tag is Card th && IsShipCard(th) && IsShipCloaked(host);
         var spec = PlayOnRules.Parse(interrupt);
         if (spec.Host != PlayOnRules.Host.None)
             return HostMatchesPlayOn(host, owner, spec);
@@ -12960,10 +12966,19 @@ public partial class TableWindow : Window
                 break;
             case InterruptRules.Effect.Transwarp:
                 {
-                    Border? shipB = PickOwnShip(controller);
-                    bool hasOwn = shipB != null && shipB.Tag is Card;
-                    if (InterruptShipEffectRules.TranswarpDeny(hasOwn) != null)
+                    // Drop/stack target host — no ship picker (Pepsch: detail-picker worked, drop gate wrong).
+                    Border? shipB = _interruptTargetHost;
+                    if ((shipB == null || shipB.Tag is not Card) && target != null)
+                        shipB = FindBorderForCard(target);
+                    bool hostIsShip = shipB != null && shipB.Tag is Card sc0 && IsShipCard(sc0);
+                    var twDeny = InterruptShipEffectRules.TranswarpDeny(hostIsShip);
+                    if (twDeny != null)
+                    {
+                        ShowPlayError(twDeny);
+                        var hand = controller == 1 ? _handCards : _oppHandCards;
+                        if (!hand.Contains(card)) hand.Add(card);
                         break;
+                    }
                     if (shipB != null && shipB.Tag is Card sc)
                     {
                         int printed = BattleRules.EffectiveRange(sc, GetHullDamage(shipB));
@@ -12971,7 +12986,6 @@ public partial class TableWindow : Window
                         int used = Math.Max(0, printed - left);
                         // Full RANGE is doubled; RANGE already spent this turn still counts.
                         SetShipRangeLeft(shipB, sc, Math.Max(0, printed * 2 - used));
-                        // discard end of turn via attached dilemma-like flag on attached events list reuse
                         _attachedEvents.Add(new AttachedEvent
                         {
                             Card = card,
@@ -12988,6 +13002,10 @@ public partial class TableWindow : Window
                             Verb = "Discard",
                             Note = "Transwarp Conduit"
                         });
+                        StatusText.Text = $"Transwarp Conduit on {sc.Name}: full RANGE doubled this turn.";
+                        _session.Log.Add(_session.TurnNumber, $"P{controller}",
+                            $"Transwarp Conduit on {sc.Name}");
+                        UpdateHostBadge(shipB);
                     }
                     break;
                 }
@@ -13643,6 +13661,26 @@ public partial class TableWindow : Window
                 if (b.Tag is not Card hc || !IsShipCard(hc)) continue;
                 if (GetBorderOwner(b) != owner) continue;
                 if (IsShipExposed(b)) Add(b);
+            }
+            return list;
+        }
+
+        if (InterruptRules.IsTranswarpConduit(card))
+        {
+            foreach (var b in TableCanvas.Children.OfType<Border>())
+            {
+                if (b.Tag is not Card hc || !IsShipCard(hc)) continue;
+                Add(b);
+            }
+            return list;
+        }
+
+        if (InterruptRules.IsTachyonDetectionGrid(card))
+        {
+            foreach (var b in TableCanvas.Children.OfType<Border>())
+            {
+                if (b.Tag is not Card hc || !IsShipCard(hc)) continue;
+                if (IsShipCloaked(b)) Add(b);
             }
             return list;
         }
@@ -17033,6 +17071,21 @@ public partial class TableWindow : Window
         return n;
     }
 
+    /// <summary>Spock Tachyon: Controller ships in play (cloaked count; Phased not required here).</summary>
+    private int CountControllerShips(int player)
+    {
+        int n = 0;
+        foreach (var b in TableCanvas.Children.OfType<Border>())
+        {
+            if (b.Tag is not Card c || !IsShipCard(c)) continue;
+            int o = GetBorderOwner(b); if (o == 0) o = 1;
+            if (c.Controller != 0) o = c.Controller;
+            if (o != player) continue;
+            n++;
+        }
+        return n;
+    }
+
     private bool HasAttachedNamedInterrupt(Border host, string name) =>
         _attachedEvents.Any(e =>
             e.Host == host
@@ -17248,18 +17301,16 @@ public partial class TableWindow : Window
 
     private void ApplyTachyonGrid(Card card, int controller)
     {
-        int exposedCount = CountExposedShips(controller);
+        int ships = CountControllerShips(controller);
         var host = _interruptTargetHost;
-        if (host == null || host.Tag is not Card ship || !IsShipCard(ship))
+        if (host == null || host.Tag is not Card || !IsShipCard((Card)host.Tag))
         {
-            // Prefer a cloaked ship; otherwise a ship that can cloak.
+            // Prefer drop host; else a cloaked ship (not cloak-capable uncloaked).
             host = TableCanvas.Children.OfType<Border>()
                 .FirstOrDefault(b => b.Tag is Card c && IsShipCard(c) && IsShipCloaked(b));
-            host ??= TableCanvas.Children.OfType<Border>()
-                .FirstOrDefault(b => b.Tag is Card c && IsShipCard(c) && ShipHasCloakingDevice(c));
         }
-        bool hasTarget = host != null && host.Tag is Card targetProbe && IsShipCard(targetProbe);
-        var deny = InterruptShipEffectRules.TachyonDeny(exposedCount, hasTarget);
+        bool cloaked = host != null && IsShipCloaked(host);
+        var deny = InterruptShipEffectRules.TachyonDeny(ships, cloaked);
         if (deny != null)
         {
             ShowPlayError(deny);
@@ -17278,9 +17329,18 @@ public partial class TableWindow : Window
             Card = card,
             Kind = EventRules.Persist.None,
             Owner = controller,
-            Host = host
+            Host = host,
+            Countdown = 0
         });
-        StatusText.Text = $"{target.Name} de-cloaks and may not cloak while Tachyon Detection Grid remains.";
+        TurnExpiry.Register(_session, new ExpiringEffect
+        {
+            Key = $"Tachyon|{card.InstanceId}",
+            Owner = controller,
+            Card = card,
+            Verb = TurnExpiry.VerbDiscard,
+            Note = "Tachyon Detection Grid"
+        });
+        StatusText.Text = $"{target.Name} de-cloaks; may not recloak rest of turn (Tachyon Detection Grid).";
         _session.Log.Add(_session.TurnNumber, $"P{controller}",
             $"Tachyon Detection Grid on {target.Name}");
         UpdateHostBadge(host);

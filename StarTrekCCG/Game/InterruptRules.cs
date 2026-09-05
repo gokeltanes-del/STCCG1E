@@ -191,6 +191,12 @@ public static class InterruptRules
         if (IsWormhole(card))
             return PlayTarget.OwnShip;
 
+        if (IsTranswarpConduit(card))
+            return PlayTarget.AnyShip;
+
+        if (IsTachyonDetectionGrid(card))
+            return PlayTarget.AnyShip;
+
         return PlayTarget.None;
     }
 
@@ -446,7 +452,7 @@ public static class InterruptRules
                 Kind = Kind.AttachShip,
                 Effect = Effect.Tachyon,
                 DiscardAfter = false,
-                Message = "If you control four exposed ships: plays on a cloaked ship. It de-cloaks (even if stopped or cloaked this turn) and may not cloak."
+                Message = "If you control four ships in play (cloaked count): plays on a cloaked ship. Force de-cloak; may not cloak rest of turn. Phased is not cloaked."
             },
             "Distortion of Space/Time Continuum" => new Result
             {

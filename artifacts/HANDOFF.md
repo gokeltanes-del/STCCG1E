@@ -46,6 +46,11 @@ Look for: Hugh fail/hand; Hugh host-match; WNOHGB PathBlocked; Kevin/Hugh Spock;
 3. Kevin: miss still committed/discarded; removed hover-only UX; TABLE+attached pool + cancelâ†’hand
 4. Hugh: Borg-affil ships wrongly in picker; Spock = Dilemma only when revealed; Rogue Borg direct drop
 
+
+### Retest add-on (2026-09-05) - Tachyon + Transwarp (Data, local, NO PUSH)
+8. **Transwarp Conduit:** drop on a ship → that host RANGE×2 this turn; **no** ship picker
+9. **Tachyon Detection Grid:** need ≥4 ships you control in play (cloaked count); drop on cloaked ship → decloak + no recloak rest of turn; <4 → deny with count; Sanctuary untouched
+
 ### Still parked
 - Hugh Borg Ship Dilemma branch
 - IM FindMissionForDockable false already-at-facility
