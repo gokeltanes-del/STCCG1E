@@ -1,9 +1,14 @@
-﻿# Changelog
+# Changelog
 
 Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-05 (Extract Slice 5 - InstantEvent/NamedAu decide gates)
+
+**Engine** - Instant draw/Masaka/Res-Q plan in `InstantEventRules.Decide`; named AU interrupt routing in `NamedInterruptRules.Decide` (Countermanda, Destroy Scow, Senior Staff Meeting, Hail, Kevin Convergence). TableWindow keeps AskPlayer/draw/discard/UI. [C - Grundlage]
+
+---
 
 ## 2026-09-05 (Fix - Hugh fail returns to hand + battle source)
 

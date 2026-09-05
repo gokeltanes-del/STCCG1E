@@ -1,5 +1,5 @@
-﻿# STCCG 1E - Handoff
-Last updated: 2026-09-05 (Pepsch retest fixes - Wormhole/WNOHGB/Kevin/Hugh)
+# STCCG 1E - Handoff
+Last updated: 2026-09-05 (Extract Slice 5 InstantEvent/NamedAu)
 Repo: https://github.com/gokeltanes-del/STCCG1E
 Local VS: C:\Dev\StarTrekCCG\StarTrekCCG
 Workflow: Josef edit locally -> Pepsch builds/tests in VS -> push only when green.
@@ -47,11 +47,12 @@ Look for: Hugh fail/hand; Hugh host-match; WNOHGB PathBlocked; Kevin/Hugh Spock;
 4. Hugh: Borg-affil ships wrongly in picker; Spock = Dilemma only when revealed; Rogue Borg direct drop
 
 ### Still parked
+- Hugh Borg Ship Dilemma branch
 - IM FindMissionForDockable false already-at-facility
 - dump omits ships on Gaps
 
 ### Next after green push + Captain Go
-Inventar next: InstantEvent/NamedAu templates, Dilemma/Artifact Apply. No big-bang. No new Premiere cards until extract further.
+Inventar next: Dilemma/Artifact Apply (Slice 6). Slice 5 InstantEvent/NamedAu DONE. No big-bang. No new Premiere cards until extract further.
 
 ---
 

@@ -14189,20 +14189,21 @@ public partial class TableWindow : Window
 
     private void ApplyInstantEvent(Card ev, int controller, EventRules.PlayResult r)
     {
-        if (r.DrawCards > 0)
+        var plan = InstantEventRules.Decide(r);
+        if (plan.DrawCards > 0)
         {
             int who = AskPlayer(ev, ev.Name ?? "Event",
-                $"Which player draws {r.DrawCards} card(s)?");
+                $"Which player draws {plan.DrawCards} card(s)?");
             int saved = _activePlayer;
             _activePlayer = who;
-            for (int i = 0; i < r.DrawCards; i++)
+            for (int i = 0; i < plan.DrawCards; i++)
                 DrawOneToHand();
             _activePlayer = saved;
             ShowActivePlayerHand();
             _session.Log.Add(_session.TurnNumber, $"P{controller}",
-                $"{ev.Name}: P{who} draws {r.DrawCards}");
+                $"{ev.Name}: P{who} draws {plan.DrawCards}");
         }
-        if (r.Masaka)
+        if (plan.Masaka)
         {
             int who = AskPlayer(ev, "Masaka Transformations",
                 "Whose hand is placed under their draw deck and redrawn (same number)?");
@@ -14224,7 +14225,7 @@ public partial class TableWindow : Window
             AnnounceChoiceResult(ev, "Masaka Transformations",
                 $"Effect applied to Player {who} ({n} cards redrawn).");
         }
-        if (r.ResQ)
+        if (plan.ResQ)
         {
             var disc = controller == 1 ? _discardCards : _oppDiscardCards;
             var hand = controller == 1 ? _handCards : _oppHandCards;
@@ -14245,6 +14246,7 @@ public partial class TableWindow : Window
         }
         RefreshZoneCounts();
     }
+
 
     private void ApplySupernova(Border mission)
     {
@@ -14746,64 +14748,62 @@ public partial class TableWindow : Window
 
     private void ApplyNamedAuInterrupt(Card card, int controller)
     {
-        string n = (card.Name ?? "").Trim();
-        if (EventRules.IsKevinConvergence(card))
+        switch (NamedInterruptRules.Decide(card))
         {
-            ApplyKevinConvergence(controller, card);
-            return;
-        }
-        if (n.Equals("Countermanda", StringComparison.OrdinalIgnoreCase))
-        {
-            foreach (var e in _attachedEvents.Where(x => x.Kind == EventRules.Persist.Kidnappers).ToList())
+            case NamedInterruptRules.NamedAuOutcome.KevinConvergence:
+                ApplyKevinConvergence(controller, card);
+                return;
+            case NamedInterruptRules.NamedAuOutcome.Countermanda:
+                foreach (var e in _attachedEvents.Where(x => x.Kind == EventRules.Persist.Kidnappers).ToList())
+                {
+                    _attachedEvents.Remove(e);
+                    SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
+                }
+                StatusText.Text = "Countermanda: Telepathic Alien Kidnappers nullified.";
+                return;
+            case NamedInterruptRules.NamedAuOutcome.DestroyScow:
             {
-                _attachedEvents.Remove(e);
-                SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
-            }
-            StatusText.Text = "Countermanda: Telepathic Alien Kidnappers nullified.";
-            return;
-        }
-        if (n.Equals("Destroy Radioactive Garbage Scow", StringComparison.OrdinalIgnoreCase))
-        {
-            var scow = _attachedDilemmas.FirstOrDefault(d => d.Kind == DilemmaRules.PersistKind.Scow);
-            if (scow == null)
-            {
-                ShowPlayError("No Radioactive Garbage Scow in play.");
+                var scow = _attachedDilemmas.FirstOrDefault(d => d.Kind == DilemmaRules.PersistKind.Scow);
+                if (scow == null)
+                {
+                    ShowPlayError("No Radioactive Garbage Scow in play.");
+                    return;
+                }
+                var host = scow.Host;
+                _attachedDilemmas.Remove(scow);
+                SendCardTo(scow.Card, controller, TimingRules.Destination.Discard);
+                if (!HasThermalDeflectors() && host != null)
+                {
+                    foreach (var b in GetPersonnelBordersAtHost(host, opponentOf: 0).ToList())
+                    {
+                        if (b.Tag is not Card p) continue;
+                        // aboard a ship at this location — survive
+                        bool onShip = GetDockablesUnderMission(host)
+                            .Any(d => IsShipCard(d.Tag as Card ?? new Card())
+                                      && _stackOnHost.TryGetValue(d, out var crew) && crew.Contains(b));
+                        if (onShip) continue;
+                        DiscardPersonnelBorder(b, p, GetBorderOwner(b) == 0 ? 1 : GetBorderOwner(b));
+                    }
+                }
+                if (host != null && !_solvedMissions.Contains(host) && host.Tag is Card mis)
+                {
+                    AwardDilemmaPoints(-10);
+                    StatusText.Text = $"Scow destroyed. Mission {mis.Name} −10 (unsolved). Personnel not aboard ships killed.";
+                }
                 return;
             }
-            var host = scow.Host;
-            _attachedDilemmas.Remove(scow);
-            SendCardTo(scow.Card, controller, TimingRules.Destination.Discard);
-            if (!HasThermalDeflectors() && host != null)
-            {
-                foreach (var b in GetPersonnelBordersAtHost(host, opponentOf: 0).ToList())
-                {
-                    if (b.Tag is not Card p) continue;
-                    // aboard a ship at this location → survive
-                    bool onShip = GetDockablesUnderMission(host)
-                        .Any(d => IsShipCard(d.Tag as Card ?? new Card())
-                                  && _stackOnHost.TryGetValue(d, out var crew) && crew.Contains(b));
-                    if (onShip) continue;
-                    DiscardPersonnelBorder(b, p, GetBorderOwner(b) == 0 ? 1 : GetBorderOwner(b));
-                }
-            }
-            if (host != null && !_solvedMissions.Contains(host) && host.Tag is Card mis)
-            {
-                AwardDilemmaPoints(-10);
-                StatusText.Text = $"Scow destroyed. Mission {mis.Name} −10 (unsolved). Personnel not aboard ships killed.";
-            }
-            return;
-        }
-        if (n.Equals("Senior Staff Meeting", StringComparison.OrdinalIgnoreCase))
-        {
-            _seniorStaffArmed = true;
-            StatusText.Text = "Senior Staff Meeting: first dilemma of the next space attempt is discarded.";
-            return;
-        }
-        if (n.Equals("Hail", StringComparison.OrdinalIgnoreCase))
-        {
-            StatusText.Text = "Hail: flying-by ship must stop here, or two ships cannot battle this turn (choose via ship orders).";
+            case NamedInterruptRules.NamedAuOutcome.SeniorStaffMeeting:
+                _seniorStaffArmed = true;
+                StatusText.Text = "Senior Staff Meeting: first dilemma of the next space attempt is discarded.";
+                return;
+            case NamedInterruptRules.NamedAuOutcome.Hail:
+                StatusText.Text = "Hail: flying-by ship must stop here, or two ships cannot battle this turn (choose via ship orders).";
+                return;
+            default:
+                return;
         }
     }
+
 
     private bool HasMatchingCommander(Border shipBorder, Card ship)
     {
