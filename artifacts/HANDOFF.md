@@ -57,6 +57,11 @@ Look for: Hugh fail/hand; Hugh host-match; WNOHGB PathBlocked; Kevin/Hugh Spock;
 - Retest: Plasma Fire EOT +50 HULL / destroy@100; Thermal suppress; Warp Core countdown destroy; Static Warp hand discard (Traveler suppress); Transwarp EOT discard; Gaps/Q-Net still behave
 - Parked unchanged: Hugh Borg Ship Dilemma; IM FindMissionForDockable; dump@Gaps; Distortion (no AU)
 
+
+### Fix Gaps-Nullify Relocate (2026-09-05) - local, NO PUSH
+- Spock: nullifier chooses adjacent; cards on Gaps discard; ships relocate immediately in NullifyEventInPlay
+- Retest: ship on Gaps → Kevin nullify Gaps → Prompt P-nullifier with 2 adjacent → ship lands there; no hang between missions
+
 ### Still parked
 - Hugh Borg Ship Dilemma branch
 - IM FindMissionForDockable false already-at-facility

@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-05 (Fix - Gaps nullify relocate)
+
+**Engine** - Kevin/nullify Gaps: before span remove, discard cards on Gaps event; nullifier chooses one of two adjacent locations; relocate ships/facilities there (`GapsNullifyRules` + RelocateOccupantsAfterGapsNullify). No hanging between missions. [C]
+
+---
 ## 2026-09-05 (Extract Slice 8 - EndOfTurn attached-event decide)
 
 **Engine** - `EndOfTurnEventRules` decide gates for ProcessEndOfTurnEvents (Transwarp discard, Distortion flip, Plasma Fire, Warp Core, Static Warp, Traveler draw, Kidnappers, NeuralServo, Anti-Time). `EventRules.IsGapsInNormalSpace` / `IsQNet`. TableWindow keeps damage/destroy/UI/pick. [C - Grundlage]

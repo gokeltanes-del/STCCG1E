@@ -12649,6 +12649,120 @@ public partial class TableWindow : Window
         return false;
     }
 
+
+    /// <summary>
+    /// Gaps nullify: discard cards on the event; relocate ships/dockables at Gaps to one adjacent
+    /// location chosen by the nullifier (Spock / Glossary). Must run before span removal.
+    /// </summary>
+    private void RelocateOccupantsAfterGapsNullify(
+        Card gapsCard, List<AttachedEvent> attached, int nullifier)
+    {
+        var span = FindBorderForCard(gapsCard);
+        var ae0 = attached.FirstOrDefault(a => a.Kind == EventRules.Persist.Gaps)
+                  ?? attached.FirstOrDefault();
+
+        var adj = GapsNullifyRules.AdjacentEndpoints(ae0?.Host, ae0?.Host2).ToList();
+        if (adj.Count == 0 && span != null)
+        {
+            int idx = _spacelineOrder.IndexOf(span);
+            foreach (int i in GapsNullifyRules.AdjacentIndices(idx, _spacelineOrder.Count))
+                adj.Add(_spacelineOrder[i]);
+        }
+        adj = adj.Where(b => b != null && TableCanvas.Children.Contains(b)
+                             && b.Tag is Card loc && IsLandableLocation(loc)
+                             && !EventRules.IsGapsInNormalSpace(loc)).Distinct().ToList();
+
+        // Cards played directly on the Gaps event → discard (not ships/facilities).
+        if (span != null && _stackOnHost.TryGetValue(span, out var onEvent))
+        {
+            foreach (var b in onEvent.ToList())
+            {
+                if (b.Tag is not Card c) continue;
+                if (IsShipCard(c) || IsFacilityCard(c)) continue;
+                int o = GetBorderOwner(b);
+                if (o == 0) o = nullifier;
+                onEvent.Remove(b);
+                if (TableCanvas.Children.Contains(b))
+                    TableCanvas.Children.Remove(b);
+                SendCardTo(c, o, TimingRules.Destination.Discard);
+                _session.Log.Add(_session.TurnNumber, $"P{nullifier}",
+                    $"Gaps nullify: discarded {c.Name} from Gaps event");
+            }
+        }
+
+        // Ships / facilities at the Gaps location.
+        var movers = new List<Border>();
+        if (span != null)
+        {
+            foreach (var b in GetDockablesUnderMission(span))
+                movers.Add(b);
+            if (_stackOnHost.TryGetValue(span, out var stacked))
+            {
+                foreach (var b in stacked)
+                {
+                    if (b.Tag is Card sc && (IsShipCard(sc) || IsFacilityCard(sc))
+                        && !movers.Contains(b))
+                        movers.Add(b);
+                }
+            }
+            foreach (var kv in _dockableAtMission.ToList())
+            {
+                if (ReferenceEquals(kv.Value, span) && !movers.Contains(kv.Key)
+                    && kv.Key.Tag is Card dc && (IsShipCard(dc) || IsFacilityCard(dc)))
+                    movers.Add(kv.Key);
+            }
+        }
+
+        if (movers.Count == 0)
+            return;
+
+        if (adj.Count == 0)
+        {
+            _session.Log.Add(_session.TurnNumber, $"P{nullifier}",
+                "Gaps nullify: no adjacent location — occupants not relocated (illegal hang avoided only if none)");
+            StatusText.Text = "Gaps nullified but no adjacent location found for relocate.";
+            return;
+        }
+
+        Border dest;
+        if (adj.Count == 1)
+        {
+            dest = adj[0];
+            _session.Log.Add(_session.TurnNumber, $"P{nullifier}",
+                $"Gaps nullify relocate (only adjacent): {(dest.Tag as Card)?.Name}");
+        }
+        else
+        {
+            // Nullifier chooses — AskChoice logs timeout→random as hotseat fallback.
+            int saved = _activePlayer;
+            _activePlayer = nullifier;
+            string n0 = (adj[0].Tag as Card)?.Name ?? "Adjacent A";
+            string n1 = (adj[1].Tag as Card)?.Name ?? "Adjacent B";
+            // Disambiguate identical names for the Yes/No labels.
+            if (string.Equals(n0, n1, StringComparison.OrdinalIgnoreCase))
+            {
+                n0 = $"{n0} (left)";
+                n1 = $"{n1} (right)";
+            }
+            string pick = AskChoice(gapsCard, $"P{nullifier}: Gaps nullify — relocate to?",
+                "Choose one adjacent spaceline location for cards that were at Gaps.",
+                n0, n1);
+            _activePlayer = saved;
+            dest = pick == n1 ? adj[1] : adj[0];
+        }
+
+        foreach (var ship in movers.ToList())
+        {
+            if (ship.Tag is not Card sc) continue;
+            RelocateShipToLocation(ship, dest);
+            _session.Log.Add(_session.TurnNumber, $"P{nullifier}",
+                $"Gaps nullify: relocated {sc.Name} → {(dest.Tag as Card)?.Name}");
+        }
+        StatusText.Text =
+            $"Gaps nullified — relocated {movers.Count} to {(dest.Tag as Card)?.Name} (P{nullifier} chose).";
+        SyncBoardFromTable(logDual: false);
+    }
+
     private void NullifyEventInPlay(Card ev, int byPlayer)
     {
         var attached = _attachedEvents.Where(x => ReferenceEquals(x.Card, ev)).ToList();
@@ -12656,6 +12770,10 @@ public partial class TableWindow : Window
             : _oppTablePermanentCards.Contains(ev) ? 2
             : attached.FirstOrDefault()?.Owner is int ao && ao is 1 or 2 ? ao
             : byPlayer;
+
+        // Gaps nullify (Spock): relocate occupants BEFORE span is removed — nullifier chooses adjacent.
+        if (GapsNullifyRules.NeedsRelocateOnNullify(EventRules.IsGapsInNormalSpace(ev)))
+            RelocateOccupantsAfterGapsNullify(ev, attached, byPlayer);
 
         foreach (var ae in attached)
         {
