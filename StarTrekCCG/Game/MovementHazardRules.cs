@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using StarTrekCCG.Models;
 
@@ -6,7 +6,7 @@ namespace StarTrekCCG;
 
 /// <summary>
 /// TableWindow extract Slice 1: Q-Net / Tetryon / Rift / Gaps movement hazards.
-/// Pure index + card logic — no WPF. View still applies damage/discard/status.
+/// Pure index + card logic - no WPF. View still applies damage/discard/status.
 /// </summary>
 public static class MovementHazardRules
 {
@@ -16,9 +16,63 @@ public static class MovementHazardRules
         int Host2Index,
         bool DestIsGapsLocation);
 
-    /// <summary>Pre-move deny string, or null if movement may proceed.
-    /// When wrapEnds and the wrap path is shorter (WNOHGB), only that path is checked —
-    /// ends are adjacent; the long way across the spaceline is not crossed.</summary>
+    /// <summary>
+    /// Walk the chosen arc (direct or WNOHGB wrap). True if the edge between
+    /// consecutive indices on that arc is the Q-Net gap (h1↔h2).
+    /// </summary>
+    public static bool QNetCrossesPath(int fromIdx, int toIdx, int h1, int h2, int count, bool useWrap)
+    {
+        if (fromIdx == toIdx || fromIdx < 0 || toIdx < 0 || count < 2)
+            return false;
+        if (fromIdx >= count || toIdx >= count) return false;
+        if (h1 < 0 && h2 < 0) return false;
+
+        int step = toIdx > fromIdx ? 1 : -1;
+        if (useWrap) step = -step;
+
+        int i = fromIdx;
+        int guard = 0;
+        while (i != toIdx)
+        {
+            int next = (i + step + count) % count;
+            if (h1 >= 0 && h2 >= 0)
+            {
+                if ((i == h1 && next == h2) || (i == h2 && next == h1))
+                    return true;
+            }
+            else if (h1 >= 0)
+            {
+                // Single-host barrier: crossing past h1 on this arc.
+                if (i != h1 && next == h1) return true;
+            }
+            i = next;
+            if (++guard > count + 1) return true;
+        }
+        return false;
+    }
+
+    /// <summary>Walk the chosen arc; true if index is reached before destination (includes landing on idx).</summary>
+    public static bool PathVisitsIndex(int fromIdx, int toIdx, int idx, int count, bool useWrap)
+    {
+        if (idx < 0 || fromIdx == toIdx || count < 2) return false;
+        if (fromIdx < 0 || toIdx < 0 || fromIdx >= count || toIdx >= count) return false;
+        int step = toIdx > fromIdx ? 1 : -1;
+        if (useWrap) step = -step;
+        int i = fromIdx;
+        int guard = 0;
+        while (i != toIdx)
+        {
+            i = (i + step + count) % count;
+            if (i == idx) return true;
+            if (++guard > count + 1) return false;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Pre-move deny string, or null if movement may proceed.
+    /// When wrapEnds and wrapCost &lt; directCost (WNOHGB shorter ring), only that arc is checked.
+    /// </summary>
     public static string? CheckMovement(
         IEnumerable<HazardEvent> events,
         int fromIdx,
@@ -33,7 +87,19 @@ public static class MovementHazardRules
         if (fromIdx < 0 || toIdx < 0 || fromIdx == toIdx)
             return null;
 
-        bool useWrap = wrapEnds && lineCount >= 2 && wrapCost < directCost;
+        int count = lineCount;
+        if (count < 2)
+        {
+            int max = Math.Max(fromIdx, toIdx);
+            foreach (var e in events)
+            {
+                if (e.HostIndex > max) max = e.HostIndex;
+                if (e.Host2Index > max) max = e.Host2Index;
+            }
+            count = max + 1;
+        }
+
+        bool useWrap = WnohgbRules.UseWrapPath(wrapEnds, directCost, wrapCost);
 
         foreach (var e in events)
         {
@@ -41,17 +107,14 @@ public static class MovementHazardRules
             int h2 = e.Host2Index;
             if (e.Kind == EventRules.Persist.QNet)
             {
-                bool crosses = useWrap
-                    ? CrossesOnWrapPath(fromIdx, toIdx, h1, h2, lineCount)
-                    : CrossesOnLinearPath(fromIdx, toIdx, h1, h2);
+                bool crosses = QNetCrossesPath(fromIdx, toIdx, h1, h2, count, useWrap);
                 if (crosses && !EventRules.HasSkill(crew, "Diplomacy", 2))
                     return "Q-Net: 2 Diplomacy required aboard.";
             }
             if (e.Kind == EventRules.Persist.Tetryon && h1 >= 0)
             {
-                bool passes = useWrap
-                    ? CrossesOnWrapPath(fromIdx, toIdx, h1, h1, lineCount)
-                    : (Math.Min(fromIdx, toIdx) < h1 && Math.Max(fromIdx, toIdx) > h1);
+                bool passes = fromIdx != h1 && toIdx != h1
+                              && PathVisitsIndex(fromIdx, toIdx, h1, count, useWrap);
                 if (passes)
                     return "Tetryon Field: ships may not pass this location.";
                 if (fromIdx == h1 && toIdx != h1
@@ -61,35 +124,6 @@ public static class MovementHazardRules
             }
         }
         return null;
-    }
-
-    static bool CrossesOnLinearPath(int fromIdx, int toIdx, int h1, int h2)
-    {
-        int lo = Math.Min(fromIdx, toIdx);
-        int hi = Math.Max(fromIdx, toIdx);
-        if (h1 >= 0 && h2 >= 0 && lo <= Math.Min(h1, h2) && hi >= Math.Max(h1, h2) && fromIdx != toIdx)
-            return true;
-        if (h1 >= 0 && fromIdx < h1 && toIdx > h1)
-            return true;
-        return false;
-    }
-
-    /// <summary>WNOHGB: one hop between spaceline ends — crosses a barrier only if it sits on that end-edge.</summary>
-    static bool CrossesOnWrapPath(int fromIdx, int toIdx, int h1, int h2, int n)
-    {
-        if (n < 2) return false;
-        int a = Math.Min(fromIdx, toIdx);
-        int b = Math.Max(fromIdx, toIdx);
-        // Wrap edge is between 0 and n-1 only when flying those two ends.
-        if (a != 0 || b != n - 1) return CrossesOnLinearPath(fromIdx, toIdx, h1, h2);
-        // Barrier spanning the wrap edge: hosts at both ends (Q-Net between last and first).
-        if (h1 >= 0 && h2 >= 0)
-        {
-            int lo = Math.Min(h1, h2);
-            int hi = Math.Max(h1, h2);
-            if (lo == 0 && hi == n - 1) return true;
-        }
-        return false;
     }
 
     /// <summary>Subspace Warp Rift: fly-by or leave after arriving same turn.</summary>

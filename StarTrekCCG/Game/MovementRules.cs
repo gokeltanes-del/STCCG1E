@@ -305,11 +305,16 @@ public static class MovementRules
 
         int dCost = RangeCostBetween(line, fromIndex, toIndex, wrapEnds: false);
         int wCost = RangeCostBetween(line, fromIndex, toIndex, wrapEnds: true);
-        // wrapEnds:true returns min(direct, around). If around is cheaper, check that path.
+        bool wrapBlocked = Blocked(-directStep);
+        // Prefer shorter WNOHGB arc when clear; if that arc is Q-Net blocked, fall back to direct.
         if (wCost < dCost)
         {
-            usedWrap = true;
-            return Blocked(-directStep);
+            if (!wrapBlocked)
+            {
+                usedWrap = true;
+                return false;
+            }
+            return directBlocked;
         }
         return directBlocked;
     }
