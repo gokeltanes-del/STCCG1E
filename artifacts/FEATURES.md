@@ -7,6 +7,7 @@ See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md.
 ## P0 - Foundation (do first)
 - **TableWindow extract** (in progress, Data) - remaining TW clusters after Slices 1-6
   - Slices 1-6 DONE on origin (`0acd027`): hazards, Wormhole, IM, Lore/Hugh, InstantEvent/NamedAu, Dilemma/Artifact Apply
+  - Slice 7 local (`c910ac9`+): Sanctuary/Distortion/Tachyon/Transwarp - Pepsch Transwarp+Tachyon green 2026-09-05
   - Next: further extract slices (Captain Go); Premiere A waves only after extract enough
   - **Before new Premiere card waves**; no big-bang UI rewrite
 
@@ -21,7 +22,9 @@ See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md.
 - Premiere A/B hardening from RULES_CHECKLIST gaps
 - Keep Klasse A/B/C process; no fundamentalsystem on speculation
 
-## P3 - Later
+## P3 - Later (UX / ideas - not now)
+- **Ship visual states (both players always see):** Stopped ~ half-transparent, Damaged ~ red tint; **Cloaked** needs a clear shared cue (e.g. badge). Placeholder for further states once Spock delivers the rules list. Do not implement until Captain prioritizes.
+- **Idea (Rules+Gameplay first, not UX-first):** Cloaked ships truly invisible to the opponent. Park as concept only - no implementation.
 - More expansion sets (after Premiere solid)
 - Net play
 - AI
