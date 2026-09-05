@@ -4,6 +4,12 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+
+## 2026-09-05 (Fix - Hugh fail returns to hand + battle source)
+
+**Engine** - ApplyHugh uses DecideHugh; Fail restores Hugh to hand (no discard). Battle-cancel matches IsHughBattleSource (Borg Ship Dilemma or Rogue Borg). [C]
+
+---
 ## 2026-09-05 (Fix — Hugh Rogue ship host-match)
 
 **Engine** — Hugh HostMatches ships with Rogue Borg; Borg Ship Dilemma pool only when token/face visible (not mere Host attach). [C]
@@ -422,3 +428,4 @@ Phase-2-Tisch: Seed-Phasen, Hotseat feste Spaceline, Report/Staff/RANGE/Beam, Mi
 ## 2026-08-15
 
 Phase 0 Modelle + JSON-Loader · Phase 1 Deck Builder `.stdeck` · Lackey-Split in Set-Ordner.
+
