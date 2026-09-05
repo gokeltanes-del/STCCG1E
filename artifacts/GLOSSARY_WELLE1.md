@@ -17,7 +17,7 @@ Kein Code in dieser Welle.
 ## 2. valid responses
 **Soll:** Response nur wenn die Karte die laufende Action **spezifisch** modifiziert/cancelt/nullifiziert/prevented (meist namentlich). Nützlich ? gültig. Beispiel: Hugh = valid response auf Borg-Ship-Dilemma-Battle-Initiation; Temporal Rift ? valid response darauf.
 **Quellen:** Glossary *actions - step 2: responses*; Compendium *Valid responses* (Hugh vs Temporal Rift); Checklist „Just / valid response“ ??.
-**Code?** partial -- CanRespond / LegalResponsesInHand; Katalog duenn
+**Code?** partial -- CanRespond whitelist; Hugh CanRespond too wide PARKED Capt/Data; catalog thin
 
 ---
 
@@ -34,7 +34,7 @@ Kein Code in dieser Welle.
 - **Effekt nullify ohne Karte** möglich (Hugh nullifiziert Attack, Dilemma bleibt).
 - **Continuous „while in play, nullifies X“** (Traveler: Transcendence ? SWB): unterdrückt Effekt; Zielkarten dürfen gespielt werden / bleiben liegen; gilt eigene + gegnerische; endet wenn Nullifier leave play.
 **Quellen:** Glossary *nullify*; *Hugh*; *The Traveler: Transcendence*; Spock-Ruling SWB 2026-09-05.
-**Code?** partial -- Kevin/Devil TimingRules; Hugh effect-nullify; Traveler continuous partial
+**Code?** partial -- Kevin/Devil ok-ish; Hugh attack-cancel PARKED Dilemma-only; Traveler continuous partial
 
 ---
 
@@ -135,3 +135,9 @@ Später / Welle 2: `7.4.1` Fed wartime + Counter; `12.4` present/here Hosts.
 CODE6 partial BattleRules Fed/Leader
 CODE7 partial Location-Host
 Checklist leave ?? for partial; Gaps done
+## Nachschaerfung Spock 2026-09-05
+1 anytime vs response: not auto; only if text hits current action; else after resolution; suspends-play/SD exception
+2 Fed 7.4.1: no initiate except Borg unless card allows; mixed Fed+X = Fed force; counter-attack no leader/affil restrict
+3 present/here: spaceline here = anywhere at location; site = site only; attempting crew excludes disabled/house-arrest/intruder for dilemma aboard
+4 Traveler continuous: Transcendence while in play nullifies all SWB both players; SWB stay; leave play = SWB active again; not Kevin discard
+Gaps nullify unchanged done. No Welle 2 until Captain Go.
