@@ -14862,7 +14862,7 @@ public partial class TableWindow : Window
         foreach (var kv in _edoContinuePenalty.ToList())
         {
             if (kv.Value != finishingPlayer) continue;
-            if (_solvedMissions.Contains(kv.Key)) continue;
+            if (!EndOfTurnRestRules.ShouldApplyEdoContinuePenalty(_solvedMissions.Contains(kv.Key))) continue;
             if (finishingPlayer == 1) _scoreP1 -= 10;
             else _scoreP2 -= 10;
             UpdateScoreDisplay();
@@ -16250,33 +16250,21 @@ public partial class TableWindow : Window
             if (o != owner) continue;
 
             int hull = GetHullDamage(b);
-            if (hull <= 0 || hull >= 100) continue;
-
-            if (IsShipAtOwnRepairFacility(b, owner))
+            int turnsAlready = _repairTurnsAtOutpost.GetValueOrDefault(b, 0);
+            var action = EndOfTurnRestRules.DecideRepair(hull, IsShipAtOwnRepairFacility(b, owner), turnsAlready);
+            if (action == EndOfTurnRestRules.RepairAction.SkipHull) continue;
+            _repairTurnsAtOutpost[b] = EndOfTurnRestRules.NextRepairTurnCount(action, turnsAlready);
+            UpdateDamageBadge(b, hull);
+            if (action == EndOfTurnRestRules.RepairAction.FullyRepair)
             {
-                int turns = _repairTurnsAtOutpost.GetValueOrDefault(b, 0) + 1;
-                _repairTurnsAtOutpost[b] = turns;
-                UpdateDamageBadge(b, hull);
-
-                if (turns >= 2)
-                {
-                    RepairShipFully(b, c);
-                    repaired.Add(c.Name);
-                }
-                else
-                {
-                    progress.Add($"{c.Name} ({turns}/2)");
-                }
+                RepairShipFully(b, c);
+                repaired.Add(c.Name);
             }
-            else
+            else if (action == EndOfTurnRestRules.RepairAction.Progress)
             {
-                // Nicht (mehr) am Outpost → Fortschritt verfällt
-                if (_repairTurnsAtOutpost.GetValueOrDefault(b, 0) > 0)
-                {
-                    _repairTurnsAtOutpost[b] = 0;
-                    UpdateDamageBadge(b, hull);
-                }
+                progress.Add($"{c.Name} ({_repairTurnsAtOutpost[b]}/2)");
             }
+            // ResetProgress: badge already updated, no list entry (same as before)
         }
 
         if (repaired.Count > 0)
@@ -16307,7 +16295,7 @@ public partial class TableWindow : Window
             if (DilemmaRules.CanCure(a.Kind, present, ho))
             {
                 _attachedDilemmas.Remove(a);
-                if (a.Kind == DilemmaRules.PersistKind.HyperAging || a.Kind == DilemmaRules.PersistKind.RemFatigue)
+                if (EndOfTurnRestRules.CureAward(a.Kind == DilemmaRules.PersistKind.HyperAging || a.Kind == DilemmaRules.PersistKind.RemFatigue) == EndOfTurnRestRules.DilemmaCurePoints.Five)
                     AwardDilemmaPoints(5);
                 _session.Log.Add(_session.TurnNumber, $"P{ho}", $"Cured {a.Card.Name}");
                 continue;
@@ -16319,7 +16307,7 @@ public partial class TableWindow : Window
                 if (a.Host.Tag is Card ship)
                 {
                     int range = Math.Max(0, BattleRules.EffectiveRange(ship, GetHullDamage(a.Host)) - a.Countdown);
-                    if (range < 1)
+                    if (EndOfTurnRestRules.JuniorDestroysShip(range))
                     {
                         DestroyShipOrFacility(a.Host, ship, ho);
                         _attachedDilemmas.Remove(a);
@@ -16332,7 +16320,7 @@ public partial class TableWindow : Window
                 && ho == owner)
             {
                 a.Countdown--;
-                if (a.Countdown <= 0)
+                if (EndOfTurnRestRules.CountdownExpired(a.Countdown))
                 {
                     if (a.Kind == DilemmaRules.PersistKind.Nitrium && a.Host.Tag is Card ns)
                         DestroyShipOrFacility(a.Host, ns, ho);
@@ -17697,17 +17685,9 @@ public partial class TableWindow : Window
             var units = group.ToList();
             int n = units.Count;
             int str = RogueBorgStrengthOn(host);
-            if (n == 0 || str <= 0) continue;
             int shipOwner = GetBorderOwner(host);
             if (shipOwner == 0) shipOwner = 1;
-            if (n < 3 && _attachedEvents.Any(e =>
-                    e.Kind == EventRules.Persist.IntruderField && e.Owner == shipOwner))
-            {
-                _session.Log.AddDebug(_session.TurnNumber, "Check",
-                    $"Intruder Force Field: {n} Rogue Borg < 3 on {ship.Name} — no invasion.");
-                continue;
-            }
-
+            bool iff = _attachedEvents.Any(e => e.Kind == EventRules.Persist.IntruderField && e.Owner == shipOwner);
             // All non-RB personnel on the ship (any owner) — battle every turn if anyone is present
             var defenders = new List<Border>();
             if (_stackOnHost.TryGetValue(host, out var list))
@@ -17720,7 +17700,15 @@ public partial class TableWindow : Window
                     defenders.Add(b);
                 }
             }
-            if (defenders.Count == 0)
+            var invade = EndOfTurnRestRules.DecideRogueInvade(n, str, iff, defenders.Count > 0);
+            if (invade == EndOfTurnRestRules.RogueInvadeAction.SkipPruned) continue;
+            if (invade == EndOfTurnRestRules.RogueInvadeAction.SkipIntruderField)
+            {
+                _session.Log.AddDebug(_session.TurnNumber, "Check",
+                    $"Intruder Force Field: {n} Rogue Borg < 3 on {ship.Name} — no invasion.");
+                continue;
+            }
+            if (invade == EndOfTurnRestRules.RogueInvadeAction.SkipNoPersonnel)
             {
                 _session.Log.Add(_session.TurnNumber, "sys",
                     $"Rogue Borg on {ship.Name}: end of P{finishingPlayer} turn — no personnel present (no battle).");
@@ -17870,8 +17858,7 @@ public partial class TableWindow : Window
             if (!expired) continue;
 
             // Crosis and any other start-of-next-turn discards
-            if (InterruptRules.IsCrosis(ae.Card)
-                || ae.TurnScope == TimingRules.TurnScope.NextTurn)
+            if (EndOfTurnRestRules.ShouldDiscardExpiredStartOfTurnEvent(expired, InterruptRules.IsCrosis(ae.Card), ae.TurnScope == TimingRules.TurnScope.NextTurn))
             {
                 if (ae.Host != null)
                     _crosisShips.Remove(ae.Host);

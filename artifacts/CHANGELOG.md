@@ -4,6 +4,12 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-05 (Extract Slice 9 - EOT-rest decide gates)
+
+**Engine** - `EndOfTurnRestRules` decide gates: outpost repair 2-turn, Rogue Borg invade (+IFF), Edo continue -10, SOT Crosis/NextTurn discard, dilemma cure award / Junior destroy / countdown expired. TableWindow keeps Apply (repair/battle/discard/UI). Borg Ship EOT battle stays in TW. Next: Persist branches, then Battle-Decide. [C - Grundlage]
+
+---
+
 ## 2026-09-05 (Fix - Borg Ship stack + no RF after destroy)
 
 **Engine** - Borg Ship token stacks in next free slot under mission (not same Y as ships). Return Fire prompt skipped when Open Fire would destroy defender. [C]

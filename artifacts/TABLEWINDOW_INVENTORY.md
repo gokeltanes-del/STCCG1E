@@ -50,11 +50,12 @@ Gaps / Q-Net -> `EventRules.IsGapsInNormalSpace` / `IsQNet` (**Slice 8**)
 6. Dilemma/Artifact Apply remnants - **Slice 6 DONE** (`DilemmaRules` apply gates / `ArtifactRules` placement)
 7. Sanctuary/Distortion/Tachyon/Transwarp - **Slice 7 DONE** (`InterruptShipEffectRules`)
 8. EOT attached events - **Slice 8 DONE** (`EndOfTurnEventRules` + Gaps/Q-Net Is*)
-9. Only then Premiere A card waves (Captain Go)
+9. EOT-rest (repairs, Rogue invade, Edo, SOT discard, dilemma cure/Junior/countdown) - **Slice 9 DONE** (`EndOfTurnRestRules`); Borg Ship EOT battle stays in TW
+10. Only then Premiere A card waves (Captain Go)
 
 ## Tip note after extracts
 
-Slices 1-8 decide gates extracted; Gaps nullify relocate `bb163ed` Pepsch green. Local tip may be ahead of origin — **NO PUSH** until Pepsch signs full stack. Parked: Hugh Borg Ship Dilemma; IM FindMissionForDockable; dump@Gaps; Distortion (no AU). Placement strategy: `artifacts/CODE_PLACEMENT.md`.
+Slices 1-9 decide gates extracted (Slice 9 EOT-rest); Gaps nullify relocate `bb163ed` Pepsch green. Local tip may be ahead of origin — **NO PUSH** until Pepsch signs full stack. Parked: Hugh Borg Ship Dilemma; IM FindMissionForDockable; dump@Gaps; Distortion (no AU). Placement strategy: `artifacts/CODE_PLACEMENT.md`.
 
 ## Deliberately not in first extract wave
 

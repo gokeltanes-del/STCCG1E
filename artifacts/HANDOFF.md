@@ -43,8 +43,8 @@ Grok project: Star Trek CCG 1E (stccg-1e)
 Board 0â€“6 + Engine E1â€“E6 **COMPLETE** (pushed earlier). Dual-run BoardStore; no big-bang TableWindow split.
 
 ## TableWindow extract status
-**Welle 1 (Inventar suggested order) Slices 1â€“8 DONE locally** â€” decide gates in `Game/*Rules`.
-- OPEN after Welle 1: Battle-Decide thin; EOT rest (Rogue Borg, Borg Ship, repairs, dilemma EOT); Persist branches (~32) stepwise
+**Welle 1 Slices 1–9 DONE locally** — decide gates in `Game/*Rules` (Slice 9: `EndOfTurnRestRules` repair/Rogue/Edo/SOT/dilemma EOT).
+- OPEN after Slice 9: Persist branches (~32) stepwise; then Battle-Decide thin; Borg Ship EOT battle Apply stays in TW
 - Premiere A card waves: **only Captain Go** â€” see `CODE_PLACEMENT.md`
 - Inventory: `artifacts/TABLEWINDOW_INVENTORY.md`
 
