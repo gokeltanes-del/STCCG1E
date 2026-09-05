@@ -24,30 +24,28 @@ Grok project: Star Trek CCG 1E (stccg-1e)
 ## Night / morning section (2026-09-05) - Data night extract COMPLETE
 
 ### Status tip (local, NOT pushed)
-**Local tip (Josef):** HEAD = this handoff (`Docs: final night handoff for Pepsch morning`); parent `08bdce6` Docs: HANDOFF tip after Slice 3/4 extracts — verify with `git log -1 --oneline`
+**Local tip (Josef):** HEAD = `7fda649` Hugh host-match / parent stack includes Wormhole+WNOHGB+Kevin — verify `git log -1 --oneline`
 **Origin tip:** `7bf128f` - Engine E6 (IM/Required-Move hops on Locations)
-**Branch:** `master` ahead of `origin/master` by **11** commits. **Do not assume pushed.** NO PUSH until Pepsch morning test is green.
+**Branch:** `master` ahead of `origin/master` by **16** commits. **Do not assume pushed.** NO PUSH until Pepsch morning test is green.
 
 ### Morning test checklist (Pepsch)
 1. Rebuild local tip
 2. Gaps: neighbor (e.g. Lonka) NO kill; land on Gaps = exactly 1 kill + log line
-3. Wormhole: 2 in hand, pair + relocate
-4. Optional smoke: Q-Net 2 Diplomacy, IM, Red Alert, Lore/Hugh/Kevin if easy
-5. Green -> push entire local stack; Red -> Ist/Soll no push
+3. Wormhole: 2 in hand, pair + relocate (pair-check after drag)
+4. WNOHGB: play to TABLE; End↔End RANGE; Q-Net wrap hop without 2 Diplomacy if wrap avoids net; IM required path with wrap
+5. Kevin: miss → hand; pick TABLE Events; Hugh: drop on RB ship/location no detail-pick; Borg Ship only if revealed
+6. Optional smoke: Q-Net 2 Diplomacy, IM, Red Alert, Lore if easy
+7. Green -> push entire local stack; Red -> Ist/Soll no push
 
-### Unpushed stack (newest first - verify with `git log -12 --oneline`)
+### Unpushed stack (newest first - verify with `git log -18 --oneline`)
 ```
-HEAD Docs: final night handoff for Pepsch morning
-08bdce6 Docs: HANDOFF tip after Slice 3/4 extracts
-ca5372b Extract Slice 4: Lore/Hugh decide gates
-9f37417 Extract Slice 3: IncomingMessageRules gates
-26db024 Docs: night handoff for morning test
-db9c30b Extract Slice 2: Wormhole pair rules + relocate sync
-65d152e Extract Slice 1: MovementHazardRules from TableWindow
-8388d48 Docs: HANDOFF E6 done, TableWindow next, parked bugs
-8bc5e98 Docs: TableWindow inventory for extract prep
-f47469b Fix: Gaps kill only on Gaps location + log
-d5bbeb5 Docs: FEATURES/HANDOFF after E6 - TableWindow next, parked smoke bugs
+7fda649 Fix: Hugh host-match Rogue ship; Borg Ship present = visible only
+3ee11c0 Fix: WNOHGB PathBlocked fallback when wrap arc Q-Net blocked
+7a2f473 Fix: Kevin miss→hand + table Event picker; Hugh Spock
+cc5b5cf Fix: WNOHGB wrap path + wrap-aware hazard check
+926b023 Fix: Wormhole pair-check counts card removed by drag
+4a457f8 Docs: final night handoff for Pepsch morning
+… (night extract stack through origin 7bf128f)
 ```
 Night new: `08bdce6` Docs HANDOFF tip; `ca5372b` Slice 4 LoreReturnsDenyReason + DecideHugh + KevinEventAtLocation; `9f37417` Slice 3 IncomingMessageRules; plus earlier `f47469b` Gaps, `8bc5e98` inventar, `65d152e` Slice1 Hazards, `db9c30b` Slice2 Wormhole, `26db024` night handoff, `8388d48` docs, `d5bbeb5`, etc. Origin starts at `7bf128f`.
 

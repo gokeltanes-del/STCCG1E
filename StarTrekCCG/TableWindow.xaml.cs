@@ -12527,12 +12527,12 @@ public partial class TableWindow : Window
         return list;
     }
 
-    private void ApplyHugh(Card hugh, int controller, Card? target)
+    private bool ApplyHugh(Card hugh, int controller, Card? target)
     {
         var battle = _stack.Items.LastOrDefault(x =>
             x.Kind is TimingRules.ActionKind.InitiateShipBattle
                 or TimingRules.ActionKind.InitiatePersonnelBattle
-            && (TimingRules.IsBorgShipDilemma(x.AttackerCard) || TimingRules.IsBorgShipDilemma(x.Card)));
+            && TimingRules.IsHughBattleSource(x.AttackerCard ?? x.Card));
         bool hasJustInitiated = battle != null;
         bool targetIsBorgShipDilemma = TimingRules.IsBorgShipDilemma(target);
 
@@ -12558,13 +12558,13 @@ public partial class TableWindow : Window
                 battle.CancelledBy = "Hugh";
                 StatusText.Text = "Hugh cancels the Borg / Borg Ship / Rogue Borg battle.";
                 _session.Log.Add(_session.TurnNumber, $"P{controller}", "Hugh cancels battle");
-                return;
+                return true;
 
             case InterruptRules.HughResolveMode.BlockBorgShipPulse:
                 _hughBlocksBorgShipAttack = true;
                 StatusText.Text = "Hugh: Borg Ship dilemma will not attack this pulse.";
                 _session.Log.Add(_session.TurnNumber, $"P{controller}", "Hugh blocks Borg Ship attack");
-                return;
+                return true;
 
             case InterruptRules.HughResolveMode.KillRogueBorgAtLocation:
             {
@@ -12582,12 +12582,12 @@ public partial class TableWindow : Window
                     UpdateHostBadge(h);
                 if (_detailHost != null && hosts.Contains(_detailHost) && _detailHost.Tag is Card hc)
                     ShowHostContents(_detailHost, hc);
-                return;
+                return true;
             }
 
             default:
                 ShowPlayError("Hugh: no just-initiated Borg battle and no Rogue Borg at the target.");
-                return;
+                return false;
         }
     }
 
@@ -12725,7 +12725,17 @@ public partial class TableWindow : Window
                 NullifyEventInPlay(target, controller);
             }
             if (InterruptRules.IsHugh(card))
-                ApplyHugh(card, controller, target);
+            {
+                if (!ApplyHugh(card, controller, target))
+                {
+                    var handBack = controller == 1 ? _handCards : _oppHandCards;
+                    if (!handBack.Contains(card)) handBack.Add(card);
+                    RefreshHandStrips();
+                    RefreshZoneCounts();
+                    StatusText.Text = "Hugh: no valid effect - returned to hand.";
+                    return true;
+                }
+            }
 
             if (r.OutOfPlay)
                 SendCardTo(card, controller, TimingRules.Destination.OutOfPlay);

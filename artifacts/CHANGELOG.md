@@ -4,6 +4,18 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-05 (Fix — Hugh Rogue ship host-match)
+
+**Engine** — Hugh HostMatches ships with Rogue Borg; Borg Ship Dilemma pool only when token/face visible (not mere Host attach). [C]
+
+---
+
+## 2026-09-05 (Fix — WNOHGB PathBlocked wrap fallback)
+
+**Engine** — PathBlocked: prefer clear shorter wrap; if wrap arc Q-Net-blocked fall back to linear. Hazard walk uses WnohgbRules.UseWrapPath costs. [C]
+
+---
+
 ## 2026-09-05 (Fix — Kevin hand restore + Hugh Spock)
 
 **Engine** — Kevin/Devil: miss returns to hand; multi Event uses picker (TABLE+attached). Hugh: Rogue Borg ship/location without detail-pick; Borg Ship = Dilemma only when revealed/present; no Borg-affiliation ships. [C]
