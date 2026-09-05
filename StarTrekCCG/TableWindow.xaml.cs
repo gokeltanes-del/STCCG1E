@@ -12135,7 +12135,11 @@ public partial class TableWindow : Window
         if (InterruptRules.IsHugh(interrupt))
         {
             if (host.Tag is not Card hh) return false;
-            if (TimingRules.IsHughBattleSource(hh) && !InterruptRules.IsRogueBorg(hh) && !IsShipCard(hh))
+            // Borg Ship Dilemma face/token only (not Borg-affiliation ships).
+            if (TimingRules.IsBorgShipDilemma(hh))
+                return true;
+            // Rogue Borg aboard this ship — drop without detail pick.
+            if (IsShipCard(hh) && CountRogueBorgOn(host) > 0)
                 return true;
             if (IsMissionCard(hh))
             {
@@ -12515,9 +12519,9 @@ public partial class TableWindow : Window
             if (d.Kind != DilemmaRules.PersistKind.BorgShip) continue;
             if (!TimingRules.IsBorgShipDilemma(d.Card)) continue;
             var span = FindBorderForCard(d.Card);
-            bool present = span != null && span.Visibility == Visibility.Visible
-                           || d.Host != null
-                           || _borgShipToken?.Tag is Card t2 && ReferenceEquals(t2, d.Card);
+            // Conservative: token or visible dilemma face only (not mere Host attach).
+            bool present = (span != null && span.Visibility == Visibility.Visible)
+                           || (_borgShipToken?.Tag is Card t2 && ReferenceEquals(t2, d.Card));
             if (present) Add(d.Card);
         }
         return list;
