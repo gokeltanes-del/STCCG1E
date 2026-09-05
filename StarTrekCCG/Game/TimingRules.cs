@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using StarTrekCCG.Models;
@@ -125,14 +125,8 @@ public static class TimingRules
         return ty.Contains("dilemma", StringComparison.OrdinalIgnoreCase) || ty.Length == 0;
     }
 
-    /// <summary>Hugh battle-cancel / response source: Borg Ship Dilemma or Rogue Borg (not Borg-affiliation ships).</summary>
-    public static bool IsHughBattleSource(Card? c)
-    {
-        if (c == null) return false;
-        if (IsBorgShipDilemma(c)) return true;
-        string n = c.Name ?? "";
-        return n.Equals("Rogue Borg", StringComparison.OrdinalIgnoreCase);
-    }
+    /// <summary>Hugh battle-cancel / CanRespond source: Borg Ship Dilemma only (Spock 2026-09-05; not [Bor] ships, not Rogue Borg).</summary>
+    public static bool IsHughBattleSource(Card? c) => IsBorgShipDilemma(c);
 
     public static (bool ok, string reason) CanDevilTarget(Card card)
     {
@@ -248,9 +242,9 @@ public static class TimingRules
         {
             if (top.Kind is not (ActionKind.InitiateShipBattle or ActionKind.InitiatePersonnelBattle))
                 return (false, "Hugh: keine Battle-Initiation auf dem Stack.");
-            if (!IsHughBattleSource(top.AttackerCard) && !IsHughBattleSource(top.Card))
-                return (false, "Hugh: Battle muss von einer [Bor]-Karte, Borg Ship oder Rogue Borg ausgehen.");
-            return (true, "Bricht die Borg-Battle.");
+            if (!IsBorgShipDilemma(top.AttackerCard) && !IsBorgShipDilemma(top.Card))
+                return (false, "Hugh: Battle muss vom Borg Ship Dilemma ausgehen.");
+            return (true, "Nullifiziert den Angriff des Borg Ship Dilemmas.");
         }
 
         if (n.Equals("Asteroid Sanctuary", StringComparison.OrdinalIgnoreCase))

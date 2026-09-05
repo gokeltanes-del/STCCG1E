@@ -4,6 +4,24 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-05 (Fix - Borg Ship EOT battle + Hugh window)
+
+**Engine** - EOT Borg Ship: queue InitiateShipBattle (cloaked skipped); Hugh response cancels rest of turn; Resolve WEAPONS 24 + docked half facility shields; BeginNext after cancel/resolve. [C]
+
+---
+
+## 2026-09-05 (Fix - Borg Ship placement / attack gate / EOT damage)
+
+**Engine** - Borg Ship token sits like a ship under mission (not overlapping). Attack Borg Ship button only same location. EOT attack uses `BattleRules.ResolveFire` (Hit W>S / Direct Hit W>2xS + docked facility half-shields). Hugh CanRespond Dilemma-only (prior). EOT response-window battle path still open (await Spock 6-8). [C]
+
+---
+
+## 2026-09-05 (Fix - Hugh CanRespond Borg Ship Dilemma only)
+
+**Engine** - Hugh valid response / battle-cancel only when **Borg Ship Dilemma** initiates battle (`IsHughBattleSource` => `IsBorgShipDilemma`; CanRespond no longer [Bor]/Rogue). Rogue Borg remains own-action location kill. [C]
+
+---
+
 ## 2026-09-05 (Docs - spawn + CODE_PLACEMENT)
 
 **Docs** - HANDOFF spawn-ready tip `bb163ed`; `CODE_PLACEMENT.md` (Decide=Rules / Apply=TW / Board); PROJECT pointers. Gaps nullify Pepsch green. [C]

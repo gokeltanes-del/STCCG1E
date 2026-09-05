@@ -174,6 +174,9 @@ public partial class TableWindow : Window
     private Border? _borgShipToken;
     /// <summary>Hugh played on the Borg Ship dilemma: skip its next attack pulse.</summary>
     private bool _hughBlocksBorgShipAttack;
+    private Queue<Border>? _borgEotAttackQueue;
+    private AttachedDilemma? _borgEotActive;
+    private readonly List<string> _borgEotHitLog = new();
 
     /// <summary>Rogue Borg interrupt tokens aboard ships (self-controlling until Lore Returns).</summary>
     private sealed class RogueBorgUnit
@@ -4034,19 +4037,24 @@ public partial class TableWindow : Window
             if (atkB == null || defB == null || a.AttackerCard == null || a.DefenderCard == null)
                 return;
 
+            bool borgEot = TimingRules.IsBorgShipDilemma(a.AttackerCard);
             if (a.Cancelled)
             {
-                // Cancelled battle: Teilnehmer trotzdem gestoppt
-                MarkStopped(atkB);
+                if (!borgEot)
+                    MarkStopped(atkB);
                 MarkStopped(defB);
                 StatusText.Text =
-                    $"Ship Battle cancelled ({a.CancelledBy}) – both ships stopped.";
+                    $"Ship Battle cancelled ({a.CancelledBy}) - both stopped.";
                 _session.Log.Add(_session.TurnNumber, $"P{a.Controller}",
                     $"Battle cancelled by {a.CancelledBy}");
+                if (_borgEotActive != null)
+                    BeginNextBorgEotAttack();
                 return;
             }
 
             AskReturnFireAndResolve(atkB, a.AttackerCard, defB, a.DefenderCard);
+            if (_borgEotActive != null)
+                BeginNextBorgEotAttack();
             return;
         }
 
@@ -4157,23 +4165,30 @@ public partial class TableWindow : Window
         }
     }
 
-    private void AskReturnFireAndResolve(
+        private void AskReturnFireAndResolve(
         Border attackerBorder, Card attackerShip,
         Border defenderBorder, Card defenderCard)
     {
         int defOwner = GetBorderOwner(defenderBorder);
         if (defOwner == 0) defOwner = 2;
+        bool borgAtk = TimingRules.IsBorgShipDilemma(attackerShip);
+        int atkW = borgAtk ? 24 : BattleRules.GetWeapons(attackerShip);
         bool returnFire = false;
         int defWeapons = BattleRules.GetWeapons(defenderCard);
-        if (defWeapons > 0 && !IsBorderStopped(defenderBorder))
+        // Spock: docked ships may not fire; Borg dilemma still opens dialog for uncloaked undocked.
+        bool canReturn = defWeapons > 0 && !IsBorderStopped(defenderBorder) && !IsShipDocked(defenderBorder);
+        if (canReturn)
         {
             string pick = AskChoice(defenderCard, "Return Fire?",
                 $"{attackerShip.Name} attacks {defenderCard.Name}.\n" +
-                $"Attacker WEAPONS {BattleRules.GetWeapons(attackerShip)} · " +
-                $"target SHIELDS {BattleRules.GetShields(defenderCard)}.\n" +
+                $"Attacker WEAPONS {atkW} vs target SHIELDS {BattleRules.GetShields(defenderCard)}.\n" +
                 $"P{defOwner}: return fire (WEAPONS {defWeapons})?",
                 "Return Fire", "No");
             returnFire = pick.StartsWith("Return", StringComparison.OrdinalIgnoreCase);
+        }
+        else if (IsShipDocked(defenderBorder))
+        {
+            StatusText.Text = $"{defenderCard.Name} is docked — cannot return fire.";
         }
         ResolveShipBattle(attackerBorder, attackerShip, defenderBorder, defenderCard, returnFire);
     }
@@ -11371,7 +11386,9 @@ public partial class TableWindow : Window
                         AddBtn($"Special Download ({src.Name})", (_, _) =>
                             TrySpecialDownload(src, GetBorderOwner(cardBorder)));
                     }
-                    if (_attachedDilemmas.Any(d => d.Kind == DilemmaRules.PersistKind.BorgShip))
+                    var borgHere = _attachedDilemmas.FirstOrDefault(d => d.Kind == DilemmaRules.PersistKind.BorgShip);
+                    if (borgHere != null
+                        && ReferenceEquals(FindMissionForDockable(cardBorder), borgHere.Host))
                     {
                         AddBtn("Attack Borg Ship…", (_, _) =>
                             TryDestroyBorgShipInBattle(cardBorder, card));
@@ -12562,7 +12579,9 @@ public partial class TableWindow : Window
             case InterruptRules.HughResolveMode.CancelJustInitiatedBattle:
                 battle!.Cancelled = true;
                 battle.CancelledBy = "Hugh";
-                StatusText.Text = "Hugh cancels the Borg / Borg Ship / Rogue Borg battle.";
+
+                _hughBlocksBorgShipAttack = true; // Spock: rest of turn
+                StatusText.Text = "Hugh nullifies the Borg Ship dilemma attack.";
                 _session.Log.Add(_session.TurnNumber, $"P{controller}", "Hugh cancels battle");
                 return true;
 
@@ -16017,18 +16036,27 @@ public partial class TableWindow : Window
         int defMult = BattleRules.KurlanMultiplier(GetAllCardsOnHost(defenderBorder, defOwner));
         var atkEv = EventsOn(attackerBorder).Select(e => (e.Kind, e.Card));
         var defEv = EventsOn(defenderBorder).Select(e => (e.Kind, e.Card));
-        int atkBonus = BattleRules.GetWeapons(attackerShip) * (atkMult - 1)
-                       + EventRules.WeaponsBonusFromEvents(atkEv);
+        bool borgAtk = TimingRules.IsBorgShipDilemma(attackerShip);
+        const int borgWeapons = 24;
+        int printedAtkW = BattleRules.GetWeapons(attackerShip);
+        int atkBonus = borgAtk
+            ? Math.Max(0, borgWeapons - printedAtkW)
+            : printedAtkW * (atkMult - 1) + EventRules.WeaponsBonusFromEvents(atkEv);
         int defShieldBonus = BattleRules.GetShields(defenderCard) * (defMult - 1)
                              + EventRules.ShieldsBonusFromEvents(defEv, GetAllCardsOnHost(defenderBorder, defOwner));
         int defWeaponsBonus = BattleRules.GetWeapons(defenderCard) * (defMult - 1)
                               + EventRules.WeaponsBonusFromEvents(defEv);
+        int facShields = 0;
+        if (IsShipDocked(defenderBorder) && _dockedAt.TryGetValue(defenderBorder, out var fac)
+            && fac?.Tag is Card fc)
+            facShields = BattleRules.GetShields(fc);
 
         // --- Open Fire ---
         var openFire = BattleRules.ResolveFire(
             new[] { (attackerShip, atkBonus) },
             defenderCard,
-            targetShieldsBonus: defShieldBonus);
+            targetShieldsBonus: defShieldBonus,
+            facilityShieldsIfDocked: facShields);
         logLines.Add($"Open Fire: {openFire.Summary}" + (atkMult > 1 ? $" (Kurlan ×{atkMult})" : ""));
 
         int defHullBefore = GetHullDamage(defenderBorder);
@@ -16048,10 +16076,13 @@ public partial class TableWindow : Window
         if (returnFire && !defDmg.Destroyed)
         {
             // Verteidiger schießt zurück auf den Angreifer (1 Ziel)
+            int borgShieldBonus = borgAtk
+                ? Math.Max(0, 24 - BattleRules.GetShields(attackerShip))
+                : BattleRules.GetShields(attackerShip) * (atkMult - 1);
             returnCalc = BattleRules.ResolveFire(
                 new[] { (defenderCard, defWeaponsBonus) },
                 attackerShip,
-                targetShieldsBonus: BattleRules.GetShields(attackerShip) * (atkMult - 1));
+                targetShieldsBonus: borgShieldBonus);
             logLines.Add($"Return Fire: {returnCalc.Value.Summary}" + (defMult > 1 ? $" (Kurlan ×{defMult})" : ""));
 
             int atkHullBefore = GetHullDamage(attackerBorder);
@@ -16080,15 +16111,34 @@ public partial class TableWindow : Window
         if (atkDestroyed)
             logLines.Add($"DESTROYED: {attackerShip.Name} (P{atkOwner}) — Escape Pod may respond.");
 
-        // Überlebende Forces stoppen
-        if (!atkDestroyed && attackerBorder.Parent != null)
+        // Survivors stop (Borg Ship dilemma token is not a player ship).
+        if (!borgAtk && !atkDestroyed && attackerBorder.Parent != null)
             MarkStopped(attackerBorder);
         if (!defDestroyed && defenderBorder.Parent != null)
             MarkStopped(defenderBorder);
 
-        // Crew auf gestoppten Schiffen mitstoppen (visuell)
-        StopCrewOnHost(attackerBorder);
+        if (!borgAtk)
+            StopCrewOnHost(attackerBorder);
         StopCrewOnHost(defenderBorder);
+
+        if (_borgEotActive != null)
+        {
+            string hit = defDestroyed
+                ? $"{defenderCard.Name} DESTROYED ({openFire.Result})"
+                : $"{defenderCard.Name} {openFire.Result} HULL {GetHullDamage(defenderBorder)}%";
+            _borgEotHitLog.Add(hit);
+        }
+
+        if (borgAtk && atkDestroyed)
+        {
+            var borg = _attachedDilemmas.FirstOrDefault(d => d.Kind == DilemmaRules.PersistKind.BorgShip);
+            if (borg != null) _attachedDilemmas.Remove(borg);
+            RemoveBorgShipToken();
+            _borgEotActive = null;
+            _borgEotAttackQueue = null;
+            AwardDilemmaPoints(15);
+            logLines.Add("Borg Ship dilemma destroyed by return fire (+15).");
+        }
 
         string summary = string.Join("\n", logLines);
         _session.Log.Add(_session.TurnNumber, $"P{atkOwner}",
@@ -16284,45 +16334,81 @@ public partial class TableWindow : Window
     /// spaceline end. When it would move past the end, it leaves play (classic "off the long end").
     /// Does not bounce back and forth.
     /// </summary>
-    private void ProcessBorgShipEndOfTurn(AttachedDilemma a)
-    {
-        const int borgWeapons = 24;
-        var host = a.Host;
-        if (host.Tag is not Card hostMission) return;
+    private void ProcessBorgShipEndOfTurn(AttachedDilemma a) => StartBorgShipEotAttacks(a);
 
-        var hit = new List<string>();
+    private void StartBorgShipEotAttacks(AttachedDilemma a)
+    {
+        var host = a.Host;
+        if (host.Tag is not Card) return;
+        _borgEotHitLog.Clear();
         if (_hughBlocksBorgShipAttack)
         {
             _hughBlocksBorgShipAttack = false;
-            hit.Add("attack cancelled by Hugh");
+            _borgEotHitLog.Add("attack cancelled by Hugh (rest of turn)");
+            FinishBorgShipEotMove(a);
+            return;
         }
-        else
-            foreach (var dock in GetDockablesUnderMission(host).ToList())
-            {
-                if (dock.Tag is not Card sc || !IsShipCard(sc)) continue;
-                int shields = BattleRules.GetShields(sc);
-                var aboard = GetAllCardsOnHost(dock, GetBorderOwner(dock) == 0 ? 1 : GetBorderOwner(dock));
-                shields += EventRules.ShieldsBonusFromEvents(EventsOn(dock).Select(e => (e.Kind, e.Card)), aboard);
-                if (borgWeapons > shields)
-                {
-                    int next = Math.Min(100, GetHullDamage(dock) + 50);
-                    ApplyHullDamage(dock, sc, next);
-                    hit.Add($"{sc.Name} (HULL {next}%)");
-                    if (next >= 100)
-                        DestroyShipOrFacility(dock, sc, GetBorderOwner(dock) == 0 ? 1 : GetBorderOwner(dock));
-                }
-            }
+        var targets = new Queue<Border>();
+        foreach (var dock in GetDockablesUnderMission(host).ToList())
+        {
+            if (dock.Tag is not Card sc || !IsShipCard(sc)) continue;
+            if (IsShipCloaked(dock)) continue;
+            targets.Enqueue(dock);
+        }
+        if (targets.Count == 0)
+        {
+            _borgEotHitLog.Add("no legal (uncloaked) ships here");
+            FinishBorgShipEotMove(a);
+            return;
+        }
+        if (_borgShipToken == null) PlaceBorgShipToken(a.Card, host);
+        _borgEotActive = a;
+        _borgEotAttackQueue = targets;
+        BeginNextBorgEotAttack();
+    }
 
+    private void BeginNextBorgEotAttack()
+    {
+        if (_borgEotActive == null || _borgEotAttackQueue == null) return;
+        if (_hughBlocksBorgShipAttack)
+        {
+            _borgEotAttackQueue.Clear();
+            _borgEotHitLog.Add("further attacks cancelled by Hugh (rest of turn)");
+            var blocked = _borgEotActive;
+            _borgEotActive = null;
+            _borgEotAttackQueue = null;
+            FinishBorgShipEotMove(blocked);
+            return;
+        }
+        while (_borgEotAttackQueue.Count > 0)
+        {
+            var dock = _borgEotAttackQueue.Dequeue();
+            if (dock.Tag is not Card sc || !IsShipCard(sc)) continue;
+            if (dock.Parent == null) continue;
+            if (IsShipCloaked(dock)) continue;
+            if (_borgShipToken == null) PlaceBorgShipToken(_borgEotActive.Card, _borgEotActive.Host);
+            int defOwner = GetBorderOwner(dock);
+            if (defOwner == 0) defOwner = 1;
+            BeginShipBattleStack(_borgShipToken!, _borgEotActive.Card, dock, sc, 0, defOwner);
+            return;
+        }
+        var done = _borgEotActive;
+        _borgEotActive = null;
+        _borgEotAttackQueue = null;
+        FinishBorgShipEotMove(done);
+    }
+
+    private void FinishBorgShipEotMove(AttachedDilemma a)
+    {
+        var host = a.Host;
+        if (host.Tag is not Card hostMission) return;
         int idx = _spacelineOrder.IndexOf(host);
         if (idx < 0 && _spacelineOrder.Count > 0)
             idx = _borgShipDir > 0 ? 0 : _spacelineOrder.Count - 1;
         int nextIdx = idx + _borgShipDir;
-
-        string attackPart = hit.Count > 0
-            ? $"Attacks at {hostMission.Name}: {string.Join(", ", hit)}."
-            : $"At {hostMission.Name}: no ships damaged (SHIELDS ≥ 24).";
-
-        // Off the end → leave play (do not reverse direction)
+        string attackPart = _borgEotHitLog.Count > 0
+            ? ("Attacks at " + hostMission.Name + ": " + string.Join(", ", _borgEotHitLog) + ".")
+            : ("At " + hostMission.Name + ": no ships damaged.");
         if (nextIdx < 0 || nextIdx >= _spacelineOrder.Count)
         {
             _attachedDilemmas.Remove(a);
@@ -16333,7 +16419,6 @@ public partial class TableWindow : Window
             ShowCardReveal(a.Card, "Borg Ship leaves", leaveMsg, RevealButtons.Ok, a.Card.Name);
             return;
         }
-
         var newHost = _spacelineOrder[nextIdx];
         _attachedDilemmas.Remove(a);
         _attachedDilemmas.Add(new AttachedDilemma
@@ -16345,9 +16430,8 @@ public partial class TableWindow : Window
             Extra = a.Extra
         });
         PositionBorgShipToken(newHost);
-
         string where = (newHost.Tag as Card)?.Name ?? "?";
-        string msg = attackPart + $" Moves to {where}.";
+        string msg = attackPart + " Moves to " + where + ".";
         _session.Log.Add(_session.TurnNumber, "sys", msg);
         StatusText.Text = msg;
         ShowCardReveal(a.Card, "Borg Ship", msg, RevealButtons.Ok, a.Card.Name);
@@ -16844,7 +16928,7 @@ public partial class TableWindow : Window
         double top = Canvas.GetTop(hostMission);
         // Sit slightly above the mission on the spaceline (self-controlling ship)
         Canvas.SetLeft(_borgShipToken, left);
-        Canvas.SetTop(_borgShipToken, top - UnderMissionGap * 0.55);
+        Canvas.SetTop(_borgShipToken, top + UnderMissionGap); // like a ship at location, not overlapping mission
         Panel.SetZIndex(_borgShipToken, 40);
     }
 
@@ -19181,6 +19265,10 @@ public partial class TableWindow : Window
 
         if (_selectedCard != null)
             UpdateSelectionFrame(_selectedCard);
+
+        var borgAt = _attachedDilemmas.FirstOrDefault(d => d.Kind == DilemmaRules.PersistKind.BorgShip);
+        if (borgAt != null && ReferenceEquals(borgAt.Host, mission))
+            PositionBorgShipToken(mission);
 
         EnsureBoardExtents();
     }

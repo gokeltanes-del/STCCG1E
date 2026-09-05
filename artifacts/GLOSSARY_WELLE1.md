@@ -1,9 +1,9 @@
-﻿# Welle 1 — Timing / Actions / Nullify
+# Welle 1 — Timing / Actions / Nullify
 ACTIVE 2026-09-05 · Seven (Code?) + Spock (Soll + Quellen)  
 Parent: `GLOSSARY_COVERAGE.md` · Lookup: Checklist ? Glossary ? Temp Rulings ? App A/B  
 Kein Code in dieser Welle.
 
-**Code?-Snapshot Seven FINAL Welle1:** Gaps done; 1-4+6-7 partial; Hugh CanRespond PARKED; Checklist ??; Batches 1-5 complete
+**Code?-Snapshot Seven FINAL Welle1:** Gaps done; 1-4+6-7 partial; Hugh CanRespond DONE (Dilemma-only); Checklist ??; Batches 1-5 complete
 
 ---
 
@@ -17,7 +17,7 @@ Kein Code in dieser Welle.
 ## 2. valid responses
 **Soll:** Response nur wenn die Karte die laufende Action **spezifisch** modifiziert/cancelt/nullifiziert/prevented (meist namentlich). Nützlich ? gültig. Beispiel: Hugh = valid response auf Borg-Ship-Dilemma-Battle-Initiation; Temporal Rift ? valid response darauf.
 **Quellen:** Glossary *actions - step 2: responses*; Compendium *Valid responses* (Hugh vs Temporal Rift); Checklist „Just / valid response“ ??.
-**Code?** partial -- CanRespond whitelist; Hugh CanRespond too wide PARKED Capt/Data; catalog thin
+**Code?** partial -- CanRespond whitelist; Hugh CanRespond Dilemma-only DONE; catalog thin
 
 ---
 
@@ -34,7 +34,7 @@ Kein Code in dieser Welle.
 - **Effekt nullify ohne Karte** möglich (Hugh nullifiziert Attack, Dilemma bleibt).
 - **Continuous „while in play, nullifies X“** (Traveler: Transcendence ? SWB): unterdrückt Effekt; Zielkarten dürfen gespielt werden / bleiben liegen; gilt eigene + gegnerische; endet wenn Nullifier leave play.
 **Quellen:** Glossary *nullify*; *Hugh*; *The Traveler: Transcendence*; Spock-Ruling SWB 2026-09-05.
-**Code?** partial -- Kevin/Devil ok-ish; Hugh attack-cancel PARKED Dilemma-only; Traveler continuous partial
+**Code?** partial -- Kevin/Devil ok-ish; Hugh attack-cancel Dilemma-only DONE; Traveler continuous partial
 
 ---
 
@@ -121,7 +121,7 @@ Später / Welle 2: `7.4.1` Fed wartime + Counter; `12.4` present/here Hosts.
 - Nach Battle: Beteiligte stopped.
 **Quellen:** Glossary *battle* / initiating; Rulebook battle restrictions; CL 7.4.1.
 **Engine-Risiko:** Mittel — Wartime-Pfad teilweise da; Counter-attack-Gate prüfen/nachziehen nur Capt Go.
-**Hugh CanRespond zu breit:** parked (Capt).
+**Hugh CanRespond:** DONE Dilemma-only (Data 2026-09-05, Capt Go).
 
 ### Batch 5 — § 12.4 present / here (Hosts)
 **Ist:** Location-Host / BoardStore-Location; Checklist 12.4 ?? „nicht glossary-vollständig“. Wenig zentrale `IsPresent`/`HereAt`-API in Game/*.
