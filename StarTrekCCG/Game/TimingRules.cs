@@ -113,17 +113,25 @@ public static class TimingRules
     }
 
     /// <summary>The Devil: Horga'hn, Wind Dancer, or a Treaty — in play or just played.</summary>
-    /// <summary>Hugh: battle initiated by a [Bor] card, Borg Ship dilemma, or Rogue Borg.</summary>
+    /// <summary>Spock 2026-09-05: Hugh "Borg Ship" branch = Borg Ship Dilemma card only (not Borg-affiliation ships).</summary>
+    public static bool IsBorgShipDilemma(Card? c)
+    {
+        if (c == null) return false;
+        string n = (c.Name ?? "").Trim();
+        if (!n.Equals("Borg Ship", StringComparison.OrdinalIgnoreCase)
+            && !n.StartsWith("Borg Ship", StringComparison.OrdinalIgnoreCase))
+            return false;
+        string ty = c.Type ?? "";
+        return ty.Contains("dilemma", StringComparison.OrdinalIgnoreCase) || ty.Length == 0;
+    }
+
+    /// <summary>Hugh battle-cancel / response source: Borg Ship Dilemma or Rogue Borg (not Borg-affiliation ships).</summary>
     public static bool IsHughBattleSource(Card? c)
     {
         if (c == null) return false;
+        if (IsBorgShipDilemma(c)) return true;
         string n = c.Name ?? "";
-        if (n.Equals("Rogue Borg", StringComparison.OrdinalIgnoreCase)) return true;
-        if (n.Contains("Borg Ship", StringComparison.OrdinalIgnoreCase)) return true;
-        if (ReportingRules.GetAffiliations(c).Contains("BORG")) return true;
-        string blob = $"{c.Icons} {c.Characteristics} {c.Affiliation} {c.Text}";
-        return blob.Contains("[Bor]", StringComparison.OrdinalIgnoreCase)
-               || blob.Contains("[Borg]", StringComparison.OrdinalIgnoreCase);
+        return n.Equals("Rogue Borg", StringComparison.OrdinalIgnoreCase);
     }
 
     public static (bool ok, string reason) CanDevilTarget(Card card)

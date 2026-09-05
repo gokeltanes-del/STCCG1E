@@ -1,4 +1,4 @@
-﻿using Microsoft.Win32;
+using Microsoft.Win32;
 using StarTrekCCG.Models;
 using StarTrekCCG.Services;
 using System;
@@ -1066,8 +1066,8 @@ public partial class TableWindow : Window
                 .ToList(),
             TreatiesP1 = GetActiveTreaties(1),
             TreatiesP2 = GetActiveTreaties(2),
-            HasWhereNoOneHasGoneBeforeP1 = _tablePermanentCards.Any(EventRules.IsWhereNoOneHasGoneBefore),
-            HasWhereNoOneHasGoneBeforeP2 = _oppTablePermanentCards.Any(EventRules.IsWhereNoOneHasGoneBefore),
+            HasWhereNoOneHasGoneBeforeP1 = PlayerHasWnohgb(1),
+            HasWhereNoOneHasGoneBeforeP2 = PlayerHasWnohgb(2),
             TentDownloadUsedP1 = DownloadRules.TentDownloadUsedThisTurn(_session, 1),
             TentDownloadUsedP2 = DownloadRules.TentDownloadUsedThisTurn(_session, 2),
             OncePerGameKeys = _session.OncePerGame.ToList(),
@@ -4998,7 +4998,9 @@ public partial class TableWindow : Window
             && (InterruptRules.IsKevinNullify(card) || InterruptRules.IsDevil(card)))
         {
             int owner = _activePlayer;
-            TryPlayInterruptFromHand(card, floating, new Point(-999, -999), owner);
+            // Missed target must not eat the card (TABLE-column drop path).
+            if (!TryPlayInterruptFromHand(card, floating, new Point(-999, -999), owner))
+                ReturnCardToHand(card, owner);
             return;
         }
 
@@ -11908,33 +11910,50 @@ public partial class TableWindow : Window
                     target: _stack.Top.AttackerCard ?? _stack.Top.Card);
                 return true;
             }
+            // Rogue Borg: drop on ship/location — no detail pick (Spock: map ship → location).
             var host = FindTeamOrShipHostAt(windowPos, owner, InterruptRules.PlayTarget.AnyShip, card);
             if (host == null && _peekHoverHost != null && CountRogueBorgOn(_peekHoverHost) > 0)
                 host = _peekHoverHost;
-            Card? chosen = host?.Tag as Card;
+            if (host == null)
+            {
+                var at = FindMissionOrShipAt(windowPos);
+                if (at != null && (CountRogueBorgOn(at) > 0
+                    || GetDockablesUnderMission(at).Any(d => CountRogueBorgOn(d) > 0)))
+                    host = at;
+            }
+            Card? chosen = null;
+            if (host != null && (CountRogueBorgOn(host) > 0
+                || (host.Tag is Card hcMission && IsMissionCard(hcMission) && GetDockablesUnderMission(host).Any(d => CountRogueBorgOn(d) > 0))))
+            {
+                chosen = host.Tag as Card;
+            }
             if (chosen == null)
             {
                 var buried = FindHughTargetCardAt(windowPos);
                 if (buried != null) chosen = buried;
             }
+            // Borg Ship Dilemma only when revealed + present (token or spaceline face).
             if (chosen == null && _borgShipToken?.Tag is Card borgTok
-                && TimingRules.IsHughBattleSource(borgTok))
+                && TimingRules.IsBorgShipDilemma(borgTok))
                 chosen = borgTok;
             if (chosen == null)
             {
                 var pool = CollectHughTargetCards();
                 if (pool.Count == 0)
                 {
-                    ShowPlayError("Hugh: no Borg ship, Borg Ship dilemma, or Rogue Borg in play.");
+                    ShowPlayError("Hugh: no Borg Ship dilemma (revealed) or Rogue Borg location in play.");
                     return false;
                 }
-                chosen = PickCardFromList(
-                    "Hugh: Borg ship / Borg Ship dilemma (cancel that battle) or Rogue Borg ship (kill them).",
-                    pool, "Hugh", card);
+                if (pool.Count == 1)
+                    chosen = pool[0];
+                else
+                    chosen = PickCardFromList(
+                        "Hugh: Borg Ship dilemma or Rogue Borg location.",
+                        pool, "Hugh", card);
             }
             if (chosen == null)
             {
-                ShowPlayError("Hugh: no target chosen.");
+                ShowPlayError("Hugh: cancelled — returned to hand.");
                 return false;
             }
             BeginPlayCardStack(card, isResponse: _stack.IsOpen, controllerOverride: owner, target: chosen);
@@ -11958,9 +11977,11 @@ public partial class TableWindow : Window
                 target = null;
             if (target == null)
             {
-                // Only the host under the cursor — never the whole-game picker.
+                // Prefer host under cursor; otherwise all Events in play (TABLE + attached).
                 var host = _peekHoverHost ?? _currentSnapHost ?? FindHostUnderWindow(windowPos);
                 var pool = CollectNullifyPool(card, host);
+                if (pool.Count == 0 && host != null)
+                    pool = CollectNullifyPool(card, null); // whole-game Events incl. TABLE
                 if (pool.Count == 1)
                     target = pool[0];
                 else if (pool.Count == 0)
@@ -11972,8 +11993,14 @@ public partial class TableWindow : Window
                 }
                 else
                 {
-                    ShowPlayError($"{card.Name}: hover the stack and snap one Event — not a global picker.");
-                    return false;
+                    target = PickCardFromList(
+                        devil ? "Nullify which card?" : "Nullify which Event in play?",
+                        pool, card.Name ?? "Kevin", card);
+                    if (target == null)
+                    {
+                        ShowPlayError($"{card.Name}: cancelled — returned to hand.");
+                        return false;
+                    }
                 }
             }
             if (target == null)
@@ -12451,6 +12478,19 @@ public partial class TableWindow : Window
         return null;
     }
 
+
+    private Border? FindMissionOrShipAt(Point windowPos)
+    {
+        var hit = InputHitTest(windowPos) as DependencyObject;
+        while (hit != null)
+        {
+            if (hit is Border b && b.Tag is Card c && (IsMissionCard(c) || IsShipCard(c)))
+                return b;
+            hit = ParentOf(hit);
+        }
+        return null;
+    }
+
     private List<Card> CollectHughTargetCards()
     {
         var list = new List<Card>();
@@ -12458,22 +12498,28 @@ public partial class TableWindow : Window
         {
             if (c == null) return;
             if (list.Any(x => ReferenceEquals(x, c))) return;
-            if (TimingRules.IsHughBattleSource(c)) { list.Add(c); return; }
+            list.Add(c);
         }
+        // Rogue Borg branch: spaceline locations (mission faces) with Rogue Borg present.
         foreach (var b in TableCanvas.Children.OfType<Border>())
         {
-            if (b.Tag is not Card c) continue;
-            if (IsMissionCard(c))
-            {
-                foreach (var dock in GetDockablesUnderMission(b).Concat(new[] { b }))
-                    if (CountRogueBorgOn(dock) > 0) { Add(c); break; }
-            }
-            else if (TimingRules.IsHughBattleSource(c) && !IsShipCard(c))
-                Add(c);
+            if (b.Tag is not Card c || !IsMissionCard(c)) continue;
+            foreach (var dock in GetDockablesUnderMission(b).Concat(new[] { b }))
+                if (CountRogueBorgOn(dock) > 0) { Add(c); break; }
         }
-        if (_borgShipToken?.Tag is Card tok) Add(tok);
+        // Borg Ship Dilemma only if revealed and present here (token or visible span/face).
+        if (_borgShipToken?.Tag is Card tok && TimingRules.IsBorgShipDilemma(tok))
+            Add(tok);
         foreach (var d in _attachedDilemmas)
-            if (d.Kind == DilemmaRules.PersistKind.BorgShip) Add(d.Card);
+        {
+            if (d.Kind != DilemmaRules.PersistKind.BorgShip) continue;
+            if (!TimingRules.IsBorgShipDilemma(d.Card)) continue;
+            var span = FindBorderForCard(d.Card);
+            bool present = span != null && span.Visibility == Visibility.Visible
+                           || d.Host != null
+                           || _borgShipToken?.Tag is Card t2 && ReferenceEquals(t2, d.Card);
+            if (present) Add(d.Card);
+        }
         return list;
     }
 
@@ -12482,10 +12528,9 @@ public partial class TableWindow : Window
         var battle = _stack.Items.LastOrDefault(x =>
             x.Kind is TimingRules.ActionKind.InitiateShipBattle
                 or TimingRules.ActionKind.InitiatePersonnelBattle
-            && (TimingRules.IsHughBattleSource(x.AttackerCard) || TimingRules.IsHughBattleSource(x.Card)));
+            && (TimingRules.IsBorgShipDilemma(x.AttackerCard) || TimingRules.IsBorgShipDilemma(x.Card)));
         bool hasJustInitiated = battle != null;
-        bool targetIsBorgShipDilemma = target != null && TimingRules.IsHughBattleSource(target)
-            && (target.Name ?? "").Contains("Borg Ship", StringComparison.OrdinalIgnoreCase);
+        bool targetIsBorgShipDilemma = TimingRules.IsBorgShipDilemma(target);
 
         Border? loc = null;
         if (!hasJustInitiated && !targetIsBorgShipDilemma)

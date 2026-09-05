@@ -4,6 +4,12 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-05 (Fix — Kevin hand restore + Hugh Spock)
+
+**Engine** — Kevin/Devil: miss returns to hand; multi Event uses picker (TABLE+attached). Hugh: Rogue Borg ship/location without detail-pick; Borg Ship = Dilemma only when revealed/present; no Borg-affiliation ships. [C]
+
+---
+
 ## 2026-09-05 (Fix — WNOHGB wrap path)
 
 **Engine** — WnohgbRules: ends adjacent for controller; hazard check uses wrap path (Q-Net no longer blocks End↔End as if crossing the middle). Debug wnohgb wrap=. [C]

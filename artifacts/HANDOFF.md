@@ -99,3 +99,4 @@ Stable BoardStore+GameState truth; TableWindow view; Premiere then expansions; l
 
 ## Docs map
 PROJECT.md, ENGINE.md, RULES.md, RULES_CHECKLIST.md, CHANGELOG.md, FEATURES.md (Seven), TABLEWINDOW_INVENTORY.md, HANDOFF.md (this)
+- Fixes 2026-09-05 (unpushed): Wormhole pair-count 926b023; WNOHGB wrap cc5b5cf; Kevin/Hugh pending commit
