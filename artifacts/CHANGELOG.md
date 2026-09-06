@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Feat - Cytherians Premiere)
+
+**Engine** - Cytherians (PR 22 R): Space — Place on ship; Attempt ends; Crew **NOT** stopped (`AttachAndEnd` + `StopTeam=false`). Far end fixed once (TW `Dest` / `RequiredMoveRules.FarEndIndex` 12.6). Arrival → discard +15; ship destroy → discard (no points). No instant relocate. Spock #9 Soll / Glossary Cytherians + actions-required. Decide: `DilemmaRules.Cytherians` + `VerifyCytherians`. PARK: full LegalMoves-only-toward-far-end beyond existing `ShipHasRequiredMove` gates; Borg play-out no-points / Mission Debriefing if unclear.
+
+---
 ## 2026-09-06 (Feat - Crystalline Entity Premiere)
 
 **Engine** - Crystalline Entity (PR 21 R): Dual [S/P]. Planet - SCIENCE+MEDICAL -> Overcome +5 Continue; else entire AT killed. Space - Music OR SHIELDS>6 -> Overcome +5 Continue; else ALL life aboard dies (Stopped/Disabled/Intruder; NOT Stasis) via `KillAllLifeAboardExceptStasis` (Apply beyond encounter crew); Ship stopped; does **not** destroy ship. Always discard. Spock #8 Soll/DRG/Glossary. PARK: Lore-Double. Decide: `DilemmaRules.Crystalline` + `VerifyCrystallineEntity`.

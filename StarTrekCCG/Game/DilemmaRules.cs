@@ -159,8 +159,7 @@ public static class DilemmaRules
                 "REM Fatigue (quarantine, countdown 4). Cure: 3 MEDICAL or dock (score points)."),
             "Alien Abduction" => Abduction(ctx),
             "Phased Matter" => Phased(ctx),
-            "Cytherians" => Attach(ctx, PersistKind.Cytherians, 0,
-                "Cytherians: ship must go to far end of spaceline. There +15, dilemma removed."),
+            "Cytherians" => Cytherians(ctx),
             "Borg Ship" => new Result
             {
                 Fate = Fate.AttachAndEnd,
@@ -707,6 +706,31 @@ public static class DilemmaRules
         return r;
     }
 
+    // ---- Cytherians (Premiere 22 R) ----
+    // Printed (PR): "Attempt ends. Target location at this spaceline's far end.
+    // Place on ship; it must do nothing but move towards there. Discard when reached (score points)."
+    // Points: 15. [S] Space.
+    // Spock #9 Soll / Glossary Cytherians + actions-required:
+    //   Place on ship; Attempt ends; Crew NOT stopped (StopTeam=false).
+    //   Required action: ship+crew may ONLY move toward far spaceline end (full RANGE/turn).
+    //   Arrival -> discard +15. Ship destroy -> discard (no points). No instant relocate.
+    //   Far-end fixed once (TW Dest). Borg play-out: no points (PARK if unclear later).
+    // Card+DRG Decide: AttachAndEnd + Persist Cytherians + countdown 0 + StopTeam false;
+    // Score=0 at encounter (TW awards +15 on arrival). Host ShipOrMission.
+    // Apply already: Dest=ResolveFarEndMission; required-move + arrival +15.
+    // PARK: full LegalMoves "only move toward far end" lock beyond existing
+    // ShipHasRequiredMove gates (cloak/beam-off/initiate-battle) — no half-guess.
+
+    private static Result Cytherians(Ctx ctx) =>
+        new()
+        {
+            Fate = Fate.AttachAndEnd,
+            Persist = PersistKind.Cytherians,
+            Countdown = 0,
+            StopTeam = false, // Spock #9: attempt ends, crew NOT stopped
+            Message = "Cytherians: attempt ends (crew not stopped). Place on ship; must move to far end. Discard when reached (+15)."
+        };
+
     // ---- Crystalline Entity (Premiere 21 R) ----
     // Printed (PR): "[P]: Unless MEDICAL and SCIENCE, kills Away Team.
     // [S]: Unless Music OR SHIELDS>6, kills all personnel on ship.
@@ -970,7 +994,7 @@ public static class DilemmaRules
             PersistKind.Menthar => "ship cannot move (cure: 2 ENGINEER)",
             PersistKind.Tsiolkovsky => "attributes −3 until MEDICAL×3",
             PersistKind.TwoDim => "ship cannot move (ENGINEER + SCIENCE)",
-            PersistKind.Cytherians => "must fly toward far end of spaceline",
+            PersistKind.Cytherians => "must move toward far end; +15 when reached",
             PersistKind.Conundrum => "must chase opponent ship",
             PersistKind.EdoProbe => "attempt this mission next or −10",
             PersistKind.FrameOfMind => "personnel is 3-3-3 until 3 Empathy",
@@ -1785,6 +1809,76 @@ public static class DilemmaRules
             return $"empty planet: expected EffectAndEnd+Stop no kill, got {emptyP.Fate}/stop={emptyP.StopTeam}/kills={emptyP.Kill.Count}";
         if (!ShouldRemoveFromSeed(emptyP.Fate))
             return "empty planet: dilemma should discard";
+
+        return null;
+    }
+
+    /// <summary>DE mini-test for Cytherians. Returns null if OK, else failure reason.</summary>
+    public static string? VerifyCytherians()
+    {
+        static Card P(string name, string cls, string text) => new()
+        {
+            Name = name,
+            Type = "Personnel",
+            Class = cls,
+            Text = text,
+            Characteristics = "Human; Male;",
+            IntegrityOrRange = "5",
+            CunningOrWeapons = "5",
+            StrengthOrShields = "5"
+        };
+
+        static Ctx Make(params Card[] team) => new()
+        {
+            Dilemma = new Card { Name = "Cytherians", Type = "Dilemma", MissionDilemmaType = "[S]", Points = "15" },
+            Mission = new Card { Name = "Test Space", Type = "Mission", MissionDilemmaType = "[S]" },
+            Team = team,
+            Present = team,
+            AttemptingPlayer = 1,
+            Rng = new Random(1)
+        };
+
+        var civ = P("Civilian", "CIVILIAN", "CIVILIAN");
+        var eng = P("Eng One", "ENGINEER", "ENGINEER");
+
+        // Spock #9: AttachAndEnd, crew NOT stopped, Persist Cytherians, no encounter score
+        var hit = Resolve(Make(civ, eng));
+        if (hit.Fate != Fate.AttachAndEnd)
+            return $"encounter: expected AttachAndEnd, got {hit.Fate}";
+        if (hit.StopTeam)
+            return "encounter: crew must NOT be stopped (Spock #9)";
+        if (hit.Persist != PersistKind.Cytherians || hit.Countdown != 0)
+            return $"encounter: expected Persist Cytherians countdown 0, got {hit.Persist}/{hit.Countdown}";
+        if (hit.Score != 0)
+            return "encounter: must not score at encounter (points on arrival)";
+        if (hit.DestroyShip || hit.DamageShip || hit.Kill.Count != 0)
+            return "encounter: no destroy/damage/kill";
+        if (!ShouldRemoveFromSeed(hit.Fate))
+            return "encounter: seed removed (placed on ship)";
+        if (ShouldAwardScoreOnApply(hit.Score, hit.Fate))
+            return "encounter: ShouldAwardScoreOnApply must be false";
+
+        // Empty crew: still place + attempt ends, not stopped
+        var empty = Resolve(Make());
+        if (empty.Fate != Fate.AttachAndEnd || empty.StopTeam)
+            return $"empty: expected AttachAndEnd StopTeam=false, got {empty.Fate}/stop={empty.StopTeam}";
+        if (empty.Persist != PersistKind.Cytherians || empty.Countdown != 0 || empty.Score != 0)
+            return "empty: expected Cytherians countdown 0, score 0";
+
+        // Host preference: ship
+        if (DecideAttachHost(PersistKind.Cytherians) != AttachHostPreference.ShipOrMission)
+            return "host: expected ShipOrMission";
+
+        // Far end 12.6 (fixed once in Apply via Dest): more missions that way
+        int farRight = RequiredMoveRules.FarEndIndex(1, 5, _ => 1);
+        if (farRight != 4)
+            return $"FarEnd from=1 count=5: expected 4, got {farRight}";
+        int farLeft = RequiredMoveRules.FarEndIndex(3, 5, _ => 1);
+        if (farLeft != 0)
+            return $"FarEnd from=3 count=5: expected 0, got {farLeft}";
+        int tie = RequiredMoveRules.FarEndIndex(2, 5, _ => 1);
+        if (tie != -1)
+            return $"FarEnd tie from=2 count=5: expected -1, got {tie}";
 
         return null;
     }

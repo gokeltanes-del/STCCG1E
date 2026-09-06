@@ -19491,6 +19491,16 @@ public partial class TableWindow : Window
         if (mission != null)
             RelayoutDockablesUnderMission(mission);
 
+        // Spock #9 Cytherians: ship destroyed -> dilemma discarded, no points
+        foreach (var d in _attachedDilemmas.Where(x =>
+                     x.Kind == DilemmaRules.PersistKind.Cytherians && SameHostShip(x.Host, border)).ToList())
+        {
+            _attachedDilemmas.Remove(d);
+            SendCardTo(d.Card, owner, TimingRules.Destination.Discard);
+            _session.Log.Add(_session.TurnNumber, $"P{owner}",
+                "Cytherians discarded (ship destroyed, no points)");
+        }
+
         RefreshZoneCounts();
     }
 
