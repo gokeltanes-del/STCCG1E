@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Fix - Cloak opacity more transparent ~0.45)
+
+**UX** - Cloak Opacity 0.45 (was 0.7); Decloak 1.0; Stopped alone 0.55; stopped+cloaked uses 0.45 (cloak preferred).
+
+---
 ## 2026-09-06 (Fix - Detail pane dupes + Cloak 0.7 + Stopped Negative + Archer tie)
 
 **UX** - Card detail: colored StatusBlock keeps Buff/Timer/Debuff once; ship path no longer dumps Events/Dilemmas into DetailIcons under staffing; Contents skips repeating RANGE/WEAPONS/SHIELDS + Modifiers. Stopped shows once as red Status line and explicit "Stopped" text under Negative. Cloak: Opacity 0.7 only (nebula overlay + black glow removed); decloak 1.0 / stopped stays 0.55.
