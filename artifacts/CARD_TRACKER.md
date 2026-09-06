@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-06 (Jadzia — Archer notes: Spock Soll Stopped until next turn; Detail UI open)
+Last updated: 2026-09-06 (Jadzia — Archer tip bf1f2ab partial until Pepsch green)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -79,7 +79,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Alien Parasites (11 U) | unknown |  |  |
 | Anaphasic Organism (12 C) | unknown |  |  |
 | Ancient Computer (13 R) | unknown |  |  |
-| Archer (14 C) | partial | Fail: highest attrs dies unless SEC+MED; whole AT stopped until start next turn; Attempt ends. Beam-Block OK. Detail „Stopped“ fehlt (Data Fix). | Pepsch + Spock 2026-09-06 |
+| Archer (14 C) | partial | Fail: kill unless SEC+MED; AT stopped until next turn; Detail Stopped + Tie Opp tip Data/`bf1f2ab`. Pending Pepsch green → working. | Data/`bf1f2ab` 2026-09-06 |
 | Armus: Skin Of Evil (15 R) | unknown |  |  |
 | Barclay's Protomorphosis Disease (16 R) | working | Pepsch getestet OK (Metamorphosis/Transformation). | Pepsch 2026-09-06 |
 | Birth of "Junior" (17 U) | unknown |  |  |
