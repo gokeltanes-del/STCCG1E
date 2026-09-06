@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-06 (Jadzia — Phased Matter #24 tip 1b6ad64 partial; #25 Portal Guard in flight)
+Last updated: 2026-09-06 (Josef - Portal Guard #25 tip pending; PARK kill-if-no-beam/Borg)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -108,7 +108,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Nitrium Metal Parasites (40 U) | working | Pepsch green (AttachAndContinue). | Pepsch 2026-09-06 |
 | Null Space (41 U) | partial | tip Data/`04f4bd6`. 2 Navigation → +5 Continue; Fail Damage+Stop. Ungetestet. | Data/`04f4bd6` 2026-09-06 |
 | Phased Matter (42 C) | partial | tip Data/`1b6ad64`. Split; groessere phased; kleine Continue; Cure ENG+SCI unphased. PARK: deep Phasing-LegalMoves. Ungetestet. | Data/`1b6ad64` 2026-09-06 |
-| Portal Guard (43 U) | unknown |  |  |
+| Portal Guard (43 U) | partial | tip pending. Pass CUNNING>7 OR Honor Overcome; Fail WallFailed+BeamBack+Stop. PARK: kill-if-no-beam; Borg. | Josef/pending 2026-09-06 |
 | Q (44 R) | unknown |  |  |
 | Radioactive Garbage Scow (45 U) | unknown |  |  |
 | Rebel Encounter (46 U) | unknown |  |  |

@@ -2097,17 +2097,147 @@ public static class DilemmaRules
         };
     }
 
+    // ---- Portal Guard (Premiere 43 U) ----
+    // Printed (PR): "Unless one Away Team member has CUNNING>7 or Honor, immediately beam entire Away Team
+    // off planet surface OR kills entire Away Team."
+    // Planet [P].
+    // Spock #25 Soll / DRG Portal Guard:
+    //   Pass (>=1 AT member CUNNING>7 OR Honor) -> Overcome discard + Continue.
+    //   Fail -> WallFailed (dilemma under Mission) + StopTeam + BeamBackTeam (beam up then stopped).
+    // PARK: kill if beam impossible / partially blocked (Apply BeamBack leaves AT on planet if no dest).
+    // PARK: Borg abort edges.
+    // Decide: DilemmaRules.DecidePortalGuard + Portal + VerifyPortalGuard.
+
+    public readonly record struct PortalGuardPlan(
+        Fate Fate,
+        bool StopTeam,
+        bool BeamBackTeam,
+        string Message);
+
+    /// <summary>
+    /// #25 Soll: Pass CUNNING&gt;7 or Honor to Overcome (discard + continue).
+    /// Fail to WallFailed (stays under mission), StopTeam, BeamBackTeam.
+    /// Kill-if-no-beam / Borg PARK.
+    /// </summary>
+    public static PortalGuardPlan DecidePortalGuard(bool hasCunningGt7OrHonor)
+    {
+        if (hasCunningGt7OrHonor)
+        {
+            return new PortalGuardPlan(
+                Fate.Overcome,
+                StopTeam: false,
+                BeamBackTeam: false,
+                Message: "CUNNING>7 or Honor - Portal Guard overcome.");
+        }
+        return new PortalGuardPlan(
+            Fate.WallFailed,
+            StopTeam: true,
+            BeamBackTeam: true,
+            Message: "Portal Guard: filter not met - Away Team beams up (stopped); dilemma remains under mission.");
+    }
+
     private static Result Portal(Ctx ctx)
     {
-        bool ok = ctx.Team.Any(p => Eff(ctx, p).Cunning > 7 || Eff(ctx, p).Skills.Keys.Any(k =>
-            k.Equals("Honor", StringComparison.OrdinalIgnoreCase)));
-        if (ok) return new Result { Fate = Fate.Overcome, Message = "CUNNING>7 or Honor – Portal Guard passed." };
-        bool beam = ctx.Confirm?.Invoke("Portal Guard: beam Away Team (YES) or kill all (NO)?") ?? true;
-        if (beam)
-            return new Result { Fate = Fate.EndAttempt, StopTeam = true, Message = "Away Team must beam (attempt ends)." };
-        var r = new Result { Fate = Fate.EffectAndEnd, StopTeam = true, Message = "Portal Guard kills the Away Team." };
-        r.Kill.AddRange(ctx.Team);
-        return r;
+        bool ok = ctx.Team.Any(p =>
+        {
+            var e = Eff(ctx, p);
+            return e.Cunning > 7
+                || e.Skills.Keys.Any(k => k.Equals("Honor", StringComparison.OrdinalIgnoreCase));
+        });
+        var plan = DecidePortalGuard(ok);
+        return new Result
+        {
+            Fate = plan.Fate,
+            StopTeam = plan.StopTeam,
+            BeamBackTeam = plan.BeamBackTeam,
+            Message = plan.Message
+        };
+    }
+
+    /// <summary>DE mini-test for Portal Guard. Returns null if OK, else failure reason.</summary>
+    public static string? VerifyPortalGuard()
+    {
+        static Card P(string name, string cls, string text, string cunn) => new()
+        {
+            Name = name,
+            Type = "Personnel",
+            Class = cls,
+            Text = text,
+            Characteristics = "Human; Male;",
+            IntegrityOrRange = "5",
+            CunningOrWeapons = cunn,
+            StrengthOrShields = "5"
+        };
+
+        static Ctx Make(params Card[] team) => new()
+        {
+            Dilemma = new Card { Name = "Portal Guard", Type = "Dilemma", MissionDilemmaType = "[P]" },
+            Mission = new Card { Name = "Test Planet", Type = "Mission", MissionDilemmaType = "[P]" },
+            Team = team,
+            Present = team,
+            AttemptingPlayer = 1,
+            Rng = new Random(1)
+        };
+
+        var smart = P("Smart One", "OFFICER", "OFFICER", "8");          // CUNNING 8 > 7
+        var honor = P("Honorable", "SECURITY", "SECURITY Honor", "5"); // Honor, low CUNNING
+        var low = P("Low One", "CIVILIAN", "CIVILIAN", "7");            // CUNNING == 7 fails
+        var weak = P("Weak One", "CIVILIAN", "CIVILIAN", "4");
+
+        // Decide pass
+        var dPass = DecidePortalGuard(true);
+        if (dPass.Fate != Fate.Overcome || dPass.StopTeam || dPass.BeamBackTeam)
+            return $"Decide pass: expected Overcome no stop/beam, got {dPass.Fate}/stop={dPass.StopTeam}/beam={dPass.BeamBackTeam}";
+        if (!ShouldRemoveFromSeed(dPass.Fate))
+            return "Decide pass: dilemma should discard";
+
+        // Decide fail
+        var dFail = DecidePortalGuard(false);
+        if (dFail.Fate != Fate.WallFailed || !dFail.StopTeam || !dFail.BeamBackTeam)
+            return $"Decide fail: expected WallFailed+Stop+BeamBack, got {dFail.Fate}/stop={dFail.StopTeam}/beam={dFail.BeamBackTeam}";
+        if (ShouldRemoveFromSeed(dFail.Fate))
+            return "Decide fail: dilemma must stay under mission (WallFailed)";
+
+        // Pass: CUNNING 8 > 7
+        var passCunn = Resolve(Make(smart, weak));
+        if (passCunn.Fate != Fate.Overcome || passCunn.StopTeam || passCunn.BeamBackTeam)
+            return $"pass CUNNING>7: expected Overcome no stop/beam, got {passCunn.Fate}/stop={passCunn.StopTeam}/beam={passCunn.BeamBackTeam}";
+        if (passCunn.Kill.Count != 0)
+            return "pass CUNNING>7: no kills";
+        if (!ShouldRemoveFromSeed(passCunn.Fate))
+            return "pass CUNNING>7: dilemma should discard";
+
+        // Pass: Honor alone (CUNNING 5)
+        var passHonor = Resolve(Make(honor, weak));
+        if (passHonor.Fate != Fate.Overcome || passHonor.StopTeam || passHonor.BeamBackTeam)
+            return $"pass Honor: expected Overcome no stop/beam, got {passHonor.Fate}/stop={passHonor.StopTeam}/beam={passHonor.BeamBackTeam}";
+        if (!ShouldRemoveFromSeed(passHonor.Fate))
+            return "pass Honor: dilemma should discard";
+
+        // Boundary fail: CUNNING == 7, no Honor
+        var failEq = Resolve(Make(low));
+        if (failEq.Fate != Fate.WallFailed || !failEq.StopTeam || !failEq.BeamBackTeam)
+            return $"fail CUNNING=7: expected WallFailed+Stop+BeamBack, got {failEq.Fate}/stop={failEq.StopTeam}/beam={failEq.BeamBackTeam}";
+        if (failEq.Kill.Count != 0)
+            return "fail CUNNING=7: no kills (kill-if-no-beam PARK)";
+        if (ShouldRemoveFromSeed(failEq.Fate))
+            return "fail CUNNING=7: dilemma must stay (WallFailed)";
+
+        // Fail: weak only
+        var failWeak = Resolve(Make(weak));
+        if (failWeak.Fate != Fate.WallFailed || !failWeak.StopTeam || !failWeak.BeamBackTeam)
+            return $"fail weak: expected WallFailed+Stop+BeamBack, got {failWeak.Fate}/stop={failWeak.StopTeam}/beam={failWeak.BeamBackTeam}";
+        if (ShouldRemoveFromSeed(failWeak.Fate))
+            return "fail weak: dilemma must stay (WallFailed)";
+
+        // Fail: empty AT
+        var empty = Resolve(Make());
+        if (empty.Fate != Fate.WallFailed || !empty.StopTeam || !empty.BeamBackTeam)
+            return $"empty: expected WallFailed+Stop+BeamBack, got {empty.Fate}/stop={empty.StopTeam}/beam={empty.BeamBackTeam}";
+        if (ShouldRemoveFromSeed(empty.Fate))
+            return "empty: dilemma must stay (WallFailed)";
+
+        return null;
     }
 
     private static Result Sarjenka(Ctx ctx)

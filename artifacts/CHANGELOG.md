@@ -4,6 +4,12 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Feat - Portal Guard Premiere)
+
+**Engine** - Portal Guard (PR 43 U): Planet - Unless one Away Team member has CUNNING>7 OR Honor: WallFailed (dilemma stays under mission) + Away Team beams up (BeamBackTeam) + stopped; else Overcome + Continue (discard). Spock #25 Soll / DRG Portal Guard. Decide: `DilemmaRules.DecidePortalGuard` + `VerifyPortalGuard`. Boundary CUNNING==7 fails. PARK: kill if beam impossible/partially blocked; Borg abort edges.
+
+---
+
 ## 2026-09-06 (Feat - Phased Matter Premiere)
 
 **Engine** - Phased Matter (PR 42 C): Planet - Owner divides Away Team; larger group phased/stasis (tie: owner picks which is larger; Solo=1+0). Smaller AT Continue (AttachAndContinue, not stopped). Cure: ENGINEER + SCIENCE from another unphased AT at planet (Held/phased do not count via ExcludeHeld/CanCurePhased). Spock #24 Soll / DRG + Glossary Errata Phased Matter. Decide: `DilemmaRules.Phased` + `VerifyPhasedMatter`. PARK: deep phasing LegalMoves (Sheliak etc.); Beam/leave already gated via IsCardInStasis.
