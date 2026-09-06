@@ -463,6 +463,91 @@ public static class MissionRules
         return 0;
     }
 
+
+    /// <summary>
+    /// Space mission attempt crew/present pool: only cards aboard the selected Attempting-Ship.
+    /// Other own ships at the same spaceline location do NOT count (unless a card explicitly
+    /// references location totals, e.g. total WEAPONS). Rulebook Mission Attempt; Glossary present/dilemma.
+    /// </summary>
+    public static List<Card> SpaceAttemptPool(
+        IEnumerable<(string ShipKey, Card Card)> personnelAndEquipOnOwnShipsAtLocation,
+        string attemptingShipKey)
+    {
+        if (string.IsNullOrEmpty(attemptingShipKey))
+            return new List<Card>();
+        return personnelAndEquipOnOwnShipsAtLocation
+            .Where(x => string.Equals(x.ShipKey, attemptingShipKey, StringComparison.Ordinal))
+            .Select(x => x.Card)
+            .ToList();
+    }
+
+    /// <summary>
+    /// DE mini-test: two ships same location; attempt with weak ship must not use strong ship's crew.
+    /// Returns null if OK, else failure reason.
+    /// </summary>
+    public static string? VerifySpaceAttemptCrewScope()
+    {
+        static Card P(string name, string cls, string text, string aff = "Federation") => new()
+        {
+            Name = name,
+            Type = "Personnel",
+            Class = cls,
+            Text = text,
+            Affiliation = aff,
+            Characteristics = "Human; Male;",
+            IntegrityOrRange = "6",
+            CunningOrWeapons = "6",
+            StrengthOrShields = "6"
+        };
+
+        var weak = P("Weak Ensign", "CIVILIAN", "CIVILIAN");
+        var strongNav = P("Nav Ace", "OFFICER", "OFFICER Navigation Navigation");
+        var strongEng = P("Eng Ace", "ENGINEER", "ENGINEER ENGINEER Physics");
+
+        var atLocation = new List<(string ShipKey, Card Card)>
+        {
+            ("shipWeak", weak),
+            ("shipStrong", strongNav),
+            ("shipStrong", strongEng),
+        };
+
+        var attemptingOnly = SpaceAttemptPool(atLocation, "shipWeak");
+        if (attemptingOnly.Count != 1 || !ReferenceEquals(attemptingOnly[0], weak))
+            return $"pool weak ship: expected only Weak Ensign, got [{string.Join(", ", attemptingOnly.Select(c => c.Name))}]";
+
+        var strongOnly = SpaceAttemptPool(atLocation, "shipStrong");
+        if (strongOnly.Count != 2
+            || !strongOnly.Contains(strongNav)
+            || !strongOnly.Contains(strongEng))
+            return $"pool strong ship: expected Nav+Eng, got [{string.Join(", ", strongOnly.Select(c => c.Name))}]";
+
+        var emptyKey = SpaceAttemptPool(atLocation, "missing");
+        if (emptyKey.Count != 0)
+            return "pool missing ship key must be empty";
+
+        // Solve: mission needs Navigation x2 + ENGINEER — weak ship alone fails; wrong all-ships pool would pass.
+        var mission = new Card
+        {
+            Name = "Study Nebula",
+            Type = "Mission",
+            MissionDilemmaType = "[S]",
+            Affiliation = "Federation",
+            Text = "Navigation x2 + ENGINEER",
+            Points = "30"
+        };
+
+        var wrongAllShips = atLocation.Select(x => x.Card).ToList();
+        var wrongSolve = CanSolve(mission, wrongAllShips, dilemmasRemaining: 0, attemptingPlayer: 1, missionOwner: 1);
+        if (!wrongSolve.Ok)
+            return $"sanity: combined crew should solve ({wrongSolve.Reason})";
+
+        var rightSolve = CanSolve(mission, attemptingOnly, dilemmasRemaining: 0, attemptingPlayer: 1, missionOwner: 1);
+        if (rightSolve.Ok)
+            return "weak attempting ship must NOT solve when strong ship is only present at location (not in attempt pool)";
+
+        return null;
+    }
+
     public static bool IsDilemma(Card c) =>
         (c.Type ?? "").Contains("Dilemma", StringComparison.OrdinalIgnoreCase);
 

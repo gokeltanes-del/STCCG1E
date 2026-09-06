@@ -267,6 +267,8 @@ public partial class TableWindow : Window
 
     /// <summary>During a mission attempt: cards discarded from this location (for Temporal Causality Loop).</summary>
     private Border? _attemptMission;
+    /// <summary>Space attempt: the one selected Attempting-Ship (crew/present scoped to this ship only).</summary>
+    private Border? _attemptShip;
     private readonly List<(Card card, int owner, Border? returnHost, bool wasSeed)> _attemptDiscards = new();
     /// <summary>Borg Ship dilemma token direction along spaceline (+1 / -1).</summary>
     private int _borgShipDir = 1;
@@ -11591,7 +11593,7 @@ public partial class TableWindow : Window
                         && MissionRules.IsSpaceMission(mc)
                         && !_solvedMissions.Contains(mAt))
                     {
-                        AddBtn("Attempt mission (Space)", (_, _) => TryAttemptMission(mAt, mc));
+                        AddBtn("Attempt mission (Space)", (_, _) => TryAttemptMission(mAt, mc, cardBorder));
                     }
                 }
             }
@@ -11658,7 +11660,7 @@ public partial class TableWindow : Window
         StatusText.Text = $"BEAM: {_beamSelected.Count} card(s) selected – click destination.";
     }
 
-    private void TryAttemptMission(Border missionBorder, Card mission)
+    private void TryAttemptMission(Border missionBorder, Card mission, Border? attemptingShipBorder = null)
     {
         mission = MissionPrintedFor(missionBorder, _activePlayer);
         var auth = AuthorizePlay(GameAction.AttemptMission(_activePlayer, mission));
@@ -11678,9 +11680,28 @@ public partial class TableWindow : Window
         // Solved / Scow / Supernova already denied via BoardPiece flags in EngineAuthority.
         // Track discards for Temporal Causality Loop
         _attemptMission = missionBorder;
+        _attemptShip = null;
         _attemptDiscards.Clear();
 
-        var teamBorders = CollectTeamBordersAtMission(missionBorder, mission);
+        // Space: Rulebook Mission Attempt — select ONE Attempting-Ship; only that ship's crew
+        // counts for dilemmas + solve (other own ships at location do not).
+        if (!MissionRules.IsPlanetMission(mission))
+        {
+            if (attemptingShipBorder == null
+                || attemptingShipBorder.Tag is not Card shipCard
+                || !IsShipCard(shipCard)
+                || GetBorderOwner(attemptingShipBorder) != _activePlayer
+                || IsBorderStopped(attemptingShipBorder)
+                || !ReferenceEquals(FindMissionForDockable(attemptingShipBorder), missionBorder))
+            {
+                ShowPlayError("Space mission attempt: select one Attempting-Ship (ship menu at this mission).");
+                _attemptMission = null;
+                return;
+            }
+            _attemptShip = attemptingShipBorder;
+        }
+
+        var teamBorders = CollectTeamBordersAtMission(missionBorder, mission, _attemptShip);
         var team = teamBorders
             .Where(b => b.Tag is Card)
             .Select(b => (Card)b.Tag!)
@@ -11777,19 +11798,14 @@ public partial class TableWindow : Window
             if (TryNullifyEncounteredWindDancer(seedCard, missionBorder, seedStack))
                 continue;
 
-            var present = CollectPresentAtMission(missionBorder, mission);
-            Card? ship = null;
-            Border? shipBorder = null;
-            if (!MissionRules.IsPlanetMission(mission))
+            // During attempt: present = Attempting-Ship crew only (not whole location).
+            var present = CollectPresentAtMission(missionBorder, mission, _attemptShip);
+            Card? ship = _attemptShip?.Tag as Card;
+            Border? shipBorder = _attemptShip;
+            if (ship != null && !IsShipCard(ship))
             {
-                foreach (var dock in GetDockablesUnderMission(missionBorder))
-                {
-                    if (dock.Tag is not Card dc || !IsShipCard(dc)) continue;
-                    if (GetBorderOwner(dock) != _activePlayer) continue;
-                    ship = dc;
-                    shipBorder = dock;
-                    break;
-                }
+                ship = null;
+                shipBorder = null;
             }
 
             var hand = _activePlayer == 1 ? _handCards : _oppHandCards;
@@ -11900,7 +11916,7 @@ public partial class TableWindow : Window
                 return;
             }
 
-            teamBorders = CollectTeamBordersAtMission(missionBorder, mission);
+            teamBorders = CollectTeamBordersAtMission(missionBorder, mission, _attemptShip);
             team = teamBorders.Where(b => b.Tag is Card).Select(b => (Card)b.Tag!).ToList();
             if (team.Count == 0)
             {
@@ -11965,6 +11981,7 @@ public partial class TableWindow : Window
         StatusText.Text =
             $"Mission solved! +{result.Points} (P{_activePlayer}). Score P1 {_scoreP1} · P2 {_scoreP2}.";
         _attemptMission = null;
+        _attemptShip = null;
         _attemptDiscards.Clear();
         ClearCardActionUi();
     }
@@ -15755,6 +15772,7 @@ public partial class TableWindow : Window
             $"Temporal Causality Loop: restored {restored} card(s); turn ends");
         StatusText.Text = $"Temporal Causality Loop: {restored} card(s) returned; turn ends.";
         _attemptMission = null;
+        _attemptShip = null;
     }
 
     private void RemoveEquipmentFromHost(Border host, Card eq)
@@ -15915,8 +15933,11 @@ public partial class TableWindow : Window
             RevealButtons.Ok, mission.Name);
     }
 
-    /// <summary>Ungestopptes eigenes Personal an der Mission (Borders).</summary>
-    private List<Border> CollectTeamBordersAtMission(Border missionBorder, Card mission)
+    /// <summary>
+    /// Ungestopptes eigenes Personal an der Mission (Borders).
+    /// Space attempt: only crew aboard <paramref name="attemptingShip"/> (Rulebook Mission Attempt).
+    /// </summary>
+    private List<Border> CollectTeamBordersAtMission(Border missionBorder, Card mission, Border? attemptingShip = null)
     {
         var borders = new List<Border>();
         bool planet = MissionRules.IsPlanetMission(mission);
@@ -15936,28 +15957,31 @@ public partial class TableWindow : Window
         }
         else
         {
-            foreach (var dock in GetDockablesUnderMission(missionBorder))
+            // Space: one Attempting-Ship only — do not pool other own ships at this location.
+            if (attemptingShip == null)
+                return borders;
+            var dock = attemptingShip;
+            if (dock.Tag is not Card dc || !IsShipCard(dc)) return borders;
+            if (GetBorderOwner(dock) != _activePlayer) return borders;
+            if (IsBorderStopped(dock)) return borders;
+            if (!_stackOnHost.TryGetValue(dock, out var stacked)) return borders;
+            foreach (var sb in stacked)
             {
-                if (dock.Tag is not Card dc || !IsShipCard(dc)) continue;
-                if (GetBorderOwner(dock) != _activePlayer) continue;
-                if (IsBorderStopped(dock)) continue;
-                if (!_stackOnHost.TryGetValue(dock, out var stacked)) continue;
-                foreach (var sb in stacked)
-                {
-                    if (sb.Tag is not Card c) continue;
-                    if (IsBorderStopped(sb)) continue;
-                    if (IsCrewType(c) || (c.Type ?? "").Contains("personnel", StringComparison.OrdinalIgnoreCase))
-                        borders.Add(sb);
-                }
+                if (sb.Tag is not Card c) continue;
+                if (IsBorderStopped(sb)) continue;
+                if (IsCrewType(c) || (c.Type ?? "").Contains("personnel", StringComparison.OrdinalIgnoreCase))
+                    borders.Add(sb);
             }
         }
         return borders;
     }
 
     /// <summary>
-    /// Personal + Equipment des aktiven Spielers an der Mission (für Modifier/Mission).
+    /// Personal + Equipment des aktiven Spielers an der Mission (fuer Modifier/Mission).
+    /// Space during attempt: pass attemptingShip — only that ship (Glossary present/dilemma).
+    /// Without attemptingShip (cures etc.): all own unstopped ships at the location.
     /// </summary>
-    private List<Card> CollectPresentAtMission(Border missionBorder, Card mission)
+    private List<Card> CollectPresentAtMission(Border missionBorder, Card mission, Border? attemptingShip = null)
     {
         var cards = new List<Card>();
         bool planet = MissionRules.IsPlanetMission(mission);
@@ -15977,6 +16001,8 @@ public partial class TableWindow : Window
 
         if (planet)
             AddFromHost(missionBorder);
+        else if (attemptingShip != null)
+            AddFromHost(attemptingShip);
         else
         {
             foreach (var dock in GetDockablesUnderMission(missionBorder))
@@ -16070,10 +16096,10 @@ public partial class TableWindow : Window
         }
     }
 
-    private List<Card> CollectTeamAtMission(Border missionBorder, Card mission)
+    private List<Card> CollectTeamAtMission(Border missionBorder, Card mission, Border? attemptingShip = null)
     {
-        // Für Solve/Dilemma: present inkl. Equipment
-        return CollectPresentAtMission(missionBorder, mission);
+        // Solve/Dilemma: present inkl. Equipment; space attempt passes attemptingShip
+        return CollectPresentAtMission(missionBorder, mission, attemptingShip);
     }
 
     /// <summary>

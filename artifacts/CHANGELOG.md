@@ -4,6 +4,12 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Fix - Space attempt crew scope)
+
+**Engine** - Space Mission Attempt: only the selected Attempting-Ship's crew counts for dilemmas + solve / present. Other own ships at the same location no longer contribute (Rulebook Mission Attempt; Glossary present/dilemma). `TableWindow` passes ship from space-attempt menu; `MissionRules.SpaceAttemptPool` + `VerifySpaceAttemptCrewScope`.
+
+---
+
 ## 2026-09-06 (Feat - Portal Guard Premiere)
 
 **Engine** - Portal Guard (PR 43 U): Planet - Unless one Away Team member has CUNNING>7 OR Honor: WallFailed (dilemma stays under mission) + Away Team beams up (BeamBackTeam) + stopped; else Overcome + Continue (discard). Spock #25 Soll / DRG Portal Guard. Decide: `DilemmaRules.DecidePortalGuard` + `VerifyPortalGuard`. Boundary CUNNING==7 fails. PARK: kill if beam impossible/partially blocked; Borg abort edges.
