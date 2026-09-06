@@ -47,6 +47,8 @@ public sealed class GameStateSeed
     public bool TentDownloadUsedP2 { get; init; }
     public IReadOnlyList<string> OncePerGameKeys { get; init; } = Array.Empty<string>();
     public IReadOnlyList<int> StoppedInstanceIds { get; init; } = Array.Empty<int>();
+    /// <summary>Ship InstanceIds staffed by Rogue Borg + Lore Returns (UI lore; folded into store Staffed).</summary>
+    public IReadOnlyList<int> LoreStaffedShipIds { get; init; } = Array.Empty<int>();
     public IReadOnlyList<string> UntilEndOfTurnKeys { get; init; } = Array.Empty<string>();
 }
 

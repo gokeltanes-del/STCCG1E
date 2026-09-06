@@ -275,9 +275,12 @@ public static class EngineAuthority
                 return ApplyResult.Deny("Only your ships may move.", "fly", action.Player, ship);
             if (piece.RangeLeft == 0)
                 return ApplyResult.Deny("No RANGE remaining this turn.", "fly", action.Player, ship);
-            if (!piece.Staffed)
+            // G4: same IsShipStaffed(+Treaties) as UI/Fly; piece.Staffed may be lore (Rogue+Lore) from store.
+            var treatiesStaff = state.TreatiesOf(action.Player);
+            var staffCheck = MovementRules.IsShipStaffed(ship, piece.Aboard, treatiesStaff);
+            if (!staffCheck.Ok && !piece.Staffed)
                 return ApplyResult.Deny(
-                    piece.StaffReason ?? "Ship is not staffed for movement.",
+                    staffCheck.Reason ?? piece.StaffReason ?? "Ship is not staffed for movement.",
                     "fly", action.Player, ship);
         }
 

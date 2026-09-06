@@ -126,10 +126,14 @@ public sealed class BoardStore
     /// </summary>
     public List<BoardPiece> ToBoardPieces(
         IReadOnlyList<TreatyRules.TreatyLink>? treatiesP1 = null,
-        IReadOnlyList<TreatyRules.TreatyLink>? treatiesP2 = null)
+        IReadOnlyList<TreatyRules.TreatyLink>? treatiesP2 = null,
+        IReadOnlyList<int>? loreStaffedShipIds = null)
     {
         var list = new List<BoardPiece>();
         var seen = new HashSet<int>();
+        var loreStaffed = loreStaffedShipIds != null && loreStaffedShipIds.Count > 0
+            ? new HashSet<int>(loreStaffedShipIds)
+            : null;
 
         for (int i = 0; i < Spaceline.Locations.Count; i++)
         {
@@ -158,12 +162,16 @@ public sealed class BoardStore
                 string? staffReason = null;
                 if (kind == BoardPieceKind.Ship)
                 {
-                    // E2b: pass owner treaties (Match ignores them post-G2; API matches Fly path).
+                    // G4: one staffing truth = IsShipStaffed(+Treaties) + optional lore (Rogue+Lore).
+                    // G2: Treaty/NA != Match; G3: empty-icon still needs Match crew.
                     int own = occ.Card.Owner != 0 ? occ.Card.Owner : occ.Card.Controller;
                     var treaties = own == 2 ? treatiesP2 : treatiesP1;
                     var staff = MovementRules.IsShipStaffed(printed, aboard, treaties);
-                    staffed = staff.Ok;
-                    staffReason = staff.Reason;
+                    bool lore = loreStaffed != null && loreStaffed.Contains(occ.InstanceId);
+                    staffed = staff.Ok || lore;
+                    staffReason = staffed
+                        ? (staff.Ok ? staff.Reason : "Rogue Borg + Lore Returns")
+                        : staff.Reason;
                 }
 
                 int rangeLeft = -1;
@@ -238,7 +246,9 @@ public sealed class BoardStore
     public GameState ToGameState(GameStateSeed seed)
     {
         bool storeReady = Spaceline.Locations.Count > 0;
-        var storePieces = storeReady ? ToBoardPieces(seed.TreatiesP1, seed.TreatiesP2) : new List<BoardPiece>();
+        var storePieces = storeReady
+            ? ToBoardPieces(seed.TreatiesP1, seed.TreatiesP2, seed.LoreStaffedShipIds)
+            : new List<BoardPiece>();
         var board = storeReady
             ? MergeStorePreferred(storePieces, seed.UiBoard)
             : seed.UiBoard.ToList();
@@ -370,7 +380,7 @@ public sealed class BoardStore
         return merged;
     }
 
-    /// <summary>E3/E3b: RangeLeft / Stopped / Cloak / Dock / Hull prefer store; solved / persist still UI. Crew / host stay store. E2b: Staffed ORs UI (Rogue Borg / full Fly path).</summary>
+    /// <summary>E3/E3b: RangeLeft / Stopped / Cloak / Dock / Hull prefer store; solved / persist still UI. Crew / host stay store. G4: Staffed is store-only (no ui||store drift).</summary>
     private static BoardPiece OverlayStatus(BoardPiece store, BoardPiece ui) => new()
     {
         Card = store.Card,
@@ -397,8 +407,8 @@ public sealed class BoardStore
         Cloaked = store.Cloaked || ui.Cloaked,
         DockedAtId = store.DockedAtId > 0 ? store.DockedAtId : ui.DockedAtId,
         HullPercent = store.HullPercent >= 0 ? store.HullPercent : ui.HullPercent,
-        Staffed = ui.Staffed || store.Staffed,
-        StaffReason = ui.Staffed ? ui.StaffReason : store.StaffReason,
+        Staffed = store.Staffed,
+        StaffReason = store.StaffReason ?? ui.StaffReason,
         SpacelineIndex = store.SpacelineIndex >= 0 ? store.SpacelineIndex : ui.SpacelineIndex,
         Aboard = store.Aboard.Count > 0 ? store.Aboard : ui.Aboard
     };

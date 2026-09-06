@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Fix - G4 BoardStore staffing aligned with UI Treaties)
+
+**Engine** - One staffing truth: `BoardStore.ToBoardPieces` calls `MovementRules.IsShipStaffed(+Treaties)` (G2 Match / G3 empty-icon) and folds Rogue+Lore via `GameStateSeed.LoreStaffedShipIds`. `OverlayStatus` uses **store Staffed only** (no `ui || store` drift). `EngineAuthority` Fly rechecks `IsShipStaffed` with `state.TreatiesOf`; lore still allowed when store marked Staffed. TW seeds lore ship InstanceIds.
+
+---
 ## 2026-09-06 (Fix - G3 empty-icon ship needs crew)
 
 **Engine** - `MovementRules.IsShipStaffed`: ships with no staffing icons are no longer Ok with zero crew. Require >=1 matching-affiliation personnel aboard (Treaty/NA != Match per G2). Deny Fly with empty crew. Text-staffing sandbox path also requires Match when crew present.

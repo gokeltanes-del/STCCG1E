@@ -910,7 +910,8 @@ public partial class TableWindow : Window
             {
                 if (kind == BoardPieceKind.Ship && rangeLeft < 0)
                     rangeLeft = GetRemainingRange(kv.Key, c);
-                // E2b/G5: store ToBoardPieces omits Rogue Borg (+ Treaty args). Overlay ORs UI Staffed.
+                // G4: UI Staffed mirrors IsShipStaffed(+Treaties)+Rogue for seed/fallback;
+                // store ToBoardPieces is staffing truth (Overlay no longer ORs).
                 if (kind == BoardPieceKind.Ship)
                 {
                     var crew = GetCrewOnShip(kv.Key);
@@ -1096,6 +1097,13 @@ public partial class TableWindow : Window
             StoppedInstanceIds = _stoppedBorders
                 .Select(b => b.Tag is Card sc ? sc.InstanceId : 0)
                 .Where(id => id != 0)
+                .Distinct()
+                .ToList(),
+            LoreStaffedShipIds = _borderOwner.Keys
+                .Where(b => b.Tag is Card sc
+                            && sc.InstanceId > 0
+                            && ShipStaffedByRogueBorg(b))
+                .Select(b => ((Card)b.Tag!).InstanceId)
                 .Distinct()
                 .ToList(),
             UntilEndOfTurnKeys = _session.UntilEndOfTurn.ToList()

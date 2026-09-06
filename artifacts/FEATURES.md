@@ -1,4 +1,4 @@
-﻿# STCCG 1E - Features backlog
+# STCCG 1E - Features backlog
 Last updated: 2026-09-06
 
 Living list - **Seven owns ranking.** Reorder freely when checklist coverage or Captain goals shift.
@@ -25,7 +25,7 @@ See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md, CARD_TRACKER.md (Jadzia).
 - Engine dump omits ships on Gaps
 - Distortion (no AU to test)
 - Fed 7.4.1 battle initiation (Spock/Data)
-- E2b Treaty/Rogue staffing on store path (Data tip G5 2026-09-06)
+- E2b/G4 store staffing one-truth Treaties+Lore (no ui||store OR; tips G5/G4 2026-09-06)
 - Mission-Button last-revealed (parked)
 
 ## P2 - Premiere hardening

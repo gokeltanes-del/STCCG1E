@@ -273,6 +273,8 @@ Probe: gleiches Beam→Fly. Log ohne `state-fallback:` für das Schiff.
 
 ### E2b — Store-Staffing Treaty / Rogue Borg (done 2026-09-06)
 
+**G4 (2026-09-06):** Store Staffed = `IsShipStaffed(+Treaties)` + seed `LoreStaffedShipIds`. Overlay no longer ORs UI Staffed.
+
 
 ### E2 caveat — Action History / LegalMoves cascade (fixed 2026-09-03)
 
