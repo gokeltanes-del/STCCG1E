@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-06 (Jadzia — Firestorm #11 tip 6e872b1 partial; ETA parked; #12 Gravitic in flight)
+Last updated: 2026-09-06 (Jadzia - Gravitic Mine #12 partial; next #13+)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -91,7 +91,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | El-Adrel Creature (23 U) | partial | tip Data/`4b3467b`. 2 staerkste (Tie=Owner); STR>16 Continue; Fail random Kill + AT stop. Ungetestet. | Data/`4b3467b` 2026-09-06 |
 | Female's Love Interest (24 C) | working | Pepsch getestet OK (Continue after Relocate). | Pepsch 2026-09-06 |
 | Firestorm (25 U) | partial | tip Data/`6e872b1`. INT<5 die; Rest Continue; TD nullify. PARK: ETA-Escape Response. Ungetestet. | Data/`6e872b1` 2026-09-06 |
-| Gravitic Mine (26 U) | unknown |  |  |
+| Gravitic Mine (26 U) | partial | SCIENCE+Navigation Overcome Continue; Fail DamageShip+Stop Ship+Crew; discard. Ungetestet. | Data 2026-09-06 |
 | Hologram Ruse (27 U) | working | Pepsch getestet OK. | Pepsch 2026-09-06 |
 | Hyper-Aging (28 U) | working | Pepsch green (AttachAndContinue). | Pepsch 2026-09-06 |
 | Iconian Computer Weapon (29 C) | unknown |  |  |

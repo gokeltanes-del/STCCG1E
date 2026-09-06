@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Feat - Gravitic Mine Premiere)
+
+**Engine** - Gravitic Mine (PR 26 U): Space — Unless SCIENCE AND Navigation present: DamageShip (ApplyHullDamage +50 / Rotation badge) + Ship+Crew stopped (`EffectAndEnd`+`StopTeam`); else Overcome Continue. Always discard. No bonus points. Spock #12 Soll / DRG Gravitic Mine. Decide: `DilemmaRules.GraviticMine` + `VerifyGraviticMine`.
+
+---
 ## 2026-09-06 (Feat - Firestorm Premiere)
 
 **Engine** - Firestorm (PR 25 U): Planet — no Condition-Wall. Personnel with INT<5 after Enhancements (`Eff`) die; Rest Continue; dilemma discard (`EffectAndContinue`). Boundary INT==5 survives. Thermal Deflectors in play -> nullify/discard + Continue (`Overcome`). Spock #11 Soll / DRG Firestorm (TD/ETA != Conditions). Decide: `DilemmaRules.Firestorm` + `VerifyFirestorm`. PARK: ETA-Escape Response timing (UI thin).
