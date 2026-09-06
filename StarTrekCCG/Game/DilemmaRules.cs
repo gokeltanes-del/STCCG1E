@@ -126,8 +126,7 @@ public static class DilemmaRules
 
             "Gravitic Mine" => GraviticMine(ctx),
             "Nanites" => Nanites(ctx),
-            "Null Space" => SpaceUnlessScore(ctx, Skill(ctx, "Navigation", 2),
-                damage: true, score: 5, need: "2 Navigation"),
+            "Null Space" => NullSpace(ctx),
             "Microbiotic Colony" => MicrobioticColony(ctx),
             "Cosmic String Fragment" => CosmicStringFragment(ctx),
 
@@ -1622,6 +1621,91 @@ public static class DilemmaRules
             return $"empty: expected EffectAndEnd+Stop no kill, got {empty.Fate}/stop={empty.StopTeam}/kills={empty.Kill.Count}";
         if (!ShouldRemoveFromSeed(empty.Fate))
             return "empty: dilemma should discard";
+
+        return null;
+    }
+
+    // ---- Null Space (Premiere 41 U) ----
+    // Printed (PR): "Unless 2 Navigation present, damages ship. Otherwise, score points. Discard dilemma."
+    // Points: 5. [S] Space.
+    // Spock #23 Soll / DRG Null Space:
+    //   Pass (2 Navigation) -> Overcome +5 Bonus-Area + Continue; discard.
+    //   Fail -> DamageShip (ApplyHullDamage +50 / Rotation badge) + Ship/Crew stopped
+    //           (EffectAndEnd+StopTeam); dilemma always discarded.
+    // Boundary: 1 Navigation fails. Decide: DilemmaRules.NullSpace + VerifyNullSpace.
+
+    private static Result NullSpace(Ctx ctx) =>
+        SpaceUnlessScore(ctx, Skill(ctx, "Navigation", 2),
+            damage: true, score: 5, need: "2 Navigation");
+
+    /// <summary>DE mini-test for Null Space. Returns null if OK, else failure reason.</summary>
+    public static string? VerifyNullSpace()
+    {
+        static Card P(string name, string cls, string text) => new()
+        {
+            Name = name,
+            Type = "Personnel",
+            Class = cls,
+            Text = text,
+            Characteristics = "Human; Male;",
+            IntegrityOrRange = "5",
+            CunningOrWeapons = "5",
+            StrengthOrShields = "5"
+        };
+
+        static Ctx Make(params Card[] team) => new()
+        {
+            Dilemma = new Card { Name = "Null Space", Type = "Dilemma", MissionDilemmaType = "[S]", Points = "5" },
+            Mission = new Card { Name = "Test Space", Type = "Mission", MissionDilemmaType = "[S]" },
+            Team = team,
+            Present = team,
+            AttemptingPlayer = 1,
+            Rng = new Random(1)
+        };
+
+        var nav1 = P("Nav One", "OFFICER", "Navigation");
+        var nav2 = P("Nav Two", "OFFICER", "Navigation");
+        var civ = P("Civilian", "CIVILIAN", "CIVILIAN");
+        var sci = P("Scientist", "SCIENCE", "SCIENCE");
+
+        // Pass: 2 Navigation -> Overcome +5, Continue, no damage, discard
+        var passNav = Resolve(Make(nav1, nav2, civ));
+        if (passNav.Fate != Fate.Overcome || passNav.StopTeam || passNav.Score != 5)
+            return $"pass 2 Navigation: expected Overcome Score=5 no stop, got {passNav.Fate}/{passNav.Score}/stop={passNav.StopTeam}";
+        if (passNav.DamageShip || passNav.DestroyShip)
+            return "pass 2 Navigation: should not damage/destroy ship";
+        if (!ShouldRemoveFromSeed(passNav.Fate))
+            return "pass 2 Navigation: dilemma should discard";
+
+        // Fail boundary: 1 Navigation only -> DamageShip + Stop, no score, discard
+        var failOne = Resolve(Make(nav1, civ));
+        if (failOne.Fate != Fate.EffectAndEnd || !failOne.StopTeam || !failOne.DamageShip)
+            return $"fail 1 Navigation: expected EffectAndEnd+Stop+DamageShip, got {failOne.Fate}/stop={failOne.StopTeam}/dmg={failOne.DamageShip}";
+        if (failOne.DestroyShip || failOne.Score != 0)
+            return "fail 1 Navigation: damage not destroy; no score";
+        if (!ShouldRemoveFromSeed(failOne.Fate))
+            return "fail 1 Navigation: dilemma should discard";
+
+        // Fail: SCIENCE/civilian only (no Navigation)
+        var failSci = Resolve(Make(sci, civ));
+        if (failSci.Fate != Fate.EffectAndEnd || !failSci.StopTeam || !failSci.DamageShip)
+            return $"fail no-nav: expected EffectAndEnd+Stop+DamageShip, got {failSci.Fate}/stop={failSci.StopTeam}/dmg={failSci.DamageShip}";
+        if (!ShouldRemoveFromSeed(failSci.Fate))
+            return "fail no-nav: dilemma should discard";
+
+        // Fail: empty crew
+        var empty = Resolve(Make());
+        if (empty.Fate != Fate.EffectAndEnd || !empty.StopTeam || !empty.DamageShip)
+            return $"empty: expected EffectAndEnd+Stop+DamageShip, got {empty.Fate}/stop={empty.StopTeam}/dmg={empty.DamageShip}";
+        if (!ShouldRemoveFromSeed(empty.Fate))
+            return "empty: dilemma should discard";
+
+        // Fail: civilian only
+        var failCiv = Resolve(Make(civ));
+        if (failCiv.Fate != Fate.EffectAndEnd || !failCiv.StopTeam || !failCiv.DamageShip)
+            return $"fail civilian: expected EffectAndEnd+Stop+DamageShip, got {failCiv.Fate}/stop={failCiv.StopTeam}/dmg={failCiv.DamageShip}";
+        if (!ShouldRemoveFromSeed(failCiv.Fate))
+            return "fail civilian: dilemma should discard";
 
         return null;
     }

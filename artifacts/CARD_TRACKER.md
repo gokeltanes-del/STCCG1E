@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-06 (Jadzia — Nausicaans #22 tip 485814c partial; #23 Null Space in flight)
+Last updated: 2026-09-06 (Josef - Null Space #23 tip TIP_PENDING partial; next5 #24+)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -106,7 +106,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Nanites (38 U) | partial | tip Data/`df0e3fa`. 2 SCIENCE OR Diplomacy → +5 Continue; Fail Damage+Stop. Ungetestet. | Data/`df0e3fa` 2026-09-06 |
 | Nausicaans (39 U) | partial | tip Data/`485814c`. STR>44 Continue; Fail random Kill+Stop. PARK: Interphase/Zon nullify. Ungetestet. | Data/`485814c` 2026-09-06 |
 | Nitrium Metal Parasites (40 U) | working | Pepsch green (AttachAndContinue). | Pepsch 2026-09-06 |
-| Null Space (41 U) | unknown |  |  |
+| Null Space (41 U) | partial | tip Data/`TIP_PENDING`. 2 Navigation -> +5 Continue; Fail Damage+Stop; immer discard. Ungetestet. | Data/`TIP_PENDING` 2026-09-06 |
 | Phased Matter (42 C) | unknown |  |  |
 | Portal Guard (43 U) | unknown |  |  |
 | Q (44 R) | unknown |  |  |

@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Feat - Null Space Premiere)
+
+**Engine** - Null Space (PR 41 U): Space - Unless 2 Navigation present: Ship damaged (DamageShip / ApplyHullDamage +50 / Rotation badge) + Ship/Crew stopped (EffectAndEnd+StopTeam); else Overcome +5 Bonus-Area + Continue. Always discard dilemma. Boundary: 1 Navigation fails. Spock #23 Soll / DRG Null Space. Decide: `DilemmaRules.NullSpace` + `VerifyNullSpace`.
+
+---
 ## 2026-09-06 (Feat - Nausicaans Premiere)
 
 **Engine** - Nausicaans (PR 39 U): Planet - Unless STRENGTH>44: kills one Away Team member (random selection) + AT stopped (EffectAndEnd+StopTeam); else Overcome + Continue. Always discard dilemma. Boundary STRENGTH==44 fails. Spock #22 Soll / DRG Nausicaans. Decide: `DilemmaRules.Nausicaans` + `VerifyNausicaans`. PARK: Interphase Generator / Zon nullify not wired.
