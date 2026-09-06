@@ -1185,13 +1185,108 @@ public static class DilemmaRules
             "Hyper-Aging (quarantine, countdown 3). Cure: SCIENCE + 2 MEDICAL. Attempt continues.");
     }
 
+    // ---- Menthar Booby Trap (Premiere 34 C) ----
+    // Printed (PR): "Place on ship; it cannot move. Unless MEDICAL present, one crew member killed (random selection). Cure with 2 ENGINEER."
+    // Space [S]: ALWAYS place on ship (Persist Menthar, countdown 0). No Move until Cure (2 ENGINEER).
+    // MEDICAL missing -> 1 crew random kill + AttachAndEnd + StopTeam (ship/crew stopped).
+    // MEDICAL present -> no kill + AttachAndContinue + StopTeam=false (still placed; attempt continues).
+    // Cure/discard later: CanCure Menthar = 2 ENGINEER (after initial effect; no encounter Overcome).
+    // Spock #17 Soll / DRG + Glossary Errata Menthar Booby Trap.
+    // PARK: LegalMoves-level move-block beyond existing TW Menthar/TwoDim gate if thin.
+
     private static Result Menthar(Ctx ctx)
     {
+        if (Skill(ctx, "MEDICAL"))
+            return AttachContinue(ctx, PersistKind.Menthar, 0,
+                "Menthar Booby Trap on ship: cannot move. MEDICAL present - no kill; attempt continues. Cure: 2 ENGINEER.");
         var r = Attach(ctx, PersistKind.Menthar, 0,
-            "Menthar: ship cannot move. Cure: 2 ENGINEER. Without MEDICAL, 1 crew dies.");
-        if (!Skill(ctx, "MEDICAL"))
-            AddKill(r.Kill, RandomOf(ctx, ctx.Team));
+            "Menthar Booby Trap on ship: cannot move. No MEDICAL - 1 crew killed (random); ship/crew stopped. Cure: 2 ENGINEER.");
+        AddKill(r.Kill, RandomOf(ctx, ctx.Team));
         return r;
+    }
+
+    /// <summary>DE mini-test for Menthar Booby Trap. Returns null if OK, else failure reason.</summary>
+    public static string? VerifyMentharBoobyTrap()
+    {
+        static Card P(string name, string cls, string text) => new()
+        {
+            Name = name,
+            Type = "Personnel",
+            Class = cls,
+            Text = text,
+            Characteristics = "Human; Male;",
+            IntegrityOrRange = "5",
+            CunningOrWeapons = "5",
+            StrengthOrShields = "5"
+        };
+
+        static Ctx Make(params Card[] team) => new()
+        {
+            Dilemma = new Card { Name = "Menthar Booby Trap", Type = "Dilemma", MissionDilemmaType = "[S]" },
+            Mission = new Card { Name = "Test Space", Type = "Mission", MissionDilemmaType = "[S]" },
+            Team = team,
+            Present = team,
+            AttemptingPlayer = 1,
+            Rng = new Random(1)
+        };
+
+        var med = P("Medic", "MEDICAL", "MEDICAL");
+        var eng1 = P("Eng One", "ENGINEER", "ENGINEER");
+        var eng2 = P("Eng Two", "ENGINEER", "ENGINEER");
+        var civ = P("Civilian", "CIVILIAN", "CIVILIAN");
+        var civ2 = P("Civilian Two", "CIVILIAN", "CIVILIAN");
+
+        // No MEDICAL: AttachAndEnd + Stop + 1 random kill; still placed
+        var noMed = Resolve(Make(civ, civ2, eng1));
+        if (noMed.Fate != Fate.AttachAndEnd || !noMed.StopTeam)
+            return $"no MEDICAL: expected AttachAndEnd+Stop, got {noMed.Fate}/stop={noMed.StopTeam}";
+        if (noMed.Persist != PersistKind.Menthar || noMed.Countdown != 0)
+            return $"no MEDICAL: expected Persist Menthar countdown 0, got {noMed.Persist}/{noMed.Countdown}";
+        if (noMed.Kill.Count != 1)
+            return $"no MEDICAL: expected 1 kill, got {noMed.Kill.Count}";
+        if (!ShouldRemoveFromSeed(noMed.Fate))
+            return "no MEDICAL: seed removed (placed on ship)";
+        if (noMed.Score != 0 || noMed.DamageShip || noMed.DestroyShip)
+            return "no MEDICAL: no score/damage/destroy";
+
+        // MEDICAL present: AttachAndContinue, no kill, no stop; still placed (even with 2 ENG - cure is later)
+        var withMed = Resolve(Make(med, eng1, eng2));
+        if (withMed.Fate != Fate.AttachAndContinue || withMed.StopTeam)
+            return $"MEDICAL: expected AttachAndContinue no stop, got {withMed.Fate}/stop={withMed.StopTeam}";
+        if (withMed.Persist != PersistKind.Menthar || withMed.Countdown != 0)
+            return $"MEDICAL: expected Menthar countdown 0, got {withMed.Persist}/{withMed.Countdown}";
+        if (withMed.Kill.Count != 0)
+            return "MEDICAL: expected 0 kills";
+        if (!ShouldRemoveFromSeed(withMed.Fate))
+            return "MEDICAL: seed removed (placed on ship)";
+
+        // MEDICAL alone (no ENG): same continue+place
+        var medOnly = Resolve(Make(med, civ));
+        if (medOnly.Fate != Fate.AttachAndContinue || medOnly.StopTeam)
+            return $"MEDICAL only: expected AttachAndContinue no stop, got {medOnly.Fate}/stop={medOnly.StopTeam}";
+        if (medOnly.Persist != PersistKind.Menthar || medOnly.Kill.Count != 0)
+            return "MEDICAL only: expected Menthar attach, 0 kills";
+
+        // Empty crew: no MEDICAL -> AttachAndEnd+Stop, 0 kills
+        var empty = Resolve(Make());
+        if (empty.Fate != Fate.AttachAndEnd || !empty.StopTeam)
+            return $"empty: expected AttachAndEnd+Stop, got {empty.Fate}/stop={empty.StopTeam}";
+        if (empty.Persist != PersistKind.Menthar || empty.Countdown != 0)
+            return "empty: expected Menthar countdown 0";
+        if (empty.Kill.Count != 0)
+            return "empty: expected 0 kills";
+
+        if (DecideAttachHost(PersistKind.Menthar) != AttachHostPreference.ShipOrMission)
+            return "host: expected ShipOrMission";
+
+        if (!CanCure(PersistKind.Menthar, new[] { eng1, eng2 }, 1))
+            return "CanCure: 2 ENGINEER should cure";
+        if (CanCure(PersistKind.Menthar, new[] { eng1, civ }, 1))
+            return "CanCure: 1 ENGINEER should not cure";
+        if (CanCure(PersistKind.Menthar, new[] { med, civ }, 1))
+            return "CanCure: MEDICAL alone should not cure";
+
+        return null;
     }
 
     private static Result Abduction(Ctx ctx)

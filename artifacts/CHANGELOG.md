@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Feat - Menthar Booby Trap Premiere)
+
+**Engine** - Menthar Booby Trap (PR 34 C): Space - ALWAYS place on ship (Persist Menthar; no Move until Cure). MEDICAL missing -> 1 crew random kill + AttachAndEnd + StopTeam; MEDICAL present -> no kill + AttachAndContinue (still placed). Cure/discard: 2 ENGINEER. Spock #17 Soll / DRG + Glossary Errata Menthar Booby Trap. Decide: `DilemmaRules.Menthar` + `VerifyMentharBoobyTrap`. PARK: LegalMoves-level move-block beyond existing TW Menthar/TwoDim gate if thin.
+
+---
 ## 2026-09-06 (Feat - Matriarchal Society Premiere)
 
 **Engine** - Matriarchal Society (PR 33 U): Planet - Cannot get past unless at least two female Away Team members are present. Pass >=2 Female (Characteristics) -> Overcome Continue (dilemma discard); Fail -> WallFailed+StopTeam (dilemma stays under Mission). No kills / score / damage. Spock #16 Soll / DRG Matriarchal Society. Decide: DilemmaRules.MatriarchalSociety + VerifyMatriarchalSociety. PARK: gender-related Borg immediate discard (no Borg edge).
