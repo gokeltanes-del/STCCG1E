@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-06 (Jadzia — Nitrium/Hyper-Aging partial on Data `3c2704c`)
+Last updated: 2026-09-06 (Jadzia — Love Interest + Alien Abduction partial on Data `8c25d96`)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -75,7 +75,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 
 | Card | Status | Notes | Source |
 | --- | --- | --- | --- |
-| Alien Abduction (10 U) | unknown |  |  |
+| Alien Abduction (10 U) | partial | Stasis Beam/Leave-Block + Cure OR (3 Leadership or mission solved). Pending Pepsch green. | Data/`8c25d96` 2026-09-06 |
 | Alien Parasites (11 U) | unknown |  |  |
 | Anaphasic Organism (12 C) | unknown |  |  |
 | Ancient Computer (13 R) | unknown |  |  |
@@ -89,7 +89,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Crystalline Entity (21 R) | unknown |  |  |
 | Cytherians (22 R) | unknown |  |  |
 | El-Adrel Creature (23 U) | unknown |  |  |
-| Female's Love Interest (24 C) | unknown |  |  |
+| Female's Love Interest (24 C) | partial | EffectAndContinue after Relocate; rest AT continues. Pending Pepsch green. | Data/`8c25d96` 2026-09-06 |
 | Firestorm (25 U) | unknown |  |  |
 | Gravitic Mine (26 U) | unknown |  |  |
 | Hologram Ruse (27 U) | unknown |  |  |
@@ -97,7 +97,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Iconian Computer Weapon (29 C) | unknown |  |  |
 | Impassable Door (30 C) | unknown |  |  |
 | Ktarian Game (31 R) | unknown |  |  |
-| Male's Love Interest (32 C) | unknown |  |  |
+| Male's Love Interest (32 C) | partial | EffectAndContinue after Relocate; rest AT continues. Pending Pepsch green. | Data/`8c25d96` 2026-09-06 |
 | Matriarchal Society (33 U) | unknown |  |  |
 | Menthar Booby Trap (34 C) | unknown |  |  |
 | Microbiotic Colony (35 C) | unknown |  |  |
