@@ -132,9 +132,7 @@ public static class DilemmaRules
                 damage: true, score: 5, need: "2 SCIENCE or Diplomacy"),
             "Null Space" => SpaceUnlessScore(ctx, Skill(ctx, "Navigation", 2),
                 damage: true, score: 5, need: "2 Navigation"),
-            "Microbiotic Colony" => SpaceUnless(ctx,
-                Skill(ctx, "OFFICER") && Skill(ctx, "ENGINEER") && Skill(ctx, "SCIENCE"),
-                damage: true, "OFFICER, ENGINEER and SCIENCE"),
+            "Microbiotic Colony" => MicrobioticColony(ctx),
             "Cosmic String Fragment" => CosmicStringFragment(ctx),
 
             "Birth of \"Junior\"" => BirthOfJunior(ctx),
@@ -1058,6 +1056,108 @@ public static class DilemmaRules
         return null;
     }
 
+
+    // ---- Microbiotic Colony (Premiere 35 C) ----
+    // Printed (PR): "Unless OFFICER, ENGINEER, and SCIENCE present, damages ship. Discard dilemma."
+    // Spock #18 Soll / DRG Microbiotic Colony:
+    //   Space [S]; Conditions SCIENCE AND ENGINEER AND OFFICER.
+    //   Pass -> Overcome (discard + Continue).
+    //   Fail -> Ship damaged (DamageShip / ApplyHullDamage +50 / Rotation badge)
+    //           + Ship/Crew stopped (EffectAndEnd + StopTeam); dilemma always discarded.
+    //   No bonus points.
+
+    private static Result MicrobioticColony(Ctx ctx) =>
+        SpaceUnless(ctx, Skill(ctx, "OFFICER") && Skill(ctx, "ENGINEER") && Skill(ctx, "SCIENCE"),
+            damage: true, "OFFICER, ENGINEER and SCIENCE");
+
+    /// <summary>DE mini-test for Microbiotic Colony. Returns null if OK, else failure reason.</summary>
+    public static string? VerifyMicrobioticColony()
+    {
+        static Card P(string name, string cls, string text) => new()
+        {
+            Name = name,
+            Type = "Personnel",
+            Class = cls,
+            Text = text,
+            Characteristics = "Human; Male;",
+            IntegrityOrRange = "5",
+            CunningOrWeapons = "5",
+            StrengthOrShields = "5"
+        };
+
+        static Ctx Make(params Card[] team) => new()
+        {
+            Dilemma = new Card { Name = "Microbiotic Colony", Type = "Dilemma", MissionDilemmaType = "[S]" },
+            Mission = new Card { Name = "Test Space", Type = "Mission", MissionDilemmaType = "[S]" },
+            Team = team,
+            Present = team,
+            AttemptingPlayer = 1,
+            Rng = new Random(1)
+        };
+
+        var off = P("Officer One", "OFFICER", "OFFICER");
+        var eng = P("Eng One", "ENGINEER", "ENGINEER");
+        var sci = P("Sci One", "SCIENCE", "SCIENCE");
+        var allThree = P("Multi", "OFFICER", "OFFICER ENGINEER SCIENCE");
+        var civ = P("Civilian", "CIVILIAN", "CIVILIAN");
+
+        // Pass: OFFICER + ENGINEER + SCIENCE (three personnel) -> Overcome, Continue, no damage, discard
+        var passSplit = Resolve(Make(off, eng, sci, civ));
+        if (passSplit.Fate != Fate.Overcome || passSplit.StopTeam)
+            return $"pass OFF+ENG+SCI: expected Overcome no stop, got {passSplit.Fate}/stop={passSplit.StopTeam}";
+        if (passSplit.DamageShip || passSplit.DestroyShip)
+            return "pass OFF+ENG+SCI: should not damage/destroy ship";
+        if (passSplit.Score != 0)
+            return "pass: no bonus points";
+        if (!ShouldRemoveFromSeed(passSplit.Fate))
+            return "pass OFF+ENG+SCI: dilemma should discard";
+
+        // Pass: one personnel with all three skills
+        var passOne = Resolve(Make(allThree));
+        if (passOne.Fate != Fate.Overcome || passOne.StopTeam || passOne.DamageShip)
+            return $"pass one Multi: expected Overcome Continue no damage, got {passOne.Fate}/stop={passOne.StopTeam}/dmg={passOne.DamageShip}";
+        if (!ShouldRemoveFromSeed(passOne.Fate))
+            return "pass one Multi: dilemma should discard";
+
+        // Fail: missing SCIENCE (OFF+ENG only)
+        var failNoSci = Resolve(Make(off, eng, civ));
+        if (failNoSci.Fate != Fate.EffectAndEnd || !failNoSci.StopTeam || !failNoSci.DamageShip)
+            return $"fail no SCIENCE: expected EffectAndEnd+Stop+DamageShip, got {failNoSci.Fate}/stop={failNoSci.StopTeam}/dmg={failNoSci.DamageShip}";
+        if (failNoSci.DestroyShip)
+            return "fail no SCIENCE: damage not destroy";
+        if (!ShouldRemoveFromSeed(failNoSci.Fate))
+            return "fail no SCIENCE: dilemma should discard";
+
+        // Fail: missing ENGINEER (OFF+SCI only)
+        var failNoEng = Resolve(Make(off, sci));
+        if (failNoEng.Fate != Fate.EffectAndEnd || !failNoEng.StopTeam || !failNoEng.DamageShip)
+            return $"fail no ENGINEER: expected EffectAndEnd+Stop+DamageShip, got {failNoEng.Fate}/stop={failNoEng.StopTeam}/dmg={failNoEng.DamageShip}";
+        if (!ShouldRemoveFromSeed(failNoEng.Fate))
+            return "fail no ENGINEER: dilemma should discard";
+
+        // Fail: missing OFFICER (ENG+SCI only)
+        var failNoOff = Resolve(Make(eng, sci));
+        if (failNoOff.Fate != Fate.EffectAndEnd || !failNoOff.StopTeam || !failNoOff.DamageShip)
+            return $"fail no OFFICER: expected EffectAndEnd+Stop+DamageShip, got {failNoOff.Fate}/stop={failNoOff.StopTeam}/dmg={failNoOff.DamageShip}";
+        if (!ShouldRemoveFromSeed(failNoOff.Fate))
+            return "fail no OFFICER: dilemma should discard";
+
+        // Fail: empty crew
+        var empty = Resolve(Make());
+        if (empty.Fate != Fate.EffectAndEnd || !empty.StopTeam || !empty.DamageShip)
+            return $"empty: expected EffectAndEnd+Stop+DamageShip, got {empty.Fate}/stop={empty.StopTeam}/dmg={empty.DamageShip}";
+        if (!ShouldRemoveFromSeed(empty.Fate))
+            return "empty: dilemma should discard";
+
+        // Fail: civilian only
+        var failCiv = Resolve(Make(civ));
+        if (failCiv.Fate != Fate.EffectAndEnd || !failCiv.StopTeam || !failCiv.DamageShip)
+            return $"fail civilian: expected EffectAndEnd+Stop+DamageShip, got {failCiv.Fate}/stop={failCiv.StopTeam}/dmg={failCiv.DamageShip}";
+        if (!ShouldRemoveFromSeed(failCiv.Fate))
+            return "fail civilian: dilemma should discard";
+
+        return null;
+    }
 
     private static Result Nagilum(Ctx ctx)
     {

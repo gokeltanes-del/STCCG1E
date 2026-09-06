@@ -4,7 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
-## 2026-09-06 (Feat - Menthar Booby Trap Premiere)
+## 2026-09-06 (Feat - Microbiotic Colony Premiere)
+
+**Engine** - Microbiotic Colony (PR 35 C): Space - Unless SCIENCE AND ENGINEER AND OFFICER present: Ship damaged (DamageShip / ApplyHullDamage +50 / Rotation badge) + Ship/Crew stopped (EffectAndEnd+StopTeam); else Overcome Continue. Dilemma always discarded. No bonus points. Spock #18 Soll / DRG Microbiotic Colony. Decide: DilemmaRules.MicrobioticColony + VerifyMicrobioticColony.
+
+---## 2026-09-06 (Feat - Menthar Booby Trap Premiere)
 
 **Engine** - Menthar Booby Trap (PR 34 C): Space - ALWAYS place on ship (Persist Menthar; no Move until Cure). MEDICAL missing -> 1 crew random kill + AttachAndEnd + StopTeam; MEDICAL present -> no kill + AttachAndContinue (still placed). Cure/discard: 2 ENGINEER. Spock #17 Soll / DRG + Glossary Errata Menthar Booby Trap. Decide: `DilemmaRules.Menthar` + `VerifyMentharBoobyTrap`. PARK: LegalMoves-level move-block beyond existing TW Menthar/TwoDim gate if thin.
 

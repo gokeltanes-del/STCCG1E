@@ -100,7 +100,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Male's Love Interest (32 C) | working | Pepsch getestet OK (Continue after Relocate). | Pepsch 2026-09-06 |
 | Matriarchal Society (33 U) | partial | tip Data/`d68f511`. Wall ≥2 Female Continue; Fail Stop+unter Mission. PARK: Borg gender. Ungetestet. | Data/`d68f511` 2026-09-06 |
 | Menthar Booby Trap (34 C) | partial | tip Data/`01e5bb8`. Place immer; MED Continue else Kill+Stop; Cure 2 ENG. PARK: LegalMoves move-block. Ungetestet. | Data/`01e5bb8` 2026-09-06 |
-| Microbiotic Colony (35 C) | unknown |  |  |
+| Microbiotic Colony (35 C) | partial | tip Data/`TBD`. Pass SCI+ENG+OFF Continue discard; Fail DamageShip+Stop always discard. Spock #18 Soll. Ungetestet. | Data/`TBD` 2026-09-06 |
 | Microvirus (36 C) | unknown |  |  |
 | Nagilum (37 R) | unknown |  |  |
 | Nanites (38 U) | unknown |  |  |
