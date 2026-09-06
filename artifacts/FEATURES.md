@@ -29,6 +29,7 @@ See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md, CARD_TRACKER.md (Jadzia).
 - More expansion sets / Net play / AI
 
 ## Done recently (Pepsch Grün+push 2026-09-06)
+- **Space-Attempt-Crew-Scope** - fixed tip `170437a` (Josef, kein Push): Space-Attempt nur Crew des Attempting-Ships (Dilemmas+Solve); Exception nur bei Karten-Text (z.B. total WEAPONS). Pepsch Batch-Test.
 - **bf1f2ab / Archer DONE** — Detail/Cloak/Stopped/Present-Refresh + Archer Condition-Fail Stop (Spock Soll bestätigt)
 - **Staffing/Battle G2-G7 komplett**
 - Continue-family: Nitrium, Hyper-Aging, Love Interests, Alien Abduction (+ Stasis Beam-Block)
