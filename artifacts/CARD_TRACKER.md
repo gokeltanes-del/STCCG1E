@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-06 (Jadzia Dax — initial Premiere + AU seed)
+Last updated: 2026-09-06 (Jadzia — Nitrium/Hyper-Aging partial on Data `3c2704c`)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -93,7 +93,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Firestorm (25 U) | unknown |  |  |
 | Gravitic Mine (26 U) | unknown |  |  |
 | Hologram Ruse (27 U) | unknown |  |  |
-| Hyper-Aging (28 U) | unknown |  |  |
+| Hyper-Aging (28 U) | partial | AttachAndContinue + cd3; AT not stopped (Spock Soll). Pending Pepsch green → working. | Data/`3c2704c` 2026-09-06 |
 | Iconian Computer Weapon (29 C) | unknown |  |  |
 | Impassable Door (30 C) | unknown |  |  |
 | Ktarian Game (31 R) | unknown |  |  |
@@ -105,7 +105,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Nagilum (37 R) | unknown |  |  |
 | Nanites (38 U) | unknown |  |  |
 | Nausicaans (39 U) | unknown |  |  |
-| Nitrium Metal Parasites (40 U) | unknown |  |  |
+| Nitrium Metal Parasites (40 U) | partial | AttachAndContinue + cd2; no stop/fail (Spock Soll). Pending Pepsch green → working. | Data/`3c2704c` 2026-09-06 |
 | Null Space (41 U) | unknown |  |  |
 | Phased Matter (42 C) | unknown |  |  |
 | Portal Guard (43 U) | unknown |  |  |
