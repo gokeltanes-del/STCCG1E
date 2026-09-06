@@ -2102,22 +2102,6 @@ public partial class TableWindow : Window
         int seedCount = _seedUnderMission.TryGetValue(host, out var seedList) ? seedList.Count : 0;
         bool hasStack = _stackOnHost.TryGetValue(host, out var list) && list.Count > 0;
 
-        if (_lastEncounteredDilemma.TryGetValue(host, out var lastDil) && lastDil != null)
-        {
-            panel.Children.Add(new TextBlock
-            {
-                Text = "Last dilemma",
-                Foreground = new SolidColorBrush(Color.FromRgb(220, 120, 100)),
-                FontSize = 11,
-                FontWeight = FontWeights.SemiBold,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(4, 0, 6, 0)
-            });
-            var lastMini = CreateMiniCard(lastDil, faceDown: false);
-            lastMini.ToolTip = $"Last encountered: {lastDil.Name}\nDouble-click / right-click = large view";
-            WireHostStripMini(lastMini, lastDil);
-            panel.Children.Add(lastMini);
-        }
 
         if (!hasStack && seedCount == 0 && !_lastEncounteredDilemma.ContainsKey(host))
         {
@@ -8184,11 +8168,7 @@ public partial class TableWindow : Window
             if (snap.Hull > 0)
             {
                 SetHullDamagePercent(border, snap.Hull);
-                if (snap.Hull >= 50 && snap.Hull < 100)
-                {
-                    border.RenderTransformOrigin = new Point(0.5, 0.5);
-                    border.RenderTransform = new RotateTransform(180);
-                }
+                // No damage flip/rotate — badge only
                 UpdateDamageBadge(border, snap.Hull);
             }
             if (snap.Stopped) MarkStopped(border);
@@ -9268,6 +9248,35 @@ public partial class TableWindow : Window
             && BoardStore.Current.ById.TryGetValue(c.InstanceId, out var inst)
             && inst is ShipInstance sh)
             sh.Cloaked = cloaked;
+        ApplyCloakVisual(ship, cloaked);
+    }
+
+    private void ApplyCloakVisual(Border border, bool cloaked)
+    {
+        var cloakBorder = Color.FromRgb(0x10, 0x10, 0x10);
+        var cloakGlow = Color.FromRgb(0x08, 0x08, 0x08);
+        if (cloaked)
+        {
+            border.BorderBrush = new SolidColorBrush(cloakBorder);
+            border.BorderThickness = new Thickness(2);
+            border.Effect = new System.Windows.Media.Effects.DropShadowEffect
+            {
+                Color = cloakGlow,
+                BlurRadius = 14,
+                ShadowDepth = 0,
+                Opacity = 0.9
+            };
+        }
+        else if (border.Effect is System.Windows.Media.Effects.DropShadowEffect dse
+                 && (dse.Color == cloakGlow || dse.Color == cloakBorder))
+        {
+            border.Effect = null;
+            if (border.BorderBrush is SolidColorBrush scb && scb.Color == cloakBorder)
+            {
+                border.BorderBrush = new SolidColorBrush(Color.FromRgb(90, 90, 90));
+                border.BorderThickness = new Thickness(1);
+            }
+        }
     }
 
     private void SetShipDockedAt(Border ship, Border? facility)
@@ -11330,7 +11339,9 @@ public partial class TableWindow : Window
             missionHasMyAway = awayList.Any(b => CardOwner(b) == _activePlayer);
         bool isMultiPersonnel = DualAffiliationRules.IsMulti(card)
                                && ModifierRules.IsPersonnelCard(card);
-        if (!isShip && !isFac && !(isMission && missionHasMyAway) && !isMultiPersonnel)
+        // Missions always eligible (last-revealed btn for both players anytime);
+        // ship/fac/away still need their usual gates.
+        if (!isShip && !isFac && !isMission && !isMultiPersonnel)
             return;
 
         _actionPanel = new StackPanel
@@ -11474,6 +11485,15 @@ public partial class TableWindow : Window
             }
         }
         // Draw phase: no action panel on hosts (orders are Execute-only)
+
+        // Both players, any segment: show last revealed under this mission
+        if (isMission
+            && _lastEncounteredDilemma.TryGetValue(cardBorder, out var lastRevealed)
+            && lastRevealed != null)
+        {
+            var dilRef = lastRevealed;
+            AddBtn("Show last revealed card under mission", (_, _) => ShowCardDetail(dilRef));
+        }
 
         if (_actionPanel.Children.Count == 0)
         {
@@ -11670,10 +11690,11 @@ public partial class TableWindow : Window
                 or DilemmaRules.Fate.EffectAndEnd
                 or DilemmaRules.Fate.AttachAndEnd
                 or DilemmaRules.Fate.EndAttempt;
+            bool placedContinue = dilResult.Fate == DilemmaRules.Fate.AttachAndContinue;
 
             string outcomeHeader = failed
-                ? "FAILED — attempt ends"
-                : "OVERCOME";
+                ? "FAILED - attempt ends"
+                : (placedContinue ? "PLACED - attempt continues" : "OVERCOME");
             string victimLine = FormatDilemmaVictims(dilResult);
             string consequences = failed
                 ? (dilResult.StopTeam
@@ -15400,7 +15421,7 @@ public partial class TableWindow : Window
             ApplyTemporalCausalityLoopRestore(missionBorder, seedCard);
         }
 
-        if (r.Fate == DilemmaRules.Fate.AttachAndEnd)
+        if (r.Fate is DilemmaRules.Fate.AttachAndEnd or DilemmaRules.Fate.AttachAndContinue)
         {
             Border host = missionBorder;
             switch (DilemmaRules.DecideAttachHost(r.Persist))
@@ -16243,12 +16264,9 @@ public partial class TableWindow : Window
         else
             _repairTurnsAtOutpost.Remove(border);
 
-        // Visuell: 180° Rotation bei Schaden ≥ 50 %
+        // Damaged: red badge only (no card flip/rotate). Range-cap when hull >= 50.
         if (hullPercent >= 50 && hullPercent < 100)
         {
-            border.RenderTransformOrigin = new Point(0.5, 0.5);
-            border.RenderTransform = new RotateTransform(180);
-            // RANGE sofort auf max 5 begrenzen
             if (IsShipCard(card))
             {
                 int eff = BattleRules.EffectiveRange(card, hullPercent);
@@ -18356,13 +18374,15 @@ public partial class TableWindow : Window
 
     private void ApplyStasisVisual(Border border, bool inStasis)
     {
+        var stasisBorder = Color.FromRgb(0xE0, 0x6A, 0x6A);
+        var stasisGlow = Color.FromRgb(0xC0, 0x30, 0x30);
         if (inStasis)
         {
-            border.BorderBrush = new SolidColorBrush(Color.FromRgb(0x70, 0xE0, 0xFF));
+            border.BorderBrush = new SolidColorBrush(stasisBorder);
             border.BorderThickness = new Thickness(2);
             border.Effect = new System.Windows.Media.Effects.DropShadowEffect
             {
-                Color = Color.FromRgb(0xB0, 0x60, 0xFF),
+                Color = stasisGlow,
                 BlurRadius = 16,
                 ShadowDepth = 0,
                 Opacity = 0.95
@@ -18372,11 +18392,15 @@ public partial class TableWindow : Window
         {
             // Restore neutral unless still peeked/selected elsewhere; stopped opacity stays via ApplyStoppedVisual
             if (border.Effect is System.Windows.Media.Effects.DropShadowEffect dse
-                && (dse.Color == Color.FromRgb(0xB0, 0x60, 0xFF)
+                && (dse.Color == stasisGlow
+                    || dse.Color == stasisBorder
+                    || dse.Color == Color.FromRgb(0xB0, 0x60, 0xFF)
                     || dse.Color == Color.FromRgb(0x70, 0xE0, 0xFF)))
                 border.Effect = null;
             if (border.BorderBrush is SolidColorBrush scb
-                && scb.Color == Color.FromRgb(0x70, 0xE0, 0xFF))
+                && (scb.Color == stasisBorder
+                    || scb.Color == Color.FromRgb(0x70, 0xE0, 0xFF)
+                    || scb.Color == Color.FromRgb(0xE0, 0x6A, 0x6A)))
             {
                 border.BorderBrush = new SolidColorBrush(Color.FromRgb(90, 90, 90));
                 border.BorderThickness = new Thickness(1);
@@ -18413,7 +18437,7 @@ public partial class TableWindow : Window
         DetailStatusTone.Buff => new SolidColorBrush(Color.FromRgb(0x6A, 0xD0, 0x8A)),
         DetailStatusTone.Debuff => new SolidColorBrush(Color.FromRgb(0xE0, 0x6A, 0x6A)),
         DetailStatusTone.Timer => new SolidColorBrush(Color.FromRgb(0xE0, 0xB0, 0x40)),
-        DetailStatusTone.Stasis => new SolidColorBrush(Color.FromRgb(0x90, 0xC0, 0xFF)),
+        DetailStatusTone.Stasis => new SolidColorBrush(Color.FromRgb(0xC0, 0x30, 0x30)),
         _ => new SolidColorBrush(Color.FromRgb(0xB0, 0xB0, 0xB8))
     };
 
@@ -18660,15 +18684,8 @@ public partial class TableWindow : Window
     private void SyncShipCombatVisuals(Border border)
     {
         int hull = GetHullDamage(border);
-        if (hull >= 50 && hull < 100)
-        {
-            border.RenderTransformOrigin = new Point(0.5, 0.5);
-            border.RenderTransform = new RotateTransform(180);
-        }
-        else
-        {
-            border.RenderTransform = Transform.Identity;
-        }
+        // Never rotate for damage — red badge only
+        border.RenderTransform = Transform.Identity;
         UpdateDamageBadge(border, hull);
     }
 
@@ -20255,20 +20272,6 @@ public partial class TableWindow : Window
                 DetailStackCards.Children.Add(mini);
         }
 
-        // Last dilemma faced at this mission
-        if (_lastEncounteredDilemma.TryGetValue(host, out var lastDil) && lastDil != null)
-        {
-            DetailStackCards.Children.Add(new TextBlock
-            {
-                Text = "Last dilemma",
-                Foreground = new SolidColorBrush(Color.FromRgb(220, 120, 100)),
-                FontSize = 11,
-                FontWeight = FontWeights.SemiBold,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(4, 0, 6, 0)
-            });
-            AddStackMini(lastDil, "Last encountered");
-        }
 
         // Artifacts revealed mid-attempt (face-up for both; not acquired yet)
         if (_revealedArtifactsUnderMission.TryGetValue(host, out var foundArts) && foundArts.Count > 0)
@@ -20308,26 +20311,129 @@ public partial class TableWindow : Window
             }
         }
 
-        // Attached events on host
-        foreach (var ae in EventsOn(host))
-            AddStackMini(ae.Card, ae.Countdown > 0 ? $"Event · countdown {ae.Countdown}" : "Event");
-        foreach (var ad in _attachedDilemmas.Where(d => ReferenceEquals(d.Host, host)))
-            AddStackMini(ad.Card, ad.Countdown > 0 ? $"Dilemma · countdown {ad.Countdown}" : "Dilemma");
+        void AddGroupLabel(string text, Color color)
+        {
+            DetailStackCards.Children.Add(new TextBlock
+            {
+                Text = text,
+                Foreground = new SolidColorBrush(color),
+                FontSize = 11,
+                FontWeight = FontWeights.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(4, 4, 6, 2),
+                Effect = new System.Windows.Media.Effects.DropShadowEffect
+                {
+                    Color = color,
+                    BlurRadius = 10,
+                    ShadowDepth = 0,
+                    Opacity = 0.75
+                }
+            });
+        }
 
-        // Aboard / present
+        var shown = new HashSet<Card>();
+        var posColor = Color.FromRgb(0x6A, 0xD0, 0x8A);
+        var negColor = Color.FromRgb(0xE0, 0x6A, 0x6A);
+
+        // 1. Positive — attached buff events
+        var buffEvents = EventsOn(host)
+            .Where(ae => DetailStatusRules.ToneForEvent(ae.Kind, ae.Countdown) == DetailStatusTone.Buff)
+            .ToList();
+        if (buffEvents.Count > 0)
+        {
+            AddGroupLabel("Positive", posColor);
+            foreach (var ae in buffEvents)
+            {
+                if (!shown.Add(ae.Card)) continue;
+                AddStackMini(ae.Card, ae.Countdown > 0 ? $"Event — countdown {ae.Countdown}" : "Event (buff)");
+            }
+        }
+
+        // 2. Negative — lasting dilemmas + personnel in stasis/quarantine
+        var hostDilemmas = _attachedDilemmas.Where(d => ReferenceEquals(d.Host, host)).ToList();
+        var negPersonnel = new List<(Border b, Card c)>();
+        if (_stackOnHost.TryGetValue(host, out var stackList))
+        {
+            foreach (var b in stackList)
+            {
+                if (b.Tag is not Card pc) continue;
+                if (!ModifierRules.IsPersonnelCard(pc)) continue;
+                if (IsCardInStasis(pc))
+                    negPersonnel.Add((b, pc));
+            }
+        }
+        bool hasNeg = hostDilemmas.Count > 0 || negPersonnel.Count > 0
+            || EventsOn(host).Any(ae =>
+                DetailStatusRules.ToneForEvent(ae.Kind, ae.Countdown) is DetailStatusTone.Debuff);
+        if (hasNeg)
+        {
+            AddGroupLabel("Negative", negColor);
+            foreach (var ae in EventsOn(host)
+                .Where(e => DetailStatusRules.ToneForEvent(e.Kind, e.Countdown) == DetailStatusTone.Debuff))
+            {
+                if (!shown.Add(ae.Card)) continue;
+                AddStackMini(ae.Card, ae.Countdown > 0 ? $"Event — countdown {ae.Countdown}" : "Event (debuff)");
+            }
+            foreach (var ad in hostDilemmas)
+            {
+                if (!shown.Add(ad.Card)) continue;
+                AddStackMini(ad.Card, ad.Countdown > 0 ? $"Dilemma — countdown {ad.Countdown}" : "Dilemma");
+            }
+            foreach (var (b, pc) in negPersonnel)
+            {
+                if (!shown.Add(pc)) continue;
+                AddStackMini(pc, "Stasis / quarantine", cardBorder: b);
+            }
+        }
+
+        // Remaining non-buff/non-debuff events (timer/info) — keep visible under Positive-adjacent
+        foreach (var ae in EventsOn(host))
+        {
+            var tone = DetailStatusRules.ToneForEvent(ae.Kind, ae.Countdown);
+            if (tone is DetailStatusTone.Buff or DetailStatusTone.Debuff) continue;
+            if (!shown.Add(ae.Card)) continue;
+            AddStackMini(ae.Card, ae.Countdown > 0 ? $"Event — countdown {ae.Countdown}" : "Event");
+        }
+
+        // 3. Personnel — not already in Negative
+        var personnelRows = new List<(Border b, Card c)>();
+        var equipmentRows = new List<(Border b, Card c)>();
         if (_stackOnHost.TryGetValue(host, out var list) && list.Count > 0)
         {
             foreach (var b in list)
             {
-                if (b.Tag is not Card c) continue;
-                if (EventsOn(host).Any(ae => ReferenceEquals(ae.Card, c)))
-                    continue;
-                if (InterruptRules.IsCrosis(c) && HostHasCrosis(host))
-                    continue;
-                AddStackMini(c, cardBorder: b);
+                if (b.Tag is not Card card) continue;
+                if (shown.Contains(card)) continue;
+                if (EventsOn(host).Any(ae => ReferenceEquals(ae.Card, card))) continue;
+                if (InterruptRules.IsCrosis(card) && HostHasCrosis(host)) continue;
+                if (ModifierRules.IsPersonnelCard(card) || IsCrewType(card))
+                    personnelRows.Add((b, card));
+                else if (IsEquipmentType(card) || ModifierRules.IsEquipmentCard(card))
+                    equipmentRows.Add((b, card));
+                else
+                    personnelRows.Add((b, card)); // other stackables with personnel group
+            }
+        }
+        if (personnelRows.Count > 0)
+        {
+            AddGroupLabel("Personnel", Color.FromRgb(0xB0, 0xB0, 0xB8));
+            foreach (var (b, card) in personnelRows)
+            {
+                shown.Add(card);
+                AddStackMini(card, cardBorder: b);
             }
         }
 
+        // 4. Equipment
+        if (equipmentRows.Count > 0)
+        {
+            AddGroupLabel("Equipment", Color.FromRgb(0xB0, 0xB0, 0xB8));
+            foreach (var (b, card) in equipmentRows)
+            {
+                shown.Add(card);
+                AddStackMini(card, cardBorder: b);
+            }
+        }
         if (DetailStackCards.Children.Count == 0)
         {
             DetailStackCards.Children.Add(new TextBlock

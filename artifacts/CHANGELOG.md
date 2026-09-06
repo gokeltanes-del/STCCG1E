@@ -4,6 +4,13 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Fix - Status-UX retest + Nitrium/Hyper-Aging continue)
+
+**UX** - Damaged ships: red DMG badge only (no 180 flip). Outpost repair timer: `1 left` = clears end of **this** turn. Detail crew rows: Positive (green) / Negative (red) / Personnel / Equipment; last-dilemma mini removed (mission action `Show last revealed card under mission`). Stasis/Negativ glow **red**; Cloaked **black**; Buff green; Timer amber.
+
+**Engine** - `Fate.AttachAndContinue`: Nitrium (countdown **2**, cure 2 SCI|2 ENG) + Hyper-Aging (countdown **3**, cure SCI+MED×2) place without stop/fail; attempt continues. Encounter cure → Overcome (Hyper-Aging +5). RemFatigue unchanged. Menthar/Abduction etc. stay AttachAndEnd.
+
+---
 ## 2026-09-05 (Fix - Outpost repair leave-reset + Status UX)
 
 **Engine/UX** - Outpost repair progress only while **docked** at own repair facility; undock/fly clears counter immediately (Spock Soll). Card detail Status-Block: Green Buff / Red Debuff / Amber Timer; repair amber EN line; stasis cyan/violet glow + `In stasis` / `placed in stasis`; mission Held/Stasis (dilemma + personnel). Crew-minis same badge colors. Bewusst nicht: UX EN Timer nick, Persist/Battle extract, Premiere waves. [C]

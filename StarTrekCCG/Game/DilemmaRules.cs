@@ -20,6 +20,8 @@ public static class DilemmaRules
         EffectAndEnd,
         /// <summary>Dilemma bleibt am Schiff/Mission als dauerhafter Effekt.</summary>
         AttachAndEnd,
+        /// <summary>Place persist on host; attempt continues (no stop).</summary>
+        AttachAndContinue,
         /// <summary>Versuch endet ohne Stop (z. B. Scow) or mit Sonderfall.</summary>
         EndAttempt
     }
@@ -139,8 +141,7 @@ public static class DilemmaRules
 
             "Birth of \"Junior\"" => Attach(ctx, PersistKind.Junior, 0,
                 "Junior on ship: RANGE −1 each end of turn; destroyed if RANGE&lt;1. Cure: 3 ENGINEER."),
-            "Nitrium Metal Parasites" => Attach(ctx, PersistKind.Nitrium, 3,
-                "Nitrium on ship (countdown 3). Cure: 2 SCIENCE or 2 ENGINEER."),
+            "Nitrium Metal Parasites" => NitriumEncounter(ctx),
             "Tsiolkovsky Infection" => Attach(ctx, PersistKind.Tsiolkovsky, 0,
                 "Tsiolkovsky: personnel lose first-listed skill. Cure: 3 MEDICAL."),
             "Two-Dimensional Creatures" => Attach(ctx, PersistKind.TwoDim, 0,
@@ -155,8 +156,7 @@ public static class DilemmaRules
                 StopTeam = false,
                 Message = "Scow auf der Mission: Attempt endet. Mission nicht versuchbar, bis abgeschleppt (Tractor + 2 ENGINEER)."
             },
-            "Hyper-Aging" => Attach(ctx, PersistKind.HyperAging, 4,
-                "Hyper-Aging (quarantine, countdown 4). Cure: 2 MEDICAL + SCIENCE (score points)."),
+            "Hyper-Aging" => HyperAgingEncounter(ctx),
             "REM Fatigue" => Attach(ctx, PersistKind.RemFatigue, 4,
                 "REM Fatigue (quarantine, countdown 4). Cure: 3 MEDICAL or dock (score points)."),
             "Alien Abduction" => Abduction(ctx),
@@ -737,6 +737,26 @@ public static class DilemmaRules
 
     private static Result Attach(Ctx ctx, PersistKind kind, int cd, string msg) =>
         new() { Fate = Fate.AttachAndEnd, Persist = kind, Countdown = cd, StopTeam = true, Message = msg };
+    private static Result AttachContinue(Ctx ctx, PersistKind kind, int cd, string msg) =>
+        new() { Fate = Fate.AttachAndContinue, Persist = kind, Countdown = cd, StopTeam = false, Message = msg };
+
+    private static Result NitriumEncounter(Ctx ctx)
+    {
+        if (CanCure(PersistKind.Nitrium, ctx.Present, ctx.AttemptingPlayer))
+            return new Result { Fate = Fate.Overcome, StopTeam = false,
+                Message = "Nitrium cured (2 SCIENCE or 2 ENGINEER) - discarded; attempt continues." };
+        return AttachContinue(ctx, PersistKind.Nitrium, 2,
+            "Nitrium on ship (countdown 2). Cure: 2 SCIENCE or 2 ENGINEER. Attempt continues.");
+    }
+
+    private static Result HyperAgingEncounter(Ctx ctx)
+    {
+        if (CanCure(PersistKind.HyperAging, ctx.Present, ctx.AttemptingPlayer))
+            return new Result { Fate = Fate.Overcome, Score = 5, StopTeam = false,
+                Message = "Hyper-Aging cured (SCIENCE + 2 MEDICAL) - +5; discarded; attempt continues." };
+        return AttachContinue(ctx, PersistKind.HyperAging, 3,
+            "Hyper-Aging (quarantine, countdown 3). Cure: SCIENCE + 2 MEDICAL. Attempt continues.");
+    }
 
     private static Result Menthar(Ctx ctx)
     {
@@ -912,9 +932,9 @@ public static class DilemmaRules
         {
             PersistKind.Junior => "ENGINEER required ×3 or ship cannot move",
             PersistKind.Scow => "ship cannot move (cure: tractor + 2 ENGINEER)",
-            PersistKind.HyperAging => "countdown; crew dies if not cured (MEDICAL×2 + SCIENCE)",
+            PersistKind.HyperAging => "countdown 3; AT dies if not cured (SCIENCE + MEDICAL×2)",
             PersistKind.RemFatigue => "countdown; crew dies if not cured (MEDICAL×3)",
-            PersistKind.Nitrium => "countdown damage / destroy unless SCIENCE×2 or ENGINEER×2",
+            PersistKind.Nitrium => "countdown 2; ship destroyed unless SCIENCE×2 or ENGINEER×2",
             PersistKind.Menthar => "ship cannot move (cure: 2 ENGINEER)",
             PersistKind.Tsiolkovsky => "attributes −3 until MEDICAL×3",
             PersistKind.TwoDim => "ship cannot move (ENGINEER + SCIENCE)",
@@ -939,7 +959,7 @@ public static class DilemmaRules
 
     /// <summary>Overcome / effect / attach / end-attempt remove the seed; WallFailed keeps it.</summary>
     public static bool ShouldRemoveFromSeed(Fate fate) =>
-        fate is Fate.EffectAndEnd or Fate.AttachAndEnd or Fate.EndAttempt or Fate.Overcome;
+        fate is Fate.EffectAndEnd or Fate.AttachAndEnd or Fate.AttachAndContinue or Fate.EndAttempt or Fate.Overcome;
 
     /// <summary>Track overcome/removed seeds for Temporal Causality Loop re-seed (not the loop card itself).</summary>
     public static bool ShouldTrackOvercomeDiscard(Fate fate, bool isTemporalCausalityLoopSeed) =>

@@ -1,4 +1,6 @@
-﻿# STCCG 1E - Handoff
+# STCCG 1E - Handoff
+
+Status-UX retest (no dmg flip, timer this-turn, detail rows, last-revealed btn, red stasis/black cloak) + Nitrium/HyperAging AttachAndContinue (cd 2/3, no stop). RemFatigue untouched.
 Last updated: 2026-09-05 (push-ready docs; Gaps green)
 Repo: https://github.com/gokeltanes-del/STCCG1E
 Local VS: C:\Dev\StarTrekCCG\StarTrekCCG

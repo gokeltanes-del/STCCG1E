@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace StarTrekCCG;
 
@@ -18,9 +18,9 @@ public static class EndOfTurnRestRules
     /// <summary>EN amber detail line while docked repair is in progress / starting.</summary>
     public static string FormatOutpostRepairStatusLine(int turnsAlreadyAtFacility)
     {
-        int left = 2 - turnsAlreadyAtFacility;
-        if (left <= 1)
-            return "Outpost repair: clears end of next turn (1 left)";
+        // turnsAlreadyAtFacility >= 1 => one more owner EOT (= this turn's EOT) completes repair
+        if (turnsAlreadyAtFacility >= 1)
+            return "Outpost repair: clears end of this turn (1 left)";
         return "Outpost repair: clears in 2 turns";
     }
 
