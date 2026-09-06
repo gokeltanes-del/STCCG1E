@@ -4,6 +4,12 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Feat - Iconian Computer Weapon Premiere)
+
+**Engine** - Iconian Computer Weapon (PR 29 C): Space — Unless SCIENCE present: Ship+Crew stopped (`EffectAndEnd`+`StopTeam`); reveal hand, discard ALL non-personnel (personnel stay); draw equal number from draw deck (`DrawForDiscarded` / Apply `DiscardNonPersonnelFromHand`+`DrawOneToHand`); else Overcome Continue. Always discard dilemma. No bonus points. Spock #13 Soll / DRG Iconian Computer Weapon (standalone). Decide: `DilemmaRules.IconianComputerWeapon` + `VerifyIconianComputerWeapon`.
+
+---
+
 ## 2026-09-06 (Feat - Gravitic Mine Premiere)
 
 **Engine** - Gravitic Mine (PR 26 U): Space — Unless SCIENCE AND Navigation present: DamageShip (ApplyHullDamage +50 / Rotation badge) + Ship+Crew stopped (`EffectAndEnd`+`StopTeam`); else Overcome Continue. Always discard. No bonus points. Spock #12 Soll / DRG Gravitic Mine. Decide: `DilemmaRules.GraviticMine` + `VerifyGraviticMine`.

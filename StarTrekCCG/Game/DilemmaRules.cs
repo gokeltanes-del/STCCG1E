@@ -172,7 +172,7 @@ public static class DilemmaRules
             "Portal Guard" => Portal(ctx),
             "Sarjenka" => Sarjenka(ctx),
             "Tarellian Plague Ship" => Tarellian(ctx),
-            "Iconian Computer Weapon" => Iconian(ctx),
+            "Iconian Computer Weapon" => IconianComputerWeapon(ctx),
             "Alien Parasites" => Parasites(ctx),
             "Q" => Qdil(ctx),
             "Temporal Causality Loop" => Loop(ctx),
@@ -1262,10 +1262,20 @@ public static class DilemmaRules
         return r;
     }
 
-    private static Result Iconian(Ctx ctx)
+    // ---- Iconian Computer Weapon (Premiere 29 C) ----
+    // Printed (PR): "Unless SCIENCE present, reveal hand, discarding all non-personnel
+    //   cards revealed. Then, draw a card for each card discarded this way. Discard dilemma."
+    // Spock #13 Soll / DRG Iconian Computer Weapon (standalone, not combo):
+    //   Space; Pass SCIENCE -> Overcome (dilemma discard + Continue).
+    //   Fail -> Ship+Crew stopped (EffectAndEnd + StopTeam); Hand: discard ALL non-personnel
+    //           (personnel stay); draw equal number from draw deck (DrawForDiscarded);
+    //           dilemma discard. Apply: TableWindow DiscardNonPersonnelFromHand + DrawOneToHand.
+    //   No bonus points / no ship damage.
+
+    private static Result IconianComputerWeapon(Ctx ctx)
     {
         if (Skill(ctx, "SCIENCE"))
-            return new Result { Fate = Fate.Overcome, Message = "SCIENCE present – Iconian Computer Weapon overcome." };
+            return new Result { Fate = Fate.Overcome, Message = "SCIENCE present - Iconian Computer Weapon overcome." };
         var r = new Result
         {
             Fate = Fate.EffectAndEnd,
@@ -1276,6 +1286,103 @@ public static class DilemmaRules
         if (ctx.Hand != null)
             r.DiscardNonPersonnelFromHand.AddRange(ctx.Hand.Where(c => !ModifierRules.IsPersonnelCard(c)));
         return r;
+    }
+
+    /// <summary>DE mini-test for Iconian Computer Weapon. Returns null if OK, else failure reason.</summary>
+    public static string? VerifyIconianComputerWeapon()
+    {
+        static Card P(string name, string cls, string text) => new()
+        {
+            Name = name,
+            Type = "Personnel",
+            Class = cls,
+            Text = text,
+            Characteristics = "Human; Male;",
+            IntegrityOrRange = "5",
+            CunningOrWeapons = "5",
+            StrengthOrShields = "5"
+        };
+
+        static Card Ev(string name) => new() { Name = name, Type = "Event", Text = "Event" };
+        static Card Ir(string name) => new() { Name = name, Type = "Interrupt", Text = "Interrupt" };
+        static Card Eq(string name) => new() { Name = name, Type = "Equipment", Text = "Equipment" };
+
+        static Ctx Make(Card[]? team = null, Card[]? hand = null) => new()
+        {
+            Dilemma = new Card { Name = "Iconian Computer Weapon", Type = "Dilemma", MissionDilemmaType = "[S]" },
+            Mission = new Card { Name = "Test Space", Type = "Mission", MissionDilemmaType = "[S]" },
+            Team = team ?? Array.Empty<Card>(),
+            Present = team ?? Array.Empty<Card>(),
+            Hand = hand,
+            AttemptingPlayer = 1,
+            Rng = new Random(1)
+        };
+
+        var sci = P("Sci One", "SCIENCE", "SCIENCE");
+        var civ = P("Civilian", "CIVILIAN", "CIVILIAN");
+        var ev = Ev("Red Alert");
+        var ir = Ir("Amanda Rogers");
+        var eq = Eq("Tricorder");
+        var handPers = P("Hand Pers", "OFFICER", "OFFICER");
+
+        // Pass: SCIENCE -> Overcome Continue, no stop, no hand discard, dilemma discard
+        var pass = Resolve(Make(new[] { sci, civ }, new[] { ev, handPers }));
+        if (pass.Fate != Fate.Overcome || pass.StopTeam)
+            return $"pass SCIENCE: expected Overcome no stop, got {pass.Fate}/stop={pass.StopTeam}";
+        if (pass.DrawForDiscarded || pass.DiscardNonPersonnelFromHand.Count > 0)
+            return "pass SCIENCE: should not discard hand / draw";
+        if (pass.DamageShip || pass.DestroyShip || pass.Score != 0)
+            return "pass: no damage/destroy/score";
+        if (!ShouldRemoveFromSeed(pass.Fate))
+            return "pass SCIENCE: dilemma should discard";
+
+        // Fail: mixed hand -> EffectAndEnd+Stop; discard ONLY non-personnel; personnel stay (not listed)
+        var failHand = new[] { ev, handPers, ir, eq };
+        var fail = Resolve(Make(new[] { civ }, failHand));
+        if (fail.Fate != Fate.EffectAndEnd || !fail.StopTeam)
+            return $"fail no-SCIENCE: expected EffectAndEnd+Stop, got {fail.Fate}/stop={fail.StopTeam}";
+        if (!fail.DrawForDiscarded)
+            return "fail: DrawForDiscarded should be true";
+        if (fail.DiscardNonPersonnelFromHand.Count != 3)
+            return $"fail mixed hand: expected 3 non-personnel discards, got {fail.DiscardNonPersonnelFromHand.Count}";
+        if (fail.DiscardNonPersonnelFromHand.Any(ModifierRules.IsPersonnelCard))
+            return "fail: personnel must stay in hand (not in DiscardNonPersonnelFromHand)";
+        if (!fail.DiscardNonPersonnelFromHand.Contains(ev) || !fail.DiscardNonPersonnelFromHand.Contains(ir) || !fail.DiscardNonPersonnelFromHand.Contains(eq))
+            return "fail: Event/Interrupt/Equipment should all be discarded from hand";
+        if (!ShouldRemoveFromSeed(fail.Fate))
+            return "fail: dilemma should discard";
+
+        // Fail: empty hand -> still stop + DrawForDiscarded, zero discards
+        var emptyHand = Resolve(Make(new[] { civ }, Array.Empty<Card>()));
+        if (emptyHand.Fate != Fate.EffectAndEnd || !emptyHand.StopTeam || !emptyHand.DrawForDiscarded)
+            return $"empty hand: expected EffectAndEnd+Stop+DrawForDiscarded, got {emptyHand.Fate}/stop={emptyHand.StopTeam}/draw={emptyHand.DrawForDiscarded}";
+        if (emptyHand.DiscardNonPersonnelFromHand.Count != 0)
+            return "empty hand: no discards";
+        if (!ShouldRemoveFromSeed(emptyHand.Fate))
+            return "empty hand: dilemma should discard";
+
+        // Fail: hand all personnel -> stop, zero non-personnel discards
+        var allPers = Resolve(Make(new[] { civ }, new[] { handPers, sci }));
+        if (allPers.Fate != Fate.EffectAndEnd || !allPers.StopTeam || !allPers.DrawForDiscarded)
+            return $"all-personnel hand: expected EffectAndEnd+Stop+DrawForDiscarded, got {allPers.Fate}/stop={allPers.StopTeam}";
+        if (allPers.DiscardNonPersonnelFromHand.Count != 0)
+            return "all-personnel hand: personnel stay; zero discards";
+
+        // Fail: null Hand (Decide without UI hand) -> stop flags set, empty discard list
+        var nullHand = Resolve(Make(new[] { civ }, null));
+        if (nullHand.Fate != Fate.EffectAndEnd || !nullHand.StopTeam || !nullHand.DrawForDiscarded)
+            return $"null Hand: expected EffectAndEnd+Stop+DrawForDiscarded, got {nullHand.Fate}/stop={nullHand.StopTeam}";
+        if (nullHand.DiscardNonPersonnelFromHand.Count != 0)
+            return "null Hand: empty discard list";
+
+        // Fail: empty crew / no SCIENCE
+        var emptyCrew = Resolve(Make(Array.Empty<Card>(), new[] { ev }));
+        if (emptyCrew.Fate != Fate.EffectAndEnd || !emptyCrew.StopTeam)
+            return $"empty crew: expected EffectAndEnd+Stop, got {emptyCrew.Fate}/stop={emptyCrew.StopTeam}";
+        if (emptyCrew.DiscardNonPersonnelFromHand.Count != 1 || !emptyCrew.DiscardNonPersonnelFromHand.Contains(ev))
+            return "empty crew: should discard Event from hand";
+
+        return null;
     }
 
     private static Result Parasites(Ctx ctx)
