@@ -141,8 +141,7 @@ public static class DilemmaRules
                 Skill(ctx, "ENGINEER") || Skill(ctx, "Astrophysics") || Skill(ctx, "Navigation"),
                 destroy: true, score: 5, need: "ENGINEER or Astrophysics or Navigation"),
 
-            "Birth of \"Junior\"" => Attach(ctx, PersistKind.Junior, 0,
-                "Junior on ship: RANGE −1 each end of turn; destroyed if RANGE&lt;1. Cure: 3 ENGINEER."),
+            "Birth of \"Junior\"" => BirthOfJunior(ctx),
             "Nitrium Metal Parasites" => NitriumEncounter(ctx),
             "Tsiolkovsky Infection" => Attach(ctx, PersistKind.Tsiolkovsky, 0,
                 "Tsiolkovsky: personnel lose first-listed skill. Cure: 3 MEDICAL."),
@@ -944,7 +943,7 @@ public static class DilemmaRules
     {
         string effect = kind switch
         {
-            PersistKind.Junior => "ENGINEER required ×3 or ship cannot move",
+            PersistKind.Junior => "RANGE −1 each your EOT; destroy if RANGE≤0 (nullify: 3 ENGINEER)",
             PersistKind.Scow => "ship cannot move (cure: tractor + 2 ENGINEER)",
             PersistKind.HyperAging => "countdown 3; AT dies if not cured (SCIENCE + MEDICAL×2)",
             PersistKind.RemFatigue => "countdown; crew dies if not cured (MEDICAL×3)",
@@ -1363,6 +1362,101 @@ public static class DilemmaRules
         var r2 = Resolve(Make(new Random(42), a, b, c));
         if (r2.Kill.Count != 1 || r2.Kill[0].Name != victim)
             return $"rng: expected same victim '{victim}', got [{string.Join(",", r2.Kill.Select(k => k.Name))}]";
+
+        return null;
+    }
+
+    // ---- Birth of "Junior" (Premiere 17 U) ----
+    // Printed (PR): "Place on ship. End of each turn, reduces RANGE by 1; if this reduces RANGE below 1
+    // (or RANGE already below 1), destroys ship. Nullify with 3 ENGINEER."
+    // Spock/DRG/Glossary: encounter nullify 3 ENGINEER → Overcome+Continue; else place on ship,
+    // crew NOT stopped → AttachAndContinue (RANGE −1 only on your EOTs). Cure later: 3 ENGINEER.
+    // EOT destroy via EndOfTurnRestRules.JuniorDestroysShip (RANGE after countdown < 1).
+
+    private static Result BirthOfJunior(Ctx ctx)
+    {
+        if (CanCure(PersistKind.Junior, ctx.Present, ctx.AttemptingPlayer))
+            return new Result
+            {
+                Fate = Fate.Overcome,
+                StopTeam = false,
+                Message = "Birth of \"Junior\" nullified (3 ENGINEER). Discard dilemma."
+            };
+        return AttachContinue(ctx, PersistKind.Junior, 0,
+            "Junior on ship: RANGE −1 each your end of turn; destroy if RANGE≤0. Nullify: 3 ENGINEER. Crew continues.");
+    }
+
+    /// <summary>DE mini-test for Birth of "Junior". Returns null if OK, else failure reason.</summary>
+    public static string? VerifyBirthOfJunior()
+    {
+        static Card P(string name, string cls, string text) => new()
+        {
+            Name = name,
+            Type = "Personnel",
+            Class = cls,
+            Text = text,
+            Characteristics = "Human; Male;",
+            IntegrityOrRange = "5",
+            CunningOrWeapons = "5",
+            StrengthOrShields = "5"
+        };
+
+        static Ctx Make(params Card[] team) => new()
+        {
+            Dilemma = new Card { Name = "Birth of \"Junior\"", Type = "Dilemma", MissionDilemmaType = "[S]" },
+            Mission = new Card { Name = "Test Space", Type = "Mission", MissionDilemmaType = "[S]" },
+            Team = team,
+            Present = team,
+            AttemptingPlayer = 1,
+            Rng = new Random(1)
+        };
+
+        var eng1 = P("Eng One", "ENGINEER", "ENGINEER");
+        var eng2 = P("Eng Two", "ENGINEER", "ENGINEER");
+        var eng3 = P("Eng Three", "ENGINEER", "ENGINEER");
+        var civ = P("Civilian", "CIVILIAN", "CIVILIAN");
+
+        // Nullify: 3 ENGINEER → Overcome, no stop, dilemma discarded
+        var nullify = Resolve(Make(eng1, eng2, eng3));
+        if (nullify.Fate != Fate.Overcome || nullify.StopTeam)
+            return "nullify 3 ENG: expected Overcome, no StopTeam";
+        if (nullify.Persist != PersistKind.None)
+            return "nullify 3 ENG: should not attach";
+        if (!ShouldRemoveFromSeed(nullify.Fate))
+            return "nullify 3 ENG: dilemma should discard";
+
+        // 2 ENGINEER: not enough → AttachAndContinue, countdown 0, no stop
+        var two = Resolve(Make(eng1, eng2, civ));
+        if (two.Fate != Fate.AttachAndContinue || two.StopTeam)
+            return "2 ENG: expected AttachAndContinue, no StopTeam";
+        if (two.Persist != PersistKind.Junior || two.Countdown != 0)
+            return $"2 ENG: expected Persist Junior countdown 0, got {two.Persist}/{two.Countdown}";
+        if (!ShouldRemoveFromSeed(two.Fate))
+            return "2 ENG: seed removed (placed on ship)";
+
+        // No ENGINEER: same attach + continue
+        var none = Resolve(Make(civ));
+        if (none.Fate != Fate.AttachAndContinue || none.StopTeam)
+            return "0 ENG: expected AttachAndContinue, no StopTeam";
+        if (none.Persist != PersistKind.Junior || none.Countdown != 0)
+            return "0 ENG: expected Junior countdown 0";
+
+        // Empty crew: still place (space dilemma on ship)
+        var empty = Resolve(Make());
+        if (empty.Fate != Fate.AttachAndContinue || empty.StopTeam)
+            return "empty: expected AttachAndContinue, no StopTeam";
+        if (empty.Persist != PersistKind.Junior || empty.Countdown != 0)
+            return "empty: expected Junior countdown 0";
+
+        // Host preference: ship (ShipOrMission)
+        if (DecideAttachHost(PersistKind.Junior) != AttachHostPreference.ShipOrMission)
+            return "host: expected ShipOrMission";
+
+        // EOT destroy gate consistent with JuniorDestroysShip
+        if (!EndOfTurnRestRules.JuniorDestroysShip(0))
+            return "EOT: RANGE 0 should destroy";
+        if (EndOfTurnRestRules.JuniorDestroysShip(1))
+            return "EOT: RANGE 1 should not destroy";
 
         return null;
     }

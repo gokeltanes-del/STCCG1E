@@ -82,7 +82,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Archer (14 C) | working | Pepsch Gesamt-Grün (tip Data/`bf1f2ab`; Stop Soll Spock Condition-Fail). | Pepsch + Data/`bf1f2ab` 2026-09-06 |
 | Armus: Skin Of Evil (15 R) | partial | tip Data/`31d0c73`. 1 AT random Kill; discard; Rest Continue (kein Stop). Ungetestet. | Data/`31d0c73` 2026-09-06 |
 | Barclay's Protomorphosis Disease (16 R) | working | Pepsch getestet OK (Metamorphosis/Transformation). | Pepsch 2026-09-06 |
-| Birth of "Junior" (17 U) | unknown |  |  |
+| Birth of "Junior" (17 U) | partial | tip Data/`PENDING`: Place on ship; 3 ENG nullify Overcome+Continue; else AttachAndContinue (no Stop); EOT RANGE−1 / destroy via JuniorDestroysShip; cure 3 ENG. Pup-disable PARK. Spock/DRG. Ungetestet. | Data/`PENDING` + Spock 2026-09-06 |
 | Borg Ship (18 R) | working | Captain/Pepsch „soweit“ — nicht nochmal Dilemma-Welle. | Captain 2026-09-06 |
 | Chalnoth (19 U) | unknown |  |  |
 | Cosmic String Fragment (20 U) | unknown |  |  |

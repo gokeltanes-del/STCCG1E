@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Feat - Birth of "Junior" Premiere)
+
+**Engine** - Birth of "Junior" (PR 17 U): Space — place on ship. Encounter: 3 ENGINEER → nullify Overcome (discard+Continue); else AttachAndContinue (crew not stopped; countdown 0, RANGE −1 only on your EOTs). Destroy when RANGE after countdown ≤0 via `EndOfTurnRestRules.JuniorDestroysShip`. Later cure 3 ENGINEER → discard (RANGE restores via host recalc). Spock/DRG/Glossary. Decide: `DilemmaRules.BirthOfJunior` + `VerifyBirthOfJunior`. Pup-disable ≠ 0 RANGE: PARK (no guess).
+
+---
 ## 2026-09-06 (Feat - Armus: Skin Of Evil Premiere)
 
 **Engine** - Armus: Skin Of Evil (PR 15 R): kills one Away Team member (random selection); dilemma discarded; survivors continue (EffectAndContinue, no StopTeam / not under mission). Spock/DRG Soll. Decide: `DilemmaRules.ArmusSkinOfEvil` + `VerifyArmusSkinOfEvil`.
