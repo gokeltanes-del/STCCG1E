@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-06 (Josef — Cytherians #9 tip pending; Spock #9 Soll; PARK LegalMoves lock)
+Last updated: 2026-09-06 (Jadzia — Cytherians #9 tip baa9fd5 partial; #10 El-Adrel in flight)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -87,7 +87,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Chalnoth (19 U) | partial | tip Data/`b01d6dc`. Pass 3 SEC OR STR>40 → +5 + Continue; Fail Opp 1 Kill, AT stopped. Ungetestet. | Data/`b01d6dc` 2026-09-06 |
 | Cosmic String Fragment (20 U) | partial | tip Data/`85ca39a`. Pass Astrophysics OR ENG OR Navigation → +5 + Continue; Fail Ship destroy. Ungetestet. | Data/`85ca39a` 2026-09-06 |
 | Crystalline Entity (21 R) | partial | tip Data/`6f11978`. Space/Planet +5; Fail kill-all life (nicht Stasis). Lore-Double geparkt. Ungetestet. | Data/`6f11978` 2026-09-06 |
-| Cytherians (22 R) | partial | tip Josef pending. Place+AttemptEnd; crew not stopped; Dest far-end; arrival +15; destroy discard 0pts. PARK LegalMoves lock / Borg no-pts. Ungetestet. | Josef + Spock 2026-09-06 |
+| Cytherians (22 R) | partial | tip Data/`baa9fd5`. Place+Attempt-end; far-end +15. PARK: LegalMoves-toward-far-end; Borg no-pts; Mission Debriefing. Ungetestet. | Data/`baa9fd5` 2026-09-06 |
 | El-Adrel Creature (23 U) | unknown |  |  |
 | Female's Love Interest (24 C) | working | Pepsch getestet OK (Continue after Relocate). | Pepsch 2026-09-06 |
 | Firestorm (25 U) | unknown |  |  |
