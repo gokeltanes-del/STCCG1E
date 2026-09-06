@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Feat - Matriarchal Society Premiere)
+
+**Engine** - Matriarchal Society (PR 33 U): Planet - Cannot get past unless at least two female Away Team members are present. Pass >=2 Female (Characteristics) -> Overcome Continue (dilemma discard); Fail -> WallFailed+StopTeam (dilemma stays under Mission). No kills / score / damage. Spock #16 Soll / DRG Matriarchal Society. Decide: DilemmaRules.MatriarchalSociety + VerifyMatriarchalSociety. PARK: gender-related Borg immediate discard (no Borg edge).
+
+---
 ## 2026-09-06 (Feat - Ktarian Game Premiere)
 
 **Engine** - Ktarian Game (PR 31 R): Space - Place on ship. Cure CUNNING>30 OR any android -> Overcome Continue (discard). Else AttachAndContinue + StopTeam=false (crew not stopped). PersistKind.Ktarian. Spock #15 Soll / DRG Ktarian Game / Major Rakal. Decide: `DilemmaRules.KtarianGame` + `VerifyKtarianGame`. PARK: Lefler nullify (QC); Now+SOT random Disable Apply (no Disable list / no SOT tick).

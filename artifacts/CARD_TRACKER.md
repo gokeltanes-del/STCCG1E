@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-06 (Jadzia — Ktarian Game #15 tip 7de28a4 partial; next5 #16+)
+Last updated: 2026-09-06 (Josef - Matriarchal Society #16 partial; next #17+)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -98,7 +98,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Impassable Door (30 C) | partial | tip Data/`be5062b`. Wall Computer Skill Continue; Fail Stop+unter Mission. Ungetestet. | Data/`be5062b` 2026-09-06 |
 | Ktarian Game (31 R) | partial | tip Data/`7de28a4`. Place+Continue; Cure CUNN>30/Android. PARK: Lefler-Nullify; Now+SOT Disable-Apply. Ungetestet. | Data/`7de28a4` 2026-09-06 |
 | Male's Love Interest (32 C) | working | Pepsch getestet OK (Continue after Relocate). | Pepsch 2026-09-06 |
-| Matriarchal Society (33 U) | unknown |  |  |
+| Matriarchal Society (33 U) | partial | Wall >=2 Female Continue; Fail Stop+unter Mission. PARK: Borg gender discard. Ungetestet. | Josef 2026-09-06 |
 | Menthar Booby Trap (34 C) | unknown |  |  |
 | Microbiotic Colony (35 C) | unknown |  |  |
 | Microvirus (36 C) | unknown |  |  |

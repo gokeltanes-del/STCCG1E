@@ -106,7 +106,7 @@ public static class DilemmaRules
                 Skill(ctx, "Music") || Skill(ctx, "Youth") || ctx.Team.Any(p => Eff(ctx, p).Strength > 9)
                 || ctx.Team.Any(p => (p.Name ?? "").Contains("Lwaxana", StringComparison.OrdinalIgnoreCase)),
                 "Music OR Youth OR STRENGTH>9 OR Lwaxana Troi"),
-            "Matriarchal Society" => Wall(ctx, ctx.Team.Count(IsFemale) >= 2, "mind. 2 Female"),
+            "Matriarchal Society" => MatriarchalSociety(ctx),
             "Armus: Skin Of Evil" => ArmusSkinOfEvil(ctx),
             "Nausicaans" => UnlessThen(ctx, Sum(ctx).str > 44, KillRandom(ctx),
                 "STRENGTH>44", "Nausicaans kill one at random.", discardAlways: true),
@@ -1579,6 +1579,89 @@ public static class DilemmaRules
             return "CanCure: Android should cure";
         if (CanCure(PersistKind.Ktarian, eq30, 1))
             return "CanCure: CUNNING==30 should not cure";
+
+        return null;
+    }
+
+
+    // ---- Matriarchal Society (Premiere 33 U) ----
+    // Printed (PR): "Cannot get past unless at least two female Away Team members are present."
+    // Planet [P] wall: pass >=2 Female (Characteristics) -> Overcome (dilemma discard + Continue).
+    // Fail -> WallFailed + StopTeam (dilemma stays under mission). No kills / score / damage.
+    // Spock #16 Soll / DRG Matriarchal Society: Planet-Wall >=2 Female -> discard+Continue;
+    // Fail: AT stopped; dilemma under Mission (WallFailed stays).
+    // PARK: gender-related Borg immediate discard (no Borg edge wired here).
+
+    private static Result MatriarchalSociety(Ctx ctx) =>
+        Wall(ctx, ctx.Team.Count(IsFemale) >= 2, "2 Female");
+
+    /// <summary>DE mini-test for Matriarchal Society. Returns null if OK, else failure reason.</summary>
+    public static string? VerifyMatriarchalSociety()
+    {
+        static Card P(string name, string chars, string cls = "CIVILIAN", string text = "CIVILIAN") => new()
+        {
+            Name = name,
+            Type = "Personnel",
+            Class = cls,
+            Text = text,
+            Characteristics = chars,
+            IntegrityOrRange = "5",
+            CunningOrWeapons = "5",
+            StrengthOrShields = "5"
+        };
+
+        static Ctx Make(params Card[] team) => new()
+        {
+            Dilemma = new Card { Name = "Matriarchal Society", Type = "Dilemma", MissionDilemmaType = "[P]" },
+            Mission = new Card { Name = "Test Planet", Type = "Mission", MissionDilemmaType = "[P]" },
+            Team = team,
+            Present = team,
+            AttemptingPlayer = 1,
+            Rng = new Random(1)
+        };
+
+        var f1 = P("Female One", "Human; Female;");
+        var f2 = P("Female Two", "Human; Female;");
+        var f3 = P("Female Three", "Human; Female;");
+        var m1 = P("Male One", "Human; Male;");
+        var m2 = P("Male Two", "Human; Male;");
+
+        // Pass: exactly 2 females -> Overcome Continue, dilemma discard
+        var pass2 = Resolve(Make(f1, f2, m1));
+        if (pass2.Fate != Fate.Overcome || pass2.StopTeam)
+            return $"pass 2 Female: expected Overcome no stop, got {pass2.Fate}/stop={pass2.StopTeam}";
+        if (!ShouldRemoveFromSeed(pass2.Fate))
+            return "pass 2 Female: dilemma should discard";
+        if (pass2.Kill.Count != 0 || pass2.Score != 0 || pass2.DamageShip || pass2.DestroyShip)
+            return "pass 2: no kill/score/damage/destroy";
+
+        // Pass: 3 females
+        var pass3 = Resolve(Make(f1, f2, f3));
+        if (pass3.Fate != Fate.Overcome || pass3.StopTeam)
+            return $"pass 3 Female: expected Overcome no stop, got {pass3.Fate}/stop={pass3.StopTeam}";
+        if (!ShouldRemoveFromSeed(pass3.Fate))
+            return "pass 3 Female: dilemma should discard";
+
+        // Fail: only 1 female -> WallFailed + Stop; dilemma stays
+        var fail1 = Resolve(Make(f1, m1, m2));
+        if (fail1.Fate != Fate.WallFailed || !fail1.StopTeam)
+            return $"fail 1 Female: expected WallFailed+Stop, got {fail1.Fate}/stop={fail1.StopTeam}";
+        if (ShouldRemoveFromSeed(fail1.Fate))
+            return "fail 1 Female: dilemma must stay (WallFailed)";
+
+        // Fail: males only
+        var failM = Resolve(Make(m1, m2));
+        if (failM.Fate != Fate.WallFailed || !failM.StopTeam)
+            return $"fail males-only: expected WallFailed+Stop, got {failM.Fate}/stop={failM.StopTeam}";
+        if (ShouldRemoveFromSeed(failM.Fate))
+            return "fail males-only: dilemma must stay";
+
+        // Fail: empty Away Team
+        var empty = Resolve(Make());
+        if (empty.Fate != Fate.WallFailed || !empty.StopTeam)
+            return $"empty: expected WallFailed+Stop, got {empty.Fate}/stop={empty.StopTeam}";
+        if (ShouldRemoveFromSeed(empty.Fate))
+            return "empty: dilemma must stay";
 
         return null;
     }
