@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-06 (Jadzia — Neural Servo Device working, Pepsch)
+Last updated: 2026-09-06 (Jadzia — Pepsch reports: Love Interest/Hologram Ruse/Barclay Proto working; Archer partial)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -75,13 +75,13 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 
 | Card | Status | Notes | Source |
 | --- | --- | --- | --- |
-| Alien Abduction (10 U) | partial | Stasis Beam/Leave-Block + Cure OR (3 Leadership or mission solved). Pending Pepsch green. | Data/`8c25d96` 2026-09-06 |
+| Alien Abduction (10 U) | partial | Cure-Pfad feuert; Pepsch: Release erst bei Mission solved (nicht sofort bei 3 Leadership). Spock klaeren. | Pepsch 2026-09-06 |
 | Alien Parasites (11 U) | unknown |  |  |
 | Anaphasic Organism (12 C) | unknown |  |  |
 | Ancient Computer (13 R) | unknown |  |  |
-| Archer (14 C) | unknown |  |  |
+| Archer (14 C) | partial | Kill+Stop OK. Stopped fehlt in Detail-Status; Beam trotz Stopped offen. | Pepsch 2026-09-06 |
 | Armus: Skin Of Evil (15 R) | unknown |  |  |
-| Barclay's Protomorphosis Disease (16 R) | unknown |  |  |
+| Barclay's Protomorphosis Disease (16 R) | working | Pepsch getestet OK (Metamorphosis/Transformation). | Pepsch 2026-09-06 |
 | Birth of "Junior" (17 U) | unknown |  |  |
 | Borg Ship (18 R) | unknown |  |  |
 | Chalnoth (19 U) | unknown |  |  |
@@ -89,15 +89,15 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Crystalline Entity (21 R) | unknown |  |  |
 | Cytherians (22 R) | unknown |  |  |
 | El-Adrel Creature (23 U) | unknown |  |  |
-| Female's Love Interest (24 C) | partial | EffectAndContinue after Relocate; rest AT continues. Pending Pepsch green. | Data/`8c25d96` 2026-09-06 |
+| Female's Love Interest (24 C) | working | Pepsch getestet OK (Continue after Relocate). | Pepsch 2026-09-06 |
 | Firestorm (25 U) | unknown |  |  |
 | Gravitic Mine (26 U) | unknown |  |  |
-| Hologram Ruse (27 U) | unknown |  |  |
+| Hologram Ruse (27 U) | working | Pepsch getestet OK. | Pepsch 2026-09-06 |
 | Hyper-Aging (28 U) | partial | AttachAndContinue + cd3; AT not stopped (Spock Soll). Pending Pepsch green → working. | Data/`3c2704c` 2026-09-06 |
 | Iconian Computer Weapon (29 C) | unknown |  |  |
 | Impassable Door (30 C) | unknown |  |  |
 | Ktarian Game (31 R) | unknown |  |  |
-| Male's Love Interest (32 C) | partial | EffectAndContinue after Relocate; rest AT continues. Pending Pepsch green. | Data/`8c25d96` 2026-09-06 |
+| Male's Love Interest (32 C) | working | Pepsch getestet OK (Continue after Relocate). | Pepsch 2026-09-06 |
 | Matriarchal Society (33 U) | unknown |  |  |
 | Menthar Booby Trap (34 C) | unknown |  |  |
 | Microbiotic Colony (35 C) | unknown |  |  |
