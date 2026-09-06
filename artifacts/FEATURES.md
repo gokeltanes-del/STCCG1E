@@ -25,7 +25,7 @@ See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md, CARD_TRACKER.md (Jadzia).
 - Engine dump omits ships on Gaps
 - Distortion (no AU to test)
 - Fed 7.4.1 battle initiation (Spock/Data)
-- E2b Treaty/Rogue staffing on store path
+- E2b Treaty/Rogue staffing on store path (Data tip G5 2026-09-06)
 - Mission-Button last-revealed (parked)
 
 ## P2 - Premiere hardening

@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Fix - G5/E2b store staffing Treaty+Rogue)
+
+**Engine** - E2b: store-first Capture staffing. BoardStore.ToBoardPieces passes owner treaties into IsShipStaffed (Fly-aligned; Match still ignores Treaty/NA per G2). CaptureEngineState storeHasHost ships fill UI Staffed via treaties + ShipStaffedByRogueBorg so OverlayStatus OR picks up Rogue/Lore. Closes false deny when Occupant exists but only Rogue staffs.
+
+---
 ## 2026-09-06 (Fix - Stopped no-beam + Abduction Cure OR present)
 
 **Engine/UX** - Stopped personnel excluded from beam pool (IsBeamableFromHost / BeginBeam preselect / checkboxes / toMove). Unstopped may beam; stopped stay behind; clear error if none beamable. Detail Status: stopped personnel under Negative/red (like stasis). Alien Abduction: CanCure remains Leadership x3 OR mission completed; present path via CollectPresentAtMissionForCure + TryCureAbductionsPresent (EOT, unstop, after beam); MarkMissionSolved cure unchanged. Stasis leave-block unchanged.

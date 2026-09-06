@@ -271,7 +271,7 @@ Probe: Beam 3 Leute auf die Nebula, sofort Fly. `state:` muss `crewOn=3` zeigen.
 Probe: gleiches Beam→Fly. Log ohne `state-fallback:` für das Schiff.
 
 
-### E2b — Store-Staffing Treaty / Rogue Borg (offen)
+### E2b — Store-Staffing Treaty / Rogue Borg (done 2026-09-06)
 
 
 ### E2 caveat — Action History / LegalMoves cascade (fixed 2026-09-03)

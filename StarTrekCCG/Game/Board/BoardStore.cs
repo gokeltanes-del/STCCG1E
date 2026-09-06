@@ -124,7 +124,9 @@ public sealed class BoardStore
     /// Ships, facilities, missions, span locations, TABLE cards from the store.
     /// Attached events overlaid in ToGameState. E3/E3b: RangeLeft / Stopped / Cloak / Dock / Hull from instances.
     /// </summary>
-    public List<BoardPiece> ToBoardPieces()
+    public List<BoardPiece> ToBoardPieces(
+        IReadOnlyList<TreatyRules.TreatyLink>? treatiesP1 = null,
+        IReadOnlyList<TreatyRules.TreatyLink>? treatiesP2 = null)
     {
         var list = new List<BoardPiece>();
         var seen = new HashSet<int>();
@@ -156,7 +158,10 @@ public sealed class BoardStore
                 string? staffReason = null;
                 if (kind == BoardPieceKind.Ship)
                 {
-                    var staff = MovementRules.IsShipStaffed(printed, aboard);
+                    // E2b: pass owner treaties (Match ignores them post-G2; API matches Fly path).
+                    int own = occ.Card.Owner != 0 ? occ.Card.Owner : occ.Card.Controller;
+                    var treaties = own == 2 ? treatiesP2 : treatiesP1;
+                    var staff = MovementRules.IsShipStaffed(printed, aboard, treaties);
                     staffed = staff.Ok;
                     staffReason = staff.Reason;
                 }
@@ -233,7 +238,7 @@ public sealed class BoardStore
     public GameState ToGameState(GameStateSeed seed)
     {
         bool storeReady = Spaceline.Locations.Count > 0;
-        var storePieces = storeReady ? ToBoardPieces() : new List<BoardPiece>();
+        var storePieces = storeReady ? ToBoardPieces(seed.TreatiesP1, seed.TreatiesP2) : new List<BoardPiece>();
         var board = storeReady
             ? MergeStorePreferred(storePieces, seed.UiBoard)
             : seed.UiBoard.ToList();
@@ -365,7 +370,7 @@ public sealed class BoardStore
         return merged;
     }
 
-    /// <summary>E3/E3b: RangeLeft / Stopped / Cloak / Dock / Hull prefer store; solved / persist still UI. Crew / host stay store.</summary>
+    /// <summary>E3/E3b: RangeLeft / Stopped / Cloak / Dock / Hull prefer store; solved / persist still UI. Crew / host stay store. E2b: Staffed ORs UI (Rogue Borg / full Fly path).</summary>
     private static BoardPiece OverlayStatus(BoardPiece store, BoardPiece ui) => new()
     {
         Card = store.Card,

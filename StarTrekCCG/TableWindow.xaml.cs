@@ -910,6 +910,23 @@ public partial class TableWindow : Window
             {
                 if (kind == BoardPieceKind.Ship && rangeLeft < 0)
                     rangeLeft = GetRemainingRange(kv.Key, c);
+                // E2b/G5: store ToBoardPieces omits Rogue Borg (+ Treaty args). Overlay ORs UI Staffed.
+                if (kind == BoardPieceKind.Ship)
+                {
+                    var crew = GetCrewOnShip(kv.Key);
+                    if (crew.Count == 0)
+                        crew = store.CrewPersonnel(c.InstanceId);
+                    crewSnap = crew;
+                    aboard = crew.Count > 0 ? crew.ToList() : aboard;
+                    int staffOwner = owner == 0 ? _activePlayer : owner;
+                    var staff = MovementRules.IsShipStaffed(c, crew, GetActiveTreaties(staffOwner));
+                    staffed = staff.Ok || ShipStaffedByRogueBorg(kv.Key);
+                    staffReason = staffed
+                        ? (staff.Ok ? staff.Reason : "Rogue Borg + Lore Returns")
+                        : staff.Reason;
+                    var at = FindMissionForDockable(kv.Key);
+                    hostName = (at?.Tag as Card)?.Name ?? hostName;
+                }
             }
             else if (kind is BoardPieceKind.Ship or BoardPieceKind.Facility or BoardPieceKind.Mission)
             {
