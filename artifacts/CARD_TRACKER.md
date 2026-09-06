@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-06 (Jadzia — Love Interest + Alien Abduction partial on Data `8c25d96`)
+Last updated: 2026-09-06 (Jadzia — Neural Servo Device working, Pepsch)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -158,7 +158,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Lore's Fingernail (81 R) | unknown |  |  |
 | Masaka Transformations (82 U) | unknown |  |  |
 | Metaphasic Shields (83 U) | unknown |  |  |
-| Neural Servo Device (84 U) | unknown |  |  |
+| Neural Servo Device (84 U) | working | Pepsch getestet OK. UI Seite-Wechsel lag parked until Data tip. | Pepsch 2026-09-06 |
 | Nutational Shields (85 U) | unknown |  |  |
 | Pattern Enhancers (86 C) | unknown |  |  |
 | Plasma Fire (87 C) | unknown |  |  |
