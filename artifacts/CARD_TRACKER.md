@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-06 (Jadzia — Chalnoth #6 tip b01d6dc partial; #7 Cosmic String in flight)
+Last updated: 2026-09-06 (Data - Cosmic String Fragment #7 tip pending; Spock #7 Soll)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -85,7 +85,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Birth of "Junior" (17 U) | partial | tip Data/`4c92dce`. Place+Continue; EOT RANGE-1/destroy; Cure 3 ENG. Pup-disable≠0RANGE geparkt. Ungetestet. | Data/`4c92dce` 2026-09-06 |
 | Borg Ship (18 R) | working | Captain/Pepsch „soweit“ — nicht nochmal Dilemma-Welle. | Captain 2026-09-06 |
 | Chalnoth (19 U) | partial | tip Data/`b01d6dc`. Pass 3 SEC OR STR>40 → +5 + Continue; Fail Opp 1 Kill, AT stopped. Ungetestet. | Data/`b01d6dc` 2026-09-06 |
-| Cosmic String Fragment (20 U) | unknown |  |  |
+| Cosmic String Fragment (20 U) | partial | tip Data pending. Pass Astrophysics OR ENGINEER OR Navigation -> +5 Bonus + Continue; Fail ship destroy (everything aboard), dilemma discard. Spock #7 Soll/DRG. Ungetestet. | Data + Spock 2026-09-06 |
 | Crystalline Entity (21 R) | unknown |  |  |
 | Cytherians (22 R) | unknown |  |  |
 | El-Adrel Creature (23 U) | unknown |  |  |

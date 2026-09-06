@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Feat - Cosmic String Fragment Premiere)
+
+**Engine** - Cosmic String Fragment (PR 20 U): Space — Unless Astrophysics OR ENGINEER OR Navigation present: destroy ship (everything aboard via Apply); else Overcome +5 Bonus-Area + Continue. Always discard dilemma. Fail -> EffectAndEnd+StopTeam+DestroyShip. Spock #7 Soll/DRG. Decide: `DilemmaRules.CosmicStringFragment` + `VerifyCosmicStringFragment`.
+
+---
 ## 2026-09-06 (Feat - Chalnoth Premiere)
 
 **Engine** - Chalnoth (PR 19 U): Planet — Unless 3 SECURITY OR STRENGTH>40 present: opponent kills one Away Team member; else Overcome +5. Always discard dilemma. Fail -> EffectAndEnd+StopTeam. Spock #6 Soll/DRG (Points 5 Bonus-Area). Decide: `DilemmaRules.Chalnoth` + `VerifyChalnoth`.

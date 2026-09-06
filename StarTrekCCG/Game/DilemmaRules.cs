@@ -134,9 +134,7 @@ public static class DilemmaRules
             "Microbiotic Colony" => SpaceUnless(ctx,
                 Skill(ctx, "OFFICER") && Skill(ctx, "ENGINEER") && Skill(ctx, "SCIENCE"),
                 damage: true, "OFFICER, ENGINEER and SCIENCE"),
-            "Cosmic String Fragment" => SpaceUnlessScore(ctx,
-                Skill(ctx, "ENGINEER") || Skill(ctx, "Astrophysics") || Skill(ctx, "Navigation"),
-                destroy: true, score: 5, need: "ENGINEER or Astrophysics or Navigation"),
+            "Cosmic String Fragment" => CosmicStringFragment(ctx),
 
             "Birth of \"Junior\"" => BirthOfJunior(ctx),
             "Nitrium Metal Parasites" => NitriumEncounter(ctx),
@@ -1553,6 +1551,91 @@ public static class DilemmaRules
         var empty = Resolve(Make(null));
         if (empty.Fate != Fate.EffectAndEnd || !empty.StopTeam || empty.Kill.Count != 0)
             return $"empty: expected EffectAndEnd+Stop no kill, got {empty.Fate}/stop={empty.StopTeam}/kills={empty.Kill.Count}";
+        if (!ShouldRemoveFromSeed(empty.Fate))
+            return "empty: dilemma should discard";
+
+        return null;
+    }
+
+    // ---- Cosmic String Fragment (Premiere 20 U) ----
+    // Printed (PR): "Unless ENGINEER OR Astrophysics OR Navigation present, destroys ship.
+    // Otherwise, score points. Discard dilemma."
+    // Spock #7 Soll/DRG: pass -> Overcome +5 Bonus-Area + Continue; fail -> DestroyShip
+    // (everything aboard discarded via Apply), dilemma discard (EffectAndEnd).
+
+    private static Result CosmicStringFragment(Ctx ctx) =>
+        SpaceUnlessScore(ctx,
+            Skill(ctx, "Astrophysics") || Skill(ctx, "ENGINEER") || Skill(ctx, "Navigation"),
+            destroy: true, score: 5, need: "Astrophysics or ENGINEER or Navigation");
+
+    /// <summary>DE mini-test for Cosmic String Fragment. Returns null if OK, else failure reason.</summary>
+    public static string? VerifyCosmicStringFragment()
+    {
+        static Card P(string name, string cls, string text) => new()
+        {
+            Name = name,
+            Type = "Personnel",
+            Class = cls,
+            Text = text,
+            Characteristics = "Human; Male;",
+            IntegrityOrRange = "5",
+            CunningOrWeapons = "5",
+            StrengthOrShields = "5"
+        };
+
+        static Ctx Make(params Card[] team) => new()
+        {
+            Dilemma = new Card { Name = "Cosmic String Fragment", Type = "Dilemma", MissionDilemmaType = "[S]" },
+            Mission = new Card { Name = "Test Space", Type = "Mission", MissionDilemmaType = "[S]" },
+            Team = team,
+            Present = team,
+            AttemptingPlayer = 1,
+            Rng = new Random(1)
+        };
+
+        var eng = P("Eng One", "ENGINEER", "ENGINEER");
+        var astro = P("Astro One", "SCIENCE", "Astrophysics");
+        var nav = P("Nav One", "OFFICER", "Navigation");
+        var civ = P("Civilian", "CIVILIAN", "CIVILIAN");
+
+        // Pass: ENGINEER alone -> Overcome +5, Continue (no stop), no destroy, discard
+        var passEng = Resolve(Make(eng, civ));
+        if (passEng.Fate != Fate.Overcome || passEng.StopTeam || passEng.Score != 5)
+            return $"pass ENGINEER: expected Overcome Score=5 no stop, got {passEng.Fate}/{passEng.Score}/stop={passEng.StopTeam}";
+        if (passEng.DestroyShip || passEng.DamageShip)
+            return "pass ENGINEER: should not destroy/damage ship";
+        if (!ShouldRemoveFromSeed(passEng.Fate))
+            return "pass ENGINEER: dilemma should discard";
+
+        // Pass: Astrophysics alone
+        var passAstro = Resolve(Make(astro));
+        if (passAstro.Fate != Fate.Overcome || passAstro.Score != 5 || passAstro.StopTeam || passAstro.DestroyShip)
+            return $"pass Astrophysics: expected Overcome +5 Continue no destroy, got {passAstro.Fate}/{passAstro.Score}/stop={passAstro.StopTeam}/destroy={passAstro.DestroyShip}";
+        if (!ShouldRemoveFromSeed(passAstro.Fate))
+            return "pass Astrophysics: dilemma should discard";
+
+        // Pass: Navigation alone
+        var passNav = Resolve(Make(nav));
+        if (passNav.Fate != Fate.Overcome || passNav.Score != 5 || passNav.StopTeam || passNav.DestroyShip)
+            return $"pass Navigation: expected Overcome +5 Continue no destroy, got {passNav.Fate}/{passNav.Score}/stop={passNav.StopTeam}/destroy={passNav.DestroyShip}";
+        if (!ShouldRemoveFromSeed(passNav.Fate))
+            return "pass Navigation: dilemma should discard";
+
+        // Fail: no matching skill -> EffectAndEnd + Stop + DestroyShip, no score, discard
+        var fail = Resolve(Make(civ));
+        if (fail.Fate != Fate.EffectAndEnd || !fail.StopTeam || !fail.DestroyShip)
+            return $"fail: expected EffectAndEnd+Stop+DestroyShip, got {fail.Fate}/stop={fail.StopTeam}/destroy={fail.DestroyShip}";
+        if (fail.Score != 0)
+            return "fail: should not score";
+        if (fail.DamageShip)
+            return "fail: destroy not damage";
+        if (!ShouldRemoveFromSeed(fail.Fate))
+            return "fail: dilemma should discard";
+
+        // Empty crew fail: still destroy ship + discard
+        var empty = Resolve(Make());
+        if (empty.Fate != Fate.EffectAndEnd || !empty.StopTeam || !empty.DestroyShip)
+            return $"empty: expected EffectAndEnd+Stop+DestroyShip, got {empty.Fate}/stop={empty.StopTeam}/destroy={empty.DestroyShip}";
         if (!ShouldRemoveFromSeed(empty.Fate))
             return "empty: dilemma should discard";
 
