@@ -117,9 +117,7 @@ public static class DilemmaRules
             "Anaphasic Organism" => Anaphasic(ctx),
             "El-Adrel Creature" => ElAdrel(ctx),
             "Firestorm" => Firestorm(ctx),
-            "Microvirus" => UnlessScoreOr(ctx, Skill(ctx, "MEDICAL") && Skill(ctx, "SECURITY"),
-                () => PickKill(ctx, opp: true, "Microvirus: opponent chooses (no inorganic).", exceptInorganic: true),
-                5, "MEDICAL and SECURITY"),
+            "Microvirus" => Microvirus(ctx),
             "Barclay's Protomorphosis Disease" => UnlessScoreOr(ctx,
                 Skill(ctx, "MEDICAL") && Skill(ctx, "SCIENCE") && Skill(ctx, "SECURITY"),
                 () => { foreach (var p in ctx.Team.Where(x => !IsInorganic(x))) AddKill(_tmp, p); },
@@ -1155,6 +1153,146 @@ public static class DilemmaRules
             return $"fail civilian: expected EffectAndEnd+Stop+DamageShip, got {failCiv.Fate}/stop={failCiv.StopTeam}/dmg={failCiv.DamageShip}";
         if (!ShouldRemoveFromSeed(failCiv.Fate))
             return "fail civilian: dilemma should discard";
+
+        return null;
+    }
+
+
+    // ---- Microvirus (Premiere 36 C) ----
+    // Printed (PR): "Unless MEDICAL and SECURITY present, kills one personnel present
+    // (opponent's choice), except an inorganic. Otherwise, score points. Discard dilemma."
+    // Spock #19 Soll / DRG Microvirus:
+    //   Planet [P]; 5 Pts; Conditions MEDICAL AND SECURITY.
+    //   Pass -> Overcome +5 Bonus-Area + Continue; dilemma discard.
+    //   Fail -> Opp chooses 1 AT Kill (except inorganic) + AT stopped (EffectAndEnd+StopTeam);
+    //           dilemma always discarded.
+    //   DNA-related: Android / Exocomp (Inorganic) / Hologram not choosable (IsInorganic).
+    //   PARK: opponent-choice UI filter thin (engine pool already excludes inorganic).
+
+    private static Result Microvirus(Ctx ctx) =>
+        UnlessScoreOr(ctx, Skill(ctx, "MEDICAL") && Skill(ctx, "SECURITY"),
+            () => PickKill(ctx, opp: true, "Microvirus: opponent chooses (no inorganic).", exceptInorganic: true),
+            5, "MEDICAL and SECURITY");
+
+    /// <summary>DE mini-test for Microvirus. Returns null if OK, else failure reason.</summary>
+    public static string? VerifyMicrovirus()
+    {
+        static Card P(string name, string cls, string text, string chars = "Human; Male;") => new()
+        {
+            Name = name,
+            Type = "Personnel",
+            Class = cls,
+            Text = text,
+            Characteristics = chars,
+            IntegrityOrRange = "5",
+            CunningOrWeapons = "5",
+            StrengthOrShields = "5"
+        };
+
+        static Ctx Make(Func<string, IReadOnlyList<Card>, Card?>? pickOpp, params Card[] team) => new()
+        {
+            Dilemma = new Card { Name = "Microvirus", Type = "Dilemma", MissionDilemmaType = "[P]" },
+            Mission = new Card { Name = "Test Planet", Type = "Mission", MissionDilemmaType = "[P]" },
+            Team = team,
+            Present = team,
+            AttemptingPlayer = 1,
+            Rng = new Random(1),
+            PickOpp = pickOpp
+        };
+
+        var med = P("Med One", "MEDICAL", "MEDICAL");
+        var sec = P("Sec One", "SECURITY", "SECURITY");
+        var both = P("Both", "MEDICAL", "MEDICAL SECURITY");
+        var civ = P("Civilian", "CIVILIAN", "CIVILIAN");
+        var android = P("Data", "OFFICER", "OFFICER", "Android; Male;");
+        var holo = P("Holodoc", "MEDICAL", "MEDICAL", "Hologram; Male;");
+
+        // Pass: MEDICAL + SECURITY (two personnel) -> Overcome +5, no stop, discard
+        var passSplit = Resolve(Make(null, med, sec, civ));
+        if (passSplit.Fate != Fate.Overcome || passSplit.StopTeam || passSplit.Score != 5)
+            return $"pass MED+SEC: expected Overcome Score=5 no stop, got {passSplit.Fate}/{passSplit.Score}/stop={passSplit.StopTeam}";
+        if (passSplit.Kill.Count != 0)
+            return "pass MED+SEC: should not kill";
+        if (!ShouldRemoveFromSeed(passSplit.Fate))
+            return "pass MED+SEC: dilemma should discard";
+
+        // Pass: one personnel with both skills
+        var passOne = Resolve(Make(null, both));
+        if (passOne.Fate != Fate.Overcome || passOne.Score != 5 || passOne.StopTeam)
+            return $"pass one Both: expected Overcome +5 no stop, got {passOne.Fate}/{passOne.Score}/stop={passOne.StopTeam}";
+        if (!ShouldRemoveFromSeed(passOne.Fate))
+            return "pass one Both: dilemma should discard";
+
+        // Fail: MEDICAL only (no SECURITY) -> opp chooses organic
+        Card? picked = null;
+        var failNoSec = Resolve(Make((_, list) => { picked = list.First(x => x.Name == "Civilian"); return picked; }, med, civ));
+        if (failNoSec.Fate != Fate.EffectAndEnd || !failNoSec.StopTeam)
+            return $"fail no SEC: expected EffectAndEnd+StopTeam, got {failNoSec.Fate}/stop={failNoSec.StopTeam}";
+        if (failNoSec.Kill.Count != 1 || failNoSec.Kill[0].Name != "Civilian")
+            return $"fail no SEC: expected kill Civilian, got [{string.Join(",", failNoSec.Kill.Select(k => k.Name))}]";
+        if (picked?.Name != "Civilian")
+            return "fail no SEC: PickOpp was not used";
+        if (failNoSec.Score != 0)
+            return "fail no SEC: should not score";
+        if (!ShouldRemoveFromSeed(failNoSec.Fate))
+            return "fail no SEC: dilemma should discard";
+
+        // Fail: SECURITY only (no MEDICAL)
+        picked = null;
+        var failNoMed = Resolve(Make((_, list) => { picked = list.First(x => x.Name == "Sec One"); return picked; }, sec, civ));
+        if (failNoMed.Fate != Fate.EffectAndEnd || !failNoMed.StopTeam)
+            return $"fail no MED: expected EffectAndEnd+StopTeam, got {failNoMed.Fate}/stop={failNoMed.StopTeam}";
+        if (failNoMed.Kill.Count != 1 || failNoMed.Kill[0].Name != "Sec One")
+            return $"fail no MED: expected kill Sec One, got [{string.Join(",", failNoMed.Kill.Select(k => k.Name))}]";
+        if (!ShouldRemoveFromSeed(failNoMed.Fate))
+            return "fail no MED: dilemma should discard";
+
+        // Fail: inorganic excluded from pool (android not choosable; organic killed)
+        picked = null;
+        var failInorg = Resolve(Make((_, list) =>
+        {
+            if (list.Any(x => x.Name == "Data"))
+                throw new Exception("android should be excluded from Microvirus kill pool");
+            picked = list.First(x => x.Name == "Civilian");
+            return picked;
+        }, civ, android));
+        if (failInorg.Fate != Fate.EffectAndEnd || !failInorg.StopTeam)
+            return $"fail inorganic-excl: expected EffectAndEnd+Stop, got {failInorg.Fate}/stop={failInorg.StopTeam}";
+        if (failInorg.Kill.Count != 1 || failInorg.Kill[0].Name != "Civilian")
+            return $"fail inorganic-excl: expected kill Civilian only, got [{string.Join(",", failInorg.Kill.Select(k => k.Name))}]";
+        if (picked?.Name != "Civilian")
+            return "fail inorganic-excl: PickOpp was not used";
+        if (!ShouldRemoveFromSeed(failInorg.Fate))
+            return "fail inorganic-excl: dilemma should discard";
+
+        // Fail: only inorganic present -> EffectAndEnd+Stop, no kill, discard
+        var onlyAndroid = Resolve(Make((_, list) => list[0], android));
+        if (onlyAndroid.Fate != Fate.EffectAndEnd || !onlyAndroid.StopTeam || onlyAndroid.Kill.Count != 0)
+            return $"only android: expected EffectAndEnd+Stop no kill, got {onlyAndroid.Fate}/stop={onlyAndroid.StopTeam}/kills={onlyAndroid.Kill.Count}";
+        if (!ShouldRemoveFromSeed(onlyAndroid.Fate))
+            return "only android: dilemma should discard";
+
+        // Fail: hologram alone (inorganic) -> no kill
+        var onlyHolo = Resolve(Make(null, holo));
+        if (onlyHolo.Fate != Fate.EffectAndEnd || !onlyHolo.StopTeam || onlyHolo.Kill.Count != 0)
+            return $"only holo: expected EffectAndEnd+Stop no kill, got {onlyHolo.Fate}/stop={onlyHolo.StopTeam}/kills={onlyHolo.Kill.Count}";
+        if (!ShouldRemoveFromSeed(onlyHolo.Fate))
+            return "only holo: dilemma should discard";
+
+        // Fail: Exocomp (Inorganic) alone -> no kill
+        var exo = P("Exocomp", "ENGINEER", "ENGINEER", "Exocomp; Inorganic;");
+        var onlyExo = Resolve(Make(null, exo));
+        if (onlyExo.Fate != Fate.EffectAndEnd || !onlyExo.StopTeam || onlyExo.Kill.Count != 0)
+            return $"only exocomp: expected EffectAndEnd+Stop no kill, got {onlyExo.Fate}/stop={onlyExo.StopTeam}/kills={onlyExo.Kill.Count}";
+        if (!ShouldRemoveFromSeed(onlyExo.Fate))
+            return "only exocomp: dilemma should discard";
+
+        // Empty Away Team fail
+        var empty = Resolve(Make(null));
+        if (empty.Fate != Fate.EffectAndEnd || !empty.StopTeam || empty.Kill.Count != 0)
+            return $"empty: expected EffectAndEnd+Stop no kill, got {empty.Fate}/stop={empty.StopTeam}/kills={empty.Kill.Count}";
+        if (!ShouldRemoveFromSeed(empty.Fate))
+            return "empty: dilemma should discard";
 
         return null;
     }

@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Feat - Microvirus Premiere)
+
+**Engine** - Microvirus (PR 36 C): Planet - Unless MEDICAL AND SECURITY present: opponent kills one Away Team member except inorganic (Android/Exocomp/Holo via IsInorganic); else Overcome +5 Bonus-Area + Continue. Always discard dilemma. Fail -> EffectAndEnd+StopTeam. Spock #19 Soll / DRG Microvirus. Decide: `DilemmaRules.Microvirus` + `VerifyMicrovirus`. PARK: opponent-choice UI filter thin (engine pool excludes inorganic).
+
+---
 ## 2026-09-06 (Feat - Microbiotic Colony Premiere)
 
 **Engine** - Microbiotic Colony (PR 35 C): Space - Unless SCIENCE AND ENGINEER AND OFFICER present: Ship damaged (DamageShip / ApplyHullDamage +50 / Rotation badge) + Ship/Crew stopped (EffectAndEnd+StopTeam); else Overcome Continue. Dilemma always discarded. No bonus points. Spock #18 Soll / DRG Microbiotic Colony. Decide: DilemmaRules.MicrobioticColony + VerifyMicrobioticColony.
