@@ -5,26 +5,28 @@ Living list - **Seven owns ranking.** Reorder freely when checklist coverage or 
 See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md, CARD_TRACKER.md (Jadzia).
 
 ## P0 - Foundation (do first)
-- **TableWindow extract** (in progress, Data) - Welle 1 Slices 1-8 DONE (`447beac`); Slice 9 EOT-rest + Status-UX pack tip `3c2704c` awaiting Pepsch green+push; then Persist then Battle
+- **TableWindow extract** (in progress, Data) - Welle 1 Slices 1-8 DONE (`447beac`); Slice 9 + Status-UX + dilemma Continue pack tips `3c2704c`/`8c25d96` awaiting Pepsch Gesamt-Grün+push; then Persist then Battle
   - Premiere A card waves: **only Captain Go** (see CODE_PLACEMENT.md)
   - **Before new Premiere card waves**; no big-bang UI rewrite
-- **Status-UX / Stasis-Held** (Data tip `3c2704c`, Pepsch testing) — Layout/Glow retest pack:
-  - Damage: **badge only** (no card flip/rotate)
-  - Repair timer: Counter `1/N` → EN `Clears end of this turn` (not next)
-  - Detail crew row: Positive (green) | Negative (red: lasting dilemmas + Stasis/Quarantine) | Personnel | Equipment
-  - Last revealed: Mission-Button `Show last revealed card under mission` (not bottom-left)
-  - Glow: Neg/Stasis **red**; Cloaked **black**; Pos **green**
-  - Repair Leave-Reset: Undock/Leave/Fly → Counter 0 (already in pack)
-  - Coverage: mark Status-UX done after Pepsch green
-- **Glossary/Compendium full coverage (Seven+Spock)** - Welle 1 core + Hugh/Borg DONE (`447beac`); **Welle 2 Control/Owner/Present ACTIVE** (Docs only). Card status rows → Jadzia CARD_TRACKER.
+- **Status-UX / Stasis-Held** (Data `3c2704c` + `8c25d96`, Pepsch testing)
+  - Layout Teil-Grün: Damage badge-only; Repair „this turn“; Detail Positive|Negative|Personnel|Equipment; Stasis rot / Buff grün
+  - Cloak: inward Nebel/Vignette overlay (`8c25d96`) — iterate if Pepsch wants Show-Look polish
+  - Mission-Button „Show last revealed“: **PARKED** (not mechanics-critical)
+  - Stasis: Beam/Leave-Block + Alien Abduction Cure **OR** (3 Leadership OR mission completed)
+  - Coverage: Status-UX DONE only after Pepsch Gesamt-Grün
+- **Glossary/Compendium full coverage (Seven+Spock)** - Welle 1 + Hugh/Borg DONE; **Welle 2 Control/Owner/Present ACTIVE** (Docs only). Card rows → Jadzia CARD_TRACKER.
 
 ## P1 - Parked / in test
-- Nitrium Metal Parasites + Hyper-Aging: Data `AttachAndContinue` tip `3c2704c` (**partial** until Pepsch green → then working; Jadzia tracks cards)
+- Continue-family dilemmas (Data tip `3c2704c`/`8c25d96`, **partial** until Pepsch green):
+  - Nitrium Metal Parasites, Hyper-Aging (`AttachAndContinue`)
+  - Female's / Male's Love Interest (`EffectAndContinue` after Relocate)
+  - Alien Abduction (Stasis hold + Cure OR + no Beam)
 - IM Federation: false nullify already-at-facility / FindMissionForDockable
 - Engine dump omits ships on Gaps
 - Distortion (no AU to test)
 - Fed 7.4.1 battle initiation (Spock/Data)
 - E2b Treaty/Rogue staffing on store path
+- Mission-Button last-revealed (parked)
 
 ## P2 - Premiere hardening
 - Premiere A/B hardening from RULES_CHECKLIST gaps
