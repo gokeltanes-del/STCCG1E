@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-06 (Josef - Menthar Booby Trap #17 tip 01e5bb8 partial)
+Last updated: 2026-09-06 (Jadzia — Menthar #17 tip 01e5bb8 partial; #18 Microbiotic in flight)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -99,7 +99,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Ktarian Game (31 R) | partial | tip Data/`7de28a4`. Place+Continue; Cure CUNN>30/Android. PARK: Lefler-Nullify; Now+SOT Disable-Apply. Ungetestet. | Data/`7de28a4` 2026-09-06 |
 | Male's Love Interest (32 C) | working | Pepsch getestet OK (Continue after Relocate). | Pepsch 2026-09-06 |
 | Matriarchal Society (33 U) | partial | tip Data/`d68f511`. Wall ≥2 Female Continue; Fail Stop+unter Mission. PARK: Borg gender. Ungetestet. | Data/`d68f511` 2026-09-06 |
-| Menthar Booby Trap (34 C) | partial | tip Data/`01e5bb8`. Always place; no MED kill+Stop; MED Continue; Cure 2 ENG. PARK: LegalMoves move-block beyond TW. Ungetestet. | Data/`01e5bb8` 2026-09-06 |
+| Menthar Booby Trap (34 C) | partial | tip Data/`01e5bb8`. Place immer; MED Continue else Kill+Stop; Cure 2 ENG. PARK: LegalMoves move-block. Ungetestet. | Data/`01e5bb8` 2026-09-06 |
 | Microbiotic Colony (35 C) | unknown |  |  |
 | Microvirus (36 C) | unknown |  |  |
 | Nagilum (37 R) | unknown |  |  |
