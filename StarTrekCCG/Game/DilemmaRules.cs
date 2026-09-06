@@ -663,16 +663,208 @@ public static class DilemmaRules
         return x;
     }
 
+    // ---- El-Adrel Creature (Premiere 23 U) ----
+    // Printed (PR): "Targets the two strongest members in Away Team (your choice if tie).
+    // Unless they have STRENGTH>16, kills one of them (random selection). Discard dilemma."
+    // Spock #10 Soll / DRG El-Adrel Creature:
+    //   Two strongest AT (Tie = Dilemma-Owner picks via PickOpp).
+    //   Pass: combined STR >16 -> Overcome Continue + discard (no points).
+    //   Fail: 1 of the two random killed; rest of AT stopped; discard (EffectAndEnd+StopTeam).
+    //   Boundary STRENGTH==16 fails. Empty AT: EffectAndEnd+Stop, no kill.
+
+    /// <summary>Select up to two strongest Away Team members; dilemma-owner picks on STRENGTH ties.</summary>
+    private static List<Card> TwoStrongestAwayTeam(Ctx ctx)
+    {
+        var remaining = ctx.Team.ToList();
+        var selected = new List<Card>();
+        while (selected.Count < 2 && remaining.Count > 0)
+        {
+            int max = remaining.Max(p => Eff(ctx, p).Strength);
+            var tied = remaining.Where(p => Eff(ctx, p).Strength == max).ToList();
+            int need = 2 - selected.Count;
+            if (tied.Count <= need)
+            {
+                selected.AddRange(tied);
+                foreach (var t in tied) remaining.Remove(t);
+            }
+            else
+            {
+                for (int i = 0; i < need; i++)
+                {
+                    var pick = ctx.PickOpp?.Invoke(
+                                   "El-Adrel Creature: choose which tied strongest is targeted",
+                                   tied)
+                               ?? tied[0];
+                    selected.Add(pick);
+                    tied.Remove(pick);
+                    remaining.Remove(pick);
+                }
+            }
+        }
+        return selected;
+    }
+
     private static Result ElAdrel(Ctx ctx)
     {
-        var two = ctx.Team.OrderByDescending(p => Eff(ctx, p).Strength).Take(2).ToList();
+        var two = TwoStrongestAwayTeam(ctx);
         int sum = two.Sum(p => Eff(ctx, p).Strength);
         if (sum > 16)
-            return new Result { Fate = Fate.Overcome, Message = $"Two strongest STRENGTH {sum} > 16." };
-        var r = new Result { Fate = Fate.EffectAndEnd, StopTeam = true, Message = "El-Adrel: one of the two strongest dies." };
+            return new Result
+            {
+                Fate = Fate.Overcome,
+                Message = $"El-Adrel Creature: two strongest STRENGTH {sum} > 16."
+            };
+        var r = new Result
+        {
+            Fate = Fate.EffectAndEnd,
+            StopTeam = true,
+            Message = "El-Adrel Creature: one of the two strongest dies (random); Away Team stopped."
+        };
         AddKill(r.Kill, RandomOf(ctx, two));
         return r;
     }
+
+    /// <summary>DE mini-test for El-Adrel Creature. Returns null if OK, else failure reason.</summary>
+    public static string? VerifyElAdrelCreature()
+    {
+        static Card P(string name, string str) => new()
+        {
+            Name = name,
+            Type = "Personnel",
+            Class = "OFFICER",
+            Text = "OFFICER",
+            Characteristics = "Human; Male;",
+            IntegrityOrRange = "5",
+            CunningOrWeapons = "5",
+            StrengthOrShields = str
+        };
+
+        static Ctx Make(
+            Func<string, IReadOnlyList<Card>, Card?>? pickOpp,
+            Random? rng = null,
+            params Card[] team) => new()
+        {
+            Dilemma = new Card { Name = "El-Adrel Creature", Type = "Dilemma", MissionDilemmaType = "[P]" },
+            Mission = new Card { Name = "Test Planet", Type = "Mission", MissionDilemmaType = "[P]" },
+            Team = team,
+            Present = team,
+            AttemptingPlayer = 1,
+            Rng = rng ?? new Random(1),
+            PickOpp = pickOpp
+        };
+
+        var a9 = P("Alpha", "9");
+        var b8 = P("Bravo", "8");
+        var c7 = P("Charlie", "7");
+        var d9 = P("Delta", "9");
+        var e9 = P("Echo", "9");
+
+        // Pass: 9+8=17 > 16 -> Overcome, no stop/kill, discard
+        var pass = Resolve(Make(null, null, a9, b8, c7));
+        if (pass.Fate != Fate.Overcome || pass.StopTeam || pass.Kill.Count != 0 || pass.Score != 0)
+            return $"pass 17: expected Overcome no stop/kill/score, got {pass.Fate}/stop={pass.StopTeam}/kills={pass.Kill.Count}/score={pass.Score}";
+        if (!ShouldRemoveFromSeed(pass.Fate))
+            return "pass 17: dilemma should discard";
+
+        // Boundary fail: 8+8=16 not >16
+        var eq8a = P("EqA", "8");
+        var eq8b = P("EqB", "8");
+        var failEq = Resolve(Make(null, new Random(42), eq8a, eq8b));
+        if (failEq.Fate != Fate.EffectAndEnd || !failEq.StopTeam)
+            return $"fail STR=16: expected EffectAndEnd+StopTeam, got {failEq.Fate}/stop={failEq.StopTeam}";
+        if (failEq.Kill.Count != 1 || (failEq.Kill[0].Name is not ("EqA" or "EqB")))
+            return $"fail STR=16: expected kill one of the two, got [{string.Join(",", failEq.Kill.Select(k => k.Name))}]";
+        if (!ShouldRemoveFromSeed(failEq.Fate))
+            return "fail STR=16: dilemma should discard";
+
+        // Fail clear top2: 9+7 with weaker third; random kill among Alpha/Charlie only
+        var failClear = Resolve(Make(null, new Random(7), a9, c7, P("Weak", "3")));
+        if (failClear.Fate != Fate.EffectAndEnd || !failClear.StopTeam)
+            return "fail clear: expected EffectAndEnd+StopTeam";
+        if (failClear.Kill.Count != 1 || (failClear.Kill[0].Name is not ("Alpha" or "Charlie")))
+            return $"fail clear: victim must be Alpha or Charlie, got [{string.Join(",", failClear.Kill.Select(k => k.Name))}]";
+        if (!ShouldRemoveFromSeed(failClear.Fate))
+            return "fail clear: dilemma should discard";
+
+        // Tie for second slot: top unique 10 + two at 5 -> owner picks which 5 is targeted
+        var top = P("Top", "10");
+        var t5a = P("Tie5A", "5");
+        var t5b = P("Tie5B", "5");
+        Card? pickedSecond = null;
+        var tieSecond = Resolve(Make((_, list) =>
+        {
+            pickedSecond = list.First(x => x.Name == "Tie5B");
+            return pickedSecond;
+        }, new Random(3), top, t5a, t5b));
+        // 10+5=15 fail; kill among Top and Tie5B only
+        if (tieSecond.Fate != Fate.EffectAndEnd || !tieSecond.StopTeam)
+            return "tie-second: expected EffectAndEnd+StopTeam";
+        if (pickedSecond?.Name != "Tie5B")
+            return "tie-second: PickOpp was not used for second slot";
+        if (tieSecond.Kill.Count != 1 || (tieSecond.Kill[0].Name is not ("Top" or "Tie5B")))
+            return $"tie-second: victim must be Top or Tie5B, got [{string.Join(",", tieSecond.Kill.Select(k => k.Name))}]";
+        if (tieSecond.Kill[0].Name == "Tie5A")
+            return "tie-second: Tie5A must not be targeted";
+
+        // Three-way tie at 6: owner picks two; 6+6=12 fail
+        var x6 = P("X6", "6");
+        var y6 = P("Y6", "6");
+        var z6 = P("Z6", "6");
+        var pickOrder = new Queue<string>(new[] { "Y6", "Z6" });
+        var picks = new List<string>();
+        var threeTie = Resolve(Make((_, list) =>
+        {
+            var name = pickOrder.Dequeue();
+            picks.Add(name);
+            return list.First(x => x.Name == name);
+        }, new Random(11), x6, y6, z6));
+        if (threeTie.Fate != Fate.EffectAndEnd || !threeTie.StopTeam)
+            return "three-tie: expected EffectAndEnd+StopTeam";
+        if (picks.Count != 2 || picks[0] != "Y6" || picks[1] != "Z6")
+            return $"three-tie: expected PickOpp Y6 then Z6, got [{string.Join(",", picks)}]";
+        if (threeTie.Kill.Count != 1 || (threeTie.Kill[0].Name is not ("Y6" or "Z6")))
+            return $"three-tie: victim must be Y6 or Z6, got [{string.Join(",", threeTie.Kill.Select(k => k.Name))}]";
+        if (threeTie.Kill[0].Name == "X6")
+            return "three-tie: X6 must not be targeted";
+
+        // Pass with three at 9: owner picks which two; 9+9>16 Overcome
+        pickOrder = new Queue<string>(new[] { "Delta", "Echo" });
+        picks.Clear();
+        var passTie = Resolve(Make((_, list) =>
+        {
+            var name = pickOrder.Dequeue();
+            picks.Add(name);
+            return list.First(x => x.Name == name);
+        }, null, a9, d9, e9));
+        if (passTie.Fate != Fate.Overcome || passTie.StopTeam || passTie.Kill.Count != 0)
+            return $"pass three-9: expected Overcome no stop/kill, got {passTie.Fate}/stop={passTie.StopTeam}";
+        if (picks.Count != 2)
+            return $"pass three-9: expected 2 PickOpp calls, got {picks.Count}";
+        if (!ShouldRemoveFromSeed(passTie.Fate))
+            return "pass three-9: dilemma should discard";
+
+        // Empty Away Team fail: EffectAndEnd + Stop, no kill, discard
+        var empty = Resolve(Make(null));
+        if (empty.Fate != Fate.EffectAndEnd || !empty.StopTeam || empty.Kill.Count != 0)
+            return $"empty: expected EffectAndEnd+Stop no kill, got {empty.Fate}/stop={empty.StopTeam}/kills={empty.Kill.Count}";
+        if (!ShouldRemoveFromSeed(empty.Fate))
+            return "empty: dilemma should discard";
+
+        // Solo STR 10 fail
+        var solo = Resolve(Make(null, null, P("Solo", "10")));
+        if (solo.Fate != Fate.EffectAndEnd || !solo.StopTeam)
+            return "solo fail: expected EffectAndEnd+StopTeam";
+        if (solo.Kill.Count != 1 || solo.Kill[0].Name != "Solo")
+            return $"solo fail: expected kill Solo, got [{string.Join(",", solo.Kill.Select(k => k.Name))}]";
+
+        // Solo STR 17 pass
+        var soloPass = Resolve(Make(null, null, P("Tank", "17")));
+        if (soloPass.Fate != Fate.Overcome || soloPass.StopTeam || soloPass.Kill.Count != 0)
+            return $"solo pass: expected Overcome no stop/kill, got {soloPass.Fate}";
+
+        return null;
+    }
+
 
     private static Result Firestorm(Ctx ctx)
     {

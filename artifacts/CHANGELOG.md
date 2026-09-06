@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Feat - El-Adrel Creature Premiere)
+
+**Engine** - El-Adrel Creature (PR 23 U): Planet — Targets two strongest AT (Tie = Dilemma-Owner / `PickOpp`). Pass combined STR >16 → Overcome Continue + discard (no points). Fail → 1 of the two random killed; rest of AT stopped; discard (`EffectAndEnd`+`StopTeam`). Boundary STR==16 fails. Spock #10 Soll / DRG El-Adrel Creature. Decide: `DilemmaRules.ElAdrel` + `VerifyElAdrelCreature`.
+
+---
 ## 2026-09-06 (Feat - Cytherians Premiere)
 
 **Engine** - Cytherians (PR 22 R): Space — Place on ship; Attempt ends; Crew **NOT** stopped (`AttachAndEnd` + `StopTeam=false`). Far end fixed once (TW `Dest` / `RequiredMoveRules.FarEndIndex` 12.6). Arrival → discard +15; ship destroy → discard (no points). No instant relocate. Spock #9 Soll / Glossary Cytherians + actions-required. Decide: `DilemmaRules.Cytherians` + `VerifyCytherians`. PARK: full LegalMoves-only-toward-far-end beyond existing `ShipHasRequiredMove` gates; Borg play-out no-points / Mission Debriefing if unclear.
