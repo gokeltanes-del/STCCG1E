@@ -86,7 +86,8 @@ public static class BattleRules
     /// Darf dieses Schiff einen Ship Battle initiieren?
     /// Leader (OFFICER oder Leadership), WEAPONS &gt; 0, Matching Affiliation HARD (G1),
     /// nicht gestoppt, Affiliation-Restriktion grob. Full Cmd/Stf staffing icons not required.
-    /// </summary>
+    /// 
+    /// <paramref name="counterAttack"/> (G7): next-turn reply at same location vs involved/still-there opponents — no Leader, no affiliation restriction. Match+WEAPONS still required. Return Fire != Counter-Attack.</summary>
     public static AttackCheck CanInitiateShipAttack(
         Card attackerShip,
         IEnumerable<Card> crewOnBoard,
@@ -96,7 +97,8 @@ public static class BattleRules
         int hullDamagePercent,
         bool isStopped,
         string? wartimeVs = null,
-        bool loreStaffed = false)
+        bool loreStaffed = false,
+        bool counterAttack = false)
     {
         if (isStopped)
             return new AttackCheck(false, "Schiff ist gestoppt und kann nicht angreifen.");
@@ -118,7 +120,7 @@ public static class BattleRules
             return new AttackCheck(false, $"„{attackerShip.Name}“ hat keine WEAPONS.");
 
         var crew = crewOnBoard?.ToList() ?? new List<Card>();
-        if (!HasLeader(crew) && !loreStaffed)
+        if (!counterAttack && !HasLeader(crew) && !loreStaffed)
             return new AttackCheck(false, "Kein Leader an Bord (OFFICER oder Leadership nötig).");
 
         // G1 / Spock: Matching Affiliation HARD for initiate (Leader+WEAPONS alone not enough).
@@ -129,11 +131,15 @@ public static class BattleRules
             return new AttackCheck(false,
                 "Cannot initiate ship battle: no matching-affiliation personnel aboard (Treaty/NA does not count as Match). Leader+WEAPONS alone is not enough.");
         }
-        var affCheck = CheckAffiliationAttackRestriction(attackerShip, crew, target, wartimeVs);
-        if (!affCheck.Ok)
-            return affCheck;
+        // G7: Counter-Attack relaxes affiliation restriction only (Fed may hit back).
+        if (!counterAttack)
+        {
+            var affCheck = CheckAffiliationAttackRestriction(attackerShip, crew, target, wartimeVs);
+            if (!affCheck.Ok)
+                return affCheck;
+        }
 
-        return new AttackCheck(true, "Angriff erlaubt.");
+        return new AttackCheck(true, counterAttack ? "Counter-Attack erlaubt." : "Angriff erlaubt.");
     }
 
     /// <summary>

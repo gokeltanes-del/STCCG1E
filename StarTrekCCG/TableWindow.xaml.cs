@@ -353,8 +353,18 @@ public partial class TableWindow : Window
     private readonly Dictionary<Border, int> _edoContinuePenalty = new();
     private bool _seniorStaffArmed;
     private string? _wartimeVsAffiliation;
+    /// <summary>G7: after being attacked, on your next turn you may Counter-Attack at same location.</summary>
+    private PendingCounterAttack? _pendingCounterAttack;
     private bool _uniquePersonnelPlayedP1;
     private bool _uniquePersonnelPlayedP2;
+
+    private sealed class PendingCounterAttack
+    {
+        public int EligiblePlayer;
+        public Border LocationMission = null!;
+        public HashSet<int> InvolvedOpponentIds { get; } = new();
+        public bool Armed;
+    }
 
     /// <summary>true = Panel-Drag schwebt auf DragLayer (Fensterkoordinaten).</summary>
     private bool _dragOnOverlay;
@@ -7260,7 +7270,8 @@ public partial class TableWindow : Window
 
         _session.EndTurn();
 
-        UnstopAllCards(); // Compendium: Stopped endet zu Beginn des nächsten Zugs (hier Zugwechsel)
+        UpdateCounterAttackWindow();
+        UnstopAllCards(); // Compendium: Stopped endet zu Beginn des naechsten Zugs (hier Zugwechsel)
         ResetShipRangesForTurn();
         RefreshRedAlertForTurn();
         ProcessIncomingMessageMoves(_session.ActivePlayer);
@@ -16210,6 +16221,63 @@ public partial class TableWindow : Window
 
     // ---------- Ship Battle (7.4.3 + Rotation Damage 7.5.1.2) ----------
 
+
+    // ---------- G7 Counter-Attack (next turn; != Return Fire) ----------
+
+    private bool IsArmedCounterAttackAt(Border mission, int player) =>
+        _pendingCounterAttack is { Armed: true } ca
+        && ca.EligiblePlayer == player
+        && ReferenceEquals(ca.LocationMission, mission);
+
+    private bool IsCounterAttackTarget(Card target) =>
+        _pendingCounterAttack != null
+        && target.InstanceId > 0
+        && _pendingCounterAttack.InvolvedOpponentIds.Contains(target.InstanceId);
+
+    private void RegisterCounterAttackOpportunity(int defenderPlayer, Border locationMission, Card attackerShip)
+    {
+        if (defenderPlayer is < 1 or > 2) return;
+        if (attackerShip.InstanceId <= 0) return;
+        _pendingCounterAttack = new PendingCounterAttack
+        {
+            EligiblePlayer = defenderPlayer,
+            LocationMission = locationMission,
+            Armed = false
+        };
+        _pendingCounterAttack.InvolvedOpponentIds.Add(attackerShip.InstanceId);
+        DebugLog.Engine(_session.TurnNumber, defenderPlayer,
+            $"counter-attack: pending for P{defenderPlayer} at {(locationMission.Tag as Card)?.Name ?? "?"} vs #{attackerShip.InstanceId} {attackerShip.Name}");
+    }
+
+    /// <summary>
+    /// Arm when eligible player's turn begins after the battle; expire when that turn ends.
+    /// </summary>
+    private void UpdateCounterAttackWindow()
+    {
+        if (_pendingCounterAttack == null) return;
+        var ca = _pendingCounterAttack;
+        if (!ca.Armed)
+        {
+            if (_session.ActivePlayer == ca.EligiblePlayer)
+            {
+                ca.Armed = true;
+                DebugLog.Engine(_session.TurnNumber, ca.EligiblePlayer,
+                    "counter-attack: ARMED (next-turn window open)");
+                StatusText.Text =
+                    $"Counter-Attack available this turn at the prior battle location " +
+                    $"(no Leader / no affiliation restriction; Match+WEAPONS still required).";
+            }
+            return;
+        }
+        if (_session.ActivePlayer != ca.EligiblePlayer)
+        {
+            DebugLog.Engine(_session.TurnNumber, ca.EligiblePlayer,
+                "counter-attack: expired (turn window closed)");
+            _pendingCounterAttack = null;
+        }
+    }
+
+
     private void BeginAttackMode(Border shipBorder, Card ship)
     {
         if (_session.Segment != GameSession.TurnSegment.Execute)
@@ -16227,34 +16295,47 @@ public partial class TableWindow : Window
             ShowPlayError("Gestopptes Schiff kann nicht angreifen.");
             return;
         }
+        if (IsShipDocked(shipBorder))
+        {
+            ShowPlayError("Docked ship cannot initiate battle — undock first.");
+            return;
+        }
+        if (IsShipCloaked(shipBorder))
+        {
+            ShowPlayError("Cloaked ship cannot initiate battle — decloak first.");
+            return;
+        }
 
         var crew = GetCrewOnShip(shipBorder);
         int owner = GetBorderOwner(shipBorder);
         if (owner == 0) owner = _activePlayer;
 
-        // Vorab-Check ohne konkretes Ziel (WEAPONS + Leader)
+        var mission = FindMissionForDockable(shipBorder);
+        if (mission == null)
+        {
+            ShowPlayError("Schiff ist keiner Mission zugeordnet.");
+            return;
+        }
+
+        bool counter = IsArmedCounterAttackAt(mission, owner);
+
+        // Vorab-Check ohne konkretes Ziel (WEAPONS + Leader/Match)
         if (BattleRules.GetWeapons(ship) <= 0)
         {
             ShowPlayError($"{ship.Name} hat keine WEAPONS.");
             return;
         }
-        if (!BattleRules.HasLeader(crew) && !ShipStaffedByRogueBorg(shipBorder))
+        // G7: Counter-Attack — no Leader. Normal initiate still needs Leader (unless Rogue lore).
+        if (!counter && !BattleRules.HasLeader(crew) && !ShipStaffedByRogueBorg(shipBorder))
         {
             ShowPlayError("No leader aboard (OFFICER or Leadership required).");
             return;
         }
-        // G1: Matching Affiliation HARD (same HasMatchingAffiliation as Fly/G2; Cmd/Stf icons not required to initiate).
+        // G1: Matching Affiliation HARD (Counter-Attack still requires Match; Cmd/Stf icons not required).
         if (BattleRules.IsShipCard(ship) && !ShipStaffedByRogueBorg(shipBorder)
             && !MovementRules.HasMatchingAffiliation(ship, crew, GetActiveTreaties(owner)))
         {
             ShowPlayError("Cannot initiate ship battle: no matching-affiliation personnel aboard (Treaty/NA does not count as Match). Leader+WEAPONS alone is not enough.");
-            return;
-        }
-
-        var mission = FindMissionForDockable(shipBorder);
-        if (mission == null)
-        {
-            ShowPlayError("Schiff ist keiner Mission zugeordnet.");
             return;
         }
 
@@ -16272,6 +16353,10 @@ public partial class TableWindow : Window
             if (o == 0) o = 1;
             if (o == owner) continue;
             if (GetHullDamage(dock) >= 100) continue;
+            if (IsShipCloaked(dock)) continue;
+            // G7: Counter-Attack only vs involved/still-there opponent cards at that location.
+            if (counter && !IsCounterAttackTarget(tc))
+                continue;
             enemies.Add(dock);
         }
 
@@ -16280,14 +16365,17 @@ public partial class TableWindow : Window
 
         if (enemies.Count == 0)
         {
-            ShowPlayError("Keine gegnerischen Schiffe/Facilities an dieser Location.");
+            ShowPlayError(counter
+                ? "Counter-Attack: no involved opponent ships/facilities still at this location."
+                : "Keine gegnerischen Schiffe/Facilities an dieser Location.");
             _cardActionMode = CardActionMode.None;
             ClearTargetHighlights();
             return;
         }
 
+        string mode = counter ? "COUNTER-ATTACK" : "ANGRIFF";
         StatusText.Text =
-            $"ANGRIFF: {ship.Name} (W {BattleRules.GetWeapons(ship)}) – " +
+            $"{mode}: {ship.Name} (W {BattleRules.GetWeapons(ship)}) — " +
             $"click enemy target ({enemies.Count} available). Right-click = cancel.";
     }
 
@@ -16314,10 +16402,23 @@ public partial class TableWindow : Window
         if (defOwner == 0) defOwner = atkOwner == 1 ? 2 : 1;
 
         var crew = GetCrewOnShip(attackerBorder);
+        var atkMission = FindMissionForDockable(attackerBorder);
+        bool counter = atkMission != null && IsArmedCounterAttackAt(atkMission, atkOwner)
+                       && IsCounterAttackTarget(targetCard);
+        if (counter)
+        {
+            if (IsShipDocked(attackerBorder) || IsShipCloaked(attackerBorder) || IsBorderStopped(attackerBorder))
+            {
+                ShowPlayError("Counter-Attack requires undocked, uncloaked, unstopped ship.");
+                ClearCardActionUi();
+                return true;
+            }
+        }
         var check = BattleRules.CanInitiateShipAttack(
             attackerShip, crew, atkOwner, targetCard, defOwner,
             GetHullDamage(attackerBorder), IsBorderStopped(attackerBorder),
-            _wartimeVsAffiliation, ShipStaffedByRogueBorg(attackerBorder));
+            _wartimeVsAffiliation, ShipStaffedByRogueBorg(attackerBorder),
+            counterAttack: counter);
 
         if (check.Ok && ReportingRules.GetAffiliations(targetCard).Contains("FED"))
         {
@@ -16504,6 +16605,15 @@ public partial class TableWindow : Window
             " · survivors stopped.";
 
         ShowCardReveal(defenderCard, "Ship Battle", summary, RevealButtons.Ok, attackerShip.Name);
+
+        // G7: defender may Counter-Attack on their next turn at this location vs involved attackers still there.
+        // Return Fire in this battle is not Counter-Attack.
+        var battleMission = FindMissionForDockable(defenderBorder) ?? FindMissionForDockable(attackerBorder);
+        if (battleMission != null && !atkDestroyed)
+            RegisterCounterAttackOpportunity(defOwner, battleMission, attackerShip);
+        else if (battleMission != null && atkDestroyed)
+            DebugLog.Engine(_session.TurnNumber, defOwner,
+                "counter-attack: skipped (attacker destroyed)");
 
         if (defDestroyed)
             DestroyShipOrFacility(defenderBorder, defenderCard, defOwner);

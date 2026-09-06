@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Fix - G7 Counter-Attack next turn)
+
+**Engine/UX** - After an opponent ship battle, on **your next turn** you may initiate Counter-Attack(s) at the **same location** vs involved/still-there opponent cards. Relaxations for Counter-Attack only: **no Leader**, **no affiliation restriction** (Fed may hit back). Still required: WEAPONS>0, Matching Affiliation aboard, undocked, uncloaked, unstopped, same location. `BattleRules.CanInitiateShipAttack(..., counterAttack:)`; TW `PendingCounterAttack` arms on turn change, expires after that turn. Return Fire in the current battle is not Counter-Attack.
+
+---
 ## 2026-09-06 (Fix - G4 BoardStore staffing aligned with UI Treaties)
 
 **Engine** - One staffing truth: `BoardStore.ToBoardPieces` calls `MovementRules.IsShipStaffed(+Treaties)` (G2 Match / G3 empty-icon) and folds Rogue+Lore via `GameStateSeed.LoreStaffedShipIds`. `OverlayStatus` uses **store Staffed only** (no `ui || store` drift). `EngineAuthority` Fly rechecks `IsShipStaffed` with `state.TreatiesOf`; lore still allowed when store marked Staffed. TW seeds lore ship InstanceIds.
