@@ -136,6 +136,36 @@ public static class BattleRules
         return new AttackCheck(true, "Angriff erlaubt.");
     }
 
+    /// <summary>
+    /// G6 / Spock Soll: Return Fire on the defender (firing) ship.
+    /// Matching Affiliation HARD (Treaty/NA != Match). NO Leader required.
+    /// Needs WEAPONS &gt; 0. Docked / cloaked / stopped / destroyed stay in UI.
+    /// Full Cmd/Stf staffing icons not required.
+    /// </summary>
+    public static AttackCheck CanReturnFire(
+        Card firingShip,
+        IEnumerable<Card> crewOnBoard,
+        bool loreStaffed = false)
+    {
+        if (!IsShipOrFacility(firingShip))
+            return new AttackCheck(false, "Only ships/facilities can return fire.");
+
+        int weapons = GetWeapons(firingShip);
+        if (weapons <= 0)
+            return new AttackCheck(false, $"{firingShip.Name} has no WEAPONS to return fire.");
+
+        var crew = crewOnBoard?.ToList() ?? new List<Card>();
+        // Matching HARD for ships (Rogue/loreStaffed bypass, same as G1).
+        if (IsShipCard(firingShip) && !loreStaffed
+            && !MovementRules.HasMatchingAffiliation(firingShip, crew))
+        {
+            return new AttackCheck(false,
+                "Cannot return fire: no matching-affiliation personnel aboard (Treaty/NA does not count as Match). Matching required; Leader not required for RF.");
+        }
+
+        return new AttackCheck(true, "Return Fire erlaubt.");
+    }
+
     public static bool IsShipOrFacility(Card c)
     {
         string t = (c.Type ?? "").ToLowerInvariant();

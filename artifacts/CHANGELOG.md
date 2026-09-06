@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Fix - G6 Return Fire Matching HARD)
+
+**Engine** - Return Fire (Spock Soll): Matching Affiliation HARD on **defender** ship (`HasMatchingAffiliation`; Treaty/NA != Match). **No Leader** required. Needs WEAPONS>0, undocked, uncloaked. `BattleRules.CanReturnFire` + `AskReturnFireAndResolve` deny RF without Match; `ResolveShipBattle` re-checks Match/dock/cloak before RF damage. Rogue/loreStaffed bypass. Clear error.
+
+---
 ## 2026-09-06 (Fix - G5/E2b store staffing Treaty+Rogue)
 
 **Engine** - E2b: store-first Capture staffing. BoardStore.ToBoardPieces passes owner treaties into IsShipStaffed (Fly-aligned; Match still ignores Treaty/NA per G2). CaptureEngineState storeHasHost ships fill UI Staffed via treaties + ShipStaffedByRogueBorg so OverlayStatus OR picks up Rogue/Lore. Closes false deny when Occupant exists but only Rogue staffs.

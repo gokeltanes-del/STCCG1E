@@ -4210,9 +4210,15 @@ public partial class TableWindow : Window
         bool wouldDestroy = BattleRules.ApplyRotationDamage(
             GetHullDamage(defenderBorder), predicted.Result).Destroyed;
 
-        // Spock: docked may not fire. Pepsch: no RF offer after Direct Hit destroy.
+        // Spock Soll G6: RF = Matching HARD on defender; NO Leader; WEAPONS>0; undocked; uncloaked.
+        // Pepsch: no RF offer after Direct Hit destroy.
+        var defCrew = GetCrewOnShip(defenderBorder);
+        bool loreRf = ShipStaffedByRogueBorg(defenderBorder);
+        var rfMatch = BattleRules.CanReturnFire(defenderCard, defCrew, loreStaffed: loreRf);
+        bool cloakedDef = IsShipCloaked(defenderBorder);
         bool canReturn = defWeapons > 0 && !IsBorderStopped(defenderBorder)
-                         && !IsShipDocked(defenderBorder) && !wouldDestroy;
+                         && !IsShipDocked(defenderBorder) && !cloakedDef && !wouldDestroy
+                         && rfMatch.Ok;
         if (canReturn)
         {
             string pick = AskChoice(defenderCard, "Return Fire?",
@@ -4225,6 +4231,15 @@ public partial class TableWindow : Window
         else if (IsShipDocked(defenderBorder))
         {
             StatusText.Text = $"{defenderCard.Name} is docked - cannot return fire.";
+        }
+        else if (cloakedDef)
+        {
+            StatusText.Text = $"{defenderCard.Name} is cloaked - cannot return fire.";
+        }
+        else if (defWeapons > 0 && !IsBorderStopped(defenderBorder) && !wouldDestroy && !rfMatch.Ok)
+        {
+            ShowPlayError(rfMatch.Reason);
+            StatusText.Text = rfMatch.Reason;
         }
         ResolveShipBattle(attackerBorder, attackerShip, defenderBorder, defenderCard, returnFire);
     }
@@ -16372,6 +16387,33 @@ public partial class TableWindow : Window
         // --- Return Fire ---
         FireCalc? returnCalc = null;
         DamageOutcome? atkDmg = null;
+        // G6 Spock Soll: re-check Matching HARD + undocked/uncloaked on defender before RF.
+        if (returnFire && !defDmg.Destroyed)
+        {
+            if (IsShipDocked(defenderBorder))
+            {
+                logLines.Add("Return Fire denied: defender is docked.");
+                returnFire = false;
+            }
+            else if (IsShipCloaked(defenderBorder))
+            {
+                logLines.Add("Return Fire denied: defender is cloaked.");
+                ShowPlayError($"{defenderCard.Name} is cloaked - cannot return fire.");
+                returnFire = false;
+            }
+            else
+            {
+                var rfCrew = GetCrewOnShip(defenderBorder);
+                var rfCheck = BattleRules.CanReturnFire(
+                    defenderCard, rfCrew, loreStaffed: ShipStaffedByRogueBorg(defenderBorder));
+                if (!rfCheck.Ok)
+                {
+                    logLines.Add($"Return Fire denied: {rfCheck.Reason}");
+                    ShowPlayError(rfCheck.Reason);
+                    returnFire = false;
+                }
+            }
+        }
         if (returnFire && !defDmg.Destroyed)
         {
             // Verteidiger schießt zurück auf den Angreifer (1 Ziel)
