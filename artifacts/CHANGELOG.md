@@ -4,9 +4,14 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Feat - Ktarian Game Premiere)
+
+**Engine** - Ktarian Game (PR 31 R): Space - Place on ship. Cure CUNNING>30 OR any android -> Overcome Continue (discard). Else AttachAndContinue + StopTeam=false (crew not stopped). PersistKind.Ktarian. Spock #15 Soll / DRG Ktarian Game / Major Rakal. Decide: `DilemmaRules.KtarianGame` + `VerifyKtarianGame`. PARK: Lefler nullify (QC); Now+SOT random Disable Apply (no Disable list / no SOT tick).
+
+---
 ## 2026-09-06 (Feat - Impassable Door Premiere)
 
-**Engine** - Impassable Door (PR 30 C): Planet — To get past requires Computer Skill. Pass -> Overcome Continue (dilemma discard); Fail -> `WallFailed`+`StopTeam` (dilemma stays). No kills / score / damage. Spock #14 Soll / DRG Impassable Door. Decide: `DilemmaRules.ImpassableDoor` + `VerifyImpassableDoor`.
+**Engine** - Impassable Door (PR 30 C): Planet ï¿½ To get past requires Computer Skill. Pass -> Overcome Continue (dilemma discard); Fail -> `WallFailed`+`StopTeam` (dilemma stays). No kills / score / damage. Spock #14 Soll / DRG Impassable Door. Decide: `DilemmaRules.ImpassableDoor` + `VerifyImpassableDoor`.
 
 ---
 ## 2026-09-06 (Feat - Iconian Computer Weapon Premiere)

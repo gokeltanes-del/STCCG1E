@@ -144,8 +144,7 @@ public static class DilemmaRules
             "Two-Dimensional Creatures" => Attach(ctx, PersistKind.TwoDim, 0,
                 "2D Creatures: Empathy disabled, ship cannot move. Cure: ENGINEER + SCIENCE."),
             "Menthar Booby Trap" => Menthar(ctx),
-            "Ktarian Game" => Attach(ctx, PersistKind.Ktarian, 0,
-                "Ktarian Game: each start of turn 1 personnel disabled. Cure: CUNNING>30 or Android."),
+            "Ktarian Game" => KtarianGame(ctx),
             "Radioactive Garbage Scow" => new Result
             {
                 Fate = Fate.AttachAndEnd,
@@ -1465,6 +1464,125 @@ public static class DilemmaRules
         return null;
     }
 
+    // ---- Ktarian Game (Premiere 31 R) ----
+    // Printed (PR): "Place on ship. Now and start of each turn, one personnel aboard
+    //   (random selection) is disabled. Cure with CUNNING>30 OR any android."
+    // Spock #15 Soll / DRG Ktarian Game / Major Rakal:
+    //   Space; place on ship; crew NOT stopped (except Disabled) -> AttachAndContinue.
+    //   Cure (encounter or later): non-disabled CUNNING>30 OR android aboard -> Overcome/discard.
+    //   PARK: Lefler nullify (QC); Now+SOT random Disable Apply (no Disable list on Result /
+    //         no SOT tick wired) - Decide covers Attach+Continue+cure only.
+
+    private static Result KtarianGame(Ctx ctx)
+    {
+        if (CanCure(PersistKind.Ktarian, ctx.Present, ctx.AttemptingPlayer))
+            return new Result
+            {
+                Fate = Fate.Overcome,
+                StopTeam = false,
+                Message = "Ktarian Game cured (CUNNING>30 or Android). Discard dilemma."
+            };
+        return AttachContinue(ctx, PersistKind.Ktarian, 0,
+            "Ktarian Game on ship: now + start of each of your turns, 1 personnel aboard disabled. Cure: CUNNING>30 or Android. Crew continues.");
+    }
+
+    /// <summary>DE mini-test for Ktarian Game. Returns null if OK, else failure reason.</summary>
+    public static string? VerifyKtarianGame()
+    {
+        static Card P(string name, string cls, string text, string cunn = "5") => new()
+        {
+            Name = name,
+            Type = "Personnel",
+            Class = cls,
+            Text = text,
+            Characteristics = "Human; Male;",
+            IntegrityOrRange = "5",
+            CunningOrWeapons = cunn,
+            StrengthOrShields = "5"
+        };
+
+        static Card Android(string name) => new()
+        {
+            Name = name,
+            Type = "Personnel",
+            Class = "ANDROID",
+            Text = "ANDROID Computer Skill",
+            Characteristics = "Android; Artificial;",
+            IntegrityOrRange = "5",
+            CunningOrWeapons = "5",
+            StrengthOrShields = "5"
+        };
+
+        static Ctx Make(params Card[] team) => new()
+        {
+            Dilemma = new Card { Name = "Ktarian Game", Type = "Dilemma", MissionDilemmaType = "[S]" },
+            Mission = new Card { Name = "Test Space", Type = "Mission", MissionDilemmaType = "[S]" },
+            Team = team,
+            Present = team,
+            AttemptingPlayer = 1,
+            Rng = new Random(1)
+        };
+
+        var civ = P("Civilian", "CIVILIAN", "CIVILIAN", "8");
+        var smart = P("Smart One", "OFFICER", "OFFICER", "12");
+        var smart2 = P("Smart Two", "SCIENCE", "SCIENCE", "10");
+        var smart3 = P("Smart Three", "ENGINEER", "ENGINEER", "9"); // 12+10+9=31 > 30
+        var droid = Android("Data");
+
+        var cureCunn = Resolve(Make(smart, smart2, smart3));
+        if (cureCunn.Fate != Fate.Overcome || cureCunn.StopTeam)
+            return $"cure CUNNING>30: expected Overcome no stop, got {cureCunn.Fate}/stop={cureCunn.StopTeam}";
+        if (cureCunn.Persist != PersistKind.None)
+            return "cure CUNNING>30: should not attach";
+        if (!ShouldRemoveFromSeed(cureCunn.Fate))
+            return "cure CUNNING>30: dilemma should discard";
+
+        var cureDroid = Resolve(Make(civ, droid));
+        if (cureDroid.Fate != Fate.Overcome || cureDroid.StopTeam)
+            return $"cure Android: expected Overcome no stop, got {cureDroid.Fate}/stop={cureDroid.StopTeam}";
+        if (cureDroid.Persist != PersistKind.None)
+            return "cure Android: should not attach";
+        if (!ShouldRemoveFromSeed(cureDroid.Fate))
+            return "cure Android: dilemma should discard";
+
+        var eq30 = new[] { P("A", "OFFICER", "OFFICER", "10"), P("B", "SCIENCE", "SCIENCE", "10"), P("C", "ENGINEER", "ENGINEER", "10") };
+        var failEq = Resolve(Make(eq30));
+        if (failEq.Fate != Fate.AttachAndContinue || failEq.StopTeam)
+            return $"CUNNING==30: expected AttachAndContinue no stop, got {failEq.Fate}/stop={failEq.StopTeam}";
+        if (failEq.Persist != PersistKind.Ktarian || failEq.Countdown != 0)
+            return $"CUNNING==30: expected Persist Ktarian countdown 0, got {failEq.Persist}/{failEq.Countdown}";
+        if (!ShouldRemoveFromSeed(failEq.Fate))
+            return "CUNNING==30: seed removed (placed on ship)";
+
+        var place = Resolve(Make(civ));
+        if (place.Fate != Fate.AttachAndContinue || place.StopTeam)
+            return $"place: expected AttachAndContinue no stop, got {place.Fate}/stop={place.StopTeam}";
+        if (place.Persist != PersistKind.Ktarian || place.Countdown != 0)
+            return $"place: expected Ktarian countdown 0, got {place.Persist}/{place.Countdown}";
+        if (place.Kill.Count != 0 || place.Score != 0 || place.DamageShip || place.DestroyShip)
+            return "place: no kill/score/damage/destroy";
+        if (!ShouldRemoveFromSeed(place.Fate))
+            return "place: seed removed (placed on ship)";
+
+        var empty = Resolve(Make());
+        if (empty.Fate != Fate.AttachAndContinue || empty.StopTeam)
+            return $"empty: expected AttachAndContinue no stop, got {empty.Fate}/stop={empty.StopTeam}";
+        if (empty.Persist != PersistKind.Ktarian || empty.Countdown != 0)
+            return "empty: expected Ktarian countdown 0";
+
+        if (DecideAttachHost(PersistKind.Ktarian) != AttachHostPreference.ShipOrMission)
+            return "host: expected ShipOrMission";
+
+        if (!CanCure(PersistKind.Ktarian, new[] { smart, smart2, smart3 }, 1))
+            return "CanCure: CUNNING>30 should cure";
+        if (!CanCure(PersistKind.Ktarian, new[] { droid }, 1))
+            return "CanCure: Android should cure";
+        if (CanCure(PersistKind.Ktarian, eq30, 1))
+            return "CanCure: CUNNING==30 should not cure";
+
+        return null;
+    }
+
     private static Result Parasites(Ctx ctx)
     {
         var plan = DecideAlienParasites(Sum(ctx).integ, MissionRules.IsPlanetMission(ctx.Mission));
@@ -1558,7 +1676,7 @@ public static class DilemmaRules
             PersistKind.FrameOfMind => "personnel is 3-3-3 until 3 Empathy",
             PersistKind.Abduction => "personnel held (cure: Leadership x3 OR mission completed)",
             PersistKind.Phased => "personnel phased (ENGINEER + SCIENCE)",
-            PersistKind.Ktarian => "stopped until CUNNING>30 or Android",
+            PersistKind.Ktarian => "1 personnel disabled (now + your SOT); cure: CUNNING>30 or Android",
             PersistKind.BorgShip => "Borg Ship dilemma remains",
             _ => ""
         };
