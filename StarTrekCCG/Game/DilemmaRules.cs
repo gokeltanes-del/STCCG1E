@@ -108,8 +108,7 @@ public static class DilemmaRules
                 "Music OR Youth OR STRENGTH>9 OR Lwaxana Troi"),
             "Matriarchal Society" => MatriarchalSociety(ctx),
             "Armus: Skin Of Evil" => ArmusSkinOfEvil(ctx),
-            "Nausicaans" => UnlessThen(ctx, Sum(ctx).str > 44, KillRandom(ctx),
-                "STRENGTH>44", "Nausicaans kill one at random.", discardAlways: true),
+            "Nausicaans" => Nausicaans(ctx),
             "Rebel Encounter" => Rebel(ctx),
             "Chalnoth" => Chalnoth(ctx),
             "Archer" => UnlessThen(ctx, Skill(ctx, "MEDICAL") && Skill(ctx, "SECURITY"),
@@ -1524,6 +1523,105 @@ public static class DilemmaRules
             return $"fail civilian: expected EffectAndEnd+Stop+DamageShip, got {failCiv.Fate}/stop={failCiv.StopTeam}/dmg={failCiv.DamageShip}";
         if (!ShouldRemoveFromSeed(failCiv.Fate))
             return "fail civilian: dilemma should discard";
+
+        return null;
+    }
+
+    // ---- Nausicaans (Premiere 39 U) ----
+    // Printed (PR): "Unless STRENGTH>44, kills one personnel (random selection). Discard dilemma."
+    // [P] Planet. Icons [IPG].
+    // Spock #22 Soll / DRG Nausicaans:
+    //   Pass (STRENGTH>44) -> Overcome + Continue; discard.
+    //   Fail -> kill 1 Away Team (random) + AT stopped (EffectAndEnd+StopTeam); dilemma always discarded.
+    //   Boundary STRENGTH==44 fails.
+    // PARK: nullify via Interphase Generator / Zon (artifact/personnel nullify) - not wired here.
+    // Card+DRG Decide: DilemmaRules.Nausicaans + VerifyNausicaans.
+
+    private static Result Nausicaans(Ctx ctx) =>
+        UnlessThen(ctx, Sum(ctx).str > 44, KillRandom(ctx),
+            "STRENGTH>44", "Nausicaans kill one at random.", discardAlways: true);
+
+    /// <summary>DE mini-test for Nausicaans. Returns null if OK, else failure reason.</summary>
+    public static string? VerifyNausicaans()
+    {
+        static Card P(string name, string str) => new()
+        {
+            Name = name,
+            Type = "Personnel",
+            Class = "OFFICER",
+            Text = "OFFICER",
+            Characteristics = "Human; Male;",
+            IntegrityOrRange = "5",
+            CunningOrWeapons = "5",
+            StrengthOrShields = str
+        };
+
+        static Ctx Make(Random? rng = null, params Card[] team) => new()
+        {
+            Dilemma = new Card { Name = "Nausicaans", Type = "Dilemma", MissionDilemmaType = "[P]" },
+            Mission = new Card { Name = "Test Planet", Type = "Mission", MissionDilemmaType = "[P]" },
+            Team = team,
+            Present = team,
+            AttemptingPlayer = 1,
+            Rng = rng ?? new Random(1)
+        };
+
+        var a9 = P("Alpha", "9");
+        var b9 = P("Bravo", "9");
+        var c9 = P("Charlie", "9");
+        var d9 = P("Delta", "9");
+        var e9 = P("Echo", "9"); // 9*5 = 45 > 44
+
+        // Pass: STRENGTH 45 > 44 -> Overcome, Continue, no kill, discard
+        var pass = Resolve(Make(null, a9, b9, c9, d9, e9));
+        if (pass.Fate != Fate.Overcome || pass.StopTeam || pass.Kill.Count != 0 || pass.Score != 0)
+            return $"pass STR>44: expected Overcome no stop/kill/score, got {pass.Fate}/stop={pass.StopTeam}/kills={pass.Kill.Count}/score={pass.Score}";
+        if (!ShouldRemoveFromSeed(pass.Fate))
+            return "pass STR>44: dilemma should discard";
+
+        // Boundary fail: STRENGTH==44 (11*4) -> not overcome
+        var t11a = P("TankA", "11");
+        var t11b = P("TankB", "11");
+        var t11c = P("TankC", "11");
+        var t11d = P("TankD", "11");
+        var failEq = Resolve(Make(new Random(42), t11a, t11b, t11c, t11d));
+        if (failEq.Fate != Fate.EffectAndEnd || !failEq.StopTeam)
+            return $"fail STR=44: expected EffectAndEnd+StopTeam, got {failEq.Fate}/stop={failEq.StopTeam}";
+        if (failEq.Kill.Count != 1)
+            return $"fail STR=44: expected exactly 1 kill, got {failEq.Kill.Count}";
+        if (failEq.Kill[0].Name is not ("TankA" or "TankB" or "TankC" or "TankD"))
+            return $"fail STR=44: victim not from team, got {failEq.Kill[0].Name}";
+        if (failEq.Score != 0)
+            return "fail STR=44: should not score";
+        if (!ShouldRemoveFromSeed(failEq.Fate))
+            return "fail STR=44: dilemma should discard";
+
+        // Fail clear: weak team -> 1 random kill + Stop + discard
+        var w3 = P("Weak", "3");
+        var w4 = P("Softer", "4");
+        var failWeak = Resolve(Make(new Random(7), w3, w4));
+        if (failWeak.Fate != Fate.EffectAndEnd || !failWeak.StopTeam)
+            return $"fail weak: expected EffectAndEnd+StopTeam, got {failWeak.Fate}/stop={failWeak.StopTeam}";
+        if (failWeak.Kill.Count != 1 || (failWeak.Kill[0].Name is not ("Weak" or "Softer")))
+            return $"fail weak: expected kill Weak or Softer, got [{string.Join(",", failWeak.Kill.Select(k => k.Name))}]";
+        if (!ShouldRemoveFromSeed(failWeak.Fate))
+            return "fail weak: dilemma should discard";
+
+        // Solo fail: only one personnel -> that one dies + Stop + discard
+        var solo = Resolve(Make(new Random(3), P("Lone", "5")));
+        if (solo.Fate != Fate.EffectAndEnd || !solo.StopTeam)
+            return $"solo: expected EffectAndEnd+StopTeam, got {solo.Fate}/stop={solo.StopTeam}";
+        if (solo.Kill.Count != 1 || solo.Kill[0].Name != "Lone")
+            return $"solo: expected kill Lone, got [{string.Join(",", solo.Kill.Select(k => k.Name))}]";
+        if (!ShouldRemoveFromSeed(solo.Fate))
+            return "solo: dilemma should discard";
+
+        // Empty Away Team: EffectAndEnd + Stop, no kill, discard
+        var empty = Resolve(Make());
+        if (empty.Fate != Fate.EffectAndEnd || !empty.StopTeam || empty.Kill.Count != 0)
+            return $"empty: expected EffectAndEnd+Stop no kill, got {empty.Fate}/stop={empty.StopTeam}/kills={empty.Kill.Count}";
+        if (!ShouldRemoveFromSeed(empty.Fate))
+            return "empty: dilemma should discard";
 
         return null;
     }

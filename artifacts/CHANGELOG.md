@@ -4,6 +4,12 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Feat - Nausicaans Premiere)
+
+**Engine** - Nausicaans (PR 39 U): Planet - Unless STRENGTH>44: kills one Away Team member (random selection) + AT stopped (EffectAndEnd+StopTeam); else Overcome + Continue. Always discard dilemma. Boundary STRENGTH==44 fails. Spock #22 Soll / DRG Nausicaans. Decide: `DilemmaRules.Nausicaans` + `VerifyNausicaans`. PARK: Interphase Generator / Zon nullify not wired.
+
+---
+
 ## 2026-09-06 (Feat - Nanites Premiere)
 
 **Engine** - Nanites (PR 38 U): Space - Unless 2 SCIENCE OR Diplomacy present: Ship damaged (DamageShip / ApplyHullDamage +50 / Rotation badge) + Ship/Crew stopped (EffectAndEnd+StopTeam); else Overcome +5 Bonus-Area + Continue. Always discard dilemma. Card+DRG Decide: `DilemmaRules.Nanites` + `VerifyNanites`.
