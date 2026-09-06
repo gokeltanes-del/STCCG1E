@@ -4,6 +4,13 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Fix - Detail pane dupes + Cloak 0.7 + Stopped Negative + Archer tie)
+
+**UX** - Card detail: colored StatusBlock keeps Buff/Timer/Debuff once; ship path no longer dumps Events/Dilemmas into DetailIcons under staffing; Contents skips repeating RANGE/WEAPONS/SHIELDS + Modifiers. Stopped shows once as red Status line and explicit "Stopped" text under Negative. Cloak: Opacity 0.7 only (nebula overlay + black glow removed); decloak 1.0 / stopped stays 0.55.
+
+**Engine** - After walk/drag onto host: SyncBoardFromTable + TryCureAbductionsPresent (beam parity) so mission/dilemma skills see present crew immediately. Archer: HighestAttr ties → opponent choice (enhancements via Eff unchanged); fail still StopTeam + EffectAndEnd.
+
+---
 ## 2026-09-06 (Fix - G7 Counter-Attack next turn)
 
 **Engine/UX** - After an opponent ship battle, on **your next turn** you may initiate Counter-Attack(s) at the **same location** vs involved/still-there opponent cards. Relaxations for Counter-Attack only: **no Leader**, **no affiliation restriction** (Fed may hit back). Still required: WEAPONS>0, Matching Affiliation aboard, undocked, uncloaked, unstopped, same location. `BattleRules.CanInitiateShipAttack(..., counterAttack:)`; TW `PendingCounterAttack` arms on turn change, expires after that turn. Return Fire in the current battle is not Counter-Attack.

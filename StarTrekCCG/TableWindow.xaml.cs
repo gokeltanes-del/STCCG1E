@@ -9320,40 +9320,27 @@ public partial class TableWindow : Window
 
     private void ApplyCloakVisual(Border border, bool cloaked)
     {
+        // Pepsch/Captain: cloak = Opacity 0.7 only (no nebula overlay, no black glow).
         var cloakBorder = Color.FromRgb(0x10, 0x10, 0x10);
         var cloakGlow = Color.FromRgb(0x08, 0x08, 0x08);
-        if (cloaked)
+        // Clear any legacy nebula/glow from older builds.
+        EnsureCloakNebulaOverlay(border, false);
+        if (border.Effect is System.Windows.Media.Effects.DropShadowEffect dse
+            && (dse.Color == cloakGlow || dse.Color == cloakBorder))
         {
-            border.BorderBrush = new SolidColorBrush(cloakBorder);
-            border.BorderThickness = new Thickness(2);
-            border.Effect = new System.Windows.Media.Effects.DropShadowEffect
+            border.Effect = null;
+            if (border.BorderBrush is SolidColorBrush scb && scb.Color == cloakBorder)
             {
-                Color = cloakGlow,
-                BlurRadius = 14,
-                ShadowDepth = 0,
-                Opacity = 0.9
-            };
-            // Pepsch Show-Cloak: card itself ~50% opacity (nebula overlay alone was not enough).
-            border.Opacity = 0.55;
-            EnsureCloakNebulaOverlay(border, true);
-        }
-        else
-        {
-            EnsureCloakNebulaOverlay(border, false);
-            // Restore unless still stopped (stopped also uses 0.55).
-            if (!IsBorderStopped(border))
-                border.Opacity = 1.0;
-            if (border.Effect is System.Windows.Media.Effects.DropShadowEffect dse
-                && (dse.Color == cloakGlow || dse.Color == cloakBorder))
-            {
-                border.Effect = null;
-                if (border.BorderBrush is SolidColorBrush scb && scb.Color == cloakBorder)
-                {
-                    border.BorderBrush = new SolidColorBrush(Color.FromRgb(90, 90, 90));
-                    border.BorderThickness = new Thickness(1);
-                }
+                border.BorderBrush = new SolidColorBrush(Color.FromRgb(90, 90, 90));
+                border.BorderThickness = new Thickness(1);
             }
         }
+
+        if (cloaked)
+            border.Opacity = 0.7;
+        else if (!IsBorderStopped(border))
+            border.Opacity = 1.0;
+        // else stopped stays 0.55
     }
 
     /// <summary>Pepsch: Cloaked = black fog/nebula overlay on the ship art (not only border).</summary>
@@ -11283,6 +11270,9 @@ public partial class TableWindow : Window
             if (host != null)
             {
                 AddCardToHostStack(host, cardBorder);
+                // Present/crew SoT refresh (mission/dilemma skills saw stale crew until next turn).
+                SyncBoardFromTable(logDual: false);
+                TryCureAbductionsPresent();
                 SetSelection(host);
                 if (host.Tag is Card hc)
                     ShowHostContents(host, hc);
@@ -18911,6 +18901,11 @@ public partial class TableWindow : Window
         ClearDetailStatusBlock();
         string type = (card.Type ?? "").ToLowerInvariant();
 
+        // Stopped once (Pepsch Negative/status) — Debuff red; not duplicated below.
+        Border? stoppedBorder = FindBorderForCard(card);
+        if (stoppedBorder != null && IsBorderStopped(stoppedBorder))
+            AddDetailStatusLine("Stopped", DetailStatusTone.Debuff);
+
         // Personnel: In stasis line
         if (CardKinds.IsPersonnel(card))
         {
@@ -19140,7 +19135,7 @@ public partial class TableWindow : Window
         if (stopped)
             border.Opacity = 0.55;
         else
-            border.Opacity = IsShipCloaked(border) ? 0.55 : 1.0;
+            border.Opacity = IsShipCloaked(border) ? 0.7 : 1.0;
     }
 
     private void StopCrewOnHost(Border host)
@@ -20386,28 +20381,8 @@ public partial class TableWindow : Window
                     : DetailStaff.Text + "\n" + special;
             DetailText.Text = ""; // do not repeat special equipment in the body
 
-            var eventLines = new List<string>();
-            Border? shipBorder = FindBorderForCard(card);
-            IEnumerable<Card> aboard = shipBorder == null
-                ? Enumerable.Empty<Card>()
-                : GetAllCardsOnHost(shipBorder, GetBorderOwner(shipBorder) == 0 ? 1 : GetBorderOwner(shipBorder));
-            if (shipBorder != null)
-            {
-                foreach (var ae in EventsOn(shipBorder))
-                    eventLines.Add(FormatAttachedHostEffectLine("Event", ae.Card, ae.Countdown, ae.Kind.ToString(), aboard));
-                foreach (var ad in _attachedDilemmas.Where(d => ReferenceEquals(d.Host, shipBorder)))
-                    eventLines.Add(FormatAttachedHostEffectLine("Dilemma", ad.Card, ad.Countdown, ad.Kind.ToString(), aboard));
-                if (_stackOnHost.TryGetValue(shipBorder, out var stacked))
-                {
-                    foreach (var b in stacked)
-                    {
-                        if (b.Tag is not Card ec || !EventRules.IsEvent(ec)) continue;
-                        if (EventsOn(shipBorder).Any(ae => ReferenceEquals(ae.Card, ec))) continue;
-                        eventLines.Add(FormatAttachedHostEffectLine("Event", ec, 0, null, aboard));
-                    }
-                }
-            }
-            DetailIcons.Text = string.Join("\n", eventLines);
+            // Events/dilemmas live in DetailStatusBlock (colored) — do not dump again under staffing.
+            DetailIcons.Text = "";
         }
         else if (EventRules.IsEvent(card) || CardKinds.IsDilemma(card))
         {
@@ -20590,8 +20565,7 @@ public partial class TableWindow : Window
                     DetailStackStats.Inlines.Add(new System.Windows.Documents.LineBreak());
             }
 
-            if (IsShipCard(hostCard))
-                Run(FormatShipEffectiveLine(hostCard));
+            // Ship RANGE/WEAPONS/SHIELDS + Modifiers already in DetailAttributes — do not repeat in Contents.
             string rbLine = FormatRogueBorgDetailLine(host);
             if (!string.IsNullOrEmpty(rbLine))
                 Run(rbLine);
@@ -20795,7 +20769,18 @@ public partial class TableWindow : Window
             foreach (var (b, pc) in negPersonnel)
             {
                 if (!shown.Add(pc)) continue;
-                AddStackMini(pc, IsCardInStasis(pc) ? "Stasis / quarantine" : "Stopped", cardBorder: b);
+                string negLabel = IsCardInStasis(pc) ? "Stasis / quarantine" : "Stopped";
+                // Explicit text under Negative (badge-only ToolTip looked empty).
+                DetailStackCards.Children.Add(new TextBlock
+                {
+                    Text = negLabel,
+                    Foreground = new SolidColorBrush(negColor),
+                    FontSize = 10,
+                    FontWeight = FontWeights.SemiBold,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(2, 0, 4, 0)
+                });
+                AddStackMini(pc, negLabel, cardBorder: b);
             }
         }
 

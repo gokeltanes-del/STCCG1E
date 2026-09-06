@@ -599,7 +599,13 @@ public static class DilemmaRules
 
     private static Card? HighestAttr(Ctx ctx)
     {
-        return ctx.Team.OrderByDescending(p => TotalAttr(ctx, p)).FirstOrDefault();
+        if (ctx.Team.Count == 0) return null;
+        int max = ctx.Team.Max(p => TotalAttr(ctx, p));
+        var tied = ctx.Team.Where(p => TotalAttr(ctx, p) == max).ToList();
+        if (tied.Count == 1) return tied[0];
+        // Spock Archer Soll: tie on highest attribute total = opponent chooses.
+        return ctx.PickOpp?.Invoke("Archer: choose who dies (highest attribute tie)", tied)
+               ?? tied[0];
     }
 
     private static Card? HighestFemale(Ctx ctx)
