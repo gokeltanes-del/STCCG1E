@@ -64,6 +64,8 @@ public static class DilemmaRules
         public bool DamageShip { get; init; }
         public bool DestroyShip { get; init; }
         public bool DrawForDiscarded { get; init; }
+        /// <summary>#1a Alien Parasites fail (planet): beam Away Team back to ship/outpost before stop.</summary>
+        public bool BeamBackTeam { get; init; }
     }
 
     public sealed class Ctx
@@ -860,16 +862,15 @@ public static class DilemmaRules
 
     private static Result Parasites(Ctx ctx)
     {
-        if (Sum(ctx).integ > 32)
-            return new Result { Fate = Fate.Overcome, Message = "INTEGRITY>32 – Alien Parasites overcome." };
+        var plan = DecideAlienParasites(Sum(ctx).integ, MissionRules.IsPlanetMission(ctx.Mission));
         return new Result
         {
-            Fate = Fate.EffectAndEnd,
-            StopTeam = true,
-            Message = "Alien Parasites: opponent controls the team until your next turn (sandbox: team stopped)."
+            Fate = plan.Fate,
+            StopTeam = plan.StopTeam,
+            BeamBackTeam = plan.BeamBackTeam,
+            Message = plan.Message
         };
     }
-
     private static Result Qdil(Ctx ctx)
     {
         if (Skill(ctx, "Leadership", 2) && Sum(ctx).integ > 60)
@@ -1008,4 +1009,61 @@ public static class DilemmaRules
     public static bool IsConundrumChase(string? seedName, Fate fate) =>
         (seedName ?? "").Equals("Conundrum", StringComparison.OrdinalIgnoreCase)
         && fate == Fate.EffectAndEnd;
+
+    // ---- Alien Parasites #1a (Pass/Fail + Beam-back + Stop + Replace; Hotseat-Control PARK) ----
+
+    public readonly record struct AlienParasitesPlan(
+        Fate Fate,
+        bool StopTeam,
+        bool BeamBackTeam,
+        string Message);
+
+    /// <summary>
+    /// #1a Soll: Pass INTEGRITY&gt;32 to Overcome (discard + continue).
+    /// Fail to WallFailed (dilemma stays under mission), StopTeam, planet BeamBack.
+    /// No opponent control / hotseat / next-turn timer.
+    /// </summary>
+    public static AlienParasitesPlan DecideAlienParasites(int integritySum, bool isPlanetMission)
+    {
+        if (integritySum > 32)
+        {
+            return new AlienParasitesPlan(
+                Fate.Overcome,
+                StopTeam: false,
+                BeamBackTeam: false,
+                Message: "INTEGRITY>32 - Alien Parasites overcome.");
+        }
+        string msg = isPlanetMission
+            ? "Alien Parasites: INTEGRITY<=32 - attempt ends; Away Team beams back; dilemma remains under mission; team stopped."
+            : "Alien Parasites: INTEGRITY<=32 - attempt ends; dilemma remains under mission; crew and ship stopped.";
+        return new AlienParasitesPlan(
+            Fate.WallFailed,
+            StopTeam: true,
+            BeamBackTeam: isPlanetMission,
+            Message: msg);
+    }
+
+    /// <summary>DE mini-test for Alien Parasites #1a. Returns null if OK, else failure reason.</summary>
+    public static string? VerifyAlienParasites1a()
+    {
+        var pass = DecideAlienParasites(33, isPlanetMission: true);
+        if (pass.Fate != Fate.Overcome || pass.StopTeam || pass.BeamBackTeam)
+            return "pass(33,planet): expected Overcome, no stop/beam";
+        if (!ShouldRemoveFromSeed(pass.Fate))
+            return "pass: seed should discard (Overcome)";
+
+        var failEq = DecideAlienParasites(32, isPlanetMission: true);
+        if (failEq.Fate != Fate.WallFailed || !failEq.StopTeam || !failEq.BeamBackTeam)
+            return "fail(32,planet): expected WallFailed+Stop+BeamBack";
+        if (ShouldRemoveFromSeed(failEq.Fate))
+            return "fail planet: dilemma must stay under mission (WallFailed)";
+
+        var failSpace = DecideAlienParasites(10, isPlanetMission: false);
+        if (failSpace.Fate != Fate.WallFailed || !failSpace.StopTeam || failSpace.BeamBackTeam)
+            return "fail(space): expected WallFailed+Stop, no BeamBack";
+        if (ShouldRemoveFromSeed(failSpace.Fate))
+            return "fail space: dilemma must stay under mission";
+
+        return null;
+    }
 }

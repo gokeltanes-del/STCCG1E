@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Feat - Alien Parasites #1a Pass/Fail + Beam-back)
+
+**Engine** - Alien Parasites #1a (Spock Soll): Pass INTEGRITY>32 → Overcome (discard + continue). Fail → WallFailed (dilemma stays under mission), StopTeam; planet Beam-back AT to ship/outpost then stop; Space stops crew+ship. No opponent control / hotseat / next-turn timer (PARK). Decide: `DilemmaRules.DecideAlienParasites` + `VerifyAlienParasites1a`; Apply: TW `BeamBackAwayTeamToShipOrOutpost`.
+
+---
 ## 2026-09-06 (Fix - Cloak opacity more transparent ~0.45)
 
 **UX** - Cloak Opacity 0.45 (was 0.7); Decloak 1.0; Stopped alone 0.55; stopped+cloaked uses 0.45 (cloak preferred).

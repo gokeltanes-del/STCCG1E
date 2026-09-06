@@ -11871,6 +11871,8 @@ public partial class TableWindow : Window
             string logMsg = dilResult.Message + (victimLine.Length > 0 ? " " + victimLine : "");
             if (failed)
             {
+                if (dilResult.BeamBackTeam)
+                    BeamBackAwayTeamToShipOrOutpost(missionBorder, teamBorders);
                 if (dilResult.StopTeam)
                     StopMissionAttemptTeam(missionBorder, mission, teamBorders);
                 StatusText.Text = logMsg;
@@ -15762,6 +15764,69 @@ public partial class TableWindow : Window
     /// Nach fehlgeschlagenem Dilemma: alle beteiligten Personal-Borders stoppen;
     /// bei Space-Mission zusätzlich die eigenen Schiffe, die Crew gestellt haben.
     /// </summary>
+    /// <summary>
+    /// Alien Parasites #1a fail (planet): beam encounter Away Team back to own ship (preferred) or outpost at this mission.
+    /// No destination = leave on planet (still stopped by caller). Hotseat/control not implemented.
+    /// </summary>
+    private void BeamBackAwayTeamToShipOrOutpost(Border missionBorder, List<Border> teamBorders)
+    {
+        if (missionBorder.Tag is not Card missionCard || !MissionRules.IsPlanetMission(missionCard))
+            return;
+
+        Border? dest = null;
+        foreach (var dock in GetDockablesUnderMission(missionBorder))
+        {
+            if (dock.Tag is not Card dc) continue;
+            if (GetBorderOwner(dock) != _activePlayer) continue;
+            if (IsShipCard(dc))
+            {
+                dest = dock;
+                break;
+            }
+        }
+        if (dest == null)
+        {
+            foreach (var dock in GetDockablesUnderMission(missionBorder))
+            {
+                if (dock.Tag is not Card dc) continue;
+                if (GetBorderOwner(dock) != _activePlayer) continue;
+                bool facility = (dc.Type ?? "").Contains("outpost", StringComparison.OrdinalIgnoreCase)
+                    || (dc.Type ?? "").Contains("facility", StringComparison.OrdinalIgnoreCase)
+                    || (dc.Name ?? "").Contains("outpost", StringComparison.OrdinalIgnoreCase);
+                if (!facility) continue;
+                dest = dock;
+                break;
+            }
+        }
+        if (dest == null)
+        {
+            _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
+                "Alien Parasites: no ship/outpost to beam back to — Away Team stays on planet.");
+            return;
+        }
+
+        int moved = 0;
+        foreach (var b in teamBorders.ToList())
+        {
+            if (b.Tag is not Card) continue;
+            if (!_stackOnHost.TryGetValue(missionBorder, out var onMission) || !onMission.Contains(b))
+                continue;
+            RemoveCardFromHostStack(missionBorder, b);
+            SetBorderOwner(b, _activePlayer);
+            AddCardToHostStack(dest, b);
+            moved++;
+        }
+        UpdateHostBadge(missionBorder);
+        UpdateHostBadge(dest);
+        if (moved > 0)
+        {
+            string destName = (dest.Tag as Card)?.Name ?? "ship/outpost";
+            _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
+                $"Alien Parasites beam-back: {moved} to {destName}.");
+            SyncBoardFromTable();
+        }
+    }
+
     private void StopMissionAttemptTeam(Border missionBorder, Card mission, List<Border> teamBorders)
     {
         foreach (var b in teamBorders)

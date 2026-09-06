@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-06 (Jadzia — Alien Parasites #1a partial; Hotseat-Control parked)
+Last updated: 2026-09-06 (Alien Parasites #1a Pass/Fail+Beam-back; Hotseat PARK)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -76,7 +76,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Card | Status | Notes | Source |
 | --- | --- | --- | --- |
 | Alien Abduction (10 U) | working | Pepsch green (Cure OR + Stasis Beam-Block). | Pepsch 2026-09-06 |
-| Alien Parasites (11 U) | partial | #1a Pass/Fail+Beam-back+Stop+Replace (Data). Hotseat-Control geparkt (Captain/Spock). | Data + Spock 2026-09-06 |
+| Alien Parasites (11 U) | partial | #1a Pass/Fail+Beam-back+Stop+Replace under mission (Data). Hotseat-Control PARKED. | Data 2026-09-06 |
 | Anaphasic Organism (12 C) | unknown |  |  |
 | Ancient Computer (13 R) | unknown |  |  |
 | Archer (14 C) | working | Pepsch Gesamt-Grün (tip Data/`bf1f2ab`; Stop Soll Spock Condition-Fail). | Pepsch + Data/`bf1f2ab` 2026-09-06 |
