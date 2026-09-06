@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-06 (Jadzia — Servo Side-Sync 55d96ef; Spock Abduction Cure OR + Stopped no-beam)
+Last updated: 2026-09-06 (Jadzia — Archer/Abduction tip 9cb724b, partial until Pepsch green)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -75,11 +75,11 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 
 | Card | Status | Notes | Source |
 | --- | --- | --- | --- |
-| Alien Abduction (10 U) | partial | Spock Soll Cure OR (3 Leadership present OR mission solved). Pepsch Ist: Release erst Mission solved — Data Fix. | Pepsch + Spock 2026-09-06 |
+| Alien Abduction (10 U) | partial | Cure OR + Stasis Beam-Block tip Data/9cb724b. Pending Pepsch green → working. | Data/`9cb724b` 2026-09-06 |
 | Alien Parasites (11 U) | unknown |  |  |
 | Anaphasic Organism (12 C) | unknown |  |  |
 | Ancient Computer (13 R) | unknown |  |  |
-| Archer (14 C) | partial | Kill+Stop OK. Stopped Detail + Beam-Block (Spock: Stopped kein Beam) offen — Data Fix. | Pepsch + Spock 2026-09-06 |
+| Archer (14 C) | partial | Kill+Stop OK; Stopped kein Beam + Detail rot tip Data/9cb724b. Pending Pepsch green → working. | Data/`9cb724b` 2026-09-06 |
 | Armus: Skin Of Evil (15 R) | unknown |  |  |
 | Barclay's Protomorphosis Disease (16 R) | working | Pepsch getestet OK (Metamorphosis/Transformation). | Pepsch 2026-09-06 |
 | Birth of "Junior" (17 U) | unknown |  |  |
