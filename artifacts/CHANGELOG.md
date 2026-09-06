@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Fix - G3 empty-icon ship needs crew)
+
+**Engine** - `MovementRules.IsShipStaffed`: ships with no staffing icons are no longer Ok with zero crew. Require >=1 matching-affiliation personnel aboard (Treaty/NA != Match per G2). Deny Fly with empty crew. Text-staffing sandbox path also requires Match when crew present.
+
+---
 ## 2026-09-06 (Fix - G6 Return Fire Matching HARD)
 
 **Engine** - Return Fire (Spock Soll): Matching Affiliation HARD on **defender** ship (`HasMatchingAffiliation`; Treaty/NA != Match). **No Leader** required. Needs WEAPONS>0, undocked, uncloaked. `BattleRules.CanReturnFire` + `AskReturnFireAndResolve` deny RF without Match; `ResolveShipBattle` re-checks Match/dock/cloak before RF damage. Rogue/loreStaffed bypass. Clear error.

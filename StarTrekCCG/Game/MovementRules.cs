@@ -55,11 +55,41 @@ public static class MovementRules
         {
             string staff = (ship.Staff ?? "").Trim();
             if (string.IsNullOrEmpty(staff))
-                return new StaffResult(true, "Keine Staffing-Icons (frei).", 0, 0, 0, 0);
+            {
+                // G3 / Spock: no staffing icons still requires >=1 matching-affiliation crew.
+                // Empty crew must NOT be Ok (deny Fly with 0 crew).
+                if (crew.Count == 0)
+                {
+                    return new StaffResult(false,
+                        $"Kein Personal an Bord von {ship.Name} - auch ohne Staffing-Icons braucht es matching affiliation.",
+                        0, 0, 0, 0);
+                }
+                if (!HasMatchingAffiliation(ship, crew, treaties))
+                {
+                    string aboard = string.Join(", ",
+                        crew.Select(p => $"{p.Name}[{p.Affiliation ?? "?"}]"));
+                    return new StaffResult(false,
+                        $"Keine matching affiliation an Bord (Schiff: {ship.Affiliation ?? "?"}). Crew: {aboard}.",
+                        0, 0, 0, 0);
+                }
+                return new StaffResult(true,
+                    "Keine Staffing-Icons - matching affiliation an Bord.",
+                    0, crew.Count, 0, 0);
+            }
             int n = crew.Count;
             if (n > 0)
-                return new StaffResult(true, $"Text-Staffing „{staff}“ – Sandbox: ≥1 Crew ok.", 0, n, 0, 0);
-            return new StaffResult(false, $"Staffing „{staff}“: mindestens 1 Personal nötig (vereinfacht).", 0, 0, 0, 0);
+            {
+                if (!HasMatchingAffiliation(ship, crew, treaties))
+                {
+                    string aboard = string.Join(", ",
+                        crew.Select(p => $"{p.Name}[{p.Affiliation ?? "?"}]"));
+                    return new StaffResult(false,
+                        $"Keine matching affiliation an Bord (Schiff: {ship.Affiliation ?? "?"}). Crew: {aboard}.",
+                        0, 0, 0, 0);
+                }
+                return new StaffResult(true, $"Text-Staffing \"{staff}\" - Sandbox: =1 matching Crew ok.", 0, n, 0, 0);
+            }
+            return new StaffResult(false, $"Staffing \"{staff}\": mindestens 1 Personal noetig (vereinfacht).", 0, 0, 0, 0);
         }
 
         if (crew.Count == 0)
