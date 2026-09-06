@@ -105,9 +105,7 @@ public static class DilemmaRules
                 || ctx.Team.Any(p => (p.Name ?? "").Contains("Lwaxana", StringComparison.OrdinalIgnoreCase)),
                 "Music OR Youth OR STRENGTH>9 OR Lwaxana Troi"),
             "Matriarchal Society" => Wall(ctx, ctx.Team.Count(IsFemale) >= 2, "mind. 2 Female"),
-
-            // Printed: "Kills one Away Team member (random selection)." — not a wall; survivors continue.
-            "Armus: Skin Of Evil" => KillAndContinue(ctx, "Armus kills one random Away Team member. Discard dilemma."),
+            "Armus: Skin Of Evil" => ArmusSkinOfEvil(ctx),
             "Nausicaans" => UnlessThen(ctx, Sum(ctx).str > 44, KillRandom(ctx),
                 "STRENGTH>44", "Nausicaans kill one at random.", discardAlways: true),
             "Rebel Encounter" => Rebel(ctx),
@@ -1285,6 +1283,86 @@ public static class DilemmaRules
         var failNone = Resolve(Make(civ));
         if (failNone.Fate != Fate.WallFailed || !failNone.StopTeam)
             return "fail none: expected WallFailed + StopTeam";
+
+        return null;
+    }
+    // ---- Armus: Skin Of Evil (Premiere 15 R) ----
+    // Printed (PR): "Kills one Away Team member (random selection)."
+    // DRG / Ref: discard dilemma; NOT a wall; 1 random AT kill; survivors NOT stopped -> Continue (EffectAndContinue).
+
+    private static Result ArmusSkinOfEvil(Ctx ctx)
+    {
+        var r = new Result
+        {
+            Fate = Fate.EffectAndContinue,
+            StopTeam = false,
+            Message = "Armus kills one random Away Team member. Discard dilemma."
+        };
+        AddKill(r.Kill, RandomOf(ctx, ctx.Team));
+        return r;
+    }
+
+    /// <summary>DE mini-test for Armus: Skin Of Evil. Returns null if OK, else failure reason.</summary>
+    public static string? VerifyArmusSkinOfEvil()
+    {
+        static Card P(string name) => new()
+        {
+            Name = name,
+            Type = "Personnel",
+            Class = "OFFICER",
+            Text = "OFFICER",
+            Characteristics = "Human; Male;",
+            IntegrityOrRange = "5",
+            CunningOrWeapons = "5",
+            StrengthOrShields = "5"
+        };
+
+        static Ctx Make(Random rng, params Card[] team) => new()
+        {
+            Dilemma = new Card { Name = "Armus: Skin Of Evil", Type = "Dilemma", MissionDilemmaType = "[P]" },
+            Mission = new Card { Name = "Test Planet", Type = "Mission", MissionDilemmaType = "[P]" },
+            Team = team,
+            Present = team,
+            AttemptingPlayer = 1,
+            Rng = rng
+        };
+
+        var a = P("Alpha");
+        var b = P("Bravo");
+        var c = P("Charlie");
+
+        // Empty Away Team: no kill, still discard + continue
+        var empty = Resolve(Make(new Random(1)));
+        if (empty.Fate != Fate.EffectAndContinue || empty.StopTeam || empty.Kill.Count != 0)
+            return "empty: expected EffectAndContinue, no stop/kill";
+        if (!ShouldRemoveFromSeed(empty.Fate))
+            return "empty: dilemma should discard";
+
+        // Solo: that personnel dies; attempt continues
+        var solo = Resolve(Make(new Random(1), a));
+        if (solo.Fate != Fate.EffectAndContinue || solo.StopTeam)
+            return "solo: expected EffectAndContinue, no stop";
+        if (solo.Kill.Count != 1 || solo.Kill[0].Name != "Alpha")
+            return $"solo: expected kill Alpha, got [{string.Join(",", solo.Kill.Select(k => k.Name))}]";
+        if (!ShouldRemoveFromSeed(solo.Fate))
+            return "solo: dilemma should discard";
+
+        // Three personnel, fixed seed: exactly one random kill; survivors continue
+        var r1 = Resolve(Make(new Random(42), a, b, c));
+        if (r1.Fate != Fate.EffectAndContinue || r1.StopTeam)
+            return "team3: expected EffectAndContinue, no StopTeam";
+        if (r1.Kill.Count != 1)
+            return $"team3: expected exactly 1 kill, got {r1.Kill.Count}";
+        var victim = r1.Kill[0].Name;
+        if (victim is not ("Alpha" or "Bravo" or "Charlie"))
+            return $"team3: victim '{victim}' not in Away Team";
+        if (!ShouldRemoveFromSeed(r1.Fate))
+            return "team3: dilemma should discard";
+
+        // Same seed -> same victim (deterministic random selection)
+        var r2 = Resolve(Make(new Random(42), a, b, c));
+        if (r2.Kill.Count != 1 || r2.Kill[0].Name != victim)
+            return $"rng: expected same victim '{victim}', got [{string.Join(",", r2.Kill.Select(k => k.Name))}]";
 
         return null;
     }

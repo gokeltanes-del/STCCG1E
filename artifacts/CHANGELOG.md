@@ -4,6 +4,12 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Feat - Armus: Skin Of Evil Premiere)
+
+**Engine** - Armus: Skin Of Evil (PR 15 R): kills one Away Team member (random selection); dilemma discarded; survivors continue (EffectAndContinue, no StopTeam / not under mission). Spock/DRG Soll. Decide: `DilemmaRules.ArmusSkinOfEvil` + `VerifyArmusSkinOfEvil`.
+
+---
+
 ## 2026-09-06 (Fix - Anaphasic Organism discard not kill)
 
 **Engine** - Anaphasic Organism fail: selected female **resigns = discard**, not killed (DRG: discarded female is not killed). `Result.Discard` + TW Apply/Format; Genetronic does not save. Pass MED+SEC / no-female / StopTeam / dilemma discard / opp-tie unchanged. Decide: `DilemmaRules.Anaphasic` + `VerifyAnaphasicOrganism`.

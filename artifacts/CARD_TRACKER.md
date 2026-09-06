@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-06 (Jadzia — Anaphasic Fix tip 3532748; #4 Armus in flight)
+Last updated: 2026-09-06 (Josef - Armus Skin Of Evil Premiere tip PENDING partial)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -80,7 +80,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Anaphasic Organism (12 C) | partial | tip Data/`502d8e0` + Fix/`3532748` (Fail resigns=discard, not Kill). Ungetestet. | Data/`3532748` 2026-09-06 |
 | Ancient Computer (13 R) | partial | tip Data/`bb551f1`. Wall: 2 Computer Skill OR 3 SCIENCE OR 3 ENGINEER; Fail Stop+unter Mission. Ungetestet. | Data/`bb551f1` 2026-09-06 |
 | Archer (14 C) | working | Pepsch Gesamt-Grün (tip Data/`bf1f2ab`; Stop Soll Spock Condition-Fail). | Pepsch + Data/`bf1f2ab` 2026-09-06 |
-| Armus: Skin Of Evil (15 R) | partial | tip Data/`PENDING`: Random kill 1 AT member; dilemma discarded; survivors continue (no stop). Ungetestet. | Data/`PENDING` 2026-09-06 |
+| Armus: Skin Of Evil (15 R) | partial | tip Data/`PENDING`: Random kill 1 AT; dilemma discarded; EffectAndContinue (no Stop / not under mission). Spock/DRG. Ungetestet. | Data/`PENDING` + Spock 2026-09-06 |
 | Barclay's Protomorphosis Disease (16 R) | working | Pepsch getestet OK (Metamorphosis/Transformation). | Pepsch 2026-09-06 |
 | Birth of "Junior" (17 U) | unknown |  |  |
 | Borg Ship (18 R) | working | Captain/Pepsch „soweit“ — nicht nochmal Dilemma-Welle. | Captain 2026-09-06 |
