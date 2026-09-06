@@ -77,7 +77,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | --- | --- | --- | --- |
 | Alien Abduction (10 U) | working | Pepsch green (Cure OR + Stasis Beam-Block). | Pepsch 2026-09-06 |
 | Alien Parasites (11 U) | partial | #1a tip Data/`e33d23c`: Pass INT>32; Fail Attempt-end+Beam-back+Stop+Replace. Hotseat-Control geparkt. Pending Pepsch green → working. | Data/`e33d23c` 2026-09-06 |
-| Anaphasic Organism (12 C) | partial | tip Data/`PENDING`: Fail highest Female resigns=discard NOT kill (Spock #2 after 502d8e0). Pass MED+SEC; no female no-effect; StopTeam; dilemma discarded; tie=opp. Ungetestet. | Data/`PENDING` + Spock 2026-09-06 |
+| Anaphasic Organism (12 C) | partial | tip Data/`3532748`: Fail highest Female resigns=discard NOT kill (Spock #2 after 502d8e0). Pass MED+SEC; no female no-effect; StopTeam; dilemma discarded; tie=opp. Ungetestet. | Data/`3532748` + Spock 2026-09-06 |
 | Ancient Computer (13 R) | partial | tip Data/`bb551f1`. Wall: 2 Computer Skill OR 3 SCIENCE OR 3 ENGINEER; Fail Stop+unter Mission. Ungetestet. | Data/`bb551f1` 2026-09-06 |
 | Archer (14 C) | working | Pepsch Gesamt-Grün (tip Data/`bf1f2ab`; Stop Soll Spock Condition-Fail). | Pepsch + Data/`bf1f2ab` 2026-09-06 |
 | Armus: Skin Of Evil (15 R) | unknown |  |  |
