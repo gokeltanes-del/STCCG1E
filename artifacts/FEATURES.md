@@ -1,32 +1,24 @@
-# STCCG 1E - Features backlog
+﻿# STCCG 1E - Features backlog
 Last updated: 2026-09-06
 
 Living list - **Seven owns ranking.** Reorder freely when checklist coverage or Captain goals shift.
 See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md, CARD_TRACKER.md (Jadzia).
 
 ## P0 - Foundation (do first)
-- **TableWindow extract** (in progress, Data) - Welle 1 Slices 1-8 DONE (`447beac`); Slice 9 + Status-UX + dilemma Continue pack tips `3c2704c`/`8c25d96` awaiting Pepsch Gesamt-Grün+push; then Persist then Battle
+- **TableWindow extract** (in progress, Data) - Welle 1 Slices 1-8 DONE; Slice 9 + Status-UX + Staffing/Battle G2–G7 on Josef (ahead, Pepsch testing/push pending); then Persist then Battle
   - Premiere A card waves: **only Captain Go** (see CODE_PLACEMENT.md)
   - **Before new Premiere card waves**; no big-bang UI rewrite
-- **Status-UX / Stasis-Held** (Data `3c2704c` + `8c25d96`, Pepsch testing)
-  - Layout Teil-Grün: Damage badge-only; Repair „this turn“; Detail Positive|Negative|Personnel|Equipment; Stasis rot / Buff grün
-  - Cloak: inward Nebel/Vignette overlay (`8c25d96`) — iterate if Pepsch wants Show-Look polish
-  - Mission-Button „Show last revealed“: **PARKED** (not mechanics-critical)
-  - Stasis: Beam/Leave-Block + Alien Abduction Cure **OR** (3 Leadership OR mission completed)
-  - Coverage: Status-UX DONE only after Pepsch Gesamt-Grün
-- **Glossary/Compendium full coverage (Seven+Spock)** - Welle 1 + Hugh/Borg DONE; **Welle 2 Control/Owner/Present ACTIVE** (Docs only). Card rows → Jadzia CARD_TRACKER.
+- **Status-UX / Stasis-Held** — Pepsch Teil-/Gesamt-Grün (Badge Damage, Repair this-turn, Detail rows, Stasis/Buff colors, Leave-Reset, Abduction Cure OR)
+  - **Open (Data Go):** Cloak = **70% Opacity only** (Nebel/Glow weg); Stopped under Negative explicit; Detail-Duplikate weg; Investigate skill refresh after Beam/Walk
+  - Mission-Button „Show last revealed“: **PARKED**
+- **Staffing/Fly/Battle Gaps G2–G7** — Tips on Josef (Pepsch Grün G1–G6; **G7 Counter-Attack noch ungetestet**)
+  - G8 LegalMoves-Battle nur UI · G9 Ship-Phased · G10 NA-Matching: **später**
+- **Glossary/Compendium full coverage (Seven+Spock)** - Welle 1 + Hugh/Borg DONE; **Welle 2 Control/Owner/Present ACTIVE** (Docs only). Card rows → Jadzia.
 
 ## P1 - Parked / in test
-- Continue-family dilemmas (Data tip `3c2704c`/`8c25d96`, **partial** until Pepsch green):
-  - Nitrium Metal Parasites, Hyper-Aging (`AttachAndContinue`)
-  - Female's / Male's Love Interest (`EffectAndContinue` after Relocate)
-  - Alien Abduction (Stasis hold + Cure OR + no Beam)
-- IM Federation: false nullify already-at-facility / FindMissionForDockable
-- Engine dump omits ships on Gaps
-- Distortion (no AU to test)
-- Fed 7.4.1 battle initiation (Spock/Data)
-- E2b/G4 store staffing one-truth Treaties+Lore (no ui||store OR; tips G5/G4 2026-09-06)
-- Mission-Button last-revealed (parked)
+- Archer: Pepsch Fail-path OK (Beam-Block); Detail „Stopped“ fehlt — Spock Soll: AT stopped until start of your next turn; Attempt/Beam same-turn deny OK; Data Detail-fix in flight → then Jadzia `working`
+- G7 Counter-Attack: tip `2cd5bc8` awaiting Pepsch test
+- IM Federation FindMissionForDockable / dump@Gaps / Distortion / Fed 7.4.1 parked rows as before
 
 ## P2 - Premiere hardening
 - Premiere A/B hardening from RULES_CHECKLIST gaps
@@ -34,21 +26,15 @@ See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md, CARD_TRACKER.md (Jadzia).
 - Keep Klasse A/B/C process; no fundamentalsystem on speculation
 
 ## P3 - Later (UX / ideas - not now)
-- **Ship visual states (both players always see)** - Spock/Captain priority (2026-09-05); do not implement until Captain prioritizes:
-  1. Premiere: Cloaked (badge), Stopped (~half-transparent), Damaged (~red / Rotation-HULL), Docked, RANGE-left, Controller!=Owner
-  2. After that: Staffed-Warnung, Commandeered, Phased, Landed, Carried, Tractor, Off-spaceline (Engage Cloak/Rift), Attachments-Badges
-  - Sources (Spock): Glossary cloaking/phasing, movement, damage/HULL, mission attempt, unique/owner
-- **Spin / idea (Rules+Gameplay first):** Cloaked ships truly invisible to the opponent. Park only - no implementation.
-- More expansion sets (after Premiere solid)
-- Net play
-- AI
+- **Ship visual states** - Spock/Captain priority; Cloak opacity iteration in P0 Open above
+- Cloaked invisible to opponent (spin/idea only)
+- More expansion sets / Net play / AI
 
-## Done recently
-- Hugh/Borg Ship CanRespond + EOT battle window (`447beac` Pepsch green+push 2026-09-05)
-- Gaps nullify relocate (`bb163ed`, Pepsch green 2026-09-05)
-- Extract Slice 7-8 (Ship effects + EOT/Gaps/Q-Net Is*)
-- Extract Slice 5+6 on origin (`0acd027`): InstantEvent/NamedInterrupt + Dilemma/Artifact Apply
-- Foundation E1-E6 complete
+## Done recently (Pepsch Grün 2026-09-06)
+- Continue-family: Nitrium Metal Parasites, Hyper-Aging, Love Interests, Alien Abduction (+ Stasis Beam-Block)
+- Neural Servo Device + Side-Sync; Hologram Ruse; Barclay's Protomorphosis
+- Staffing/Battle G1–G6 (Matching HARD, Treaty≠Match, Empty-Icon Match, Store staffing, Cloak no Fly/Initiate, RF Matching)
+- Hugh/Borg Ship (`447beac`); Gaps nullify relocate; Foundation E1–E6; Extract Slices 5–8
 
 ## Notes
 - Private, non-commercial
