@@ -1297,21 +1297,143 @@ public static class DilemmaRules
         return null;
     }
 
-    private static Result Nagilum(Ctx ctx)
+    // ---- Nagilum (Premiere 37 R) ----
+    // Printed (PR): "Unless 3 Diplomacy OR STRENGTH>40 present, kills half of crew
+    // (random selection, round down). Otherwise, score points. Discard dilemma."
+    // Points: 5. [S] Space.
+    // Spock #20 Soll / DRG Nagilum:
+    //   Pass (3 Diplomacy OR STR>40) -> Overcome +5 Bonus-Area + Continue; discard.
+    //   Fail -> half of Crew random kill (round down; 1->0) + Ship/Crew stopped
+    //           (EffectAndEnd+StopTeam); dilemma always discarded.
+    //   STRENGTH sum via Sum(ctx).str. Boundary STRENGTH==40 fails.
+    //   Combo Anaphasic&Nagilum = EP (not Premiere) -- ignore.
+    // Decide: DilemmaRules.Nagilum + VerifyNagilum.
+
+    private static Result Nagilum(Ctx ctx) =>
+        UnlessScoreOr(ctx,
+            Skill(ctx, "Diplomacy", 3) || Sum(ctx).str > 40,
+            () =>
+            {
+                int n = ctx.Team.Count / 2; // round down
+                var pool = ctx.Team.ToList();
+                for (int i = 0; i < n && pool.Count > 0; i++)
+                {
+                    var v = RandomOf(ctx, pool);
+                    if (v == null) break;
+                    AddKill(_tmp, v);
+                    pool.Remove(v);
+                }
+            },
+            5, "3 Diplomacy or STRENGTH>40");
+
+    /// <summary>DE mini-test for Nagilum. Returns null if OK, else failure reason.</summary>
+    public static string? VerifyNagilum()
     {
-        if (Skill(ctx, "Diplomacy", 3) || Sum(ctx).str > 40)
-            return new Result { Fate = Fate.Overcome, Score = 5, Message = "Nagilum overcome → +5." };
-        int n = ctx.Team.Count / 2; // round down
-        var r = new Result { Fate = Fate.EffectAndEnd, StopTeam = true, Message = $"Nagilum kills {n} (random, half)." };
-        var pool = ctx.Team.ToList();
-        for (int i = 0; i < n && pool.Count > 0; i++)
+        static Card P(string name, string cls, string text, string str = "5") => new()
         {
-            var v = RandomOf(ctx, pool);
-            if (v == null) break;
-            r.Kill.Add(v);
-            pool.Remove(v);
-        }
-        return r;
+            Name = name,
+            Type = "Personnel",
+            Class = cls,
+            Text = text,
+            Characteristics = "Human; Male;",
+            IntegrityOrRange = "5",
+            CunningOrWeapons = "5",
+            StrengthOrShields = str
+        };
+
+        static Ctx Make(params Card[] team) => new()
+        {
+            Dilemma = new Card { Name = "Nagilum", Type = "Dilemma", MissionDilemmaType = "[S]" },
+            Mission = new Card { Name = "Test Space", Type = "Mission", MissionDilemmaType = "[S]" },
+            Team = team,
+            Present = team,
+            AttemptingPlayer = 1,
+            Rng = new Random(1)
+        };
+
+        var dip1 = P("Dip One", "VIP", "Diplomacy");
+        var dip2 = P("Dip Two", "VIP", "Diplomacy");
+        var dip3 = P("Dip Three", "VIP", "Diplomacy");
+        var civ = P("Civilian", "CIVILIAN", "CIVILIAN", "8");
+        var tankA = P("Tank A", "OFFICER", "OFFICER", "10");
+        var tankB = P("Tank B", "OFFICER", "OFFICER", "10");
+        var tankC = P("Tank C", "OFFICER", "OFFICER", "10");
+        var tankD = P("Tank D", "OFFICER", "OFFICER", "11"); // 10+10+10+11 = 41 > 40
+        var weak1 = P("Weak One", "CIVILIAN", "CIVILIAN", "4");
+        var weak2 = P("Weak Two", "CIVILIAN", "CIVILIAN", "4");
+        var weak3 = P("Weak Three", "CIVILIAN", "CIVILIAN", "4");
+        var weak4 = P("Weak Four", "CIVILIAN", "CIVILIAN", "4");
+        var weak5 = P("Weak Five", "CIVILIAN", "CIVILIAN", "4");
+
+        // Pass: 3 Diplomacy -> Overcome +5, no stop, discard
+        var passDip = Resolve(Make(dip1, dip2, dip3));
+        if (passDip.Fate != Fate.Overcome || passDip.StopTeam || passDip.Score != 5)
+            return $"pass 3 Diplomacy: expected Overcome Score=5 no stop, got {passDip.Fate}/{passDip.Score}/stop={passDip.StopTeam}";
+        if (passDip.Kill.Count != 0)
+            return "pass 3 Diplomacy: should not kill";
+        if (!ShouldRemoveFromSeed(passDip.Fate))
+            return "pass 3 Diplomacy: dilemma should discard";
+
+        // Pass: STRENGTH>40 without 3 Diplomacy
+        var passStr = Resolve(Make(tankA, tankB, tankC, tankD));
+        if (passStr.Fate != Fate.Overcome || passStr.Score != 5 || passStr.StopTeam)
+            return $"pass STRENGTH>40: expected Overcome +5 no stop, got {passStr.Fate}/{passStr.Score}/stop={passStr.StopTeam}";
+        if (passStr.Kill.Count != 0)
+            return "pass STRENGTH>40: should not kill";
+        if (!ShouldRemoveFromSeed(passStr.Fate))
+            return "pass STRENGTH>40: dilemma should discard";
+
+        // Fail boundary: STRENGTH==40 and only 2 Diplomacy -> half of 5 = 2 kills
+        var eq40 = new[] { dip1, dip2, tankA, tankB, tankC }; // 5+5+10+10+10=40, 2 Diplomacy
+        var failEq = Resolve(Make(eq40));
+        if (failEq.Fate != Fate.EffectAndEnd || !failEq.StopTeam)
+            return $"fail STR=40 + 2 Dip: expected EffectAndEnd+StopTeam, got {failEq.Fate}/stop={failEq.StopTeam}";
+        if (failEq.Kill.Count != 2)
+            return $"fail STR=40: expected 2 kills (half of 5), got {failEq.Kill.Count}";
+        if (failEq.Kill.Distinct().Count() != 2)
+            return "fail STR=40: kills must be distinct";
+        if (failEq.Kill.Any(k => !eq40.Contains(k)))
+            return "fail STR=40: kill not from team";
+        if (failEq.Score != 0)
+            return "fail STR=40: should not score";
+        if (!ShouldRemoveFromSeed(failEq.Fate))
+            return "fail STR=40: dilemma should discard";
+
+        // Fail: 4 weak crew -> 2 random kills
+        var four = new[] { weak1, weak2, weak3, weak4 };
+        var fail4 = Resolve(Make(four));
+        if (fail4.Fate != Fate.EffectAndEnd || !fail4.StopTeam)
+            return $"fail 4: expected EffectAndEnd+StopTeam, got {fail4.Fate}/stop={fail4.StopTeam}";
+        if (fail4.Kill.Count != 2)
+            return $"fail 4: expected 2 kills, got {fail4.Kill.Count}";
+        if (fail4.Kill.Distinct().Count() != 2 || fail4.Kill.Any(k => !four.Contains(k)))
+            return "fail 4: kills must be 2 distinct team members";
+        if (!ShouldRemoveFromSeed(fail4.Fate))
+            return "fail 4: dilemma should discard";
+
+        // Fail: 1 crew -> half round down = 0 kills, still EffectAndEnd+Stop, discard
+        var solo = Resolve(Make(civ));
+        if (solo.Fate != Fate.EffectAndEnd || !solo.StopTeam || solo.Kill.Count != 0)
+            return $"solo: expected EffectAndEnd+Stop no kill, got {solo.Fate}/stop={solo.StopTeam}/kills={solo.Kill.Count}";
+        if (!ShouldRemoveFromSeed(solo.Fate))
+            return "solo: dilemma should discard";
+
+        // Empty crew fail: EffectAndEnd+Stop, no kill, discard
+        var empty = Resolve(Make());
+        if (empty.Fate != Fate.EffectAndEnd || !empty.StopTeam || empty.Kill.Count != 0)
+            return $"empty: expected EffectAndEnd+Stop no kill, got {empty.Fate}/stop={empty.StopTeam}/kills={empty.Kill.Count}";
+        if (!ShouldRemoveFromSeed(empty.Fate))
+            return "empty: dilemma should discard";
+
+        // Fail: 5 weak -> 2 kills (round down)
+        var five = new[] { weak1, weak2, weak3, weak4, weak5 };
+        var fail5 = Resolve(Make(five));
+        if (fail5.Fate != Fate.EffectAndEnd || !fail5.StopTeam || fail5.Kill.Count != 2)
+            return $"fail 5: expected EffectAndEnd+Stop 2 kills, got {fail5.Fate}/stop={fail5.StopTeam}/kills={fail5.Kill.Count}";
+        if (!ShouldRemoveFromSeed(fail5.Fate))
+            return "fail 5: dilemma should discard";
+
+        return null;
     }
 
     // ---- Cytherians (Premiere 22 R) ----

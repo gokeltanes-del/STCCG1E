@@ -4,6 +4,12 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Feat - Nagilum Premiere)
+
+**Engine** - Nagilum (PR 37 R): Space - Unless 3 Diplomacy OR STRENGTH>40 present: kills half of crew (random, round down); else Overcome +5 Bonus-Area + Continue. Always discard dilemma. Fail -> EffectAndEnd+StopTeam. Spock #20 Soll / DRG Nagilum. Decide: `DilemmaRules.Nagilum` + `VerifyNagilum`. Boundary STRENGTH==40 fails; 1 crew -> 0 kills. Combo Anaphasic&Nagilum=EP ignore.
+
+---
+
 ## 2026-09-06 (Feat - Microvirus Premiere)
 
 **Engine** - Microvirus (PR 36 C): Planet - Unless MEDICAL AND SECURITY present: opponent kills one Away Team member except inorganic (Android/Exocomp/Holo via IsInorganic); else Overcome +5 Bonus-Area + Continue. Always discard dilemma. Fail -> EffectAndEnd+StopTeam. Spock #19 Soll / DRG Microvirus. Decide: `DilemmaRules.Microvirus` + `VerifyMicrovirus`. PARK: opponent-choice UI filter thin (engine pool excludes inorganic).
