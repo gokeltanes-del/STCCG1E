@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-06 (Jadzia — Archer/Abduction tip 9cb724b, partial until Pepsch green)
+Last updated: 2026-09-06 (Jadzia — Pepsch green batch: Nitrium/Hyper-Aging/Abduction + Events/Interrupts; Archer partial)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -75,11 +75,11 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 
 | Card | Status | Notes | Source |
 | --- | --- | --- | --- |
-| Alien Abduction (10 U) | partial | Cure OR + Stasis Beam-Block tip Data/9cb724b. Pending Pepsch green → working. | Data/`9cb724b` 2026-09-06 |
+| Alien Abduction (10 U) | working | Pepsch green (Cure OR + Stasis Beam-Block). | Pepsch 2026-09-06 |
 | Alien Parasites (11 U) | unknown |  |  |
 | Anaphasic Organism (12 C) | unknown |  |  |
 | Ancient Computer (13 R) | unknown |  |  |
-| Archer (14 C) | partial | Kill+Stop OK; Stopped kein Beam + Detail rot tip Data/9cb724b. Pending Pepsch green → working. | Data/`9cb724b` 2026-09-06 |
+| Archer (14 C) | partial | Kill/Stop/Beam-Block OK. Detail-Stopped fehlt + Spock Card-Text pending. | Pepsch 2026-09-06 |
 | Armus: Skin Of Evil (15 R) | unknown |  |  |
 | Barclay's Protomorphosis Disease (16 R) | working | Pepsch getestet OK (Metamorphosis/Transformation). | Pepsch 2026-09-06 |
 | Birth of "Junior" (17 U) | unknown |  |  |
@@ -93,7 +93,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Firestorm (25 U) | unknown |  |  |
 | Gravitic Mine (26 U) | unknown |  |  |
 | Hologram Ruse (27 U) | working | Pepsch getestet OK. | Pepsch 2026-09-06 |
-| Hyper-Aging (28 U) | partial | AttachAndContinue + cd3; AT not stopped (Spock Soll). Pending Pepsch green → working. | Data/`3c2704c` 2026-09-06 |
+| Hyper-Aging (28 U) | working | Pepsch green (AttachAndContinue). | Pepsch 2026-09-06 |
 | Iconian Computer Weapon (29 C) | unknown |  |  |
 | Impassable Door (30 C) | unknown |  |  |
 | Ktarian Game (31 R) | unknown |  |  |
@@ -105,7 +105,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Nagilum (37 R) | unknown |  |  |
 | Nanites (38 U) | unknown |  |  |
 | Nausicaans (39 U) | unknown |  |  |
-| Nitrium Metal Parasites (40 U) | partial | AttachAndContinue + cd2; no stop/fail (Spock Soll). Pending Pepsch green → working. | Data/`3c2704c` 2026-09-06 |
+| Nitrium Metal Parasites (40 U) | working | Pepsch green (AttachAndContinue). | Pepsch 2026-09-06 |
 | Null Space (41 U) | unknown |  |  |
 | Phased Matter (42 C) | unknown |  |  |
 | Portal Guard (43 U) | unknown |  |  |
@@ -143,41 +143,41 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | --- | --- | --- | --- |
 | Alien Probe (66 U) | unknown |  |  |
 | Atmospheric Ionization (68 C) | unknown |  |  |
-| Bynars Weapon Enhancement (69 R) | unknown |  |  |
+| Bynars Weapon Enhancement (69 R) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Distortion Field (70 U) | unknown |  |  |
-| Espionage: Federation on Klingon (71 C) | unknown |  |  |
-| Espionage: Klingon on Federation (72 C) | unknown |  |  |
-| Espionage: Romulan on Federation (73 C) | unknown |  |  |
-| Espionage: Romulan on Klingon (74 C) | unknown |  |  |
+| Espionage: Federation on Klingon (71 C) | working | Pepsch green (Espionage-Familie). | Pepsch 2026-09-06 |
+| Espionage: Klingon on Federation (72 C) | working | Pepsch green (Espionage-Familie). | Pepsch 2026-09-06 |
+| Espionage: Romulan on Federation (73 C) | working | Pepsch green (Espionage-Familie). | Pepsch 2026-09-06 |
+| Espionage: Romulan on Klingon (74 C) | working | Pepsch green (Espionage-Familie). | Pepsch 2026-09-06 |
 | Gaps in Normal Space (75 U) | unknown |  |  |
 | Genetronic Replicator (76 U) | unknown |  |  |
 | Goddess of Empathy (77 R) | unknown |  |  |
 | Holo-Projectors (78 U) | unknown |  |  |
-| Kivas Fajo: Collector (79 U) | unknown |  |  |
-| Lore Returns (80 R) | unknown |  |  |
+| Kivas Fajo: Collector (79 U) | working | Pepsch green. | Pepsch 2026-09-06 |
+| Lore Returns (80 R) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Lore's Fingernail (81 R) | unknown |  |  |
 | Masaka Transformations (82 U) | unknown |  |  |
-| Metaphasic Shields (83 U) | unknown |  |  |
-| Neural Servo Device (84 U) | working | Pepsch OK. Side-Sync on Resolve tip Data/`55d96ef`. | Pepsch + Data/`55d96ef` 2026-09-06 |
-| Nutational Shields (85 U) | unknown |  |  |
+| Metaphasic Shields (83 U) | working | Pepsch green. | Pepsch 2026-09-06 |
+| Neural Servo Device (84 U) | working | Pepsch green; Side-Sync OK (Data/55d96ef). | Pepsch 2026-09-06 |
+| Nutational Shields (85 U) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Pattern Enhancers (86 C) | unknown |  |  |
-| Plasma Fire (87 C) | unknown |  |  |
+| Plasma Fire (87 C) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Q-Net (88 C) | unknown |  |  |
 | Raise the Stakes (89 U) | unknown |  |  |
-| Red Alert! (90 C) | unknown |  |  |
+| Red Alert! (90 C) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Res-Q (91 C) | unknown |  |  |
-| Spacedock (92 C) | unknown |  |  |
-| Static Warp Bubble (93 C) | unknown |  |  |
+| Spacedock (92 C) | working | Pepsch green. | Pepsch 2026-09-06 |
+| Static Warp Bubble (93 C) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Subspace Warp Rift (94 C) | unknown |  |  |
 | Supernova (95 R) | unknown |  |  |
 | Telepathic Alien Kidnappers (96 U) | unknown |  |  |
 | Tetryon Field (97 C) | unknown |  |  |
-| The Traveler: Transcendence (98 U) | unknown |  |  |
+| The Traveler: Transcendence (98 U) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Treaty: Federation/Klingon (99 C) | unknown |  |  |
 | Treaty: Federation/Romulan (100 C) | unknown |  |  |
 | Treaty: Romulan/Klingon (101 C) | unknown |  |  |
-| Warp Core Breach (102 R) | unknown |  |  |
-| Where No One Has Gone Before (103 C) | unknown |  |  |
+| Warp Core Breach (102 R) | working | Pepsch green. | Pepsch 2026-09-06 |
+| Where No One Has Gone Before (103 C) | working | Pepsch green. | Pepsch 2026-09-06 |
 
 ### Facility
 
@@ -195,7 +195,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Amanda Rogers (108 U) | unknown |  |  |
 | Asteroid Sanctuary (109 C) | unknown |  |  |
 | Auto-Destruct Sequence (110 U) | unknown |  |  |
-| Crosis (111 R) | unknown |  |  |
+| Crosis (111 R) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Disruptor Overload (112 C) | unknown |  |  |
 | Distortion of Space/Time Continuum (113 U) | unknown |  |  |
 | Emergency Transporter Armbands (114 C) | unknown |  |  |
@@ -218,7 +218,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Palor Toff: Alien Trader (131 C) | unknown |  |  |
 | Particle Fountain (132 C) | unknown |  |  |
 | Q2 (133 U) | unknown |  |  |
-| Rogue Borg (134 C) | unknown |  |  |
+| Rogue Borg (134 C) | working | Pepsch green (Rogue Borg Mercenaries). | Pepsch 2026-09-06 |
 | Scan (135 C) | unknown |  |  |
 | Ship Seizure (136 C) | unknown |  |  |
 | Subspace Interference (137 C) | unknown |  |  |
@@ -227,9 +227,9 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Temporal Rift (140 U) | unknown |  |  |
 | The Devil (141 R) | unknown |  |  |
 | The Juggler (142 U) | unknown |  |  |
-| Transwarp Conduit (143 U) | unknown |  |  |
+| Transwarp Conduit (143 U) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Vulcan Mindmeld (144 U) | unknown |  |  |
-| Wormhole (145 C) | unknown |  |  |
+| Wormhole (145 C) | working | Pepsch green. | Pepsch 2026-09-06 |
 
 ### Mission
 
