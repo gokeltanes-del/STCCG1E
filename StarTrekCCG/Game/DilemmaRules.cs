@@ -116,8 +116,7 @@ public static class DilemmaRules
                 5, "3 SECURITY or STRENGTH>40"),
             "Archer" => UnlessThen(ctx, Skill(ctx, "MEDICAL") && Skill(ctx, "SECURITY"),
                 HighestAttr(ctx), "MEDICAL and SECURITY", "Archer kills highest attribute total.", true),
-            "Anaphasic Organism" => UnlessThen(ctx, Skill(ctx, "MEDICAL") && Skill(ctx, "SECURITY"),
-                HighestFemale(ctx), "MEDICAL and SECURITY", "Highest female is discarded.", true),
+            "Anaphasic Organism" => Anaphasic(ctx),
             "El-Adrel Creature" => ElAdrel(ctx),
             "Firestorm" => Firestorm(ctx), // INTEGRITY<5 die; discard; attempt continues
             "Microvirus" => UnlessScoreOr(ctx, Skill(ctx, "MEDICAL") && Skill(ctx, "SECURITY"),
@@ -612,7 +611,14 @@ public static class DilemmaRules
 
     private static Card? HighestFemale(Ctx ctx)
     {
-        return ctx.Team.Where(IsFemale).OrderByDescending(p => TotalAttr(ctx, p)).FirstOrDefault();
+        var females = ctx.Team.Where(IsFemale).ToList();
+        if (females.Count == 0) return null;
+        int max = females.Max(p => TotalAttr(ctx, p));
+        var tied = females.Where(p => TotalAttr(ctx, p) == max).ToList();
+        if (tied.Count == 1) return tied[0];
+        // Same phrase as Archer ("highest total attributes") -> opponent chooses on tie.
+        return ctx.PickOpp?.Invoke("Anaphasic Organism: choose which female is discarded (highest attribute tie)", tied)
+               ?? tied[0];
     }
 
     private static Result UnlessThen(Ctx ctx, bool ok, Card? victim, string need, string failMsg, bool discardAlways)
@@ -1063,6 +1069,120 @@ public static class DilemmaRules
             return "fail(space): expected WallFailed+Stop, no BeamBack";
         if (ShouldRemoveFromSeed(failSpace.Fate))
             return "fail space: dilemma must stay under mission";
+
+        return null;
+    }
+    // ---- Anaphasic Organism (Premiere 12 C) ----
+    // Printed: "Unless MEDICAL and SECURITY present, discards female with highest total attributes. Discard dilemma."
+    // requires Female -> no female present: no effect, discard dilemma, attempt continues.
+
+    private static Result Anaphasic(Ctx ctx)
+    {
+        if (Skill(ctx, "MEDICAL") && Skill(ctx, "SECURITY"))
+            return new Result { Fate = Fate.Overcome, Message = "Anaphasic Organism: MEDICAL and SECURITY present." };
+
+        var females = ctx.Team.Where(IsFemale).ToList();
+        if (females.Count == 0)
+            return new Result
+            {
+                Fate = Fate.Overcome,
+                Message = "Anaphasic Organism: no female present - dilemma has no effect."
+            };
+
+        var victim = HighestFemale(ctx);
+        var r = new Result
+        {
+            Fate = Fate.EffectAndEnd,
+            StopTeam = true,
+            Message = victim != null
+                ? $"Anaphasic Organism: {victim.Name} discarded (highest female attributes)."
+                : "Anaphasic Organism: highest female discarded."
+        };
+        AddKill(r.Kill, victim);
+        return r;
+    }
+
+    /// <summary>DE mini-test for Anaphasic Organism. Returns null if OK, else failure reason.</summary>
+    public static string? VerifyAnaphasicOrganism()
+    {
+        static Card P(string name, string cls, string text, string chars, string i, string c, string s) => new()
+        {
+            Name = name,
+            Type = "Personnel",
+            Class = cls,
+            Text = text,
+            Characteristics = chars,
+            IntegrityOrRange = i,
+            CunningOrWeapons = c,
+            StrengthOrShields = s
+        };
+
+        static Ctx Make(params Card[] team) => new()
+        {
+            Dilemma = new Card { Name = "Anaphasic Organism", Type = "Dilemma" },
+            Mission = new Card { Name = "Test Planet", Type = "Mission", MissionDilemmaType = "[P]" },
+            Team = team,
+            Present = team,
+            AttemptingPlayer = 1,
+            Rng = new Random(1)
+        };
+
+        var bev = P("Beverly Crusher", "MEDICAL", "MEDICAL MEDICAL Biology", "Human; Female;", "8", "8", "5");
+        var tasha = P("Tasha Yar", "SECURITY", "SECURITY Honor Leadership", "Human; Female;", "8", "7", "8");
+        var worf = P("Worf", "SECURITY", "SECURITY Honor", "Klingon; Male;", "8", "6", "10");
+        var data = P("Data", "OFFICER", "OFFICER ENGINEER Computer Skill", "Android; Male;", "8", "12", "12");
+        var lowF = P("Ensign Low", "CIVILIAN", "CIVILIAN", "Human; Female;", "4", "4", "3");
+
+        // Pass: MEDICAL + SECURITY
+        var pass = Resolve(Make(bev, tasha, worf));
+        if (pass.Fate != Fate.Overcome || pass.StopTeam || pass.Kill.Count != 0)
+            return "pass MED+SEC: expected Overcome, no stop/kill";
+        if (!ShouldRemoveFromSeed(pass.Fate))
+            return "pass: dilemma should discard";
+
+        // No female: no effect (requires Female)
+        var noF = Resolve(Make(worf, data));
+        if (noF.Fate != Fate.Overcome || noF.StopTeam || noF.Kill.Count != 0)
+            return "no female: expected Overcome no-effect, no stop/kill";
+
+        // Fail (no SECURITY): discard highest female among Beverly(21) vs lowF(11) -> Beverly
+        var fail = Resolve(Make(bev, lowF, data));
+        if (fail.Fate != Fate.EffectAndEnd || !fail.StopTeam)
+            return "fail: expected EffectAndEnd + StopTeam";
+        if (fail.Kill.Count != 1 || fail.Kill[0].Name != "Beverly Crusher")
+            return $"fail: expected kill Beverly Crusher, got [{string.Join(",", fail.Kill.Select(k => k.Name))}]";
+        if (!ShouldRemoveFromSeed(fail.Fate))
+            return "fail: dilemma should discard (EffectAndEnd)";
+
+        // Fail (no MEDICAL): SECURITY female present -> Tasha discarded
+        var failSec = Resolve(Make(tasha, data));
+        if (failSec.Fate != Fate.EffectAndEnd || failSec.Kill.Count != 1 || failSec.Kill[0].Name != "Tasha Yar")
+            return "fail no-MEDICAL: expected Tasha Yar discarded";
+
+        // Tie among females -> opponent chooses
+        Card? picked = null;
+        var tieA = P("Female A", "CIVILIAN", "CIVILIAN", "Human; Female;", "5", "5", "5");
+        var tieB = P("Female B", "CIVILIAN", "CIVILIAN", "Human; Female;", "5", "5", "5");
+        var tieCtx = new Ctx
+        {
+            Dilemma = new Card { Name = "Anaphasic Organism", Type = "Dilemma" },
+            Mission = new Card { Name = "Test Planet", Type = "Mission", MissionDilemmaType = "[P]" },
+            Team = new[] { tieA, tieB, data },
+            Present = new[] { tieA, tieB, data },
+            AttemptingPlayer = 1,
+            Rng = new Random(1),
+            PickOpp = (_, list) => { picked = list.First(x => x.Name == "Female B"); return picked; }
+        };
+        var tie = Resolve(tieCtx);
+        if (tie.Fate != Fate.EffectAndEnd || !tie.StopTeam || tie.Kill.Count != 1 || tie.Kill[0].Name != "Female B")
+            return "tie: expected opp-chosen Female B discarded";
+        if (picked?.Name != "Female B")
+            return "tie: PickOpp was not used";
+
+        // Sole female still discarded even if lower attrs than males
+        var sole = Resolve(Make(lowF, data, worf));
+        if (sole.Fate != Fate.EffectAndEnd || sole.Kill.Count != 1 || sole.Kill[0].Name != "Ensign Low")
+            return "sole female: expected Ensign Low discarded";
 
         return null;
     }
