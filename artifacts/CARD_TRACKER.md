@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-06 (Jadzia — Cosmic String #7 tip 85ca39a partial; #8 Crystalline in flight)
+Last updated: 2026-09-06 (Josef — Crystalline Entity #8 tip pending; Spock #8 Soll)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -86,7 +86,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Borg Ship (18 R) | working | Captain/Pepsch „soweit“ — nicht nochmal Dilemma-Welle. | Captain 2026-09-06 |
 | Chalnoth (19 U) | partial | tip Data/`b01d6dc`. Pass 3 SEC OR STR>40 → +5 + Continue; Fail Opp 1 Kill, AT stopped. Ungetestet. | Data/`b01d6dc` 2026-09-06 |
 | Cosmic String Fragment (20 U) | partial | tip Data/`85ca39a`. Pass Astrophysics OR ENG OR Navigation → +5 + Continue; Fail Ship destroy. Ungetestet. | Data/`85ca39a` 2026-09-06 |
-| Crystalline Entity (21 R) | unknown |  |  |
+| Crystalline Entity (21 R) | partial | tip Josef pending. Dual S/P. [P] SCIENCE+MEDICAL else kill AT; [S] Music OR SHIELDS>6 else all life aboard (Stopped/Disabled/Intruder; NOT Stasis) + ship stopped (no destroy). Overcome +5; discard. Spock #8 Soll. PARK Lore-Double. Ungetestet. | Josef + Spock 2026-09-06 |
 | Cytherians (22 R) | unknown |  |  |
 | El-Adrel Creature (23 U) | unknown |  |  |
 | Female's Love Interest (24 C) | working | Pepsch getestet OK (Continue after Relocate). | Pepsch 2026-09-06 |

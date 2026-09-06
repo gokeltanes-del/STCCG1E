@@ -15537,6 +15537,27 @@ public partial class TableWindow : Window
                 RemoveEquipmentFromHost(missionBorder, victim);
         }
 
+
+        // Spock #8 Crystalline Entity (space): all life aboard except Stasis (beyond encounter crew).
+        if (r.KillAllLifeAboardExceptStasis && shipBorder != null)
+        {
+            if (_stackOnHost.TryGetValue(shipBorder, out var aboardStacked))
+            {
+                foreach (var sb in aboardStacked.ToList())
+                {
+                    if (sb.Tag is not Card pc) continue;
+                    if (!(IsCrewType(pc) || (pc.Type ?? "").Contains("personnel", StringComparison.OrdinalIgnoreCase)))
+                        continue;
+                    if (IsCardInStasis(pc)) continue; // NOT Stasis
+                    if (r.Kill.Any(k => ReferenceEquals(k, pc))) continue; // already handled above
+                    int victimOwner = CardOwner(sb);
+                    if (victimOwner == 0) victimOwner = GetBorderOwner(sb);
+                    if (victimOwner == 0) victimOwner = _activePlayer;
+                    DiscardPersonnelBorder(sb, pc, victimOwner, allowGenetronicSave: true);
+                }
+            }
+        }
+
         // Resign / discard without kill (Anaphasic Organism): same pile, no Genetronic save
         foreach (var victim in r.Discard.ToList())
         {

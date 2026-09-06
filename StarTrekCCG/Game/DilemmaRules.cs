@@ -68,6 +68,8 @@ public static class DilemmaRules
         public bool DrawForDiscarded { get; init; }
         /// <summary>#1a Alien Parasites fail (planet): beam Away Team back to ship/outpost before stop.</summary>
         public bool BeamBackTeam { get; init; }
+        /// <summary>Spock #8 Crystalline Entity (space fail): kill all life aboard (Stopped/Disabled/Intruder; NOT Stasis). Apply expands beyond encounter Team.</summary>
+        public bool KillAllLifeAboardExceptStasis { get; init; }
     }
 
     public sealed class Ctx
@@ -705,18 +707,40 @@ public static class DilemmaRules
         return r;
     }
 
+    // ---- Crystalline Entity (Premiere 21 R) ----
+    // Printed (PR): "[P]: Unless MEDICAL and SCIENCE, kills Away Team.
+    // [S]: Unless Music OR SHIELDS>6, kills all personnel on ship.
+    // Then: Discard dilemma. Score points if overcome."
+    // Spock #8 Soll / DRG / Glossary: Dual [S/P].
+    // Planet pass SCIENCE+MEDICAL -> Overcome +5 Continue (discard).
+    // Planet fail -> entire AT killed, EffectAndEnd+StopTeam, discard.
+    // Space pass Music OR SHIELDS>6 -> Overcome +5 Continue (discard).
+    // Space fail -> ALL life aboard dies (Stopped/Disabled/Intruder; NOT Stasis)
+    // via KillAllLifeAboardExceptStasis (Apply beyond encounter crew); Ship stopped
+    // (StopTeam); discard. Does NOT destroy the ship.
+    // PARK: Lore-Double interaction (later / Lore not in this dilemma scope).
+
     private static Result Crystalline(Ctx ctx)
     {
         bool planet = MissionRules.IsPlanetMission(ctx.Mission);
         bool ok = planet
-            ? Skill(ctx, "MEDICAL") && Skill(ctx, "SCIENCE")
+            ? Skill(ctx, "SCIENCE") && Skill(ctx, "MEDICAL")
             : Skill(ctx, "Music") || ctx.ShipShields > 6;
         if (ok)
-            return new Result { Fate = Fate.Overcome, Score = 5, Message = "Crystalline Entity overcome → +5." };
-        var r = new Result { Fate = Fate.EffectAndEnd, StopTeam = true, Message = planet ? "Away Team dies." : "Crew dies." };
-        r.Kill.AddRange(ctx.Team);
+            return new Result { Fate = Fate.Overcome, Score = 5, Message = "Crystalline Entity overcome -> +5." };
+        var r = new Result
+        {
+            Fate = Fate.EffectAndEnd,
+            StopTeam = true, // space: ship stopped via StopMissionAttemptTeam
+            KillAllLifeAboardExceptStasis = !planet,
+            Message = planet
+                ? "Crystalline Entity: Away Team killed (need SCIENCE and MEDICAL)."
+                : "Crystalline Entity: all life aboard killed (need Music or SHIELDS>6); ship stopped."
+        };
+        r.Kill.AddRange(ctx.Team); // planet: entire AT; space: encounter crew seed (Apply expands)
         return r;
     }
+
 
     private static Result SpaceUnless(Ctx ctx, bool ok, bool damage, string need, bool destroy = false)
     {
@@ -1638,6 +1662,129 @@ public static class DilemmaRules
             return $"empty: expected EffectAndEnd+Stop+DestroyShip, got {empty.Fate}/stop={empty.StopTeam}/destroy={empty.DestroyShip}";
         if (!ShouldRemoveFromSeed(empty.Fate))
             return "empty: dilemma should discard";
+
+        return null;
+    }
+
+    /// <summary>DE mini-test for Crystalline Entity. Returns null if OK, else failure reason.</summary>
+    public static string? VerifyCrystallineEntity()
+    {
+        static Card P(string name, string cls, string text) => new()
+        {
+            Name = name,
+            Type = "Personnel",
+            Class = cls,
+            Text = text,
+            Characteristics = "Human; Male;",
+            IntegrityOrRange = "5",
+            CunningOrWeapons = "5",
+            StrengthOrShields = "5"
+        };
+
+        static Ctx MakePlanet(params Card[] team) => new()
+        {
+            Dilemma = new Card { Name = "Crystalline Entity", Type = "Dilemma", MissionDilemmaType = "[S/P]" },
+            Mission = new Card { Name = "Test Planet", Type = "Mission", MissionDilemmaType = "[P]" },
+            Team = team,
+            Present = team,
+            AttemptingPlayer = 1,
+            Rng = new Random(1)
+        };
+
+        static Ctx MakeSpace(int shields, params Card[] team) => new()
+        {
+            Dilemma = new Card { Name = "Crystalline Entity", Type = "Dilemma", MissionDilemmaType = "[S/P]" },
+            Mission = new Card { Name = "Test Space", Type = "Mission", MissionDilemmaType = "[S]" },
+            Team = team,
+            Present = team,
+            ShipShields = shields,
+            AttemptingPlayer = 1,
+            Rng = new Random(1)
+        };
+
+        var med = P("Med One", "MEDICAL", "MEDICAL");
+        var sci = P("Sci One", "SCIENCE", "SCIENCE");
+        var music = P("Musician", "CIVILIAN", "Music");
+        var civ = P("Civilian", "CIVILIAN", "CIVILIAN");
+
+        // Planet pass: MEDICAL + SCIENCE -> Overcome +5, no kill, discard
+        var passP = Resolve(MakePlanet(med, sci, civ));
+        if (passP.Fate != Fate.Overcome || passP.StopTeam || passP.Score != 5)
+            return $"planet pass: expected Overcome Score=5 no stop, got {passP.Fate}/{passP.Score}/stop={passP.StopTeam}";
+        if (passP.Kill.Count != 0)
+            return "planet pass: should not kill";
+        if (passP.DestroyShip)
+            return "planet pass: must not destroy ship";
+        if (!ShouldRemoveFromSeed(passP.Fate))
+            return "planet pass: dilemma should discard";
+
+        // Planet fail: MEDICAL only
+        var failMed = Resolve(MakePlanet(med, civ));
+        if (failMed.Fate != Fate.EffectAndEnd || !failMed.StopTeam || failMed.Kill.Count != 2)
+            return $"planet fail MEDICAL-only: expected EffectAndEnd+Stop kill-all, got {failMed.Fate}/stop={failMed.StopTeam}/kills={failMed.Kill.Count}";
+        if (failMed.Score != 0 || failMed.DestroyShip)
+            return "planet fail MEDICAL-only: no score, no ship destroy";
+        if (!ShouldRemoveFromSeed(failMed.Fate))
+            return "planet fail MEDICAL-only: dilemma should discard";
+
+        // Planet fail: SCIENCE only
+        var failSci = Resolve(MakePlanet(sci));
+        if (failSci.Fate != Fate.EffectAndEnd || !failSci.StopTeam || failSci.Kill.Count != 1)
+            return $"planet fail SCIENCE-only: expected EffectAndEnd+Stop kill 1, got {failSci.Fate}/stop={failSci.StopTeam}/kills={failSci.Kill.Count}";
+        if (!ShouldRemoveFromSeed(failSci.Fate))
+            return "planet fail SCIENCE-only: dilemma should discard";
+
+        // Space pass: Music (shields 0)
+        var passMusic = Resolve(MakeSpace(0, music, civ));
+        if (passMusic.Fate != Fate.Overcome || passMusic.Score != 5 || passMusic.StopTeam)
+            return $"space pass Music: expected Overcome +5 no stop, got {passMusic.Fate}/{passMusic.Score}/stop={passMusic.StopTeam}";
+        if (passMusic.Kill.Count != 0 || passMusic.DestroyShip)
+            return "space pass Music: no kill, no destroy";
+        if (!ShouldRemoveFromSeed(passMusic.Fate))
+            return "space pass Music: dilemma should discard";
+
+        // Space pass: SHIELDS>6 (boundary 7) without Music
+        var passSh = Resolve(MakeSpace(7, civ));
+        if (passSh.Fate != Fate.Overcome || passSh.Score != 5 || passSh.StopTeam || passSh.DestroyShip)
+            return $"space pass SHIELDS=7: expected Overcome +5 no stop/destroy, got {passSh.Fate}/{passSh.Score}/stop={passSh.StopTeam}/destroy={passSh.DestroyShip}";
+        if (!ShouldRemoveFromSeed(passSh.Fate))
+            return "space pass SHIELDS=7: dilemma should discard";
+
+        // Space fail: SHIELDS==6 boundary (not >6), no Music -> kill all personnel, NOT destroy ship
+        var failEq6 = Resolve(MakeSpace(6, civ, med));
+        if (failEq6.Fate != Fate.EffectAndEnd || !failEq6.StopTeam || failEq6.Kill.Count != 2)
+            return $"space fail SHIELDS=6: expected EffectAndEnd+Stop kill-all, got {failEq6.Fate}/stop={failEq6.StopTeam}/kills={failEq6.Kill.Count}";
+        if (failEq6.DestroyShip || failEq6.DamageShip)
+            return "space fail SHIELDS=6: must kill life aboard, not destroy/damage ship";
+        if (!failEq6.KillAllLifeAboardExceptStasis)
+            return "space fail SHIELDS=6: KillAllLifeAboardExceptStasis required (Glossary beyond encounter crew)";
+        if (failEq6.Score != 0)
+            return "space fail SHIELDS=6: should not score";
+        if (!ShouldRemoveFromSeed(failEq6.Fate))
+            return "space fail SHIELDS=6: dilemma should discard";
+
+        // Space fail: no Music, shields 0
+        var failSpace = Resolve(MakeSpace(0, civ));
+        if (failSpace.Fate != Fate.EffectAndEnd || !failSpace.StopTeam || failSpace.Kill.Count != 1 || failSpace.DestroyShip)
+            return $"space fail: expected EffectAndEnd+Stop kill crew no destroy, got {failSpace.Fate}/stop={failSpace.StopTeam}/kills={failSpace.Kill.Count}/destroy={failSpace.DestroyShip}";
+        if (!failSpace.KillAllLifeAboardExceptStasis)
+            return "space fail: KillAllLifeAboardExceptStasis required";
+        if (!ShouldRemoveFromSeed(failSpace.Fate))
+            return "space fail: dilemma should discard";
+
+
+        // Planet/pass must NOT set all-aboard flag
+        if (failMed.KillAllLifeAboardExceptStasis || failSci.KillAllLifeAboardExceptStasis)
+            return "planet fail: must not set KillAllLifeAboardExceptStasis";
+        if (passMusic.KillAllLifeAboardExceptStasis || passSh.KillAllLifeAboardExceptStasis || passP.KillAllLifeAboardExceptStasis)
+            return "pass: must not set KillAllLifeAboardExceptStasis";
+
+        // Empty planet fail: EffectAndEnd + Stop, no kill, discard
+        var emptyP = Resolve(MakePlanet());
+        if (emptyP.Fate != Fate.EffectAndEnd || !emptyP.StopTeam || emptyP.Kill.Count != 0)
+            return $"empty planet: expected EffectAndEnd+Stop no kill, got {emptyP.Fate}/stop={emptyP.StopTeam}/kills={emptyP.Kill.Count}";
+        if (!ShouldRemoveFromSeed(emptyP.Fate))
+            return "empty planet: dilemma should discard";
 
         return null;
     }
