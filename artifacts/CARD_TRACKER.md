@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-06 (Jadzia — Pepsch reports: Love Interest/Hologram Ruse/Barclay Proto working; Archer partial)
+Last updated: 2026-09-06 (Jadzia — Servo Side-Sync 55d96ef; Spock Abduction Cure OR + Stopped no-beam)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -75,11 +75,11 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 
 | Card | Status | Notes | Source |
 | --- | --- | --- | --- |
-| Alien Abduction (10 U) | partial | Cure-Pfad feuert; Pepsch: Release erst bei Mission solved (nicht sofort bei 3 Leadership). Spock klaeren. | Pepsch 2026-09-06 |
+| Alien Abduction (10 U) | partial | Spock Soll Cure OR (3 Leadership present OR mission solved). Pepsch Ist: Release erst Mission solved — Data Fix. | Pepsch + Spock 2026-09-06 |
 | Alien Parasites (11 U) | unknown |  |  |
 | Anaphasic Organism (12 C) | unknown |  |  |
 | Ancient Computer (13 R) | unknown |  |  |
-| Archer (14 C) | partial | Kill+Stop OK. Stopped fehlt in Detail-Status; Beam trotz Stopped offen. | Pepsch 2026-09-06 |
+| Archer (14 C) | partial | Kill+Stop OK. Stopped Detail + Beam-Block (Spock: Stopped kein Beam) offen — Data Fix. | Pepsch + Spock 2026-09-06 |
 | Armus: Skin Of Evil (15 R) | unknown |  |  |
 | Barclay's Protomorphosis Disease (16 R) | working | Pepsch getestet OK (Metamorphosis/Transformation). | Pepsch 2026-09-06 |
 | Birth of "Junior" (17 U) | unknown |  |  |
@@ -158,7 +158,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Lore's Fingernail (81 R) | unknown |  |  |
 | Masaka Transformations (82 U) | unknown |  |  |
 | Metaphasic Shields (83 U) | unknown |  |  |
-| Neural Servo Device (84 U) | working | Pepsch getestet OK. UI Seite-Sync on resolve (Data tip pending). | Pepsch 2026-09-06 |
+| Neural Servo Device (84 U) | working | Pepsch OK. Side-Sync on Resolve tip Data/`55d96ef`. | Pepsch + Data/`55d96ef` 2026-09-06 |
 | Nutational Shields (85 U) | unknown |  |  |
 | Pattern Enhancers (86 C) | unknown |  |  |
 | Plasma Fire (87 C) | unknown |  |  |
