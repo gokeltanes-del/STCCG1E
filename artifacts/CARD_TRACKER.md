@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-06 (Jadzia — El-Adrel #10 tip 4b3467b partial; next5 #11+)
+Last updated: 2026-09-06 (Jadzia — Firestorm #11 partial; next #12+)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -90,7 +90,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Cytherians (22 R) | partial | tip Data/`baa9fd5`. Place+Attempt-end; far-end +15. PARK: LegalMoves-toward-far-end; Borg no-pts; Mission Debriefing. Ungetestet. | Data/`baa9fd5` 2026-09-06 |
 | El-Adrel Creature (23 U) | partial | tip Data/`4b3467b`. 2 staerkste (Tie=Owner); STR>16 Continue; Fail random Kill + AT stop. Ungetestet. | Data/`4b3467b` 2026-09-06 |
 | Female's Love Interest (24 C) | working | Pepsch getestet OK (Continue after Relocate). | Pepsch 2026-09-06 |
-| Firestorm (25 U) | unknown |  |  |
+| Firestorm (25 U) | partial | INT<5 after Eff die; Rest Continue; TD nullify. PARK ETA-Escape Response. Ungetestet. | Data 2026-09-06 |
 | Gravitic Mine (26 U) | unknown |  |  |
 | Hologram Ruse (27 U) | working | Pepsch getestet OK. | Pepsch 2026-09-06 |
 | Hyper-Aging (28 U) | working | Pepsch green (AttachAndContinue). | Pepsch 2026-09-06 |

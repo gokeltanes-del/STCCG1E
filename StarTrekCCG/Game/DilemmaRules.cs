@@ -116,7 +116,7 @@ public static class DilemmaRules
                 HighestAttr(ctx), "MEDICAL and SECURITY", "Archer kills highest attribute total.", true),
             "Anaphasic Organism" => Anaphasic(ctx),
             "El-Adrel Creature" => ElAdrel(ctx),
-            "Firestorm" => Firestorm(ctx), // INTEGRITY<5 die; discard; attempt continues
+            "Firestorm" => Firestorm(ctx),
             "Microvirus" => UnlessScoreOr(ctx, Skill(ctx, "MEDICAL") && Skill(ctx, "SECURITY"),
                 () => PickKill(ctx, opp: true, "Microvirus: opponent chooses (no inorganic).", exceptInorganic: true),
                 5, "MEDICAL and SECURITY"),
@@ -866,19 +866,104 @@ public static class DilemmaRules
     }
 
 
+    // ---- Firestorm (Premiere 25 U) ----
+    // Printed (PR): "Kills all Away Team members with INTEGRITY<5. Discard dilemma."
+    // Spock #11 Soll / DRG Firestorm (TD/ETA != Conditions):
+    //   Planet; NO Condition-Wall. INT after Enhancements (Eff) <5 die; Rest Continue;
+    //   dilemma discard (EffectAndContinue). Boundary INT==5 survives.
+    //   Thermal Deflectors in play -> nullify/discard + Continue (Overcome, no kills).
+    //   PARK: ETA-Escape = Response (timing); UI thin — not wired here.
+
     private static Result Firestorm(Ctx ctx)
     {
         if (ctx.ThermalDeflectors)
             return new Result { Fate = Fate.Overcome, Message = "Firestorm nullified (Thermal Deflectors)." };
         var r = new Result
         {
-            Fate = Fate.Overcome,
+            Fate = Fate.EffectAndContinue,
             StopTeam = false,
             Message = "Firestorm: Away Team members with INTEGRITY<5 are killed. Discard dilemma."
         };
         foreach (var p in ctx.Team.Where(p => Eff(ctx, p).Integrity < 5))
-            r.Kill.Add(p);
+            AddKill(r.Kill, p);
         return r;
+    }
+
+    /// <summary>DE mini-test for Firestorm. Returns null if OK, else failure reason.</summary>
+    public static string? VerifyFirestorm()
+    {
+        static Card P(string name, string integ) => new()
+        {
+            Name = name,
+            Type = "Personnel",
+            Class = "OFFICER",
+            Text = "OFFICER",
+            Characteristics = "Human; Male;",
+            IntegrityOrRange = integ,
+            CunningOrWeapons = "5",
+            StrengthOrShields = "5"
+        };
+
+        static Ctx Make(bool thermal = false, params Card[] team) => new()
+        {
+            Dilemma = new Card { Name = "Firestorm", Type = "Dilemma", MissionDilemmaType = "[P]" },
+            Mission = new Card { Name = "Test Planet", Type = "Mission", MissionDilemmaType = "[P]" },
+            Team = team,
+            Present = team,
+            AttemptingPlayer = 1,
+            Rng = new Random(1),
+            ThermalDeflectors = thermal
+        };
+
+        var low3 = P("Low3", "3");
+        var low4 = P("Low4", "4");
+        var eq5 = P("Eq5", "5");
+        var high7 = P("High7", "7");
+
+        // Mixed: kill only INTEGRITY<5; survivors continue; discard
+        var mixed = Resolve(Make(false, low3, low4, eq5, high7));
+        if (mixed.Fate != Fate.EffectAndContinue || mixed.StopTeam)
+            return $"mixed: expected EffectAndContinue no stop, got {mixed.Fate}/stop={mixed.StopTeam}";
+        if (mixed.Kill.Count != 2
+            || !mixed.Kill.Any(k => k.Name == "Low3")
+            || !mixed.Kill.Any(k => k.Name == "Low4"))
+            return $"mixed: expected kill Low3+Low4, got [{string.Join(",", mixed.Kill.Select(k => k.Name))}]";
+        if (mixed.Kill.Any(k => k.Name is "Eq5" or "High7"))
+            return "mixed: INTEGRITY>=5 must survive";
+        if (!ShouldRemoveFromSeed(mixed.Fate))
+            return "mixed: dilemma should discard";
+
+        // Boundary INTEGRITY==5 alone: no kill, still EffectAndContinue + discard
+        var boundary = Resolve(Make(false, eq5));
+        if (boundary.Fate != Fate.EffectAndContinue || boundary.StopTeam || boundary.Kill.Count != 0)
+            return $"boundary INT=5: expected EffectAndContinue no kill/stop, got {boundary.Fate}/kills={boundary.Kill.Count}/stop={boundary.StopTeam}";
+        if (!ShouldRemoveFromSeed(boundary.Fate))
+            return "boundary INT=5: dilemma should discard";
+
+        // All low: all die; continue (no StopTeam); discard
+        var allLow = Resolve(Make(false, low3, low4));
+        if (allLow.Fate != Fate.EffectAndContinue || allLow.StopTeam)
+            return $"allLow: expected EffectAndContinue no stop, got {allLow.Fate}/stop={allLow.StopTeam}";
+        if (allLow.Kill.Count != 2)
+            return $"allLow: expected 2 kills, got {allLow.Kill.Count}";
+        if (!ShouldRemoveFromSeed(allLow.Fate))
+            return "allLow: dilemma should discard";
+
+        // Empty Away Team: no kill, discard + continue
+        var empty = Resolve(Make());
+        if (empty.Fate != Fate.EffectAndContinue || empty.StopTeam || empty.Kill.Count != 0)
+            return $"empty: expected EffectAndContinue no stop/kill, got {empty.Fate}/stop={empty.StopTeam}/kills={empty.Kill.Count}";
+        if (!ShouldRemoveFromSeed(empty.Fate))
+            return "empty: dilemma should discard";
+
+        // Thermal Deflectors: nullify -> Overcome, no kills, discard
+        var thermal = Resolve(Make(true, low3, eq5));
+        if (thermal.Fate != Fate.Overcome || thermal.StopTeam || thermal.Kill.Count != 0)
+            return $"thermal: expected Overcome no stop/kill, got {thermal.Fate}/stop={thermal.StopTeam}/kills={thermal.Kill.Count}";
+        if (!ShouldRemoveFromSeed(thermal.Fate))
+            return "thermal: dilemma should discard";
+
+        return null;
     }
 
     private static Result Nagilum(Ctx ctx)

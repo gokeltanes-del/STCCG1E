@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Feat - Firestorm Premiere)
+
+**Engine** - Firestorm (PR 25 U): Planet — no Condition-Wall. Personnel with INT<5 after Enhancements (`Eff`) die; Rest Continue; dilemma discard (`EffectAndContinue`). Boundary INT==5 survives. Thermal Deflectors in play -> nullify/discard + Continue (`Overcome`). Spock #11 Soll / DRG Firestorm (TD/ETA != Conditions). Decide: `DilemmaRules.Firestorm` + `VerifyFirestorm`. PARK: ETA-Escape Response timing (UI thin).
+
+---
 ## 2026-09-06 (Feat - El-Adrel Creature Premiere)
 
 **Engine** - El-Adrel Creature (PR 23 U): Planet — Targets two strongest AT (Tie = Dilemma-Owner / `PickOpp`). Pass combined STR >16 → Overcome Continue + discard (no points). Fail → 1 of the two random killed; rest of AT stopped; discard (`EffectAndEnd`+`StopTeam`). Boundary STR==16 fails. Spock #10 Soll / DRG El-Adrel Creature. Decide: `DilemmaRules.ElAdrel` + `VerifyElAdrelCreature`.
