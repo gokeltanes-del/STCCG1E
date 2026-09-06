@@ -6913,6 +6913,18 @@ public partial class TableWindow : Window
             _attachedEvents.Remove(e);
             SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
         }
+        // Alien Abduction: mission completed is an OR cure - release Held + discard dilemma
+        foreach (var d in _attachedDilemmas.Where(x =>
+                     x.Kind == DilemmaRules.PersistKind.Abduction
+                     && ReferenceEquals(x.Host, missionBorder)).ToList())
+        {
+            ClearStasisForDilemma(d);
+            _attachedDilemmas.Remove(d);
+            SendCardTo(d.Card, player, TimingRules.Destination.Discard);
+            _session.Log.Add(_session.TurnNumber, $"P{player}",
+                $"Alien Abduction cured (mission completed): {d.Card.Name}");
+        }
+
         // Any Edo Probe "abandon" locks on other missions lift when a different mission is solved.
         foreach (var d in _attachedDilemmas.Where(x => x.Kind == DilemmaRules.PersistKind.EdoProbe).ToList())
         {
@@ -9251,6 +9263,8 @@ public partial class TableWindow : Window
         ApplyCloakVisual(ship, cloaked);
     }
 
+    private const string CloakNebulaOverlayTag = "CloakNebulaOverlay";
+
     private void ApplyCloakVisual(Border border, bool cloaked)
     {
         var cloakBorder = Color.FromRgb(0x10, 0x10, 0x10);
@@ -9266,17 +9280,83 @@ public partial class TableWindow : Window
                 ShadowDepth = 0,
                 Opacity = 0.9
             };
+            EnsureCloakNebulaOverlay(border, true);
         }
-        else if (border.Effect is System.Windows.Media.Effects.DropShadowEffect dse
-                 && (dse.Color == cloakGlow || dse.Color == cloakBorder))
+        else
         {
-            border.Effect = null;
-            if (border.BorderBrush is SolidColorBrush scb && scb.Color == cloakBorder)
+            EnsureCloakNebulaOverlay(border, false);
+            if (border.Effect is System.Windows.Media.Effects.DropShadowEffect dse
+                && (dse.Color == cloakGlow || dse.Color == cloakBorder))
             {
-                border.BorderBrush = new SolidColorBrush(Color.FromRgb(90, 90, 90));
-                border.BorderThickness = new Thickness(1);
+                border.Effect = null;
+                if (border.BorderBrush is SolidColorBrush scb && scb.Color == cloakBorder)
+                {
+                    border.BorderBrush = new SolidColorBrush(Color.FromRgb(90, 90, 90));
+                    border.BorderThickness = new Thickness(1);
+                }
             }
         }
+    }
+
+    /// <summary>Pepsch: Cloaked = black fog/nebula overlay on the ship art (not only border).</summary>
+    private void EnsureCloakNebulaOverlay(Border border, bool cloaked)
+    {
+        if (cloaked)
+        {
+            if (FindCloakNebulaOverlay(border) != null) return;
+
+            UIElement? art = border.Child;
+            if (art == null) return;
+
+            var grid = new Grid { IsHitTestVisible = true };
+            border.Child = null;
+            grid.Children.Add(art);
+
+            var fog = new System.Windows.Shapes.Rectangle
+            {
+                Tag = CloakNebulaOverlayTag,
+                IsHitTestVisible = false,
+                Stretch = System.Windows.Media.Stretch.Fill,
+                Fill = new RadialGradientBrush
+                {
+                    GradientOrigin = new Point(0.45, 0.35),
+                    Center = new Point(0.5, 0.5),
+                    RadiusX = 0.9,
+                    RadiusY = 0.9,
+                    GradientStops =
+                    {
+                        new GradientStop(Color.FromArgb(0x55, 0x00, 0x00, 0x00), 0.0),
+                        new GradientStop(Color.FromArgb(0xB8, 0x05, 0x05, 0x0C), 0.45),
+                        new GradientStop(Color.FromArgb(0xE6, 0x00, 0x00, 0x00), 1.0)
+                    }
+                }
+            };
+            grid.Children.Add(fog);
+            border.Child = grid;
+        }
+        else
+        {
+            var fog = FindCloakNebulaOverlay(border);
+            if (fog == null) return;
+            if (border.Child is Grid g)
+            {
+                g.Children.Remove(fog);
+                if (g.Children.Count == 1)
+                {
+                    var only = g.Children[0];
+                    g.Children.Clear();
+                    border.Child = only;
+                }
+            }
+        }
+    }
+
+    private static FrameworkElement? FindCloakNebulaOverlay(Border border)
+    {
+        if (border.Child is Grid g)
+            return g.Children.OfType<FrameworkElement>()
+                .FirstOrDefault(c => Equals(c.Tag, CloakNebulaOverlayTag));
+        return null;
     }
 
     private void SetShipDockedAt(Border ship, Border? facility)
@@ -9628,6 +9708,7 @@ public partial class TableWindow : Window
             }
             return false;
         }
+        if (IsCardInStasis(c)) return false;
         if (!IsBeamableCard(c)) return false;
         return CardOwner(cardBorder) == _activePlayer || GetBorderOwner(cardBorder) == _activePlayer;
     }
@@ -11013,12 +11094,18 @@ public partial class TableWindow : Window
     private bool CanDragOffHost(Card card)
     {
         if (_seedPhaseActive) return true;
+        // Stasis (Abduction / Phased): cannot leave location via drag/walk/beam
+        if (IsCardInStasis(card)) return false;
         if (ModifierRules.IsPersonnelCard(card) || ModifierRules.IsEquipmentCard(card))
             return true;
         if (IsShipCard(card) || IsFacilityCard(card))
             return true;
         return false;
     }
+
+    private static string StasisCannotLeaveMessage(Card card) =>
+        $"{card.Name} is in stasis and cannot leave this location.";
+
 
     /// <summary>
     /// Mini-Karte im Stapel: Klick = Detail, Ziehen = aufs Spielfeld / anderen Host.
@@ -11029,6 +11116,13 @@ public partial class TableWindow : Window
             return;
 
         // Events / dilemmas / artifacts: detail only (drag handled by WireHostStripMini)
+        // Stasis personnel: cannot leave location
+        if (IsCardInStasis(href.Card))
+        {
+            ShowPlayError(StasisCannotLeaveMessage(href.Card));
+            e.Handled = true;
+            return;
+        }
         if (!CanDragOffHost(href.Card))
         {
             e.Handled = true;
@@ -11690,11 +11784,15 @@ public partial class TableWindow : Window
                 or DilemmaRules.Fate.EffectAndEnd
                 or DilemmaRules.Fate.AttachAndEnd
                 or DilemmaRules.Fate.EndAttempt;
+            // EffectAndContinue (Love Interest relocate): NOT failed — attempt continues
             bool placedContinue = dilResult.Fate == DilemmaRules.Fate.AttachAndContinue;
+            bool effectContinue = dilResult.Fate == DilemmaRules.Fate.EffectAndContinue;
 
             string outcomeHeader = failed
                 ? "FAILED - attempt ends"
-                : (placedContinue ? "PLACED - attempt continues" : "OVERCOME");
+                : (placedContinue
+                    ? "PLACED - attempt continues"
+                    : (effectContinue ? "RELOCATED - attempt continues" : "OVERCOME"));
             string victimLine = FormatDilemmaVictims(dilResult);
             string consequences = failed
                 ? (dilResult.StopTeam
@@ -11740,7 +11838,7 @@ public partial class TableWindow : Window
                 AwardDilemmaPoints(dilResult.Score);
             StatusText.Text = logMsg;
             _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
-                $"OVERCOME {seedCard.Name}"
+                $"{(effectContinue ? "RELOCATED" : "OVERCOME")} {seedCard.Name}"
                 + (dilResult.Score > 0 ? $" +{dilResult.Score}" : "")
                 + (victimLine.Length > 0 ? " — " + victimLine : ""));
 
@@ -16344,7 +16442,9 @@ public partial class TableWindow : Window
             if (a.Kind == DilemmaRules.PersistKind.Scow)
                 present = GetCrewOnShip(a.Host); // scow on mission – check ships later
 
-            if (DilemmaRules.CanCure(a.Kind, present, ho))
+            bool missionCompleted = _solvedMissions.Contains(a.Host)
+                || (FindMissionForDockable(a.Host) is Border missHost && _solvedMissions.Contains(missHost));
+            if (DilemmaRules.CanCure(a.Kind, present, ho, missionCompleted))
             {
                 ClearStasisForDilemma(a);
                 _attachedDilemmas.Remove(a);
@@ -19306,6 +19406,11 @@ public partial class TableWindow : Window
 
         foreach (var b in toMove.ToList())
         {
+            if (b.Tag is Card bc && IsCardInStasis(bc))
+            {
+                ShowPlayError(StasisCannotLeaveMessage(bc));
+                continue;
+            }
             RemoveCardFromHostStack(source, b);
             SetBorderOwner(b, _activePlayer);
             AddCardToHostStack(targetHost, b);

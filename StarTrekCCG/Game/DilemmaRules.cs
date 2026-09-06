@@ -22,6 +22,8 @@ public static class DilemmaRules
         AttachAndEnd,
         /// <summary>Place persist on host; attempt continues (no stop).</summary>
         AttachAndContinue,
+        /// <summary>Effect applied (e.g. Love Interest relocate); dilemma discarded; attempt continues (no stop).</summary>
+        EffectAndContinue,
         /// <summary>Versuch endet ohne Stop (z. B. Scow) or mit Sonderfall.</summary>
         EndAttempt
     }
@@ -771,7 +773,7 @@ public static class DilemmaRules
     {
         var victim = ctx.Team.OrderByDescending(p => Eff(ctx, p).Cunning).FirstOrDefault();
         var r = Attach(ctx, PersistKind.Abduction, 0,
-            $"{victim?.Name ?? "?"} in Stasis (3 Leadership zum Befreien).");
+            $"{victim?.Name ?? "?"} in Stasis (cure: 3 Leadership OR mission completed).");
         r.Relocate = victim;
         return r;
     }
@@ -794,7 +796,7 @@ public static class DilemmaRules
             return new Result { Fate = Fate.Overcome, Message = "No matching personnel – dilemma has no effect." };
         return new Result
         {
-            Fate = Fate.EffectAndEnd,
+            Fate = Fate.EffectAndContinue,
             StopTeam = false,
             Relocate = v,
             Message = $"{v.Name} wird zum entferntesten anderen Planeten relocatiert."
@@ -896,7 +898,7 @@ public static class DilemmaRules
             : new Result { Fate = Fate.WallFailed, StopTeam = true, Message = "Kein Katalog-Eintrag – " + h.Reason };
     }
 
-    public static bool CanCure(PersistKind kind, IEnumerable<Card> present, int owner)
+    public static bool CanCure(PersistKind kind, IEnumerable<Card> present, int owner, bool missionCompleted = false)
     {
         var list = present.ToList();
         var team = list.Where(ModifierRules.IsPersonnelCard).ToList();
@@ -918,7 +920,7 @@ public static class DilemmaRules
             PersistKind.Ktarian => Sum(dummy).cunn > 30 || team.Any(IsAndroid),
             PersistKind.HyperAging => Skill(dummy, "MEDICAL", 2) && Skill(dummy, "SCIENCE"),
             PersistKind.RemFatigue => Skill(dummy, "MEDICAL", 3),
-            PersistKind.Abduction => Skill(dummy, "Leadership", 3),
+            PersistKind.Abduction => Skill(dummy, "Leadership", 3) || missionCompleted, // OR mission completed
             PersistKind.Phased => Skill(dummy, "ENGINEER") && Skill(dummy, "SCIENCE"),
             PersistKind.Scow => Skill(dummy, "ENGINEER", 2), // + tractor: UI prüft extra
             _ => false
@@ -942,7 +944,7 @@ public static class DilemmaRules
             PersistKind.Conundrum => "must chase opponent ship",
             PersistKind.EdoProbe => "attempt this mission next or −10",
             PersistKind.FrameOfMind => "personnel is 3-3-3 until 3 Empathy",
-            PersistKind.Abduction => "personnel held (cure: Leadership×3)",
+            PersistKind.Abduction => "personnel held (cure: Leadership x3 OR mission completed)",
             PersistKind.Phased => "personnel phased (ENGINEER + SCIENCE)",
             PersistKind.Ktarian => "stopped until CUNNING>30 or Android",
             PersistKind.BorgShip => "Borg Ship dilemma remains",
@@ -959,11 +961,12 @@ public static class DilemmaRules
 
     /// <summary>Overcome / effect / attach / end-attempt remove the seed; WallFailed keeps it.</summary>
     public static bool ShouldRemoveFromSeed(Fate fate) =>
-        fate is Fate.EffectAndEnd or Fate.AttachAndEnd or Fate.AttachAndContinue or Fate.EndAttempt or Fate.Overcome;
+        fate is Fate.EffectAndEnd or Fate.EffectAndContinue or Fate.AttachAndEnd or Fate.AttachAndContinue or Fate.EndAttempt or Fate.Overcome;
 
     /// <summary>Track overcome/removed seeds for Temporal Causality Loop re-seed (not the loop card itself).</summary>
     public static bool ShouldTrackOvercomeDiscard(Fate fate, bool isTemporalCausalityLoopSeed) =>
         fate == Fate.Overcome
+        || fate == Fate.EffectAndContinue
         || (fate == Fate.EffectAndEnd && !isTemporalCausalityLoopSeed);
 
     public enum AttachHostPreference

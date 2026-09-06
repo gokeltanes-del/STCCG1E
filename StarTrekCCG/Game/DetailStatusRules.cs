@@ -62,7 +62,7 @@ public static class DetailStatusRules
 
     public static string StasisCureHint(DilemmaRules.PersistKind kind) => kind switch
     {
-        DilemmaRules.PersistKind.Abduction => "cure: Leadership x3",
+        DilemmaRules.PersistKind.Abduction => "cure: Leadership x3 OR mission completed",
         DilemmaRules.PersistKind.Phased => "cure: ENGINEER + SCIENCE",
         _ => ""
     };

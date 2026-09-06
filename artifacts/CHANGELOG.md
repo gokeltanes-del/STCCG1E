@@ -4,6 +4,15 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Fix - Love Interest + Stasis/Abduction + Cloak nebula)
+
+**Engine** - Female's/Male's Love Interest: Fate.EffectAndContinue - relocate matching gender to furthest other planet; victim leaves AT (not stopped); rest continue; dilemma discarded. TW failed excludes EffectAndContinue.
+
+**Engine** - Stasis: cannot beam/drag-leave while IsCardInStasis. Alien Abduction cure = OR (3 Leadership present OR mission completed) - release Held + clear stasis; discard on mission solve.
+
+**UX** - Cloaked ships: black fog/nebula overlay on ship art (plus existing black border/glow).
+
+---
 ## 2026-09-06 (Fix - Status-UX retest + Nitrium/Hyper-Aging continue)
 
 **UX** - Damaged ships: red DMG badge only (no 180 flip). Outpost repair timer: `1 left` = clears end of **this** turn. Detail crew rows: Positive (green) / Negative (red) / Personnel / Equipment; last-dilemma mini removed (mission action `Show last revealed card under mission`). Stasis/Negativ glow **red**; Cloaked **black**; Buff green; Timer amber.
