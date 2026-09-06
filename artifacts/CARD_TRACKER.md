@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-06 (Jadzia — Microbiotic #18 tip f8c14d5 partial; #19 Microvirus in flight)
+Last updated: 2026-09-06 (Jadzia — Microvirus #19 tip aaa83b2 partial; #20 Nagilum in flight)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -101,7 +101,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Matriarchal Society (33 U) | partial | tip Data/`d68f511`. Wall ≥2 Female Continue; Fail Stop+unter Mission. PARK: Borg gender. Ungetestet. | Data/`d68f511` 2026-09-06 |
 | Menthar Booby Trap (34 C) | partial | tip Data/`01e5bb8`. Place immer; MED Continue else Kill+Stop; Cure 2 ENG. PARK: LegalMoves move-block. Ungetestet. | Data/`01e5bb8` 2026-09-06 |
 | Microbiotic Colony (35 C) | partial | tip Data/`f8c14d5`. SCI+ENG+OFF Continue; Fail Damage+Stop; immer discard. Ungetestet. | Data/`f8c14d5` 2026-09-06 |
-| Microvirus (36 C) | partial | tip Data/`TBD`. Pass MED+SEC +5 Continue discard; Fail Opp 1 Kill (no Android/Exocomp/Holo)+Stop always discard. Spock #19 Soll. PARK: UI filter thin. Ungetestet. | Data/`TBD` 2026-09-06 |
+| Microvirus (36 C) | partial | tip Data/`aaa83b2`. MED+SEC → +5 Continue; Fail Opp-Kill+Stop; DNA-Immun via IsInorganic. PARK: Opp-UI-Filter dünn. Ungetestet. | Data/`aaa83b2` 2026-09-06 |
 | Nagilum (37 R) | unknown |  |  |
 | Nanites (38 U) | unknown |  |  |
 | Nausicaans (39 U) | unknown |  |  |
