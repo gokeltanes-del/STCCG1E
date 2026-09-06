@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-06 (Jadzia — Portal Guard #25 tip e4362e2 partial; next5 #26+)
+Last updated: 2026-09-06 (Jadzia — Cure-Present-Scope Gap on Menthar/Junior/Ktarian)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -82,7 +82,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Archer (14 C) | working | Pepsch Gesamt-Grün (tip Data/`bf1f2ab`; Stop Soll Spock Condition-Fail). | Pepsch + Data/`bf1f2ab` 2026-09-06 |
 | Armus: Skin Of Evil (15 R) | partial | tip Data/`31d0c73`. 1 AT random Kill; discard; Rest Continue (kein Stop). Ungetestet. | Data/`31d0c73` 2026-09-06 |
 | Barclay's Protomorphosis Disease (16 R) | working | Pepsch getestet OK (Metamorphosis/Transformation). | Pepsch 2026-09-06 |
-| Birth of "Junior" (17 U) | partial | tip Data/`4c92dce`. Place+Continue; EOT RANGE-1/destroy; Cure 3 ENG. Pup-disable≠0RANGE geparkt. Ungetestet. | Data/`4c92dce` 2026-09-06 |
+| Birth of "Junior" (17 U) | partial | tip Data/`4c92dce`. Place+Continue; EOT RANGE-1/destroy; Cure 3 ENG. PARK: pup-disable. GAP Cure-Present-Scope (Ship): Skills an Bord, nicht ortsweit — Seven FEATURES `cd468fb`. Ungetestet. | Data/`4c92dce` + Spock 2026-09-06 |
 | Borg Ship (18 R) | working | Captain/Pepsch „soweit“ — nicht nochmal Dilemma-Welle. | Captain 2026-09-06 |
 | Chalnoth (19 U) | partial | tip Data/`b01d6dc`. Pass 3 SEC OR STR>40 → +5 + Continue; Fail Opp 1 Kill, AT stopped. Ungetestet. | Data/`b01d6dc` 2026-09-06 |
 | Cosmic String Fragment (20 U) | partial | tip Data/`85ca39a`. Pass Astrophysics OR ENG OR Navigation → +5 + Continue; Fail Ship destroy. Ungetestet. | Data/`85ca39a` 2026-09-06 |
@@ -96,10 +96,10 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Hyper-Aging (28 U) | working | Pepsch green (AttachAndContinue). | Pepsch 2026-09-06 |
 | Iconian Computer Weapon (29 C) | partial | tip Data/`47984b5`. Pass SCIENCE Continue; Fail Stop + Non-Pers Hand discard+draw. Ungetestet. | Data/`47984b5` 2026-09-06 |
 | Impassable Door (30 C) | partial | tip Data/`be5062b`. Wall Computer Skill Continue; Fail Stop+unter Mission. Ungetestet. | Data/`be5062b` 2026-09-06 |
-| Ktarian Game (31 R) | partial | tip Data/`7de28a4`. Place+Continue; Cure CUNN>30/Android. PARK: Lefler-Nullify; Now+SOT Disable-Apply. Ungetestet. | Data/`7de28a4` 2026-09-06 |
+| Ktarian Game (31 R) | partial | tip Data/`7de28a4`. Place+Continue; Cure CUNN>30/Android. PARK: Lefler; Now+SOT Disable-Apply. GAP Cure-Present-Scope (Ship): Skills an Bord, nicht ortsweit — Seven FEATURES `cd468fb`. Ungetestet. | Data/`7de28a4` + Spock 2026-09-06 |
 | Male's Love Interest (32 C) | working | Pepsch getestet OK (Continue after Relocate). | Pepsch 2026-09-06 |
 | Matriarchal Society (33 U) | partial | tip Data/`d68f511`. Wall ≥2 Female Continue; Fail Stop+unter Mission. PARK: Borg gender. Ungetestet. | Data/`d68f511` 2026-09-06 |
-| Menthar Booby Trap (34 C) | partial | tip Data/`01e5bb8`. Place immer; MED Continue else Kill+Stop; Cure 2 ENG. PARK: LegalMoves move-block. Ungetestet. | Data/`01e5bb8` 2026-09-06 |
+| Menthar Booby Trap (34 C) | partial | tip Data/`01e5bb8`. Place immer; MED Continue else Kill+Stop; Cure 2 ENG. PARK: LegalMoves move-block. GAP Cure-Present-Scope (Ship): Skills an Bord, nicht ortsweit — Seven FEATURES `cd468fb`. Ungetestet. | Data/`01e5bb8` + Spock 2026-09-06 |
 | Microbiotic Colony (35 C) | partial | tip Data/`f8c14d5`. SCI+ENG+OFF Continue; Fail Damage+Stop; immer discard. Ungetestet. | Data/`f8c14d5` 2026-09-06 |
 | Microvirus (36 C) | partial | tip Data/`aaa83b2`. MED+SEC → +5 Continue; Fail Opp-Kill+Stop; DNA-Immun via IsInorganic. PARK: Opp-UI-Filter dünn. Ungetestet. | Data/`aaa83b2` 2026-09-06 |
 | Nagilum (37 R) | partial | tip Data/`b16e2b8`. 3 Diplomacy OR STR>40 → +5 Continue; Fail half-kill (abrunden)+Stop. Ungetestet. | Data/`b16e2b8` 2026-09-06 |
