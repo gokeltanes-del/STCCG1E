@@ -9280,11 +9280,16 @@ public partial class TableWindow : Window
                 ShadowDepth = 0,
                 Opacity = 0.9
             };
+            // Pepsch Show-Cloak: card itself ~50% opacity (nebula overlay alone was not enough).
+            border.Opacity = 0.55;
             EnsureCloakNebulaOverlay(border, true);
         }
         else
         {
             EnsureCloakNebulaOverlay(border, false);
+            // Restore unless still stopped (stopped also uses 0.55).
+            if (!IsBorderStopped(border))
+                border.Opacity = 1.0;
             if (border.Effect is System.Windows.Media.Effects.DropShadowEffect dse
                 && (dse.Color == cloakGlow || dse.Color == cloakBorder))
             {
@@ -18845,7 +18850,7 @@ public partial class TableWindow : Window
         if (stopped)
             border.Opacity = 0.55;
         else
-            border.Opacity = 1.0;
+            border.Opacity = IsShipCloaked(border) ? 0.55 : 1.0;
     }
 
     private void StopCrewOnHost(Border host)

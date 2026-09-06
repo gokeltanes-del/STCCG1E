@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Fix - Cloak card ~50% opacity)
+
+**UX** - Cloaked ships: `ApplyCloakVisual` sets card `Opacity = 0.55` (~50%) on cloak and restores on decloak (keeps 0.55 if still stopped). `ApplyStoppedVisual` unstop keeps cloak opacity. Nebula overlay/border unchanged. (`Opacity=0.55` near stopped path was stopped-only, not cloak.)
+
+---
 ## 2026-09-06 (Fix - G2 Treaty≠Matching Affiliation Fly)
 
 **Engine** - `MovementRules.HasMatchingAffiliation`: Matching Affiliation für Staffing = echte gemeinsame Affiliation mit dem Schiff. Treaty/NA-Kompatibilität zählt **nicht** als Match (Spock G2). Treaty-/NA-Personal darf weiterhin nur Staffing-Icons (Cmd/Stf) füllen, sobald Matching-Affiliation an Bord ist. Fly-Pfad (`IsShipStaffed` / `CanMoveShip`).
