@@ -5,17 +5,17 @@ Living list - **Seven owns ranking.** Reorder freely when checklist coverage or 
 See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md, CARD_TRACKER.md (Jadzia).
 
 ## P0 - Foundation (do first)
-- **TableWindow extract** (in progress, Data) - Welle 1 Slices 1-8 DONE; Slice 9 + Status-UX + Staffing/Battle on Josef (ahead; Pepsch push pending); then Persist then Battle
+- **TableWindow extract** (in progress, Data) - Welle 1 Slices 1-8 DONE; Slice 9 + Status-UX + Staffing/Battle G2-G7 **Pepsch green+push**; then Persist then Battle
   - Premiere A card waves: **only Captain Go** (see CODE_PLACEMENT.md)
   - **Before new Premiere card waves**; no big-bang UI rewrite
-- **Status-UX / Stasis-Held** - mostly Pepsch green; tip `bf1f2ab` (Cloak 70%, Stopped under Negative, Detail dedupe, Present/skill refresh, Archer-Tie) awaiting Pepsch retest
+- **Status-UX / Stasis-Held / Detail** - **DONE** tip `bf1f2ab` (Pepsch Gesamt-Grün+push): Cloak 70% then iterate; Stopped under Negative; Detail dedupe; Present/skill refresh; Archer-Tie
+  - **Open (Data Go):** Cloak Opacity **noch höher** (~0.45–0.5 = mehr transparent); Josef commit, kein Push bis Pepsch testet
   - Mission-Button "Show last revealed": **PARKED**
-- **Staffing/Fly/Battle Gaps G2-G7** - **DONE** (Pepsch Grün inkl. G7 Counter-Attack `2cd5bc8`)
+- **Staffing/Fly/Battle Gaps G2-G7** - **DONE** (Pepsch Grün+push inkl. G7 `2cd5bc8`)
   - G8 LegalMoves-Battle nur UI / G9 Ship-Phased / G10 NA-Matching: **später**
 - **Glossary/Compendium full coverage (Seven+Spock)** - Welle 1 + Hugh/Borg DONE; **Welle 2 Control/Owner/Present ACTIVE** (Docs only). Card rows → Jadzia.
 
-## P1 - Parked / in test
-- Archer: Spock Soll bestätigt (Condition-Fail → AT stopped until start of your next turn; DRG + dilemma resolution). Detail/Stopped + Tie in `bf1f2ab` — Jadzia `working` nach Pepsch-Grün
+## P1 - Parked
 - IM Federation FindMissionForDockable / dump@Gaps / Distortion / Fed 7.4.1 parked rows as before
 
 ## P2 - Premiere hardening
@@ -28,8 +28,9 @@ See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md, CARD_TRACKER.md (Jadzia).
 - Cloaked invisible to opponent (spin/idea only)
 - More expansion sets / Net play / AI
 
-## Done recently (Pepsch Grün 2026-09-06)
-- **Staffing/Battle G2-G7 komplett** (G1 Matching HARD; G2 Treaty≠Match; G3 Empty-Icon Match; G4 Store=UI Staffing; G5 Cloak no Fly/Initiate + E2b; G6 RF Matching; G7 Counter-Attack `2cd5bc8`)
+## Done recently (Pepsch Grün+push 2026-09-06)
+- **bf1f2ab / Archer DONE** — Detail/Cloak/Stopped/Present-Refresh + Archer Condition-Fail Stop (Spock Soll bestätigt)
+- **Staffing/Battle G2-G7 komplett**
 - Continue-family: Nitrium, Hyper-Aging, Love Interests, Alien Abduction (+ Stasis Beam-Block)
 - Neural Servo Device + Side-Sync; Hologram Ruse; Barclay's Protomorphosis
 - Hugh/Borg Ship (`447beac`); Gaps nullify relocate; Foundation E1-E6; Extract Slices 5-8
