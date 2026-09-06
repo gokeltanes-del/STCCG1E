@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-06 (Data - Chalnoth #6 tip b01d6dc partial; Spock Soll)
+Last updated: 2026-09-06 (Jadzia — Chalnoth #6 tip b01d6dc partial; #7 Cosmic String in flight)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -84,7 +84,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Barclay's Protomorphosis Disease (16 R) | working | Pepsch getestet OK (Metamorphosis/Transformation). | Pepsch 2026-09-06 |
 | Birth of "Junior" (17 U) | partial | tip Data/`4c92dce`. Place+Continue; EOT RANGE-1/destroy; Cure 3 ENG. Pup-disable≠0RANGE geparkt. Ungetestet. | Data/`4c92dce` 2026-09-06 |
 | Borg Ship (18 R) | working | Captain/Pepsch „soweit“ — nicht nochmal Dilemma-Welle. | Captain 2026-09-06 |
-| Chalnoth (19 U) | partial | tip Data/`b01d6dc`. Pass 3 SEC OR STR>40 -> +5 Bonus + Continue; Fail opp kill 1, AT Stop, discard. Spock #6 Soll/DRG. Ungetestet. | Data/`b01d6dc` + Spock 2026-09-06 |
+| Chalnoth (19 U) | partial | tip Data/`b01d6dc`. Pass 3 SEC OR STR>40 → +5 + Continue; Fail Opp 1 Kill, AT stopped. Ungetestet. | Data/`b01d6dc` 2026-09-06 |
 | Cosmic String Fragment (20 U) | unknown |  |  |
 | Crystalline Entity (21 R) | unknown |  |  |
 | Cytherians (22 R) | unknown |  |  |
