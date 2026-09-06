@@ -57,6 +57,8 @@ public static class DilemmaRules
         public bool StopTeam { get; init; }
         public bool EndTurn { get; init; }
         public List<Card> Kill { get; } = new();
+        /// <summary>Personnel discarded without being killed (e.g. Anaphasic Organism resign).</summary>
+        public List<Card> Discard { get; } = new();
         public List<Card> DiscardNonPersonnelFromHand { get; } = new();
         public Card? Relocate { get; set; }
         public PersistKind Persist { get; init; }
@@ -1097,7 +1099,7 @@ public static class DilemmaRules
                 ? $"Anaphasic Organism: {victim.Name} discarded (highest female attributes)."
                 : "Anaphasic Organism: highest female discarded."
         };
-        AddKill(r.Kill, victim);
+        AddKill(r.Discard, victim); // resign = discard, NOT killed (DRG)
         return r;
     }
 
@@ -1134,29 +1136,32 @@ public static class DilemmaRules
 
         // Pass: MEDICAL + SECURITY
         var pass = Resolve(Make(bev, tasha, worf));
-        if (pass.Fate != Fate.Overcome || pass.StopTeam || pass.Kill.Count != 0)
-            return "pass MED+SEC: expected Overcome, no stop/kill";
+        if (pass.Fate != Fate.Overcome || pass.StopTeam || pass.Kill.Count != 0 || pass.Discard.Count != 0)
+            return "pass MED+SEC: expected Overcome, no stop/kill/discard";
         if (!ShouldRemoveFromSeed(pass.Fate))
             return "pass: dilemma should discard";
 
         // No female: no effect (requires Female)
         var noF = Resolve(Make(worf, data));
-        if (noF.Fate != Fate.Overcome || noF.StopTeam || noF.Kill.Count != 0)
-            return "no female: expected Overcome no-effect, no stop/kill";
+        if (noF.Fate != Fate.Overcome || noF.StopTeam || noF.Kill.Count != 0 || noF.Discard.Count != 0)
+            return "no female: expected Overcome no-effect, no stop/kill/discard";
 
-        // Fail (no SECURITY): discard highest female among Beverly(21) vs lowF(11) -> Beverly
+        // Fail (no SECURITY): discard highest female among Beverly(21) vs lowF(11) -> Beverly (NOT killed)
         var fail = Resolve(Make(bev, lowF, data));
         if (fail.Fate != Fate.EffectAndEnd || !fail.StopTeam)
             return "fail: expected EffectAndEnd + StopTeam";
-        if (fail.Kill.Count != 1 || fail.Kill[0].Name != "Beverly Crusher")
-            return $"fail: expected kill Beverly Crusher, got [{string.Join(",", fail.Kill.Select(k => k.Name))}]";
+        if (fail.Kill.Count != 0)
+            return $"fail: expected no kill (discard not kill), got Kill=[{string.Join(",", fail.Kill.Select(k => k.Name))}]";
+        if (fail.Discard.Count != 1 || fail.Discard[0].Name != "Beverly Crusher")
+            return $"fail: expected discard Beverly Crusher, got [{string.Join(",", fail.Discard.Select(k => k.Name))}]";
         if (!ShouldRemoveFromSeed(fail.Fate))
             return "fail: dilemma should discard (EffectAndEnd)";
 
-        // Fail (no MEDICAL): SECURITY female present -> Tasha discarded
+        // Fail (no MEDICAL): SECURITY female present -> Tasha discarded (not killed)
         var failSec = Resolve(Make(tasha, data));
-        if (failSec.Fate != Fate.EffectAndEnd || failSec.Kill.Count != 1 || failSec.Kill[0].Name != "Tasha Yar")
-            return "fail no-MEDICAL: expected Tasha Yar discarded";
+        if (failSec.Fate != Fate.EffectAndEnd || failSec.Kill.Count != 0
+            || failSec.Discard.Count != 1 || failSec.Discard[0].Name != "Tasha Yar")
+            return "fail no-MEDICAL: expected Tasha Yar discarded (not killed)";
 
         // Tie among females -> opponent chooses
         Card? picked = null;
@@ -1173,15 +1178,17 @@ public static class DilemmaRules
             PickOpp = (_, list) => { picked = list.First(x => x.Name == "Female B"); return picked; }
         };
         var tie = Resolve(tieCtx);
-        if (tie.Fate != Fate.EffectAndEnd || !tie.StopTeam || tie.Kill.Count != 1 || tie.Kill[0].Name != "Female B")
-            return "tie: expected opp-chosen Female B discarded";
+        if (tie.Fate != Fate.EffectAndEnd || !tie.StopTeam || tie.Kill.Count != 0
+            || tie.Discard.Count != 1 || tie.Discard[0].Name != "Female B")
+            return "tie: expected opp-chosen Female B discarded (not killed)";
         if (picked?.Name != "Female B")
             return "tie: PickOpp was not used";
 
         // Sole female still discarded even if lower attrs than males
         var sole = Resolve(Make(lowF, data, worf));
-        if (sole.Fate != Fate.EffectAndEnd || sole.Kill.Count != 1 || sole.Kill[0].Name != "Ensign Low")
-            return "sole female: expected Ensign Low discarded";
+        if (sole.Fate != Fate.EffectAndEnd || sole.Kill.Count != 0
+            || sole.Discard.Count != 1 || sole.Discard[0].Name != "Ensign Low")
+            return "sole female: expected Ensign Low discarded (not killed)";
 
         return null;
     }

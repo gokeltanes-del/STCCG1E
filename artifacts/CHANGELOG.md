@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Fix - Anaphasic Organism discard not kill)
+
+**Engine** - Anaphasic Organism fail: selected female **resigns = discard**, not killed (DRG: discarded female is not killed). `Result.Discard` + TW Apply/Format; Genetronic does not save. Pass MED+SEC / no-female / StopTeam / dilemma discard / opp-tie unchanged. Decide: `DilemmaRules.Anaphasic` + `VerifyAnaphasicOrganism`.
+
+---
 ## 2026-09-06 (Feat - Ancient Computer Premiere)
 
 **Engine** - Ancient Computer (PR 13 R): Wall — pass 2 Computer Skill OR 3 SCIENCE OR 3 ENGINEER -> Overcome (discard+continue). Fail -> WallFailed + StopTeam (dilemma stays under mission). Matches printed Premiere text. Decide: `DilemmaRules.AncientComputer` + `VerifyAncientComputer`.

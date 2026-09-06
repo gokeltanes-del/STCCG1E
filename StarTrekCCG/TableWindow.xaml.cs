@@ -15448,26 +15448,48 @@ public partial class TableWindow : Window
     private static string FormatDilemmaVictims(DilemmaRules.Result r)
     {
         bool stasis = DilemmaRules.IsStasisPersist(r.Persist);
+        var parts = new List<string>();
+
+        if (r.Discard != null && r.Discard.Count > 0)
+        {
+            string dNames = string.Join(", ",
+                r.Discard.Where(c => c != null).Select(c => c!.Name ?? "?").Distinct());
+            if (dNames.Length > 0)
+                parts.Add(r.Discard.Count == 1
+                    ? $"Discarded: {dNames}."
+                    : $"Discarded: {dNames}.");
+        }
+
         var victims = new List<Card>();
         if (r.Kill != null) victims.AddRange(r.Kill.Where(c => c != null)!);
         if (r.Relocate != null && stasis && !victims.Contains(r.Relocate))
             victims.Add(r.Relocate);
-        if (victims.Count == 0) return "";
-        string names = string.Join(", ",
-            victims.Select(c => c.Name ?? "?").Distinct());
-        if (names.Length == 0) return "";
-        if (stasis)
-            return victims.Count == 1
-                ? $"placed in stasis: {names}."
-                : $"placed in stasis: {names}.";
-        bool eq = r.Kill.All(c => c != null && ModifierRules.IsEquipmentCard(c));
-        if (eq)
-            return r.Kill.Count == 1
-                ? $"Destroyed: {names}."
-                : $"Destroyed: {names}.";
-        return r.Kill.Count == 1
-            ? $"Killed: {names}."
-            : $"Killed: {names}.";
+        if (victims.Count > 0)
+        {
+            string names = string.Join(", ",
+                victims.Select(c => c.Name ?? "?").Distinct());
+            if (names.Length > 0)
+            {
+                if (stasis)
+                    parts.Add(victims.Count == 1
+                        ? $"placed in stasis: {names}."
+                        : $"placed in stasis: {names}.");
+                else
+                {
+                    bool eq = r.Kill.Count > 0 && r.Kill.All(c => c != null && ModifierRules.IsEquipmentCard(c!));
+                    if (eq)
+                        parts.Add(r.Kill.Count == 1
+                            ? $"Destroyed: {names}."
+                            : $"Destroyed: {names}.");
+                    else
+                        parts.Add(r.Kill.Count == 1
+                            ? $"Killed: {names}."
+                            : $"Killed: {names}.");
+                }
+            }
+        }
+
+        return string.Join(" ", parts);
     }
 
     private void ApplyDilemmaResult(
@@ -15508,7 +15530,20 @@ public partial class TableWindow : Window
             }
             if (victim == null) continue;
             if (b != null)
-                DiscardPersonnelBorder(b, victim, _activePlayer);
+                DiscardPersonnelBorder(b, victim, _activePlayer, allowGenetronicSave: true);
+            else if (ModifierRules.IsEquipmentCard(victim) && shipBorder != null)
+                RemoveEquipmentFromHost(shipBorder, victim);
+            else if (ModifierRules.IsEquipmentCard(victim))
+                RemoveEquipmentFromHost(missionBorder, victim);
+        }
+
+        // Resign / discard without kill (Anaphasic Organism): same pile, no Genetronic save
+        foreach (var victim in r.Discard.ToList())
+        {
+            if (victim == null) continue;
+            var b = teamBorders.FirstOrDefault(x => x.Tag is Card c && ReferenceEquals(c, victim));
+            if (b != null)
+                DiscardPersonnelBorder(b, victim, _activePlayer, allowGenetronicSave: false);
             else if (ModifierRules.IsEquipmentCard(victim) && shipBorder != null)
                 RemoveEquipmentFromHost(shipBorder, victim);
             else if (ModifierRules.IsEquipmentCard(victim))
@@ -19661,9 +19696,9 @@ public partial class TableWindow : Window
         return true;
     }
 
-    private void DiscardPersonnelBorder(Border border, Card card, int owner)
+    private void DiscardPersonnelBorder(Border border, Card card, int owner, bool allowGenetronicSave = true)
     {
-        if (TryGenetronicSave(border, card, owner))
+        if (allowGenetronicSave && TryGenetronicSave(border, card, owner))
             return;
 
         Border? returnHost = null;
