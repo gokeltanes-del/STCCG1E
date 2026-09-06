@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Fix - G2 Treaty≠Matching Affiliation Fly)
+
+**Engine** - `MovementRules.HasMatchingAffiliation`: Matching Affiliation für Staffing = echte gemeinsame Affiliation mit dem Schiff. Treaty/NA-Kompatibilität zählt **nicht** als Match (Spock G2). Treaty-/NA-Personal darf weiterhin nur Staffing-Icons (Cmd/Stf) füllen, sobald Matching-Affiliation an Bord ist. Fly-Pfad (`IsShipStaffed` / `CanMoveShip`).
+
+---
 ## 2026-09-06 (Fix - Neural Servo Seiten-Sync)
 
 **UX** - Neural Servo Device: nach gültigem Play/Resolve (und EOT-Restore) Schiff sofort auf Controller-Seite neu legen (P1 unter / P2 über Mission) via `RelayoutDockablesUnderMission` — nicht erst nach Fly/Move. Helper `SyncDockableSideAfterOwnerChange` (wie Lore Returns).

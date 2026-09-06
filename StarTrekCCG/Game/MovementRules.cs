@@ -74,9 +74,7 @@ public static class MovementRules
             string aboard = string.Join(", ",
                 crew.Select(p => $"{p.Name}[{p.Affiliation ?? "?"}]"));
             return new StaffResult(false,
-                $"Keine matching affiliation an Bord (Schiff: {ship.Affiliation ?? "?"}" +
-                (treaties is { Count: > 0 } ? ", Treaty geprüft" : "") +
-                $"). Crew: {aboard}.",
+                $"Keine matching affiliation an Bord (Schiff: {ship.Affiliation ?? "?"}). Crew: {aboard}.",
                 0, 0, cmdNeed, stfNeed);
         }
 
@@ -114,11 +112,17 @@ public static class MovementRules
     }
 
 
+    /// <summary>
+    /// Matching Affiliation for staffing: real shared affiliation with the ship.
+    /// Treaty/NA compatibility does NOT count as Match (G2 / Spock). Those cards may still
+    /// contribute staffing icons (Cmd/Stf) once a matching-affiliation personnel is aboard.
+    /// </summary>
     public static bool HasMatchingAffiliation(
         Card ship,
         IEnumerable<Card> crew,
-        IReadOnlyList<TreatyRules.TreatyLink>? treaties)
+        IReadOnlyList<TreatyRules.TreatyLink>? treaties = null)
     {
+        _ = treaties; // API-stable; ignored for Match (Treaty != Matching Affiliation)
         var shipAff = ReportingRules.GetAffiliations(ship);
         if (shipAff.Count == 0)
         {
@@ -134,12 +138,8 @@ public static class MovementRules
                 if (a.Length > 0) pa.Add(ReportingRules.NormalizeAffil(a));
             }
             if (shipAff.Overlaps(pa)) return true;
-            // Treaty: Klingon auf Fed-Schiff etc.
-            if (treaties != null && treaties.Count > 0
-                && TreatyRules.AffiliationsCompatible(shipAff, pa, treaties))
-                return true;
         }
-        return shipAff.Count == 0; // unklar → nicht blocken
+        return shipAff.Count == 0; // unklar - nicht blocken
     }
 
     public static int GetShipRange(Card ship)
