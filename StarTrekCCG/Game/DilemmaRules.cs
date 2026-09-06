@@ -126,8 +126,7 @@ public static class DilemmaRules
             "Crystalline Entity" => Crystalline(ctx),
 
             "Gravitic Mine" => GraviticMine(ctx),
-            "Nanites" => SpaceUnlessScore(ctx, Skill(ctx, "SCIENCE", 2) || Skill(ctx, "Diplomacy"),
-                damage: true, score: 5, need: "2 SCIENCE or Diplomacy"),
+            "Nanites" => Nanites(ctx),
             "Null Space" => SpaceUnlessScore(ctx, Skill(ctx, "Navigation", 2),
                 damage: true, score: 5, need: "2 Navigation"),
             "Microbiotic Colony" => MicrobioticColony(ctx),
@@ -1432,6 +1431,99 @@ public static class DilemmaRules
             return $"fail 5: expected EffectAndEnd+Stop 2 kills, got {fail5.Fate}/stop={fail5.StopTeam}/kills={fail5.Kill.Count}";
         if (!ShouldRemoveFromSeed(fail5.Fate))
             return "fail 5: dilemma should discard";
+
+        return null;
+    }
+
+    // ---- Nanites (Premiere 38 U) ----
+    // Printed (PR): "Unless 2 SCIENCE OR Diplomacy present, damages ship. Otherwise, score points. Discard dilemma."
+    // Points: 5. [S] Space.
+    // Card+DRG / Premiere dilemma pattern (sister: Gravitic Mine damage / CosmicString score):
+    //   Pass (2 SCIENCE OR Diplomacy) -> Overcome +5 Bonus-Area + Continue; discard.
+    //   Fail -> DamageShip (ApplyHullDamage +50 / Rotation badge) + Ship/Crew stopped
+    //           (EffectAndEnd+StopTeam); dilemma always discarded.
+    // Decide: DilemmaRules.Nanites + VerifyNanites.
+
+    private static Result Nanites(Ctx ctx) =>
+        SpaceUnlessScore(ctx, Skill(ctx, "SCIENCE", 2) || Skill(ctx, "Diplomacy"),
+            damage: true, score: 5, need: "2 SCIENCE or Diplomacy");
+
+    /// <summary>DE mini-test for Nanites. Returns null if OK, else failure reason.</summary>
+    public static string? VerifyNanites()
+    {
+        static Card P(string name, string cls, string text) => new()
+        {
+            Name = name,
+            Type = "Personnel",
+            Class = cls,
+            Text = text,
+            Characteristics = "Human; Male;",
+            IntegrityOrRange = "5",
+            CunningOrWeapons = "5",
+            StrengthOrShields = "5"
+        };
+
+        static Ctx Make(params Card[] team) => new()
+        {
+            Dilemma = new Card { Name = "Nanites", Type = "Dilemma", MissionDilemmaType = "[S]", Points = "5" },
+            Mission = new Card { Name = "Test Space", Type = "Mission", MissionDilemmaType = "[S]" },
+            Team = team,
+            Present = team,
+            AttemptingPlayer = 1,
+            Rng = new Random(1)
+        };
+
+        var sci1 = P("Sci One", "SCIENCE", "SCIENCE");
+        var sci2 = P("Sci Two", "SCIENCE", "SCIENCE");
+        var dip = P("Diplomat", "VIP", "Diplomacy");
+        var civ = P("Civilian", "CIVILIAN", "CIVILIAN");
+        var nav = P("Navigator", "OFFICER", "Navigation");
+
+        // Pass: 2 SCIENCE -> Overcome +5, Continue, no damage, discard
+        var passSci = Resolve(Make(sci1, sci2, civ));
+        if (passSci.Fate != Fate.Overcome || passSci.StopTeam || passSci.Score != 5)
+            return $"pass 2 SCIENCE: expected Overcome Score=5 no stop, got {passSci.Fate}/{passSci.Score}/stop={passSci.StopTeam}";
+        if (passSci.DamageShip || passSci.DestroyShip)
+            return "pass 2 SCIENCE: should not damage/destroy ship";
+        if (!ShouldRemoveFromSeed(passSci.Fate))
+            return "pass 2 SCIENCE: dilemma should discard";
+
+        // Pass: Diplomacy alone (no SCIENCE) -> Overcome +5
+        var passDip = Resolve(Make(dip, civ));
+        if (passDip.Fate != Fate.Overcome || passDip.Score != 5 || passDip.StopTeam || passDip.DamageShip)
+            return $"pass Diplomacy: expected Overcome +5 Continue no damage, got {passDip.Fate}/{passDip.Score}/stop={passDip.StopTeam}/dmg={passDip.DamageShip}";
+        if (!ShouldRemoveFromSeed(passDip.Fate))
+            return "pass Diplomacy: dilemma should discard";
+
+        // Fail boundary: 1 SCIENCE only (no Diplomacy) -> DamageShip + Stop, no score, discard
+        var failOneSci = Resolve(Make(sci1, civ));
+        if (failOneSci.Fate != Fate.EffectAndEnd || !failOneSci.StopTeam || !failOneSci.DamageShip)
+            return $"fail 1 SCIENCE: expected EffectAndEnd+Stop+DamageShip, got {failOneSci.Fate}/stop={failOneSci.StopTeam}/dmg={failOneSci.DamageShip}";
+        if (failOneSci.DestroyShip || failOneSci.Score != 0)
+            return "fail 1 SCIENCE: damage not destroy; no score";
+        if (!ShouldRemoveFromSeed(failOneSci.Fate))
+            return "fail 1 SCIENCE: dilemma should discard";
+
+        // Fail: Navigation/civilian only
+        var failNav = Resolve(Make(nav, civ));
+        if (failNav.Fate != Fate.EffectAndEnd || !failNav.StopTeam || !failNav.DamageShip)
+            return $"fail no-match: expected EffectAndEnd+Stop+DamageShip, got {failNav.Fate}/stop={failNav.StopTeam}/dmg={failNav.DamageShip}";
+        if (!ShouldRemoveFromSeed(failNav.Fate))
+            return "fail no-match: dilemma should discard";
+
+        // Fail: empty crew
+        var empty = Resolve(Make());
+        if (empty.Fate != Fate.EffectAndEnd || !empty.StopTeam || !empty.DamageShip)
+            return $"empty: expected EffectAndEnd+Stop+DamageShip, got {empty.Fate}/stop={empty.StopTeam}/dmg={empty.DamageShip}";
+        if (!ShouldRemoveFromSeed(empty.Fate))
+            return "empty: dilemma should discard";
+
+        // Fail: civilian only
+        var failCiv = Resolve(Make(civ));
+        if (failCiv.Fate != Fate.EffectAndEnd || !failCiv.StopTeam || !failCiv.DamageShip)
+            return $"fail civilian: expected EffectAndEnd+Stop+DamageShip, got {failCiv.Fate}/stop={failCiv.StopTeam}/dmg={failCiv.DamageShip}";
+        if (!ShouldRemoveFromSeed(failCiv.Fate))
+            return "fail civilian: dilemma should discard";
 
         return null;
     }

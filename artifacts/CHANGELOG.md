@@ -4,6 +4,12 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Feat - Nanites Premiere)
+
+**Engine** - Nanites (PR 38 U): Space - Unless 2 SCIENCE OR Diplomacy present: Ship damaged (DamageShip / ApplyHullDamage +50 / Rotation badge) + Ship/Crew stopped (EffectAndEnd+StopTeam); else Overcome +5 Bonus-Area + Continue. Always discard dilemma. Card+DRG Decide: `DilemmaRules.Nanites` + `VerifyNanites`.
+
+---
+
 ## 2026-09-06 (Feat - Nagilum Premiere)
 
 **Engine** - Nagilum (PR 37 R): Space - Unless 3 Diplomacy OR STRENGTH>40 present: kills half of crew (random, round down); else Overcome +5 Bonus-Area + Continue. Always discard dilemma. Fail -> EffectAndEnd+StopTeam. Spock #20 Soll / DRG Nagilum. Decide: `DilemmaRules.Nagilum` + `VerifyNagilum`. Boundary STRENGTH==40 fails; 1 crew -> 0 kills. Combo Anaphasic&Nagilum=EP ignore.
