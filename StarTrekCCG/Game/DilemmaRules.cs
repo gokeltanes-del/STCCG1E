@@ -94,8 +94,7 @@ public static class DilemmaRules
         string n = (ctx.Dilemma.Name ?? "").Trim();
         return n switch
         {
-            "Ancient Computer" => Wall(ctx, Skill(ctx, "Computer Skill", 2) || Skill(ctx, "SCIENCE", 3) || Skill(ctx, "ENGINEER", 3),
-                "2 Computer Skill OR 3 SCIENCE OR 3 ENGINEER"),
+            "Ancient Computer" => AncientComputer(ctx),
             "Impassable Door" => Wall(ctx, Skill(ctx, "Computer Skill"), "Computer Skill"),
             "Hologram Ruse" => Wall(ctx, Sum(ctx).integ > 30 && Sum(ctx).cunn > 30, "INTEGRITY>30 and CUNNING>30"),
             "Shaka, When the Walls Fell" => Wall(ctx, Skill(ctx, "Diplomacy", 2) && Sum(ctx).cunn > 30, "2 Diplomacy and CUNNING>30"),
@@ -1183,6 +1182,102 @@ public static class DilemmaRules
         var sole = Resolve(Make(lowF, data, worf));
         if (sole.Fate != Fate.EffectAndEnd || sole.Kill.Count != 1 || sole.Kill[0].Name != "Ensign Low")
             return "sole female: expected Ensign Low discarded";
+
+        return null;
+    }
+
+    // ---- Ancient Computer (Premiere 13 R) ----
+    // Printed: "Cannot get past unless 2 Computer Skill OR 3 SCIENCE OR 3 ENGINEER present."
+    // Wall [S]: pass -> Overcome (discard + continue); fail -> WallFailed + StopTeam (stays under mission).
+
+    private static Result AncientComputer(Ctx ctx) =>
+        Wall(ctx,
+            Skill(ctx, "Computer Skill", 2) || Skill(ctx, "SCIENCE", 3) || Skill(ctx, "ENGINEER", 3),
+            "2 Computer Skill OR 3 SCIENCE OR 3 ENGINEER");
+
+    /// <summary>DE mini-test for Ancient Computer. Returns null if OK, else failure reason.</summary>
+    public static string? VerifyAncientComputer()
+    {
+        static Card P(string name, string cls, string text) => new()
+        {
+            Name = name,
+            Type = "Personnel",
+            Class = cls,
+            Text = text,
+            Characteristics = "Human; Male;",
+            IntegrityOrRange = "5",
+            CunningOrWeapons = "5",
+            StrengthOrShields = "5"
+        };
+
+        static Ctx Make(params Card[] team) => new()
+        {
+            Dilemma = new Card { Name = "Ancient Computer", Type = "Dilemma", MissionDilemmaType = "[S]" },
+            Mission = new Card { Name = "Test Space", Type = "Mission", MissionDilemmaType = "[S]" },
+            Team = team,
+            Present = team,
+            AttemptingPlayer = 1,
+            Rng = new Random(1)
+        };
+
+        var cs1 = P("Comp One", "OFFICER", "OFFICER Computer Skill");
+        var cs2 = P("Comp Two", "OFFICER", "OFFICER Computer Skill");
+        var csx2 = P("Comp Double", "OFFICER", "OFFICER Computer Skill x2");
+        var sci1 = P("Sci One", "SCIENCE", "SCIENCE");
+        var sci2 = P("Sci Two", "SCIENCE", "SCIENCE");
+        var sci3 = P("Sci Three", "SCIENCE", "SCIENCE");
+        var eng1 = P("Eng One", "ENGINEER", "ENGINEER");
+        var eng2 = P("Eng Two", "ENGINEER", "ENGINEER");
+        var eng3 = P("Eng Three", "ENGINEER", "ENGINEER");
+        var civ = P("Civilian", "CIVILIAN", "CIVILIAN");
+
+        // Pass: 2 Computer Skill (two personnel)
+        var passCs = Resolve(Make(cs1, cs2, civ));
+        if (passCs.Fate != Fate.Overcome || passCs.StopTeam)
+            return "pass 2 Computer Skill: expected Overcome, no stop";
+        if (!ShouldRemoveFromSeed(passCs.Fate))
+            return "pass 2 CS: dilemma should discard";
+
+        // Pass: Computer Skill x2 on one personnel
+        var passCsX2 = Resolve(Make(csx2, civ));
+        if (passCsX2.Fate != Fate.Overcome || passCsX2.StopTeam)
+            return "pass Computer Skill x2: expected Overcome, no stop";
+
+        // Pass: 3 SCIENCE
+        var passSci = Resolve(Make(sci1, sci2, sci3));
+        if (passSci.Fate != Fate.Overcome || passSci.StopTeam)
+            return "pass 3 SCIENCE: expected Overcome, no stop";
+        if (!ShouldRemoveFromSeed(passSci.Fate))
+            return "pass 3 SCIENCE: dilemma should discard";
+
+        // Pass: 3 ENGINEER
+        var passEng = Resolve(Make(eng1, eng2, eng3));
+        if (passEng.Fate != Fate.Overcome || passEng.StopTeam)
+            return "pass 3 ENGINEER: expected Overcome, no stop";
+
+        // Fail: only 1 Computer Skill
+        var fail1cs = Resolve(Make(cs1, civ));
+        if (fail1cs.Fate != Fate.WallFailed || !fail1cs.StopTeam)
+            return "fail 1 CS: expected WallFailed + StopTeam";
+        if (ShouldRemoveFromSeed(fail1cs.Fate))
+            return "fail 1 CS: dilemma must stay (WallFailed)";
+
+        // Fail: only 2 SCIENCE
+        var fail2sci = Resolve(Make(sci1, sci2));
+        if (fail2sci.Fate != Fate.WallFailed || !fail2sci.StopTeam)
+            return "fail 2 SCIENCE: expected WallFailed + StopTeam";
+        if (ShouldRemoveFromSeed(fail2sci.Fate))
+            return "fail 2 SCIENCE: dilemma must stay";
+
+        // Fail: only 2 ENGINEER
+        var fail2eng = Resolve(Make(eng1, eng2));
+        if (fail2eng.Fate != Fate.WallFailed || !fail2eng.StopTeam)
+            return "fail 2 ENGINEER: expected WallFailed + StopTeam";
+
+        // Fail: empty of required skills
+        var failNone = Resolve(Make(civ));
+        if (failNone.Fate != Fate.WallFailed || !failNone.StopTeam)
+            return "fail none: expected WallFailed + StopTeam";
 
         return null;
     }

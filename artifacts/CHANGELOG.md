@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Feat - Ancient Computer Premiere)
+
+**Engine** - Ancient Computer (PR 13 R): Wall — pass 2 Computer Skill OR 3 SCIENCE OR 3 ENGINEER -> Overcome (discard+continue). Fail -> WallFailed + StopTeam (dilemma stays under mission). Matches printed Premiere text. Decide: `DilemmaRules.AncientComputer` + `VerifyAncientComputer`.
+
+---
 ## 2026-09-06 (Feat - Anaphasic Organism Premiere)
 
 **Engine** - Anaphasic Organism (PR 12 C): Pass MEDICAL+SECURITY -> Overcome (discard+continue). No female present (requires Female) -> Overcome no-effect. Fail -> discard female with highest total attributes (opp choose on tie, Archer parity), EffectAndEnd+StopTeam; dilemma always discarded. Decide: `DilemmaRules.Anaphasic` + `VerifyAnaphasicOrganism`. Hotseat Alien Parasites untouched.

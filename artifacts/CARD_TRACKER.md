@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-06 (Jadzia — Anaphasic Organism #2 tip 502d8e0 partial; Spock: resigns=discard)
+Last updated: 2026-09-06 (Data — Ancient Computer Premiere tip PENDING partial until Pepsch green)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -78,7 +78,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Alien Abduction (10 U) | working | Pepsch green (Cure OR + Stasis Beam-Block). | Pepsch 2026-09-06 |
 | Alien Parasites (11 U) | partial | #1a tip Data/`e33d23c`: Pass INT>32; Fail Attempt-end+Beam-back+Stop+Replace. Hotseat-Control geparkt. Pending Pepsch green → working. | Data/`e33d23c` 2026-09-06 |
 | Anaphasic Organism (12 C) | partial | tip Data/`502d8e0`. Pass MED+SEC; Fail highest Female resigns=discard (Spock: not killed), AT stopped. Ungetestet. | Data/`502d8e0` + Spock 2026-09-06 |
-| Ancient Computer (13 R) | unknown |  |  |
+| Ancient Computer (13 R) | partial | tip Data/`PENDING`: Wall pass 2 Computer Skill OR 3 SCIENCE OR 3 ENGINEER Overcome; fail WallFailed+Stop (stays). Pending Pepsch green. | Data/`PENDING` 2026-09-06 |
 | Archer (14 C) | working | Pepsch Gesamt-Grün (tip Data/`bf1f2ab`; Stop Soll Spock Condition-Fail). | Pepsch + Data/`bf1f2ab` 2026-09-06 |
 | Armus: Skin Of Evil (15 R) | unknown |  |  |
 | Barclay's Protomorphosis Disease (16 R) | working | Pepsch getestet OK (Metamorphosis/Transformation). | Pepsch 2026-09-06 |
