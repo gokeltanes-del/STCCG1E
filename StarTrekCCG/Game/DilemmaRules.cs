@@ -99,7 +99,7 @@ public static class DilemmaRules
         return n switch
         {
             "Ancient Computer" => AncientComputer(ctx),
-            "Impassable Door" => Wall(ctx, Skill(ctx, "Computer Skill"), "Computer Skill"),
+            "Impassable Door" => ImpassableDoor(ctx),
             "Hologram Ruse" => Wall(ctx, Sum(ctx).integ > 30 && Sum(ctx).cunn > 30, "INTEGRITY>30 and CUNNING>30"),
             "Shaka, When the Walls Fell" => Wall(ctx, Skill(ctx, "Diplomacy", 2) && Sum(ctx).cunn > 30, "2 Diplomacy and CUNNING>30"),
             "Wind Dancer" => Wall(ctx,
@@ -1381,6 +1381,86 @@ public static class DilemmaRules
             return $"empty crew: expected EffectAndEnd+Stop, got {emptyCrew.Fate}/stop={emptyCrew.StopTeam}";
         if (emptyCrew.DiscardNonPersonnelFromHand.Count != 1 || !emptyCrew.DiscardNonPersonnelFromHand.Contains(ev))
             return "empty crew: should discard Event from hand";
+
+        return null;
+    }
+
+    // ---- Impassable Door (Premiere 30 C) ----
+    // Printed (PR): "To get past requires Computer Skill."
+    // Planet [P] wall: pass Computer Skill -> Overcome (dilemma discard + Continue).
+    // Fail -> WallFailed + StopTeam (dilemma stays under mission). No kills / score / damage.
+    // Spock #14 Soll / DRG Impassable Door: Planet-Wall Computer Skill -> discard+Continue;
+    // Fail: AT stopped; dilemma under Mission (WallFailed stays).
+
+    private static Result ImpassableDoor(Ctx ctx) =>
+        Wall(ctx, Skill(ctx, "Computer Skill"), "Computer Skill");
+
+    /// <summary>DE mini-test for Impassable Door. Returns null if OK, else failure reason.</summary>
+    public static string? VerifyImpassableDoor()
+    {
+        static Card P(string name, string cls, string text) => new()
+        {
+            Name = name,
+            Type = "Personnel",
+            Class = cls,
+            Text = text,
+            Characteristics = "Human; Male;",
+            IntegrityOrRange = "5",
+            CunningOrWeapons = "5",
+            StrengthOrShields = "5"
+        };
+
+        static Ctx Make(params Card[] team) => new()
+        {
+            Dilemma = new Card { Name = "Impassable Door", Type = "Dilemma", MissionDilemmaType = "[P]" },
+            Mission = new Card { Name = "Test Planet", Type = "Mission", MissionDilemmaType = "[P]" },
+            Team = team,
+            Present = team,
+            AttemptingPlayer = 1,
+            Rng = new Random(1)
+        };
+
+        var cs1 = P("Comp One", "OFFICER", "OFFICER Computer Skill");
+        var csx2 = P("Comp Double", "OFFICER", "OFFICER Computer Skill x2");
+        var civ = P("Civilian", "CIVILIAN", "CIVILIAN");
+        var sci = P("Sci One", "SCIENCE", "SCIENCE");
+
+        // Pass: Computer Skill present -> Overcome Continue, dilemma discard
+        var pass = Resolve(Make(cs1, civ));
+        if (pass.Fate != Fate.Overcome || pass.StopTeam)
+            return $"pass Computer Skill: expected Overcome no stop, got {pass.Fate}/stop={pass.StopTeam}";
+        if (!ShouldRemoveFromSeed(pass.Fate))
+            return "pass Computer Skill: dilemma should discard";
+        if (pass.Kill.Count != 0 || pass.Score != 0 || pass.DamageShip || pass.DestroyShip)
+            return "pass: no kill/score/damage/destroy";
+
+        // Pass: Computer Skill x2 on one personnel
+        var passX2 = Resolve(Make(csx2));
+        if (passX2.Fate != Fate.Overcome || passX2.StopTeam)
+            return $"pass Computer Skill x2: expected Overcome no stop, got {passX2.Fate}/stop={passX2.StopTeam}";
+        if (!ShouldRemoveFromSeed(passX2.Fate))
+            return "pass x2: dilemma should discard";
+
+        // Fail: SCIENCE only (not Computer Skill) -> WallFailed + Stop; dilemma stays
+        var failSci = Resolve(Make(sci, civ));
+        if (failSci.Fate != Fate.WallFailed || !failSci.StopTeam)
+            return $"fail SCIENCE-only: expected WallFailed+Stop, got {failSci.Fate}/stop={failSci.StopTeam}";
+        if (ShouldRemoveFromSeed(failSci.Fate))
+            return "fail SCIENCE-only: dilemma must stay (WallFailed)";
+
+        // Fail: civilian / no Computer Skill
+        var failCiv = Resolve(Make(civ));
+        if (failCiv.Fate != Fate.WallFailed || !failCiv.StopTeam)
+            return $"fail civilian: expected WallFailed+Stop, got {failCiv.Fate}/stop={failCiv.StopTeam}";
+        if (ShouldRemoveFromSeed(failCiv.Fate))
+            return "fail civilian: dilemma must stay";
+
+        // Fail: empty Away Team
+        var empty = Resolve(Make());
+        if (empty.Fate != Fate.WallFailed || !empty.StopTeam)
+            return $"empty: expected WallFailed+Stop, got {empty.Fate}/stop={empty.StopTeam}";
+        if (ShouldRemoveFromSeed(empty.Fate))
+            return "empty: dilemma must stay";
 
         return null;
     }

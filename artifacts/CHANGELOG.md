@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Feat - Impassable Door Premiere)
+
+**Engine** - Impassable Door (PR 30 C): Planet — To get past requires Computer Skill. Pass -> Overcome Continue (dilemma discard); Fail -> `WallFailed`+`StopTeam` (dilemma stays). No kills / score / damage. Spock #14 Soll / DRG Impassable Door. Decide: `DilemmaRules.ImpassableDoor` + `VerifyImpassableDoor`.
+
+---
 ## 2026-09-06 (Feat - Iconian Computer Weapon Premiere)
 
 **Engine** - Iconian Computer Weapon (PR 29 C): Space â€” Unless SCIENCE present: Ship+Crew stopped (`EffectAndEnd`+`StopTeam`); reveal hand, discard ALL non-personnel (personnel stay); draw equal number from draw deck (`DrawForDiscarded` / Apply `DiscardNonPersonnelFromHand`+`DrawOneToHand`); else Overcome Continue. Always discard dilemma. No bonus points. Spock #13 Soll / DRG Iconian Computer Weapon (standalone). Decide: `DilemmaRules.IconianComputerWeapon` + `VerifyIconianComputerWeapon`.
