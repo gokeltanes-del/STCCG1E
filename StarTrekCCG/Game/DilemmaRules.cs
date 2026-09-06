@@ -1462,8 +1462,8 @@ public static class DilemmaRules
     // ---- Chalnoth (Premiere 19 U) ----
     // Printed (PR): "Unless 3 SECURITY OR STRENGTH>40 present, kills one Away Team member
     // (opponent's choice). Otherwise, score points. Discard dilemma."
-    // Card+DRG: pass -> Overcome +5 (discard+continue); fail -> opp PickKill, EffectAndEnd+StopTeam;
-    // dilemma always discarded (EffectAndEnd / Overcome).
+    // Spock #6 Soll/DRG: pass -> Overcome +5 Bonus-Area + Continue; fail -> opp PickKill, AT Stop,
+    // dilemma discard (EffectAndEnd).
 
     private static Result Chalnoth(Ctx ctx) =>
         UnlessScoreOr(ctx,
