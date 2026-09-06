@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Fix - Stopped no-beam + Abduction Cure OR present)
+
+**Engine/UX** - Stopped personnel excluded from beam pool (IsBeamableFromHost / BeginBeam preselect / checkboxes / toMove). Unstopped may beam; stopped stay behind; clear error if none beamable. Detail Status: stopped personnel under Negative/red (like stasis). Alien Abduction: CanCure remains Leadership x3 OR mission completed; present path via CollectPresentAtMissionForCure + TryCureAbductionsPresent (EOT, unstop, after beam); MarkMissionSolved cure unchanged. Stasis leave-block unchanged.
+
+---
 ## 2026-09-06 (Fix - G1 Battle Matching HARD)
 
 **Engine** - Ship Battle initiate: `HasMatchingAffiliation` is HARD (deny if missing). Leader+WEAPONS alone not enough. Full staffing icons (Cmd/Stf) not required for Open Fire. Reuses G2 Match rule (Treaty/NA != Match). Wired in `BattleRules.CanInitiateShipAttack` + `BeginAttackMode` (Rogue-Borg loreStaffed bypass). Dead unused `staff.Ok` soft-block removed.

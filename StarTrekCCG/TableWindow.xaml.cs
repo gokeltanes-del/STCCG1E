@@ -7248,6 +7248,8 @@ public partial class TableWindow : Window
         }
         _stoppedBorders.Clear();
         _session.Log.Add(_session.TurnNumber, "Pystem", "All stopped cards are active again.");
+
+        TryCureAbductionsPresent();
     }
 
     private void SyncSessionToUi()
@@ -9714,6 +9716,7 @@ public partial class TableWindow : Window
             return false;
         }
         if (IsCardInStasis(c)) return false;
+        if (IsBorderStopped(cardBorder)) return false; // Spock: Stopped cannot beam
         if (!IsBeamableCard(c)) return false;
         return CardOwner(cardBorder) == _activePlayer || GetBorderOwner(cardBorder) == _activePlayer;
     }
@@ -15825,6 +15828,86 @@ public partial class TableWindow : Window
         return cards;
     }
 
+    /// <summary>
+    /// Present for dilemma cure at a mission location: planet AT + crews on own ships here.
+    /// Includes stopped personnel (skills still count for cure); excludes stasis-held only via caller filters if needed.
+    /// </summary>
+    private List<Card> CollectPresentAtMissionForCure(Border missionBorder, int player)
+    {
+        var cards = new List<Card>();
+        var missionCard = missionBorder.Tag as Card;
+        bool planet = missionCard != null && MissionRules.IsPlanetMission(missionCard);
+
+        void AddFromHost(Border host)
+        {
+            if (!_stackOnHost.TryGetValue(host, out var stacked)) return;
+            foreach (var sb in stacked)
+            {
+                if (sb.Tag is not Card c) continue;
+                int o = CardOwner(sb);
+                if (o == 0) o = GetBorderOwner(sb);
+                if (o != player) continue;
+                if (IsCrewType(c) || IsEquipmentType(c) || ModifierRules.IsPersonnelCard(c)
+                    || ModifierRules.IsEquipmentCard(c))
+                    cards.Add(c);
+            }
+        }
+
+        if (planet || missionCard == null || IsMissionCard(missionCard))
+            AddFromHost(missionBorder);
+
+        Border? loc = (missionCard != null && IsMissionCard(missionCard))
+            ? missionBorder
+            : FindMissionForDockable(missionBorder);
+        if (loc != null)
+        {
+            foreach (var dock in GetDockablesUnderMission(loc))
+            {
+                if (dock.Tag is not Card dc || !IsShipCard(dc)) continue;
+                int o = GetBorderOwner(dock);
+                if (o == 0) o = 1;
+                if (o != player) continue;
+                AddFromHost(dock);
+            }
+            if (!planet)
+                AddFromHost(loc);
+        }
+        return cards;
+    }
+    /// <summary>Alien Abduction: cure OR (Leadership x3 present at location OR mission completed).</summary>
+    private void TryCureAbductionsPresent()
+    {
+        foreach (var a in _attachedDilemmas.Where(x => x.Kind == DilemmaRules.PersistKind.Abduction).ToList())
+        {
+            int cureOwner = _activePlayer;
+            if (a.Held.Count > 0)
+            {
+                foreach (var kv in _stackOnHost)
+                {
+                    foreach (var b in kv.Value)
+                    {
+                        if (b.Tag is Card hc && a.Held.Contains(hc))
+                        {
+                            int co = CardOwner(b);
+                            if (co == 1 || co == 2) { cureOwner = co; break; }
+                        }
+                    }
+                }
+            }
+            var present = CollectPresentAtMissionForCure(a.Host, cureOwner);
+            bool missionCompleted = _solvedMissions.Contains(a.Host)
+                || (FindMissionForDockable(a.Host) is Border missHost && _solvedMissions.Contains(missHost));
+            if (!DilemmaRules.CanCure(DilemmaRules.PersistKind.Abduction, present, cureOwner, missionCompleted))
+                continue;
+            ClearStasisForDilemma(a);
+            _attachedDilemmas.Remove(a);
+            SendCardTo(a.Card, cureOwner, TimingRules.Destination.Discard);
+            _session.Log.Add(_session.TurnNumber, $"P{cureOwner}",
+                $"Alien Abduction cured (Leadership x3 present or mission completed): {a.Card.Name}");
+            StatusText.Text = $"Alien Abduction cured: {a.Card.Name}.";
+        }
+    }
+
     private List<Card> CollectTeamAtMission(Border missionBorder, Card mission)
     {
         // Für Solve/Dilemma: present inkl. Equipment
@@ -15907,10 +15990,10 @@ public partial class TableWindow : Window
         }
 
         // Bei Mission: nur eigenes Away Team zählen
-        int myCrew = crew.Count(b => CardOwner(b) == _activePlayer);
-        if (sourceIsMission && myCrew == 0)
+        int myBeamable = crew.Count(b => b.Tag is Card c && IsBeamableFromHost(c, hostBorder, b));
+        if (myBeamable == 0)
         {
-            ShowPlayError("No unstopped away team of yours at this mission.");
+            ShowPlayError("No unstopped personnel to beam (stopped / stasis stay behind).");
             return;
         }
 
@@ -15942,11 +16025,12 @@ public partial class TableWindow : Window
             return;
         }
 
-        _beamSelected.Clear();
-        // Standard: alle eigenen Crew-Karten vorauswählen
+                _beamSelected.Clear();
+        // Only beamable (unstopped, not stasis) — stopped stay behind
         foreach (var b in crew)
         {
-            if (CardOwner(b) == _activePlayer) _beamSelected.Add(b);
+            if (b.Tag is Card bc && IsBeamableFromHost(bc, hostBorder, b))
+                _beamSelected.Add(b);
         }
         StatusText.Text =
             $"BEAM: Check cards in the hand strip, then click a highlighted destination. " +
@@ -16450,9 +16534,31 @@ public partial class TableWindow : Window
             int ho = GetBorderOwner(a.Host);
             if (ho == 0) ho = 1;
 
-            var present = GetAllCardsOnHost(a.Host, ho);
+                        var present = GetAllCardsOnHost(a.Host, ho);
             if (a.Kind == DilemmaRules.PersistKind.Scow)
-                present = GetCrewOnShip(a.Host); // scow on mission – check ships later
+                present = GetCrewOnShip(a.Host); // scow on mission - check ships later
+            // Abduction/Phased: cure skills need location present (AT + ship crews), incl. stopped.
+            // Host owner alone often misses the attempting player's AT (Pepsch: Leadership x3 never fired).
+            if (a.Kind is DilemmaRules.PersistKind.Abduction or DilemmaRules.PersistKind.Phased)
+            {
+                int cureOwner = owner; // finishing player
+                if (a.Held.Count > 0)
+                {
+                    foreach (var kv in _stackOnHost)
+                    {
+                        foreach (var b in kv.Value)
+                        {
+                            if (b.Tag is Card hc && a.Held.Contains(hc))
+                            {
+                                int co = CardOwner(b);
+                                if (co == 1 || co == 2) { cureOwner = co; break; }
+                            }
+                        }
+                    }
+                }
+                present = CollectPresentAtMissionForCure(a.Host, cureOwner);
+                ho = cureOwner;
+            }
 
             bool missionCompleted = _solvedMissions.Contains(a.Host)
                 || (FindMissionForDockable(a.Host) is Border missHost && _solvedMissions.Contains(missHost));
@@ -19406,7 +19512,7 @@ public partial class TableWindow : Window
         }).ToList();
         if (toMove.Count == 0)
         {
-            ShowPlayError("No cards selected to beam (checkboxes in the detail window).");
+            ShowPlayError("No cards selected to beam (stopped/stasis excluded; use checkboxes in the detail window).");
             return true;
         }
 
@@ -19444,6 +19550,8 @@ public partial class TableWindow : Window
                 rb.Controller = _activePlayer;
             }
         }
+
+        TryCureAbductionsPresent();
 
         UpdateHostBadge(source);
         UpdateHostBadge(targetHost);
@@ -20486,7 +20594,7 @@ public partial class TableWindow : Window
             {
                 if (b.Tag is not Card pc) continue;
                 if (!ModifierRules.IsPersonnelCard(pc)) continue;
-                if (IsCardInStasis(pc))
+                if (IsCardInStasis(pc) || IsBorderStopped(b))
                     negPersonnel.Add((b, pc));
             }
         }
@@ -20510,7 +20618,7 @@ public partial class TableWindow : Window
             foreach (var (b, pc) in negPersonnel)
             {
                 if (!shown.Add(pc)) continue;
-                AddStackMini(pc, "Stasis / quarantine", cardBorder: b);
+                AddStackMini(pc, IsCardInStasis(pc) ? "Stasis / quarantine" : "Stopped", cardBorder: b);
             }
         }
 
