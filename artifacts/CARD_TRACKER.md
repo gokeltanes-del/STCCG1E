@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-06 (Josef - Iconian Computer Weapon #13 partial; next #14+)
+Last updated: 2026-09-06 (Jadzia — Iconian #13 tip 47984b5 partial; #14 Impassable Door in flight)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -94,7 +94,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Gravitic Mine (26 U) | partial | tip Data/`5c4f563`. Pass SCIENCE+Navigation Continue; Fail Damage + Ship/Crew stop. Ungetestet. | Data/`5c4f563` 2026-09-06 |
 | Hologram Ruse (27 U) | working | Pepsch getestet OK. | Pepsch 2026-09-06 |
 | Hyper-Aging (28 U) | working | Pepsch green (AttachAndContinue). | Pepsch 2026-09-06 |
-| Iconian Computer Weapon (29 C) | partial | SCIENCE Overcome Continue; Fail Stop Ship+Crew; hand discard ALL non-personnel + draw equal; dilemma discard. Spock #13. Ungetestet. | Data 2026-09-06 |
+| Iconian Computer Weapon (29 C) | partial | tip Data/`47984b5`. Pass SCIENCE Continue; Fail Stop + Non-Pers Hand discard+draw. Ungetestet. | Data/`47984b5` 2026-09-06 |
 | Impassable Door (30 C) | unknown |  |  |
 | Ktarian Game (31 R) | unknown |  |  |
 | Male's Love Interest (32 C) | working | Pepsch getestet OK (Continue after Relocate). | Pepsch 2026-09-06 |
