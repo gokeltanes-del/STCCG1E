@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Fix - Neural Servo Seiten-Sync)
+
+**UX** - Neural Servo Device: nach gültigem Play/Resolve (und EOT-Restore) Schiff sofort auf Controller-Seite neu legen (P1 unter / P2 über Mission) via `RelayoutDockablesUnderMission` — nicht erst nach Fly/Move. Helper `SyncDockableSideAfterOwnerChange` (wie Lore Returns).
+
+---
 ## 2026-09-06 (Fix - Love Interest + Stasis/Abduction + Cloak nebula)
 
 **Engine** - Female's/Male's Love Interest: Fate.EffectAndContinue - relocate matching gender to furthest other planet; victim leaves AT (not stopped); rest continue; dilemma discarded. TW failed excludes EffectAndContinue.

@@ -158,7 +158,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Lore's Fingernail (81 R) | unknown |  |  |
 | Masaka Transformations (82 U) | unknown |  |  |
 | Metaphasic Shields (83 U) | unknown |  |  |
-| Neural Servo Device (84 U) | working | Pepsch getestet OK. UI Seite-Wechsel lag parked until Data tip. | Pepsch 2026-09-06 |
+| Neural Servo Device (84 U) | working | Pepsch getestet OK. UI Seite-Sync on resolve (Data tip pending). | Pepsch 2026-09-06 |
 | Nutational Shields (85 U) | unknown |  |  |
 | Pattern Enhancers (86 C) | unknown |  |  |
 | Plasma Fire (87 C) | unknown |  |  |

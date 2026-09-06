@@ -17499,6 +17499,7 @@ public partial class TableWindow : Window
                 pc.Controller = controller;
             }
         }
+        SyncDockableSideAfterOwnerChange(host);
         TurnExpiry.RegisterFlag(_session, controller, $"NeuralServo|{ev.InstanceId}", ship.Name);
         ShowCardReveal(ev, "Neural Servo Device",
             $"Until end of turn you control {ship.Name} and its crew.\n"
@@ -17526,11 +17527,21 @@ public partial class TableWindow : Window
                     pc.Controller = back;
             }
         }
+        SyncDockableSideAfterOwnerChange(e.Host);
         _attachedEvents.Remove(e);
         SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
         _session.Log.Add(_session.TurnNumber, $"P{e.Owner}",
             $"Neural Servo ends — {(e.Host.Tag as Card)?.Name} returns to P{back}.");
         UpdateHostBadge(e.Host);
+    }
+
+
+    /// <summary>Nach Owner-/Controller-Wechsel: Schiff sofort auf die Seite des Controllers (P1 unten / P2 oben).</summary>
+    private void SyncDockableSideAfterOwnerChange(Border host)
+    {
+        var at = FindMissionForDockable(host);
+        if (at != null)
+            RelayoutDockablesUnderMission(at);
     }
 
     private void ApplyAsteroidSanctuary(Card card, int controller)
