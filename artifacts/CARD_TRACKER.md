@@ -84,7 +84,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Barclay's Protomorphosis Disease (16 R) | working | Pepsch getestet OK (Metamorphosis/Transformation). | Pepsch 2026-09-06 |
 | Birth of "Junior" (17 U) | partial | tip Data/`4c92dce`. Place+Continue; EOT RANGE-1/destroy; Cure 3 ENG. Pup-disable≠0RANGE geparkt. Ungetestet. | Data/`4c92dce` 2026-09-06 |
 | Borg Ship (18 R) | working | Captain/Pepsch „soweit“ — nicht nochmal Dilemma-Welle. | Captain 2026-09-06 |
-| Chalnoth (19 U) | unknown |  |  |
+| Chalnoth (19 U) | partial | tip Data/`PENDING`. Unless 3 SEC OR STR>40 -> +5 Overcome; else opp kill 1, EffectAndEnd+Stop; discard always. Card+DRG. Ungetestet. | Data/`PENDING` 2026-09-06 |
 | Cosmic String Fragment (20 U) | unknown |  |  |
 | Crystalline Entity (21 R) | unknown |  |  |
 | Cytherians (22 R) | unknown |  |  |

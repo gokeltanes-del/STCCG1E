@@ -109,10 +109,7 @@ public static class DilemmaRules
             "Nausicaans" => UnlessThen(ctx, Sum(ctx).str > 44, KillRandom(ctx),
                 "STRENGTH>44", "Nausicaans kill one at random.", discardAlways: true),
             "Rebel Encounter" => Rebel(ctx),
-            "Chalnoth" => UnlessScoreOr(ctx,
-                Skill(ctx, "SECURITY", 3) || Sum(ctx).str > 40,
-                () => PickKill(ctx, opp: true, "Chalnoth: opponent chooses a victim."),
-                5, "3 SECURITY or STRENGTH>40"),
+            "Chalnoth" => Chalnoth(ctx),
             "Archer" => UnlessThen(ctx, Skill(ctx, "MEDICAL") && Skill(ctx, "SECURITY"),
                 HighestAttr(ctx), "MEDICAL and SECURITY", "Archer kills highest attribute total.", true),
             "Anaphasic Organism" => Anaphasic(ctx),
@@ -1457,6 +1454,107 @@ public static class DilemmaRules
             return "EOT: RANGE 0 should destroy";
         if (EndOfTurnRestRules.JuniorDestroysShip(1))
             return "EOT: RANGE 1 should not destroy";
+
+        return null;
+    }
+
+
+    // ---- Chalnoth (Premiere 19 U) ----
+    // Printed (PR): "Unless 3 SECURITY OR STRENGTH>40 present, kills one Away Team member
+    // (opponent's choice). Otherwise, score points. Discard dilemma."
+    // Card+DRG: pass -> Overcome +5 (discard+continue); fail -> opp PickKill, EffectAndEnd+StopTeam;
+    // dilemma always discarded (EffectAndEnd / Overcome).
+
+    private static Result Chalnoth(Ctx ctx) =>
+        UnlessScoreOr(ctx,
+            Skill(ctx, "SECURITY", 3) || Sum(ctx).str > 40,
+            () => PickKill(ctx, opp: true, "Chalnoth: opponent chooses a victim."),
+            5, "3 SECURITY or STRENGTH>40");
+
+    /// <summary>DE mini-test for Chalnoth. Returns null if OK, else failure reason.</summary>
+    public static string? VerifyChalnoth()
+    {
+        static Card P(string name, string cls, string text, string str = "5") => new()
+        {
+            Name = name,
+            Type = "Personnel",
+            Class = cls,
+            Text = text,
+            Characteristics = "Human; Male;",
+            IntegrityOrRange = "5",
+            CunningOrWeapons = "5",
+            StrengthOrShields = str
+        };
+
+        static Ctx Make(Func<string, IReadOnlyList<Card>, Card?>? pickOpp, params Card[] team) => new()
+        {
+            Dilemma = new Card { Name = "Chalnoth", Type = "Dilemma", MissionDilemmaType = "[P]" },
+            Mission = new Card { Name = "Test Planet", Type = "Mission", MissionDilemmaType = "[P]" },
+            Team = team,
+            Present = team,
+            AttemptingPlayer = 1,
+            Rng = new Random(1),
+            PickOpp = pickOpp
+        };
+
+        var sec1 = P("Sec One", "SECURITY", "SECURITY");
+        var sec2 = P("Sec Two", "SECURITY", "SECURITY");
+        var sec3 = P("Sec Three", "SECURITY", "SECURITY");
+        var civ = P("Civilian", "CIVILIAN", "CIVILIAN", "8");
+        var tankA = P("Tank A", "OFFICER", "OFFICER", "10");
+        var tankB = P("Tank B", "OFFICER", "OFFICER", "10");
+        var tankC = P("Tank C", "OFFICER", "OFFICER", "10");
+        var tankD = P("Tank D", "OFFICER", "OFFICER", "11"); // 10+10+10+11 = 41 > 40
+
+        // Pass: 3 SECURITY -> Overcome +5, no stop, discard
+        var passSec = Resolve(Make(null, sec1, sec2, sec3));
+        if (passSec.Fate != Fate.Overcome || passSec.StopTeam || passSec.Score != 5)
+            return $"pass 3 SECURITY: expected Overcome Score=5 no stop, got {passSec.Fate}/{passSec.Score}/stop={passSec.StopTeam}";
+        if (passSec.Kill.Count != 0)
+            return "pass 3 SECURITY: should not kill";
+        if (!ShouldRemoveFromSeed(passSec.Fate))
+            return "pass 3 SECURITY: dilemma should discard";
+
+        // Pass: STRENGTH>40 without 3 SECURITY
+        var passStr = Resolve(Make(null, tankA, tankB, tankC, tankD));
+        if (passStr.Fate != Fate.Overcome || passStr.Score != 5 || passStr.StopTeam)
+            return $"pass STRENGTH>40: expected Overcome +5 no stop, got {passStr.Fate}/{passStr.Score}/stop={passStr.StopTeam}";
+        if (!ShouldRemoveFromSeed(passStr.Fate))
+            return "pass STRENGTH>40: dilemma should discard";
+
+        // Fail boundary: STRENGTH==40 and only 2 SECURITY (5+5+10+10+10=40) -> not overcome
+        var eq40 = new[] { sec1, sec2, tankA, tankB, tankC };
+        Card? picked = null;
+        var failEq = Resolve(Make((_, list) => { picked = list.First(x => x.Name == "Sec Two"); return picked; }, eq40));
+        if (failEq.Fate != Fate.EffectAndEnd || !failEq.StopTeam)
+            return $"fail STR=40 + 2 SEC: expected EffectAndEnd+StopTeam, got {failEq.Fate}/stop={failEq.StopTeam}";
+        if (failEq.Kill.Count != 1 || failEq.Kill[0].Name != "Sec Two")
+            return $"fail STR=40: expected kill Sec Two, got [{string.Join(",", failEq.Kill.Select(k => k.Name))}]";
+        if (picked?.Name != "Sec Two")
+            return "fail STR=40: PickOpp was not used";
+        if (!ShouldRemoveFromSeed(failEq.Fate))
+            return "fail STR=40: dilemma should discard";
+
+        // Fail: weak team, opponent chooses victim
+        picked = null;
+        var failOpp = Resolve(Make((_, list) => { picked = list.First(x => x.Name == "Civilian"); return picked; }, civ, sec1));
+        if (failOpp.Fate != Fate.EffectAndEnd || !failOpp.StopTeam)
+            return "fail opp: expected EffectAndEnd + StopTeam";
+        if (failOpp.Kill.Count != 1 || failOpp.Kill[0].Name != "Civilian")
+            return $"fail opp: expected kill Civilian, got [{string.Join(",", failOpp.Kill.Select(k => k.Name))}]";
+        if (picked?.Name != "Civilian")
+            return "fail opp: PickOpp was not used";
+        if (failOpp.Score != 0)
+            return "fail opp: should not score";
+        if (!ShouldRemoveFromSeed(failOpp.Fate))
+            return "fail opp: dilemma should discard";
+
+        // Empty Away Team fail: EffectAndEnd + Stop, no kill, discard
+        var empty = Resolve(Make(null));
+        if (empty.Fate != Fate.EffectAndEnd || !empty.StopTeam || empty.Kill.Count != 0)
+            return $"empty: expected EffectAndEnd+Stop no kill, got {empty.Fate}/stop={empty.StopTeam}/kills={empty.Kill.Count}";
+        if (!ShouldRemoveFromSeed(empty.Fate))
+            return "empty: dilemma should discard";
 
         return null;
     }
