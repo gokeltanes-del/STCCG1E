@@ -1,4 +1,4 @@
-﻿# STCCG 1E - Features backlog
+# STCCG 1E - Features backlog
 Last updated: 2026-09-06
 
 Living list - **Seven owns ranking.** Reorder freely when checklist coverage or Captain goals shift.
@@ -16,6 +16,7 @@ See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md, CARD_TRACKER.md (Jadzia).
 - **Glossary/Compendium full coverage (Seven+Spock)** - Welle 1 + Hugh/Borg DONE; **Welle 2 Control/Owner/Present ACTIVE** (Docs only). Card rows → Jadzia.
 
 ## P1 - Parked
+- **Cure-Present-Scope (Ship)** - Gap (Spock): Ship-Dilemmas (Menthar etc.) = Skills **an Bord des belegten Schiffs**, nicht ortsweit alle Schiffe; Planet-Cures separat. Nicht blocken fuer Pepsch-Batch.
 - IM Federation FindMissionForDockable / dump@Gaps / Distortion / Fed 7.4.1 parked rows as before
 
 ## P2 - Premiere hardening
