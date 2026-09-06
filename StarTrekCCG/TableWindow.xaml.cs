@@ -16845,6 +16845,9 @@ public partial class TableWindow : Window
                     }
                 }
                 present = CollectPresentAtMissionForCure(a.Host, cureOwner);
+                // Spock #24: Phased Matter cure skills from unphased AT only (Held do not count).
+                if (a.Kind == DilemmaRules.PersistKind.Phased)
+                    present = DilemmaRules.ExcludeHeld(present, a.Held);
                 ho = cureOwner;
             }
 

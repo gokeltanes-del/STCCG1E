@@ -1932,14 +1932,154 @@ public static class DilemmaRules
         return r;
     }
 
+    // ---- Phased Matter (Premiere 42 C) ----
+    // Printed (PR): "Divide Away Team into two groups. Place on larger group (your choice
+    // if tie); they are in stasis. Cure with ENGINEER and SCIENCE."
+    // Planet [P]. SCIENCE-related. Icons [IPG].
+    // Spock #24 Soll / DRG + Glossary Errata Phased Matter:
+    //   Owner splits AT; larger group phased (tie: owner picks which is "larger"; Solo=1+0).
+    //   Smaller AT Continue (not stopped). Kill-list = stasis Held (Apply IsStasisPersist).
+    //   Cure: ENGINEER + SCIENCE in another unphased AT at planet (phased do not count).
+    // Decide: AttachAndContinue + Persist Phased + owner PickYou for larger group;
+    // default without PickYou = first ceil(n/2) of Team. CanCurePhased excludes Held.
+    // PARK: deep phasing LegalMoves edges (Sheliak etc.); Beam/leave already gated via IsCardInStasis.
+
     private static Result Phased(Ctx ctx)
     {
-        // größere Hälfte in Stasis – wir markieren ~ceil(n/2) als Relocate (Stasis)
-        var r = Attach(ctx, PersistKind.Phased, 0, "Phased Matter: larger group in stasis. Cure: ENGINEER + SCIENCE.");
-        var half = (ctx.Team.Count + 1) / 2;
-        foreach (var p in ctx.Team.Take(half))
-            r.Kill.Add(p); // UI interpretiert Phased Kill als Stasis, nicht Tod – siehe Apply
+        int n = ctx.Team.Count;
+        if (n == 0)
+            return new Result
+            {
+                Fate = Fate.Overcome,
+                StopTeam = false,
+                Message = "No Away Team - Phased Matter has no effect."
+            };
+
+        // Larger size = ceil(n/2): Solo 1+0; even n = tie (n/2 each) - owner picks who is phased.
+        int largerSize = (n + 1) / 2;
+        var remaining = ctx.Team.ToList();
+        var phased = new List<Card>();
+        for (int i = 0; i < largerSize && remaining.Count > 0; i++)
+        {
+            Card pick = ctx.PickYou?.Invoke(
+                               $"Phased Matter: pick for larger (phased) group ({i + 1}/{largerSize})",
+                               remaining)
+                           ?? remaining[0];
+            if (!remaining.Contains(pick))
+                pick = remaining[0];
+            remaining.Remove(pick);
+            phased.Add(pick);
+        }
+
+        var r = AttachContinue(ctx, PersistKind.Phased, 0,
+            $"Phased Matter: {phased.Count} phased (larger group in stasis). Smaller continues (not stopped). Cure: ENGINEER + SCIENCE (unphased AT).");
+        foreach (var p in phased)
+            AddKill(r.Kill, p); // Apply: Phased Kill => stasis Held, not death
         return r;
+    }
+
+    /// <summary>Present for Phased Matter cure: exclude Held/phased (they do not count).</summary>
+    public static List<Card> ExcludeHeld(IEnumerable<Card> present, IEnumerable<Card>? held)
+    {
+        var list = present?.ToList() ?? new List<Card>();
+        if (held == null) return list;
+        var h = held as IList<Card> ?? held.ToList();
+        if (h.Count == 0) return list;
+        return list.Where(c => !h.Any(x => ReferenceEquals(x, c))).ToList();
+    }
+
+    /// <summary>Phased Matter cure check: ENGINEER + SCIENCE among unphased present.</summary>
+    public static bool CanCurePhased(IEnumerable<Card> presentAtPlanet, IEnumerable<Card>? phasedHeld) =>
+        CanCure(PersistKind.Phased, ExcludeHeld(presentAtPlanet, phasedHeld), owner: 1);
+
+    /// <summary>DE mini-test for Phased Matter. Returns null if OK, else failure reason.</summary>
+    public static string? VerifyPhasedMatter()
+    {
+        static Card P(string name, string cls, string text) => new()
+        {
+            Name = name,
+            Type = "Personnel",
+            Class = cls,
+            Text = text,
+            Characteristics = "Human; Male;",
+            IntegrityOrRange = "5",
+            CunningOrWeapons = "5",
+            StrengthOrShields = "5"
+        };
+
+        static Ctx Make(Func<string, IReadOnlyList<Card>, Card?>? pickYou = null, params Card[] team) => new()
+        {
+            Dilemma = new Card { Name = "Phased Matter", Type = "Dilemma", MissionDilemmaType = "[P]" },
+            Mission = new Card { Name = "Test Planet", Type = "Mission", MissionDilemmaType = "[P]" },
+            Team = team,
+            Present = team,
+            AttemptingPlayer = 1,
+            Rng = new Random(1),
+            PickYou = pickYou
+        };
+
+        var eng = P("Eng One", "ENGINEER", "ENGINEER");
+        var sci = P("Sci One", "SCIENCE", "SCIENCE");
+        var civ = P("Civilian", "CIVILIAN", "CIVILIAN");
+        var off = P("Officer", "OFFICER", "OFFICER");
+        var sec = P("Sec One", "SECURITY", "SECURITY");
+
+        // Solo=1+0: single AT member phased; AttachAndContinue; StopTeam=false; seed removed (attach)
+        var solo = Resolve(Make(null, civ));
+        if (solo.Fate != Fate.AttachAndContinue || solo.StopTeam)
+            return $"solo 1+0: expected AttachAndContinue no stop, got {solo.Fate}/stop={solo.StopTeam}";
+        if (solo.Persist != PersistKind.Phased || solo.Countdown != 0)
+            return $"solo 1+0: expected Persist Phased countdown 0, got {solo.Persist}/{solo.Countdown}";
+        if (solo.Kill.Count != 1 || solo.Kill[0].Name != "Civilian")
+            return $"solo 1+0: expected phase Civilian, got [{string.Join(",", solo.Kill.Select(k => k.Name))}]";
+        if (!ShouldRemoveFromSeed(solo.Fate))
+            return "solo 1+0: attached dilemma leaves seed stack";
+        if (!IsStasisPersist(solo.Persist))
+            return "solo 1+0: Phased must be stasis persist";
+
+        // Odd count 3: larger=2 phased (default first two), smaller=1 continues
+        var odd = Resolve(Make(null, eng, sci, civ));
+        if (odd.Fate != Fate.AttachAndContinue || odd.StopTeam)
+            return $"odd 3: expected AttachAndContinue no stop, got {odd.Fate}/stop={odd.StopTeam}";
+        if (odd.Kill.Count != 2)
+            return $"odd 3: expected 2 phased, got {odd.Kill.Count}";
+        if (odd.Kill[0].Name != "Eng One" || odd.Kill[1].Name != "Sci One")
+            return $"odd 3 default: expected Eng+Sci phased, got [{string.Join(",", odd.Kill.Select(k => k.Name))}]";
+
+        // Even tie 4: largerSize=2; owner PickYou selects who is "larger" (phased)
+        var pickOrder = new Queue<string>(new[] { "Civilian", "Sec One" });
+        Card? Pick(string _, IReadOnlyList<Card> pool)
+        {
+            string want = pickOrder.Dequeue();
+            return pool.First(c => c.Name == want);
+        }
+        var tie = Resolve(Make(Pick, eng, sci, civ, sec));
+        if (tie.Fate != Fate.AttachAndContinue || tie.StopTeam)
+            return $"tie 4: expected AttachAndContinue no stop, got {tie.Fate}/stop={tie.StopTeam}";
+        if (tie.Kill.Count != 2 || tie.Kill[0].Name != "Civilian" || tie.Kill[1].Name != "Sec One")
+            return $"tie 4 PickYou: expected Civilian+Sec phased, got [{string.Join(",", tie.Kill.Select(k => k.Name))}]";
+
+        // Empty AT: no effect Overcome
+        var empty = Resolve(Make());
+        if (empty.Fate != Fate.Overcome || empty.StopTeam || empty.Kill.Count != 0)
+            return $"empty: expected Overcome no stop/kill, got {empty.Fate}/stop={empty.StopTeam}/kills={empty.Kill.Count}";
+
+        // Cure: ENG+SCI unphased OK; phased-only skills do not count; single skill fails
+        if (!CanCurePhased(new[] { eng, sci, civ }, phasedHeld: Array.Empty<Card>()))
+            return "CanCurePhased: ENG+SCI unphased should cure";
+        if (CanCurePhased(new[] { eng, sci }, phasedHeld: new[] { eng, sci }))
+            return "CanCurePhased: phased ENG+SCI must not count";
+        if (CanCurePhased(new[] { eng, civ }, phasedHeld: Array.Empty<Card>()))
+            return "CanCurePhased: ENGINEER alone should not cure";
+        if (CanCurePhased(new[] { sci, off }, phasedHeld: Array.Empty<Card>()))
+            return "CanCurePhased: SCIENCE alone should not cure";
+        // Mix: ENG phased, SCI unphased -> no cure; both skills unphased beside held civ -> cure
+        if (CanCurePhased(new[] { eng, sci }, phasedHeld: new[] { eng }))
+            return "CanCurePhased: ENG held + SCI free should not cure (need both unphased)";
+        if (!CanCurePhased(new[] { eng, sci, civ }, phasedHeld: new[] { civ }))
+            return "CanCurePhased: ENG+SCI free with civ held should cure";
+
+        return null;
     }
 
     private static Result RelocateGender(Ctx ctx, bool female)
@@ -2487,7 +2627,7 @@ public static class DilemmaRules
             PersistKind.EdoProbe => "attempt this mission next or −10",
             PersistKind.FrameOfMind => "personnel is 3-3-3 until 3 Empathy",
             PersistKind.Abduction => "personnel held (cure: Leadership x3 OR mission completed)",
-            PersistKind.Phased => "personnel phased (ENGINEER + SCIENCE)",
+            PersistKind.Phased => "larger AT phased / stasis (cure: ENGINEER + SCIENCE unphased)",
             PersistKind.Ktarian => "1 personnel disabled (now + your SOT); cure: CUNNING>30 or Android",
             PersistKind.BorgShip => "Borg Ship dilemma remains",
             _ => ""

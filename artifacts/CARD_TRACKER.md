@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-06 (Jadzia — Null Space #23 tip 04f4bd6 partial; #24 Phased Matter in flight)
+Last updated: 2026-09-06 (Josef - Phased Matter #24 after Null Space 04f4bd6)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -107,7 +107,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Nausicaans (39 U) | partial | tip Data/`485814c`. STR>44 Continue; Fail random Kill+Stop. PARK: Interphase/Zon nullify. Ungetestet. | Data/`485814c` 2026-09-06 |
 | Nitrium Metal Parasites (40 U) | working | Pepsch green (AttachAndContinue). | Pepsch 2026-09-06 |
 | Null Space (41 U) | partial | tip Data/`04f4bd6`. 2 Navigation → +5 Continue; Fail Damage+Stop. Ungetestet. | Data/`04f4bd6` 2026-09-06 |
-| Phased Matter (42 C) | unknown |  |  |
+| Phased Matter (42 C) | partial | Owner split; larger phased (tie/Solo=1+0); smaller Continue; Cure ENG+SCI unphased. PARK: deep LegalMoves/Sheliak. Ungetestet. | 2026-09-06 |
 | Portal Guard (43 U) | unknown |  |  |
 | Q (44 R) | unknown |  |  |
 | Radioactive Garbage Scow (45 U) | unknown |  |  |

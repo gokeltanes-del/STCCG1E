@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Feat - Phased Matter Premiere)
+
+**Engine** - Phased Matter (PR 42 C): Planet - Owner divides Away Team; larger group phased/stasis (tie: owner picks which is larger; Solo=1+0). Smaller AT Continue (AttachAndContinue, not stopped). Cure: ENGINEER + SCIENCE from another unphased AT at planet (Held/phased do not count via ExcludeHeld/CanCurePhased). Spock #24 Soll / DRG + Glossary Errata Phased Matter. Decide: `DilemmaRules.Phased` + `VerifyPhasedMatter`. PARK: deep phasing LegalMoves (Sheliak etc.); Beam/leave already gated via IsCardInStasis.
+
+---
 ## 2026-09-06 (Feat - Null Space Premiere)
 
 **Engine** - Null Space (PR 41 U): Space - Unless 2 Navigation present: Ship damaged (DamageShip / ApplyHullDamage +50 / Rotation badge) + Ship/Crew stopped (EffectAndEnd+StopTeam); else Overcome +5 Bonus-Area + Continue. Always discard dilemma. Boundary: 1 Navigation fails. Spock #23 Soll / DRG Null Space. Decide: `DilemmaRules.NullSpace` + `VerifyNullSpace`.
