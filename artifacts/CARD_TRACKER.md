@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-06 (Josef — Nanites #21 tip df0e3fa partial; next5 #22+)
+Last updated: 2026-09-06 (Jadzia — Nanites #21 tip df0e3fa partial; #22 Nausicaans in flight)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -103,7 +103,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Microbiotic Colony (35 C) | partial | tip Data/`f8c14d5`. SCI+ENG+OFF Continue; Fail Damage+Stop; immer discard. Ungetestet. | Data/`f8c14d5` 2026-09-06 |
 | Microvirus (36 C) | partial | tip Data/`aaa83b2`. MED+SEC → +5 Continue; Fail Opp-Kill+Stop; DNA-Immun via IsInorganic. PARK: Opp-UI-Filter dünn. Ungetestet. | Data/`aaa83b2` 2026-09-06 |
 | Nagilum (37 R) | partial | tip Data/`b16e2b8`. 3 Diplomacy OR STR>40 → +5 Continue; Fail half-kill (abrunden)+Stop. Ungetestet. | Data/`b16e2b8` 2026-09-06 |
-| Nanites (38 U) | partial | tip Data/`df0e3fa`. 2 SCIENCE OR Diplomacy → +5 Continue; Fail DamageShip+Stop. Ungetestet. | Data/`df0e3fa` 2026-09-06 |
+| Nanites (38 U) | partial | tip Data/`df0e3fa`. 2 SCIENCE OR Diplomacy → +5 Continue; Fail Damage+Stop. Ungetestet. | Data/`df0e3fa` 2026-09-06 |
 | Nausicaans (39 U) | unknown |  |  |
 | Nitrium Metal Parasites (40 U) | working | Pepsch green (AttachAndContinue). | Pepsch 2026-09-06 |
 | Null Space (41 U) | unknown |  |  |
