@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -84,7 +84,8 @@ public static class BattleRules
 
     /// <summary>
     /// Darf dieses Schiff einen Ship Battle initiieren?
-    /// Leader (OFFICER oder Leadership), WEAPONS &gt; 0, nicht gestoppt, Affiliation-Restriktion grob.
+    /// Leader (OFFICER oder Leadership), WEAPONS &gt; 0, Matching Affiliation HARD (G1),
+    /// nicht gestoppt, Affiliation-Restriktion grob. Full Cmd/Stf staffing icons not required.
     /// </summary>
     public static AttackCheck CanInitiateShipAttack(
         Card attackerShip,
@@ -120,14 +121,14 @@ public static class BattleRules
         if (!HasLeader(crew) && !loreStaffed)
             return new AttackCheck(false, "Kein Leader an Bord (OFFICER oder Leadership nötig).");
 
-        // Matching affiliation an Bord (Staffing-ähnlich)
-        var staff = MovementRules.IsShipStaffed(attackerShip, crew);
-        if (!staff.Ok && IsShipCard(attackerShip))
+        // G1 / Spock: Matching Affiliation HARD for initiate (Leader+WEAPONS alone not enough).
+        // Full staffing icons (Cmd/Stf) NOT required for Open Fire. Treaty/NA != Match (G2).
+        if (IsShipCard(attackerShip) && !loreStaffed
+            && !MovementRules.HasMatchingAffiliation(attackerShip, crew))
         {
-            // Für Battle: mind. matching affiliation reicht als Minimum, Staffing-Icons soft
-            // (Compendium: matching personnel; Leader separat)
+            return new AttackCheck(false,
+                "Cannot initiate ship battle: no matching-affiliation personnel aboard (Treaty/NA does not count as Match). Leader+WEAPONS alone is not enough.");
         }
-
         var affCheck = CheckAffiliationAttackRestriction(attackerShip, crew, target, wartimeVs);
         if (!affCheck.Ok)
             return affCheck;

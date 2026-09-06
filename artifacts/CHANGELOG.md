@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-06 (Fix - G1 Battle Matching HARD)
+
+**Engine** - Ship Battle initiate: `HasMatchingAffiliation` is HARD (deny if missing). Leader+WEAPONS alone not enough. Full staffing icons (Cmd/Stf) not required for Open Fire. Reuses G2 Match rule (Treaty/NA != Match). Wired in `BattleRules.CanInitiateShipAttack` + `BeginAttackMode` (Rogue-Borg loreStaffed bypass). Dead unused `staff.Ok` soft-block removed.
+
+---
 ## 2026-09-06 (Fix - Cloak card ~50% opacity)
 
 **UX** - Cloaked ships: `ApplyCloakVisual` sets card `Opacity = 0.55` (~50%) on cloak and restores on decloak (keeps 0.55 if still stopped). `ApplyStoppedVisual` unstop keeps cloak opacity. Nebula overlay/border unchanged. (`Opacity=0.55` near stopped path was stopped-only, not cloak.)

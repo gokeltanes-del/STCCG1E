@@ -16119,6 +16119,13 @@ public partial class TableWindow : Window
             ShowPlayError("No leader aboard (OFFICER or Leadership required).");
             return;
         }
+        // G1: Matching Affiliation HARD (same HasMatchingAffiliation as Fly/G2; Cmd/Stf icons not required to initiate).
+        if (BattleRules.IsShipCard(ship) && !ShipStaffedByRogueBorg(shipBorder)
+            && !MovementRules.HasMatchingAffiliation(ship, crew, GetActiveTreaties(owner)))
+        {
+            ShowPlayError("Cannot initiate ship battle: no matching-affiliation personnel aboard (Treaty/NA does not count as Match). Leader+WEAPONS alone is not enough.");
+            return;
+        }
 
         var mission = FindMissionForDockable(shipBorder);
         if (mission == null)
