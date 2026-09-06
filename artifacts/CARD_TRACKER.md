@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-06 (Jadzia — Archer working, Pepsch Gesamt-Grün/bf1f2ab)
+Last updated: 2026-09-06 (Jadzia — Borg Ship working Captain soweit; Alien Parasites #1 in wave)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -83,7 +83,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Armus: Skin Of Evil (15 R) | unknown |  |  |
 | Barclay's Protomorphosis Disease (16 R) | working | Pepsch getestet OK (Metamorphosis/Transformation). | Pepsch 2026-09-06 |
 | Birth of "Junior" (17 U) | unknown |  |  |
-| Borg Ship (18 R) | unknown |  |  |
+| Borg Ship (18 R) | working | Captain/Pepsch „soweit“ — nicht nochmal Dilemma-Welle. | Captain 2026-09-06 |
 | Chalnoth (19 U) | unknown |  |  |
 | Cosmic String Fragment (20 U) | unknown |  |  |
 | Crystalline Entity (21 R) | unknown |  |  |
