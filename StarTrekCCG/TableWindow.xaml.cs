@@ -265,6 +265,19 @@ public partial class TableWindow : Window
 
     private readonly List<AttachedDilemma> _attachedDilemmas = new();
 
+    /// <summary>Alien Parasites Neg: temporary control until Opp EOT / start of victim next turn.</summary>
+    private sealed class AlienParasiteControlState
+    {
+        public int Victim { get; init; }
+        public int Controller { get; init; }
+        public Card Dilemma { get; init; } = null!;
+        public Border? ShipBorder { get; init; }
+        public int ShipOriginalOwner { get; init; }
+        public List<(Card Card, int OriginalController, Border? Border)> Cards { get; } = new();
+    }
+
+    private readonly List<AlienParasiteControlState> _alienParasiteControls = new();
+
     /// <summary>During a mission attempt: cards discarded from this location (for Temporal Causality Loop).</summary>
     private Border? _attemptMission;
     /// <summary>Space attempt: the one selected Attempting-Ship (crew/present scoped to this ship only).</summary>
@@ -7195,6 +7208,7 @@ public partial class TableWindow : Window
         ProcessEndOfTurnDilemmas(finishingPlayer);
         ProcessEndOfTurnEvents(finishingPlayer);
         ProcessUntilEndOfTurnBag(finishingPlayer);
+        RestoreAlienParasitesControlsIfDue(finishingPlayer);
         ProcessRogueBorgEndOfTurn(finishingPlayer);
         ApplyEdoEndOfTurnPenalties(finishingPlayer);
         if (KlimBlocksDraw(finishingPlayer))
@@ -8158,7 +8172,7 @@ public partial class TableWindow : Window
         _hullDamagePercent.Clear(); _stoppedBorders.Clear();
         _dockedAt.Clear(); _cloakedShips.Clear();
         _repairTurnsAtOutpost.Clear(); _shipRangeLeft.Clear();
-        _borderOwner.Clear(); _attachedDilemmas.Clear(); _attachedEvents.Clear();
+        _borderOwner.Clear(); _attachedDilemmas.Clear(); _alienParasiteControls.Clear(); _attachedEvents.Clear();
         _missionsByQuadrant.Clear(); _spacelineOrder.Clear();
         ClearMissionSlotPreviews();
         foreach (var kv in _damageBadges.ToList())
@@ -8677,6 +8691,7 @@ public partial class TableWindow : Window
         _oppTablePermanentCards.Clear();
         _tablePermanentCards.Clear();
         _attachedDilemmas.Clear();
+        _alienParasiteControls.Clear();
         _horgahnP1 = _horgahnP2 = false;
         _horgahnExtraPlayUsed = false;
         _energyVortexBlocked.Clear();
@@ -11891,6 +11906,8 @@ public partial class TableWindow : Window
                     BeamBackAwayTeamToShipOrOutpost(missionBorder, teamBorders);
                 if (dilResult.StopTeam)
                     StopMissionAttemptTeam(missionBorder, mission, teamBorders);
+                if (dilResult.GrantOpponentControl)
+                    BeginAlienParasitesOpponentControl(seedCard, missionBorder, teamBorders, shipBorder);
                 StatusText.Text = logMsg;
                 _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
                     $"Dilemma {seedCard.Name} FAILED: {logMsg}");
@@ -15899,6 +15916,184 @@ public partial class TableWindow : Window
                 $"Alien Parasites beam-back: {moved} to {destName}.");
             SyncBoardFromTable();
         }
+    }
+
+    /// <summary>
+    /// Alien Parasites Neg min path: Opp chooses Away Team and/or one ship+crew here.
+    /// Control applies now; Opp acts on their turn; restore at Opp EOT (= start of victim next turn).
+    /// PARK: dual-window hotseat chooser; deep "not compatible with Opp other cards" affiliation mix.
+    /// </summary>
+    private void BeginAlienParasitesOpponentControl(
+        Card seedCard, Border missionBorder, List<Border> teamBorders, Border? shipBorder)
+    {
+        int victim = _activePlayer;
+        int opp = victim == 1 ? 2 : 1;
+
+        var awayTeam = new List<(Border Border, Card Card)>();
+        foreach (var b in teamBorders)
+        {
+            if (b.Tag is not Card pc) continue;
+            if (!ModifierRules.IsPersonnelCard(pc)) continue;
+            awayTeam.Add((b, pc));
+        }
+
+        var shipsHere = new List<Border>();
+        foreach (var dock in GetDockablesUnderMission(missionBorder))
+        {
+            if (dock.Tag is not Card dc || !IsShipCard(dc)) continue;
+            int own = GetBorderOwner(dock);
+            if (own == 0) own = dc.OwnerPlayer;
+            if (own != victim) continue;
+            shipsHere.Add(dock);
+        }
+        // Space fail: attempting ship may not yet be under dockables scan — include it.
+        if (shipBorder != null && shipBorder.Tag is Card sc && IsShipCard(sc) && !shipsHere.Contains(shipBorder))
+        {
+            int own = GetBorderOwner(shipBorder);
+            if (own == 0) own = sc.OwnerPlayer;
+            if (own == victim)
+                shipsHere.Insert(0, shipBorder);
+        }
+
+        var options = new List<string>();
+        if (awayTeam.Count > 0)
+            options.Add("Away Team only");
+        if (shipsHere.Count > 0)
+            options.Add("One ship + crew");
+        if (awayTeam.Count > 0 && shipsHere.Count > 0)
+            options.Add("Away Team AND one ship + crew");
+
+        if (options.Count == 0)
+        {
+            _session.Log.Add(_session.TurnNumber, $"P{opp}",
+                "Alien Parasites: no Away Team or ship here to control.");
+            return;
+        }
+
+        string pick = AskChoice(
+            seedCard,
+            $"P{opp}: Alien Parasites — control",
+            "Opponent chooses: Away Team and/or one ship + crew here.\n"
+            + "You control them until the start of their next turn.\n"
+            + "Not compatible with your other cards (PARK: deep mix checks).",
+            options.ToArray());
+
+        var choice = DilemmaRules.ParseAlienParasitesControlChoice(pick);
+        if (choice == DilemmaRules.AlienParasitesControlChoice.None)
+        {
+            _session.Log.Add(_session.TurnNumber, $"P{opp}",
+                "Alien Parasites: control choice cancelled / empty.");
+            return;
+        }
+
+        Border? chosenShip = null;
+        if (choice.HasFlag(DilemmaRules.AlienParasitesControlChoice.OneShipAndCrew))
+        {
+            chosenShip = PickBorderFromList(seedCard, shipsHere, $"P{opp}: which ship + crew?");
+            if (chosenShip == null && shipsHere.Count > 0)
+                chosenShip = shipsHere[0];
+            if (chosenShip == null)
+            {
+                ShowPlayError("Alien Parasites: no ship selected for control.");
+                return;
+            }
+        }
+
+        var state = new AlienParasiteControlState
+        {
+            Victim = victim,
+            Controller = opp,
+            Dilemma = seedCard,
+            ShipBorder = chosenShip,
+            ShipOriginalOwner = chosenShip != null
+                ? (GetBorderOwner(chosenShip) is int o && o != 0 ? o : victim)
+                : 0
+        };
+
+        if (choice.HasFlag(DilemmaRules.AlienParasitesControlChoice.AwayTeam))
+        {
+            foreach (var (b, pc) in awayTeam)
+            {
+                int orig = pc.Controller != 0 ? pc.Controller : victim;
+                pc.Controller = opp;
+                SetBorderOwner(b, opp);
+                state.Cards.Add((pc, orig, b));
+            }
+        }
+
+        if (chosenShip != null && chosenShip.Tag is Card shipCard)
+        {
+            int shipOrig = shipCard.Controller != 0 ? shipCard.Controller : state.ShipOriginalOwner;
+            shipCard.Controller = opp;
+            SetBorderOwner(chosenShip, opp);
+            state.Cards.Add((shipCard, shipOrig, chosenShip));
+
+            if (_stackOnHost.TryGetValue(chosenShip, out var crew))
+            {
+                foreach (var b in crew)
+                {
+                    if (b.Tag is not Card pc) continue;
+                    if (!ModifierRules.IsPersonnelCard(pc) && !ModifierRules.IsEquipmentCard(pc))
+                        continue;
+                    // Avoid double-entry if already in Away Team list
+                    if (state.Cards.Any(x => ReferenceEquals(x.Card, pc)))
+                    {
+                        pc.Controller = opp;
+                        continue;
+                    }
+                    int orig = pc.Controller != 0 ? pc.Controller : victim;
+                    pc.Controller = opp;
+                    SetBorderOwner(b, opp);
+                    state.Cards.Add((pc, orig, b));
+                }
+            }
+            SyncDockableSideAfterOwnerChange(chosenShip);
+            UpdateHostBadge(chosenShip);
+        }
+
+        _alienParasiteControls.Add(state);
+
+        string shipName = chosenShip?.Tag is Card sh ? (sh.Name ?? "ship") : "(none)";
+        string summary =
+            $"P{opp} controls ({choice}): AT×{awayTeam.Count} / ship={shipName}.\n"
+            + "Acts on their turn. Restores at end of that turn (start of your next).\n"
+            + "Not compatible with opponent's other cards.";
+        ShowCardReveal(seedCard, "Alien Parasites — control", summary, RevealButtons.Ok, seedCard.Name);
+        StatusText.Text = $"Alien Parasites: P{opp} controls selected cards until start of P{victim}'s next turn.";
+        _session.Log.Add(_session.TurnNumber, $"P{opp}",
+            $"Alien Parasites control granted ({choice}) ship={shipName} cards={state.Cards.Count}.");
+        SyncBoardFromTable();
+    }
+
+    private void RestoreAlienParasitesControlsIfDue(int finishingPlayer)
+    {
+        foreach (var state in _alienParasiteControls
+                     .Where(s => DilemmaRules.ShouldRestoreAlienParasitesControl(s.Controller, finishingPlayer))
+                     .ToList())
+        {
+            foreach (var (card, orig, border) in state.Cards)
+            {
+                int back = orig != 0 ? orig : state.Victim;
+                card.Controller = back;
+                if (border != null)
+                {
+                    if (IsShipCard(card))
+                        SetBorderOwner(border, state.ShipOriginalOwner != 0 ? state.ShipOriginalOwner : state.Victim);
+                    else
+                        SetBorderOwner(border, back);
+                }
+            }
+            if (state.ShipBorder != null)
+            {
+                SyncDockableSideAfterOwnerChange(state.ShipBorder);
+                UpdateHostBadge(state.ShipBorder);
+            }
+            _alienParasiteControls.Remove(state);
+            _session.Log.Add(_session.TurnNumber, $"P{finishingPlayer}",
+                $"Alien Parasites control ends — cards return to P{state.Victim}.");
+            StatusText.Text = $"Alien Parasites: control returned to P{state.Victim}.";
+        }
+        SyncBoardFromTable();
     }
 
     private void StopMissionAttemptTeam(Border missionBorder, Card mission, List<Border> teamBorders)

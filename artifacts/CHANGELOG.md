@@ -4,11 +4,12 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
-## 2026-09-06 (Fix - Space attempt crew scope)
+## 2026-09-07 (Fix - Alien Parasites Neg control min path)
 
-**Engine** - Space Mission Attempt: only the selected Attempting-Ship's crew counts for dilemmas + solve / present. Other own ships at the same location no longer contribute (Rulebook Mission Attempt; Glossary present/dilemma). `TableWindow` passes ship from space-attempt menu; `MissionRules.SpaceAttemptPool` + `VerifySpaceAttemptCrewScope`.
+**Engine** - Alien Parasites Neg (Pepsch/Spock Soll): Fail INT<=32 still WallFailed + Stop + planet Beam-back; Opp chooses Away Team and/or **one** ship+crew here (not all ships); Controller transfer; Opp acts on their turn; restore at Opp EOT (= start of victim next turn). Allowed: legal actions with controlled cards. PARK: dual-window Hotseat chooser UI; deep "not compatible with Opp other cards" affiliation-mix enforcement. Decide: `DilemmaRules.DecideAlienParasites` + `GrantOpponentControl` + `ParseAlienParasitesControlChoice` + `ShouldRestoreAlienParasitesControl` + `VerifyAlienParasites1a`. Apply: TW `BeginAlienParasitesOpponentControl` / `RestoreAlienParasitesControlsIfDue`.
 
 ---
+
 
 ## 2026-09-06 (Feat - Portal Guard Premiere)
 

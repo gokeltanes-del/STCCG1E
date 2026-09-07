@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-07 (Jadzia — Parasites Control-Scope + Hyper-Aging Quarantäne Fix laufend)
+Last updated: 2026-09-07 (Jadzia — Alien Parasites Neg control min path)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -76,7 +76,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Card | Status | Notes | Source |
 | --- | --- | --- | --- |
 | Alien Abduction (10 U) | working | Pepsch green (Cure OR + Stasis Beam-Block). | Pepsch 2026-09-06 |
-| Alien Parasites (11 U) | partial | Pos OK. Neg Control: Data nachziehen (Scope AT und/oder 1 Schiff+Crew, Timing Opp-Zug). | Pepsch + Spock 2026-09-07 |
+| Alien Parasites (11 U) | partial | Pos OK. Neg Control min path: Opp wählt AT und/oder 1 Schiff+Crew; Control bis Opp-EOT. PARK: Hotseat-UI dual-window; deep affiliation-mix. Pending Pepsch green. | Josef 2026-09-07 |
 | Anaphasic Organism (12 C) | partial | tip Data/`502d8e0` + Fix/`3532748` (Fail resigns=discard, not Kill). Ungetestet. | Data/`3532748` 2026-09-06 |
 | Ancient Computer (13 R) | partial | tip Data/`bb551f1`. Wall: 2 Computer Skill OR 3 SCIENCE OR 3 ENGINEER; Fail Stop+unter Mission. Ungetestet. | Data/`bb551f1` 2026-09-06 |
 | Archer (14 C) | working | Pepsch Gesamt-Grün (tip Data/`bf1f2ab`; Stop Soll Spock Condition-Fail). | Pepsch + Data/`bf1f2ab` 2026-09-06 |
