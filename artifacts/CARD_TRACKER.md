@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-07 (Jadzia — Hyper-Aging working, Pepsch green on 46eab15)
+Last updated: 2026-09-07 (Jadzia — Impassable Door working, Pepsch green)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -95,7 +95,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Hologram Ruse (27 U) | working | Pepsch getestet OK. | Pepsch 2026-09-06 |
 | Hyper-Aging (28 U) | working | Pepsch green Quarantäne+Beam-Block tip Data/`46eab15`. RemFatigue PARK. | Pepsch + Data/`46eab15` 2026-09-07 |
 | Iconian Computer Weapon (29 C) | partial | tip Data/`47984b5`. Pass SCIENCE Continue; Fail Stop + Non-Pers Hand discard+draw. Ungetestet. | Data/`47984b5` 2026-09-06 |
-| Impassable Door (30 C) | partial | tip Data/`be5062b`. Wall Computer Skill Continue; Fail Stop+unter Mission. Ungetestet. | Data/`be5062b` 2026-09-06 |
+| Impassable Door (30 C) | working | Pepsch green (komplett); tip Data/`be5062b`. | Pepsch + Data/`be5062b` 2026-09-07 |
 | Ktarian Game (31 R) | partial | tip Data/`7de28a4`. Place+Continue; Cure CUNN>30/Android. PARK: Lefler; Now+SOT Disable-Apply. GAP Cure-Present-Scope (Ship): Skills an Bord, nicht ortsweit — Seven FEATURES `cd468fb`. Ungetestet. | Data/`7de28a4` + Spock 2026-09-06 |
 | Male's Love Interest (32 C) | working | Pepsch getestet OK (Continue after Relocate). | Pepsch 2026-09-06 |
 | Matriarchal Society (33 U) | partial | tip Data/`d68f511`. Wall ≥2 Female Continue; Fail Stop+unter Mission. PARK: Borg gender. Ungetestet. | Data/`d68f511` 2026-09-06 |
