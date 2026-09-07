@@ -27,7 +27,7 @@ See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md, CARD_TRACKER.md (Jadzia).
 - Keep Klasse A/B/C process; no fundamentalsystem on speculation
 
 ## P3 - Later (UX / ideas - not now)
-- **Ship visual states** - Spock/Captain priority
+- **Response Window (Hotseat UX)** - PARKED / later: replace Respond/Pass popups with silent priority window (default 2-3s, settings 2/3/5). Banner hint only when legal response exists (`Response moeglich` + countdown); Space=Pass, R/Banner=Think (10s tray over own hand, Hand/Table/Hidden/Download/Skill badges). Priority: non-active first, never both parallel; Interrupt-Wars = new window after pick. Mandatory: no timeout pass. Just-Window + Suspends play separate. No MessageBox for optional responses; no auto fly-in of legal cards. Engine: ResponseWindow Closed|Silent|Think + CurrentLegalResponses. Acceptance: no-legal silent; Kevin banner-only then Think; Energy Vortex no spam; both Kevin sequential; hand>20 tray after R; mandatory stays open.- **Ship visual states** - Spock/Captain priority
 - Cloaked invisible to opponent (spin/idea only)
 - More expansion sets / Net play / AI
 
