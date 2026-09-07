@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-07 (Jadzia — Parasites f087866 + Hyper-Aging 46eab15 tipfertig, partial bis Grün)
+Last updated: 2026-09-07 (Jadzia — Hyper-Aging working, Pepsch green on 46eab15)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -93,7 +93,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Firestorm (25 U) | partial | tip Data/`6e872b1`. INT<5 die; Rest Continue; TD nullify. PARK: ETA-Escape Response. Ungetestet. | Data/`6e872b1` 2026-09-06 |
 | Gravitic Mine (26 U) | partial | tip Data/`5c4f563`. Pass SCIENCE+Navigation Continue; Fail Damage + Ship/Crew stop. Ungetestet. | Data/`5c4f563` 2026-09-06 |
 | Hologram Ruse (27 U) | working | Pepsch getestet OK. | Pepsch 2026-09-06 |
-| Hyper-Aging (28 U) | partial | tip Data/`46eab15` Quarantäne+Beam-Block. RemFatigue PARK. Pending Pepsch green → working. | Data/`46eab15` 2026-09-07 |
+| Hyper-Aging (28 U) | working | Pepsch green Quarantäne+Beam-Block tip Data/`46eab15`. RemFatigue PARK. | Pepsch + Data/`46eab15` 2026-09-07 |
 | Iconian Computer Weapon (29 C) | partial | tip Data/`47984b5`. Pass SCIENCE Continue; Fail Stop + Non-Pers Hand discard+draw. Ungetestet. | Data/`47984b5` 2026-09-06 |
 | Impassable Door (30 C) | partial | tip Data/`be5062b`. Wall Computer Skill Continue; Fail Stop+unter Mission. Ungetestet. | Data/`be5062b` 2026-09-06 |
 | Ktarian Game (31 R) | partial | tip Data/`7de28a4`. Place+Continue; Cure CUNN>30/Android. PARK: Lefler; Now+SOT Disable-Apply. GAP Cure-Present-Scope (Ship): Skills an Bord, nicht ortsweit — Seven FEATURES `cd468fb`. Ungetestet. | Data/`7de28a4` + Spock 2026-09-06 |
