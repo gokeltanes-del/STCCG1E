@@ -406,13 +406,15 @@ public static class LegalMoves
                 });
             }
 
-            if (ship.Occupied || ship.Aboard.Any(ModifierRules.IsPersonnelCard))
+            if (!ship.QuarantineLeaveBlocked
+                && (ship.Occupied || ship.Aboard.Any(ModifierRules.IsPersonnelCard)))
                 list.Add(GameAction.Beam(player, ship.Card, note: "from ship — UI picks destination"));
         }
 
         foreach (var fac in state.Facilities().Where(f =>
                      f.Owner == player || f.Controller == player))
         {
+            if (fac.QuarantineLeaveBlocked) continue;
             if (!fac.Occupied && !fac.Aboard.Any(ModifierRules.IsPersonnelCard))
                 continue;
             list.Add(GameAction.Beam(player, fac.Card, note: "from facility — UI picks destination"));
@@ -420,6 +422,7 @@ public static class LegalMoves
 
         foreach (var m in state.Missions())
         {
+            if (m.QuarantineLeaveBlocked) continue;
             bool mine = m.Aboard.Any(p =>
                 ModifierRules.IsPersonnelCard(p)
                 && (p.Controller == player || p.OwnerPlayer == player));

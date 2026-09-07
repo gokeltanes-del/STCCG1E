@@ -1016,6 +1016,8 @@ public partial class TableWindow : Window
                 spacelineIndex = IndexOfMission(kv.Key);
             }
 
+            bool quarantineLeave = _attachedDilemmas.Any(a =>
+                DilemmaRules.IsQuarantinePersist(a.Kind) && ReferenceEquals(a.Host, kv.Key));
             board.Add(new BoardPiece
             {
                 Card = c,
@@ -1033,6 +1035,7 @@ public partial class TableWindow : Window
                 MissionSolved = missionSolved,
                 AttemptBlocked = attemptBlocked,
                 AttemptBlockReason = attemptBlock,
+                QuarantineLeaveBlocked = quarantineLeave,
                 RangeLeft = rangeLeft,
                 Stopped = stopped,
                 Cloaked = cloaked,
@@ -9770,7 +9773,7 @@ public partial class TableWindow : Window
             }
             return false;
         }
-        if (IsCardInStasis(c)) return false;
+        if (IsCardLeaveBlocked(c)) return false;
         if (IsBorderStopped(cardBorder)) return false; // Spock: Stopped cannot beam
         if (!IsBeamableCard(c)) return false;
         return CardOwner(cardBorder) == _activePlayer || GetBorderOwner(cardBorder) == _activePlayer;
@@ -11157,8 +11160,8 @@ public partial class TableWindow : Window
     private bool CanDragOffHost(Card card)
     {
         if (_seedPhaseActive) return true;
-        // Stasis (Abduction / Phased): cannot leave location via drag/walk/beam
-        if (IsCardInStasis(card)) return false;
+        // Stasis / Quarantine (Hyper-Aging): cannot leave location via drag/walk/beam
+        if (IsCardLeaveBlocked(card)) return false;
         if (ModifierRules.IsPersonnelCard(card) || ModifierRules.IsEquipmentCard(card))
             return true;
         if (IsShipCard(card) || IsFacilityCard(card))
@@ -11168,6 +11171,13 @@ public partial class TableWindow : Window
 
     private static string StasisCannotLeaveMessage(Card card) =>
         $"{card.Name} is in stasis and cannot leave this location.";
+
+    private string LeaveBlockedMessage(Card card)
+    {
+        if (IsCardQuarantined(card))
+            return $"{card.Name} is quarantined (Hyper-Aging) and cannot leave/beam away.";
+        return StasisCannotLeaveMessage(card);
+    }
 
 
     /// <summary>
@@ -11179,10 +11189,10 @@ public partial class TableWindow : Window
             return;
 
         // Events / dilemmas / artifacts: detail only (drag handled by WireHostStripMini)
-        // Stasis personnel: cannot leave location
-        if (IsCardInStasis(href.Card))
+        // Stasis / Quarantine personnel: cannot leave location
+        if (IsCardLeaveBlocked(href.Card))
         {
-            ShowPlayError(StasisCannotLeaveMessage(href.Card));
+            ShowPlayError(LeaveBlockedMessage(href.Card));
             e.Handled = true;
             return;
         }
@@ -15699,6 +15709,17 @@ public partial class TableWindow : Window
                 if (r.Relocate != null && !attached.Held.Contains(r.Relocate))
                     attached.Held.Add(r.Relocate);
             }
+            if (DilemmaRules.IsQuarantinePersist(r.Persist))
+            {
+                foreach (var b in teamBorders)
+                {
+                    if (b.Tag is not Card pc) continue;
+                    if (!ModifierRules.IsPersonnelCard(pc)) continue;
+                    if (!attached.Held.Contains(pc))
+                        attached.Held.Add(pc);
+                    ApplyStasisVisual(b, true); // quarantine share stasis leave-block UX
+                }
+            }
             _attachedDilemmas.Add(attached);
             if (r.Persist == DilemmaRules.PersistKind.BorgShip)
             {
@@ -19151,7 +19172,8 @@ public partial class TableWindow : Window
 
     private void ClearStasisForDilemma(AttachedDilemma a)
     {
-        if (!DilemmaRules.IsStasisPersist(a.Kind)) return;
+        if (!DilemmaRules.IsStasisPersist(a.Kind) && !DilemmaRules.IsQuarantinePersist(a.Kind))
+            return;
         foreach (var card in a.Held.ToList())
         {
             var b = FindBorderForCard(card);
@@ -19167,11 +19189,49 @@ public partial class TableWindow : Window
             && d.Held.Any(h => ReferenceEquals(h, card)
                                || string.Equals(h.Name, card.Name, StringComparison.OrdinalIgnoreCase)));
 
+    private bool IsCardQuarantined(Card card) =>
+        _attachedDilemmas.Any(d =>
+            DilemmaRules.IsQuarantinePersist(d.Kind)
+            && (d.Held.Any(h => ReferenceEquals(h, card)
+                                || string.Equals(h.Name, card.Name, StringComparison.OrdinalIgnoreCase))
+                || IsPersonnelOnQuarantineHost(card, d.Host)));
+
+    private bool IsPersonnelOnQuarantineHost(Card card, Border host)
+    {
+        if (!_stackOnHost.TryGetValue(host, out var stacked)) return false;
+        return stacked.Any(b => b.Tag is Card c && ReferenceEquals(c, card));
+    }
+
+    private bool IsCardLeaveBlocked(Card card) => IsCardInStasis(card) || IsCardQuarantined(card);
+
     private AttachedDilemma? FindStasisDilemmaForCard(Card card) =>
         _attachedDilemmas.FirstOrDefault(d =>
             DilemmaRules.IsStasisPersist(d.Kind)
             && d.Held.Any(h => ReferenceEquals(h, card)
                                || string.Equals(h.Name, card.Name, StringComparison.OrdinalIgnoreCase)));
+
+    private AttachedDilemma? FindQuarantineDilemmaForCard(Card card) =>
+        _attachedDilemmas.FirstOrDefault(d =>
+            DilemmaRules.IsQuarantinePersist(d.Kind)
+            && (d.Held.Any(h => ReferenceEquals(h, card)
+                                || string.Equals(h.Name, card.Name, StringComparison.OrdinalIgnoreCase))
+                || IsPersonnelOnQuarantineHost(card, d.Host)));
+
+    /// <summary>Anyone who joins a Hyper-Aging host becomes quarantined.</summary>
+    private void TryJoinQuarantineOnHost(Border host, Border cardBorder)
+    {
+        if (cardBorder.Tag is not Card pc) return;
+        if (!ModifierRules.IsPersonnelCard(pc)) return;
+        foreach (var d in _attachedDilemmas.Where(x =>
+                     ReferenceEquals(x.Host, host) && DilemmaRules.IsQuarantinePersist(x.Kind)))
+        {
+            if (d.Held.Any(h => ReferenceEquals(h, pc))) continue;
+            d.Held.Add(pc);
+            ApplyStasisVisual(cardBorder, true);
+            _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
+                $"{pc.Name} joins Hyper-Aging quarantine.");
+        }
+    }
 
     private static Brush BrushForDetailStatus(DetailStatusTone tone) => tone switch
     {
@@ -19204,7 +19264,7 @@ public partial class TableWindow : Window
 
     private void ApplyStatusVisualToMini(Border mini, Card card)
     {
-        if (IsCardInStasis(card))
+        if (IsCardLeaveBlocked(card))
         {
             ApplyStasisVisual(mini, true);
             return;
@@ -19251,7 +19311,7 @@ public partial class TableWindow : Window
         if (stoppedBorder != null && IsBorderStopped(stoppedBorder))
             AddDetailStatusLine("Stopped", DetailStatusTone.Debuff);
 
-        // Personnel: In stasis line
+        // Personnel: In stasis / quarantine line
         if (CardKinds.IsPersonnel(card))
         {
             var dil = FindStasisDilemmaForCard(card);
@@ -19260,6 +19320,14 @@ public partial class TableWindow : Window
                 AddDetailStatusLine(
                     DetailStatusRules.FormatInStasisLine(dil.Card.Name ?? "stasis",
                         DetailStatusRules.StasisCureHint(dil.Kind)),
+                    DetailStatusTone.Stasis);
+            }
+            var qdil = FindQuarantineDilemmaForCard(card);
+            if (qdil != null)
+            {
+                AddDetailStatusLine(
+                    DetailStatusRules.FormatQuarantineLine(qdil.Card.Name ?? "quarantine",
+                        DetailStatusRules.QuarantineCureHint(qdil.Kind)),
                     DetailStatusTone.Stasis);
             }
         }
@@ -19312,6 +19380,13 @@ public partial class TableWindow : Window
                         string names = string.Join(", ", ad.Held.Select(h => h.Name ?? "?"));
                         AddDetailStatusLine(
                             DetailStatusRules.FormatHeldStasisSectionLine(ad.Card.Name ?? "?", names),
+                            DetailStatusTone.Stasis);
+                    }
+                    else if (DilemmaRules.IsQuarantinePersist(ad.Kind) && ad.Held.Count > 0)
+                    {
+                        string names = string.Join(", ", ad.Held.Select(h => h.Name ?? "?"));
+                        AddDetailStatusLine(
+                            DetailStatusRules.FormatHeldQuarantineSectionLine(ad.Card.Name ?? "?", names),
                             DetailStatusTone.Stasis);
                     }
                     else
@@ -20065,14 +20140,15 @@ public partial class TableWindow : Window
 
         foreach (var b in toMove.ToList())
         {
-            if (b.Tag is Card bc && IsCardInStasis(bc))
+            if (b.Tag is Card bc && IsCardLeaveBlocked(bc))
             {
-                ShowPlayError(StasisCannotLeaveMessage(bc));
+                ShowPlayError(LeaveBlockedMessage(bc));
                 continue;
             }
             RemoveCardFromHostStack(source, b);
             SetBorderOwner(b, _activePlayer);
             AddCardToHostStack(targetHost, b);
+            TryJoinQuarantineOnHost(targetHost, b);
             // Keep Rogue Borg unit host in sync so strength/battles track the new ship
             foreach (var rb in _rogueBorg.Where(r => ReferenceEquals(r.Visual, b)))
             {
@@ -21103,7 +21179,7 @@ public partial class TableWindow : Window
             {
                 if (b.Tag is not Card pc) continue;
                 if (!ModifierRules.IsPersonnelCard(pc)) continue;
-                if (IsCardInStasis(pc) || IsBorderStopped(b))
+                if (IsCardLeaveBlocked(pc) || IsBorderStopped(b))
                     negPersonnel.Add((b, pc));
             }
         }
@@ -21127,7 +21203,8 @@ public partial class TableWindow : Window
             foreach (var (b, pc) in negPersonnel)
             {
                 if (!shown.Add(pc)) continue;
-                string negLabel = IsCardInStasis(pc) ? "Stasis / quarantine" : "Stopped";
+                string negLabel = IsCardQuarantined(pc) ? "Quarantined"
+                    : IsCardInStasis(pc) ? "Stasis" : "Stopped";
                 // Explicit text under Negative (badge-only ToolTip looked empty).
                 DetailStackCards.Children.Add(new TextBlock
                 {

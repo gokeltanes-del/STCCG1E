@@ -18,7 +18,7 @@ public static class DetailStatusRules
 {
     public static DetailStatusTone ToneForDilemma(DilemmaRules.PersistKind kind, int countdown)
     {
-        if (DilemmaRules.IsStasisPersist(kind))
+        if (DilemmaRules.IsStasisPersist(kind) || DilemmaRules.IsQuarantinePersist(kind))
             return DetailStatusTone.Stasis;
         if (countdown > 0)
             return DetailStatusTone.Timer;
@@ -69,4 +69,21 @@ public static class DetailStatusRules
 
     public static string FormatHeldStasisSectionLine(string dilemmaName, string personnelNames) =>
         $"Held/Stasis: {dilemmaName} — {personnelNames}";
+
+    public static string FormatQuarantineLine(string dilemmaName, string? cureHint = null)
+    {
+        string name = string.IsNullOrWhiteSpace(dilemmaName) ? "quarantine" : dilemmaName.Trim();
+        if (string.IsNullOrWhiteSpace(cureHint))
+            return $"Quarantined ({name}) — cannot leave/beam away";
+        return $"Quarantined ({name} - {cureHint}) — cannot leave/beam away";
+    }
+
+    public static string QuarantineCureHint(DilemmaRules.PersistKind kind) => kind switch
+    {
+        DilemmaRules.PersistKind.HyperAging => "cure: SCIENCE + 2 MEDICAL",
+        _ => ""
+    };
+
+    public static string FormatHeldQuarantineSectionLine(string dilemmaName, string personnelNames) =>
+        $"Quarantine: {dilemmaName} — {personnelNames}";
 }

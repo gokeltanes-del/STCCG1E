@@ -1818,7 +1818,7 @@ public static class DilemmaRules
             return new Result { Fate = Fate.Overcome, Score = 5, StopTeam = false,
                 Message = "Hyper-Aging cured (SCIENCE + 2 MEDICAL) - +5; discarded; attempt continues." };
         return AttachContinue(ctx, PersistKind.HyperAging, 3,
-            "Hyper-Aging (quarantine, countdown 3). Cure: SCIENCE + 2 MEDICAL. Attempt continues.");
+            "Hyper-Aging (quarantine, countdown 3): no leave/beam away; joiners quarantined. Cure: SCIENCE + 2 MEDICAL. Attempt continues (not stopped).");
     }
 
     // ---- Menthar Booby Trap (Premiere 34 C) ----
@@ -2803,6 +2803,56 @@ public static class DilemmaRules
 
     public static bool IsStasisPersist(PersistKind persist) =>
         persist is PersistKind.Phased or PersistKind.Abduction;
+
+    /// <summary>Hyper-Aging quarantine: cannot leave/beam away; joiners also quarantined.</summary>
+    public static bool IsQuarantinePersist(PersistKind persist) =>
+        persist is PersistKind.HyperAging;
+
+    /// <summary>Leave/Beam blocked (stasis OR quarantine).</summary>
+    public static bool IsLeaveBlockedPersist(PersistKind persist) =>
+        IsStasisPersist(persist) || IsQuarantinePersist(persist);
+
+    /// <summary>DE mini-test Hyper-Aging quarantine flags. Returns null if OK.</summary>
+    public static string? VerifyHyperAgingQuarantine()
+    {
+        if (!IsQuarantinePersist(PersistKind.HyperAging))
+            return "HyperAging should be quarantine persist";
+        if (IsQuarantinePersist(PersistKind.RemFatigue))
+            return "RemFatigue quarantine out of scope for this fix";
+        if (!IsLeaveBlockedPersist(PersistKind.HyperAging))
+            return "HyperAging should leave-block";
+        if (!IsLeaveBlockedPersist(PersistKind.Abduction))
+            return "Abduction should still leave-block via stasis";
+        if (IsStasisPersist(PersistKind.HyperAging))
+            return "HyperAging must NOT be stasis (AT not stopped on place)";
+
+        var civ = new Card
+        {
+            Name = "Civ",
+            Type = "Personnel",
+            Class = "CIVILIAN",
+            Text = "CIVILIAN",
+            IntegrityOrRange = "5",
+            CunningOrWeapons = "5",
+            StrengthOrShields = "5"
+        };
+        var ctx = new Ctx
+        {
+            Dilemma = new Card { Name = "Hyper-Aging", Type = "Dilemma", MissionDilemmaType = "[P]" },
+            Mission = new Card { Name = "Planet", Type = "Mission", MissionDilemmaType = "[P]" },
+            Team = new List<Card> { civ },
+            Present = new List<Card> { civ },
+            AttemptingPlayer = 1
+        };
+        var r = Resolve(ctx);
+        if (r.Fate != Fate.AttachAndContinue || r.StopTeam)
+            return $"encounter: expected AttachAndContinue no stop, got {r.Fate}/stop={r.StopTeam}";
+        if (r.Persist != PersistKind.HyperAging || r.Countdown != 3)
+            return $"encounter: expected HyperAging cd 3, got {r.Persist}/{r.Countdown}";
+        if (!ShouldRemoveFromSeed(r.Fate))
+            return "encounter: seed removed when attached";
+        return null;
+    }
 
     public static bool ShouldAwardScoreOnApply(int score, Fate fate) =>
         score > 0 && fate != Fate.Overcome;

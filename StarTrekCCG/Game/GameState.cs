@@ -225,6 +225,8 @@ public sealed class BoardPiece
     public bool MissionSolved { get; init; }
     public bool AttemptBlocked { get; init; }
     public string? AttemptBlockReason { get; init; }
+    /// <summary>Hyper-Aging etc.: personnel here cannot leave/beam away.</summary>
+    public bool QuarantineLeaveBlocked { get; init; }
     public int RangeLeft { get; init; } = -1;
     public bool Stopped { get; init; }
     public bool Cloaked { get; init; }

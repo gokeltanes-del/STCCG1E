@@ -4,11 +4,12 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
-## 2026-09-07 (Fix - Alien Parasites Neg control min path)
+## 2026-09-07 (Fix - Hyper-Aging quarantine leave/beam block)
 
-**Engine** - Alien Parasites Neg (Pepsch/Spock Soll): Fail INT<=32 still WallFailed + Stop + planet Beam-back; Opp chooses Away Team and/or **one** ship+crew here (not all ships); Controller transfer; Opp acts on their turn; restore at Opp EOT (= start of victim next turn). Allowed: legal actions with controlled cards. PARK: dual-window Hotseat chooser UI; deep "not compatible with Opp other cards" affiliation-mix enforcement. Decide: `DilemmaRules.DecideAlienParasites` + `GrantOpponentControl` + `ParseAlienParasitesControlChoice` + `ShouldRestoreAlienParasitesControl` + `VerifyAlienParasites1a`. Apply: TW `BeginAlienParasitesOpponentControl` / `RestoreAlienParasitesControlsIfDue`.
+**Engine** - Hyper-Aging (PR 28 U): AT quarantined on place (AttachAndContinue, not stopped); no Leave/Beam away; anyone who joins the host is quarantined; cure SCIENCE + 2 MEDICAL before countdown 0 else Kill (inorganics exempt, existing). Status UX like Stasis leave-block. `LegalMoves` skips Beam from `QuarantineLeaveBlocked` hosts. Decide: `DilemmaRules.IsQuarantinePersist` / `IsLeaveBlockedPersist` + `VerifyHyperAgingQuarantine`. Apply: TW Held on attach, `IsCardLeaveBlocked` / `TryJoinQuarantineOnHost`, BoardPiece `QuarantineLeaveBlocked`. RemFatigue quarantine PARK (out of scope).
 
 ---
+
 
 
 ## 2026-09-06 (Feat - Portal Guard Premiere)
