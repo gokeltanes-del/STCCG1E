@@ -1,5 +1,5 @@
 # STCCG 1E - Features backlog
-Last updated: 2026-09-06
+Last updated: 2026-09-07
 
 Living list - **Seven owns ranking.** Reorder freely when checklist coverage or Captain goals shift.
 See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md, CARD_TRACKER.md (Jadzia).
@@ -16,6 +16,8 @@ See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md, CARD_TRACKER.md (Jadzia).
 - **Glossary/Compendium full coverage (Seven+Spock)** - Welle 1 + Hugh/Borg DONE; **Welle 2 Control/Owner/Present ACTIVE** (Docs only). Card rows → Jadzia.
 
 ## P1 - Parked
+- **Microvirus Opp-Chooser / DNA-Filter** - PARKED (UI thin)
+- **REM Fatigue** - PARKED (wave not resumed; #26+ on hold)
 - **Cure-Present-Scope (Ship)** - Gap (Spock): Ship-Dilemmas (Menthar etc.) = Skills **an Bord des belegten Schiffs**, nicht ortsweit alle Schiffe; Planet-Cures separat. Nicht blocken fuer Pepsch-Batch.
 - IM Federation FindMissionForDockable / dump@Gaps / Distortion / Fed 7.4.1 parked rows as before
 
@@ -30,6 +32,8 @@ See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md, CARD_TRACKER.md (Jadzia).
 - More expansion sets / Net play / AI
 
 ## Done recently (Pepsch Grün+push 2026-09-06)
+- **Alien Parasites Neg Control** - tip `f087866` (Josef, kein Push): min control path AT und/oder ein Schiff+Crew, Opp-Zug; Pepsch-Retest offen
+- **Hyper-Aging Quarantäne** - tip `46eab15` (Josef, kein Push): Quarantäne + Leave/Beam-Block; Pepsch-Retest offen
 - **Space-Attempt-Crew-Scope** - fixed tip `170437a` (Josef, kein Push): Space-Attempt nur Crew des Attempting-Ships (Dilemmas+Solve); Exception nur bei Karten-Text (z.B. total WEAPONS). Pepsch Batch-Test.
 - **bf1f2ab / Archer DONE** — Detail/Cloak/Stopped/Present-Refresh + Archer Condition-Fail Stop (Spock Soll bestätigt)
 - **Staffing/Battle G2-G7 komplett**
