@@ -33,7 +33,7 @@ See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md, CARD_TRACKER.md (Jadzia).
 
 ## Done recently (Pepsch Grün+push 2026-09-06)
 - **Alien Parasites Neg Control** - tip `f087866` (Josef, kein Push): min control path AT und/oder ein Schiff+Crew, Opp-Zug; Pepsch-Retest offen
-- **Hyper-Aging Quarantäne** - tip `46eab15` (Josef, kein Push): Quarantäne + Leave/Beam-Block; Pepsch-Retest offen
+- **Hyper-Aging Quarantaene** - tip `46eab15` (Josef, kein Push): Quarantaene + Leave/Beam-Block; Pepsch-Retest offen
 - **Space-Attempt-Crew-Scope** - fixed tip `170437a` (Josef, kein Push): Space-Attempt nur Crew des Attempting-Ships (Dilemmas+Solve); Exception nur bei Karten-Text (z.B. total WEAPONS). Pepsch Batch-Test.
 - **bf1f2ab / Archer DONE** — Detail/Cloak/Stopped/Present-Refresh + Archer Condition-Fail Stop (Spock Soll bestätigt)
 - **Staffing/Battle G2-G7 komplett**
