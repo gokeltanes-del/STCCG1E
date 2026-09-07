@@ -32,6 +32,7 @@ See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md, CARD_TRACKER.md (Jadzia).
 - More expansion sets / Net play / AI
 
 ## Done recently (Pepsch Grün+push 2026-09-06)
+- **Impassable Door** - **DONE** tip `be5062b` (Pepsch Gruen): Planet-Wall Computer Skill; Fail Stop+unter Mission
 - **Alien Parasites Neg Control** - tip `f087866` (Josef, kein Push): min control path AT und/oder ein Schiff+Crew, Opp-Zug; Pepsch-Retest offen
 - **Hyper-Aging Quarantaene** - **DONE** tip `46eab15` (Pepsch Gruen): Quarantaene + Leave/Beam-Block
 - **Space-Attempt-Crew-Scope** - fixed tip `170437a` (Josef, kein Push): Space-Attempt nur Crew des Attempting-Ships (Dilemmas+Solve); Exception nur bei Karten-Text (z.B. total WEAPONS). Pepsch Batch-Test.
