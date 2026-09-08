@@ -1,86 +1,33 @@
 # STCCG 1E - Handoff
 
-Last updated: 2026-09-08 (Captain Grok — nur noch master)
+Last updated: 2026-09-08 21:30 (Captain Grok — master only)
 Repo: https://github.com/gokeltanes-del/STCCG1E
 Local VS: C:\\Dev\\StarTrekCCG\\
-**Ein Branch: `master`.** Branch `GrokTest` ist tot / nicht mehr nutzen (Pepsch 2026-09-08).
-Captain Grok committet direkt auf `master`. Pepsch bleibt in VS auf master, holt mit Pull die neuen Dateien.
-Lokale GrokBots: immer diese Datei zuerst lesen.
+**Ein Branch: `master`.** GrokTest nicht nutzen.
+Captain pusht auf master. Pepsch: VS auf master, Git Pull, Rebuild.
 
-## Team
-- Captain — dieses Grok-Chat (Ziele + HANDOFF/PROJECT/CHANGELOG/ENGINE). Pepsch = Mensch.
-- Data — Engine / Klasse C (BoardStore/GameState/EngineAuthority/LegalMoves + TW-Extract). In diesem Chat darf Captain Data-Slices bauen.
-- Spock — Regeln A/B + Karten text + Glossary Ist/Soll
-- Seven — RULES_CHECKLIST + FEATURES; mit Spock volles Glossary/Compendium
-- Jadzia Dax — CARD_TRACKER (Premiere+AU)
+## Current tip (2026-09-08 21:30)
+AT-Detail Effekt-Gruppen + Overlay-Titel `EFFECT`/`RELOCATED`.
+Dateien: `StarTrekCCG/Game/DetailStatusRules.cs`, `StarTrekCCG/TableWindow.xaml.cs`, FEATURES, CHANGELOG.
 
-## On EVERY new chat / Bot
-1. Diese HANDOFF.md ganz lesen
-2. artifacts/PROJECT.md + Spezial-Docs
-3. Data: ENGINE.md, CODE_PLACEMENT.md, TABLEWINDOW_INVENTORY.md
-4. Spock/Seven: RULES.md, RULES_CHECKLIST.md, Compendium/Glossary
-5. `git fetch` + `git log -5 --oneline master` — nur master
-6. Unklar → Captain fragen
-7. Kein fremdes Engine-WIP anfassen
-8. Mit Pepsch: kurz, Deutsch (Schritt, Klasse, Dateien, bewusst nicht)
-
-## Current tip (2026-09-08 Abend)
-**master** war `8b4162b` (FEATURES Impassable Door DONE), plus dieser Docs-Commit.
-Kein C#-Change in diesem Commit.
-
-Letzter Engine-Stand auf master:
-- Impassable Door `be5062b` — Pepsch **GRÜN** / working
-- Hyper-Aging quarantine `46eab15` — Pepsch **GRÜN** / working
-- Alien Parasites Neg-Control `f087866` — **partial**, Pepsch-Grün fehlt. Hotseat-Chooser PARK
-- Status-UX / Debuff-Gruppierung — **DONE** 2026-09-06 (`bf1f2ab` + Cloak 0.45). Optional: Cloak noch transparenter; Mission-Button last-revealed PARK
+Pepsch green: Parasites, Firestorm-Kills, Impassable Door, Hyper-Aging.
 
 ### ACTIVE
-Premiere-Dilemmas einzeln. Persist/Battle-Extract **liegt**. Kein Big-Bang-TW-Split.
+Premiere-Dilemmas einzeln. Persist/Battle extract deferred.
 
 ### Pending Pepsch
-- Alien Parasites (`f087866`) Neg-Control min path — Retest
-- Viele Premiere-Dilemmas `partial` / ungetestet (Anaphasic … Portal Guard)
+- Retest AT-Detail: Stopped-Gruppe / Quarantined-Gruppe (kein Label unter jeder Karte)
+- Firestorm Overlay-Titel soll `EFFECT - attempt continues` sein
+- Love Interest weiter `RELOCATED`
 
 ### Parked
-1. Hugh Borg Ship Dilemma branch
-2. IM FindMissionForDockable false already-at-facility
-3. Engine dump lässt Schiffe auf Gaps weg
-4. Distortion (kein AU zum Test)
-5. Alien Parasites Hotseat-Chooser / volle Opp-Control-UI
-6. REM Fatigue Welle
-7. Cure-Present-Scope (Ship) — Menthar/Junior/Ktarian
-8. Response Window UX (später)
+Hugh Borg Ship; IM FindMission; dump@Gaps; Distortion; Parasites Hotseat-UI; REM Fatigue; Cure-Present-Scope Ship; Response Window UX
 
-## Foundation
-Board 0–6 + Engine E1–E6 COMPLETE. Dual-run BoardStore.
-
-## TableWindow extract
-Welle 1 Slices 1–9 DONE. Persist/Battle weiter deferred. Neue Premiere-Karte nur nach Captain Go.
-
-## Code placement
-CODE_PLACEMENT.md — Decide in Rules, Apply in TableWindow, Board = Ort/Status.
-
-## Fix protocol
-Klasse A Karte / B Phrase / C Grundlage. Lookup: Checklist → Glossary → Temp Rulings → App A → App B.
-Ein Chat ≈ ein Schritt. CHANGELOG eine Zeile pro spielbarer Änderung.
-
-## Workflow Pepsch (VS) — nur master
-1. In VS unten links muss **master** stehen.
-2. **Git → Pull** (neue Docs/Code von GitHub holen).
-3. Bauen / testen.
-4. Eigene lokale Änderungen: **Git → Changes → Commit** + Push, oder Captain sagen was lokal ist.
-5. **GrokTest nicht auschecken.** Dialog „3 Dateien ohne Commit“: Abbrechen. Nicht wechseln.
-6. GrokTest auf GitHub löschen: Repo → Branches → GrokTest → Papierkorb.
-
-## Goals
-### Kurz
-1. Nur master
-2. Premiere-Dilemmas einzeln (Parasites grün oder als Nächstes Q)
-3. Seven+Spock Glossary vs Code
-4. Bei jeder Code-Änderung: HANDOFF + FEATURES + CARD_TRACKER + CHANGELOG
-
-### Lang
-BoardStore+GameState Wahrheit; TableWindow View; Premiere dann Sets; spaeter Netz+KI; privat nicht-kommerziell
+## Workflow Pepsch
+1. Unten links **master**
+2. Git → Pull
+3. Rebuild / starten
+4. 3 lokale ungecommitete Dateien: nicht verwerfen wenn du sie brauchst; Pull kann Konflikte in Docs machen
 
 ## Docs map
-HANDOFF (diese Datei) · PROJECT · ENGINE · CODE_PLACEMENT · TABLEWINDOW_INVENTORY · RULES · RULES_CHECKLIST · FEATURES · CARD_TRACKER · CHANGELOG
+HANDOFF · PROJECT · ENGINE · CODE_PLACEMENT · FEATURES · CARD_TRACKER · CHANGELOG
