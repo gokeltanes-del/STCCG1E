@@ -1,1 +1,94 @@
-PLACEHOLDER
+<Window x:Class="StarTrekCCG.TableWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Star Trek CCG 1E – Table"
+        Height="900" Width="1680"
+        WindowStartupLocation="CenterScreen"
+        Background="#1A1A1A"
+        PreviewKeyDown="Window_PreviewKeyDown"
+        Loaded="TableWindow_HookDetailGroups">
+
+    <DockPanel>
+        <Menu DockPanel.Dock="Top" Background="#2D2D30" Foreground="White">
+            <Menu.Resources>
+                <Style TargetType="MenuItem">
+                    <Setter Property="Foreground" Value="White"/>
+                    <Setter Property="Background" Value="#2D2D30"/>
+                    <Setter Property="Padding" Value="10,4"/>
+                </Style>
+            </Menu.Resources>
+            <MenuItem Header="_File">
+                <MenuItem Header="_New game…" Click="MenuNewGame_Click"/>
+                <MenuItem Header="_Quick game…" Click="MenuQuickGame_Click"/>
+                <MenuItem Header="_Save game…" Click="MenuSaveGame_Click" InputGestureText="Ctrl+S"/>
+                <MenuItem Header="_Load game…" Click="MenuLoadGame_Click" InputGestureText="Ctrl+L"/>
+                <Separator/>
+                <MenuItem Header="_Open deck…" Click="MenuLoadDeck_Click" InputGestureText="Ctrl+O"/>
+                <Separator/>
+                <MenuItem Header="E_xit" Click="MenuExit_Click" InputGestureText="Alt+F4"/>
+            </MenuItem>
+            <MenuItem Header="_Tools">
+                <MenuItem Header="_Deck Builder…" Click="MenuDeckBuilder_Click"/>
+            </MenuItem>
+            <MenuItem Header="_View">
+                <MenuItem Header="_Reset zoom" Click="MenuZoomReset_Click"/>
+                <MenuItem Header="_Center spaceline" Click="MenuCenterSpaceline_Click"/>
+            </MenuItem>
+            <MenuItem Header="_Options">
+                <MenuItem Header="_Player aids">
+                    <MenuItem x:Name="AidLegalResponsesItem" Header="Highlight legal responses"
+                              IsCheckable="True" IsChecked="True" Click="AidLegalResponses_Click"
+                              ToolTip="Mark cards in hand that can respond to the current stack action"/>
+                    <MenuItem x:Name="AidOwnSeedCountItem" Header="Own seed counts under missions"
+                              IsCheckable="True" IsChecked="True" Click="AidOwnSeedCount_Click"
+                              ToolTip="Show how many of your seed cards are under each mission"/>
+                    <MenuItem x:Name="AidZoneCountsItem" Header="Zone / pile counts"
+                              IsCheckable="True" IsChecked="True" Click="AidZoneCounts_Click"
+                              ToolTip="Show number of cards in your zone piles"/>
+                    <MenuItem x:Name="AidSortHandItem" Header="Sort hand by type"
+                              IsCheckable="True" IsChecked="True" Click="AidSortHand_Click"
+                              ToolTip="Ship, Personnel, Equipment, Event, Interrupt, Doorway… Off keeps draw order. Random hand picks stay shuffled."/>
+                </MenuItem>
+            </MenuItem>
+            <MenuItem Header="_Developer">
+                <MenuItem x:Name="DevRevealSeedItem" Header="Reveal seed under missions"
+                          IsCheckable="True" Click="DevRevealSeed_Click"
+                          ToolTip="Show facedown dilemma/artifact names and images"/>
+                <MenuItem x:Name="DevShowSeedCountItem" Header="Show seed counts"
+                          IsCheckable="True" Click="DevShowSeedCount_Click"
+                          ToolTip="Show how many cards are under each mission"/>
+                <MenuItem x:Name="DevPeekOpponentItem" Header="Peek opponent piles"
+                          IsCheckable="True" Click="DevPeekOpponent_Click"
+                          ToolTip="Show opponent hand/draw/seed/side contents (normally private)"/>
+                <MenuItem x:Name="DevShowDebugLogItem" Header="Show Debug: lines in Action History"
+                          IsCheckable="True" IsChecked="True" Click="DevShowDebugLog_Click"
+                          ToolTip="Include Debug: entries in Action History (for development)"/>
+                <MenuItem x:Name="DevFileLogItem" Header="Write debug file (Data/Logs)"
+                          IsCheckable="True" IsChecked="True" Click="DevFileLog_Click"
+                          ToolTip="Session file under Data/Logs/stccg-….txt. Default on. CheckTrace.Cmp stays out of the file."/>
+                <MenuItem Header="Open debug log file…" Click="DevOpenLogFile_Click"
+                          ToolTip="Open the current session log in the default text editor"/>
+                <MenuItem Header="Open Logs folder…" Click="DevOpenLogFolder_Click"/>
+                <MenuItem x:Name="DevPlaySeedFromHandItem" Header="Play seed cards from hand"
+                          IsCheckable="True" Click="DevPlaySeedFromHand_Click"
+                          ToolTip="Dev: drop Dilemmas/Artifacts from hand onto missions (artifacts acquire immediately)"/>
+                <Separator/>
+                <MenuItem Header="Inspect opponent hand (gallery)…" Click="DevInspectOppHand_Click"/>
+                <MenuItem Header="Inspect opponent discard (gallery)…" Click="DevInspectOppDiscard_Click"/>
+                <MenuItem Header="Inspect opponent draw (backs)…" Click="DevInspectOppDraw_Click"/>
+                <Separator/>
+                <MenuItem Header="Dump legal moves" Click="DevDumpLegalMoves_Click"
+                          ToolTip="Write Engine LegalMoves for the active player into Action History (debug)"/>
+                <MenuItem Header="Dump Board" Click="DevDumpBoard_Click"
+                          ToolTip="Write BoardStore (Schritt 1: empty until sync) into the debug log file"/>
+                <MenuItem Header="Download from Q's Tent…" Click="DevTentDownload_Click"
+                          ToolTip="Needs an unlocked Tent and a Q's Tent doorway in hand"/>
+                <MenuItem Header="Flip own Hidden Agendas…" Click="DevFlipHiddenAgendas_Click"
+                          ToolTip="Flip face-down [HA] cards on your TABLE"/>
+                <MenuItem Header="Add card to game…" Click="DevAddCard_Click"
+                          ToolTip="Search the database and inject a card into the active player's pile"/>
+                <MenuItem Header="Deck Builder…" Click="MenuDeckBuilder_Click"/>
+            </MenuItem>
+        </Menu>
+    </DockPanel>
+</Window>
