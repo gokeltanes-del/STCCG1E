@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.Collections.Generic;
 
 namespace StarTrekCCG;
 
@@ -86,4 +87,29 @@ public static class DetailStatusRules
 
     public static string FormatHeldQuarantineSectionLine(string dilemmaName, string personnelNames) =>
         $"Quarantine: {dilemmaName} — {personnelNames}";
+
+    /// <summary>
+    /// Away-Team detail groups: same labels = same group.
+    /// Order inside a set: Quarantined, Stasis, Stopped.
+    /// </summary>
+    public static IReadOnlyList<string> PersonnelNegEffects(bool stopped, bool stasis, bool quarantined)
+    {
+        var list = new List<string>(3);
+        if (quarantined) list.Add("Quarantined");
+        if (stasis) list.Add("Stasis");
+        if (stopped) list.Add("Stopped");
+        if (list.Count == 0) list.Add("Negative");
+        return list;
+    }
+
+    public static string EffectGroupKey(IReadOnlyList<string> effects) =>
+        string.Join("|", effects ?? Array.Empty<string>());
+
+    public static string FormatEffectGroupHeader(IReadOnlyList<string> effects, int count)
+    {
+        string label = (effects == null || effects.Count == 0)
+            ? "Personnel"
+            : string.Join(" + ", effects);
+        return $"{label} ({count})";
+    }
 }
