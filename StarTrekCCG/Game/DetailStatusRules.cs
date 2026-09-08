@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace StarTrekCCG;
 
@@ -91,6 +92,7 @@ public static class DetailStatusRules
     /// <summary>
     /// Away-Team detail groups: same labels = same group.
     /// Order inside a set: Quarantined, Stasis, Stopped.
+    /// Empty list = no negative personnel effect.
     /// </summary>
     public static IReadOnlyList<string> PersonnelNegEffects(bool stopped, bool stasis, bool quarantined)
     {
@@ -98,7 +100,6 @@ public static class DetailStatusRules
         if (quarantined) list.Add("Quarantined");
         if (stasis) list.Add("Stasis");
         if (stopped) list.Add("Stopped");
-        if (list.Count == 0) list.Add("Negative");
         return list;
     }
 
@@ -112,4 +113,20 @@ public static class DetailStatusRules
             : string.Join(" + ", effects);
         return $"{label} ({count})";
     }
+
+    public static bool IsRelocateContinue(string? cardName, string? message)
+    {
+        string n = cardName ?? "";
+        string m = message ?? "";
+        return n.IndexOf("Love Interest", StringComparison.OrdinalIgnoreCase) >= 0
+            || m.IndexOf("relocat", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    public static string EffectContinueHeader(string? cardName, string? message) =>
+        IsRelocateContinue(cardName, message)
+            ? "RELOCATED - attempt continues"
+            : "EFFECT - attempt continues";
+
+    public static string EffectContinueLogVerb(string? cardName, string? message) =>
+        IsRelocateContinue(cardName, message) ? "RELOCATED" : "EFFECT";
 }
