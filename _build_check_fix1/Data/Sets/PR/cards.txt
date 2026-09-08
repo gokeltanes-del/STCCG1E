@@ -1,0 +1,364 @@
+Name	Set	ImageFile	Type	Affil	Text	Int/Rng	Cun/Wpn	Str/Shd	Points	Icons	Staff
+Haakona	PR	PR_Ship_Haakona	Ship	Romulan	Cloaking Device, Tractor Beam	8	9	8			[Cmd][Stf][Stf]
+Hannah Bates	PR	PR_Personnel_Hannah_Bates	Personnel	Federation	SCIENCE Physics	6	8	2			
+Type VI Shuttlecraft	PR	PR_Ship_Type_VI_Shuttlecraft	Ship	Federation		6	2	2			
+U.S.S. Excelsior	PR	PR_Ship_U.S.S._Excelsior	Ship	Federation	Tractor Beam	6	6	7			[Stf][Stf]
+U.S.S. Galaxy	PR	PR_Ship_U.S.S._Galaxy	Ship	Federation	Holodeck, Tractor Beam	8	7	9			[Cmd][Stf][Stf]
+U.S.S. Miranda	PR	PR_Ship_U.S.S._Miranda	Ship	Federation	Tractor Beam	6	5	5			[Stf]
+U.S.S. Nebula	PR	PR_Ship_U.S.S._Nebula	Ship	Federation	Holodeck, Tractor Beam	8	7	8			[Cmd][Stf]
+U.S.S. Oberth	PR	PR_Ship_U.S.S._Oberth	Ship	Federation	Tractor Beam	6	4	7			[Stf]
+Varel	PR	PR_Personnel_Varel	Personnel	Romulan	SCIENCE Physics Computer Skill Youth	4	7	5		[Stf]	
+Vekma	PR	PR_Personnel_Vekma	Personnel	Klingon	MEDICAL Honor	6	5	6		[Stf]	
+Albert Einstein	PR	PR_Personnel_Albert_Einstein	Personnel	Federation	SCIENCE Physics x 2 Astrophysics	9	11	2		[Holo]	
+Batrell	PR	PR_Personnel_Batrell	Personnel	Klingon	OFFICER Honor	7	3	7		[Cmd]	
+B'iJik	PR	PR_Personnel_B'iJik	Personnel	Klingon	OFFICER Navigation	4	6	6		[Stf]	
+Calloway	PR	PR_Personnel_Calloway	Personnel	Federation	MEDICAL Youth	7	5	3			
+Christopher Hobson	PR	PR_Personnel_Christopher_Hobson	Personnel	Federation	OFFICER Computer Skill	6	7	6		[Cmd]	
+Combat Vessel	PR	PR_Ship_Combat_Vessel	Ship	Non-Aligned		8	8	6			[Stf][Stf]
+Darian Wallace	PR	PR_Personnel_Darian_Wallace	Personnel	Federation	SECURITY Anthropology	7	5	6			
+D'deridex	PR	PR_Ship_D'deridex	Ship	Romulan	Cloaking Device, Tractor Beam	8	9	7			[Cmd][Stf][Stf]
+Divok	PR	PR_Personnel_Divok	Personnel	Klingon	MEDICAL Biology Youth	6	6	8		[Stf]	
+Dr. Farek	PR	PR_Personnel_Dr._Farek	Personnel	Non-Aligned	MEDICAL Greed	2	8	3		[Cmd]	
+Dr. Leah Brahms	PR	PR_Personnel_Dr._Leah_Brahms	Personnel	Federation	ENGINEER ENGINEER	7	9	2		[Holo]	
+Dukath	PR	PR_Personnel_Dukath	Personnel	Klingon	SCIENCE Archaeology	5	6	7		[Stf]	
+Exocomp	PR	PR_Personnel_Exocomp	Personnel	Federation	ENGINEER On your ship, repairs damage (as if docked).	9	8	1			
+Fek'lhr	PR	PR_Personnel_Fek'lhr	Personnel	Klingon	V.I.P. Honor Treachery	6	1	15		[Holo]	
+Galathon	PR	PR_Personnel_Galathon	Personnel	Romulan	OFFICER Archaeology Greed Treachery	3	7	9		[Cmd]	
+Giusti	PR	PR_Personnel_Giusti	Personnel	Federation	OFFICER Youth	7	6	4		[Stf]	
+Gorath	PR	PR_Personnel_Gorath	Personnel	Klingon	SECURITY Honor	6	4	7		[Stf]	
+Gorta	PR	PR_Personnel_Gorta	Personnel	Non-Aligned	ENGINEER Physics Greed	3	7	4			
+Husnock Ship	PR	PR_Ship_Husnock_Ship	Ship	Non-Aligned	Holodeck, Tractor Beam	6	9	12			[Cmd][Stf][Stf]
+I.K.S. K'Vort	PR	PR_Ship_I.K.S._K'Vort	Ship	Klingon	Cloaking Device, Tractor Beam	8	6	6			[Stf]
+I.K.S. Vor'Cha	PR	PR_Ship_I.K.S._Vor'Cha	Ship	Klingon	Cloaking Device, Tractor Beam	9	8	7			[Cmd][Stf][Stf]
+Jaron	PR	PR_Personnel_Jaron	Personnel	Romulan	SECURITY Geology Youth	4	7	9		[Stf]	
+J'Dan	PR	PR_Personnel_J'Dan	Personnel	Klingon	SCIENCE Exobiology Treachery	2	6	6		[Stf]	
+Jera	PR	PR_Personnel_Jera	Personnel	Romulan	MEDICAL Biology Youth	4	7	6		[Holo]	
+Klag	PR	PR_Personnel_Klag	Personnel	Klingon	OFFICER Navigation	6	5	7		[Cmd]	
+Kle'eg	PR	PR_Personnel_Kle'eg	Personnel	Klingon	SECURITY Honor	6	4	7		[Stf]	
+Kromm	PR	PR_Personnel_Kromm	Personnel	Klingon	ENGINEER Physics	5	6	8		[Stf]	
+K'Tesh	PR	PR_Personnel_K'Tesh	Personnel	Klingon	ENGINEER Stellar Cartography	5	5	6		[Holo]	
+Linda Larson	PR	PR_Personnel_Linda_Larson	Personnel	Federation	ENGINEER Youth	7	5	4		[Stf]	
+McKnight	PR	PR_Personnel_McKnight	Personnel	Federation	OFFICER Navigation Youth Music	5	6	3		[Stf]	
+Mendon	PR	PR_Personnel_Mendon	Personnel	Federation	SCIENCE Physics	7	5	2		[Stf]	
+Mercenary Ship	PR	PR_Ship_Mercenary_Ship	Ship	Non-Aligned	Long-Range Scan Shielding	7	7	7			[Stf][Stf]
+Narik	PR	PR_Personnel_Narik	Personnel	Non-Aligned	ENGINEER Computer Skill	2	7	6		[Stf]	
+Palteth	PR	PR_Personnel_Palteth	Personnel	Romulan	ENGINEER Computer Skill	3	8	7		[Stf]	
+Runabout	PR	PR_Ship_Runabout	Ship	Federation		7	5	5			
+Science Vessel	PR	PR_Ship_Science_Vessel	Ship	Romulan		8	5	6			
+Scout Vessel	PR	PR_Ship_Scout_Vessel	Ship	Romulan		9	3	3			
+Selok	PR	PR_Personnel_Selok	Personnel	Romulan	V.I.P. Treachery	4	8	5		[Stf]	
+Simon Tarses	PR	PR_Personnel_Simon_Tarses	Personnel	Federation	MEDICAL Youth	6	5	5			
+Sir Isaac Newton	PR	PR_Personnel_Sir_Isaac_Newton	Personnel	Federation	SCIENCE Physics x 2	7	11	3		[Holo]	
+Sito Jaxa	PR	PR_Personnel_Sito_Jaxa	Personnel	Federation	SECURITY Navigation Youth	8	6	6		[Stf]	
+Taitt	PR	PR_Personnel_Taitt	Personnel	Federation	SCIENCE Stellar Cartography Geology	6	7	4		[Stf]	
+Takket	PR	PR_Personnel_Takket	Personnel	Romulan	MEDICAL Exobiology	4	7	7		[Cmd]	
+Tallus	PR	PR_Personnel_Tallus	Personnel	Romulan	OFFICER Leadership	3	7	7		[Cmd]	
+Tarus	PR	PR_Personnel_Tarus	Personnel	Romulan	SCIENCE Stellar Cartography	4	8	7		[Stf]	
+Taul	PR	PR_Personnel_Taul	Personnel	Romulan	SECURITY Treachery Archaeology	4	7	8		[Stf]	
+Taurik	PR	PR_Personnel_Taurik	Personnel	Federation	ENGINEER Mindmeld	7	7	8		[Stf]	
+Thei	PR	PR_Personnel_Thei	Personnel	Romulan	OFFICER Geology Physics	4	6	8		[Cmd]	
+Tomek	PR	PR_Personnel_Tomek	Personnel	Romulan	ENGINEER Astrophysics	4	7	6		[Holo]	
+Torin	PR	PR_Personnel_Torin	Personnel	Klingon	SCIENCE Astrophysics	7	6	6			
+Vekor	PR	PR_Personnel_Vekor	Personnel	Non-Aligned	SCIENCE MEDICAL Navigation Geology	2	7	6		[Cmd]	
+Benjamin Maxwell	PR	PR_Personnel_Benjamin_Maxwell	Personnel	Federation	OFFICER Leadership	9	7	5		[Cmd]	
+B'Etor	PR	PR_Personnel_B'Etor	Personnel	Klingon	V.I.P. Treachery Leadership Physics Youth Greed	2	8	7		[Cmd]	
+Beverly Crusher	PR	PR_Personnel_Beverly_Crusher	Personnel	Federation	MEDICAL MEDICAL Biology Exobiology	8	8	5		[Cmd]	
+"Birth of ""Junior"""	PR	PR_Dilemma_Birth_of_Junior	Dilemma		Place on ship. End of each turn, reduces RANGE by 1; if this reduces RANGE below 1 (or RANGE already below 1), destroys ship. Nullify with 3 ENGINEER.						
+Disruptor Overload	PR	PR_Interrupt_Disruptor_Overload	Interrupt		Plays on either player's crew or Away Team (except on their facility). Destroys one of that player's non-[Shield][Equipment] present (random selection).						
+Distortion Field	PR	PR_Event_Distortion_Field	Event		Plays on a [P]. End of each turn (even while face down), flip card over. While face up, prevents all beaming to or from this planet. (Unique.)						
+Distortion of Space/Time Continuum	PR	PR_Interrupt_Distortion_of_SpaceTime_Continuum	Interrupt		Plays on your non-[AU] ship just after opponent plays an [AU] card. You may discard to unstop ship and crew OR restore full RANGE OR unstop an Away Team here. (Unique.)					[1]	
+Yridian Shuttle	PR	PR_Ship_Yridian_Shuttle	Ship	Non-Aligned		6	1	3			
+Zibalian Transport	PR	PR_Ship_Zibalian_Transport	Ship	Non-Aligned		6	2	4			
+Alexander Rozhenko	PR	PR_Personnel_Alexander_Rozhenko	Personnel	Federation	CIVILIAN Honor Youth	6	4	2			
+Alidar Jarok	PR	PR_Personnel_Alidar_Jarok	Personnel	Romulan	OFFICER Navigation Leadership	2	8	8		[Cmd]	
+Alien Abduction	PR	PR_Dilemma_Alien_Abduction	Dilemma		Places most CUNNING Away Team member atop mission (in stasis) with dilemma. Cure with 3 Leadership. Released when mission completed (discard dilemma).						
+Alien Groupie	PR	PR_Interrupt_Alien_Groupie	Interrupt		Plays on an Away Team that just solved a planet mission. One male present (random selection) is stopped until countdown expires.					[2]	
+Alien Parasites	PR	PR_Dilemma_Alien_Parasites	Dilemma		Unless INTEGRITY>32, opponent controls Away Team and/or your ship and crew here (opponent's choice) until start of your next turn (not compatible with opponent's other cards).						
+Alien Probe	PR	PR_Event_Alien_Probe	Event		Plays on table. Players play with their hands revealed.						
+Alynna Nechayev	PR	PR_Personnel_Alynna_Nechayev	Personnel	Federation	OFFICER Diplomacy Leadership	7	8	3		[Cmd]	
+Alyssa Ogawa	PR	PR_Personnel_Alyssa_Ogawa	Personnel	Federation	MEDICAL Biology	7	6	4		[Stf]	
+Amanda Rogers	PR	PR_Interrupt_Amanda_Rogers	Interrupt		Nullifies an [Interrupt] being played (except [Shield]). Place this [Interrupt] out-of-play.					[Shield]	
+Amarie	PR	PR_Personnel_Amarie	Personnel	Non-Aligned	CIVILIAN Music	5	9	2			
+Anaphasic Organism	PR	PR_Dilemma_Anaphasic_Organism	Dilemma		Unless MEDICAL and SECURITY present, discards female with highest total attributes. Discard dilemma.						
+Ancient Computer	PR	PR_Dilemma_Ancient_Computer	Dilemma		Cannot get past unless 2 Computer Skill OR 3 SCIENCE OR 3 ENGINEER present.						
+Anti-Time Anomaly	PR	PR_Q_Event_Anti-Time_Anomaly	Q Event		"Plays on table. At the start of each turn, opponent may [Flip] one ship at {any Devron System}. When countdown expires, each player shuffles all personnel in play (even ""for uniqueness only"") that they own into their draw decks."					[3]	
+Archer	PR	PR_Dilemma_Archer	Dilemma		Unless MEDICAL and SECURITY present, kills Away Team member with highest total attributes. Discard dilemma.					[IPG]	
+Armus: Skin Of Evil	PR	PR_Dilemma_Armus_Skin_Of_Evil	Dilemma		Kills one Away Team member (random selection).					[IPG]	
+Asteroid Sanctuary	PR	PR_Interrupt_Asteroid_Sanctuary	Interrupt		Plays on your exposed ship (even at the start of battle). While your 2 Navigation aboard, cancels any battle initiated against it. Discard at end of turn.						
+Atmospheric Ionization	PR	PR_Event_Atmospheric_Ionization	Event		Plays on a [P]. Personnel may only beam to/from this planet one at a time, and only if their controller has beamed no more than three personnel this way this turn. (Unique.)						
+Auto-Destruct Sequence	PR	PR_Interrupt_Auto-Destruct_Sequence	Interrupt		Plays on your ship. When countdown expires, destroys ship. Then, damages all other ships present with SHIELDS<8.					[1]	
+Morag	PR	PR_Personnel_Morag	Personnel	Klingon	OFFICER Computer Skill Greed	7	4	8		[Cmd]	
+Morgan Bateson	PR	PR_Personnel_Morgan_Bateson	Personnel	Federation	OFFICER Leadership Stellar Cartography	8	4	5		[Cmd]	
+Mot the Barber	PR	PR_Personnel_Mot_the_Barber	Personnel	Federation	CIVILIAN Barbering	6	4	5			
+Movar	PR	PR_Personnel_Movar	Personnel	Romulan	OFFICER Treachery Anthropology	5	7	7		[Cmd]	
+Taibak	PR	PR_Personnel_Taibak	Personnel	Romulan	SCIENCE Treachery Biology Computer Skill	2	8	8		[Stf]	
+Tam Elbrun	PR	PR_Personnel_Tam_Elbrun	Personnel	Federation	V.I.P. Empathy x 2 Honor	5	7	3			
+Tarellian Plague Ship	PR	PR_Dilemma_Tarellian_Plague_Ship	Dilemma		Beams a personnel (your choice) to this card (in space), if possible. Score points if MEDICAL aboard this card. If not, your crew dies. Discard dilemma.				5		
+Tasha Yar	PR	PR_Personnel_Tasha_Yar	Personnel	Federation	SECURITY Honor Leadership	8	7	8		[Stf]	
+Avert Disaster	PR	PR_Mission_Avert_Disaster	Mission	[FED]	Geology + Honor + INTEGRITY>35				40		
+Ba'el	PR	PR_Personnel_Ba'el	Personnel	Klingon/Romulan	CIVILIAN Anthropology Youth	6	6	4			
+Baran	PR	PR_Personnel_Baran	Personnel	Non-Aligned	OFFICER Greed Archaeology Exobiology Computer Skill	3	8	6		[Cmd]	
+Barclay's Protomorphosis Disease	PR	PR_Dilemma_Barclay's_Protomorphosis_Disease	Dilemma		Unless MEDICAL, SCIENCE, and SECURITY present, kills all personnel present (except inorganics). Otherwise, score points. Discard dilemma.				10		
+Bochra	PR	PR_Personnel_Bochra	Personnel	Romulan	OFFICER Navigation Youth	7	7	6		[Stf]	
+Bok	PR	PR_Personnel_Bok	Personnel	Non-Aligned	OFFICER Greed ENGINEER Treachery Computer Skill	4	9	4		[Cmd]	
+Borg Ship	PR	PR_Dilemma_Borg_Ship	Dilemma		Place at furthest spaceline end. End of every turn: Attacks all ships, then moves. Worth points if destroyed in battle.	8	24	24	15	[Self]	
+Bynars Weapon Enhancement	PR	PR_Event_Bynars_Weapon_Enhancement	Event		Plays on ship. Ship is WEAPONS +2. (Cumulative.)						
+Chalnoth	PR	PR_Dilemma_Chalnoth	Dilemma		Unless 3 SECURITY OR STRENGTH>40 present, kills one Away Team member (opponent's choice). Otherwise, score points. Discard dilemma.				5	[IPG]	
+Cloaked Mission	PR	PR_Mission_Cloaked_Mission	Mission	[KLI]	Navigation + Diplomacy + Honor				30		
+Cosmic String Fragment	PR	PR_Dilemma_Cosmic_String_Fragment	Dilemma		Unless ENGINEER OR Astrophysics OR Navigation present, destroys ship. Otherwise, score points. Discard dilemma.				5		
+Covert Installation	PR	PR_Mission_Covert_Installation	Mission	[ROM]	ENGINEER + Leadership + Treachery				35		
+Covert Rescue	PR	PR_Mission_Covert_Rescue	Mission	[ROM]	Diplomacy + Leadership + CUNNING>35				30		
+Crosis	PR	PR_Interrupt_Crosis	Interrupt		Plays on a ship. Doubles STRENGTH of all {Rogue Borg} present. At start of next turn, discard interrupt. (May be targeted as a Rogue Borg by {Six of Nineteen}.)						
+Crystalline Entity	PR	PR_Dilemma_Crystalline_Entity	Dilemma		[P]: Unless MEDICAL and SCIENCE, kills Away Team. [S]: Unless Music OR SHIELDS>6, kills all personnel on ship. Then: Discard dilemma. Score points if overcome.				5	[IPG]	
+Cultural Observation	PR	PR_Mission_Cultural_Observation	Mission	[FED]	Anthropology + Leadership + STRENGTH>30				40		
+Cytherians	PR	PR_Dilemma_Cytherians	Dilemma		Attempt ends. Target location at this spaceline's far end. Place on ship; it must do nothing but move towards there. Discard when reached (score points).				15		
+Data	PR	PR_Personnel_Data	Personnel	Federation	OFFICER ENGINEER Computer Skill x 2 Music Astrophysics Exobiology	8	12	12		[Cmd]	
+Deanna Troi	PR	PR_Personnel_Deanna_Troi	Personnel	Federation	OFFICER Empathy Diplomacy	8	7	4		[Cmd]	
+Devinoni Ral	PR	PR_Personnel_Devinoni_Ral	Personnel	Non-Aligned	V.I.P. Empathy Diplomacy Treachery	3	9	3			
+Devoras	PR	PR_Ship_Devoras	Ship	Romulan	Cloaking Device, Tractor Beam	9	8	8			[Cmd][Stf][Stf]
+Diplomacy Mission	PR	PR_Mission_Diplomacy_Mission	Mission	[FED]	Diplomacy + INTEGRITY>30 + CUNNING>30				30		
+Dr. La Forge	PR	PR_Personnel_Dr._La_Forge	Personnel	Federation	SCIENCE Exobiology	7	7	4		[Stf]	
+Dr. Reyga	PR	PR_Personnel_Dr._Reyga	Personnel	Non-Aligned	SCIENCE ENGINEER Stellar Cartography Astrophysics	6	9	5		[Stf]	
+Gaps in Normal Space	PR	PR_Event_Gaps_in_Normal_Space	Event		Insert in spaceline between two missions as a span 4 [S] location. When a ship moves to here, randomly kills a personnel aboard. If nullified, cards here relocate to adjacent location if possible (your choice).						
+Ocett	PR	PR_Personnel_Ocett	Personnel	Non-Aligned	OFFICER Archaeology Navigation Honor	6	8	6		[Cmd]	
+Roga Danar	PR	PR_Personnel_Roga_Danar	Personnel	Non-Aligned	SECURITY ENGINEER Computer Skill Biology Leadership	5	9	12		[Cmd]	
+Rogue Borg	PR	PR_Interrupt_Rogue_Borg	Interrupt		Plays on an occupied ship. X = Number of Rogue Borg present; they form an Away Team. End of every player's turn: That Away Team battles that player's personnel present.					[Self]	
+Romulan Disruptor	PR	PR_Equipment_Romulan_Disruptor	Equipment		If your [Rom] or [Non] personnel present, each of your personnel present is STRENGTH +2. (Cumulative.)						
+Romulan Outpost	PR	PR_Facility_Romulan_Outpost	Facility	Romulan	Seed one OR build where you have a Romulan ENGINEER.			32			
+Romulan PADD	PR	PR_Equipment_Romulan_PADD	Equipment		If your [Rom] personnel present, each of your personnel present is CUNNING +2. (Cumulative.)						
+Thomas Riker	PR	PR_Personnel_Thomas_Riker	Personnel	Federation	OFFICER Leadership Navigation Geology Music	8	7	6		[Cmd]	
+Thought Maker	PR	PR_Artifact_Thought_Maker	Artifact		Place in hand. Plays as : Name a card type, then take all cards with that card type from opponent's draw deck, shuffle them, and place them on bottom of deck.						
+Dr. Selar	PR	PR_Personnel_Dr._Selar	Personnel	Federation	MEDICAL Computer Skill Mindmeld	7	8	7		[Stf]	
+Duras	PR	PR_Personnel_Duras	Personnel	Klingon	V.I.P. Leadership Computer Skill Treachery Greed	4	6	8		[Cmd]	
+El-Adrel Creature	PR	PR_Dilemma_El-Adrel_Creature	Dilemma		Targets the two strongest members in Away Team (your choice if tie). Unless they have STRENGTH>16, kills one of them (random selection). Discard dilemma.						
+Emergency Transporter Armbands	PR	PR_Interrupt_Emergency_Transporter_Armbands	Interrupt		Plays on your crew or Away Team, even during battle or while facing an [ETA] dilemma. Any of your personnel present may immediately beam away. (May not be played while two adversaries are in combat.)						
+Energy Vortex	PR	PR_Interrupt_Energy_Vortex	Interrupt		Plays while opponent's normal card play is being played. Cancels that card play; card returns to hand. Opponent may play a different card as their normal card play instead. (Other costs remain paid.)						
+Engineering Kit	PR	PR_Equipment_Engineering_Kit	Equipment		Your OFFICER-classification personnel present gain ENGINEER.						
+Engineering PADD	PR	PR_Equipment_Engineering_PADD	Equipment		Your SCIENCE-classification personnel present gain ENGINEER.						
+Erik Pressman	PR	PR_Personnel_Erik_Pressman	Personnel	Federation	OFFICER ENGINEER Treachery	5	6	5		[Cmd]	
+Escape Pod	PR	PR_Interrupt_Escape_Pod	Interrupt		Plays at a location just after your ship there is destroyed; relocate its crew(s) atop this card. You may later relocate them to your ship here, then discard interrupt.						
+Espionage: Federation on Klingon	PR	PR_Event_Espionage_Federation_on_Klingon	Event		Plays on a [KLI] mission. Your cards may attempt it as if it were [FED]. Discard when solved (just after points are scored).						
+Espionage: Klingon on Federation	PR	PR_Event_Espionage_Klingon_on_Federation	Event		Plays on a [FED] mission. Your cards may attempt it as if it were [KLI]. Discard when solved (just after points are scored).						
+Espionage: Romulan on Federation	PR	PR_Event_Espionage_Romulan_on_Federation	Event		Plays on a [FED] mission. Your cards may attempt it as if it were [ROM]. Discard when solved (just after points are scored).						
+Espionage: Romulan on Klingon	PR	PR_Event_Espionage_Romulan_on_Klingon	Event		Plays on a [KLI] mission. Your cards may attempt it as if it were [ROM]. Discard when solved (just after points are scored).						
+Etana Jol	PR	PR_Personnel_Etana_Jol	Personnel	Non-Aligned	SCIENCE Treachery Biology	2	8	3		[Cmd]	
+Evacuation	PR	PR_Mission_Evacuation	Mission	[FED]	Diplomacy x3 + STRENGTH>35				30		
+Evaluate Terraforming	PR	PR_Mission_Evaluate_Terraforming	Mission	[FED]	MEDICAL + Biology + Exobiology OR {Geordi La Forge} + MEDICAL x2				35		
+Evek	PR	PR_Personnel_Evek	Personnel	Non-Aligned	OFFICER Diplomacy Leadership Anthropology	7	5	7		[Cmd]	
+Excavation	PR	PR_Mission_Excavation	Mission	[FED][ROM]	Archaeology OR CUNNING>32				25		
+Explore Black Cluster	PR	PR_Mission_Explore_Black_Cluster	Mission	[FED][KLI]	Stellar Cartography + Leadership OR CUNNING>50				35		
+Explore Dyson Sphere	PR	PR_Mission_Explore_Dyson_Sphere	Mission	[FED]	ENGINEER x3 + Navigation + Computer Skill + Physics				35		
+Explore Typhon Expanse	PR	PR_Mission_Explore_Typhon_Expanse	Mission	[ROM][KLI]	Astrophysics + Stellar Cartography OR CUNNING>50				35		
+Expose Covert Supply	PR	PR_Mission_Expose_Covert_Supply	Mission	[ROM]	Treachery x3 + Navigation				30		
+Extraction	PR	PR_Mission_Extraction	Mission	[ROM]	Treachery + Biology + MEDICAL				35		
+Federation Outpost	PR	PR_Facility_Federation_Outpost	Facility	Federation	Seed one OR build where you have a Federation ENGINEER.			30			
+Federation PADD	PR	PR_Equipment_Federation_PADD	Equipment		If your [Fed] personnel present, each of your personnel present is CUNNING +2. (Cumulative.)						
+Female's Love Interest	PR	PR_Dilemma_Female's_Love_Interest	Dilemma		Relocates a female present (random selection) to furthest different planet on this spaceline.						
+Fever Emergency	PR	PR_Mission_Fever_Emergency	Mission	[KLI]	MEDICAL x3 OR Biology + OFFICER				35		
+Firestorm	PR	PR_Dilemma_Firestorm	Dilemma		Kills all Away Team members with INTEGRITY<5. Discard dilemma.					[ETA]	
+First Contact	PR	PR_Mission_First_Contact	Mission	[FED]	Diplomacy + Empathy				30		
+Fleet Admiral Shanthi	PR	PR_Personnel_Fleet_Admiral_Shanthi	Personnel	Federation	OFFICER Leadership Diplomacy	9	6	4		[Cmd]	
+Full Planet Scan	PR	PR_Interrupt_Full_Planet_Scan	Interrupt		Plays at the start of your turn on your ship with at least two staffing icons at a [P] mission. Stop your Computer Skill and Geology aboard to examine the bottom seed card here.						
+Genetronic Replicator	PR	PR_Event_Genetronic_Replicator	Event		Plays on table. When a personnel is targeted to die, you may stop 2 MEDICAL present (who are not also targeted to die) to return that personnel to hand instead.						
+Geordi La Forge	PR	PR_Personnel_Geordi_La_Forge	Personnel	Federation	ENGINEER ENGINEER Navigation Physics Computer Skill	8	8	6		[Cmd]	
+Goddess of Empathy	PR	PR_Event_Goddess_of_Empathy	Event		Plays on table. [Interrupt] cards (except [Ref], [Q], Kevin Uxbridge, and Q2) cannot be played.					[2]	
+Gowron	PR	PR_Personnel_Gowron	Personnel	Klingon	V.I.P. Leadership x 2 Diplomacy Honor	8	7	9		[Cmd]	
+Gravitic Mine	PR	PR_Dilemma_Gravitic_Mine	Dilemma		Unless SCIENCE and Navigation present, damages ship. Discard dilemma.						
+Hologram Ruse	PR	PR_Dilemma_Hologram_Ruse	Dilemma		To get past requires INTEGRITY>30 and CUNNING>30.						
+Holo-Projectors	PR	PR_Event_Holo-Projectors	Event		Plays on a [P]. [Holo] cards may exist on this planet (activated or deactivated). If nullified, [Holo] cards that depended on these Holo-Projectors for existence are erased.						
+Honor Challenge	PR	PR_Interrupt_Honor_Challenge	Interrupt		Plays at the start of a personnel battle. Each of your Klingons with Honor may kill an opposing personnel present with Treachery. (Cumulative.)						
+Horga'hn	PR	PR_Artifact_Horga'hn	Artifact		Immediately plays on table. Each turn, gain an additional normal card play OR at end of turn, draw an extra card.						
+Hugh	PR	PR_Interrupt_Hugh	Interrupt		Plays to cancel a battle just initiated by a [Bor] card or {Borg Ship} dilemma. OR Plays to kill all {Rogue Borg} at one location.						
+Hunt for DNA Program	PR	PR_Mission_Hunt_for_DNA_Program	Mission	[FED][ROM][KLI]	Archaeology x3 + Computer Skill + Biology + Leadership + STRENGTH>40				55		
+Hyper-Aging	PR	PR_Dilemma_Hyper-Aging	Dilemma		Place on Away Team; quarantined. If countdown expires, kills Away Team (except inorganics). Cure with 2 MEDICAL and SCIENCE (score points).				5	[4]	
+I.K.S. Bortas	PR	PR_Ship_I.K.S._Bortas	Ship	Klingon	Cloaking Device, Tractor Beam	9	9	7			[Cmd][Stf][Stf]
+I.K.S. Buruk	PR	PR_Ship_I.K.S._Buruk	Ship	Klingon	Cloaking Device, Tractor Beam	8	6	7			[Stf]
+I.K.S. Hegh'ta	PR	PR_Ship_I.K.S._Hegh'ta	Ship	Klingon	Cloaking Device, Tractor Beam	8	7	7			[Stf]
+I.K.S. Pagh	PR	PR_Ship_I.K.S._Pagh	Ship	Klingon	Cloaking Device, Tractor Beam	8	7	6			[Stf]
+I.K.S. Qu'Vat	PR	PR_Ship_I.K.S._Qu'Vat	Ship	Klingon	Cloaking Device, Tractor Beam	9	8	8			[Cmd][Stf][Stf]
+I.K.S. Vorn	PR	PR_Ship_I.K.S._Vorn	Ship	Klingon	Cloaking Device, Tractor Beam	8	7	6			[Stf]
+Iconia Investigation	PR	PR_Mission_Iconia_Investigation	Mission	[ROM]	Archaeology + Computer Skill x2				35		
+Iconian Computer Weapon	PR	PR_Dilemma_Iconian_Computer_Weapon	Dilemma		Unless SCIENCE present, reveal hand, discarding all non-personnel cards revealed. Then, draw a card for each card discarded this way. Discard dilemma.						
+Impassable Door	PR	PR_Dilemma_Impassable_Door	Dilemma		To get past requires Computer Skill.					[IPG]	
+Incoming Message: Federation	PR	PR_Interrupt_Incoming_Message_Federation	Interrupt		Plays on a [Fed] ship; its controller targets one of their [Fed] facilities on this spaceline (nullified if none). Ship must do nothing but move toward it. Nullified on arrival at its location.						
+Incoming Message: Klingon	PR	PR_Interrupt_Incoming_Message_Klingon	Interrupt		Plays on a [Kli] ship; its controller targets one of their [Kli] facilities on this spaceline (nullified if none). Ship must do nothing but move toward it. Nullified on arrival at its location.						
+Incoming Message: Romulan	PR	PR_Interrupt_Incoming_Message_Romulan	Interrupt		Plays on a [Rom] ship; its controller targets one of their [Rom] facilities on this spaceline (nullified if none). Ship must do nothing but move toward it. Nullified on arrival at its location.						
+Interphase Generator	PR	PR_Artifact_Interphase_Generator	Artifact		Use as [Equipment]. Where present, nullifies [IPG] dilemmas.						
+"Investigate ""Shattered Space"""	PR	PR_Mission_Investigate_Shattered_Space	Mission	[ROM]	Leadership + Computer Skill + Astrophysics x2 + Stellar Cartography				45		
+Investigate Alien Probe	PR	PR_Mission_Investigate_Alien_Probe	Mission	[KLI]	Anthropology + Biology + Computer Skill				40		
+Investigate Anomaly	PR	PR_Mission_Investigate_Anomaly	Mission	[FED][ROM][KLI]	Exobiology + STRENGTH>35				30		
+Investigate Disappearance	PR	PR_Mission_Investigate_Disappearance	Mission	[FED]	Physics + Navigation + CUNNING>40 OR Astrophysics x3				35		
+Investigate Disturbance	PR	PR_Mission_Investigate_Disturbance	Mission	[KLI]	Honor + Leadership + INTEGRITY>30 OR {Gowron} + Biology				35		
+Investigate Massacre	PR	PR_Mission_Investigate_Massacre	Mission	[FED][ROM]	Diplomacy + INTEGRITY>35 + CUNNING>35				35		
+Investigate Raid	PR	PR_Mission_Investigate_Raid	Mission	[ROM]	Exobiology + Diplomacy				35		
+Investigate Rogue Comet	PR	PR_Mission_Investigate_Rogue_Comet	Mission	[FED]	Archaeology + Exobiology + Computer Skill				30		
+Investigate Sighting	PR	PR_Mission_Investigate_Sighting	Mission	[FED][ROM]	Empathy x3 OR Treachery + Exobiology + CUNNING>40				35		
+Investigate Time Continuum	PR	PR_Mission_Investigate_Time_Continuum	Mission	[FED]	{Guinan} OR {Data} OR discard your earned {Time Travel Pod} from play.				35		
+Ishara Yar	PR	PR_Personnel_Ishara_Yar	Personnel	Non-Aligned	CIVILIAN Treachery Youth	3	7	8		[Stf]	
+Jaglom Shrek: Information Broker	PR	PR_Interrupt_Jaglom_Shrek_Information_Broker	Interrupt		Examine opponent's draw deck, then replace unshuffled.						
+Jean-Luc Picard	PR	PR_Personnel_Jean-Luc_Picard	Personnel	Federation	OFFICER Diplomacy x 2 Leadership Honor Archaeology Navigation Music	9	8	6		[Cmd]	
+Jenna D'Sora	PR	PR_Personnel_Jenna_D'Sora	Personnel	Federation	SECURITY Stellar Cartography Music	7	6	5		[Stf]	
+Jo'Bril	PR	PR_Personnel_Jo'Bril	Personnel	Non-Aligned	SCIENCE Treachery Astrophysics Physics Greed	3	8	7		[Cmd]	
+Kahless	PR	PR_Personnel_Kahless	Personnel	Klingon	V.I.P. Honor x 2	10	6	8		[Cmd]	
+Kareel Odan	PR	PR_Personnel_Kareel_Odan	Personnel	Federation	V.I.P. Diplomacy Computer Skill	9	7	4			
+Kargan	PR	PR_Personnel_Kargan	Personnel	Klingon	OFFICER Honor Computer Skill	7	5	9		[Cmd]	
+K'Ehleyr	PR	PR_Personnel_K'Ehleyr	Personnel	Federation	V.I.P. Diplomacy Honor	8	7	7		[Stf]	
+Kell	PR	PR_Personnel_Kell	Personnel	Klingon	V.I.P. Treachery	2	6	5			
+Kevin Uxbridge	PR	PR_Interrupt_Kevin_Uxbridge	Interrupt		Nullifies an [Event] (except a [Shield] or Treaty). Place this [Interrupt] out-of-play.					[Shield]	
+Khazara	PR	PR_Ship_Khazara	Ship	Romulan	Cloaking Device, Tractor Beam	9	9	7			[Cmd][Stf][Stf]
+Khitomer Research	PR	PR_Mission_Khitomer_Research	Mission	[ROM][KLI]	Honor x3 + Computer Skill + Treachery				35		
+Kivas Fajo: Collector	PR	PR_Event_Kivas_Fajo_Collector	Event		Choose a player to draw three cards. Discard event.						
+Klingon Death Yell	PR	PR_Interrupt_Klingon_Death_Yell	Interrupt		Plays just after a Klingon with Honor dies (limit one each). Score points, and you may yell to warn the dead.				5		
+Klingon Disruptor	PR	PR_Equipment_Klingon_Disruptor	Equipment		If your [Kli] or [Non] personnel present, each of your personnel present is STRENGTH +2. (Cumulative.)						
+Klingon Outpost	PR	PR_Facility_Klingon_Outpost	Facility	Klingon	Seed one OR build where you have a Klingon ENGINEER.			32			
+Klingon PADD	PR	PR_Equipment_Klingon_PADD	Equipment		If your [Kli] personnel present, each of your personnel present is CUNNING +2. (Cumulative.)						
+Klingon Right of Vengeance	PR	PR_Interrupt_Klingon_Right_of_Vengeance	Interrupt		Just after a personnel battle where a Klingon died, your Klingons present may immediately attack same opponents, even without a leader (STRENGTH doubled for this battle).						
+K'mpec	PR	PR_Personnel_K'mpec	Personnel	Klingon	V.I.P. Leadership Diplomacy	7	8	5		[Cmd]	
+Konmel	PR	PR_Personnel_Konmel	Personnel	Klingon	OFFICER Navigation	8	5	8		[Stf]	
+Koral	PR	PR_Personnel_Koral	Personnel	Klingon	CIVILIAN Navigation Archaeology	3	4	10		[Cmd]	
+Koroth	PR	PR_Personnel_Koroth	Personnel	Klingon	SCIENCE Biology Archaeology Anthropology	8	6	6			
+Korris	PR	PR_Personnel_Korris	Personnel	Klingon	OFFICER Honor	8	6	8		[Cmd]	
+Krios Suppression	PR	PR_Mission_Krios_Suppression	Mission	[KLI]	Honor + Diplomacy + STRENGTH>35				30		
+K'Tal	PR	PR_Personnel_K'Tal	Personnel	Klingon	V.I.P. Diplomacy	7	5	5			
+Ktarian Game	PR	PR_Dilemma_Ktarian_Game	Dilemma		Place on ship. Now and start of each turn, one personnel aboard (random selection) is disabled. Cure with CUNNING>30 OR any android.						
+Kurak	PR	PR_Personnel_Kurak	Personnel	Klingon	SCIENCE Astrophysics Computer Skill Physics Honor	6	7	6		[Stf]	
+Kurlan Naiskos	PR	PR_Artifact_Kurlan_Naiskos	Artifact		Place in hand. Plays as [Event] on a ship: while OFFICER, ENGINEER, MEDICAL, SCIENCE, SECURITY, V.I.P., and CIVILIAN aboard, triples ship's attributes.						
+Kurn	PR	PR_Personnel_Kurn	Personnel	Klingon	OFFICER Honor Computer Skill Navigation Diplomacy	8	6	8		[Cmd]	
+K'Vada	PR	PR_Personnel_K'Vada	Personnel	Klingon	OFFICER Leadership Navigation	8	5	7		[Cmd]	
+Leah Brahms	PR	PR_Personnel_Leah_Brahms	Personnel	Federation	ENGINEER ENGINEER	8	9	3		[Stf]	
+Life-form Scan	PR	PR_Interrupt_Life-form_Scan	Interrupt		Examine the cards in your opponent's hand.						
+L'Kor	PR	PR_Personnel_L'Kor	Personnel	Klingon	CIVILIAN Leadership Music	7	6	7		[Cmd]	
+Long-Range Scan	PR	PR_Interrupt_Long-Range_Scan	Interrupt		Examine the cards aboard a ship (except a ship with Long-Range Scan Shielding).						
+Lore Returns	PR	PR_Event_Lore_Returns	Event		Plays on opponent's empty ship with {Rogue Borg} aboard. You gain control of those Rogue Borg, who commandeer ship (as [Non]). While Rogue Borg aboard, ship is staffed; it may initiate battle and beam your Rogue Borg. (Unique.)						
+Lore's Fingernail	PR	PR_Event_Lore's_Fingernail	Event		Plays on table. All inorganics (except [Holo]) become [Non].						
+Loss of Orbital Stability	PR	PR_Interrupt_Loss_of_Orbital_Stability	Interrupt		Plays on a ship orbiting a [P]. Ship has NO RANGE until end of turn. If SHIELDS>4, discard interrupt. Otherwise, ship destroyed at end of its owner's next turn. (Cumulative.)						
+Lursa	PR	PR_Personnel_Lursa	Personnel	Klingon	V.I.P. Treachery Leadership Geology Greed	2	8	8		[Cmd]	
+Lwaxana Troi	PR	PR_Personnel_Lwaxana_Troi	Personnel	Federation	V.I.P. Empathy x 2	7	8	3			
+Male's Love Interest	PR	PR_Dilemma_Male's_Love_Interest	Dilemma		Relocates a male present (random selection) to furthest different planet on this spaceline.						
+Masaka Transformations	PR	PR_Event_Masaka_Transformations	Event		Choose a player. That player shuffles their hand, places it beneath their draw deck, then draws an equal number of cards. Discard event.						
+Matriarchal Society	PR	PR_Dilemma_Matriarchal_Society	Dilemma		Cannot get past unless at least two female Away Team members are present.						
+Medical Kit	PR	PR_Equipment_Medical_Kit	Equipment		Your OFFICER-classification personnel present gain MEDICAL.						
+Medical Relief	PR	PR_Mission_Medical_Relief	Mission	[KLI]	Biology + Exobiology + MEDICAL				35		
+Medical Tricorder	PR	PR_Equipment_Medical_Tricorder	Equipment		Your SCIENCE-classification personnel present gain MEDICAL.						
+Mendak	PR	PR_Personnel_Mendak	Personnel	Romulan	OFFICER Treachery Exobiology	4	7	7		[Cmd]	
+Menthar Booby Trap	PR	PR_Dilemma_Menthar_Booby_Trap	Dilemma		Place on ship; it cannot move. Unless MEDICAL present, one crew member killed (random selection). Cure with 2 ENGINEER.						
+Metaphasic Shields	PR	PR_Event_Metaphasic_Shields	Event		Plays on your ship. SHIELDS +2 for each of your SCIENCE-classification personnel present.						
+Microbiotic Colony	PR	PR_Dilemma_Microbiotic_Colony	Dilemma		Unless OFFICER, ENGINEER, and SCIENCE present, damages ship. Discard dilemma.						
+Microvirus	PR	PR_Dilemma_Microvirus	Dilemma		Unless MEDICAL and SECURITY present, kills one personnel present (opponent's choice), except an inorganic. Otherwise, score points. Discard dilemma.				5		
+Mirok	PR	PR_Personnel_Mirok	Personnel	Romulan	SCIENCE ENGINEER Astrophysics Physics	3	8	7		[Stf]	
+Nagilum	PR	PR_Dilemma_Nagilum	Dilemma		Unless 3 Diplomacy OR STRENGTH>40 present, kills half of crew (random selection, round down). Otherwise, score points. Discard dilemma.				5		
+Nanites	PR	PR_Dilemma_Nanites	Dilemma		Unless 2 SCIENCE OR Diplomacy present, damages ship. Otherwise, score points. Discard dilemma.				5		
+Nausicaans	PR	PR_Dilemma_Nausicaans	Dilemma		Unless STRENGTH>44, kills one personnel (random selection). Discard dilemma.					[IPG]	
+Near-Warp Transport	PR	PR_Interrupt_Near-Warp_Transport	Interrupt		Plays to beam up to six cards (personnel and/or [Equipment]) from your exposed ship with transporters to an adjacent spaceline location (if possible).						
+Nella Daren	PR	PR_Personnel_Nella_Daren	Personnel	Federation	SCIENCE Astrophysics Stellar Cartography Music	8	8	5		[Stf]	
+Neral	PR	PR_Personnel_Neral	Personnel	Romulan	V.I.P. Treachery Youth	4	7	7			
+Neural Servo Device	PR	PR_Event_Neural_Servo_Device	Event		Plays on a [Non] ship without 2 SECURITY aboard. Until end of turn, ship and crew are under your control, but are not compatible with your other cards.						
+New Contact	PR	PR_Mission_New_Contact	Mission	[ROM][KLI]	Diplomacy + Leadership + Empathy + Anthropology				40		
+Nikolai Rozhenko	PR	PR_Personnel_Nikolai_Rozhenko	Personnel	Federation	CIVILIAN Anthropology Computer Skill Treachery	3	7	4		[Stf]	
+Nitrium Metal Parasites	PR	PR_Dilemma_Nitrium_Metal_Parasites	Dilemma		Place on ship. Ship is destroyed when countdown expires. Cure with 2 SCIENCE OR 2 ENGINEER.					[3]	
+Norah Satie	PR	PR_Personnel_Norah_Satie	Personnel	Federation	V.I.P. Leadership	9	6	2		[Cmd]	
+Nu'Daq	PR	PR_Personnel_Nu'Daq	Personnel	Klingon	OFFICER Archaeology Navigation Exobiology	8	5	8		[Cmd]	
+Null Space	PR	PR_Dilemma_Null_Space	Dilemma		Unless 2 Navigation present, damages ship. Otherwise, score points. Discard dilemma.				5		
+Nutational Shields	PR	PR_Event_Nutational_Shields	Event		Plays on your ship. SHIELDS +2 for each of your ENGINEER-classification personnel present.						
+N'Vek	PR	PR_Personnel_N'Vek	Personnel	Romulan	SCIENCE Honor Biology Computer Skill	6	8	8		[Cmd]	
+Palor Toff: Alien Trader	PR	PR_Interrupt_Palor_Toff_Alien_Trader	Interrupt		Exchange this card for any non-Personnel card in your discard pile.						
+Pardek	PR	PR_Personnel_Pardek	Personnel	Romulan	V.I.P. Diplomacy x 2 Treachery	4	8	6			
+Parem	PR	PR_Personnel_Parem	Personnel	Romulan	OFFICER Treachery	4	8	9		[Stf]	
+Particle Fountain	PR	PR_Interrupt_Particle_Fountain	Interrupt		Plays if your Away Team just solved a planet mission. If 2 ENGINEER in Away Team, score points.				5		
+Pattern Enhancers	PR	PR_Event_Pattern_Enhancers	Event		Plays on table. You may ignore any effect on a dilemma, event, or mission that prevents beaming or targets your just-beamed personnel or equipment.						
+Pegasus Search	PR	PR_Mission_Pegasus_Search	Mission	[FED][ROM][KLI]	Navigation + Diplomacy + Leadership + Treachery + INTEGRITY>40 OR {Interphase Generator}				50		
+Phased Matter	PR	PR_Dilemma_Phased_Matter	Dilemma		Divide Away Team into two groups. Place on larger group (your choice if tie); they are in stasis. Cure with ENGINEER and SCIENCE.					[IPG]	
+Pi	PR	PR_Ship_Pi	Ship	Romulan		9	4	4			
+Plasma Fire	PR	PR_Event_Plasma_Fire	Event		Plays on a non-[Bor] ship. At the end of each of its controller's turns, ship damaged. May be nullified by SECURITY.						
+Plunder Site	PR	PR_Mission_Plunder_Site	Mission	[ROM][KLI]	Treachery + Archaeology + STRENGTH>30				30		
+Portal Guard	PR	PR_Dilemma_Portal_Guard	Dilemma		Unless one Away Team member has CUNNING>7 or Honor, immediately beam entire Away Team off planet surface OR kills entire Away Team.						
+Q	PR	PR_Dilemma_Q	Dilemma		Unless 2 Leadership and INTEGRITY>60, opponent may download up to 2 [Q] cards and place them atop their Q-Continuum side deck; crew or Away Team has a Q-Flash of 4 cards, then is stopped. Discard dilemma.						
+Q2	PR	PR_Interrupt_Q2	Interrupt		"Nullifies {Amanda Rogers} OR {Kevin Uxbridge} OR a [Q] icon dilemma OR a dilemma with the word ""Q"" in title. Place this [Interrupt] out-of-play."						
+Q-Net	PR	PR_Event_Q-Net	Event		Plays between two adjacent spaceline locations. No ship may pass the Q-Net unless 2 Diplomacy aboard.						
+Radioactive Garbage Scow	PR	PR_Dilemma_Radioactive_Garbage_Scow	Dilemma		Place on mission; mission attempt ends. Mission can't be attempted here. Ship with Tractor Beam and 2 ENGINEER can tow Scow.						
+Raise the Stakes	PR	PR_Event_Raise_the_Stakes	Event		Opponent chooses: You win the game OR Plays on table. The winner of this game may randomly select and keep one card from opponent's game deck. (Cumulative.)						
+Rebel Encounter	PR	PR_Dilemma_Rebel_Encounter	Dilemma		Unless STRENGTH>44 OR you destroy an [Equipment] present, kills one personnel (random selection). Discard dilemma.					[IPG]	
+Red Alert!	PR	PR_Event_Red_Alert!	Event		Plays on table. In place of your normal card play, you may play up to five personnel and/or [Equipment]. When nullified, any player may immediately download {Yellow Alert}.					[2]	
+Reginald Barclay	PR	PR_Personnel_Reginald_Barclay	Personnel	Federation	ENGINEER Computer Skill	7	7	5		[Stf]	
+Relief Mission	PR	PR_Mission_Relief_Mission	Mission	[ROM][KLI]	Geology OR Physics				20		
+REM Fatigue	PR	PR_Dilemma_REM_Fatigue	Dilemma		Place on crew or Away Team; quarantined. Kills them when countdown expires. Cure (score points) with 3 MEDICAL OR (if on ship) by docking.				5	[4]	
+Repair Mission	PR	PR_Mission_Repair_Mission	Mission	[FED]	ENGINEER x3 + Computer Skill				35		
+Res-Q	PR	PR_Event_Res-Q	Event		Plays to take a card from your discard pile to your hand. Discard event.						
+Restore Errant Moon	PR	PR_Mission_Restore_Errant_Moon	Mission	[FED]	ENGINEER + Astrophysics + Leadership				30		
+Richard Galen	PR	PR_Personnel_Richard_Galen	Personnel	Federation	SCIENCE Archaeology x 2 Biology Exobiology	7	9	2		[Stf]	
+Riva	PR	PR_Personnel_Riva	Personnel	Federation	V.I.P. Diplomacy x 2	6	8	3			
+Ro Laren	PR	PR_Personnel_Ro_Laren	Personnel	Federation	OFFICER Computer Skill Navigation Treachery	4	7	5		[Stf]	
+Sarek	PR	PR_Personnel_Sarek	Personnel	Federation	V.I.P. Diplomacy x 3 Mindmeld	9	10	3		[Cmd]	
+Sarjenka	PR	PR_Dilemma_Sarjenka	Dilemma		You may stop all Away Teams at this location to score points and discard dilemma. Otherwise, mission continues.				5		
+Sarthong Plunder	PR	PR_Mission_Sarthong_Plunder	Mission	[ROM][KLI]	Archaeology x2 + STRENGTH>40				35		
+Satelk	PR	PR_Personnel_Satelk	Personnel	Federation	OFFICER Leadership Mindmeld Diplomacy	8	9	7		[Cmd]	
+Scan	PR	PR_Interrupt_Scan	Interrupt		Plays at the start of your turn on your ship with at least two staffing icons at a [S] mission. Stop your Computer Skill and Stellar Cartography aboard to examine the bottom seed card here.						
+Secret Salvage	PR	PR_Mission_Secret_Salvage	Mission	[ROM][KLI]	Treachery x4 OR Navigation x2 + Computer Skill				30		
+Seek Life-form	PR	PR_Mission_Seek_Life-form	Mission	[KLI]	Exobiology + Astrophysics + ENGINEER				40		
+Sela	PR	PR_Personnel_Sela	Personnel	Romulan	V.I.P. Diplomacy Leadership Treachery Youth	6	9	8		[Cmd]	
+Shaka, When the Walls Fell	PR	PR_Dilemma_Shaka,_When_the_Walls_Fell	Dilemma		To get past requires 2 Diplomacy and CUNNING>30.						
+Shelby	PR	PR_Personnel_Shelby	Personnel	Federation	OFFICER Leadership Exobiology	6	7	4		[Cmd]	
+Ship Seizure	PR	PR_Interrupt_Ship_Seizure	Interrupt		Plays on your ship with Tractor Beam. Discard another empty exposed ship here.						
+Sirna Kolrami	PR	PR_Personnel_Sirna_Kolrami	Personnel	Federation	V.I.P. Leadership	7	9	2		[Cmd]	
+Soren	PR	PR_Personnel_Soren	Personnel	Federation	SCIENCE Astrophysics	6	6	3		[Stf]	
+Spacedock	PR	PR_Event_Spacedock	Event		Plays on your outpost. Just after your ship docks here, repair all its damage.						
+Starfleet Type II Phaser	PR	PR_Equipment_Starfleet_Type_II_Phaser	Equipment		If your [Fed] or [Non] personnel present, each of your personnel present is STRENGTH +2. (Cumulative.)						
+Static Warp Bubble	PR	PR_Event_Static_Warp_Bubble	Event		Plays on table. At the end of each of their turns, opponent must discard a card (their choice).						
+Strategic Diversion	PR	PR_Mission_Strategic_Diversion	Mission	[ROM]	Treachery x3 + STRENGTH>30				30		
+"Study ""Hole in Space"""	PR	PR_Mission_Study_Hole_in_Space	Mission	[FED][KLI]	Leadership + Diplomacy + INTEGRITY>40				35		
+Study Lonka Pulsar	PR	PR_Mission_Study_Lonka_Pulsar	Mission	[ROM]	Navigation + Astrophysics + Stellar Cartography				40		
+Study Nebula	PR	PR_Mission_Study_Nebula	Mission	[FED]	Astrophysics + Stellar Cartography + CUNNING>40				35		
+Study Plasma Streamer	PR	PR_Mission_Study_Plasma_Streamer	Mission	[FED][ROM][KLI]	Astrophysics + Youth				30		
+Study Stellar Collision	PR	PR_Mission_Study_Stellar_Collision	Mission	[FED][ROM][KLI]	Stellar Cartography				25		
+Subspace Interference	PR	PR_Interrupt_Subspace_Interference	Interrupt		Nullifies {Incoming Message} OR {Hail} OR {Subspace Schism}.						
+Subspace Schism	PR	PR_Interrupt_Subspace_Schism	Interrupt		Plays when a player would draw a card (limit once every turn). Discards that card. (Player draws next card.)						
+Subspace Warp Rift	PR	PR_Event_Subspace_Warp_Rift	Event		Plays on a spaceline location. Ships that fly by here are damaged. Ships that move to here are damaged if they move again on same turn (unless relocated).						
+Supernova	PR	PR_Event_Supernova	Event		Requires {Tox Uthat}. Plays on a mission. Destroys all ships and facilities here. For rest of game, mission is unattemptable and unscoutable, converts to [S] (if [P]), and loses gametext, point box, and affiliation icons.						
+Survey Mission	PR	PR_Mission_Survey_Mission	Mission	[KLI]	Stellar Cartography + Physics				35		
+Tachyon Detection Grid	PR	PR_Interrupt_Tachyon_Detection_Grid	Interrupt		If you control four exposed ships, plays on a cloaked ship. It de-cloaks (even if it is stopped or has cloaked this turn). It may not cloak.					[1]	
+Tebok	PR	PR_Personnel_Tebok	Personnel	Romulan	OFFICER Diplomacy Leadership Navigation	5	7	9		[Cmd]	
+Telepathic Alien Kidnappers	PR	PR_Event_Telepathic_Alien_Kidnappers	Event		Plays on table. At end of each turn, name a card type. Then, randomly select a card from opponent's hand. If it has that card type, discard it.						
+Temporal Causality Loop	PR	PR_Dilemma_Temporal_Causality_Loop	Dilemma		Unless SCIENCE and CUNNING>35 present, returns here (re-plays) all cards in discard piles discarded from here this attempt (re-seed seed cards); turn ends. Otherwise, score points. Discard dilemma.				5		
+Temporal Rift	PR	PR_Interrupt_Temporal_Rift	Interrupt		Plays on table as a [Univ][S] time location; relocate one of your exposed ships OR a dilemma here. Counts down only at the start of your turn. When nullified, return that ship or dilemma to its former location.					[2]	
+Test Mission	PR	PR_Mission_Test_Mission	Mission	[FED][KLI]	Physics + INTEGRITY>28				25		
+Tetryon Field	PR	PR_Event_Tetryon_Field	Event		Plays on a spaceline location. Ships may not fly by here. Ships that move to here require Navigation aboard to use RANGE again this turn.						
+The Devil	PR	PR_Interrupt_The_Devil	Interrupt		Nullifies {Horga'hn} OR {Wind Dancer} OR one {Treaty}.						
+The Juggler	PR	PR_Interrupt_The_Juggler	Interrupt		Choose any player to re-shuffle the cards in their draw deck.					[Ref]	
+The Traveler: Transcendence	PR	PR_Event_The_Traveler_Transcendence	Event		Plays on table. Nullifies each {Static Warp Bubble}. Choose a player. End of each turn, that player must draw a card.						
+Time Travel Pod	PR	PR_Artifact_Time_Travel_Pod	Artifact		Immediately play on table as a [Univ][S] time location. Relocate opponent's ship here now OR once, at any time, relocate your ship here. Counts down only while a ship here. When discarded, return ship to former location.					[2]	
+Toby Russell	PR	PR_Personnel_Toby_Russell	Personnel	Federation	MEDICAL Physics	6	7	4		[Stf]	
+Tokath	PR	PR_Personnel_Tokath	Personnel	Romulan	OFFICER Anthropology Honor	6	7	6		[Stf]	
+Tomalak	PR	PR_Personnel_Tomalak	Personnel	Romulan	OFFICER Diplomacy Leadership	6	7	9		[Cmd]	
+Toq	PR	PR_Personnel_Toq	Personnel	Klingon	CIVILIAN Leadership Computer Skill Youth	6	5	6			
+Torak	PR	PR_Personnel_Torak	Personnel	Klingon	V.I.P. Diplomacy Geology	5	4	7			
+Toral	PR	PR_Personnel_Toral	Personnel	Klingon	V.I.P. Leadership Youth	6	5	6		[Stf]	
+Toreth	PR	PR_Personnel_Toreth	Personnel	Romulan	OFFICER Leadership Honor Navigation	5	8	7		[Cmd]	
+Tox Uthat	PR	PR_Artifact_Tox_Uthat	Artifact		Place in hand. Plays as [Event]: Plays on table; you may not play {Supernova} this turn. Discard if used to play Supernova. OR Plays as [Interrupt]: Nullifies Supernova. Discard artifact.						
+T'Pan	PR	PR_Personnel_T'Pan	Personnel	Federation	SCIENCE SCIENCE Mindmeld	8	9	4		[Stf]	
+Transwarp Conduit	PR	PR_Interrupt_Transwarp_Conduit	Interrupt		Plays on a ship. Its full RANGE is doubled. At end of turn, discard interrupt.						
+Treaty: Federation/Klingon	PR	PR_Event_Treaty_FederationKlingon	Event		Plays on table. Your [Fed] and [Kli] cards are compatible						
+Treaty: Federation/Romulan	PR	PR_Event_Treaty_FederationRomulan	Event		Plays on table. Your [Fed] and [Rom] cards are compatible.						
+Treaty: Romulan/Klingon	PR	PR_Event_Treaty_RomulanKlingon	Event		Plays on table. Your [Rom] and [Kli] cards are compatible.						
+Tricorder	PR	PR_Equipment_Tricorder	Equipment		Your ENGINEER-classification personnel present gain SCIENCE.						
+Tsiolkovsky Infection	PR	PR_Dilemma_Tsiolkovsky_Infection	Dilemma		Place on ship; personnel aboard lose first-listed skill. Cure with 3 MEDICAL.						
+Two-Dimensional Creatures	PR	PR_Dilemma_Two-Dimensional_Creatures	Dilemma		Place on ship; Empathy personnel aboard are disabled. Ship cannot move. Cure with ENGINEER and SCIENCE.						
+U.S.S. Brattain	PR	PR_Ship_U.S.S._Brattain	Ship	Federation	Tractor Beam	6	5	6			[Stf]
+U.S.S. Enterprise	PR	PR_Ship_U.S.S._Enterprise	Ship	Federation	Holodeck, Tractor Beam	9	8	9			[Cmd][Stf][Stf]
+U.S.S. Hood	PR	PR_Ship_U.S.S._Hood	Ship	Federation	Tractor Beam	7	6	7			[Stf][Stf]
+U.S.S. Phoenix	PR	PR_Ship_U.S.S._Phoenix	Ship	Federation	Holodeck, Tractor Beam	7	7	8			[Cmd][Stf]
+U.S.S. Sutherland	PR	PR_Ship_U.S.S._Sutherland	Ship	Federation	Holodeck, Tractor Beam	7	7	7			[Cmd][Stf]
+U.S.S. Yamato	PR	PR_Ship_U.S.S._Yamato	Ship	Federation	Holodeck, Tractor Beam	8	8	8			[Cmd][Stf][Stf]
+Vagh	PR	PR_Personnel_Vagh	Personnel	Klingon	V.I.P. Diplomacy Anthropology	7	5	6			
+Varon-T Disruptor	PR	PR_Artifact_Varon-T_Disruptor	Artifact		Use as [Equipment]. Doubles the STRENGTH of each of your personnel present.						
+Vash	PR	PR_Personnel_Vash	Personnel	Federation	CIVILIAN Archaeology x 2 Treachery Anthropology	3	8	4			
+Vulcan Mindmeld	PR	PR_Interrupt_Vulcan_Mindmeld	Interrupt		Plays on your Mindmeld personnel. Personnel gains the skills of one of your other personnel present until end of turn. At end of turn, discard interrupt.						
+Vulcan Stone of Gol	PR	PR_Artifact_Vulcan_Stone_of_Gol	Artifact		Place in hand. Plays as [Event] on any Away Team: kills all personnel present without Youth OR CUNNING>7. Discard artifact.						
+Warp Core Breach	PR	PR_Event_Warp_Core_Breach	Event		Plays on a non-[Bor] ship. At the end of its controller's next turn, destroys ship. May be nullified by ENGINEER.						
+Wesley Crusher	PR	PR_Personnel_Wesley_Crusher	Personnel	Federation	OFFICER Youth Computer Skill Navigation ENGINEER Astrophysics	6	8	5		[Stf]	
+Where No One Has Gone Before	PR	PR_Event_Where_No_One_Has_Gone_Before	Event		Plays on table. You may move ships between locations at opposite ends of a spaceline as if those locations were adjacent.						
+William T. Riker	PR	PR_Personnel_William_T._Riker	Personnel	Federation	OFFICER Diplomacy Leadership Navigation Honor Music	8	7	7		[Cmd]	
+Wind Dancer	PR	PR_Dilemma_Wind_Dancer	Dilemma		To get past requires Music OR Youth OR a personnel with STRENGTH>9 OR {Lwaxana Troi}.						
+Worf	PR	PR_Personnel_Worf	Personnel	Federation	SECURITY Honor x 2 Navigation Diplomacy	8	6	10		[Cmd]	
+Wormhole	PR	PR_Interrupt_Wormhole	Interrupt		Requires two wormholes. Play one on your exposed ship. Play the other at any location (even a time location). Ship relocates to that location (and then is stopped).						
+Wormhole Negotiations	PR	PR_Mission_Wormhole_Negotiations	Mission	[FED][ROM][KLI]	Diplomacy x5 OR Honor x4 OR Treachery x4				45		
+Betazoid Gift Box	PR	PR_Artifact_Betazoid_Gift_Box	Artifact		Immediately download to hand up to three cards from your draw deck (ignoring opponent's cards that prevent downloading). Discard artifact.						

@@ -76,7 +76,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Card | Status | Notes | Source |
 | --- | --- | --- | --- |
 | Alien Abduction (10 U) | working | Pepsch green (Cure OR + Stasis Beam-Block). | Pepsch 2026-09-06 |
-| Alien Parasites (11 U) | partial | tip Data/`f087866` Neg Control Min-Pfad. Hotseat-Chooser PARK. Pending Pepsch green → working. | Data/`f087866` 2026-09-07 |
+| Alien Parasites (11 U) | partial | tip Data/`f087866` Neg Control + strip Choice labels (`CreateMiniNameLabel`). Hotseat dual-window PARK. Deep affiliation-mix PARK. Pending Pepsch green → working. | Data 2026-09-07 |
 | Anaphasic Organism (12 C) | partial | tip Data/`502d8e0` + Fix/`3532748` (Fail resigns=discard, not Kill). Ungetestet. | Data/`3532748` 2026-09-06 |
 | Ancient Computer (13 R) | partial | tip Data/`bb551f1`. Wall: 2 Computer Skill OR 3 SCIENCE OR 3 ENGINEER; Fail Stop+unter Mission. Ungetestet. | Data/`bb551f1` 2026-09-06 |
 | Archer (14 C) | working | Pepsch Gesamt-Grün (tip Data/`bf1f2ab`; Stop Soll Spock Condition-Fail). | Pepsch + Data/`bf1f2ab` 2026-09-06 |
