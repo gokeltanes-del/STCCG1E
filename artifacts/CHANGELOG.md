@@ -4,12 +4,6 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
-## 2026-09-07 (Fix - Alien Parasites control chooser strip labels)
-
-**UI** - Alien Parasites Neg control AskChoice (3+ options): synthetic `Type=Choice` cards had no `FullImagePath`, so `CreateMiniCard` rendered black empty strip slots. Fallback `CreateMiniNameLabel` shows option text (Away Team only / One ship + crew / AT+ship). PARK: dual-window Hotseat chooser; deep "not compatible with Opp other cards" affiliation-mix.
-
----
-
 ## 2026-09-07 (Fix - Hyper-Aging quarantine leave/beam block)
 
 **Engine** - Hyper-Aging (PR 28 U): AT quarantined on place (AttachAndContinue, not stopped); no Leave/Beam away; anyone who joins the host is quarantined; cure SCIENCE + 2 MEDICAL before countdown 0 else Kill (inorganics exempt, existing). Status UX like Stasis leave-block. `LegalMoves` skips Beam from `QuarantineLeaveBlocked` hosts. Decide: `DilemmaRules.IsQuarantinePersist` / `IsLeaveBlockedPersist` + `VerifyHyperAgingQuarantine`. Apply: TW Held on attach, `IsCardLeaveBlocked` / `TryJoinQuarantineOnHost`, BoardPiece `QuarantineLeaveBlocked`. RemFatigue quarantine PARK (out of scope).
