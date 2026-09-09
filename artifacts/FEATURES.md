@@ -1,25 +1,30 @@
 # STCCG 1E - Features backlog
-Last updated: 2026-09-08 21:30
-Living list — **Seven owns ranking.**
+Last updated: 2026-09-07
 
-**Branch:** nur `master`.
+Living list - **Seven owns ranking.**
+See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md, CARD_TRACKER.md (Jadzia).
 
-## P0
-- **AT/Mission-Detail Effekt-Gruppen** — **DONE** 2026-09-08 (Pepsch Soll)
-  - Header je Effekt-Set: `Stopped (7)`, `Quarantined (4)`, `Quarantined + Stopped (2)`
-  - Sort: mehr Negative zuerst. Kein Label unter jeder Mini.
-  - Dilemma-Karten bleiben unter `Negative`. Mission-Quarantine-Zeile oben bleibt.
-  - Decide: `DetailStatusRules`; Apply: `TableWindow` host-strip
-- **Dilemma-Overlay EffectAndContinue** — **DONE**: Love Interest / relocate-Text = `RELOCATED`; sonst `EFFECT - attempt continues`
-- **TableWindow extract** — Persist/Battle DEFERRED
-- **Premiere Dilemma wave** ACTIVE
-  - Pepsch green: Impassable Door, Hyper-Aging, Alien Parasites (2026-09-08), Firestorm kills OK
+## P0 - Foundation (do first)
+- **TableWindow extract** - Welle 1 Slices 1-9 DONE; Persist/Battle deferred
+  - Premiere A card waves: **only Captain Go**
+- **Status-UX / Stasis-Held / Detail** - **DONE** tip `bf1f2ab`
+- **Staffing/Fly/Battle Gaps G2-G7** - **DONE** (`2cd5bc8`)
+- **Glossary/Compendium** - Welle 2 Control/Owner/Present ACTIVE (Docs)
 
-## P1 Parked
-- Alien Parasites Hotseat-Chooser / volle Opp-Control-UI
-- Microvirus Opp-Chooser UI thin
-- REM Fatigue; Cure-Present-Scope (Ship)
-- Response Window UX; Cloak optional transparenter; Mission last-revealed Button
+## P1 - Parked
+- Microvirus Opp-Chooser / DNA-Filter
+- REM Fatigue
+- Cure-Present-Scope (Ship)
+- Alien Parasites Hotseat-Chooser
+
+## Done recently
+- Impassable Door DONE `be5062b`
+- Hyper-Aging Quarantaene DONE `46eab15`
+- Alien Parasites Neg Control `f087866` (Pepsch retest was later green)
+- Space-Attempt-Crew-Scope `170437a`
+- Status-UX `bf1f2ab`
+- Staffing/Battle G2-G7
 
 ## Notes
-- Workflow: master only. Pepsch: VS master → Git Pull → Rebuild.
+- Private, non-commercial
+- BoardStore + GameState = truth; TableWindow = view
