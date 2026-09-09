@@ -85,5 +85,30 @@ public static class DetailStatusRules
     };
 
     public static string FormatHeldQuarantineSectionLine(string dilemmaName, string personnelNames) =>
-        $"Quarantine: {dilemmaName} — {personnelNames}";
+        $"Quarantine: {dilemmaName} — {personnelNames
+    /// <summary>
+    /// Away-Team detail groups: same labels = same group.
+    /// Order inside a set: Quarantined, Stasis, Stopped.
+    /// Empty list = no negative personnel effect.
+    /// </summary>
+    public static System.Collections.Generic.IReadOnlyList<string> PersonnelNegEffects(bool stopped, bool stasis, bool quarantined)
+    {
+        var list = new System.Collections.Generic.List<string>(3);
+        if (quarantined) list.Add("Quarantined");
+        if (stasis) list.Add("Stasis");
+        if (stopped) list.Add("Stopped");
+        return list;
+    }
+
+    public static string EffectGroupKey(System.Collections.Generic.IReadOnlyList<string> effects) =>
+        string.Join("|", effects ?? System.Array.Empty<string>());
+
+    public static string FormatEffectGroupHeader(System.Collections.Generic.IReadOnlyList<string> effects, int count)
+    {
+        string label = (effects == null || effects.Count == 0)
+            ? "Personnel"
+            : string.Join(" + ", effects);
+        return $"{label} ({count})";
+    }
+}";
 }

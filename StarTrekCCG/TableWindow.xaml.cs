@@ -21226,25 +21226,35 @@ public partial class TableWindow : Window
                 if (!shown.Add(ad.Card)) continue;
                 AddStackMini(ad.Card, ad.Countdown > 0 ? $"Dilemma — countdown {ad.Countdown}" : "Dilemma");
             }
-            foreach (var (b, pc) in negPersonnel)
+            // Group Stopped / Quarantined / Stasis (one header per effect-set, no per-card label).
+            var negGroups = negPersonnel
+                .Where(row => shown.Add(row.c))
+                .GroupBy(row => IsCardQuarantined(row.c) ? "Quarantined"
+                    : IsCardInStasis(row.c) ? "Stasis" : "Stopped")
+                .OrderByDescending(g => g.Key == "Quarantined" ? 3 : g.Key == "Stasis" ? 2 : 1)
+                .ThenBy(g => g.Key);
+            foreach (var g in negGroups)
             {
-                if (!shown.Add(pc)) continue;
-                string negLabel = IsCardQuarantined(pc) ? "Quarantined"
-                    : IsCardInStasis(pc) ? "Stasis" : "Stopped";
-                // Explicit text under Negative (badge-only ToolTip looked empty).
+                string header = DetailStatusRules.FormatEffectGroupHeader(new[] { g.Key }, g.Count());
                 DetailStackCards.Children.Add(new TextBlock
                 {
-                    Text = negLabel,
+                    Text = header,
                     Foreground = new SolidColorBrush(negColor),
-                    FontSize = 10,
+                    FontSize = 11,
                     FontWeight = FontWeights.SemiBold,
                     VerticalAlignment = VerticalAlignment.Center,
-                    Margin = new Thickness(2, 0, 4, 0)
+                    Margin = new Thickness(4, 4, 6, 2),
+                    Effect = new System.Windows.Media.Effects.DropShadowEffect
+                    {
+                        Color = negColor,
+                        BlurRadius = 10,
+                        ShadowDepth = 0,
+                        Opacity = 0.75
+                    }
                 });
-                AddStackMini(pc, negLabel, cardBorder: b);
+                foreach (var (b, pc) in g)
+                    AddStackMini(pc, g.Key, cardBorder: b);
             }
-        }
-
         // Remaining non-buff/non-debuff events (timer/info) — keep visible under Positive-adjacent
         foreach (var ae in EventsOn(host))
         {
