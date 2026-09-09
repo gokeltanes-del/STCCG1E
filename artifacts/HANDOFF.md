@@ -1,10 +1,10 @@
 # STCCG 1E - Handoff
 
-Last updated: 2026-09-08 21:30 (Captain Grok — master only)
+Last updated: 2026-09-09 (Captain — local commits; Pepsch pushes)
 Repo: https://github.com/gokeltanes-del/STCCG1E
 Local VS: C:\\Dev\\StarTrekCCG\\
 **Ein Branch: `master`.** GrokTest nicht nutzen.
-Captain pusht auf master. Pepsch: VS auf master, Git Pull, Rebuild.
+**Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test. Pepsch: VS master, lokale Tips testen, dann Push.
 
 ## Current tip (2026-09-08 21:30)
 AT-Detail Effekt-Gruppen + Overlay-Titel `EFFECT`/`RELOCATED`.
