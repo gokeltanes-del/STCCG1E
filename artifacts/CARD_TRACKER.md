@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-07 (Jadzia — Impassable Door working, Pepsch green)
+Last updated: 2026-09-09 (Jadzia — Firestorm UI Overlay RELOCATED→EFFECT note)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -90,7 +90,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Cytherians (22 R) | partial | tip Data/`baa9fd5`. Place+Attempt-end; far-end +15. PARK: LegalMoves-toward-far-end; Borg no-pts; Mission Debriefing. Ungetestet. | Data/`baa9fd5` 2026-09-06 |
 | El-Adrel Creature (23 U) | partial | tip Data/`4b3467b`. 2 staerkste (Tie=Owner); STR>16 Continue; Fail random Kill + AT stop. Ungetestet. | Data/`4b3467b` 2026-09-06 |
 | Female's Love Interest (24 C) | working | Pepsch getestet OK (Continue after Relocate). | Pepsch 2026-09-06 |
-| Firestorm (25 U) | partial | tip Data/`6e872b1`. INT<5 die; Rest Continue; TD nullify. PARK: ETA-Escape Response. Ungetestet. | Data/`6e872b1` 2026-09-06 |
+| Firestorm (25 U) | partial | tip Data/`6e872b1`. INT<5 die; Rest Continue; TD nullify. PARK: ETA-Escape. UI: Overlay zeigte fälschlich RELOCATED → soll EFFECT (Data Fix; Love Interest bleibt RELOCATED). | Pepsch + Data/`6e872b1` 2026-09-09 |
 | Gravitic Mine (26 U) | partial | tip Data/`5c4f563`. Pass SCIENCE+Navigation Continue; Fail Damage + Ship/Crew stop. Ungetestet. | Data/`5c4f563` 2026-09-06 |
 | Hologram Ruse (27 U) | working | Pepsch getestet OK. | Pepsch 2026-09-06 |
 | Hyper-Aging (28 U) | working | Pepsch green Quarantäne+Beam-Block tip Data/`46eab15`. RemFatigue PARK. | Pepsch + Data/`46eab15` 2026-09-07 |
