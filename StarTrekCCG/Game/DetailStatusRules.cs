@@ -110,5 +110,20 @@ public static class DetailStatusRules
             : string.Join(" + ", effects);
         return $"{label} ({count})";
     }
+    public static bool IsRelocateContinue(string? cardName, string? message)
+    {
+        string n = cardName ?? "";
+        string m = message ?? "";
+        return n.IndexOf("Love Interest", StringComparison.OrdinalIgnoreCase) >= 0
+            || m.IndexOf("relocat", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    public static string EffectContinueHeader(string? cardName, string? message) =>
+        IsRelocateContinue(cardName, message)
+            ? "RELOCATED - attempt continues"
+            : "EFFECT - attempt continues";
+
+    public static string EffectContinueLogVerb(string? cardName, string? message) =>
+        IsRelocateContinue(cardName, message) ? "RELOCATED" : "EFFECT";
 }";
 }

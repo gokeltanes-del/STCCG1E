@@ -11908,7 +11908,7 @@ public partial class TableWindow : Window
                 ? "FAILED - attempt ends"
                 : (placedContinue
                     ? "PLACED - attempt continues"
-                    : (effectContinue ? "RELOCATED - attempt continues" : "OVERCOME"));
+                    : (effectContinue ? DetailStatusRules.EffectContinueHeader(seedCard.Name, dilResult.Message) : "OVERCOME"));
             string victimLine = FormatDilemmaVictims(dilResult);
             string consequences = failed
                 ? (dilResult.StopTeam
@@ -11958,7 +11958,7 @@ public partial class TableWindow : Window
                 AwardDilemmaPoints(dilResult.Score);
             StatusText.Text = logMsg;
             _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
-                $"{(effectContinue ? "RELOCATED" : "OVERCOME")} {seedCard.Name}"
+                $"{(effectContinue ? DetailStatusRules.EffectContinueLogVerb(seedCard.Name, dilResult.Message) : "OVERCOME")} {seedCard.Name}"
                 + (dilResult.Score > 0 ? $" +{dilResult.Score}" : "")
                 + (victimLine.Length > 0 ? " — " + victimLine : ""));
 
