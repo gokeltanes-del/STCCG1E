@@ -6231,10 +6231,12 @@ public partial class TableWindow : Window
 
         var img = new Image { Stretch = Stretch.Uniform };
         RenderOptions.SetBitmapScalingMode(img, BitmapScalingMode.LowQuality);
+        bool hasArt = false;
 
         if (faceDown && _cardBackImage != null)
         {
             img.Source = _cardBackImage;
+            hasArt = true;
         }
         else if (!string.IsNullOrEmpty(card.FullImagePath) && System.IO.File.Exists(card.FullImagePath))
         {
@@ -6247,14 +6249,38 @@ public partial class TableWindow : Window
                 bmp.DecodePixelWidth = 80;
                 bmp.EndInit();
                 img.Source = bmp;
+                hasArt = true;
             }
             catch { }
         }
 
-        border.Child = img;
-        if (!faceDown)
+        // Synthetic AskChoice / missing-art pick entries: show Name so the strip is not black empty slots.
+        if (hasArt)
+            border.Child = img;
+        else
+            border.Child = CreateMiniNameLabel(card);
+
+        if (!faceDown && hasArt)
             AttachMiniHover(border, card);
         return border;
+    }
+
+    /// <summary>Label fallback for strip minis without FullImagePath (e.g. AskChoice Type=Choice).</summary>
+    private static TextBlock CreateMiniNameLabel(Card card)
+    {
+        return new TextBlock
+        {
+            Text = string.IsNullOrWhiteSpace(card.Name) ? "?" : card.Name,
+            TextWrapping = TextWrapping.Wrap,
+            TextAlignment = TextAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Foreground = new SolidColorBrush(Color.FromRgb(230, 230, 230)),
+            FontSize = 10,
+            FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(4),
+            Padding = new Thickness(2)
+        };
     }
 
     /// <summary>
