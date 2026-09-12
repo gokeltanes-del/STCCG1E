@@ -6,22 +6,22 @@ Local VS: C:\\Dev\\StarTrekCCG\\
 **Ein Branch: `master`.** GrokTest nicht nutzen.
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test. Pepsch: VS master, lokale Tips testen, dann Push.
 
-## Current tip (2026-09-08 21:30)
-AT-Detail Effekt-Gruppen + Overlay-Titel `EFFECT`/`RELOCATED`.
-Dateien: `StarTrekCCG/Game/DetailStatusRules.cs`, `StarTrekCCG/TableWindow.xaml.cs`, FEATURES, CHANGELOG.
+## Current tip (2026-09-12)
+Response Window Umbau (Stilles Window am Phase-Banner, Think Tray via [R]/Klick, Optionen 2s/3s/5s/10s, Presets Hotseat/Test).
+Dateien: `StarTrekCCG/Game/TimingRules.cs`, `StarTrekCCG/TableWindow.xaml`, `StarTrekCCG/TableWindow.xaml.cs`.
 
-Pepsch green: Parasites, Firestorm-Kills, Impassable Door, Hyper-Aging.
+Artifact Beaming ohne Treaty (`TreatyRules.CanOccupyHost` / `ReportingRules.AreCompatible`).
+Pepsch green bestätigt: Hyper-Aging, Firestorm Kills + Continue, Overlay `EFFECT - attempt continues`, AT-Detail Debuff-Gruppierung, Varon-T Looten.
 
 ### ACTIVE
 Premiere-Dilemmas einzeln. Persist/Battle extract deferred.
 
 ### Pending Pepsch
-- Retest AT-Detail: Stopped-Gruppe / Quarantined-Gruppe (kein Label unter jeder Karte)
-- Firestorm Overlay-Titel soll `EFFECT - attempt continues` sein
-- Love Interest weiter `RELOCATED`
+- Test Response Window UX (Silent Badge am Banner, [R] Think Tray, [Space] Pass, Optionen/Presets)
+- Test Artifact Beaming (Varon-T vom Planeten auf Schiff beamen ohne Treaty-Fehlermeldung)
 
 ### Parked
-Hugh Borg Ship; IM FindMission; dump@Gaps; Distortion; Parasites Hotseat-UI; REM Fatigue; Cure-Present-Scope Ship; Response Window UX
+Hugh Borg Ship; IM FindMission; dump@Gaps; Distortion; Parasites Hotseat-UI; REM Fatigue; Cure-Present-Scope Ship
 
 ## Workflow Pepsch
 1. Unten links **master**

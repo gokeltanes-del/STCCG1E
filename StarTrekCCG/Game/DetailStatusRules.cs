@@ -85,7 +85,8 @@ public static class DetailStatusRules
     };
 
     public static string FormatHeldQuarantineSectionLine(string dilemmaName, string personnelNames) =>
-        $"Quarantine: {dilemmaName} — {personnelNames
+        $"Quarantine: {dilemmaName} — {personnelNames}";
+
     /// <summary>
     /// Away-Team detail groups: same labels = same group.
     /// Order inside a set: Quarantined, Stasis, Stopped.
@@ -110,6 +111,7 @@ public static class DetailStatusRules
             : string.Join(" + ", effects);
         return $"{label} ({count})";
     }
+
     public static bool IsRelocateContinue(string? cardName, string? message)
     {
         string n = cardName ?? "";
@@ -125,5 +127,4 @@ public static class DetailStatusRules
 
     public static string EffectContinueLogVerb(string? cardName, string? message) =>
         IsRelocateContinue(cardName, message) ? "RELOCATED" : "EFFECT";
-}";
 }

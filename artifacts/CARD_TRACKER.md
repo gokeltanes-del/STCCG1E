@@ -68,7 +68,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Thought Maker (5 R) | unknown |  |  |
 | Time Travel Pod (6 R) | unknown |  |  |
 | Tox Uthat (7 R) | unknown |  |  |
-| Varon-T Disruptor (8 R) | unknown |  |  |
+| Varon-T Disruptor (8 R) | working | Pepsch getestet: Looten OK, verdoppelt STRENGTH auf Planet; Beamen auf Schiff ohne Treaty repariert (`TreatyRules.CanOccupyHost`). | Pepsch 2026-09-12 |
 | Vulcan Stone of Gol (9 R) | unknown |  |  |
 
 ### Dilemma
@@ -90,10 +90,10 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Cytherians (22 R) | partial | tip Data/`baa9fd5`. Place+Attempt-end; far-end +15. PARK: LegalMoves-toward-far-end; Borg no-pts; Mission Debriefing. Ungetestet. | Data/`baa9fd5` 2026-09-06 |
 | El-Adrel Creature (23 U) | partial | tip Data/`4b3467b`. 2 staerkste (Tie=Owner); STR>16 Continue; Fail random Kill + AT stop. Ungetestet. | Data/`4b3467b` 2026-09-06 |
 | Female's Love Interest (24 C) | working | Pepsch getestet OK (Continue after Relocate). | Pepsch 2026-09-06 |
-| Firestorm (25 U) | partial | tip Data/`6e872b1` + Overlay EFFECT/`87e297d` (nicht RELOCATED; Love Interest bleibt RELOCATED). PARK: ETA-Escape. Pending Pepsch green → working. | Data/`87e297d` 2026-09-09 |
+| Firestorm (25 U) | working | Pepsch green: INT<5 Kills OK, Versuch-Fortsetzung OK, Overlay EFFECT-Header OK. PARK: ETA-Escape. | Pepsch 2026-09-12 |
 | Gravitic Mine (26 U) | partial | tip Data/`5c4f563`. Pass SCIENCE+Navigation Continue; Fail Damage + Ship/Crew stop. Ungetestet. | Data/`5c4f563` 2026-09-06 |
 | Hologram Ruse (27 U) | working | Pepsch getestet OK. | Pepsch 2026-09-06 |
-| Hyper-Aging (28 U) | working | Pepsch green Quarantäne+Beam-Block `46eab15`. Stopped/Quarantined-Gruppe tip Data/`702f644` (Pepsch-Retest). RemFatigue PARK. | Pepsch + Data/`702f644` 2026-09-09 |
+| Hyper-Aging (28 U) | working | Pepsch green Quarantäne+Beam-Block `46eab15`; Detailansicht Debuff-Gruppierung OK. RemFatigue PARK. | Pepsch 2026-09-12 |
 | Iconian Computer Weapon (29 C) | partial | tip Data/`47984b5`. Pass SCIENCE Continue; Fail Stop + Non-Pers Hand discard+draw. Ungetestet. | Data/`47984b5` 2026-09-06 |
 | Impassable Door (30 C) | working | Pepsch green (komplett); tip Data/`be5062b`. | Pepsch + Data/`be5062b` 2026-09-07 |
 | Ktarian Game (31 R) | partial | tip Data/`7de28a4`. Place+Continue; Cure CUNN>30/Android. PARK: Lefler; Now+SOT Disable-Apply. GAP Cure-Present-Scope (Ship): Skills an Bord, nicht ortsweit — Seven FEATURES `cd468fb`. Ungetestet. | Data/`7de28a4` + Spock 2026-09-06 |

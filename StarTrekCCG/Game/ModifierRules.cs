@@ -109,7 +109,8 @@ public static class ModifierRules
     public static bool IsEquipmentCard(Card c) =>
         (c.Type ?? "").Contains("equipment", StringComparison.OrdinalIgnoreCase)
         || ArtifactRules.IsVaronT(c)
-        || ArtifactRules.IsInterphaseGenerator(c);
+        || ArtifactRules.IsInterphaseGenerator(c)
+        || ArtifactRules.IsDatasHead(c);
 
     public static bool IsPersonnelCard(Card c)
     {

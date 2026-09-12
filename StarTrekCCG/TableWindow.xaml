@@ -45,6 +45,19 @@
                     <MenuItem x:Name="AidSortHandItem" Header="Sort hand by type"
                               IsCheckable="True" IsChecked="True" Click="AidSortHand_Click"/>
                 </MenuItem>
+                <MenuItem Header="_Response window">
+                    <MenuItem Header="Default duration">
+                        <MenuItem x:Name="OptResponse2s" Header="2 seconds (Fast)" IsCheckable="True" Click="OptResponseDuration_Click" Tag="2"/>
+                        <MenuItem x:Name="OptResponse3s" Header="3 seconds (Standard)" IsCheckable="True" IsChecked="True" Click="OptResponseDuration_Click" Tag="3"/>
+                        <MenuItem x:Name="OptResponse5s" Header="5 seconds (Slow)" IsCheckable="True" Click="OptResponseDuration_Click" Tag="5"/>
+                    </MenuItem>
+                    <MenuItem Header="Think duration">
+                        <MenuItem x:Name="OptThink10s" Header="10 seconds" IsCheckable="True" IsChecked="True" Click="OptThinkDuration_Click" Tag="10"/>
+                    </MenuItem>
+                    <Separator/>
+                    <MenuItem x:Name="OptPresetHotseat" Header="Preset: Hotseat standard (3s / 10s)" Click="OptPresetHotseat_Click"/>
+                    <MenuItem x:Name="OptPresetFast" Header="Preset: Test fast (2s / 10s)" Click="OptPresetFast_Click"/>
+                </MenuItem>
             </MenuItem>
             <MenuItem Header="_Developer">
                 <MenuItem x:Name="DevRevealSeedItem" Header="Reveal seed under missions" IsCheckable="True" Click="DevRevealSeed_Click"/>
@@ -77,8 +90,17 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" x:Name="ScoreText" Text="P1: 0  ·  P2: 0" Foreground="#B5CEA8" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,14,0"/>
-                <Border Grid.Column="1" x:Name="ActivePlayerBanner" Background="#2A3A4A" CornerRadius="4" Padding="14,4" VerticalAlignment="Center" Margin="0,0,10,0">
-                    <TextBlock x:Name="ActivePlayerText" Text="–" Foreground="#FFE082" FontSize="15" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                <Border Grid.Column="1" x:Name="ActivePlayerBanner" Background="#2A3A4A" CornerRadius="4" Padding="14,4" VerticalAlignment="Center" Margin="0,0,10,0" Cursor="Hand" MouseLeftButtonDown="ActivePlayerBanner_MouseLeftButtonDown">
+                    <DockPanel LastChildFill="True">
+                        <Border x:Name="ResponseIndicatorBadge" DockPanel.Dock="Right" Visibility="Collapsed" Background="#7B1FA2" CornerRadius="3" Padding="8,2" Margin="10,0,0,0" Cursor="Hand" MouseLeftButtonDown="ResponseIndicator_MouseLeftButtonDown">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock x:Name="ResponseIndicatorText" Text="⚡ Response möglich (P2)" Foreground="#FFF" FontWeight="Bold" FontSize="13" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="ResponseCountdownText" Text=" · 3s" Foreground="#FFE082" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" Margin="2,0,0,0"/>
+                                <TextBlock Text=" · [R] Details  [Space] Pass" Foreground="#E1BEE7" FontSize="11" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                            </StackPanel>
+                        </Border>
+                        <TextBlock x:Name="ActivePlayerText" Text="–" Foreground="#FFE082" FontSize="15" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                    </DockPanel>
                 </Border>
                 <TextBlock x:Name="StatusText" Visibility="Collapsed"/>
                 <TextBlock x:Name="PhaseHint" Visibility="Collapsed"/>
@@ -152,6 +174,22 @@
                                     </Canvas.LayoutTransform>
                                 </Canvas>
                             </ScrollViewer>
+                            <!-- Think Tray: Übersicht legaler Responses über der Hand -->
+                            <Border x:Name="ThinkTrayBorder" Visibility="Collapsed" VerticalAlignment="Bottom" HorizontalAlignment="Stretch" Margin="14,0,14,6" Background="#EE161622" BorderBrush="#AB47BC" BorderThickness="2" CornerRadius="6" Padding="10,6" Panel.ZIndex="120" MaxHeight="220">
+                                <DockPanel>
+                                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                                        <Button x:Name="BtnThinkPass" DockPanel.Dock="Right" Content="Pass (Space)" Click="BtnThinkPass_Click" Padding="14,4" Background="#3A3A58" Foreground="White" BorderBrush="#5A5A78" Cursor="Hand" FontWeight="SemiBold"/>
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock x:Name="ThinkTrayTitle" Text="LEGAL RESPONSES (P2)" Foreground="#E1BEE7" FontSize="13" FontWeight="Bold" VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="ThinkTrayCountdown" Text=" · 10s remaining" Foreground="#FFE082" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                                            <TextBlock Text=" · Klick = Response spielen  ·  [Space] = Pass" Foreground="#AAA" FontSize="11" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                                        </StackPanel>
+                                    </DockPanel>
+                                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                                        <StackPanel x:Name="ThinkTrayPanel" Orientation="Horizontal" VerticalAlignment="Center"/>
+                                    </ScrollViewer>
+                                </DockPanel>
+                            </Border>
                             <Border x:Name="CardRevealOverlay" Visibility="Collapsed" Background="#CC0A0A0F" Panel.ZIndex="200">
                                 <Border HorizontalAlignment="Center" VerticalAlignment="Center" Background="#252530" BorderBrush="#6A6A80" BorderThickness="1" CornerRadius="10" Padding="16" MaxWidth="720" MaxHeight="520">
                                     <Grid>

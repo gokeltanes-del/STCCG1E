@@ -4,7 +4,37 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
-## 2026-09-07 (Fix - Hyper-Aging quarantine leave/beam block)
+## 2026-09-12 (Feat - Silent Response Window & Think Tray UX)
+
+**UX / Hotseat Rules** - Response Window Umbau:
+- **Weg vom modalen Popup (`CardRevealOverlay`)**: Keine blockierenden modalen Vollbild-Dialoge mehr bei normalen Card Plays / Reaktionen.
+- **Stilles Window mit Banner-Hinweis**:
+  - Kurzes Standardzeitfenster (Default: 3s; konfigurierbar im Options-Menü auf 2s / 3s / 5s; Presets für Hotseat Standard 3s/10s und Test schnell 2s/10s).
+  - Wenn keine legale Response existiert: Sofortiges Schließen / Auto-Pass, der aktive Spieler kann ohne Verzögerung weiterspielen.
+  - Wenn legale Response existiert: Dezenter violettes Badge am Phase-Banner (`ActivePlayerBanner`): `⚡ Response möglich (P1/P2) · 3s` inkl. Hotkey-Hinweis `· [R] Details  [Space] Pass`.
+- **Think-Modus (Opt-in via [R] oder Klick auf Banner/Badge)**:
+  - Verlängert das Window auf 10s Countdown.
+  - Zeigt horizontal scrollbares `ThinkTray` über der Hand des Responders (P1 unten, P2 oben).
+  - Volle Handkartengröße mit Herkunfts-Badge (`HAND`, `TABLE`, etc.) und Kartendetails.
+  - Klick auf Karte führt Response sofort aus; [Space] oder Timeout führt Pass aus.
+- **Priority & Mandatory**:
+  - Optionale Responses: Zuerst nicht-aktiver Spieler, danach aktiver Spieler. Gewählte Response erzeugt neue Aktion auf dem Stack und neues Window für den Gegner.
+  - Mandatory / required Responses: Kein Pass per Timeout, Space-Pass deaktiviert, Fenster bleibt bis Karte gewählt wurde.
+
+---
+
+## 2026-09-12 (Fix - Artifact Beaming without Treaty & Retest Green: Hyper-Aging, Firestorm, Detail Groups)
+
+**Engine** - Artifact Beaming / Affiliation-Free: Artifacts (inkl. Varon-T Disruptor, Interphase Generator, Data's Head etc.) haben keine Affiliation-Sperre und benötigen keinen Treaty, um auf Schiffe/Facilities gebeamt oder dort platziert zu werden (analog zu Equipment). Decide: `TreatyRules.CanOccupyHost` / `CardsCompatibleUnderTreaties` / `ForceCompatible` erlauben Artifacts affiliationsfrei; `ReportingRules.AreCompatible` / `CheckReportRules` erweitert; `ModifierRules.IsEquipmentCard` um Data's Head ergänzt. Apply: Detailansicht `FillDetailStackSection` gruppiert Artifacts unter Equipment/Artifacts statt Personnel; Fehlermeldung bei Beam aktualisiert ("Equipment and Artifacts are unrestricted").
+
+**Retest (Pepsch green):**
+- **Hyper-Aging**: Quarantäne auf Planet, Beam-Block für Quarantänisierte bestätigt.
+- **Firestorm**: INT<5 Kills und Versuch-Fortsetzung bestätigt.
+- **Dilemma-Continue Overlay**: Platzhalter-Header `EFFECT - attempt continues` (statt irreführendem `RELOCATED`) für Firestorm und nicht-relocate Dilemmas bestätigt (Love Interest bleibt `RELOCATED`).
+- **Detailansicht Debuff-Gruppierung**: Gruppierung von Stopped / Quarantined / Stasis mit Sammel-Header `DetailStatusRules.FormatEffectGroupHeader` ohne redundante Per-Card-Labels bestätigt.
+- **Varon-T Disruptor**: Looten auf Planet und STRENGTH ×2 für eigenes Personal bestätigt.
+
+---
 
 **Engine** - Hyper-Aging (PR 28 U): AT quarantined on place (AttachAndContinue, not stopped); no Leave/Beam away; anyone who joins the host is quarantined; cure SCIENCE + 2 MEDICAL before countdown 0 else Kill (inorganics exempt, existing). Status UX like Stasis leave-block. `LegalMoves` skips Beam from `QuarantineLeaveBlocked` hosts. Decide: `DilemmaRules.IsQuarantinePersist` / `IsLeaveBlockedPersist` + `VerifyHyperAgingQuarantine`. Apply: TW Held on attach, `IsCardLeaveBlocked` / `TryJoinQuarantineOnHost`, BoardPiece `QuarantineLeaveBlocked`. RemFatigue quarantine PARK (out of scope).
 
@@ -72,7 +102,7 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 ---
 ## 2026-09-06 (Feat - Impassable Door Premiere)
 
-**Engine** - Impassable Door (PR 30 C): Planet � To get past requires Computer Skill. Pass -> Overcome Continue (dilemma discard); Fail -> `WallFailed`+`StopTeam` (dilemma stays). No kills / score / damage. Spock #14 Soll / DRG Impassable Door. Decide: `DilemmaRules.ImpassableDoor` + `VerifyImpassableDoor`.
+**Engine** - Impassable Door (PR 30 C): Planet   To get past requires Computer Skill. Pass -> Overcome Continue (dilemma discard); Fail -> `WallFailed`+`StopTeam` (dilemma stays). No kills / score / damage. Spock #14 Soll / DRG Impassable Door. Decide: `DilemmaRules.ImpassableDoor` + `VerifyImpassableDoor`.
 
 ---
 ## 2026-09-06 (Feat - Iconian Computer Weapon Premiere)

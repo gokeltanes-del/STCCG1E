@@ -212,6 +212,13 @@ public partial class TableWindow : Window
     private bool _aidZoneCounts = true;
     private bool _aidSortHand = true;
 
+    // Response Window settings
+    private int _responseDefaultDurationSec = 3;
+    private int _responseThinkDurationSec = 10;
+    private System.Windows.Threading.DispatcherTimer? _responseWindowTimer;
+    private DateTime _responseWindowDeadlineUtc;
+    private List<TimingRules.LegalResponseItem> _currentLegalResponses = new();
+
     // ---------- Nur noch der zoombare Mittelbereich ----------
     // Alle Karten auf dem Spielfeld gleiche Größe
     private const double TableCardWidth = 100;
@@ -428,6 +435,30 @@ public partial class TableWindow : Window
             e.Handled = true;
             return;
         }
+
+        // Response Window hotkeys: R = Think mode, Space = Pass
+        if (_stack.IsOpen && (_stack.State != TimingRules.ResponseWindowState.Closed || ResponseIndicatorBadge?.Visibility == Visibility.Visible || ThinkTrayBorder?.Visibility == Visibility.Visible))
+        {
+            if (key == Key.R)
+            {
+                EnterThinkMode();
+                e.Handled = true;
+                return;
+            }
+            if (key == Key.Space)
+            {
+                if (_stack.Top?.IsMandatory == true)
+                {
+                    StatusText.Text = "Mandatory response required — cannot pass.";
+                    e.Handled = true;
+                    return;
+                }
+                PassCurrentResponseWindow();
+                e.Handled = true;
+                return;
+            }
+        }
+
         if (key != _hotkeyNextPhase) return;
 
         if (CardRevealOverlay?.Visibility == Visibility.Visible)
@@ -473,9 +504,11 @@ public partial class TableWindow : Window
     /// <summary>Space (default): Next phase / End turn / Finish seed.</summary>
     private bool TryHotkeyNextPhase()
     {
-        if (_stack.IsOpen && _announceKind != AnnounceKind.Hidden)
+        if (_stack.IsOpen)
         {
-            BtnRevealPass_Click(BtnRevealPass, new RoutedEventArgs());
+            if (_stack.Top?.IsMandatory == true)
+                return false;
+            PassCurrentResponseWindow();
             return true;
         }
 
@@ -3617,11 +3650,18 @@ public partial class TableWindow : Window
         if (player is 1 or 2) _schismUsedBy.Add(player);
     }
 
+    private List<TimingRules.LegalResponseItem> CollectAllLegalResponses(int player, TimingRules.PendingAction? top)
+    {
+        if (top == null) return new List<TimingRules.LegalResponseItem>();
+        var hand = player == 1 ? _handCards : _oppHandCards;
+        var table = player == 1 ? _tablePermanentCards : _oppTablePermanentCards;
+        var list = TimingRules.CollectLegalResponses(hand, table, top, player);
+        return list.Where(item => !InterruptRules.IsSubspaceSchism(item.Card) || SchismAvailable(player)).ToList();
+    }
+
     private List<Card> LegalResponsesFor(IEnumerable<Card> hand, TimingRules.PendingAction top, int owner)
     {
-        return TimingRules.LegalResponsesInHand(hand, top, owner)
-            .Where(c => !InterruptRules.IsSubspaceSchism(c) || SchismAvailable(owner))
-            .ToList();
+        return CollectAllLegalResponses(owner, top).Select(x => x.Card).ToList();
     }
 
     private void ApplyResponseEffect(TimingRules.PendingAction response)
@@ -3694,6 +3734,7 @@ public partial class TableWindow : Window
     {
         StopAnnounceTimers();
         _announceKind = AnnounceKind.Hidden;
+        CloseResponseWindowUi();
         if (_revealFrame != null) return; // modal reveal in progress
         if (CardRevealOverlay != null && BtnRevealRespond != null)
         {
@@ -3737,31 +3778,13 @@ public partial class TableWindow : Window
         var top = _stack.Top;
         int responder = FirstLegalResponder(top, _stack.ResponsePlayer);
         _stack.ResponsePlayer = responder;
-        var hand = responder == 1 ? _handCards : _oppHandCards;
-        var legal = LegalResponsesFor(hand, top, responder);
-
-        Card? shown = top.Card ?? top.AttackerCard;
-        RevealTitle.Text = top.IsResponse
-            ? $"Response — Player {top.Controller}"
-            : top.Kind == TimingRules.ActionKind.DrawCard
-                ? $"Player {top.Controller} draws"
-                : $"Player {top.Controller} plays";
-        RevealSubtitle.Text = shown != null
-            ? $"{shown.Name}  ·  {shown.Type}"
-            : top.Summary;
-        RevealBody.Text = (shown?.Text ?? top.Summary) + "\n\n" + TimingRules.FormatStack(_stack);
-
-        FillRevealImage(shown);
-
-        BtnRevealYes.Visibility = Visibility.Collapsed;
-        BtnRevealNo.Visibility = Visibility.Collapsed;
+        var legal = CollectAllLegalResponses(responder, top);
 
         // No legal cards for this responder
         if (legal.Count == 0)
         {
             int other = opponentOf(responder);
-            var otherHand = other == 1 ? _handCards : _oppHandCards;
-            var otherLegal = LegalResponsesFor(otherHand, top, other);
+            var otherLegal = CollectAllLegalResponses(other, top);
 
             // Never open a second "respond to your own card?" window when you have nothing legal.
             // 1E: responses are almost always to the opponent's just-played action / initiation.
@@ -3771,6 +3794,7 @@ public partial class TableWindow : Window
                 _session.Log.Add(_session.TurnNumber, $"P{responder}", "Pass (no legal response to own action)");
                 if (_stack.ConsecutivePasses >= 2 || otherLegal.Count == 0)
                 {
+                    CloseResponseWindowUi();
                     ResolveEntireStack();
                     return;
                 }
@@ -3782,6 +3806,7 @@ public partial class TableWindow : Window
             // Nobody left who can respond — resolve, no extra empty window.
             if (otherLegal.Count == 0 || _stack.ConsecutivePasses > 0)
             {
+                CloseResponseWindowUi();
                 ResolveEntireStack();
                 return;
             }
@@ -3794,64 +3819,318 @@ public partial class TableWindow : Window
             return;
         }
 
-        // Only open the center UI when this player can actually respond
-        _announceKind = AnnounceKind.RespondOrPass;
-        RevealAudience.Text = $"Player {responder}: respond to this?";
-        BtnRevealOk.Visibility = Visibility.Collapsed;
-        BtnRevealRespond.Visibility = Visibility.Visible;
-        BtnRevealPass.Visibility = Visibility.Visible;
-        ShowResponsePlayerHand();
-
-        CardRevealOverlay.Visibility = Visibility.Visible;
-        StatusText.Text = $"Player {responder} — response window";
-        StartAnnounceDeadline(10000);
+        // Silent response window with subtle phase banner indicator
+        OpenSilentResponseWindow(responder, top, legal);
     }
 
-    private void StartAnnounceDeadline(int ms)
+    private void OpenSilentResponseWindow(int responder, TimingRules.PendingAction top, List<TimingRules.LegalResponseItem> legal)
     {
-        _announceDeadlineTimer?.Stop();
-        _announceDeadlineUtc = DateTime.UtcNow.AddMilliseconds(ms);
-        _announceDeadlineTimer = new System.Windows.Threading.DispatcherTimer
+        _stack.State = TimingRules.ResponseWindowState.Silent;
+        _stack.ResponsePlayer = responder;
+        _currentLegalResponses = legal;
+
+        if (ThinkTrayBorder != null)
+            ThinkTrayBorder.Visibility = Visibility.Collapsed;
+        if (CardRevealOverlay != null && _announceKind is AnnounceKind.RespondOrPass or AnnounceKind.PickCard)
+            CardRevealOverlay.Visibility = Visibility.Collapsed;
+
+        if (ResponseIndicatorBadge != null)
         {
-            Interval = TimeSpan.FromMilliseconds(200)
-        };
-        _announceDeadlineTimer.Tick += (_, _) =>
+            ResponseIndicatorBadge.Visibility = Visibility.Visible;
+            if (ResponseIndicatorText != null)
+                ResponseIndicatorText.Text = top.IsMandatory
+                    ? $"⚡ Response Pflicht (P{responder})"
+                    : $"⚡ Response möglich (P{responder})";
+            if (ResponseCountdownText != null)
+                ResponseCountdownText.Text = $" · {_responseDefaultDurationSec}s";
+        }
+
+        UpdatePhaseControls();
+
+        StopResponseWindowTimer();
+        _responseWindowDeadlineUtc = DateTime.UtcNow.AddSeconds(_responseDefaultDurationSec);
+        _responseWindowTimer = new System.Windows.Threading.DispatcherTimer
         {
-            double left = (_announceDeadlineUtc - DateTime.UtcNow).TotalSeconds;
-            if (RevealTimerText != null)
-                RevealTimerText.Text = left > 0 ? $"{left:0}s remaining" : "";
-            if (left > 0) return;
-            _announceDeadlineTimer.Stop();
-            if (_announceKind == AnnounceKind.OkOnly)
-                BtnRevealOk_Click(BtnRevealOk, new RoutedEventArgs());
-            else if (_announceKind is AnnounceKind.RespondOrPass or AnnounceKind.PickCard)
-                BtnRevealPass_Click(BtnRevealPass, new RoutedEventArgs());
+            Interval = TimeSpan.FromMilliseconds(100)
         };
-        _announceDeadlineTimer.Start();
-        if (RevealTimerText != null) RevealTimerText.Text = $"{ms / 1000}s remaining";
+        _responseWindowTimer.Tick += (_, _) =>
+        {
+            double left = (_responseWindowDeadlineUtc - DateTime.UtcNow).TotalSeconds;
+            int secLeft = (int)Math.Ceiling(Math.Max(0, left));
+            if (ResponseCountdownText != null)
+                ResponseCountdownText.Text = top.IsMandatory && left <= 0 ? " · Pflicht" : $" · {secLeft}s";
+            if (ThinkTrayCountdown != null && _stack.State == TimingRules.ResponseWindowState.Think)
+                ThinkTrayCountdown.Text = top.IsMandatory && left <= 0 ? " · Pflicht (Pflicht-Aktion)" : $" · {secLeft}s remaining";
+
+            if (left <= 0)
+            {
+                if (_stack.Top?.IsMandatory == true)
+                {
+                    // Mandatory responses cannot pass by timeout
+                    return;
+                }
+                StopResponseWindowTimer();
+                PassCurrentResponseWindow();
+            }
+        };
+        _responseWindowTimer.Start();
+    }
+
+    private void EnterThinkMode()
+    {
+        if (!_stack.IsOpen || _stack.Top == null) return;
+        if (_currentLegalResponses.Count == 0)
+        {
+            _currentLegalResponses = CollectAllLegalResponses(_stack.ResponsePlayer, _stack.Top);
+            if (_currentLegalResponses.Count == 0) return;
+        }
+
+        _stack.State = TimingRules.ResponseWindowState.Think;
+        _responseWindowDeadlineUtc = DateTime.UtcNow.AddSeconds(_responseThinkDurationSec);
+
+        if (ResponseIndicatorBadge != null)
+        {
+            ResponseIndicatorBadge.Visibility = Visibility.Visible;
+            if (ResponseIndicatorText != null)
+                ResponseIndicatorText.Text = $"⚡ Response Think-Modus (P{_stack.ResponsePlayer})";
+            if (ResponseCountdownText != null)
+                ResponseCountdownText.Text = $" · {_responseThinkDurationSec}s";
+        }
+
+        if (ThinkTrayBorder != null)
+        {
+            // Position above the responder's hand (P2 is at top, P1 is at bottom)
+            if (_stack.ResponsePlayer == 2)
+            {
+                ThinkTrayBorder.VerticalAlignment = VerticalAlignment.Top;
+                ThinkTrayBorder.Margin = new Thickness(14, 6, 14, 0);
+            }
+            else
+            {
+                ThinkTrayBorder.VerticalAlignment = VerticalAlignment.Bottom;
+                ThinkTrayBorder.Margin = new Thickness(14, 0, 14, 6);
+            }
+
+            ThinkTrayBorder.Visibility = Visibility.Visible;
+            if (ThinkTrayTitle != null)
+                ThinkTrayTitle.Text = $"LEGAL RESPONSES (P{_stack.ResponsePlayer})";
+            if (ThinkTrayCountdown != null)
+                ThinkTrayCountdown.Text = $" · {_responseThinkDurationSec}s remaining";
+
+            if (BtnThinkPass != null)
+            {
+                bool isMandatory = _stack.Top?.IsMandatory == true;
+                BtnThinkPass.IsEnabled = !isMandatory;
+                BtnThinkPass.Content = isMandatory ? "Pflicht (kein Pass)" : "Pass (Space)";
+            }
+
+            PopulateThinkTray();
+        }
+    }
+
+    private void PopulateThinkTray()
+    {
+        if (ThinkTrayPanel == null) return;
+        ThinkTrayPanel.Children.Clear();
+        foreach (var item in _currentLegalResponses)
+        {
+            var cardElem = BuildThinkTrayCard(item);
+            ThinkTrayPanel.Children.Add(cardElem);
+        }
+    }
+
+    private FrameworkElement BuildThinkTrayCard(TimingRules.LegalResponseItem item)
+    {
+        var border = new Border
+        {
+            Width = 110,
+            Height = 154,
+            CornerRadius = new CornerRadius(5),
+            Background = new SolidColorBrush(Color.FromRgb(24, 24, 34)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(171, 71, 188)), // #AB47BC
+            BorderThickness = new Thickness(2),
+            Margin = new Thickness(5, 2, 5, 2),
+            Cursor = Cursors.Hand,
+            ToolTip = $"{item.Card.Name}\n[{item.Source}] {item.Description}"
+        };
+
+        var grid = new Grid();
+
+        var img = new Image
+        {
+            Stretch = Stretch.Uniform,
+            RenderOptions = { BitmapScalingMode = BitmapScalingMode.HighQuality }
+        };
+        if (!string.IsNullOrEmpty(item.Card.FullImagePath) && System.IO.File.Exists(item.Card.FullImagePath))
+        {
+            try
+            {
+                var bmp = new BitmapImage();
+                bmp.BeginInit();
+                bmp.CacheOption = BitmapCacheOption.OnLoad;
+                bmp.UriSource = new Uri(item.Card.FullImagePath, UriKind.Absolute);
+                bmp.DecodePixelWidth = 220;
+                bmp.EndInit();
+                img.Source = bmp;
+            }
+            catch { }
+        }
+        grid.Children.Add(img);
+
+        // Badge at Top-Left (HAND, TABLE, HIDDEN, DOWNLOAD, SKILL)
+        var badge = new Border
+        {
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Top,
+            Background = new SolidColorBrush(Color.FromArgb(220, 123, 31, 162)), // #7B1FA2
+            CornerRadius = new CornerRadius(3),
+            Padding = new Thickness(4, 1, 4, 1),
+            Margin = new Thickness(3)
+        };
+        badge.Child = new TextBlock
+        {
+            Text = item.Source.ToString().ToUpperInvariant(),
+            Foreground = Brushes.White,
+            FontSize = 9,
+            FontWeight = FontWeights.Bold
+        };
+        grid.Children.Add(badge);
+
+        // Title at bottom
+        var titleBar = new Border
+        {
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Background = new SolidColorBrush(Color.FromArgb(220, 16, 16, 24)),
+            Padding = new Thickness(4, 2, 4, 2)
+        };
+        titleBar.Child = new TextBlock
+        {
+            Text = item.Card.Name ?? "",
+            Foreground = Brushes.White,
+            FontSize = 10,
+            FontWeight = FontWeights.SemiBold,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            TextAlignment = TextAlignment.Center
+        };
+        grid.Children.Add(titleBar);
+
+        border.Child = grid;
+
+        border.MouseLeftButtonDown += (s, e) =>
+        {
+            e.Handled = true;
+            ExecuteLegalResponse(item);
+        };
+
+        border.MouseEnter += (s, e) =>
+        {
+            border.BorderBrush = new SolidColorBrush(Color.FromRgb(255, 224, 130)); // #FFE082
+        };
+        border.MouseLeave += (s, e) =>
+        {
+            border.BorderBrush = new SolidColorBrush(Color.FromRgb(171, 71, 188));
+        };
+
+        return border;
+    }
+
+    private void ExecuteLegalResponse(TimingRules.LegalResponseItem responseItem)
+    {
+        if (!_stack.IsOpen || _stack.Top == null) return;
+        int responder = _stack.ResponsePlayer;
+        Card card = responseItem.Card;
+
+        CloseResponseWindowUi();
+
+        if (responseItem.Source == TimingRules.ResponseCardSource.Hand)
+        {
+            var hand = responder == 1 ? _handCards : _oppHandCards;
+            hand.Remove(card);
+            RefreshZoneCounts();
+        }
+
+        Card? target = _stack.Top?.TargetCard ?? _stack.Top?.Card;
+        BeginPlayCardStack(card, isResponse: true, target: target);
+    }
+
+    private void PassCurrentResponseWindow()
+    {
+        if (!_stack.IsOpen)
+        {
+            CloseResponseWindowUi();
+            return;
+        }
+
+        if (_stack.Top?.IsMandatory == true)
+        {
+            StatusText.Text = "Mandatory response required — cannot pass.";
+            return;
+        }
+
+        StopResponseWindowTimer();
+        _stack.ConsecutivePasses++;
+        _session.Log.Add(_session.TurnNumber, $"P{_stack.ResponsePlayer}", "Pass (response)");
+
+        int other = opponentOf(_stack.ResponsePlayer);
+        var otherLegal = CollectAllLegalResponses(other, _stack.Top);
+
+        if (_stack.ConsecutivePasses >= 2 || otherLegal.Count == 0)
+        {
+            CloseResponseWindowUi();
+            ResolveEntireStack();
+            return;
+        }
+
+        _stack.ResponsePlayer = other;
+        OpenSilentResponseWindow(other, _stack.Top, otherLegal);
+    }
+
+    private void StopResponseWindowTimer()
+    {
+        _responseWindowTimer?.Stop();
+        _responseWindowTimer = null;
+    }
+
+    private void CloseResponseWindowUi()
+    {
+        StopResponseWindowTimer();
+        _stack.State = TimingRules.ResponseWindowState.Closed;
+        _currentLegalResponses.Clear();
+        if (ResponseIndicatorBadge != null)
+            ResponseIndicatorBadge.Visibility = Visibility.Collapsed;
+        if (ThinkTrayBorder != null)
+            ThinkTrayBorder.Visibility = Visibility.Collapsed;
+        UpdatePhaseControls();
+    }
+
+    private void ActivePlayerBanner_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (_stack.IsOpen && _stack.State != TimingRules.ResponseWindowState.Closed)
+        {
+            EnterThinkMode();
+            e.Handled = true;
+        }
+    }
+
+    private void ResponseIndicator_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        EnterThinkMode();
+        e.Handled = true;
+    }
+
+    private void BtnThinkPass_Click(object sender, RoutedEventArgs e)
+    {
+        PassCurrentResponseWindow();
     }
 
     private void BtnRevealRespond_Click(object sender, RoutedEventArgs e)
     {
-        if (!_stack.IsOpen) return;
-        _announceKind = AnnounceKind.PickCard;
-        RevealAudience.Text = $"Player {_stack.ResponsePlayer}: click a legal card in hand.";
-        BtnRevealRespond.Visibility = Visibility.Collapsed;
-        BtnRevealPass.Visibility = Visibility.Visible;
-        BtnRevealOk.Visibility = Visibility.Collapsed;
-        ShowResponsePlayerHand();
-        StartAnnounceDeadline(10000);
+        EnterThinkMode();
     }
 
     private void BtnRevealPass_Click(object sender, RoutedEventArgs e)
     {
-        if (!_stack.IsOpen)
-        {
-            HideActionAnnounce();
-            return;
-        }
-        HideActionAnnounce();
-        BtnResponsePass_Click(BtnResponsePass, new RoutedEventArgs());
+        PassCurrentResponseWindow();
     }
 
     private void ShowResponsePlayerHand()
@@ -3899,6 +4178,7 @@ public partial class TableWindow : Window
             return false;
         }
 
+        CloseResponseWindowUi();
         var hand = owner == 1 ? _handCards : _oppHandCards;
         hand.Remove(zref.Card);
         RefreshZoneCounts();
@@ -3908,21 +4188,7 @@ public partial class TableWindow : Window
 
     private void BtnResponsePass_Click(object sender, RoutedEventArgs e)
     {
-        if (!_stack.IsOpen) return;
-        _stack.ConsecutivePasses++;
-        _session.Log.Add(_session.TurnNumber, $"P{_stack.ResponsePlayer}", "Pass (response)");
-        int other = opponentOf(_stack.ResponsePlayer);
-        var otherHand = other == 1 ? _handCards : _oppHandCards;
-        bool otherCan = _stack.Top != null
-            && LegalResponsesFor(otherHand, _stack.Top, other).Count > 0;
-        if (_stack.ConsecutivePasses >= 2 || !otherCan)
-        {
-            ResolveEntireStack();
-            return;
-        }
-        _stack.ResponsePlayer = other;
-        RefreshResponseUi();
-        ShowResponsePlayerHand();
+        PassCurrentResponseWindow();
     }
 
     private void ResolveEntireStack()
@@ -4204,9 +4470,9 @@ public partial class TableWindow : Window
         }
     }
 
-        private void AskReturnFireAndResolve(
-        Border attackerBorder, Card attackerShip,
-        Border defenderBorder, Card defenderCard)
+    private void AskReturnFireAndResolve(
+    Border attackerBorder, Card attackerShip,
+    Border defenderBorder, Card defenderCard)
     {
         int defOwner = GetBorderOwner(defenderBorder);
         if (defOwner == 0) defOwner = 2;
@@ -5121,6 +5387,7 @@ public partial class TableWindow : Window
                     ShowPlayError(cr.reason);
                     return;
                 }
+                CloseResponseWindowUi();
                 BeginPlayCardStack(card, isResponse: true);
                 return;
             }
@@ -6705,6 +6972,52 @@ public partial class TableWindow : Window
             : "Player aid: legal response highlight off.";
     }
 
+    private void OptResponseDuration_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem mi || mi.Tag == null) return;
+        if (int.TryParse(mi.Tag.ToString(), out int sec))
+        {
+            _responseDefaultDurationSec = sec;
+            if (OptResponse2s != null) OptResponse2s.IsChecked = sec == 2;
+            if (OptResponse3s != null) OptResponse3s.IsChecked = sec == 3;
+            if (OptResponse5s != null) OptResponse5s.IsChecked = sec == 5;
+            StatusText.Text = $"Response window default duration: {sec}s.";
+        }
+    }
+
+    private void OptThinkDuration_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem mi || mi.Tag == null) return;
+        if (int.TryParse(mi.Tag.ToString(), out int sec))
+        {
+            _responseThinkDurationSec = sec;
+            if (OptThink10s != null) OptThink10s.IsChecked = true;
+            StatusText.Text = $"Response window Think duration: {sec}s.";
+        }
+    }
+
+    private void OptPresetHotseat_Click(object sender, RoutedEventArgs e)
+    {
+        _responseDefaultDurationSec = 3;
+        _responseThinkDurationSec = 10;
+        if (OptResponse2s != null) OptResponse2s.IsChecked = false;
+        if (OptResponse3s != null) OptResponse3s.IsChecked = true;
+        if (OptResponse5s != null) OptResponse5s.IsChecked = false;
+        if (OptThink10s != null) OptThink10s.IsChecked = true;
+        StatusText.Text = "Preset applied: Hotseat standard (3s default / 10s think).";
+    }
+
+    private void OptPresetFast_Click(object sender, RoutedEventArgs e)
+    {
+        _responseDefaultDurationSec = 2;
+        _responseThinkDurationSec = 10;
+        if (OptResponse2s != null) OptResponse2s.IsChecked = true;
+        if (OptResponse3s != null) OptResponse3s.IsChecked = false;
+        if (OptResponse5s != null) OptResponse5s.IsChecked = false;
+        if (OptThink10s != null) OptThink10s.IsChecked = true;
+        StatusText.Text = "Preset applied: Test fast (2s default / 10s think).";
+    }
+
     private void AidOwnSeedCount_Click(object sender, RoutedEventArgs e)
     {
         _aidOwnSeedCounts = AidOwnSeedCountItem?.IsChecked == true;
@@ -7064,9 +7377,26 @@ public partial class TableWindow : Window
         {
             BtnPhaseNext.IsEnabled = false;
             if (BtnEndTurn != null) BtnEndTurn.IsEnabled = false;
-            if (ActivePlayerText != null)
+            if (ActivePlayerText != null && ResponseIndicatorBadge?.Visibility != Visibility.Visible)
+            {
+                string respInfo = _stack.Top?.IsMandatory == true ? " · MANDATORY RESPONSE REQUIRED" : "";
                 ActivePlayerText.Text =
-                    $"TURN {_turnNumber} · Player {_activePlayer} · RESPONSE WINDOW — resolve stack first";
+                    $"TURN {_turnNumber} · P{_activePlayer} · RESPONSE WINDOW (P{_stack.ResponsePlayer}){respInfo}";
+            }
+            else if (ActivePlayerText != null && ResponseIndicatorBadge?.Visibility == Visibility.Visible)
+            {
+                string side = _activePlayer == 1 ? "Player 1 (BOTTOM)" : "Player 2 (TOP)";
+                ActivePlayerText.Text = $"TURN {_turnNumber} · {side}";
+            }
+            if (ActivePlayerBanner != null)
+            {
+                try
+                {
+                    ActivePlayerBanner.Background = new SolidColorBrush(
+                        (Color)ColorConverter.ConvertFromString(_activePlayer == 1 ? "#1B5E20" : "#0D47A1")!);
+                }
+                catch { }
+            }
             return;
         }
 
@@ -7291,15 +7621,13 @@ public partial class TableWindow : Window
 
     private int FirstLegalResponder(TimingRules.PendingAction top, int preferred)
     {
-        var hand = preferred == 1 ? _handCards : _oppHandCards;
-        if (LegalResponsesFor(hand, top, preferred).Count > 0)
+        if (CollectAllLegalResponses(preferred, top).Count > 0)
             return preferred;
         // After a pass, do not bounce back to the player who already passed.
         if (_stack.ConsecutivePasses > 0)
             return preferred;
         int other = opponentOf(preferred);
-        var otherHand = other == 1 ? _handCards : _oppHandCards;
-        if (LegalResponsesFor(otherHand, top, other).Count > 0)
+        if (CollectAllLegalResponses(other, top).Count > 0)
             return other;
         return preferred;
     }
@@ -12871,23 +13199,23 @@ public partial class TableWindow : Window
                 return true;
 
             case InterruptRules.HughResolveMode.KillRogueBorgAtLocation:
-            {
-                var mission = FindMissionForDockable(loc!) ?? loc!;
-                var victims = new List<RogueBorgUnit>();
-                foreach (var dock in GetDockablesUnderMission(mission).Concat(new[] { mission }))
-                    victims.AddRange(RogueBorgUnitsOn(dock).ToList());
-                int n = victims.Count;
-                var hosts = victims.Select(v => v.Host).Where(h => h != null).Distinct().ToList();
-                foreach (var rb in victims)
-                    DiscardRogueBorgUnit(rb, "Hugh");
-                StatusText.Text = $"Hugh kills {n} Rogue Borg at this location.";
-                _session.Log.Add(_session.TurnNumber, $"P{controller}", $"Hugh kills {n} Rogue Borg");
-                foreach (var h in hosts)
-                    UpdateHostBadge(h);
-                if (_detailHost != null && hosts.Contains(_detailHost) && _detailHost.Tag is Card hc)
-                    ShowHostContents(_detailHost, hc);
-                return true;
-            }
+                {
+                    var mission = FindMissionForDockable(loc!) ?? loc!;
+                    var victims = new List<RogueBorgUnit>();
+                    foreach (var dock in GetDockablesUnderMission(mission).Concat(new[] { mission }))
+                        victims.AddRange(RogueBorgUnitsOn(dock).ToList());
+                    int n = victims.Count;
+                    var hosts = victims.Select(v => v.Host).Where(h => h != null).Distinct().ToList();
+                    foreach (var rb in victims)
+                        DiscardRogueBorgUnit(rb, "Hugh");
+                    StatusText.Text = $"Hugh kills {n} Rogue Borg at this location.";
+                    _session.Log.Add(_session.TurnNumber, $"P{controller}", $"Hugh kills {n} Rogue Borg");
+                    foreach (var h in hosts)
+                        UpdateHostBadge(h);
+                    if (_detailHost != null && hosts.Contains(_detailHost) && _detailHost.Tag is Card hc)
+                        ShowHostContents(_detailHost, hc);
+                    return true;
+                }
 
             default:
                 ShowPlayError("Hugh: no just-initiated Borg battle and no Rogue Borg at the target.");
@@ -14877,20 +15205,20 @@ public partial class TableWindow : Window
                 break;
 
             case ArtifactRules.AcquirePlacement.EquipmentPreferOwnShip:
-            {
-                Border host = missionBorder;
-                foreach (var dock in GetDockablesUnderMission(missionBorder))
                 {
-                    if (dock.Tag is Card dc && IsShipCard(dc) && GetBorderOwner(dock) == _activePlayer)
+                    Border host = missionBorder;
+                    foreach (var dock in GetDockablesUnderMission(missionBorder))
                     {
-                        host = dock;
-                        break;
+                        if (dock.Tag is Card dc && IsShipCard(dc) && GetBorderOwner(dock) == _activePlayer)
+                        {
+                            host = dock;
+                            break;
+                        }
                     }
+                    AttachCardToHost(art, host, _activePlayer);
+                    StatusText.Text = acq.Message;
+                    break;
                 }
-                AttachCardToHost(art, host, _activePlayer);
-                StatusText.Text = acq.Message;
-                break;
-            }
 
             default: // ToHand
                 if (_activePlayer == 1) _handCards.Add(art);
@@ -15226,36 +15554,36 @@ public partial class TableWindow : Window
                 StatusText.Text = "Countermanda: Telepathic Alien Kidnappers nullified.";
                 return;
             case NamedInterruptRules.NamedAuOutcome.DestroyScow:
-            {
-                var scow = _attachedDilemmas.FirstOrDefault(d => d.Kind == DilemmaRules.PersistKind.Scow);
-                if (scow == null)
                 {
-                    ShowPlayError("No Radioactive Garbage Scow in play.");
+                    var scow = _attachedDilemmas.FirstOrDefault(d => d.Kind == DilemmaRules.PersistKind.Scow);
+                    if (scow == null)
+                    {
+                        ShowPlayError("No Radioactive Garbage Scow in play.");
+                        return;
+                    }
+                    var host = scow.Host;
+                    _attachedDilemmas.Remove(scow);
+                    SendCardTo(scow.Card, controller, TimingRules.Destination.Discard);
+                    if (!HasThermalDeflectors() && host != null)
+                    {
+                        foreach (var b in GetPersonnelBordersAtHost(host, opponentOf: 0).ToList())
+                        {
+                            if (b.Tag is not Card p) continue;
+                            // aboard a ship at this location — survive
+                            bool onShip = GetDockablesUnderMission(host)
+                                .Any(d => IsShipCard(d.Tag as Card ?? new Card())
+                                          && _stackOnHost.TryGetValue(d, out var crew) && crew.Contains(b));
+                            if (onShip) continue;
+                            DiscardPersonnelBorder(b, p, GetBorderOwner(b) == 0 ? 1 : GetBorderOwner(b));
+                        }
+                    }
+                    if (host != null && !_solvedMissions.Contains(host) && host.Tag is Card mis)
+                    {
+                        AwardDilemmaPoints(-10);
+                        StatusText.Text = $"Scow destroyed. Mission {mis.Name} −10 (unsolved). Personnel not aboard ships killed.";
+                    }
                     return;
                 }
-                var host = scow.Host;
-                _attachedDilemmas.Remove(scow);
-                SendCardTo(scow.Card, controller, TimingRules.Destination.Discard);
-                if (!HasThermalDeflectors() && host != null)
-                {
-                    foreach (var b in GetPersonnelBordersAtHost(host, opponentOf: 0).ToList())
-                    {
-                        if (b.Tag is not Card p) continue;
-                        // aboard a ship at this location — survive
-                        bool onShip = GetDockablesUnderMission(host)
-                            .Any(d => IsShipCard(d.Tag as Card ?? new Card())
-                                      && _stackOnHost.TryGetValue(d, out var crew) && crew.Contains(b));
-                        if (onShip) continue;
-                        DiscardPersonnelBorder(b, p, GetBorderOwner(b) == 0 ? 1 : GetBorderOwner(b));
-                    }
-                }
-                if (host != null && !_solvedMissions.Contains(host) && host.Tag is Card mis)
-                {
-                    AwardDilemmaPoints(-10);
-                    StatusText.Text = $"Scow destroyed. Mission {mis.Name} −10 (unsolved). Personnel not aboard ships killed.";
-                }
-                return;
-            }
             case NamedInterruptRules.NamedAuOutcome.SeniorStaffMeeting:
                 _seniorStaffArmed = true;
                 StatusText.Text = "Senior Staff Meeting: first dilemma of the next space attempt is discarded.";
@@ -16455,7 +16783,7 @@ public partial class TableWindow : Window
             return;
         }
 
-                _beamSelected.Clear();
+        _beamSelected.Clear();
         // Only beamable (unstopped, not stasis) — stopped stay behind
         foreach (var b in crew)
         {
@@ -17090,7 +17418,7 @@ public partial class TableWindow : Window
             int ho = GetBorderOwner(a.Host);
             if (ho == 0) ho = 1;
 
-                        var present = GetAllCardsOnHost(a.Host, ho);
+            var present = GetAllCardsOnHost(a.Host, ho);
             if (a.Kind == DilemmaRules.PersistKind.Scow)
                 present = GetCrewOnShip(a.Host); // scow on mission - check ships later
             // Abduction/Phased: cure skills need location present (AT + ship crews), incl. stopped.
@@ -20159,7 +20487,7 @@ public partial class TableWindow : Window
             {
                 ShowPlayError(
                     $"Cannot beam {string.Join(", ", blocked)} onto {destHostCard.Name} — " +
-                    "incompatible affiliation (need a Treaty). Equipment is unrestricted.");
+                    "incompatible affiliation (need a Treaty). Equipment and Artifacts are unrestricted.");
                 return true;
             }
         }
@@ -21255,6 +21583,8 @@ public partial class TableWindow : Window
                 foreach (var (b, pc) in g)
                     AddStackMini(pc, g.Key, cardBorder: b);
             }
+        }
+
         // Remaining non-buff/non-debuff events (timer/info) — keep visible under Positive-adjacent
         foreach (var ae in EventsOn(host))
         {
@@ -21277,7 +21607,7 @@ public partial class TableWindow : Window
                 if (InterruptRules.IsCrosis(card) && HostHasCrosis(host)) continue;
                 if (ModifierRules.IsPersonnelCard(card) || IsCrewType(card))
                     personnelRows.Add((b, card));
-                else if (IsEquipmentType(card) || ModifierRules.IsEquipmentCard(card))
+                else if (IsEquipmentType(card) || ModifierRules.IsEquipmentCard(card) || ArtifactRules.IsArtifact(card))
                     equipmentRows.Add((b, card));
                 else
                     personnelRows.Add((b, card)); // other stackables with personnel group

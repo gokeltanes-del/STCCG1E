@@ -146,7 +146,10 @@ public static class ReportingRules
 
         string ta = (a.Type ?? "").ToLowerInvariant();
         string tb = (b.Type ?? "").ToLowerInvariant();
-        if (ta.Contains("equipment") || tb.Contains("equipment"))
+        if (ta.Contains("equipment") || tb.Contains("equipment")
+            || ta.Contains("artifact") || tb.Contains("artifact")
+            || ArtifactRules.IsArtifact(a) || ArtifactRules.IsArtifact(b)
+            || ModifierRules.IsEquipmentCard(a) || ModifierRules.IsEquipmentCard(b))
             return true;
 
         var aa = GetAffiliations(a);
@@ -243,9 +246,9 @@ public static class ReportingRules
                 $"„{host.Name}“ ist nicht usable für Spieler {reportingPlayer} (fremde Facility).");
         }
 
-        // Compatible (Equipment immer ok; Treaties erlauben Mix)
+        // Compatible (Equipment und Artifacts immer ok; Treaties erlauben Mix)
         string rt = (reporting.Type ?? "").ToLowerInvariant();
-        if (!rt.Contains("equipment") && !AreCompatible(reporting, host, treatyAllowsMix, treaties))
+        if (!rt.Contains("equipment") && !rt.Contains("artifact") && !ArtifactRules.IsArtifact(reporting) && !AreCompatible(reporting, host, treatyAllowsMix, treaties))
         {
             return new ReportResult(false,
                 $"„{reporting.Name}“ ({reporting.Affiliation ?? "?"}) ist nicht kompatibel mit "

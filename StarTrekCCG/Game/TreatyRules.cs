@@ -196,7 +196,7 @@ public static class TreatyRules
 
     /// <summary>
     /// Ship/facility: personnel must match host affiliation (or treaty / NA).
-    /// Equipment has no affiliation lock. Missions (planet AT) are not locked.
+    /// Equipment and Artifacts have no affiliation lock. Missions (planet AT) are not locked.
     /// </summary>
     public static bool CanOccupyHost(Card occupant, Card host, IReadOnlyList<TreatyLink>? treaties)
     {
@@ -210,7 +210,12 @@ public static class TreatyRules
                 return true;
             return MissionRules.IsPlanetMission(host);
         }
-        if (ot.Contains("equipment") || ot.Contains("event") || ot.Contains("interrupt"))
+        if (ot.Contains("equipment")
+            || ot.Contains("artifact")
+            || ArtifactRules.IsArtifact(occupant)
+            || ModifierRules.IsEquipmentCard(occupant)
+            || ot.Contains("event")
+            || ot.Contains("interrupt"))
             return true;
         return CardsCompatibleUnderTreaties(occupant, host, treaties);
     }
@@ -222,7 +227,10 @@ public static class TreatyRules
     {
         string ta = (a.Type ?? "").ToLowerInvariant();
         string tb = (b.Type ?? "").ToLowerInvariant();
-        if (ta.Contains("equipment") || tb.Contains("equipment"))
+        if (ta.Contains("equipment") || tb.Contains("equipment")
+            || ta.Contains("artifact") || tb.Contains("artifact")
+            || ArtifactRules.IsArtifact(a) || ArtifactRules.IsArtifact(b)
+            || ModifierRules.IsEquipmentCard(a) || ModifierRules.IsEquipmentCard(b))
             return true;
 
         var aa = ReportingRules.GetAffiliations(a);
@@ -237,7 +245,7 @@ public static class TreatyRules
         IEnumerable<Card> force,
         IReadOnlyList<TreatyLink>? treaties)
     {
-        var list = force?.Where(c => !ModifierRules.IsEquipmentCard(c)).ToList()
+        var list = force?.Where(c => !ModifierRules.IsEquipmentCard(c) && !ArtifactRules.IsArtifact(c)).ToList()
                    ?? new List<Card>();
         if (list.Count <= 1) return true;
         for (int i = 0; i < list.Count; i++)

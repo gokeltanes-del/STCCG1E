@@ -30,6 +30,30 @@ public static class TimingRules
         Table          // Event/Doorway/Treaty bleibt
     }
 
+    public enum ResponseWindowState
+    {
+        Closed,
+        Silent,
+        Think
+    }
+
+    public enum ResponseCardSource
+    {
+        Hand,
+        Table,
+        Hidden,
+        Download,
+        Skill
+    }
+
+    public sealed class LegalResponseItem
+    {
+        public required Card Card { get; init; }
+        public ResponseCardSource Source { get; init; } = ResponseCardSource.Hand;
+        public string Description { get; init; } = "";
+        public bool IsMandatory { get; init; }
+    }
+
     public sealed class PendingAction
     {
         public ActionKind Kind { get; init; }
@@ -39,6 +63,7 @@ public static class TimingRules
         public bool IsResponse { get; init; }
         public bool Cancelled { get; set; }
         public string? CancelledBy { get; set; }
+        public bool IsMandatory { get; set; }
 
         // Ship battle
         public object? AttackerHost { get; set; }
@@ -64,6 +89,7 @@ public static class TimingRules
         public int ResponsePlayer { get; set; }
         /// <summary>Wie oft hintereinander gepasst wurde (2 = beide, dann Resolve).</summary>
         public int ConsecutivePasses { get; set; }
+        public ResponseWindowState State { get; set; } = ResponseWindowState.Closed;
         public bool IsOpen => Items.Count > 0;
 
         public PendingAction? Top => Items.Count == 0 ? null : Items[^1];
@@ -305,6 +331,52 @@ public static class TimingRules
     public static List<Card> LegalResponsesInHand(IEnumerable<Card> hand, PendingAction top, int owner)
     {
         return hand.Where(c => CanRespond(c, top, owner).ok).ToList();
+    }
+
+    public static List<LegalResponseItem> CollectLegalResponses(
+        IEnumerable<Card> hand,
+        IEnumerable<Card>? tableCards,
+        PendingAction top,
+        int owner)
+    {
+        var result = new List<LegalResponseItem>();
+        if (hand != null)
+        {
+            foreach (var c in hand)
+            {
+                var cr = CanRespond(c, top, owner);
+                if (cr.ok)
+                {
+                    result.Add(new LegalResponseItem
+                    {
+                        Card = c,
+                        Source = ResponseCardSource.Hand,
+                        Description = cr.reason,
+                        IsMandatory = top.IsMandatory
+                    });
+                }
+            }
+        }
+
+        if (tableCards != null)
+        {
+            foreach (var c in tableCards)
+            {
+                var cr = CanRespond(c, top, owner);
+                if (cr.ok)
+                {
+                    result.Add(new LegalResponseItem
+                    {
+                        Card = c,
+                        Source = ResponseCardSource.Table,
+                        Description = cr.reason,
+                        IsMandatory = top.IsMandatory
+                    });
+                }
+            }
+        }
+
+        return result;
     }
 
     public static string FormatStack(ActionStack stack)

@@ -122,7 +122,7 @@ Report an Schiffe (nicht nur Special) noch ❌.
 | § | Thema | Status | Code |
 |---|--------|--------|------|
 | 7.1 | Move (Überbegriff) | 🟡 | |
-| 7.1.1 | Beam | 🟡 | gleiche Location; Host-Affiliation/Treaty (Equipment frei); Planet-AT frei; **kein Beam auf Space-Mission** (7.1.1.0.1, 2026-08-31) |
+| 7.1.1 | Beam | 🟡 | gleiche Location; Host-Affiliation/Treaty (Equipment & Artifacts frei); Planet-AT frei; **kein Beam auf Space-Mission** (7.1.1.0.1, 2026-08-31) |
 | 7.1.2 | Walk | ❌ | Site/Nor |
 | 7.1.3 | Staff a ship | 🟡 | `MovementRules.IsShipStaffed` |
 | 7.1.4 | Dock & undock | 🟡 | |
