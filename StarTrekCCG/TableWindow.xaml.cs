@@ -12462,6 +12462,33 @@ public partial class TableWindow : Window
                 return;
             }
 
+            // Fresh team/present for this encounter (kills/stops/beams from prior seeds).
+            teamBorders = CollectTeamBordersAtMission(missionBorder, mission, _attemptShip);
+            team = teamBorders.Where(b => b.Tag is Card).Select(b => (Card)b.Tag!).ToList();
+            present = CollectPresentAtMission(missionBorder, mission, _attemptShip);
+            if (string.Equals(seedCard.Name, "El-Adrel Creature", StringComparison.OrdinalIgnoreCase))
+            {
+                var teamDiag = new List<string>();
+                foreach (var b in teamBorders)
+                {
+                    if (b.Tag is not Card pc) continue;
+                    int o = CardOwner(b);
+                    if (o == 0) o = pc.Controller != 0 ? pc.Controller : pc.OwnerPlayer;
+                    if (o == 0) o = _activePlayer;
+                    var ep = ModifierRules.ResolvePersonnel(pc, present, _activePlayer);
+                    var mode = DualAffiliationRules.ProfileFor(pc);
+                    string delta = mode != null && mode.StrengthDelta != 0
+                        ? $" delta={mode.StrengthDelta:+#;-#;0}"
+                        : "";
+                    teamDiag.Add(
+                        $"{pc.Name} owner={o} stopped={IsBorderStopped(b)} " +
+                        $"printed={pc.StrengthOrShields ?? "?"} Eff={ep.Strength}{delta}" +
+                        (pc.FramedOfMind ? " framed" : ""));
+                }
+                _session.Log.AddDebug(_session.TurnNumber, "El-Adrel",
+                    $"AT feed ({teamDiag.Count}): " + (teamDiag.Count > 0 ? string.Join(" | ", teamDiag) : "(empty)"));
+            }
+
             var dilResult = DilemmaRules.Resolve(new DilemmaRules.Ctx
             {
                 Dilemma = seedCard,
@@ -16223,7 +16250,11 @@ public partial class TableWindow : Window
                 ApplyStasisVisual(rb, true);
             }
         }
-        foreach (var victim in r.Kill.ToList())
+        // Overcome never kills (El-Adrel pass = discard Continue). Ignore stray Kill list.
+        var killList = r.Fate == DilemmaRules.Fate.Overcome
+            ? new List<Card>()
+            : r.Kill.ToList();
+        foreach (var victim in killList)
         {
             var b = teamBorders.FirstOrDefault(x => x.Tag is Card c && ReferenceEquals(c, victim));
             if (stasis)
@@ -16858,14 +16889,22 @@ public partial class TableWindow : Window
         bool planet = MissionRules.IsPlanetMission(mission);
         if (planet)
         {
+            // Planet AT: only unstopped own personnel stacked on the mission (not ship crew).
+            // Owner: prefer border dict; fall back to Card.Controller/OwnerPlayer so stale
+            // border-owner never drops a live AT member from dilemma Team (El-Adrel smoke).
             if (_stackOnHost.TryGetValue(missionBorder, out var away))
             {
                 foreach (var b in away)
                 {
                     if (b.Tag is not Card c) continue;
-                    if (CardOwner(b) != _activePlayer) continue;
+                    int o = CardOwner(b);
+                    if (o == 0)
+                        o = c.Controller != 0 ? c.Controller : c.OwnerPlayer;
+                    if (o == 0) o = _activePlayer;
+                    if (o != _activePlayer) continue;
                     if (IsBorderStopped(b)) continue;
-                    if (IsCrewType(c) || (c.Type ?? "").Contains("personnel", StringComparison.OrdinalIgnoreCase))
+                    if (IsCrewType(c) || ModifierRules.IsPersonnelCard(c)
+                        || (c.Type ?? "").Contains("personnel", StringComparison.OrdinalIgnoreCase))
                         borders.Add(b);
                 }
             }

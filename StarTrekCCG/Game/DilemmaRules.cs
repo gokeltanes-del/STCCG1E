@@ -713,21 +713,40 @@ public static class DilemmaRules
         return selected;
     }
 
+    /// <summary>Pepsch smoke diag: names + printed STR + Eff.Strength (+ dual StrengthDelta) + sum.</summary>
+    private static string FormatElAdrelTargets(Ctx ctx, IReadOnlyList<Card> two, int sum)
+    {
+        var parts = new List<string>();
+        foreach (var p in two)
+        {
+            var ep = Eff(ctx, p);
+            var mode = DualAffiliationRules.ProfileFor(p);
+            string delta = mode != null && mode.StrengthDelta != 0
+                ? $" delta={mode.StrengthDelta:+#;-#;0}"
+                : "";
+            string framed = p.FramedOfMind ? " framed" : "";
+            parts.Add($"{p.Name ?? "?"} printed={p.StrengthOrShields ?? "?"} Eff={ep.Strength}{delta}{framed}");
+        }
+        string who = parts.Count > 0 ? string.Join(" + ", parts) : "(none)";
+        return $"{who} => sum={sum} (need >16); teamSize={ctx.Team.Count}";
+    }
+
     private static Result ElAdrel(Ctx ctx)
     {
         var two = TwoStrongestAwayTeam(ctx);
         int sum = two.Sum(p => Eff(ctx, p).Strength);
+        string diag = FormatElAdrelTargets(ctx, two, sum);
         if (sum > 16)
             return new Result
             {
                 Fate = Fate.Overcome,
-                Message = $"El-Adrel Creature: two strongest STRENGTH {sum} > 16."
+                Message = $"El-Adrel Creature: two strongest STRENGTH {sum} > 16. [{diag}]"
             };
         var r = new Result
         {
             Fate = Fate.EffectAndEnd,
             StopTeam = true,
-            Message = "El-Adrel Creature: one of the two strongest dies (random); Away Team stopped."
+            Message = $"El-Adrel Creature: one of the two strongest dies (random); Away Team stopped. [{diag}]"
         };
         AddKill(r.Kill, RandomOf(ctx, two));
         return r;
@@ -767,6 +786,15 @@ public static class DilemmaRules
         var c7 = P("Charlie", "7");
         var d9 = P("Delta", "9");
         var e9 = P("Echo", "9");
+
+        // Pass: exactly two at 9 => 9+9=18 > 16 Overcome (Pepsch smoke case)
+        var pass99 = Resolve(Make(null, null, a9, d9));
+        if (pass99.Fate != Fate.Overcome || pass99.StopTeam || pass99.Kill.Count != 0 || pass99.Score != 0)
+            return $"pass 9+9: expected Overcome no stop/kill/score, got {pass99.Fate}/stop={pass99.StopTeam}/kills={pass99.Kill.Count}/score={pass99.Score}";
+        if (!ShouldRemoveFromSeed(pass99.Fate))
+            return "pass 9+9: dilemma should discard";
+        if (pass99.Message == null || !pass99.Message.Contains("sum=18", StringComparison.Ordinal))
+            return $"pass 9+9: diag should include sum=18, got '{pass99.Message}'";
 
         // Pass: 9+8=17 > 16 -> Overcome, no stop/kill, discard
         var pass = Resolve(Make(null, null, a9, b8, c7));
