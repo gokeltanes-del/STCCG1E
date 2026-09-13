@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-09 (Jadzia — Data tips 2976b61/702f644/87e297d; Status bis Pepsch-Grün)
+Last updated: 2026-09-13 (Jadzia — Pepsch green Chalnoth; Ktarian smoke fail noted)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -84,7 +84,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Barclay's Protomorphosis Disease (16 R) | working | Pepsch getestet OK (Metamorphosis/Transformation). | Pepsch 2026-09-06 |
 | Birth of "Junior" (17 U) | partial | tip Data/`4c92dce`. Place+Continue; EOT RANGE-1/destroy; Cure 3 ENG. PARK: pup-disable. GAP Cure-Present-Scope (Ship): Skills an Bord, nicht ortsweit — Seven FEATURES `cd468fb`. Ungetestet. | Data/`4c92dce` + Spock 2026-09-06 |
 | Borg Ship (18 R) | working | Captain/Pepsch „soweit“ — nicht nochmal Dilemma-Welle. | Captain 2026-09-06 |
-| Chalnoth (19 U) | partial | tip Data/`b01d6dc`. Pass 3 SEC OR STR>40 → +5 + Continue; Fail Opp 1 Kill, AT stopped. Ungetestet. | Data/`b01d6dc` 2026-09-06 |
+| Chalnoth (19 U) | working | Pepsch green: Pass 3 SEC OR STR>40 → +5 + Continue; Fail Opp 1 Kill, AT stopped. tip Data/`b01d6dc`. | Pepsch 2026-09-13 |
 | Cosmic String Fragment (20 U) | partial | tip Data/`85ca39a`. Pass Astrophysics OR ENG OR Navigation → +5 + Continue; Fail Ship destroy. Ungetestet. | Data/`85ca39a` 2026-09-06 |
 | Crystalline Entity (21 R) | partial | tip Data/`6f11978`. Space/Planet +5; Fail kill-all life (nicht Stasis). Lore-Double geparkt. Ungetestet. | Data/`6f11978` 2026-09-06 |
 | Cytherians (22 R) | partial | tip Data/`baa9fd5`. Place+Attempt-end; far-end +15. PARK: LegalMoves-toward-far-end; Borg no-pts; Mission Debriefing. Ungetestet. | Data/`baa9fd5` 2026-09-06 |
@@ -96,7 +96,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Hyper-Aging (28 U) | working | Pepsch green Quarantäne+Beam-Block `46eab15`; Detailansicht Debuff-Gruppierung OK. RemFatigue PARK. | Pepsch 2026-09-12 |
 | Iconian Computer Weapon (29 C) | partial | tip Data/`47984b5`. Pass SCIENCE Continue; Fail Stop + Non-Pers Hand discard+draw. Ungetestet. | Data/`47984b5` 2026-09-06 |
 | Impassable Door (30 C) | working | Pepsch green (komplett); tip Data/`be5062b`. | Pepsch + Data/`be5062b` 2026-09-07 |
-| Ktarian Game (31 R) | working | Now + start of each turn 1 personnel randomly disabled (permanent until cured). Disabled cards cannot act, beam, use skills/attributes or staff ships. Cure with CUNNING>30 or Android frees all disabled crew and discards dilemma. Unit tests `VerifyKtarianGame` and `VerifyDilemmaCureRules`. | Captain 2026-09-13 |
+| Ktarian Game (31 R) | working | Smoke FAIL 2026-09-13 (Pepsch): attach + disable Ro Laren, then immediate cure (log: CUNNING>30 or Android) and dilemma leaves ship — host ship had exactly 30 CUNNING; second ship with full crew at same location. Treating as fail/regression until Captain Go (not blocked yet). Prior: Now + start-of-turn disable; Cure CUNNING>30 or Android. Unit tests `VerifyKtarianGame` / `VerifyDilemmaCureRules`. | Pepsch smoke 2026-09-13; Captain 2026-09-13 |
 | Male's Love Interest (32 C) | working | Pepsch getestet OK (Continue after Relocate). | Pepsch 2026-09-06 |
 | Matriarchal Society (33 U) | partial | tip Data/`d68f511`. Wall ≥2 Female Continue; Fail Stop+unter Mission. PARK: Borg gender. Ungetestet. | Data/`d68f511` 2026-09-06 |
 | Menthar Booby Trap (34 C) | partial | tip Data/`01e5bb8`. Place immer; MED Continue else Kill+Stop; Cure 2 ENG. PARK: LegalMoves move-block. GAP Cure-Present-Scope (Ship): Skills an Bord, nicht ortsweit — Seven FEATURES `cd468fb`. Ungetestet. | Data/`01e5bb8` + Spock 2026-09-06 |
