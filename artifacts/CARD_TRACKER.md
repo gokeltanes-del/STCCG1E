@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-13 (Jadzia — Pepsch green Chalnoth; Ktarian smoke fail noted)
+Last updated: 2026-09-13 (Jadzia — Chalnoth green; Ktarian smoke fail + Data tip 3c7ee2d pending retest)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -96,7 +96,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Hyper-Aging (28 U) | working | Pepsch green Quarantäne+Beam-Block `46eab15`; Detailansicht Debuff-Gruppierung OK. RemFatigue PARK. | Pepsch 2026-09-12 |
 | Iconian Computer Weapon (29 C) | partial | tip Data/`47984b5`. Pass SCIENCE Continue; Fail Stop + Non-Pers Hand discard+draw. Ungetestet. | Data/`47984b5` 2026-09-06 |
 | Impassable Door (30 C) | working | Pepsch green (komplett); tip Data/`be5062b`. | Pepsch + Data/`be5062b` 2026-09-07 |
-| Ktarian Game (31 R) | working | Smoke FAIL 2026-09-13 (Pepsch): attach + disable Ro Laren, then immediate cure (log: CUNNING>30 or Android) and dilemma leaves ship — host ship had exactly 30 CUNNING; second ship with full crew at same location. Treating as fail/regression until Captain Go (not blocked yet). Prior: Now + start-of-turn disable; Cure CUNNING>30 or Android. Unit tests `VerifyKtarianGame` / `VerifyDilemmaCureRules`. | Pepsch smoke 2026-09-13; Captain 2026-09-13 |
+| Ktarian Game (31 R) | working | Smoke FAIL 2026-09-13 (Pepsch): attach + disable Ro Laren, then immediate cure (log: CUNNING>30 or Android) and dilemma leaves ship — host ship had exactly 30 CUNNING; second ship with full crew at same location. Data tip `3c7ee2d` (Josef, no push): ship-hosted dilemma cure present = host crew only. Stays not-green until Pepsch retests — not blocked. Prior: Now + start-of-turn disable; Cure CUNNING>30 or Android. Unit tests `VerifyKtarianGame` / `VerifyDilemmaCureRules`. | Pepsch smoke 2026-09-13; Data/`3c7ee2d` 2026-09-13 |
 | Male's Love Interest (32 C) | working | Pepsch getestet OK (Continue after Relocate). | Pepsch 2026-09-06 |
 | Matriarchal Society (33 U) | partial | tip Data/`d68f511`. Wall ≥2 Female Continue; Fail Stop+unter Mission. PARK: Borg gender. Ungetestet. | Data/`d68f511` 2026-09-06 |
 | Menthar Booby Trap (34 C) | partial | tip Data/`01e5bb8`. Place immer; MED Continue else Kill+Stop; Cure 2 ENG. PARK: LegalMoves move-block. GAP Cure-Present-Scope (Ship): Skills an Bord, nicht ortsweit — Seven FEATURES `cd468fb`. Ungetestet. | Data/`01e5bb8` + Spock 2026-09-06 |
