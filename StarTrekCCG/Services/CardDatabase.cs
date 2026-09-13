@@ -39,7 +39,7 @@ public class CardDatabase
 
         if (!Directory.Exists(_dataRoot))
         {
-            throw new DirectoryNotFoundException($"Datenordner nicht gefunden: {_dataRoot}");
+            throw new DirectoryNotFoundException($"Data folder not found: {_dataRoot}");
         }
 
         // Data/PR/cards.json  or  Data/Sets/PR/cards.json
@@ -85,7 +85,7 @@ public class CardDatabase
             catch (Exception ex)
             {
                 // In Phase 0 nur loggen, später besser machen
-                System.Diagnostics.Debug.WriteLine($"Fehler beim Laden von {jsonPath}: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Error loading {jsonPath}: {ex.Message}");
             }
         }
 

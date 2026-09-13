@@ -1671,6 +1671,8 @@ public partial class TableWindow : Window
         StatusText.Text = $"Flipped {card.Name} face-up.";
     }
 
+    private Card? _revealCurrentCard;
+
     /// <summary>
     /// Modal: große Karte + Text über dem Tisch. Blockiert bis Button.
     /// </summary>
@@ -1686,6 +1688,7 @@ public partial class TableWindow : Window
         string? noLabel = null,
         bool randomOnTimeout = false)
     {
+        _revealCurrentCard = card;
         if (CardRevealOverlay == null)
         {
             MessageBox.Show(body, title);
@@ -2515,6 +2518,25 @@ public partial class TableWindow : Window
                 var mini = CreateMiniCard(card, faceDown: faceDown);
                 mini.Width = 78;
                 mini.Height = 108;
+                if (!faceDown)
+                {
+                    Card cRef = card;
+                    mini.ToolTip = $"{card.Name}\nClick = select · RMB hold = enlarge";
+                    mini.MouseRightButtonDown += (s, e) =>
+                    {
+                        ShowCardDetail(cRef);
+                        BeginHoldZoom(cRef, s as IInputElement);
+                        e.Handled = true;
+                    };
+                    mini.MouseRightButtonUp += (_, e) =>
+                    {
+                        if (_holdZoomActive)
+                        {
+                            EndHoldZoom();
+                            e.Handled = true;
+                        }
+                    };
+                }
                 if (canSelect && !faceDown)
                 {
                     Card cardRef = card;
@@ -2661,7 +2683,7 @@ public partial class TableWindow : Window
             ClipToBounds = true,
             ToolTip = locked
                 ? $"{title}: LOCKED – place matching doorway on it"
-                : $"{title} ({(opponent ? "Gegner" : "Du")})"
+                : $"{title} ({(opponent ? "Opponent" : "You")})"
         };
 
         var root = new Grid();
@@ -2824,7 +2846,7 @@ public partial class TableWindow : Window
 
         if (IsSideDeckZone(zoneName) && !IsSideDeckUnlocked(zoneName, opponent))
         {
-            StatusText.Text = $"{zoneName} ist gesperrt – passenden Doorway als Deckblatt darauf legen.";
+            StatusText.Text = $"{zoneName} is locked – place matching doorway on top to unlock.";
             StackTitle.Text = $"{zoneName} (LOCKED)";
             e.Handled = true;
             return;
@@ -2924,14 +2946,14 @@ public partial class TableWindow : Window
 
     private string SeedPhaseStatusLine()
     {
-        if (!_seedPhaseActive) return "Spielphase";
+        if (!_seedPhaseActive) return "Play Phase";
         return _seedSubPhase switch
         {
             SeedSubPhase.Doorway => "SEED 1/4 DOORWAY – unlock side decks; P1 all, then P2",
-            SeedSubPhase.Mission => "SEED 2/4 MISSION – abwechselnd legen (Hotseat) · Regionen beachten",
+            SeedSubPhase.Mission => "SEED 2/4 MISSION – alternate placement (Hotseat) · mind regions",
             SeedSubPhase.Dilemma => "SEED 3/4 DILEMMA – alternate dil/art under missions",
-            SeedSubPhase.Facility => "SEED 4/4 FACILITY – abwechselnd Facilities/Schiffe/Events …",
-            _ => "SEED beendet"
+            SeedSubPhase.Facility => "SEED 4/4 FACILITY – alternate facilities/ships/events …",
+            _ => "SEED finished"
         };
     }
 
@@ -3749,6 +3771,7 @@ public partial class TableWindow : Window
 
     private void FillRevealImage(Card? card)
     {
+        _revealCurrentCard = card;
         RevealImage.Source = null;
         if (card == null || string.IsNullOrEmpty(card.FullImagePath) || !System.IO.File.Exists(card.FullImagePath))
             return;
@@ -3763,6 +3786,30 @@ public partial class TableWindow : Window
             RevealImage.Source = bmp;
         }
         catch { }
+    }
+
+    private void RevealImage_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        var card = _revealCurrentCard ?? _stack.Top?.Card ?? _stack.Top?.AttackerCard ?? _detailCard;
+        if (card != null)
+        {
+            ShowCardDetail(card);
+            BeginHoldZoom(card, sender as IInputElement ?? RevealImage);
+        }
+        else if (RevealImage?.Source != null)
+        {
+            BeginHoldZoom(null, sender as IInputElement ?? RevealImage);
+        }
+        e.Handled = true;
+    }
+
+    private void RevealImage_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_holdZoomActive)
+        {
+            EndHoldZoom();
+            e.Handled = true;
+        }
     }
 
     private void ShowActionAnnounce()
@@ -3839,8 +3886,8 @@ public partial class TableWindow : Window
             ResponseIndicatorBadge.Visibility = Visibility.Visible;
             if (ResponseIndicatorText != null)
                 ResponseIndicatorText.Text = top.IsMandatory
-                    ? $"⚡ Response Pflicht (P{responder})"
-                    : $"⚡ Response möglich (P{responder})";
+                    ? $"⚡ Response mandatory (P{responder})"
+                    : $"⚡ Response available (P{responder})";
             if (ResponseCountdownText != null)
                 ResponseCountdownText.Text = $" · {_responseDefaultDurationSec}s";
         }
@@ -3921,7 +3968,7 @@ public partial class TableWindow : Window
             {
                 bool isMandatory = _stack.Top?.IsMandatory == true;
                 BtnThinkPass.IsEnabled = !isMandatory;
-                BtnThinkPass.Content = isMandatory ? "Pflicht (kein Pass)" : "Pass (Space)";
+                BtnThinkPass.Content = isMandatory ? "Mandatory (no pass)" : "Pass (Space)";
             }
 
             PopulateThinkTray();
@@ -3932,11 +3979,141 @@ public partial class TableWindow : Window
     {
         if (ThinkTrayPanel == null) return;
         ThinkTrayPanel.Children.Clear();
+
+        // If there is an action/trigger card on the stack that this responds to, show it first as reference!
+        var top = _stack.Top;
+        var triggerCard = top?.Card ?? top?.AttackerCard ?? top?.TargetCard;
+        if (triggerCard != null)
+        {
+            var triggerElem = BuildThinkTrayTriggerCard(triggerCard, top!);
+            ThinkTrayPanel.Children.Add(triggerElem);
+
+            var sep = new Border
+            {
+                Width = 2,
+                Margin = new Thickness(6, 4, 6, 4),
+                Background = new SolidColorBrush(Color.FromArgb(120, 171, 71, 188))
+            };
+            ThinkTrayPanel.Children.Add(sep);
+        }
+
         foreach (var item in _currentLegalResponses)
         {
             var cardElem = BuildThinkTrayCard(item);
             ThinkTrayPanel.Children.Add(cardElem);
         }
+    }
+
+    private FrameworkElement BuildThinkTrayTriggerCard(Card card, TimingRules.PendingAction action)
+    {
+        var border = new Border
+        {
+            Width = 110,
+            Height = 154,
+            CornerRadius = new CornerRadius(5),
+            Background = new SolidColorBrush(Color.FromRgb(30, 24, 20)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(255, 167, 38)), // #FFA726
+            BorderThickness = new Thickness(2),
+            Margin = new Thickness(5, 2, 5, 2),
+            Cursor = Cursors.Hand,
+            ToolTip = $"{card.Name}\n[Action P{action.Controller}] {action.Summary}\nClick = Detail · RMB = Large view"
+        };
+
+        var grid = new Grid();
+
+        var img = new Image
+        {
+            Stretch = Stretch.Uniform
+        };
+        RenderOptions.SetBitmapScalingMode(img, BitmapScalingMode.HighQuality);
+        if (!string.IsNullOrEmpty(card.FullImagePath) && System.IO.File.Exists(card.FullImagePath))
+        {
+            try
+            {
+                var bmp = new BitmapImage();
+                bmp.BeginInit();
+                bmp.CacheOption = BitmapCacheOption.OnLoad;
+                bmp.UriSource = new Uri(card.FullImagePath, UriKind.Absolute);
+                bmp.DecodePixelWidth = 220;
+                bmp.EndInit();
+                img.Source = bmp;
+            }
+            catch { }
+        }
+        grid.Children.Add(img);
+
+        // Badge at Top-Left: TRIGGER (P1/P2)
+        var badge = new Border
+        {
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Top,
+            Background = new SolidColorBrush(Color.FromArgb(220, 230, 81, 0)), // #E65100
+            CornerRadius = new CornerRadius(3),
+            Padding = new Thickness(4, 1, 4, 1),
+            Margin = new Thickness(3)
+        };
+        badge.Child = new TextBlock
+        {
+            Text = $"TRIGGER (P{action.Controller})",
+            Foreground = Brushes.White,
+            FontSize = 9,
+            FontWeight = FontWeights.Bold
+        };
+        grid.Children.Add(badge);
+
+        // Title at bottom
+        var titleBar = new Border
+        {
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Background = new SolidColorBrush(Color.FromArgb(220, 24, 16, 12)),
+            Padding = new Thickness(4, 2, 4, 2)
+        };
+        titleBar.Child = new TextBlock
+        {
+            Text = card.Name ?? "",
+            Foreground = Brushes.White,
+            FontSize = 10,
+            FontWeight = FontWeights.SemiBold,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            TextAlignment = TextAlignment.Center
+        };
+        grid.Children.Add(titleBar);
+
+        border.Child = grid;
+
+        border.MouseLeftButtonDown += (s, e) =>
+        {
+            ShowCardDetail(card);
+            OpenCardDetailPopup();
+            e.Handled = true;
+        };
+
+        border.MouseRightButtonDown += (s, e) =>
+        {
+            ShowCardDetail(card);
+            BeginHoldZoom(card, s as IInputElement);
+            e.Handled = true;
+        };
+
+        border.MouseRightButtonUp += (s, e) =>
+        {
+            if (_holdZoomActive)
+            {
+                EndHoldZoom();
+                e.Handled = true;
+            }
+        };
+
+        border.MouseEnter += (s, e) =>
+        {
+            border.BorderBrush = new SolidColorBrush(Color.FromRgb(255, 224, 130)); // #FFE082
+        };
+        border.MouseLeave += (s, e) =>
+        {
+            border.BorderBrush = new SolidColorBrush(Color.FromRgb(255, 167, 38));
+        };
+
+        return border;
     }
 
     private FrameworkElement BuildThinkTrayCard(TimingRules.LegalResponseItem item)
@@ -3951,16 +4128,16 @@ public partial class TableWindow : Window
             BorderThickness = new Thickness(2),
             Margin = new Thickness(5, 2, 5, 2),
             Cursor = Cursors.Hand,
-            ToolTip = $"{item.Card.Name}\n[{item.Source}] {item.Description}"
+            ToolTip = $"{item.Card.Name}\n[{item.Source}] {item.Description}\nClick = Play response · RMB = Large view"
         };
 
         var grid = new Grid();
 
         var img = new Image
         {
-            Stretch = Stretch.Uniform,
-            RenderOptions = { BitmapScalingMode = BitmapScalingMode.HighQuality }
+            Stretch = Stretch.Uniform
         };
+        RenderOptions.SetBitmapScalingMode(img, BitmapScalingMode.HighQuality);
         if (!string.IsNullOrEmpty(item.Card.FullImagePath) && System.IO.File.Exists(item.Card.FullImagePath))
         {
             try
@@ -4020,6 +4197,22 @@ public partial class TableWindow : Window
         {
             e.Handled = true;
             ExecuteLegalResponse(item);
+        };
+
+        border.MouseRightButtonDown += (s, e) =>
+        {
+            ShowCardDetail(item.Card);
+            BeginHoldZoom(item.Card, s as IInputElement);
+            e.Handled = true;
+        };
+
+        border.MouseRightButtonUp += (s, e) =>
+        {
+            if (_holdZoomActive)
+            {
+                EndHoldZoom();
+                e.Handled = true;
+            }
         };
 
         border.MouseEnter += (s, e) =>
@@ -4116,6 +4309,26 @@ public partial class TableWindow : Window
     {
         EnterThinkMode();
         e.Handled = true;
+    }
+
+    private void ResponseIndicator_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        var triggerCard = _stack.Top?.Card ?? _stack.Top?.AttackerCard ?? _stack.Top?.TargetCard;
+        if (triggerCard != null)
+        {
+            ShowCardDetail(triggerCard);
+            BeginHoldZoom(triggerCard, ResponseIndicatorBadge);
+            e.Handled = true;
+        }
+    }
+
+    private void ResponseIndicator_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_holdZoomActive)
+        {
+            EndHoldZoom();
+            e.Handled = true;
+        }
     }
 
     private void BtnThinkPass_Click(object sender, RoutedEventArgs e)
@@ -4565,13 +4778,17 @@ public partial class TableWindow : Window
         }
 
         var killedSet = new HashSet<string>(result.KilledNames, StringComparer.OrdinalIgnoreCase);
+        var killedCards = atkBorders.Concat(defBorders)
+            .Where(b => b.Tag is Card c && killedSet.Contains(c.Name ?? ""))
+            .Select(b => (Card)b.Tag!)
+            .ToList();
         void KillFrom(List<Border> borders, int owner)
         {
             foreach (var b in borders.ToList())
             {
                 if (b.Tag is not Card c) continue;
                 if (!killedSet.Contains(c.Name ?? "")) continue;
-                DiscardPersonnelBorder(b, c, owner);
+                DiscardPersonnelBorder(b, c, owner, allowGenetronicSave: true, alsoTargetedToDie: killedCards);
             }
         }
         KillFrom(atkBorders, atkOwner);
@@ -4605,7 +4822,7 @@ public partial class TableWindow : Window
         {
             if (_stack.Top == null)
             {
-                denyReason = "Action-Stack ist inkonsistent.";
+                denyReason = "Action stack is inconsistent.";
                 return false;
             }
             var cr = TimingRules.CanRespond(card, _stack.Top, _stack.ResponsePlayer);
@@ -4665,9 +4882,9 @@ public partial class TableWindow : Window
             if (HasHorgahn(_activePlayer) && !_horgahnExtraPlayUsed)
                 return true;
             denyReason =
-                "Normal card play bereits genutzt (1 Personal/Schiff/Event pro Zug). "
+                "Normal card play already used (1 personnel/ship/event per turn). "
                 + "Picard & Co. next turn or if the card plays for free. "
-                + "Interrupts/Doorways jederzeit.";
+                + "Interrupts/Doorways at any time.";
             return false;
         }
 
@@ -5005,7 +5222,7 @@ public partial class TableWindow : Window
             {
                 string reason = targetMission?.Tag is Card m2
                     ? CanSeedCardUnderMission(card, m2).reason
-                    : $"{card.Name} braucht eine passende Mission (Planet/Space).";
+                    : $"{card.Name} requires a matching mission (Planet/Space).";
                 StatusText.Text = reason;
                 ReturnFloatingToZone(card, cardBorder, zref.ZoneName, zref.Opponent);
                 placedOk = false;
@@ -5027,7 +5244,7 @@ public partial class TableWindow : Window
                 UpdateHostBadge(cardBorder);
                 SetSelection(cardBorder);
                 if (targetMission.Tag is Card tm)
-                    StatusText.Text = $"{card.Name} an {tm.Name}.";
+                    StatusText.Text = $"{card.Name} at {tm.Name}.";
                 placedOk = true;
                 if (!_seedPhaseActive && zref.ZoneName == "Hand")
                     TryAnnounceNormalPlayForVortex(card, owner, targetMission);
@@ -6417,7 +6634,7 @@ public partial class TableWindow : Window
         var hand = player == 1 ? _handCards : _oppHandCards;
         if (draw.Count == 0)
         {
-            StatusText.Text = "Draw-Deck ist leer";
+            StatusText.Text = "Draw deck is empty.";
             return;
         }
         var card = draw[0];
@@ -7171,7 +7388,7 @@ public partial class TableWindow : Window
     {
         if (!_seedPhaseActive)
         {
-            StatusText.Text = "Keine aktive Seed-Phase – zuerst Deck laden oder Seed starten.";
+            StatusText.Text = "No active seed phase – load a deck or start seed first.";
             return;
         }
         AdvanceSeedPhase(manual: true);
@@ -7181,7 +7398,7 @@ public partial class TableWindow : Window
     {
         if (!_seedPhaseActive && _handCards.Count > 0)
         {
-            StatusText.Text = "Seed-Phase ist bereits beendet.";
+            StatusText.Text = "Seed phase is already completed.";
             return;
         }
 
@@ -7234,7 +7451,7 @@ public partial class TableWindow : Window
                         UpdatePhaseControls();
                         OnTurnContextChanged(
                             $"Facility: Player {_activePlayer} is still seeding " +
-                            $"(noch {CountSeedFor(SeedSubPhase.Facility, other)}).");
+                            $"({CountSeedFor(SeedSubPhase.Facility, other)} remaining).");
                         return;
                     }
                     if (CountSeedFor(SeedSubPhase.Facility, _activePlayer) > 0)
@@ -7266,7 +7483,7 @@ public partial class TableWindow : Window
         }
         ApplyPerspective();
         UpdatePhaseControls();
-        OnTurnContextChanged((manual ? "Phase abgeschlossen → " : "Automatisch weiter → ") + SeedPhaseStatusLine());
+        OnTurnContextChanged((manual ? "Phase complete → " : "Auto-advance → ") + SeedPhaseStatusLine());
         ShowCurrentSeedStack();
     }
 
@@ -7279,7 +7496,7 @@ public partial class TableWindow : Window
         else if (CurrentPhaseRemainingCount() == 0 && _seedSubPhase == SeedSubPhase.Facility)
         {
             // Beide Spieler: keine Seed-Karten mehr → automatisch Opening Hand
-            StatusText.Text = "SEED abgeschlossen – Opening Hand …";
+            StatusText.Text = "SEED complete – Opening Hand …";
             FinishSeedPhaseAndDrawOpeningHand();
         }
     }
@@ -7673,7 +7890,7 @@ public partial class TableWindow : Window
         _stoppedBorders.Clear();
         _session.Log.Add(_session.TurnNumber, "Pystem", "All stopped cards are active again.");
 
-        TryCureAbductionsPresent();
+        TryCureAttachedDilemmas();
     }
 
     private void SyncSessionToUi()
@@ -7726,14 +7943,14 @@ public partial class TableWindow : Window
     private void WelcomeNewGame_Click(object sender, RoutedEventArgs e)
     {
         NewGameOptions.Visibility = Visibility.Visible;
-        StatusText.Text = "Neues Spiel – bitte Deck laden oder im Builder erstellen";
+        StatusText.Text = "New game – please load deck or create in Deck Builder";
     }
 
     private void MenuNewGame_Click(object sender, RoutedEventArgs e)
     {
         WelcomeOverlay.Visibility = Visibility.Visible;
         NewGameOptions.Visibility = Visibility.Visible;
-        StatusText.Text = "Neues Spiel – Deck laden oder erstellen";
+        StatusText.Text = "New game – load or create deck";
     }
 
     private void MenuQuickGame_Click(object sender, RoutedEventArgs e)
@@ -8429,9 +8646,9 @@ public partial class TableWindow : Window
                 Z = Panel.GetZIndex(b),
                 Owner = GetBorderOwner(b),
                 Visible = b.Visibility == Visibility.Visible,
-                Hull = _hullDamagePercent.GetValueOrDefault(b),
+                Hull = IsShipCard(card) ? GetHullDamage(b) : _hullDamagePercent.GetValueOrDefault(b),
                 Stopped = _stoppedBorders.Contains(b),
-                RangeLeft = _shipRangeLeft.TryGetValue(b, out int rng) ? rng : null,
+                RangeLeft = IsShipCard(card) ? GetRemainingRange(b, card) : (_shipRangeLeft.TryGetValue(b, out int rng) ? rng : null),
                 RepairTurns = _repairTurnsAtOutpost.GetValueOrDefault(b),
                 SolvedBy = _missionSolver.TryGetValue(b, out int sol) ? sol : null,
                 InstanceId = card.InstanceId,
@@ -8485,12 +8702,22 @@ public partial class TableWindow : Window
         }
         foreach (var d in _attachedDilemmas)
         {
+            var heldIds = new List<int>();
+            foreach (var h in d.Held)
+            {
+                var hb = FindBorderForCard(h);
+                if (hb != null && idOf.TryGetValue(hb, out int cid))
+                    heldIds.Add(cid);
+                else if (h.InstanceId > 0)
+                    heldIds.Add(h.InstanceId);
+            }
             save.AttachedDilemmas.Add(new AttachedDilemmaSnap
             {
                 Card = ToRef(d.Card),
                 Kind = d.Kind.ToString(),
                 HostId = d.Host != null && idOf.TryGetValue(d.Host, out int hid) ? hid : 0,
-                Countdown = d.Countdown
+                Countdown = d.Countdown,
+                HeldIds = heldIds
             });
         }
 
@@ -8510,6 +8737,7 @@ public partial class TableWindow : Window
         }
 
         ClearTableCards();
+        BoardStore.Current.Clear();
         _handCards.Clear(); _seedCards.Clear(); _doorwayCards.Clear();
         _missionSeedCards.Clear(); _dilemmaSeedCards.Clear(); _artifactSeedCards.Clear();
         _facilitySeedCards.Clear(); _drawCards.Clear(); _sideCards.Clear();
@@ -8609,6 +8837,11 @@ public partial class TableWindow : Window
                 // No damage flip/rotate — badge only
                 UpdateDamageBadge(border, snap.Hull);
             }
+            else
+            {
+                SetHullDamagePercent(border, 0);
+                UpdateDamageBadge(border, 0);
+            }
             if (snap.Stopped) MarkStopped(border);
             if (snap.RangeLeft.HasValue)
                 SetShipRangeLeft(border, card, snap.RangeLeft.Value);
@@ -8697,13 +8930,35 @@ public partial class TableWindow : Window
             if (!byId.TryGetValue(d.HostId, out var host)) continue;
             if (!Enum.TryParse(d.Kind, out DilemmaRules.PersistKind kind))
                 kind = DilemmaRules.PersistKind.None;
-            _attachedDilemmas.Add(new AttachedDilemma
+            var attached = new AttachedDilemma
             {
                 Card = card,
                 Kind = kind,
                 Host = host,
                 Countdown = d.Countdown
-            });
+            };
+            if (d.HeldIds != null && d.HeldIds.Count > 0)
+            {
+                foreach (int hid in d.HeldIds)
+                {
+                    if (byId.TryGetValue(hid, out var hb) && hb.Tag is Card hc)
+                    {
+                        attached.Held.Add(hc);
+                        if (kind == DilemmaRules.PersistKind.Ktarian)
+                        {
+                            hc.Disabled = true;
+                            ApplyDisabledVisual(hb, true);
+                        }
+                        else if (DilemmaRules.IsStasisPersist(kind) || DilemmaRules.IsQuarantinePersist(kind))
+                        {
+                            if (DilemmaRules.IsStasisPersist(kind)) hc.InStasis = true;
+                            if (DilemmaRules.IsQuarantinePersist(kind)) hc.Quarantined = true;
+                            ApplyStasisVisual(hb, true);
+                        }
+                    }
+                }
+            }
+            _attachedDilemmas.Add(attached);
         }
 
         var s = save.Session ?? new SessionSnap();
@@ -8782,6 +9037,7 @@ public partial class TableWindow : Window
         SyncSessionToUi();
         RefreshActionHistory();
         UpdateTurnTints();
+        SyncBoardFromTable(logDual: false);
         if (_seedPhaseActive)
             ShowCurrentSeedStack();
         StatusText.Text =
@@ -8854,10 +9110,10 @@ public partial class TableWindow : Window
         ApplyPerspective();
         UpdatePhaseControls();
         string oppInfo = _loadedDeckOpp != null
-            ? $", S2-Hand {_oppHandCards.Count}/Draw {_oppDrawCards.Count}"
+            ? $", P2 Hand {_oppHandCards.Count}/Draw {_oppDrawCards.Count}"
             : "";
         StatusText.Text =
-            $"Seed beendet → S1-Hand {_handCards.Count}/Draw {_drawCards.Count}{oppInfo}. " +
+            $"Seed complete → P1 Hand {_handCards.Count}/Draw {_drawCards.Count}{oppInfo}. " +
             "Hotseat: bottom = active player. End turn switches.";
         ShowStackContents("Hand", opponent: false);
         SetTischZoneHighlight(false);
@@ -9141,7 +9397,7 @@ public partial class TableWindow : Window
         WelcomeOverlay.Visibility = Visibility.Collapsed;
         EnterSeedPhase(SeedSubPhase.Doorway);
         StatusText.Text =
-            $"SEED gestartet – Deck {deck.Name}: " +
+            $"SEED started – Deck {deck.Name}: " +
             $"Door {_doorwayCards.Count}, Miss {_missionSeedCards.Count}, " +
             $"Dil/Art {_dilemmaSeedCards.Count}, Fac {_facilitySeedCards.Count}, " +
             $"Draw {_drawCards.Count}, Side {_sideCards.Count}";
@@ -9596,7 +9852,7 @@ public partial class TableWindow : Window
                     Canvas.SetLeft(cardBorder, _dragOrigin.X);
                     Canvas.SetTop(cardBorder, _dragOrigin.Y);
                 }
-                StatusText.Text = $"{card.Name} nur place at a mission.";
+                StatusText.Text = $"{card.Name} only place at a mission.";
             }
             else if (targetMission != null)
             {
@@ -9676,6 +9932,15 @@ public partial class TableWindow : Window
             if (kv.Key.Tag is not Card c || c.InstanceId <= 0) continue;
             if (store.ById.TryGetValue(c.InstanceId, out var inst) && inst is ShipInstance sh)
                 sh.HullPercent = kv.Value;
+        }
+        foreach (var inst in store.ById.Values)
+        {
+            if (inst is PersonnelInstance pInst)
+            {
+                pInst.Quarantined = IsCardQuarantined(pInst.Printed);
+                pInst.InStasis = IsCardInStasis(pInst.Printed);
+                pInst.Disabled = IsCardDisabled(pInst.Printed);
+            }
         }
     }
 
@@ -9964,7 +10229,7 @@ public partial class TableWindow : Window
         }
         if (owner != _activePlayer)
         {
-            StatusText.Text = "Nur eigene Schiffe bewegen.";
+            StatusText.Text = "Only move your own ships.";
             return false;
         }
 
@@ -9990,7 +10255,7 @@ public partial class TableWindow : Window
         int toIdx = BoardIndexOf(boardLine, toMission);
         if (fromIdx < 0 || toIdx < 0)
         {
-            StatusText.Text = "Location nicht auf dem Board.";
+            StatusText.Text = "Location is not on the board.";
             return false;
         }
 
@@ -10039,7 +10304,7 @@ public partial class TableWindow : Window
                 $"range #{ship.InstanceId} left={move.RangeLeft} source=instance");
         StatusText.Text =
             $"{ship.Name} → {((Card)toMission.Tag!).Name} · −{move.RangeCost} RANGE " +
-            $"(noch {move.RangeLeft}/{MovementRules.GetShipRange(ship)}) · {staff.Reason}";
+            $"({move.RangeLeft}/{MovementRules.GetShipRange(ship)} remaining) · {staff.Reason}";
         _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
             $"{ship.Name} moved, cost {move.RangeCost}, left {move.RangeLeft}");
         DebugLog.MoveShip(_session.TurnNumber, _activePlayer, ship,
@@ -10128,6 +10393,7 @@ public partial class TableWindow : Window
             return false;
         }
         if (IsCardLeaveBlocked(c)) return false;
+        if (IsCardDisabled(c)) return false;
         if (IsBorderStopped(cardBorder)) return false; // Spock: Stopped cannot beam
         if (!IsBeamableCard(c)) return false;
         return CardOwner(cardBorder) == _activePlayer || GetBorderOwner(cardBorder) == _activePlayer;
@@ -11435,7 +11701,7 @@ public partial class TableWindow : Window
         cardBorder.Visibility = Visibility.Collapsed;
         UpdateSeedBadge(mission);
         if (mission.Tag is Card m2 && cardBorder.Tag is Card s2)
-            StatusText.Text = $"{s2.Name} unter {m2.Name} geseedet.";
+            StatusText.Text = $"Seeded {s2.Name} under {m2.Name}.";
     }
 
     private void UpdateSeedBadge(Border mission)
@@ -11653,7 +11919,7 @@ public partial class TableWindow : Window
                 AddCardToHostStack(host, cardBorder);
                 // Present/crew SoT refresh (mission/dilemma skills saw stale crew until next turn).
                 SyncBoardFromTable(logDual: false);
-                TryCureAbductionsPresent();
+                TryCureAttachedDilemmas(host);
                 SetSelection(host);
                 if (host.Tag is Card hc)
                     ShowHostContents(host, hc);
@@ -11753,7 +12019,7 @@ public partial class TableWindow : Window
             if (_cardActionMode != CardActionMode.None)
             {
                 ClearCardActionUi();
-                StatusText.Text = "Aktion abgebrochen.";
+                StatusText.Text = "Action cancelled.";
             }
             else
             {
@@ -12218,7 +12484,17 @@ public partial class TableWindow : Window
                     && ((fc.Name ?? "").Contains("outpost", StringComparison.OrdinalIgnoreCase)
                         || (fc.Type ?? "").Contains("outpost", StringComparison.OrdinalIgnoreCase)
                         || (fc.Type ?? "").Contains("facility", StringComparison.OrdinalIgnoreCase))),
-                TravelerAffecting = HasTableCard(EventRules.IsTravelerTranscendence)
+                TravelerAffecting = HasTableCard(EventRules.IsTravelerTranscendence),
+                CanBeamOffPlanet = !MissionRules.IsPlanetMission(mission) || (
+                    !team.Any(p => IsCardLeaveBlocked(p))
+                    && GetDockablesUnderMission(missionBorder).Any(b =>
+                        b.Tag is Card dc
+                        && GetBorderOwner(b) == _activePlayer
+                        && (IsShipCard(dc)
+                            || (dc.Type ?? "").Contains("outpost", StringComparison.OrdinalIgnoreCase)
+                            || (dc.Type ?? "").Contains("facility", StringComparison.OrdinalIgnoreCase)
+                            || (dc.Name ?? "").Contains("outpost", StringComparison.OrdinalIgnoreCase)))
+                )
             });
 
             var wrapped = EngineAuthority.WrapDilemma(seedCard, dilResult);
@@ -12267,7 +12543,27 @@ public partial class TableWindow : Window
             if (failed)
             {
                 if (dilResult.BeamBackTeam)
-                    BeamBackAwayTeamToShipOrOutpost(missionBorder, teamBorders);
+                {
+                    bool beamed = BeamBackAwayTeamToShipOrOutpost(missionBorder, teamBorders);
+                    // Portal Guard: If beaming is impossible (quarantined, stasis, or no destination ship/outpost), entire Away Team is killed!
+                    if (!beamed && string.Equals(seedCard.Name, "Portal Guard", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var doomedBorders = teamBorders.Where(b => b.Tag is Card).ToList();
+                        var doomedCards = doomedBorders.Select(b => (Card)b.Tag!).ToList();
+                        foreach (var db in doomedBorders)
+                        {
+                            if (db.Tag is Card dc)
+                            {
+                                int o = CardOwner(db);
+                                if (o == 0) o = GetBorderOwner(db);
+                                if (o == 0) o = _activePlayer;
+                                DiscardPersonnelBorder(db, dc, o, allowGenetronicSave: true, alsoTargetedToDie: doomedCards);
+                            }
+                        }
+                        _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
+                            "Portal Guard: Away Team could not beam off planet — entire Away Team killed!");
+                    }
+                }
                 if (dilResult.StopTeam)
                     StopMissionAttemptTeam(missionBorder, mission, teamBorders);
                 if (dilResult.GrantOpponentControl)
@@ -12286,7 +12582,7 @@ public partial class TableWindow : Window
                 AwardDilemmaPoints(dilResult.Score);
             StatusText.Text = logMsg;
             _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
-                $"{(effectContinue ? DetailStatusRules.EffectContinueLogVerb(seedCard.Name, dilResult.Message) : "OVERCOME")} {seedCard.Name}"
+                $"{(placedContinue ? "PLACED" : (effectContinue ? DetailStatusRules.EffectContinueLogVerb(seedCard.Name, dilResult.Message) : "OVERCOME"))} {seedCard.Name}"
                 + (dilResult.Score > 0 ? $" +{dilResult.Score}" : "")
                 + (victimLine.Length > 0 ? " — " + victimLine : ""));
 
@@ -12326,6 +12622,9 @@ public partial class TableWindow : Window
         MarkMissionSolved(missionBorder, mission, _activePlayer, result.Points);
         _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
             $"Solved {mission.Name} for {result.Points} points");
+
+        // Rulebook 7.2.2.3: Mission completed may cure dilemmas attached here (e.g. Alien Abduction)
+        TryCureAttachedDilemmas(missionBorder);
 
         // Acquire revealed artifacts + any still under the mission (only after solve)
         var toAcquire = new List<Card>();
@@ -13658,7 +13957,7 @@ public partial class TableWindow : Window
                         if (!_seedUnderMission.TryGetValue(m, out var stack) || stack.Count == 0) continue;
                         if (stack[^1].Tag is Card bottom)
                             ShowCardReveal(bottom, "Scan",
-                                $"Unterste Seed unter {mc.Name}:\n{bottom.Name}\n{bottom.Text}",
+                                $"Bottom seed card under {mc.Name}:\n{bottom.Name}\n{bottom.Text}",
                                 RevealButtons.Ok);
                         break;
                     }
@@ -13931,7 +14230,7 @@ public partial class TableWindow : Window
             var hand = controller == 1 ? _handCards : _oppHandCards;
             if (!toxOnTable && !ownTable.Any(ArtifactRules.IsToxUthat) && !hand.Any(ArtifactRules.IsToxUthat))
             {
-                ShowPlayError("Supernova erfordert Tox Uthat.");
+                ShowPlayError("Supernova requires Tox Uthat.");
                 if (!hand.Contains(ev)) hand.Add(ev);
                 return true;
             }
@@ -15016,7 +15315,7 @@ public partial class TableWindow : Window
             var hand = controller == 1 ? _handCards : _oppHandCards;
             if (disc.Count == 0)
             {
-                StatusText.Text = "Res-Q: Discard leer.";
+                StatusText.Text = "Res-Q: Discard pile is empty.";
                 return;
             }
             Card? pick = PickCardFromList(
@@ -15069,7 +15368,7 @@ public partial class TableWindow : Window
                 .ToList();
             if (planets.Count == 0)
             {
-                StatusText.Text = "Stone of Gol: keine Planet-Mission.";
+                StatusText.Text = "Stone of Gol: no planet mission in play.";
                 SendCardTo(art, controller, TimingRules.Destination.Discard);
                 return true;
             }
@@ -15078,6 +15377,18 @@ public partial class TableWindow : Window
             int kills = 0;
             if (_stackOnHost.TryGetValue(target, out var team))
             {
+                var doomedCards = team
+                    .Where(b => b.Tag is Card p && ModifierRules.IsPersonnelCard(p))
+                    .Select(b => (b, p: (Card)b.Tag!))
+                    .Where(x =>
+                    {
+                        int own = GetBorderOwner(x.b); if (own == 0) own = 1;
+                        var ep = ModifierRules.ResolvePersonnel(x.p, team.Select(y => y.Tag).OfType<Card>(), own);
+                        return !ep.Skills.Keys.Any(k => k.Equals("Youth", StringComparison.OrdinalIgnoreCase)) && ep.Cunning <= 7;
+                    })
+                    .Select(x => x.p)
+                    .ToList();
+
                 foreach (var b in team.ToList())
                 {
                     if (b.Tag is not Card p || !ModifierRules.IsPersonnelCard(p)) continue;
@@ -15087,7 +15398,7 @@ public partial class TableWindow : Window
                         k.Equals("Youth", StringComparison.OrdinalIgnoreCase));
                     if (!youth && ep.Cunning <= 7)
                     {
-                        DiscardPersonnelBorder(b, p, own);
+                        DiscardPersonnelBorder(b, p, own, allowGenetronicSave: true, alsoTargetedToDie: doomedCards);
                         kills++;
                     }
                 }
@@ -15114,7 +15425,7 @@ public partial class TableWindow : Window
             foreach (var c in moved.OrderBy(_ => Guid.NewGuid()))
                 oppDraw.Add(c);
             SendCardTo(art, controller, TimingRules.Destination.Discard);
-            StatusText.Text = $"Thought Maker: {moved.Count}× {chosen} im Gegner-Draw nach unten.";
+            StatusText.Text = $"Thought Maker: {moved.Count}x {chosen} moved to bottom of opponent's draw deck.";
             RefreshZoneCounts();
             return true;
         }
@@ -15133,7 +15444,7 @@ public partial class TableWindow : Window
                 return true;
             }
             AttachCardToHost(art, shipB, controller);
-            StatusText.Text = "Kurlan Naiskos auf Schiff (Attribute ×3 wenn alle Classifications).";
+            StatusText.Text = "Kurlan Naiskos on ship (attributes x3 if all classifications present).";
             return true;
         }
 
@@ -15158,9 +15469,7 @@ public partial class TableWindow : Window
     private void ApplyArtifactAcquire(Card art, Border missionBorder, Card mission)
     {
         var acq = ArtifactRules.ResolveAcquire(art);
-        ShowCardReveal(art, "Artifact verdient",
-            (art.Text ?? "") + "\n\n→ " + acq.Message,
-            RevealButtons.Ok, art.Name);
+        // ShowCardReveal removed here as requested: "Artifact acquired" is shown per-card on mission solve.
 
         var place = ArtifactRules.DecideAcquirePlacement(
             acq.Kind, MissionRules.IsPlanetMission(mission));
@@ -15180,7 +15489,7 @@ public partial class TableWindow : Window
                     }
                     ShowActivePlayerHand();
                     RefreshZoneCounts();
-                    StatusText.Text = $"Betazoid Gift Box: {n} card(s) vom Draw → Hand.";
+                    StatusText.Text = $"Betazoid Gift Box: {n} card(s) from Draw → Hand.";
                 }
                 // Artifact discarded (nicht ins Spiel)
                 {
@@ -15566,15 +15875,17 @@ public partial class TableWindow : Window
                     SendCardTo(scow.Card, controller, TimingRules.Destination.Discard);
                     if (!HasThermalDeflectors() && host != null)
                     {
-                        foreach (var b in GetPersonnelBordersAtHost(host, opponentOf: 0).ToList())
-                        {
-                            if (b.Tag is not Card p) continue;
-                            // aboard a ship at this location — survive
-                            bool onShip = GetDockablesUnderMission(host)
+                        var dyingBorders = GetPersonnelBordersAtHost(host, opponentOf: 0)
+                            .Where(b => b.Tag is Card p && !GetDockablesUnderMission(host)
                                 .Any(d => IsShipCard(d.Tag as Card ?? new Card())
-                                          && _stackOnHost.TryGetValue(d, out var crew) && crew.Contains(b));
-                            if (onShip) continue;
-                            DiscardPersonnelBorder(b, p, GetBorderOwner(b) == 0 ? 1 : GetBorderOwner(b));
+                                          && _stackOnHost.TryGetValue(d, out var crew) && crew.Contains(b)))
+                            .ToList();
+                        var dyingCards = dyingBorders.Select(b => (Card)b.Tag!).ToList();
+
+                        foreach (var b in dyingBorders)
+                        {
+                            var p = (Card)b.Tag!;
+                            DiscardPersonnelBorder(b, p, GetBorderOwner(b) == 0 ? 1 : GetBorderOwner(b), allowGenetronicSave: true, alsoTargetedToDie: dyingCards);
                         }
                     }
                     if (host != null && !_solvedMissions.Contains(host) && host.Tag is Card mis)
@@ -15928,7 +16239,7 @@ public partial class TableWindow : Window
             }
             if (victim == null) continue;
             if (b != null)
-                DiscardPersonnelBorder(b, victim, _activePlayer, allowGenetronicSave: true);
+                DiscardPersonnelBorder(b, victim, _activePlayer, allowGenetronicSave: true, alsoTargetedToDie: r.Kill);
             else if (ModifierRules.IsEquipmentCard(victim) && shipBorder != null)
                 RemoveEquipmentFromHost(shipBorder, victim);
             else if (ModifierRules.IsEquipmentCard(victim))
@@ -15941,6 +16252,13 @@ public partial class TableWindow : Window
         {
             if (_stackOnHost.TryGetValue(shipBorder, out var aboardStacked))
             {
+                var lifeAboard = aboardStacked
+                    .Where(sb => sb.Tag is Card pc && (IsCrewType(pc) || (pc.Type ?? "").Contains("personnel", StringComparison.OrdinalIgnoreCase)) && !IsCardInStasis(pc))
+                    .Select(sb => (Card)sb.Tag!)
+                    .Concat(r.Kill)
+                    .Distinct()
+                    .ToList();
+
                 foreach (var sb in aboardStacked.ToList())
                 {
                     if (sb.Tag is not Card pc) continue;
@@ -15951,7 +16269,7 @@ public partial class TableWindow : Window
                     int victimOwner = CardOwner(sb);
                     if (victimOwner == 0) victimOwner = GetBorderOwner(sb);
                     if (victimOwner == 0) victimOwner = _activePlayer;
-                    DiscardPersonnelBorder(sb, pc, victimOwner, allowGenetronicSave: true);
+                    DiscardPersonnelBorder(sb, pc, victimOwner, allowGenetronicSave: true, alsoTargetedToDie: lifeAboard);
                 }
             }
         }
@@ -15977,8 +16295,11 @@ public partial class TableWindow : Window
         if (r.DamageShip && shipBorder != null && shipBorder.Tag is Card)
             ApplyHullDamage(shipBorder, (Card)shipBorder.Tag!, Math.Min(100, GetHullDamage(shipBorder) + 50));
 
-        if (r.DestroyShip && shipBorder != null && shipBorder.Tag is Card sc)
+        if (r.DestroyShip && shipBorder != null && shipBorder.Tag is Card)
+        {
+            var sc = (Card)shipBorder.Tag!;
             DestroyShipOrFacility(shipBorder, sc, _activePlayer);
+        }
 
         if (r.DiscardNonPersonnelFromHand.Count > 0)
         {
@@ -16069,10 +16390,17 @@ public partial class TableWindow : Window
                 {
                     if (b.Tag is not Card pc) continue;
                     if (!ModifierRules.IsPersonnelCard(pc)) continue;
+                    pc.Quarantined = true;
+                    if (pc.InstanceId > 0 && BoardStore.Current.ById.TryGetValue(pc.InstanceId, out var inst) && inst is PersonnelInstance pi)
+                        pi.Quarantined = true;
                     if (!attached.Held.Contains(pc))
                         attached.Held.Add(pc);
                     ApplyStasisVisual(b, true); // quarantine share stasis leave-block UX
                 }
+            }
+            if (r.Persist == DilemmaRules.PersistKind.Ktarian)
+            {
+                ApplyKtarianDisable(attached);
             }
             _attachedDilemmas.Add(attached);
             if (r.Persist == DilemmaRules.PersistKind.BorgShip)
@@ -16087,6 +16415,9 @@ public partial class TableWindow : Window
             }
             _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
                 $"Attached {seedCard.Name} ({r.Persist}) @ {(host.Tag as Card)?.Name}");
+
+            // Rulebook 7.2.2.3: Conditions first (attached with effects applied), then check cure!
+            TryCureAttachedDilemmas(host);
         }
 
         if (DilemmaRules.ShouldAwardScoreOnApply(r.Score, r.Fate))
@@ -16201,7 +16532,7 @@ public partial class TableWindow : Window
             _stackOnHost[dest] = destList;
         }
         destList.Add(cardB);
-        StatusText.Text = $"{person.Name} relocatiert nach {(dest.Tag as Card)?.Name}.";
+        StatusText.Text = $"{person.Name} relocated to {(dest.Tag as Card)?.Name}.";
     }
 
     private Border? FindFurthestPlanet(Border from)
@@ -16231,13 +16562,25 @@ public partial class TableWindow : Window
     /// bei Space-Mission zusätzlich die eigenen Schiffe, die Crew gestellt haben.
     /// </summary>
     /// <summary>
-    /// Alien Parasites #1a fail (planet): beam encounter Away Team back to own ship (preferred) or outpost at this mission.
-    /// No destination = leave on planet (still stopped by caller). Hotseat/control not implemented.
+    /// Dilemma beam-back effect (Alien Parasites #1a, Portal Guard): beam encounter Away Team back to own ship (preferred) or outpost at this mission.
+    /// Returns true if entire Away Team successfully beamed back to ship or facility.
+    /// Returns false if beaming was impossible (no ship/outpost destination, or any personnel in the team is quarantined/in stasis/leave-blocked).
     /// </summary>
-    private void BeamBackAwayTeamToShipOrOutpost(Border missionBorder, List<Border> teamBorders)
+    private bool BeamBackAwayTeamToShipOrOutpost(Border missionBorder, List<Border> teamBorders)
     {
         if (missionBorder.Tag is not Card missionCard || !MissionRules.IsPlanetMission(missionCard))
-            return;
+            return false;
+
+        // Check if ANY personnel in the Away Team is blocked from leaving (e.g. Quarantined by Hyper-Aging, or in Stasis)
+        var blockedBorder = teamBorders.FirstOrDefault(b => b.Tag is Card c && IsCardLeaveBlocked(c));
+        if (blockedBorder != null)
+        {
+            var blockedCard = (Card)blockedBorder.Tag!;
+            string reason = IsCardQuarantined(blockedCard) ? "quarantined (Hyper-Aging)" : "in stasis";
+            _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
+                $"Beam-back blocked: {blockedCard.Name} is {reason} and cannot beam off the planet.");
+            return false;
+        }
 
         Border? dest = null;
         foreach (var dock in GetDockablesUnderMission(missionBorder))
@@ -16267,8 +16610,8 @@ public partial class TableWindow : Window
         if (dest == null)
         {
             _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
-                "Alien Parasites: no ship/outpost to beam back to — Away Team stays on planet.");
-            return;
+                "Beam-back: no ship/outpost to beam back to — Away Team stays on planet.");
+            return false;
         }
 
         int moved = 0;
@@ -16288,9 +16631,11 @@ public partial class TableWindow : Window
         {
             string destName = (dest.Tag as Card)?.Name ?? "ship/outpost";
             _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
-                $"Alien Parasites beam-back: {moved} to {destName}.");
+                $"Away Team beam-back: {moved} beamed to {destName}.");
             SyncBoardFromTable();
+            return true;
         }
+        return false;
     }
 
     /// <summary>
@@ -16446,7 +16791,7 @@ public partial class TableWindow : Window
                      .Where(s => DilemmaRules.ShouldRestoreAlienParasitesControl(s.Controller, finishingPlayer))
                      .ToList())
         {
-            foreach (var (card, orig, border) in state.Cards)
+            foreach ((Card card, int orig, Border? border) in state.Cards)
             {
                 int back = orig != 0 ? orig : state.Victim;
                 card.Controller = back;
@@ -16563,6 +16908,7 @@ public partial class TableWindow : Window
                 if (sb.Tag is not Card c) continue;
                 if (CardOwner(sb) != _activePlayer) continue;
                 if (IsBorderStopped(sb)) continue;
+                if (IsCardDisabled(c)) continue;
                 if (IsCrewType(c) || IsEquipmentType(c)
                     || (c.Type ?? "").Contains("personnel", StringComparison.OrdinalIgnoreCase))
                     cards.Add(c);
@@ -16605,6 +16951,7 @@ public partial class TableWindow : Window
                 int o = CardOwner(sb);
                 if (o == 0) o = GetBorderOwner(sb);
                 if (o != player) continue;
+                if (IsCardDisabled(c)) continue;
                 if (IsCrewType(c) || IsEquipmentType(c) || ModifierRules.IsPersonnelCard(c)
                     || ModifierRules.IsEquipmentCard(c))
                     cards.Add(c);
@@ -16632,11 +16979,25 @@ public partial class TableWindow : Window
         }
         return cards;
     }
-    /// <summary>Alien Abduction: cure OR (Leadership x3 present at location OR mission completed).</summary>
-    private void TryCureAbductionsPresent()
+    /// <summary>
+    /// Compendium 7.2.2.3: Central dilemma cure evaluation.
+    /// Checks cure conditions for attached dilemmas (at a specific host/location or across all attached dilemmas)
+    /// using DilemmaCureRules (conditions first, then cure). If cured, clears stasis/held, awards points,
+    /// logs event, discards dilemma card and removes it from attached list.
+    /// </summary>
+    private void TryCureAttachedDilemmas(Border? specificHost = null)
     {
-        foreach (var a in _attachedDilemmas.Where(x => x.Kind == DilemmaRules.PersistKind.Abduction).ToList())
+        var candidates = _attachedDilemmas.ToList();
+        if (specificHost != null)
         {
+            candidates = candidates.Where(a => ReferenceEquals(a.Host, specificHost)
+                || (FindMissionForDockable(a.Host) is Border mh && ReferenceEquals(mh, specificHost))).ToList();
+        }
+
+        foreach (var a in candidates)
+        {
+            if (!_attachedDilemmas.Contains(a)) continue; // might have been removed
+
             int cureOwner = _activePlayer;
             if (a.Held.Count > 0)
             {
@@ -16652,17 +17013,25 @@ public partial class TableWindow : Window
                     }
                 }
             }
+
             var present = CollectPresentAtMissionForCure(a.Host, cureOwner);
+            if (a.Held.Count > 0)
+                present = DilemmaRules.ExcludeHeld(present, a.Held);
+
             bool missionCompleted = _solvedMissions.Contains(a.Host)
                 || (FindMissionForDockable(a.Host) is Border missHost && _solvedMissions.Contains(missHost));
-            if (!DilemmaRules.CanCure(DilemmaRules.PersistKind.Abduction, present, cureOwner, missionCompleted))
-                continue;
-            ClearStasisForDilemma(a);
-            _attachedDilemmas.Remove(a);
-            SendCardTo(a.Card, cureOwner, TimingRules.Destination.Discard);
-            _session.Log.Add(_session.TurnNumber, $"P{cureOwner}",
-                $"Alien Abduction cured (Leadership x3 present or mission completed): {a.Card.Name}");
-            StatusText.Text = $"Alien Abduction cured: {a.Card.Name}.";
+
+            var plan = DilemmaCureRules.DecideCure(a.Kind, a.Card.Name ?? "Dilemma", present, cureOwner, missionCompleted);
+            if (plan.Action == DilemmaCureRules.CureAction.CureAndDiscard)
+            {
+                ClearStasisForDilemma(a);
+                _attachedDilemmas.Remove(a);
+                SendCardTo(a.Card, cureOwner, TimingRules.Destination.Discard);
+                if (plan.PointsAwarded > 0)
+                    AwardDilemmaPoints(plan.PointsAwarded);
+                _session.Log.Add(_session.TurnNumber, $"P{cureOwner}", plan.LogMessage);
+                StatusText.Text = plan.StatusMessage;
+            }
         }
     }
 
@@ -16820,7 +17189,7 @@ public partial class TableWindow : Window
         int fromIdx = IndexOfMission(fromMission);
         if (fromIdx < 0)
         {
-            ShowPlayError("Schiff ist keiner Mission zugeordnet.");
+            ShowPlayError("Ship is not assigned to any mission.");
             return;
         }
 
@@ -16838,7 +17207,7 @@ public partial class TableWindow : Window
         int fromL = BoardIndexOf(boardLine, fromMission);
         if (fromL < 0)
         {
-            ShowPlayError("Schiff-Location steht nicht auf dem Board.");
+            ShowPlayError("Ship location is not on the board.");
             return;
         }
         bool wnohgb = WnohgbRules.WrapAllowed(PlayerHasWnohgb(_activePlayer), boardLine.Count);
@@ -16989,7 +17358,7 @@ public partial class TableWindow : Window
     {
         if (_session.Segment != GameSession.TurnSegment.Execute)
         {
-            ShowPlayError("Ship Battle nur im Execute-Segment.");
+            ShowPlayError("Ship battle only during Execute segment.");
             return;
         }
         if (ShipHasRequiredMove(shipBorder))
@@ -16999,7 +17368,7 @@ public partial class TableWindow : Window
         }
         if (IsBorderStopped(shipBorder))
         {
-            ShowPlayError("Gestopptes Schiff kann nicht angreifen.");
+            ShowPlayError("Stopped ship cannot attack.");
             return;
         }
         if (IsShipDocked(shipBorder))
@@ -17020,7 +17389,7 @@ public partial class TableWindow : Window
         var mission = FindMissionForDockable(shipBorder);
         if (mission == null)
         {
-            ShowPlayError("Schiff ist keiner Mission zugeordnet.");
+            ShowPlayError("Ship is not assigned to any mission.");
             return;
         }
 
@@ -17029,7 +17398,7 @@ public partial class TableWindow : Window
         // Vorab-Check ohne konkretes Ziel (WEAPONS + Leader/Match)
         if (BattleRules.GetWeapons(ship) <= 0)
         {
-            ShowPlayError($"{ship.Name} hat keine WEAPONS.");
+            ShowPlayError($"{ship.Name} has no WEAPONS.");
             return;
         }
         // G7: Counter-Attack — no Leader. Normal initiate still needs Leader (unless Rogue lore).
@@ -17074,13 +17443,13 @@ public partial class TableWindow : Window
         {
             ShowPlayError(counter
                 ? "Counter-Attack: no involved opponent ships/facilities still at this location."
-                : "Keine gegnerischen Schiffe/Facilities an dieser Location.");
+                : "No opposing ships/facilities at this location.");
             _cardActionMode = CardActionMode.None;
             ClearTargetHighlights();
             return;
         }
 
-        string mode = counter ? "COUNTER-ATTACK" : "ANGRIFF";
+        string mode = counter ? "COUNTER-ATTACK" : "ATTACK";
         StatusText.Text =
             $"{mode}: {ship.Name} (W {BattleRules.GetWeapons(ship)}) — " +
             $"click enemy target ({enemies.Count} available). Right-click = cancel.";
@@ -17099,7 +17468,7 @@ public partial class TableWindow : Window
 
         if (!BattleRules.IsShipOrFacility(targetCard))
         {
-            ShowPlayError("Ziel muss Schiff oder Facility sein.");
+            ShowPlayError("Target must be a ship or facility.");
             return true;
         }
 
@@ -17197,7 +17566,7 @@ public partial class TableWindow : Window
         if (defDmg.NewlyDamaged)
         {
             ApplyHullDamage(defenderBorder, defenderCard, defDmg.HullAfter);
-            logLines.Add($"  Verteidiger: {defDmg.Description}");
+            logLines.Add($"  Defender: {defDmg.Description}");
         }
 
         // --- Return Fire ---
@@ -17248,7 +17617,7 @@ public partial class TableWindow : Window
             if (atkDmg.Value.NewlyDamaged)
             {
                 ApplyHullDamage(attackerBorder, attackerShip, atkDmg.Value.HullAfter);
-                logLines.Add($"  Angreifer: {atkDmg.Value.Description}");
+                logLines.Add($"  Attacker: {atkDmg.Value.Description}");
             }
         }
         else if (returnFire && defDmg.Destroyed)
@@ -17257,7 +17626,7 @@ public partial class TableWindow : Window
         }
 
         string winner = BattleRules.DetermineWinner(atkHullTaken, defHullTaken);
-        logLines.Add($"Winner (HULL-Schaden): {winner}");
+        logLines.Add($"Winner (HULL damage): {winner}");
 
         // --- Resolution: Destroyed → Discard ---
         bool defDestroyed = defDmg.Destroyed || GetHullDamage(defenderBorder) >= 100;
@@ -17441,21 +17810,22 @@ public partial class TableWindow : Window
                     }
                 }
                 present = CollectPresentAtMissionForCure(a.Host, cureOwner);
-                // Spock #24: Phased Matter cure skills from unphased AT only (Held do not count).
-                if (a.Kind == DilemmaRules.PersistKind.Phased)
+                // Phased Matter / Abduction / held dilemmas: skills from free cards only (Held do not count).
+                if (a.Held.Count > 0)
                     present = DilemmaRules.ExcludeHeld(present, a.Held);
                 ho = cureOwner;
             }
 
             bool missionCompleted = _solvedMissions.Contains(a.Host)
                 || (FindMissionForDockable(a.Host) is Border missHost && _solvedMissions.Contains(missHost));
-            if (DilemmaRules.CanCure(a.Kind, present, ho, missionCompleted))
+            var curePlan = DilemmaCureRules.DecideCure(a.Kind, a.Card.Name ?? "Dilemma", present, ho, missionCompleted);
+            if (curePlan.Action == DilemmaCureRules.CureAction.CureAndDiscard)
             {
                 ClearStasisForDilemma(a);
                 _attachedDilemmas.Remove(a);
-                if (EndOfTurnRestRules.CureAward(a.Kind == DilemmaRules.PersistKind.HyperAging || a.Kind == DilemmaRules.PersistKind.RemFatigue) == EndOfTurnRestRules.DilemmaCurePoints.Five)
-                    AwardDilemmaPoints(5);
-                _session.Log.Add(_session.TurnNumber, $"P{ho}", $"Cured {a.Card.Name}");
+                if (curePlan.PointsAwarded > 0)
+                    AwardDilemmaPoints(curePlan.PointsAwarded);
+                _session.Log.Add(_session.TurnNumber, $"P{ho}", curePlan.LogMessage);
                 continue;
             }
 
@@ -17486,12 +17856,18 @@ public partial class TableWindow : Window
                     {
                         if (_stackOnHost.TryGetValue(a.Host, out var stacked))
                         {
+                            var dyingCards = stacked
+                                .Where(b => b.Tag is Card p && ModifierRules.IsPersonnelCard(p)
+                                            && !(a.Kind == DilemmaRules.PersistKind.HyperAging && DilemmaRules.IsInorganic(p)))
+                                .Select(b => (Card)b.Tag!)
+                                .ToList();
+
                             foreach (var b in stacked.ToList())
                             {
                                 if (b.Tag is not Card p || !ModifierRules.IsPersonnelCard(p)) continue;
                                 if (a.Kind == DilemmaRules.PersistKind.HyperAging && DilemmaRules.IsInorganic(p))
                                     continue;
-                                DiscardPersonnelBorder(b, p, ho);
+                                DiscardPersonnelBorder(b, p, ho, allowGenetronicSave: true, alsoTargetedToDie: dyingCards);
                             }
                         }
                     }
@@ -17739,7 +18115,7 @@ public partial class TableWindow : Window
         {
             var dest = d.Dest ?? ResolveFarEndMission(ship);
             d.Dest = dest;
-            if (dest != null) list.Add(("Cytherians", dest));
+            if (dest is Border bDest) list.Add(("Cytherians", bDest));
         }
 
         if (_conundrumChase.TryGetValue(ship, out var prey) && prey != null)
@@ -18908,6 +19284,10 @@ public partial class TableWindow : Window
             if (!result.Ok) continue;
 
             var killed = new HashSet<string>(result.KilledNames, StringComparer.OrdinalIgnoreCase);
+            var killedCards = defenders
+                .Where(b => b.Tag is Card c && killed.Contains(c.Name ?? ""))
+                .Select(b => (Card)b.Tag!)
+                .ToList();
 
             foreach (var b in defenders.ToList())
             {
@@ -18916,7 +19296,7 @@ public partial class TableWindow : Window
                 if (victimOwner == 0) victimOwner = CardOwner(b);
                 if (victimOwner == 0) victimOwner = finishingPlayer;
                 if (killed.Contains(c.Name ?? ""))
-                    DiscardPersonnelBorder(b, c, victimOwner);
+                    DiscardPersonnelBorder(b, c, victimOwner, allowGenetronicSave: true, alsoTargetedToDie: killedCards);
                 else
                     MarkStopped(b);
             }
@@ -19102,18 +19482,18 @@ public partial class TableWindow : Window
             if (ho == 0) ho = 1;
             if (ho != owner) continue;
             var present = GetAllCardsOnHost(a.Host, ho);
-            if (DilemmaRules.CanCure(a.Kind, present, ho))
+            if (a.Held.Count > 0)
+                present = DilemmaRules.ExcludeHeld(present, a.Held);
+            present = present.Where(c => !IsCardDisabled(c)).ToList();
+            var curePlan = DilemmaCureRules.DecideCure(a.Kind, a.Card.Name ?? "Dilemma", present, ho);
+            if (curePlan.Action == DilemmaCureRules.CureAction.CureAndDiscard)
             {
                 ClearStasisForDilemma(a);
                 _attachedDilemmas.Remove(a);
+                _session.Log.Add(_session.TurnNumber, $"P{ho}", curePlan.LogMessage);
                 continue;
             }
-            if (_stackOnHost.TryGetValue(a.Host, out var list))
-            {
-                var crew = list.Where(b => b.Tag is Card c && ModifierRules.IsPersonnelCard(c)).ToList();
-                if (crew.Count > 0)
-                    MarkStopped(crew[new Random().Next(crew.Count)]);
-            }
+            ApplyKtarianDisable(a);
         }
     }
 
@@ -19217,12 +19597,12 @@ public partial class TableWindow : Window
             {
                 if (plannedCount > 1)
                 {
-                    ShowPlayError("Atmospheric Ionization: nur 1 Personal pro Beam.");
+                    ShowPlayError("Atmospheric Ionization: only 1 personnel per beam.");
                     return false;
                 }
                 if (_ionizationBeamsThisTurn >= 3)
                 {
-                    ShowPlayError("Atmospheric Ionization: max. 3 Beams diesen Zug.");
+                    ShowPlayError("Atmospheric Ionization: max 3 beams this turn.");
                     return false;
                 }
                 _ionizationBeamsThisTurn++;
@@ -19231,49 +19611,117 @@ public partial class TableWindow : Window
         return true;
     }
 
-    private bool TryGenetronicSave(Border border, Card card, int owner)
+    private bool TryGenetronicSave(
+        Border border,
+        Card card,
+        int owner,
+        IEnumerable<Card>? alsoTargetedToDie = null)
     {
         bool has = _attachedEvents.Any(e => e.Kind == EventRules.Persist.Table
+                                            && (e.Owner == 0 || e.Owner == owner)
                                             && EventRules.IsGenetronicReplicator(e.Card))
+                   || PlayerHasTableCard(owner, EventRules.IsGenetronicReplicator)
                    || HasTableCard(EventRules.IsGenetronicReplicator);
         if (!has) return false;
+
         Border? host = null;
         foreach (var kv in _stackOnHost)
         {
             if (kv.Value.Contains(border)) { host = kv.Key; break; }
         }
         if (host == null) return false;
+        if (!_stackOnHost.TryGetValue(host, out var hostList)) return false;
+
         var present = GetAllCardsOnHost(host, owner);
-        if (!EventRules.HasSkill(present, "MEDICAL", 2)) return false;
+
+        var eligible = new List<(Border border, Card card, int medSkill)>();
+        foreach (var b in hostList)
+        {
+            if (ReferenceEquals(b, border)) continue;
+            if (b.Tag is not Card p || !ModifierRules.IsPersonnelCard(p)) continue;
+            if (ReferenceEquals(p, card)) continue;
+            if (p.InstanceId > 0 && card.InstanceId > 0 && p.InstanceId == card.InstanceId) continue;
+
+            int bOwner = CardOwner(b);
+            if (bOwner == 0) bOwner = GetBorderOwner(b);
+            if (bOwner == 0) bOwner = owner;
+            if (bOwner != owner) continue;
+
+            if (IsBorderStopped(b) || IsCardInStasis(p) || IsCardDisabled(p)) continue;
+
+            if (alsoTargetedToDie != null && alsoTargetedToDie.Any(dead =>
+                dead != null && (ReferenceEquals(dead, p) || (dead.InstanceId > 0 && p.InstanceId > 0 && dead.InstanceId == p.InstanceId))))
+                continue;
+
+            int med = EventRules.GetPersonnelMedicalSkill(p, present, owner);
+            if (med > 0)
+                eligible.Add((b, p, med));
+        }
+
+        int totalMedAvailable = eligible.Sum(e => e.medSkill);
+        if (totalMedAvailable < 2) return false;
+
         if (ShowCardReveal(card, "Genetronic Replicator",
-                $"{card.Name} retten (2 MEDICAL stoppen → Hand)?",
+                $"Save {card.Name} (stop 2 MEDICAL → hand)?",
                 RevealButtons.YesNo) != RevealAnswer.Yes)
             return false;
-        // 2 MEDICAL stoppen
-        int stopped = 0;
-        if (_stackOnHost.TryGetValue(host, out var list))
+
+        // Stop 2 MEDICAL
+        int stoppedMed = 0;
+        var stoppedNames = new List<string>();
+
+        var remainingPool = new List<(Border border, Card card, int medSkill)>(eligible);
+        while (stoppedMed < 2 && remainingPool.Count > 0)
         {
-            foreach (var b in list)
+            (Border border, Card card, int medSkill) chosen;
+            if (remainingPool.Count == 1 || remainingPool.Sum(r => r.medSkill) <= (2 - stoppedMed))
             {
-                if (stopped >= 2) break;
-                if (ReferenceEquals(b, border)) continue;
-                if (b.Tag is not Card p || !ModifierRules.IsPersonnelCard(p)) continue;
-                if (!MissionRules.ParsePersonnelSkills(p).Keys.Any(k =>
-                        k.Contains("MEDICAL", StringComparison.OrdinalIgnoreCase)))
-                    continue;
-                MarkStopped(b);
-                stopped++;
+                chosen = remainingPool[0];
+            }
+            else
+            {
+                var pickList = remainingPool.Select(r => r.border).ToList();
+                var pickedBorder = PickBorderFromList(card, pickList, "Genetronic Replicator: Choose MEDICAL to stop");
+                chosen = remainingPool.FirstOrDefault(r => ReferenceEquals(r.border, pickedBorder));
+                if (chosen.border == null)
+                    chosen = remainingPool[0];
+            }
+
+            MarkStopped(chosen.border);
+            stoppedMed += chosen.medSkill;
+            stoppedNames.Add(chosen.card.Name ?? "MEDICAL");
+            remainingPool.RemoveAll(r => ReferenceEquals(r.border, chosen.border));
+        }
+
+        if (stoppedMed < 2) return false;
+
+        foreach (var kv in _stackOnHost.ToList())
+        {
+            if (kv.Value.Remove(border))
+            {
+                UpdateHostBadge(kv.Key);
+                if (kv.Value.Count == 0)
+                    _stackOnHost.Remove(kv.Key);
             }
         }
-        foreach (var kv in _stackOnHost.ToList())
-            kv.Value.Remove(border);
+
         if (TableCanvas.Children.Contains(border))
             TableCanvas.Children.Remove(border);
+
+        if (_stoppedBorders.Remove(border) && card.InstanceId > 0
+            && BoardStore.Current.ById.TryGetValue(card.InstanceId, out var remInst))
+            remInst.Stopped = false;
+        _borderOwner.Remove(border);
+
         var hand = owner == 1 ? _handCards : _oppHandCards;
         if (!hand.Contains(card)) hand.Add(card);
         ShowActivePlayerHand();
-        StatusText.Text = $"Genetronic: {card.Name} → Hand.";
-        _session.Log.Add(_session.TurnNumber, $"P{owner}", $"Genetronic saved {card.Name}");
+        RefreshZoneCounts();
+
+        string stoppedSummary = string.Join(", ", stoppedNames);
+        StatusText.Text = $"Genetronic: {card.Name} → Hand (stopped {stoppedSummary}).";
+        _session.Log.Add(_session.TurnNumber, $"P{owner}",
+            $"Genetronic saved {card.Name} (stopped {stoppedSummary})");
         return true;
     }
 
@@ -19524,31 +19972,88 @@ public partial class TableWindow : Window
         }
     }
 
+    private void ApplyDisabledVisual(Border border, bool disabled)
+    {
+        var disabledBorder = Color.FromRgb(0xD0, 0x80, 0x30); // Amber-orange for Disabled (Ktarian Game)
+        var disabledGlow = Color.FromRgb(0xA0, 0x50, 0x18);
+        if (disabled)
+        {
+            border.BorderBrush = new SolidColorBrush(disabledBorder);
+            border.BorderThickness = new Thickness(2);
+            border.Opacity = 0.65;
+            border.Effect = new System.Windows.Media.Effects.DropShadowEffect
+            {
+                Color = disabledGlow,
+                BlurRadius = 14,
+                ShadowDepth = 0,
+                Opacity = 0.95
+            };
+        }
+        else
+        {
+            border.Opacity = 1.0;
+            if (border.Effect is System.Windows.Media.Effects.DropShadowEffect dse
+                && (dse.Color == disabledGlow || dse.Color == disabledBorder))
+                border.Effect = null;
+            if (border.BorderBrush is SolidColorBrush scb
+                && scb.Color == disabledBorder)
+            {
+                border.BorderBrush = new SolidColorBrush(Color.FromRgb(90, 90, 90));
+                border.BorderThickness = new Thickness(1);
+            }
+        }
+    }
+
     private void ClearStasisForDilemma(AttachedDilemma a)
     {
-        if (!DilemmaRules.IsStasisPersist(a.Kind) && !DilemmaRules.IsQuarantinePersist(a.Kind))
+        if (!DilemmaRules.IsStasisPersist(a.Kind) && !DilemmaRules.IsQuarantinePersist(a.Kind) && a.Kind != DilemmaRules.PersistKind.Ktarian)
             return;
         foreach (var card in a.Held.ToList())
         {
+            card.Quarantined = false;
+            card.InStasis = false;
+            card.Disabled = false;
+            if (card.InstanceId > 0 && BoardStore.Current.ById.TryGetValue(card.InstanceId, out var inst) && inst is PersonnelInstance pi)
+            {
+                pi.Quarantined = false;
+                pi.InStasis = false;
+                pi.Disabled = false;
+            }
             var b = FindBorderForCard(card);
             if (b != null)
+            {
                 ApplyStasisVisual(b, false);
+                ApplyDisabledVisual(b, false);
+                UnstopBorder(b);
+            }
         }
         a.Held.Clear();
     }
 
-    private bool IsCardInStasis(Card card) =>
-        _attachedDilemmas.Any(d =>
+    private bool IsCardInStasis(Card card)
+    {
+        bool inStasis = _attachedDilemmas.Any(d =>
             DilemmaRules.IsStasisPersist(d.Kind)
             && d.Held.Any(h => ReferenceEquals(h, card)
                                || string.Equals(h.Name, card.Name, StringComparison.OrdinalIgnoreCase)));
+        card.InStasis = inStasis;
+        if (card.InstanceId > 0 && BoardStore.Current.ById.TryGetValue(card.InstanceId, out var inst) && inst is PersonnelInstance pi)
+            pi.InStasis = inStasis;
+        return inStasis;
+    }
 
-    private bool IsCardQuarantined(Card card) =>
-        _attachedDilemmas.Any(d =>
+    private bool IsCardQuarantined(Card card)
+    {
+        bool quarantined = _attachedDilemmas.Any(d =>
             DilemmaRules.IsQuarantinePersist(d.Kind)
             && (d.Held.Any(h => ReferenceEquals(h, card)
                                 || string.Equals(h.Name, card.Name, StringComparison.OrdinalIgnoreCase))
                 || IsPersonnelOnQuarantineHost(card, d.Host)));
+        card.Quarantined = quarantined;
+        if (card.InstanceId > 0 && BoardStore.Current.ById.TryGetValue(card.InstanceId, out var inst) && inst is PersonnelInstance pi)
+            pi.Quarantined = quarantined;
+        return quarantined;
+    }
 
     private bool IsPersonnelOnQuarantineHost(Card card, Border host)
     {
@@ -19556,7 +20061,64 @@ public partial class TableWindow : Window
         return stacked.Any(b => b.Tag is Card c && ReferenceEquals(c, card));
     }
 
-    private bool IsCardLeaveBlocked(Card card) => IsCardInStasis(card) || IsCardQuarantined(card);
+    private bool IsCardDisabled(Card card)
+    {
+        bool disabled = card.Disabled || _attachedDilemmas.Any(d =>
+            d.Kind == DilemmaRules.PersistKind.Ktarian
+            && d.Held.Any(h => ReferenceEquals(h, card)
+                                || (h.InstanceId > 0 && h.InstanceId == card.InstanceId)
+                                || string.Equals(h.Name, card.Name, StringComparison.OrdinalIgnoreCase)));
+        card.Disabled = disabled;
+        if (card.InstanceId > 0 && BoardStore.Current.ById.TryGetValue(card.InstanceId, out var inst) && inst is PersonnelInstance pi)
+            pi.Disabled = disabled;
+        return disabled;
+    }
+
+    private AttachedDilemma? FindDisableDilemmaForCard(Card card) =>
+        _attachedDilemmas.FirstOrDefault(d =>
+            d.Kind == DilemmaRules.PersistKind.Ktarian
+            && d.Held.Any(h => ReferenceEquals(h, card)
+                                || (h.InstanceId > 0 && h.InstanceId == card.InstanceId)
+                                || string.Equals(h.Name, card.Name, StringComparison.OrdinalIgnoreCase)));
+
+    private void ApplyKtarianDisable(AttachedDilemma attached)
+    {
+        if (attached.Host == null) return;
+        int ho = GetBorderOwner(attached.Host);
+        if (ho == 0) ho = _activePlayer;
+
+        if (_stackOnHost.TryGetValue(attached.Host, out var list))
+        {
+            var eligible = list
+                .Where(b => b.Tag is Card c && ModifierRules.IsPersonnelCard(c) && !IsCardDisabled(c))
+                .ToList();
+
+            if (eligible.Count > 0)
+            {
+                var victimBorder = eligible[Random.Shared.Next(eligible.Count)];
+                var victimCard = (Card)victimBorder.Tag!;
+                victimCard.Disabled = true;
+                if (victimCard.InstanceId > 0 && BoardStore.Current.ById.TryGetValue(victimCard.InstanceId, out var inst) && inst is PersonnelInstance pi)
+                {
+                    pi.Disabled = true;
+                }
+                if (!attached.Held.Contains(victimCard))
+                    attached.Held.Add(victimCard);
+
+                ApplyDisabledVisual(victimBorder, true);
+                _session.Log.Add(_session.TurnNumber, $"P{ho}",
+                    $"Ktarian Game disabled {victimCard.Name} aboard {(attached.Host.Tag as Card)?.Name}.");
+                StatusText.Text = $"Ktarian Game: {victimCard.Name} disabled aboard {(attached.Host.Tag as Card)?.Name}.";
+            }
+            else
+            {
+                _session.Log.Add(_session.TurnNumber, $"P{ho}",
+                    $"Ktarian Game: All personnel aboard {(attached.Host.Tag as Card)?.Name} are already disabled.");
+            }
+        }
+    }
+
+    private bool IsCardLeaveBlocked(Card card) => card.IsLeaveBlocked || IsCardInStasis(card) || IsCardQuarantined(card) || IsCardDisabled(card);
 
     private AttachedDilemma? FindStasisDilemmaForCard(Card card) =>
         _attachedDilemmas.FirstOrDefault(d =>
@@ -19579,6 +20141,9 @@ public partial class TableWindow : Window
         foreach (var d in _attachedDilemmas.Where(x =>
                      ReferenceEquals(x.Host, host) && DilemmaRules.IsQuarantinePersist(x.Kind)))
         {
+            pc.Quarantined = true;
+            if (pc.InstanceId > 0 && BoardStore.Current.ById.TryGetValue(pc.InstanceId, out var inst) && inst is PersonnelInstance pi)
+                pi.Quarantined = true;
             if (d.Held.Any(h => ReferenceEquals(h, pc))) continue;
             d.Held.Add(pc);
             ApplyStasisVisual(cardBorder, true);
@@ -19618,6 +20183,11 @@ public partial class TableWindow : Window
 
     private void ApplyStatusVisualToMini(Border mini, Card card)
     {
+        if (IsCardDisabled(card))
+        {
+            ApplyDisabledVisual(mini, true);
+            return;
+        }
         if (IsCardLeaveBlocked(card))
         {
             ApplyStasisVisual(mini, true);
@@ -19668,6 +20238,14 @@ public partial class TableWindow : Window
         // Personnel: In stasis / quarantine line
         if (CardKinds.IsPersonnel(card))
         {
+            var disDil = FindDisableDilemmaForCard(card);
+            if (disDil != null || IsCardDisabled(card))
+            {
+                AddDetailStatusLine(
+                    DetailStatusRules.FormatDisabledLine(disDil?.Card.Name ?? "Ktarian Game",
+                        DetailStatusRules.DisabledCureHint(disDil?.Kind ?? DilemmaRules.PersistKind.Ktarian)),
+                    DetailStatusTone.Debuff);
+            }
             var dil = FindStasisDilemmaForCard(card);
             if (dil != null)
             {
@@ -19714,8 +20292,16 @@ public partial class TableWindow : Window
                 foreach (var ad in _attachedDilemmas.Where(d => ReferenceEquals(d.Host, shipBorder)))
                 {
                     var tone = DetailStatusRules.ToneForDilemma(ad.Kind, ad.Countdown);
-                    string line = FormatAttachedHostEffectLine("Dilemma", ad.Card, ad.Countdown, ad.Kind.ToString(), null);
-                    AddDetailStatusLine(line, tone);
+                    if (ad.Kind == DilemmaRules.PersistKind.Ktarian && ad.Held.Count > 0)
+                    {
+                        string names = string.Join(", ", ad.Held.Select(h => h.Name ?? "?"));
+                        AddDetailStatusLine($"Ktarian Game: Disabled ({names}) — cure: CUNNING>30 or Android", DetailStatusTone.Debuff);
+                    }
+                    else
+                    {
+                        string line = FormatAttachedHostEffectLine("Dilemma", ad.Card, ad.Countdown, ad.Kind.ToString(), null);
+                        AddDetailStatusLine(line, tone);
+                    }
                 }
             }
         }
@@ -19840,16 +20426,16 @@ public partial class TableWindow : Window
         bool atOutpost = IsShipAtOwnRepairFacility(shipBorder, owner);
 
         string loc = atOutpost
-            ? "Ja – an eigenem Outpost/HQ (gleiche Location)"
-            : "Nein – Schiff muss an derselben Mission wie eigenes Outpost liegen";
+            ? "Yes – at own Outpost/HQ (same location)"
+            : "No – ship must be at the same mission as own Outpost";
 
         MessageBox.Show(
-            $"Reparatur – {ship.Name}\n\n" +
-            $"HULL-Schaden: {hull}%\n" +
+            $"Repair – {ship.Name}\n\n" +
+            $"HULL damage: {hull}%\n" +
             $"Turns at outpost: {turns}/2\n" +
-            $"Aktuell am Repair-Facility: {loc}\n\n" +
+            $"Currently at repair facility: {loc}\n\n" +
             "Rotation damage: after 2 full turns of yours at the outpost " +
-            "wird der Schaden entfernt (Compendium 7.5.2).\n" +
+            "the damage is removed (Compendium 7.5.2).\n" +
             "If the ship leaves the location, repair progress resets.",
             "Repair status",
             MessageBoxButton.OK,
@@ -20308,7 +20894,7 @@ public partial class TableWindow : Window
 
         StatusText.Text =
             $"PERSONNEL BATTLE: Force ({myForceBorders.Count}) – " +
-            "Host mit Gegner-Personal anklicken. Rechtsklick = Abbruch.";
+            "Click host with opposing personnel. Right-click = cancel.";
     }
 
     private bool CompletePersonnelAttack(Border targetHost)
@@ -20380,9 +20966,14 @@ public partial class TableWindow : Window
         return true;
     }
 
-    private void DiscardPersonnelBorder(Border border, Card card, int owner, bool allowGenetronicSave = true)
+    private void DiscardPersonnelBorder(
+        Border border,
+        Card card,
+        int owner,
+        bool allowGenetronicSave = true,
+        IEnumerable<Card>? alsoTargetedToDie = null)
     {
-        if (allowGenetronicSave && TryGenetronicSave(border, card, owner))
+        if (allowGenetronicSave && TryGenetronicSave(border, card, owner, alsoTargetedToDie))
             return;
 
         Border? returnHost = null;
@@ -20436,7 +21027,7 @@ public partial class TableWindow : Window
         var source = _actionSourceHost!;
         if (!_stackOnHost.TryGetValue(source, out var list) || list.Count == 0)
         {
-            ShowPlayError("Keine Crew mehr auf der Quelle.");
+            ShowPlayError("No crew left on the source host.");
             ClearCardActionUi();
             return true;
         }
@@ -20511,7 +21102,7 @@ public partial class TableWindow : Window
             }
         }
 
-        TryCureAbductionsPresent();
+        TryCureAttachedDilemmas(targetHost);
 
         UpdateHostBadge(source);
         UpdateHostBadge(targetHost);
@@ -20973,12 +21564,12 @@ public partial class TableWindow : Window
             {
                 SeedSubPhase.Mission => "Mission",
                 SeedSubPhase.Dilemma => "Dilemma/Art",
-                SeedSubPhase.Facility => "Facility/Schiff/…",
+                SeedSubPhase.Facility => "Facility/Ship/…",
                 _ => "Seed"
             };
             StatusText.Text =
                 $"SEED alternating → Player {_activePlayer} ({phaseName}) " +
-                $"– noch {otherCount} bei ihm, {CountSeedFor(_seedSubPhase, _activePlayer == 1 ? 2 : 1)} beim anderen.";
+                $"– {otherCount} remaining for them, {CountSeedFor(_seedSubPhase, _activePlayer == 1 ? 2 : 1)} for other player.";
         }
         else if (selfCount == 0)
         {
@@ -21533,7 +22124,7 @@ public partial class TableWindow : Window
             {
                 if (b.Tag is not Card pc) continue;
                 if (!ModifierRules.IsPersonnelCard(pc)) continue;
-                if (IsCardLeaveBlocked(pc) || IsBorderStopped(b))
+                if (IsCardLeaveBlocked(pc) || IsBorderStopped(b) || IsCardDisabled(pc))
                     negPersonnel.Add((b, pc));
             }
         }
@@ -21554,12 +22145,13 @@ public partial class TableWindow : Window
                 if (!shown.Add(ad.Card)) continue;
                 AddStackMini(ad.Card, ad.Countdown > 0 ? $"Dilemma — countdown {ad.Countdown}" : "Dilemma");
             }
-            // Group Stopped / Quarantined / Stasis (one header per effect-set, no per-card label).
+            // Group Stopped / Quarantined / Stasis / Disabled (one header per effect-set, no per-card label).
             var negGroups = negPersonnel
                 .Where(row => shown.Add(row.c))
-                .GroupBy(row => IsCardQuarantined(row.c) ? "Quarantined"
+                .GroupBy(row => IsCardDisabled(row.c) ? "Disabled"
+                    : IsCardQuarantined(row.c) ? "Quarantined"
                     : IsCardInStasis(row.c) ? "Stasis" : "Stopped")
-                .OrderByDescending(g => g.Key == "Quarantined" ? 3 : g.Key == "Stasis" ? 2 : 1)
+                .OrderByDescending(g => g.Key == "Disabled" ? 4 : g.Key == "Quarantined" ? 3 : g.Key == "Stasis" ? 2 : 1)
                 .ThenBy(g => g.Key);
             foreach (var g in negGroups)
             {
@@ -21903,5 +22495,14 @@ public partial class TableWindow : Window
         EndHoldZoom();
         CloseZoomView();
         e.Handled = true;
+    }
+
+    private void ZoomOverlay_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_holdZoomActive)
+        {
+            EndHoldZoom();
+            e.Handled = true;
+        }
     }
 }

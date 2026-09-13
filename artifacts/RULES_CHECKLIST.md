@@ -132,11 +132,11 @@ Report an Schiffe (nicht nur Special) noch ❌.
 | 7.1.8 | Time travel | ➖ | |
 | 7.2 | Attempt a mission | 🟡 | Pipeline vorhanden |
 | 7.2.1 | Beginning an attempt | 🟡 | |
-| 7.2.2 | Encountering dilemmas | 🟡 | Katalog ersetzt Heuristik |
+| 7.2.2 | Encountering dilemmas | 🟡 | Katalog ersetzt Heuristik; 7.2.2.3 Zentrales Cure-System (`DilemmaCureRules`, Bedingungen zuerst, dann Cure auf Attachment/Refresh/Solve); Curable Dilemmas ohne Condition stoppen Team nicht (AttachContinue); Pepsch green: Archer, Alien Abduction, Phased Matter (2026-09-13) |
 | 7.2.3 | Other seeds (artifacts) | ✅ | face-up mid-attempt, acquire on solve |
 | 7.2.4 | Mis-seeds | 🟡 | entfernt / unten zuerst |
 | 7.2.5 | Solving the mission | 🟡 | OR + xN; Espionage [As] für Besitzer; Punkte; einige Bonus-Boxen |
-| 7.2.6 | Mission failure | 🟡 | Team stopped |
+| 7.2.6 | Mission failure | 🟡 | Team stopped nur bei gescheiterter Bedingung ("unless", "to get past") oder explizitem Stop; Cure-Fehlschlag stoppt Team nicht (7.2.2.3) |
 | 7.3 | Borg objectives | ➖ | |
 | 7.3.1 | In general | ➖ | |
 | 7.3.2 | Scouting | ➖ | |

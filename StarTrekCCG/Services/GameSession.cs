@@ -118,7 +118,7 @@ public sealed class GameSession
         UntilEndOfTurn.Clear();
         Expiring.Clear();
         ResetTurnFlags();
-        Log.Add(0, "System", "Seed-Phase gestartet");
+        Log.Add(0, "System", "Seed phase started");
     }
 
     public void StartPlayFromSeed()
@@ -128,7 +128,7 @@ public sealed class GameSession
         TurnNumber = 1;
         Segment = TurnSegment.Play;
         ResetTurnFlags();
-        Log.Add(1, "System", "Seed beendet – Zug 1 S1: optional normal card play, dann Execute");
+        Log.Add(1, "System", "Seed complete – Turn 1 P1: optional normal card play, then Execute");
     }
 
     private void ResetTurnFlags()
@@ -150,15 +150,15 @@ public sealed class GameSession
                 if (!NormalCardPlayUsed)
                 {
                     NormalCardPlayForfeited = true;
-                    Log.Add(TurnNumber, $"S{ActivePlayer}",
-                        "Normal card play verfallen (Execute begonnen)");
+                    Log.Add(TurnNumber, $"P{ActivePlayer}",
+                        "Normal card play forfeited (Execute started)");
                 }
                 Segment = TurnSegment.Execute;
-                Log.Add(TurnNumber, $"S{ActivePlayer}", "Segment → Execute (Orders)");
+                Log.Add(TurnNumber, $"P{ActivePlayer}", "Segment → Execute (Orders)");
                 break;
             case TurnSegment.Execute:
                 Segment = TurnSegment.Draw;
-                Log.Add(TurnNumber, $"S{ActivePlayer}", "Segment → Draw (Zugende)");
+                Log.Add(TurnNumber, $"P{ActivePlayer}", "Segment → Draw (Turn end)");
                 break;
             case TurnSegment.Draw:
                 EndTurn();
@@ -170,7 +170,7 @@ public sealed class GameSession
     {
         if (Match != MatchPhase.Play) return;
 
-        Log.Add(TurnNumber, $"S{ActivePlayer}", "Zug beendet");
+        Log.Add(TurnNumber, $"P{ActivePlayer}", "Turn ended");
 
         if (ActivePlayer == 1)
             ActivePlayer = 2;
@@ -185,19 +185,19 @@ public sealed class GameSession
         OncePerTurn.Clear();
         // Until-EOT bag is drained in ProcessUntilEndOfTurnBag for the finishing player only.
         // Do not clear Expiring / UntilEndOfTurn here — other player's effects must survive.
-        Log.Add(TurnNumber, $"S{ActivePlayer}", "Zugbeginn – Play (optional 1 Karte aus der Hand)");
+        Log.Add(TurnNumber, $"P{ActivePlayer}", "Turn start – Play (optional 1 card from hand)");
     }
 
     public void MarkDrawn()
     {
         HasDrawnThisTurn = true;
-        Log.Add(TurnNumber, $"S{ActivePlayer}", "Karte gezogen");
+        Log.Add(TurnNumber, $"P{ActivePlayer}", "Card drawn");
     }
 
     public void MarkNormalCardPlay(string cardName)
     {
         NormalCardPlayUsed = true;
-        Log.Add(TurnNumber, $"S{ActivePlayer}", $"Normal card play: {cardName}");
+        Log.Add(TurnNumber, $"P{ActivePlayer}", $"Normal card play: {cardName}");
     }
 
     /// <summary>Used by save/load — does not write a log line.</summary>
@@ -226,19 +226,19 @@ public sealed class GameSession
     public string StatusLine()
     {
         if (Match == MatchPhase.Seed)
-            return "Seed-Phase";
+            return "Seed Phase";
         if (Match != MatchPhase.Play)
             return "–";
 
         string extra = Segment == TurnSegment.Play
             ? (NormalCardPlayUsed
                 ? " · Card Play ✓"
-                : " · 1× Card Play möglich")
+                : " · 1× Card Play available")
             : Segment == TurnSegment.Execute
-                ? (NormalCardPlayUsed ? "" : " · Card Play verfallen")
+                ? (NormalCardPlayUsed ? "" : " · Card Play forfeited")
                 : "";
 
-        return $"Zug {TurnNumber} · S{ActivePlayer} · {SegmentLabel()}{extra}";
+        return $"Turn {TurnNumber} · P{ActivePlayer} · {SegmentLabel()}{extra}";
     }
 
     /// <summary>

@@ -91,7 +91,7 @@ public partial class DeckBuilderWindow : Window
     private string CurrentTypeKey()
     {
         string? t = TypeFilter.SelectedItem as string;
-        if (string.IsNullOrWhiteSpace(t) || t.StartsWith("(All") || t.StartsWith("(Alle"))
+        if (string.IsNullOrWhiteSpace(t) || t.StartsWith("(All"))
             return "";
         return t.ToLowerInvariant();
     }
@@ -276,7 +276,7 @@ public partial class DeckBuilderWindow : Window
                 (c.Text?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false));
         }
 
-        if (!string.IsNullOrEmpty(selectedType) && selectedType != "(All types)" && selectedType != "(Alle Typen)")
+        if (!string.IsNullOrEmpty(selectedType) && selectedType != "(All types)")
             result = result.Where(c => string.Equals(c.Type, selectedType, StringComparison.OrdinalIgnoreCase));
 
         var selectedSets = GetSelectedSetKeys();
@@ -292,15 +292,14 @@ public partial class DeckBuilderWindow : Window
             || typeKey.Contains("site");
         if (typeUsesAffiliation
             && !string.IsNullOrEmpty(selectedAffil)
-            && !selectedAffil.StartsWith("(All", StringComparison.OrdinalIgnoreCase)
-            && !selectedAffil.StartsWith("(Alle", StringComparison.OrdinalIgnoreCase))
+            && !selectedAffil.StartsWith("(All", StringComparison.OrdinalIgnoreCase))
         {
             // Only cards that actually match the affiliation family (Affiliation / Icons / lore).
             // Do not keep empty-affiliation types here — they hide Neutral personnel in "All types".
             result = result.Where(c => AffilFamily.MatchesCard(c, selectedAffil));
         }
 
-        if (!string.IsNullOrEmpty(selectedQuadrant) && !selectedQuadrant.StartsWith("(All") && !selectedQuadrant.StartsWith("(Alle"))
+        if (!string.IsNullOrEmpty(selectedQuadrant) && !selectedQuadrant.StartsWith("(All"))
         {
             result = result.Where(c =>
                 string.Equals(NormalizeQuadrant(c.Quadrant), selectedQuadrant, StringComparison.OrdinalIgnoreCase));
@@ -470,7 +469,7 @@ public partial class DeckBuilderWindow : Window
         if (GametextLabel != null) GametextLabel.Visibility = Visibility.Visible;
         CardTypeText.Text = $"{card.Type}" + (string.IsNullOrEmpty(card.Affiliation) ? "" : $"  •  {card.Affiliation}");
         CardSetText.Text = ExpansionCatalog.FilterLabel(card.SetFolder);
-        CardTextBlock.Text = string.IsNullOrWhiteSpace(card.Text) ? "(kein Text)" : card.Text;
+        CardTextBlock.Text = string.IsNullOrWhiteSpace(card.Text) ? "(no text)" : card.Text;
 
         string type = (card.Type ?? "").ToLowerInvariant();
         var attrParts = new List<string>();
@@ -830,7 +829,7 @@ public partial class DeckBuilderWindow : Window
         if (_currentDeck.SideLegacyCount > 0)
         {
             SideLegacyTab.Visibility = Visibility.Visible;
-            SideLegacyTab.Header = $"Side alt ({_currentDeck.SideLegacyCount})";
+            SideLegacyTab.Header = $"Side legacy ({_currentDeck.SideLegacyCount})";
         }
         else
         {
@@ -842,7 +841,7 @@ public partial class DeckBuilderWindow : Window
             $"Q's Tent {_currentDeck.QsTentCount}  •  BB {_currentDeck.BattleBridgeCount}  •  " +
             $"Q-C {_currentDeck.QContinuumCount}  •  Sites {_currentDeck.SitePileCount}  •  " +
             $"Tribble {_currentDeck.TribbleCount}" +
-            (_currentDeck.SideLegacyCount > 0 ? $"  •  alt {_currentDeck.SideLegacyCount}" : "");
+            (_currentDeck.SideLegacyCount > 0 ? $"  •  legacy {_currentDeck.SideLegacyCount}" : "");
 
         DeckNameBox.Text = _currentDeck.Name;
     }

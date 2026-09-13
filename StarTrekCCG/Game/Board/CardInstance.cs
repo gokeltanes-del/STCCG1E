@@ -23,12 +23,27 @@ public abstract class CardInstance
     /// <summary>E3: stopped until start of next turn. UI <c>_stoppedBorders</c> mirrors this.</summary>
     public bool Stopped { get; set; }
 
+    /// <summary>True if leave/beam is blocked (e.g. Quarantine or Stasis).</summary>
+    public virtual bool IsLeaveBlocked => false;
+
     public override string ToString() => DebugLog.Card(Printed);
 }
 
 public sealed class PersonnelInstance : CardInstance
 {
     public PersonnelInstance(Card printed) : base(printed) { }
+
+    /// <summary>Personnel is quarantined (e.g. Hyper-Aging). Cannot leave/beam away.</summary>
+    public bool Quarantined { get; set; }
+
+    /// <summary>Personnel is in stasis (e.g. Phased Matter, Alien Abduction). Cannot leave or act.</summary>
+    public bool InStasis { get; set; }
+
+    /// <summary>Personnel is disabled (e.g. Ktarian Game). Cannot act or use skills/attributes.</summary>
+    public bool Disabled { get; set; }
+
+    /// <summary>True if leave/beam is blocked (Quarantine, Stasis, or Disabled).</summary>
+    public override bool IsLeaveBlocked => Quarantined || InStasis || Disabled;
 }
 
 public sealed class ShipInstance : CardInstance

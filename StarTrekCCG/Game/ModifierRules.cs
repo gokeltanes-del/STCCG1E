@@ -381,7 +381,7 @@ public static class ModifierRules
     {
         var lines = new List<string>
         {
-            $"S{owner} Team — {t.PersonnelCount} Pers · {t.EquipmentCount} Eq"
+            $"P{owner} Team — {t.PersonnelCount} Pers · {t.EquipmentCount} Eq"
         };
 
         string Attr(string name, int bas, int eff) =>

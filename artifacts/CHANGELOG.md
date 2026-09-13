@@ -4,6 +4,136 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-13 (Fix - Save/Load Game State & Ship Hull Damage Persistence)
+
+**Engine & Save/Load (`TableWindow.xaml.cs`)**:
+- **Problem**: Bei Spielständen, in denen Schiffe unbeschädigt waren, konnte alter Rumpfschaden (`HullPercent`) aus `BoardStore.Current` oder früheren Spielzuständen fortbestehen und nach dem Laden fälschlicherweise Badges (z. B. 50% DMG) sowie Schadenswerte anzeigen.
+- **Lösung**:
+  - `BoardStore.Current.Clear()` wird am Anfang von `ApplyGameSave` ausgeführt, um alle veralteten Instanzen vor dem Neuaufbau zu verwerfen.
+  - Explizites Zurücksetzen für unbeschädigte Schiffe (`snap.Hull <= 0`): `SetHullDamagePercent(border, 0)` und `UpdateDamageBadge(border, 0)`.
+  - `SyncBoardFromTable(logDual: false)` wird am Ende von `ApplyGameSave` aufgerufen, um den `BoardStore` exakt mit dem rekonstruierten Spielstand zu synchronisieren.
+  - In `SaveGame`: `Hull` und `RangeLeft` erfassen über `GetHullDamage(b)` und `GetRemainingRange(b, card)` direkt die verbindlichen Instanz-Werte der Schiffe.
+
+---
+
+## 2026-09-13 (Fix & Rule Implementation - Ktarian Game Dilemma Disabling & Cure)
+
+**Engine & Rules (DilemmaRules, TableWindow, BoardStore, CardInstance & Models)**:
+- **Glossary & Kartentext-Konformität (Ktarian Game)**:
+  - Kartentext: *"Place on ship. Now and start of each turn, one personnel aboard (random selection) is disabled. Cure with CUNNING>30 OR any android."*
+  - Bisheriger Bug: Die Start-of-Turn-Logik verwendete fälschlicherweise `MarkStopped`, welches durch den regulären Rundenwechsel (`UnstopAllCards`) direkt zu Beginn der Runde wieder aufgehoben wurde. Zudem fehlte das initiale Deaktivieren einer Person beim Encounter ("Now") sowie ein echter "Disabled"-Zustand.
+  - Implementierung von echtem permanentem `Disabled`-Status:
+    - `Card.cs`: `Disabled`-Flag und Einbeziehung in `IsLeaveBlocked`.
+    - `CardInstance.cs`: `PersonnelInstance.Disabled` und `override bool IsLeaveBlocked => Quarantined || InStasis || Disabled;`.
+    - `MovementRules.cs`: Deaktiviertes oder in Stasis befindliches Personal zählt nicht mehr zu Staffing-Requirements (`IsShipStaffed`).
+    - `TableWindow.xaml.cs`:
+      - Neues `ApplyDisabledVisual` mit amber-orange Glow/Border und reduzierter Opazität.
+      - `ApplyKtarianDisable`: Wählt beim Encounter ("Now") und zu jedem Rundenbeginn ("Start of Turn") eine zufällige, noch nicht deaktivierte Person an Bord des Wirtsschiffs aus, markiert sie als `Disabled` und trägt sie in `attached.Held` ein.
+      - `ProcessStartOfTurnDilemmas`: Prüft zuerst die Heilung mit un-deaktiviertem Personal (CUNNING>30 oder Android). Falls nicht geheilt, wird eine weitere Person deaktiviert.
+      - `ClearStasisForDilemma`: Hebt beim Heilen von `Ktarian Game` den `Disabled`-Status aller betroffenen Personen auf, stellt die Visuals wieder her und leert `Held`.
+      - Mission-Versuche und Beamen: Deaktiviertes Personal ist vom Beamen ausgeschlossen und zählt nicht bei Missionsversuchen/Skills.
+      - UI Details & Gruppen: Deaktivierte Personen werden in der Detailansicht mit amber Status und unter der "Disabled"-Negativgruppe aufgeführt.
+      - Save/Load (`GameSave.cs`): `AttachedDilemmaSnap.HeldIds` speichert die betroffenen Karten-IDs, sodass der `Disabled`-Zustand auch nach Speichern und Laden exakt erhalten bleibt.
+  - Unit-Tests:
+    - `DilemmaRules.VerifyKtarianGame`: Erweiterte Tests bezüglich CUNNING>30, Android, Nicht-Zählen von Held/Disabled-Personal bei Cure-Checks und `IsLeaveBlocked`-Verhalten.
+    - `DilemmaCureRules.VerifyDilemmaCureRules`: Zusätzliche Tests für Ktarian Game Heilung mit CUNNING>30, Android und Fehlschlag bei CUNNING<=30.
+
+---
+
+## 2026-09-13 (Fix & Rule Implementation - Portal Guard & Quarantine Interaction)
+
+**Engine & Rules (DilemmaRules, TableWindow, BoardStore & Models)**:
+- **Glossary & Kartentext-Konformität (Portal Guard & Hyper-Aging Quarantäne)**:
+  - Kartentext: *"Unless one Away Team member has CUNNING>7 or Honor, immediately beam entire Away Team off planet surface OR kills entire Away Team."*
+  - DRG: Wenn die Bedingung nicht erfüllt ist, muss das gesamte Away Team sofort vom Planeten gebeamt werden. Ist das Beamen erfolgreich, wird das Away Team gestoppt und das Dilemma verbleibt unter der Mission (`WallFailed`). Kann jedoch auch nur ein einziges Mitglied des Away Teams nicht beamen (z. B. wegen Quarantäne durch Hyper-Aging oder Stasis) oder existiert kein Schiff oder Facility vor Ort zum Hinbeamen, wird das **gesamte Away Team getötet**!
+- **Zentrale Kapselung von Quarantäne & Stasis**:
+  - `Card.cs`: Laufzeit-Properties `Quarantined`, `InStasis` und `IsLeaveBlocked`.
+  - `CardInstance.cs`: `PersonnelInstance` besitzt `Quarantined`, `InStasis` und `override bool IsLeaveBlocked => Quarantined || InStasis;`.
+  - `Force.cs` (Away Team / Crew): `IsQuarantined`, `IsLeaveBlocked` und `CanBeamAway`.
+  - Synchronisation im `BoardStore` bei `ApplyUiStatusToStore` sowie beim Beitritt oder Anheften von Quarantäne-Dilemmas.
+- **Dilemma-Regeln & Beam-Verdrahtung**:
+  - `DilemmaRules.Ctx`: Übermittlung von `CanBeamOffPlanet` (prüft, ob das Team auf einem Planeten steht, kein Mitglied blockiert ist und ein eigenes Schiff bzw. eine Facility am Ort existiert).
+  - `DilemmaRules.DecidePortalGuard`: Berücksichtigt `canBeamOffPlanet`. Führt bei unerfülltem Filter und blockiertem Beamen zu `KillTeam = true` (alle Team-Mitglieder in `r.Kill`) und `BeamBackTeam = false`.
+  - `TableWindow.BeamBackAwayTeamToShipOrOutpost`: Verhindert das Beamen, sobald auch nur ein Team-Mitglied `IsCardLeaveBlocked` ist, und liefert einen booleschen Status zurück. Scheitert das Beamen bei Portal Guard, greift der Fallback und das gesamte Team wird verworfen (unter Berücksichtigung von Genetronic Replicator).
+  - `VerifyPortalGuard`: Ausführlicher Unit-Test mit Pass-, Fail-mit-Beam- und Fail-ohne-Beam-(Quarantäne/No-Dest)-Szenarien.
+
+---
+
+## 2026-09-13 (Fix - Genetronic Replicator Event & Target Exclusion Rules)
+
+**Engine & Rules (EventRules & TableWindow)**:
+- **Glossary & Kartentext-Konformität**: "When a personnel is targeted to die, you may stop 2 MEDICAL present (who are not also targeted to die) to return that personnel to hand instead."
+  - Das zu rettende Personal (Victim) und sämtliche weitere gleichzeitig zum Tod ausgewählte Personen (`alsoTargetedToDie`) dürfen nicht für die 2 geforderten MEDICAL-Punkte gezählt oder gestoppt werden (z. B. wenn Beverly Crusher mit 2 MEDICAL getötet wird, kann sie sich nicht selbst retten, sofern nicht mindestens 2 weitere ungestoppte MEDICAL-Fertigkeiten anwesend sind).
+  - Bereits gestoppte (`IsBorderStopped`) oder in Stasis befindliche (`IsCardInStasis`) Personen können nicht zum Zahlen der Rettungskosten gestoppt werden.
+  - Nur eigenes, ungestopptes Personal am selben Host mit MEDICAL-Fähigkeiten ist qualifiziert.
+- **Interaktive Auswahl**:
+  - Sind mehr als 2 MEDICAL-Fähigkeiten anwesend, kann der Spieler über `PickBorderFromList` interaktiv wählen, welche medizinischen Fachkräfte gestoppt werden sollen.
+  - Automatisches Stoppen, wenn die verfügbaren Kandidaten genau den Anforderungen entsprechen.
+- **Regel-Zentralisierung in `EventRules.cs`**:
+  - `GetPersonnelMedicalSkill`: Ermittelt effektive MEDICAL-Stufe (inklusive Ausrüstung wie Medical Kit).
+  - `IsEligibleForGenetronicStop`: Validiert Berechtigung einzelner Karten unter Ausschluss von Opfern und gestopptem Personal.
+  - `GetAvailableGenetronicMedical` & `CanGenetronicSave`: Pure Decide-Logik.
+  - `VerifyGenetronicReplicator`: Vollständiger Regel-Unit-Test (Selbstrettungs-Ausschluss von Beverly Crusher, Ausschluss von gleichzeitig Getöteten, gestopptes Personal ignoriert, Fremdrettung mit Crusher/Toby Russell).
+- **TableWindow Verdrahtung**:
+  - `DiscardPersonnelBorder` akzeptiert jetzt `alsoTargetedToDie`.
+  - Weitergabe von `alsoTargetedToDie` bei Dilemma-Kills (`ApplyDilemmaResult`, Crystalline Entity), Personnel Battles (`CompletePersonnelAttack`, Rogue Borg Battles), Artifact Kills (`Stone of Gol`) und EOT Countdown-Kills (`Hyper-Aging Quarantine`).
+  - Korrekte Board-Bereinigung (`_stackOnHost`, `_stoppedBorders`, `BoardStore`), Ablage auf die Hand und Aktualisierung der Zonen-/Host-Badges.
+
+---
+
+## 2026-09-13 (UI & Localization - Remove Duplicate 'Artifact verdient' & Full English Translation)
+
+**UI & Cleanup**:
+- **Artifact Acquire Reveal Cleanup**: Entfernen des redundanten "Artifact verdient" `ShowCardReveal`-Overlays beim Lösen einer Mission (`ApplyArtifactAcquire`). Es verbleibt ausschließlich die konsistente englische Einzelkarten-Meldung "Artifact acquired" in `ResolveMissionSolve`.
+- **Vollständige Lokalisierung auf Englisch**:
+  - `TableWindow.xaml` & `TableWindow.xaml.cs`: Sämtliche verbliebenen deutschen Texte, Tooltips, Statusmeldungen, Aktionshinweise, Fehlermeldungen und Dialoge auf Englisch übersetzt (z. B. Response-Badges, Think-Tray-Titel und Hinweise, Seed-Phasenmeldungen, Action-Stack-Status, Scan-Reveals).
+  - `DeckBuilderWindow.xaml` & `DeckBuilderWindow.xaml.cs`: Lokalisierung aller Filter, Tab-Header ("Side legacy"), Tooltips und Meldungen auf Englisch.
+  - Game Rules (`DilemmaRules`, `InterruptRules`, `MovementRules`, `PlayRules`, `ReportingRules`, `SeedRules`, `TimingRules`, `ModifierRules`, `BattleRules`, `MissionRules`, `TreatyRules`): Übersetzung aller internen und spielerseitigen Fehlermeldungen, Check-Ergebnisse, Action-Stack-Zusammenfassungen und Prompt-Texte (z. B. "Which equipment?").
+  - Services & Models (`GameSession`, `DeckService`, `CardDatabase`, `ExpansionCatalog`): Übersetzung der Zugprotokolle (P1/P2 statt S1/S2), Phasenlabels, Datei-Ausnahmemeldungen und Katalog-Fallbacks.
+
+---
+
+## 2026-09-13 (Fix & Rule Refactor - Curable Dilemmas & Team Stop Prevention 7.2.2.3 / 7.2.6)
+
+**Engine & Rules** - Trennung von Bedingung (Condition) und Heilung (Cure) & Stopp-Verhalten:
+- **Allgemeine Regel (Compendium 7.2.2.2, 7.2.2.3, 7.2.6 & Glossary)**:
+  - Ein Away Team / eine Crew wird durch ein Dilemma nur dann gestoppt, wenn eine Zugangsbedingung ("unless", "to get past", "cannot get past") fehlschlägt, der Kartentext dies explizit befiehlt ("Away Team is stopped"), oder niemand mehr übrig ist.
+  - Eine Heilungsanforderung ("Cure with...") ist ausdrücklich **keine** Zugangsbedingung. Weder das Heilen noch das Nicht-Heilen einer heilbaren Dilemma-Wirkung ohne Vorbedingung führt zum Abbruch der Mission oder zum Stoppen des restlichen Teams ("Failing to immediately meet a cure requirement does not cause mission failure").
+- **Alien Abduction (PR 10 U)**:
+  - Bei Begegnung: Ziel mit höchstem CUNNING wird in Stasis gesetzt (kann eigene Fähigkeiten nicht zur Heilung beitragen).
+  - Wenn verbleibendes Away Team 3x Leadership hat: Sofort geheilt (`Fate.Overcome, StopTeam = false`), Dilemma abgeworfen, Versuch läuft mit vollem Team weiter.
+  - Wenn verbleibendes Away Team keine 3x Leadership hat: Dilemma wird an die Mission angehängt (`Fate.AttachAndContinue, StopTeam = false`), Opfer bleibt in Stasis. Das restliche ungestoppte Team setzt den Missionsversuch nahtlos fort!
+  - Bei Befreiung (Mission gelöst oder spätere Heilung): `ClearStasisForDilemma` ruft `UnstopBorder` auf, sodass die Person vollständig ungestoppt wieder zum Team stößt.
+- **Konsistente Anwendung auf weitere Curable Dilemmas**:
+  - `Two-Dimensional Creatures`: Verwendet nun `AttachContinue` (`StopTeam = false`). Schiff kann sich nicht bewegen, aber Crew ist nicht gestoppt und Missionsversuch läuft weiter.
+  - `Tsiolkovsky Infection`: Verwendet nun `AttachContinue` (`StopTeam = false`). Personal verliert erste Fertigkeit, ist aber nicht gestoppt und Versuch läuft weiter.
+  - `Frame of Mind`: Verwendet nun `AttachContinue` (`StopTeam = false`) mit Sofort-Heilung bei 3 Empathy im verbleibenden Team.
+  - `Quantum Singularity Lifeforms` & `Rascals`: Auf `AttachContinue` umgestellt.
+  - `TryCureAttachedDilemmas` & `ProcessEndOfTurnDilemmas`: Schließen bei `a.Held.Count > 0` alle in Stasis gehaltenen Karten für Heilungs-Checks aus (Opfer können sich nicht selbst heilen).
+- **Automatisierte Regeltests**:
+  - Neue Verifikationsmethoden: `VerifyAlienAbduction()`, `VerifyTwoDimensionalCreatures()`, `VerifyTsiolkovskyInfection()` in `DilemmaRules.cs`.
+  - Erweiterung von `VerifyDilemmaCureRules()` in `DilemmaCureRules.cs` um Blockade von Selbstheilung aus der Stasis und Heilungstests für TwoDim und Tsiolkovsky.
+
+---
+
+## 2026-09-13 (Retest Green - Archer, Alien Abduction, Phased Matter)
+
+**Retest (Pepsch green):**
+- **Archer (PR 14 C)**: Auswertung der höchsten Gesamtattribute, Tie-Break-Wahl durch den Gegner und Stop-Verhalten bei Nichterfüllung verifiziert und bestätigt.
+- **Alien Abduction (PR 10 U)**: Stasis-Handling und zentrales Cure-System (7.2.2.3) via 3 Leadership präsent oder Mission Completed verifiziert und bestätigt.
+- **Phased Matter (PR 42 C)**: Aufteilung des Away Teams, Stasis/Phasing der größeren Gruppe, Fortführung der kleineren Gruppe und Entphasen/Heilen durch unphased ENGINEER + SCIENCE am Ort bestätigt.
+
+---
+
+## 2026-09-12 (Feat - Centralized Dilemma Cure System according to Rulebook 7.2.2.3)
+
+**Engine** - Dilemma Cure System (Compendium 7.2.2.3):
+- **Decide in Rules (`DilemmaCureRules`)**: Reine Regel-Engine für Dilemma-Heilung (`DecideCure` / `CanCure` / `VerifyDilemmaCureRules`). Trennung von Bedingung und Heilung: Zuerst werden die Bedingungen des Dilemmas ausgewertet/angehängt, danach wird der Cure-Check durchgeführt (anwendbar auf Alien Abduction, Menthar Booby Trap, Hyper-Aging, REM Fatigue, Nitrium Metal Parasites, Tsiolkovsky Infection, Two-Dimensional Creatures, Ktarian Game, Birth of "Junior", Frame of Mind).
+- **Zentraler Apply in `TableWindow`**: `TryCureAbductionsPresent` und fragmentierte Cure-Prüfungen wurden durch die zentrale Routine `TryCureAttachedDilemmas` ersetzt. Aufgerufen direkt nach Attachment in `ApplyDilemmaResult`, beim Lösen einer Mission in `ApplyMissionSolved` (für Heilen durch Mission Completed), sowie bei Crew-Änderungen (`AddCardToHostStack`, `BeamCardsToHostStack`) und Unstop zu Zugbeginn.
+- **Dilemma-Resolution Angleichung**: `DilemmaRules` für Menthar, Tsiolkovsky, Two-Dimensional Creatures und REM Fatigue nutzen `DilemmaCureRules.CanCure` konsistent.
+
+---
+
 ## 2026-09-12 (Feat - Silent Response Window & Think Tray UX)
 
 **UX / Hotseat Rules** - Response Window Umbau:

@@ -101,27 +101,27 @@ public static class BattleRules
         bool counterAttack = false)
     {
         if (isStopped)
-            return new AttackCheck(false, "Schiff ist gestoppt und kann nicht angreifen.");
+            return new AttackCheck(false, "Ship is stopped and cannot attack.");
 
         if (hullDamagePercent >= 100)
-            return new AttackCheck(false, "Schiff ist zerstört.");
+            return new AttackCheck(false, "Ship is destroyed.");
 
         if (attackerOwner == targetOwner)
-            return new AttackCheck(false, "Nur gegnerische Karten angreifen.");
+            return new AttackCheck(false, "May only attack opposing cards.");
 
         if (!IsShipOrFacility(attackerShip))
-            return new AttackCheck(false, "Nur Schiffe/Facilities können Ship Battle initiieren.");
+            return new AttackCheck(false, "Only ships/facilities can initiate ship battle.");
 
         if (!IsShipOrFacility(target))
-            return new AttackCheck(false, "Ziel muss Schiff oder Facility sein.");
+            return new AttackCheck(false, "Target must be a ship or facility.");
 
         int weapons = GetWeapons(attackerShip);
         if (weapons <= 0)
-            return new AttackCheck(false, $"„{attackerShip.Name}“ hat keine WEAPONS.");
+            return new AttackCheck(false, $"\"{attackerShip.Name}\" has no WEAPONS.");
 
         var crew = crewOnBoard?.ToList() ?? new List<Card>();
         if (!counterAttack && !HasLeader(crew) && !loreStaffed)
-            return new AttackCheck(false, "Kein Leader an Bord (OFFICER oder Leadership nötig).");
+            return new AttackCheck(false, "No leader aboard (OFFICER or Leadership required).");
 
         // G1 / Spock: Matching Affiliation HARD for initiate (Leader+WEAPONS alone not enough).
         // Full staffing icons (Cmd/Stf) NOT required for Open Fire. Treaty/NA != Match (G2).
@@ -139,7 +139,7 @@ public static class BattleRules
                 return affCheck;
         }
 
-        return new AttackCheck(true, counterAttack ? "Counter-Attack erlaubt." : "Angriff erlaubt.");
+        return new AttackCheck(true, counterAttack ? "Counter-Attack allowed." : "Attack allowed.");
     }
 
     /// <summary>
@@ -169,7 +169,7 @@ public static class BattleRules
                 "Cannot return fire: no matching-affiliation personnel aboard (Treaty/NA does not count as Match). Matching required; Leader not required for RF.");
         }
 
-        return new AttackCheck(true, "Return Fire erlaubt.");
+        return new AttackCheck(true, "Return Fire allowed.");
     }
 
     public static bool IsShipOrFacility(Card c)
@@ -255,7 +255,7 @@ public static class BattleRules
         if (sameAff && !unrestricted)
         {
             return new AttackCheck(false,
-                "Affiliation-Restriktion: Angriff gegen eigene Affiliation nicht erlaubt.");
+                "Affiliation restriction: attacking your own affiliation is not permitted.");
         }
 
         return new AttackCheck(true, "Affiliation ok.");
@@ -309,7 +309,7 @@ public static class BattleRules
     public static DamageOutcome ApplyRotationDamage(int currentHullDamagePercent, FireResult fire)
     {
         if (fire == FireResult.Miss)
-            return new DamageOutcome(currentHullDamagePercent, currentHullDamagePercent, false, false, "Kein Schaden.");
+            return new DamageOutcome(currentHullDamagePercent, currentHullDamagePercent, false, false, "No damage.");
 
         int add = fire == FireResult.DirectHit ? 100 : 50;
         int before = Math.Clamp(currentHullDamagePercent, 0, 100);
@@ -318,7 +318,7 @@ public static class BattleRules
         bool newly = after > before;
 
         string desc = destroyed
-            ? $"Rotation Damage: HULL {before}% → 100% – ZERSTÖRT."
+            ? $"Rotation Damage: HULL {before}% → 100% – DESTROYED."
             : $"Rotation Damage: HULL {before}% → {after}% " +
               $"(Cloak offline, RANGE max 5).";
 
@@ -334,10 +334,10 @@ public static class BattleRules
         int defenderHullTakenThisBattle)
     {
         if (attackerHullTakenThisBattle < defenderHullTakenThisBattle)
-            return "Angreifer";
+            return "Attacker";
         if (defenderHullTakenThisBattle < attackerHullTakenThisBattle)
-            return "Verteidiger";
-        return "Unentschieden";
+            return "Defender";
+        return "Tie";
     }
 
     // ========== Personnel / Away Team Battle (7.4.2) ==========
@@ -421,7 +421,7 @@ public static class BattleRules
         if (!aff.Ok)
             return aff;
 
-        return new AttackCheck(true, "Personnel Battle erlaubt.");
+        return new AttackCheck(true, "Personnel battle allowed.");
     }
 
     /// <summary>

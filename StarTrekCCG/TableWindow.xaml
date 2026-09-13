@@ -92,9 +92,9 @@
                 <TextBlock Grid.Column="0" x:Name="ScoreText" Text="P1: 0  ·  P2: 0" Foreground="#B5CEA8" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,14,0"/>
                 <Border Grid.Column="1" x:Name="ActivePlayerBanner" Background="#2A3A4A" CornerRadius="4" Padding="14,4" VerticalAlignment="Center" Margin="0,0,10,0" Cursor="Hand" MouseLeftButtonDown="ActivePlayerBanner_MouseLeftButtonDown">
                     <DockPanel LastChildFill="True">
-                        <Border x:Name="ResponseIndicatorBadge" DockPanel.Dock="Right" Visibility="Collapsed" Background="#7B1FA2" CornerRadius="3" Padding="8,2" Margin="10,0,0,0" Cursor="Hand" MouseLeftButtonDown="ResponseIndicator_MouseLeftButtonDown">
+                        <Border x:Name="ResponseIndicatorBadge" DockPanel.Dock="Right" Visibility="Collapsed" Background="#7B1FA2" CornerRadius="3" Padding="8,2" Margin="10,0,0,0" Cursor="Hand" MouseLeftButtonDown="ResponseIndicator_MouseLeftButtonDown" MouseRightButtonDown="ResponseIndicator_MouseRightButtonDown" MouseRightButtonUp="ResponseIndicator_MouseRightButtonUp" ToolTip="Click = Think mode  ·  RMB = Enlarge trigger card">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock x:Name="ResponseIndicatorText" Text="⚡ Response möglich (P2)" Foreground="#FFF" FontWeight="Bold" FontSize="13" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="ResponseIndicatorText" Text="⚡ Response available (P2)" Foreground="#FFF" FontWeight="Bold" FontSize="13" VerticalAlignment="Center"/>
                                 <TextBlock x:Name="ResponseCountdownText" Text=" · 3s" Foreground="#FFE082" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" Margin="2,0,0,0"/>
                                 <TextBlock Text=" · [R] Details  [Space] Pass" Foreground="#E1BEE7" FontSize="11" VerticalAlignment="Center" Margin="6,0,0,0"/>
                             </StackPanel>
@@ -182,7 +182,7 @@
                                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                             <TextBlock x:Name="ThinkTrayTitle" Text="LEGAL RESPONSES (P2)" Foreground="#E1BEE7" FontSize="13" FontWeight="Bold" VerticalAlignment="Center"/>
                                             <TextBlock x:Name="ThinkTrayCountdown" Text=" · 10s remaining" Foreground="#FFE082" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" Margin="4,0,0,0"/>
-                                            <TextBlock Text=" · Klick = Response spielen  ·  [Space] = Pass" Foreground="#AAA" FontSize="11" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                                            <TextBlock Text=" · Click = Play response  ·  RMB = Large view  ·  [Space] = Pass" Foreground="#AAA" FontSize="11" VerticalAlignment="Center" Margin="10,0,0,0"/>
                                         </StackPanel>
                                     </DockPanel>
                                     <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
@@ -197,8 +197,8 @@
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <Border Grid.Column="0" Width="220" Height="308" Margin="0,0,16,0" BorderBrush="#555" BorderThickness="1" CornerRadius="4" Background="#111">
-                                            <Image x:Name="RevealImage" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                        <Border Grid.Column="0" Width="220" Height="308" Margin="0,0,16,0" BorderBrush="#555" BorderThickness="1" CornerRadius="4" Background="#111" Cursor="Hand" ToolTip="Hold RMB = Large view" MouseRightButtonDown="RevealImage_MouseRightButtonDown" MouseRightButtonUp="RevealImage_MouseRightButtonUp">
+                                            <Image x:Name="RevealImage" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" MouseRightButtonDown="RevealImage_MouseRightButtonDown" MouseRightButtonUp="RevealImage_MouseRightButtonUp"/>
                                         </Border>
                                         <DockPanel Grid.Column="1">
                                             <TextBlock DockPanel.Dock="Top" x:Name="RevealTitle" Foreground="#FFE082" FontSize="14" FontWeight="Bold" TextWrapping="Wrap" Margin="0,0,0,6"/>
@@ -375,7 +375,7 @@
                     </StackPanel>
                 </Border>
             </Border>
-            <Border x:Name="ZoomOverlay" Grid.ColumnSpan="2" Background="#E0101014" Visibility="Collapsed" Panel.ZIndex="200" MouseLeftButtonDown="ZoomOverlay_MouseLeftButtonDown">
+            <Border x:Name="ZoomOverlay" Grid.ColumnSpan="2" Background="#E0101014" Visibility="Collapsed" Panel.ZIndex="300" MouseLeftButtonDown="ZoomOverlay_MouseLeftButtonDown" MouseRightButtonUp="ZoomOverlay_MouseRightButtonUp">
                 <Border HorizontalAlignment="Center" VerticalAlignment="Center" Background="#1A1A1E" BorderBrush="#555" BorderThickness="2" CornerRadius="8" Padding="12" MaxWidth="720" MaxHeight="920" MouseLeftButtonDown="ZoomCard_MouseLeftButtonDown">
                     <DockPanel>
                         <TextBlock DockPanel.Dock="Bottom" x:Name="ZoomCaption" Text="Click = close" Foreground="#888" FontSize="12" HorizontalAlignment="Center" Margin="0,10,0,0"/>

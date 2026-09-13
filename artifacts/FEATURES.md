@@ -1,5 +1,5 @@
 # STCCG 1E - Features backlog
-Last updated: 2026-09-12
+Last updated: 2026-09-13
 
 Living list - **Seven owns ranking.**
 See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md, CARD_TRACKER.md (Jadzia).
@@ -14,6 +14,7 @@ See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md, CARD_TRACKER.md (Jadzia).
   - Firestorm Overlay `EFFECT - attempt continues` (Love Interest bleibt RELOCATED): `87e297d`
 - **Artifact Beaming / Affiliation-Free** - **DONE** (`TreatyRules.CanOccupyHost` / `CardsCompatibleUnderTreaties` erlauben Beamen ohne Treaty)
 - **Response Window (Hotseat UX)** - **DONE** (Stilles Window am Phase-Banner + Think Tray `[R]` + Optionen 2s/3s/5s/10s + Presets)
+- **Dilemma Cure System 7.2.2.3** - **DONE** (Pepsch green: Archer, Alien Abduction, Phased Matter 2026-09-13; Fix Team-Stop / Curable AttachContinue 7.2.2.3 & 7.2.6)
 - **Staffing/Fly/Battle Gaps G2-G7** - **DONE** (`2cd5bc8`)
 - **Glossary/Compendium** - Welle 2 Control/Owner/Present ACTIVE (Docs)
 - **Premiere Dilemma wave** ACTIVE (einzeln; #26+ on hold bis Captain Go)

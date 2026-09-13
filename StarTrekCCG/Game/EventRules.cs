@@ -635,4 +635,170 @@ public static class EventRules
         string noun = n == 1 ? classification : classification + "s";
         return $"SHIELDS +{bonus} ({n} {noun} aboard)";
     }
+
+    /// <summary>
+    /// Returns the effective MEDICAL skill level of a personnel card (including any equipment grants if present is provided).
+    /// </summary>
+    public static int GetPersonnelMedicalSkill(Card p, IEnumerable<Card>? present = null, int owner = 0)
+    {
+        if (!ModifierRules.IsPersonnelCard(p)) return 0;
+        var skills = present != null
+            ? ModifierRules.ResolvePersonnel(p, present, owner).Skills
+            : MissionRules.ParsePersonnelSkills(p);
+        int count = 0;
+        foreach (var kv in skills)
+        {
+            if (SkillNameMatches(kv.Key, "MEDICAL"))
+                count += kv.Value;
+        }
+        return count;
+    }
+
+    /// <summary>
+    /// Checks if a candidate personnel is eligible to be stopped to satisfy Genetronic Replicator.
+    /// The personnel targeted to die and any others also targeted to die cannot be used.
+    /// Stopped or in-stasis personnel cannot be used.
+    /// </summary>
+    public static bool IsEligibleForGenetronicStop(
+        Card candidate,
+        Card victim,
+        IEnumerable<Card>? alsoTargetedToDie = null,
+        bool isStopped = false,
+        bool isInStasis = false,
+        IEnumerable<Card>? present = null,
+        int owner = 0)
+    {
+        if (!ModifierRules.IsPersonnelCard(candidate)) return false;
+        if (ReferenceEquals(candidate, victim)) return false;
+        if (candidate.InstanceId > 0 && victim.InstanceId > 0 && candidate.InstanceId == victim.InstanceId)
+            return false;
+        if (alsoTargetedToDie != null)
+        {
+            foreach (var dead in alsoTargetedToDie)
+            {
+                if (dead == null) continue;
+                if (ReferenceEquals(dead, candidate)) return false;
+                if (dead.InstanceId > 0 && candidate.InstanceId > 0 && dead.InstanceId == candidate.InstanceId)
+                    return false;
+            }
+        }
+        if (isStopped || isInStasis) return false;
+        return GetPersonnelMedicalSkill(candidate, present, owner) > 0;
+    }
+
+    /// <summary>
+    /// Calculates the total available MEDICAL skill to be stopped for Genetronic Replicator
+    /// among candidates present, excluding the victim, others also targeted to die, and stopped/disabled cards.
+    /// </summary>
+    public static int GetAvailableGenetronicMedical(
+        IEnumerable<Card> candidates,
+        Card victim,
+        IEnumerable<Card>? alsoTargetedToDie = null,
+        Func<Card, bool>? isStoppedOrDisabled = null,
+        IEnumerable<Card>? present = null,
+        int owner = 0)
+    {
+        int total = 0;
+        foreach (var c in candidates)
+        {
+            bool stopped = isStoppedOrDisabled != null && isStoppedOrDisabled(c);
+            if (IsEligibleForGenetronicStop(c, victim, alsoTargetedToDie, isStopped: stopped, isInStasis: false, present, owner))
+            {
+                total += GetPersonnelMedicalSkill(c, present, owner);
+            }
+        }
+        return total;
+    }
+
+    /// <summary>
+    /// Decides if Genetronic Replicator can save the targeted personnel.
+    /// Requires at least 2 MEDICAL present from personnel who are not also targeted to die and not stopped.
+    /// </summary>
+    public static bool CanGenetronicSave(
+        Card victim,
+        IEnumerable<Card> candidates,
+        IEnumerable<Card>? alsoTargetedToDie = null,
+        Func<Card, bool>? isStoppedOrDisabled = null,
+        IEnumerable<Card>? present = null,
+        int owner = 0)
+    {
+        return GetAvailableGenetronicMedical(candidates, victim, alsoTargetedToDie, isStoppedOrDisabled, present, owner) >= 2;
+    }
+
+    /// <summary>
+    /// Self-test verification for Genetronic Replicator rules.
+    /// </summary>
+    public static string? VerifyGenetronicReplicator()
+    {
+        var crusher = new Card
+        {
+            Name = "Beverly Crusher",
+            Type = "Personnel",
+            Class = "MEDICAL",
+            Text = "MEDICAL MEDICAL Biology Exobiology",
+            InstanceId = 1
+        };
+        var ogawa = new Card
+        {
+            Name = "Alyssa Ogawa",
+            Type = "Personnel",
+            Class = "MEDICAL",
+            Text = "MEDICAL",
+            InstanceId = 2
+        };
+        var selar = new Card
+        {
+            Name = "Dr. Selar",
+            Type = "Personnel",
+            Class = "MEDICAL",
+            Text = "MEDICAL Exobiology",
+            InstanceId = 3
+        };
+        var riker = new Card
+        {
+            Name = "William T. Riker",
+            Type = "Personnel",
+            Class = "OFFICER",
+            Text = "OFFICER Leadership Navigation",
+            InstanceId = 4
+        };
+        var toby = new Card
+        {
+            Name = "Dr. Toby Russell",
+            Type = "Personnel",
+            Class = "MEDICAL",
+            Text = "MEDICAL x2 Physics",
+            InstanceId = 5
+        };
+
+        // Test 1: Crusher targeted to die with only herself present -> must be false (cannot use self)
+        if (CanGenetronicSave(crusher, new[] { crusher, riker }))
+            return "Crusher cannot save herself when no other MEDICAL present";
+
+        // Test 2: Crusher targeted to die with only 1 other MEDICAL (Ogawa) -> total 1 < 2 -> false
+        if (CanGenetronicSave(crusher, new[] { crusher, ogawa, riker }))
+            return "Cannot save Crusher with only 1 other MEDICAL present";
+
+        // Test 3: Crusher targeted to die with 2 other MEDICAL (Ogawa + Selar) -> total 2 >= 2 -> true
+        if (!CanGenetronicSave(crusher, new[] { crusher, ogawa, selar, riker }))
+            return "Should be able to save Crusher with 2 other MEDICAL present";
+
+        // Test 4: Crusher targeted to die with Toby Russell (MEDICAL x2) -> total 2 >= 2 -> true
+        if (!CanGenetronicSave(crusher, new[] { crusher, toby, riker }))
+            return "Should be able to save Crusher with 1 other MEDICAL x2 present";
+
+        // Test 5: Crusher and Ogawa both targeted to die (e.g. alsoTargetedToDie contains Ogawa) -> Selar alone is 1 -> false
+        if (CanGenetronicSave(crusher, new[] { crusher, ogawa, selar }, alsoTargetedToDie: new[] { ogawa }))
+            return "Personnel also targeted to die must not be counted for Genetronic";
+
+        // Test 6: One of the 2 other MEDICAL is stopped -> remaining unstopped 1 < 2 -> false
+        if (CanGenetronicSave(crusher, new[] { crusher, ogawa, selar }, isStoppedOrDisabled: c => c.InstanceId == ogawa.InstanceId))
+            return "Stopped MEDICAL personnel cannot be used for Genetronic";
+
+        // Test 7: Riker targeted to die, Crusher (2 MEDICAL) present and unstopped -> true
+        if (!CanGenetronicSave(riker, new[] { riker, crusher }))
+            return "Should be able to save Riker when Crusher is present and not targeted to die";
+
+        return null;
+    }
 }

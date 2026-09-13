@@ -116,7 +116,7 @@ public static class PlayRules
                 {
                     LogUniqueDeny(card, ownedConflict, player, kind);
                     return new EnterPlayResult(false,
-                        $"„{card.Name}“ ist {(kind == UniquenessKind.Enigma ? "Enigma" : "unique")} - du hast bereits eine Kopie im Spiel.",
+                        $"\"{card.Name}\" is {(kind == UniquenessKind.Enigma ? "Enigma" : "unique")} - you already have a copy in play.",
                         free);
                 }
                 return new EnterPlayResult(true, "", free);
@@ -127,7 +127,7 @@ public static class PlayRules
                 {
                     LogUniqueDeny(card, anyConflict, player, kind);
                     return new EnterPlayResult(false,
-                        $"„{card.Name}“ ist not duplicatable - es liegt bereits eine Kopie im Spiel.",
+                        $"\"{card.Name}\" is not duplicatable - a copy is already in play.",
                         free);
                 }
                 return new EnterPlayResult(true, "", free);

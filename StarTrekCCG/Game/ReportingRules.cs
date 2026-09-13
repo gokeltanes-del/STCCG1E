@@ -219,8 +219,8 @@ public static class ReportingRules
         if (IsMissionHost(host))
         {
             return new ReportResult(false,
-                $"„{reporting.Name}“ reportet nicht auf eine Mission (Away Team = Execute/Beaming). "
-                + "Report an Outpost/HQ (oder Schiff bei Special Reporting).");
+                $"\"{reporting.Name}\" does not report to a mission (Away Team = Execute/Beaming). "
+                + "Report to Outpost/HQ (or ship if Special Reporting).");
         }
 
         // Ship als Host nur mit Special Reporting / erlaubender Karte
@@ -229,21 +229,21 @@ public static class ReportingRules
             if (!specialReporting && !allowReportToShip)
             {
                 return new ReportResult(false,
-                    $"„{reporting.Name}“: Built-in-Report nur an Outpost/Headquarters – nicht an Schiffe "
-                    + "(außer Special Reporting).");
+                    $"\"{reporting.Name}\": built-in reporting only to Outpost/Headquarters – not to ships "
+                    + "(unless Special Reporting).");
             }
         }
         else if (!IsFacilityHost(host))
         {
             return new ReportResult(false,
-                $"„{reporting.Name}“ muss an eine Facility (Outpost/HQ) reporten.");
+                $"\"{reporting.Name}\" must report to a facility (Outpost/HQ).");
         }
 
         // Usable
         if (!IsUsableBy(host, hostOwner, reportingPlayer))
         {
             return new ReportResult(false,
-                $"„{host.Name}“ ist nicht usable für Spieler {reportingPlayer} (fremde Facility).");
+                $"\"{host.Name}\" is not usable by Player {reportingPlayer} (foreign facility).");
         }
 
         // Compatible (Equipment und Artifacts immer ok; Treaties erlauben Mix)
@@ -251,8 +251,8 @@ public static class ReportingRules
         if (!rt.Contains("equipment") && !rt.Contains("artifact") && !ArtifactRules.IsArtifact(reporting) && !AreCompatible(reporting, host, treatyAllowsMix, treaties))
         {
             return new ReportResult(false,
-                $"„{reporting.Name}“ ({reporting.Affiliation ?? "?"}) ist nicht kompatibel mit "
-                + $"„{host.Name}“ ({host.Affiliation ?? "?"}) – Treaty fehlt.");
+                $"\"{reporting.Name}\" ({reporting.Affiliation ?? "?"}) is not compatible with "
+                + $"\"{host.Name}\" ({host.Affiliation ?? "?"}) – Treaty missing.");
         }
 
         // Native quadrant (Equipment ausgenommen; Special Reporting hebt auf)
@@ -263,8 +263,8 @@ public static class ReportingRules
             if (qReport != qHost)
             {
                 return new ReportResult(false,
-                    $"Native Quadrant: „{reporting.Name}“ ({qReport}) und „{host.Name}“ ({qHost}) "
-                    + "müssen übereinstimmen (Special Reporting hebt das auf).");
+                    $"Native Quadrant: \"{reporting.Name}\" ({qReport}) and \"{host.Name}\" ({qHost}) "
+                    + "must match (Special Reporting overrides this).");
             }
         }
 
@@ -301,7 +301,7 @@ public static class ReportingRules
                 DebugLog.Play(0, owner,
                     $"unique deny {DebugLog.Card(reporting)} have={haveBit} owner={owner}");
                 return new ReportResult(false,
-                    $"Persona/Unique: „{reporting.Name}“ - du hast bereits „{other.Name}“ im Spiel.");
+                    $"Persona/Unique: \"{reporting.Name}\" – you already have \"{other.Name}\" in play.");
             }
         }
 

@@ -198,25 +198,25 @@ public static class TimingRules
         if (n.Equals("Amanda Rogers", StringComparison.OrdinalIgnoreCase))
         {
             if (top.Kind != ActionKind.PlayCard || top.Card == null)
-                return (false, "Amanda Rogers: kein Interrupt auf dem Stack.");
+                return (false, "Amanda Rogers: no Interrupt on the stack.");
             if (!IsInterrupt(top.Card))
-                return (false, "Amanda Rogers nullifiziert nur einen Interrupt.");
+                return (false, "Amanda Rogers nullifies only an Interrupt.");
             if (HasShieldIcon(top.Card))
-                return (false, "Amanda Rogers: Shield-Interrupts sind immun.");
-            return (true, "Nullifiziert den Interrupt.");
+                return (false, "Amanda Rogers: Shield interrupts are immune.");
+            return (true, "Nullifies the Interrupt.");
         }
 
         if (n.Equals("Kevin Uxbridge", StringComparison.OrdinalIgnoreCase))
         {
             if (top.Kind != ActionKind.PlayCard || top.Card == null)
-                return (false, "Kevin Uxbridge: kein Event auf dem Stack.");
+                return (false, "Kevin Uxbridge: no Event on the stack.");
             return CanKevinTargetEvent(top.Card);
         }
 
         if (n.Equals("Q2", StringComparison.OrdinalIgnoreCase))
         {
             if (top.Kind != ActionKind.PlayCard || top.Card == null)
-                return (false, "Q2: kein gültiges Ziel auf dem Stack.");
+                return (false, "Q2: no valid target on the stack.");
             string tn = (top.Card.Name ?? "").Trim();
             bool amanda = tn.Equals("Amanda Rogers", StringComparison.OrdinalIgnoreCase);
             bool kevin = tn.Equals("Kevin Uxbridge", StringComparison.OrdinalIgnoreCase);
@@ -224,8 +224,8 @@ public static class TimingRules
                         && ((top.Card.Name ?? "").Contains("Q", StringComparison.OrdinalIgnoreCase)
                             || (top.Card.Icons ?? "").Contains("Q", StringComparison.OrdinalIgnoreCase));
             if (!amanda && !kevin && !qDil)
-                return (false, "Q2 nullifiziert nur Amanda Rogers, Kevin Uxbridge oder ein Q-Dilemma.");
-            return (true, "Nullifiziert " + tn + ".");
+                return (false, "Q2 nullifies only Amanda Rogers, Kevin Uxbridge, or a Q-dilemma.");
+            return (true, "Nullifies " + tn + ".");
         }
 
         if (n.Equals("Subspace Schism", StringComparison.OrdinalIgnoreCase))
@@ -247,47 +247,47 @@ public static class TimingRules
         if (n.Equals("Energy Vortex", StringComparison.OrdinalIgnoreCase))
         {
             if (top.Kind != ActionKind.PlayCard || top.Card == null)
-                return (false, "Energy Vortex: keine Card Play auf dem Stack.");
+                return (false, "Energy Vortex: no card play on the stack.");
             if (top.Controller == responseOwner)
-                return (false, "Energy Vortex nur gegen die Card Play des Gegners.");
+                return (false, "Energy Vortex plays only against opponent's card play.");
             if (!GameSession.UsesNormalCardPlay(top.Card))
-                return (false, "Energy Vortex nur gegen eine normal card play (kein Interrupt/Doorway).");
-            return (true, "Bricht die Card Play; Karte zurück auf die Hand.");
+                return (false, "Energy Vortex only against a normal card play (not Interrupt/Doorway).");
+            return (true, "Cancels the card play; card returns to hand.");
         }
 
         if (n.Equals("The Devil", StringComparison.OrdinalIgnoreCase))
         {
             if (top.Card == null)
-                return (false, "The Devil: kein Ziel auf dem Stack.");
+                return (false, "The Devil: no target on the stack.");
             if (top.Kind is not (ActionKind.PlayCard or ActionKind.EncounterDilemma))
-                return (false, "The Devil: kein Treaty / Horga'hn / Wind Dancer auf dem Stack.");
+                return (false, "The Devil: no Treaty / Horga'hn / Wind Dancer on the stack.");
             return CanDevilTarget(top.Card);
         }
 
         if (n.Equals("Hugh", StringComparison.OrdinalIgnoreCase))
         {
             if (top.Kind is not (ActionKind.InitiateShipBattle or ActionKind.InitiatePersonnelBattle))
-                return (false, "Hugh: keine Battle-Initiation auf dem Stack.");
+                return (false, "Hugh: no battle initiation on the stack.");
             if (!IsBorgShipDilemma(top.AttackerCard) && !IsBorgShipDilemma(top.Card))
-                return (false, "Hugh: Battle muss vom Borg Ship Dilemma ausgehen.");
-            return (true, "Nullifiziert den Angriff des Borg Ship Dilemmas.");
+                return (false, "Hugh: battle must originate from the Borg Ship dilemma.");
+            return (true, "Nullifies the Borg Ship dilemma attack.");
         }
 
         if (n.Equals("Asteroid Sanctuary", StringComparison.OrdinalIgnoreCase))
         {
             if (top.Kind != ActionKind.InitiateShipBattle)
-                return (false, "Asteroid Sanctuary: keine Ship-Battle auf dem Stack.");
+                return (false, "Asteroid Sanctuary: no ship battle on the stack.");
             if (top.DefenderCard == null)
-                return (false, "Kein Verteidiger-Schiff.");
+                return (false, "No defending ship.");
             if (top.DefenderOwner != 0 && top.DefenderOwner != responseOwner
                 && GetOwnerGuess(top) != responseOwner)
             {
                 // DefenderOwner kann 0 sein – dann erlauben wir, wenn der Spieler der Verteidiger ist
             }
-            return (true, "Kann die Battle gegen dein Schiff canceln (2 Navigation an Bord beim Resolve).");
+            return (true, "Can cancel the battle against your ship (2 Navigation aboard at resolution).");
         }
 
-        return (false, $"„{n}“ ist in diesem Fenster keine gültige Response.");
+        return (false, $"\"{n}\" is not a valid response in this window.");
     }
 
     private static int GetOwnerGuess(PendingAction top) => top.DefenderOwner;
@@ -381,7 +381,7 @@ public static class TimingRules
 
     public static string FormatStack(ActionStack stack)
     {
-        if (!stack.IsOpen) return "Stack leer.";
+        if (!stack.IsOpen) return "Stack empty.";
         var lines = new List<string>();
         for (int i = 0; i < stack.Items.Count; i++)
         {

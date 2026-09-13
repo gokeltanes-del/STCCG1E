@@ -45,7 +45,7 @@ public class DeckService
         DeckSection.QContinuum => "Q-Continuum",
         DeckSection.SitePile => "Site Pile",
         DeckSection.Tribble => "Tribble",
-        DeckSection.SideLegacy => "Side (alt)",
+        DeckSection.SideLegacy => "Side (legacy)",
         _ => section.ToString()
     };
 
@@ -60,24 +60,24 @@ public class DeckService
     public Deck Load(string filePath)
     {
         if (!File.Exists(filePath))
-            throw new FileNotFoundException("Deck-Datei nicht gefunden.", filePath);
+            throw new FileNotFoundException("Deck file not found.", filePath);
 
         if (!filePath.EndsWith(FileExtension, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidDataException($"Ungültige Datei. Erwartet wird eine {FileExtension}-Datei.");
+            throw new InvalidDataException($"Invalid file. Expected a {FileExtension} file.");
 
         var json = File.ReadAllText(filePath);
         var deck = JsonSerializer.Deserialize<Deck>(json, JsonOptions)
-                   ?? throw new InvalidDataException("Die Datei konnte nicht gelesen werden.");
+                   ?? throw new InvalidDataException("The file could not be read.");
 
         if (!string.Equals(deck.Format, FormatV1, StringComparison.Ordinal) &&
             !string.Equals(deck.Format, FormatV2, StringComparison.Ordinal))
         {
             throw new InvalidDataException(
-                "Das ist keine gültige Star Trek CCG Deck-Datei.\n\n" +
-                $"Erwartetes Format: {FormatV1} oder {FormatV2}");
+                "This is not a valid Star Trek CCG deck file.\n\n" +
+                $"Expected format: {FormatV1} or {FormatV2}");
         }
 
-        // v1 → v2: flaches Side bleibt in SideCards (SideLegacy), User kann manuell verschieben
+        // v1 → v2: flat side stays in SideCards (SideLegacy), user can move manually
         EnsureLists(deck);
         return deck;
     }

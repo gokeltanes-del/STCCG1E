@@ -1,3 +1,4 @@
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -93,6 +94,11 @@ public static class DilemmaRules
         /// <summary>True when The Traveler: Transcendence is affecting the attempting player.</summary>
         public bool TravelerAffecting { get; init; }
         public bool ThermalDeflectors { get; init; }
+        /// <summary>
+        /// True when the Away Team can immediately beam off the planet to an own ship or facility
+        /// (no member quarantined/in stasis, and a valid destination is present).
+        /// </summary>
+        public bool CanBeamOffPlanet { get; init; } = true;
     }
 
     public static Result Resolve(Ctx ctx)
@@ -134,10 +140,8 @@ public static class DilemmaRules
 
             "Birth of \"Junior\"" => BirthOfJunior(ctx),
             "Nitrium Metal Parasites" => NitriumEncounter(ctx),
-            "Tsiolkovsky Infection" => Attach(ctx, PersistKind.Tsiolkovsky, 0,
-                "Tsiolkovsky: personnel lose first-listed skill. Cure: 3 MEDICAL."),
-            "Two-Dimensional Creatures" => Attach(ctx, PersistKind.TwoDim, 0,
-                "2D Creatures: Empathy disabled, ship cannot move. Cure: ENGINEER + SCIENCE."),
+            "Tsiolkovsky Infection" => Tsiolkovsky(ctx),
+            "Two-Dimensional Creatures" => TwoDim(ctx),
             "Menthar Booby Trap" => Menthar(ctx),
             "Ktarian Game" => KtarianGame(ctx),
             "Radioactive Garbage Scow" => new Result
@@ -145,11 +149,10 @@ public static class DilemmaRules
                 Fate = Fate.AttachAndEnd,
                 Persist = PersistKind.Scow,
                 StopTeam = false,
-                Message = "Scow auf der Mission: Attempt endet. Mission nicht versuchbar, bis abgeschleppt (Tractor + 2 ENGINEER)."
+                Message = "Scow on mission: attempt ends. Mission cannot be attempted until towed away (Tractor Beam + 2 ENGINEER)."
             },
             "Hyper-Aging" => HyperAgingEncounter(ctx),
-            "REM Fatigue" => Attach(ctx, PersistKind.RemFatigue, 4,
-                "REM Fatigue (quarantine, countdown 4). Cure: 3 MEDICAL or dock (score points)."),
+            "REM Fatigue" => RemFatigueEncounter(ctx),
             "Alien Abduction" => Abduction(ctx),
             "Phased Matter" => Phased(ctx),
             "Cytherians" => Cytherians(ctx),
@@ -194,10 +197,10 @@ public static class DilemmaRules
             "Thought Fire" => ThoughtFireAu(ctx),
             "Interphasic Plasma Creatures" => InterphasicPlasmaAu(ctx),
             "Parallel Romance" => ParallelRomanceAu(ctx),
-            "Quantum Singularity Lifeforms" => Attach(ctx, PersistKind.None, 0,
-                "If Romulan ship present: stasis here. Cure: Emergency Transporter Armbands / ENGINEER (sandbox)."),
-            "Rascals" => Attach(ctx, PersistKind.None, 0,
-                "Up to 4 unique crew become kids (STR 2, Youth). Cure: 2 MEDICAL + Biology."),
+            "Quantum Singularity Lifeforms" => AttachContinue(ctx, PersistKind.None, 0,
+                "If Romulan ship present: stasis here. Cure: Emergency Transporter Armbands / ENGINEER (sandbox). Attempt continues."),
+            "Rascals" => AttachContinue(ctx, PersistKind.None, 0,
+                "Up to 4 unique crew become kids (STR 2, Youth). Cure: 2 MEDICAL + Biology. Attempt continues."),
             "Maman Picard" => new Result
             {
                 Fate = Fate.EffectAndEnd,
@@ -319,8 +322,21 @@ public static class DilemmaRules
         var victim = RandomOf(ctx, ctx.Team);
         if (victim == null)
             return new Result { Fate = Fate.Overcome, Message = "Frame of Mind: no personnel." };
-        var r = Attach(ctx, PersistKind.FrameOfMind, 0,
-            $"Frame of Mind on {victim.Name}: Non-Aligned 3-3-3, two skills (opponent's choice). Cure: 3 Empathy.");
+
+        // Rulebook 7.2.2.3: Conditions first (victim affected). Victim cannot contribute to cure.
+        var remainingPresent = ExcludeHeld(ctx.Present, new[] { victim });
+        if (CanCure(PersistKind.FrameOfMind, remainingPresent, ctx.AttemptingPlayer))
+        {
+            return new Result
+            {
+                Fate = Fate.Overcome,
+                StopTeam = false,
+                Message = $"Frame of Mind on {victim.Name}: immediately cured by remaining team (3 Empathy). Discard dilemma; attempt continues."
+            };
+        }
+
+        var r = AttachContinue(ctx, PersistKind.FrameOfMind, 0,
+            $"Frame of Mind on {victim.Name}: Non-Aligned 3-3-3, two skills (opponent's choice). Cure: 3 Empathy. Attempt continues.");
         r.Relocate = victim;
         return r;
     }
@@ -623,7 +639,7 @@ public static class DilemmaRules
             return new Result { Fate = Fate.Overcome, Score = score, Message = $"Unless met ({need}) → +{score}." };
         _tmp.Clear();
         fail();
-        var r = new Result { Fate = Fate.EffectAndEnd, StopTeam = true, Message = $"Unless fehlgeschlagen ({need})." };
+        var r = new Result { Fate = Fate.EffectAndEnd, StopTeam = true, Message = $"Unless failed ({need})." };
         r.Kill.AddRange(_tmp);
         _tmp.Clear();
         return r;
@@ -648,7 +664,7 @@ public static class DilemmaRules
         {
             var r = new Result { Fate = Fate.Overcome, Message = str ? "STRENGTH>44." : "Equipment destroyed." };
             if (smashEq && eq.Count > 0)
-                r.Kill.Add(ctx.PickYou?.Invoke("Welches Equipment?", eq) ?? eq[0]);
+                r.Kill.Add(ctx.PickYou?.Invoke("Which equipment?", eq) ?? eq[0]);
             return r;
         }
         var x = new Result { Fate = Fate.EffectAndEnd, StopTeam = true, Message = "Rebel Encounter kills one at random." };
@@ -736,15 +752,15 @@ public static class DilemmaRules
             Func<string, IReadOnlyList<Card>, Card?>? pickOpp,
             Random? rng = null,
             params Card[] team) => new()
-        {
-            Dilemma = new Card { Name = "El-Adrel Creature", Type = "Dilemma", MissionDilemmaType = "[P]" },
-            Mission = new Card { Name = "Test Planet", Type = "Mission", MissionDilemmaType = "[P]" },
-            Team = team,
-            Present = team,
-            AttemptingPlayer = 1,
-            Rng = rng ?? new Random(1),
-            PickOpp = pickOpp
-        };
+            {
+                Dilemma = new Card { Name = "El-Adrel Creature", Type = "Dilemma", MissionDilemmaType = "[P]" },
+                Mission = new Card { Name = "Test Planet", Type = "Mission", MissionDilemmaType = "[P]" },
+                Team = team,
+                Present = team,
+                AttemptingPlayer = 1,
+                Rng = rng ?? new Random(1),
+                PickOpp = pickOpp
+            };
 
         var a9 = P("Alpha", "9");
         var b8 = P("Bravo", "8");
@@ -1806,8 +1822,12 @@ public static class DilemmaRules
     private static Result NitriumEncounter(Ctx ctx)
     {
         if (CanCure(PersistKind.Nitrium, ctx.Present, ctx.AttemptingPlayer))
-            return new Result { Fate = Fate.Overcome, StopTeam = false,
-                Message = "Nitrium cured (2 SCIENCE or 2 ENGINEER) - discarded; attempt continues." };
+            return new Result
+            {
+                Fate = Fate.Overcome,
+                StopTeam = false,
+                Message = "Nitrium cured (2 SCIENCE or 2 ENGINEER) - discarded; attempt continues."
+            };
         return AttachContinue(ctx, PersistKind.Nitrium, 2,
             "Nitrium on ship (countdown 2). Cure: 2 SCIENCE or 2 ENGINEER. Attempt continues.");
     }
@@ -1815,10 +1835,29 @@ public static class DilemmaRules
     private static Result HyperAgingEncounter(Ctx ctx)
     {
         if (CanCure(PersistKind.HyperAging, ctx.Present, ctx.AttemptingPlayer))
-            return new Result { Fate = Fate.Overcome, Score = 5, StopTeam = false,
-                Message = "Hyper-Aging cured (SCIENCE + 2 MEDICAL) - +5; discarded; attempt continues." };
+            return new Result
+            {
+                Fate = Fate.Overcome,
+                Score = 5,
+                StopTeam = false,
+                Message = "Hyper-Aging cured (SCIENCE + 2 MEDICAL) - +5; discarded; attempt continues."
+            };
         return AttachContinue(ctx, PersistKind.HyperAging, 3,
             "Hyper-Aging (quarantine, countdown 3): no leave/beam away; joiners quarantined. Cure: SCIENCE + 2 MEDICAL. Attempt continues (not stopped).");
+    }
+
+    private static Result RemFatigueEncounter(Ctx ctx)
+    {
+        if (CanCure(PersistKind.RemFatigue, ctx.Present, ctx.AttemptingPlayer))
+            return new Result
+            {
+                Fate = Fate.Overcome,
+                Score = 5,
+                StopTeam = false,
+                Message = "REM Fatigue cured (3 MEDICAL) - +5; discarded; attempt continues."
+            };
+        return AttachContinue(ctx, PersistKind.RemFatigue, 4,
+            "REM Fatigue (quarantine, countdown 4). Cure: 3 MEDICAL or dock (score points). Attempt continues.");
     }
 
     // ---- Menthar Booby Trap (Premiere 34 C) ----
@@ -1830,11 +1869,32 @@ public static class DilemmaRules
     // Spock #17 Soll / DRG + Glossary Errata Menthar Booby Trap.
     // PARK: LegalMoves-level move-block beyond existing TW Menthar/TwoDim gate if thin.
 
+    private static Result Tsiolkovsky(Ctx ctx)
+    {
+        if (CanCure(PersistKind.Tsiolkovsky, ctx.Present, ctx.AttemptingPlayer))
+            return new Result { Fate = Fate.Overcome, StopTeam = false, Message = "Tsiolkovsky Infection cured (3 MEDICAL). Discard dilemma." };
+        return AttachContinue(ctx, PersistKind.Tsiolkovsky, 0,
+            "Tsiolkovsky: personnel lose first-listed skill. Cure: 3 MEDICAL. Attempt continues.");
+    }
+
+    private static Result TwoDim(Ctx ctx)
+    {
+        if (CanCure(PersistKind.TwoDim, ctx.Present, ctx.AttemptingPlayer))
+            return new Result { Fate = Fate.Overcome, StopTeam = false, Message = "Two-Dimensional Creatures cured (ENGINEER + SCIENCE). Discard dilemma." };
+        return AttachContinue(ctx, PersistKind.TwoDim, 0,
+            "2D Creatures: Empathy disabled, ship cannot move. Cure: ENGINEER + SCIENCE. Attempt continues.");
+    }
+
     private static Result Menthar(Ctx ctx)
     {
         if (Skill(ctx, "MEDICAL"))
+        {
+            // Rulebook 7.2.2.3: Conditions first (MEDICAL present -> no kill, continue), then check cure!
+            if (CanCure(PersistKind.Menthar, ctx.Present, ctx.AttemptingPlayer))
+                return new Result { Fate = Fate.Overcome, StopTeam = false, Message = "Menthar Booby Trap cured (2 ENGINEER). Discard dilemma." };
             return AttachContinue(ctx, PersistKind.Menthar, 0,
                 "Menthar Booby Trap on ship: cannot move. MEDICAL present - no kill; attempt continues. Cure: 2 ENGINEER.");
+        }
         var r = Attach(ctx, PersistKind.Menthar, 0,
             "Menthar Booby Trap on ship: cannot move. No MEDICAL - 1 crew killed (random); ship/crew stopped. Cure: 2 ENGINEER.");
         AddKill(r.Kill, RandomOf(ctx, ctx.Team));
@@ -1885,18 +1945,16 @@ public static class DilemmaRules
         if (noMed.Score != 0 || noMed.DamageShip || noMed.DestroyShip)
             return "no MEDICAL: no score/damage/destroy";
 
-        // MEDICAL present: AttachAndContinue, no kill, no stop; still placed (even with 2 ENG - cure is later)
-        var withMed = Resolve(Make(med, eng1, eng2));
-        if (withMed.Fate != Fate.AttachAndContinue || withMed.StopTeam)
-            return $"MEDICAL: expected AttachAndContinue no stop, got {withMed.Fate}/stop={withMed.StopTeam}";
-        if (withMed.Persist != PersistKind.Menthar || withMed.Countdown != 0)
-            return $"MEDICAL: expected Menthar countdown 0, got {withMed.Persist}/{withMed.Countdown}";
-        if (withMed.Kill.Count != 0)
-            return "MEDICAL: expected 0 kills";
-        if (!ShouldRemoveFromSeed(withMed.Fate))
-            return "MEDICAL: seed removed (placed on ship)";
+        // MEDICAL present with 2 ENG: Rulebook 7.2.2.3 -> MEDICAL checked first (no kill), then 2 ENG immediately cures -> Overcome
+        var withMedAndCure = Resolve(Make(med, eng1, eng2));
+        if (withMedAndCure.Fate != Fate.Overcome || withMedAndCure.StopTeam)
+            return $"MEDICAL+2 ENG: expected Overcome no stop, got {withMedAndCure.Fate}/stop={withMedAndCure.StopTeam}";
+        if (withMedAndCure.Kill.Count != 0)
+            return "MEDICAL+2 ENG: expected 0 kills";
+        if (!ShouldRemoveFromSeed(withMedAndCure.Fate))
+            return "MEDICAL+2 ENG: seed removed on cure";
 
-        // MEDICAL alone (no ENG): same continue+place
+        // MEDICAL alone (no ENG): AttachAndContinue, no kill, no stop; placed
         var medOnly = Resolve(Make(med, civ));
         if (medOnly.Fate != Fate.AttachAndContinue || medOnly.StopTeam)
             return $"MEDICAL only: expected AttachAndContinue no stop, got {medOnly.Fate}/stop={medOnly.StopTeam}";
@@ -1928,10 +1986,187 @@ public static class DilemmaRules
     private static Result Abduction(Ctx ctx)
     {
         var victim = ctx.Team.OrderByDescending(p => Eff(ctx, p).Cunning).FirstOrDefault();
-        var r = Attach(ctx, PersistKind.Abduction, 0,
-            $"{victim?.Name ?? "?"} in Stasis (cure: 3 Leadership OR mission completed).");
+        if (victim == null)
+            return new Result
+            {
+                Fate = Fate.Overcome,
+                StopTeam = false,
+                Message = "Alien Abduction: no Away Team to abduct."
+            };
+
+        // Rulebook 7.2.2.3: Conditions first (highest Cunning target chosen and placed in stasis).
+        // Victim cannot contribute skills from stasis. Check remaining present for 3 Leadership.
+        var remainingPresent = ExcludeHeld(ctx.Present, new[] { victim });
+        if (CanCure(PersistKind.Abduction, remainingPresent, ctx.AttemptingPlayer))
+        {
+            return new Result
+            {
+                Fate = Fate.Overcome,
+                StopTeam = false,
+                Message = $"Alien Abduction: {victim.Name} abducted, but immediately cured by remaining Away Team (3 Leadership). Discard dilemma; attempt continues."
+            };
+        }
+
+        // Rulebook 7.2.2.3 & 7.2.2.2 / 7.2.6: Failing to cure does NOT cause mission failure or stop team!
+        // Victim held in stasis on mission; remaining Away Team continues attempt.
+        var r = AttachContinue(ctx, PersistKind.Abduction, 0,
+            $"{victim.Name} in Stasis (cure: 3 Leadership OR mission completed).");
         r.Relocate = victim;
         return r;
+    }
+
+    /// <summary>DE mini-test for Alien Abduction. Returns null if OK, else failure reason.</summary>
+    public static string? VerifyAlienAbduction()
+    {
+        static Card P(string name, string cls, string text, string cunn = "5") => new()
+        {
+            Name = name,
+            Type = "Personnel",
+            Class = cls,
+            Text = text,
+            Characteristics = "Human; Male;",
+            IntegrityOrRange = "5",
+            CunningOrWeapons = cunn,
+            StrengthOrShields = "5"
+        };
+
+        static Ctx Make(params Card[] team) => new()
+        {
+            Dilemma = new Card { Name = "Alien Abduction", Type = "Dilemma", MissionDilemmaType = "[P]" },
+            Mission = new Card { Name = "Test Planet", Type = "Mission", MissionDilemmaType = "[P]" },
+            Team = team,
+            Present = team,
+            AttemptingPlayer = 1,
+            Rng = new Random(1)
+        };
+
+        var data = P("Data", "OFFICER", "OFFICER", "12"); // highest Cunning, no Leadership
+        var picard = P("Picard", "OFFICER", "Leadership x3", "10"); // Cunning 10, Leadership x3
+        var riker = P("Riker", "OFFICER", "Leadership", "8");
+        var troi = P("Troi", "OFFICER", "Leadership x2", "7");
+        var civ = P("Civilian", "CIVILIAN", "CIVILIAN", "4");
+
+        // 1. Empty team
+        var empty = Resolve(Make());
+        if (empty.Fate != Fate.Overcome || empty.StopTeam)
+            return $"empty: expected Overcome no stop, got {empty.Fate}/stop={empty.StopTeam}";
+
+        // 2. Solo Data: no 3 Leadership -> AttachAndContinue, StopTeam=false, Relocate=Data
+        var solo = Resolve(Make(data));
+        if (solo.Fate != Fate.AttachAndContinue || solo.StopTeam)
+            return $"solo Data: expected AttachAndContinue no stop, got {solo.Fate}/stop={solo.StopTeam}";
+        if (solo.Persist != PersistKind.Abduction || solo.Relocate != data)
+            return $"solo Data: expected Persist Abduction with Relocate Data, got {solo.Persist}/{solo.Relocate?.Name}";
+
+        // 3. Data (CUNNING 12) + Riker (1 Lead) + Troi (2 Lead):
+        // Data is victim (highest CUNNING). Remaining team has Riker+Troi = 3 Leadership -> immediately cured!
+        var cured = Resolve(Make(data, riker, troi));
+        if (cured.Fate != Fate.Overcome || cured.StopTeam)
+            return $"Data + 3 Lead: expected Overcome no stop, got {cured.Fate}/stop={cured.StopTeam}";
+
+        // 4. Picard alone has 3 Leadership and highest CUNNING (10) vs Civilian (4):
+        // Picard is abducted. Civilian cannot cure -> AttachAndContinue, StopTeam=false.
+        // Proves victim in stasis cannot cure their own abduction!
+        var victimCannotSelfCure = Resolve(Make(picard, civ));
+        if (victimCannotSelfCure.Fate != Fate.AttachAndContinue || victimCannotSelfCure.StopTeam)
+            return $"Picard in stasis cannot self-cure: expected AttachAndContinue no stop, got {victimCannotSelfCure.Fate}/stop={victimCannotSelfCure.StopTeam}";
+        if (victimCannotSelfCure.Relocate != picard)
+            return $"Picard expected as victim, got {victimCannotSelfCure.Relocate?.Name}";
+
+        // 5. CanCure with missionCompleted = true cures even with 0 personnel
+        if (!CanCure(PersistKind.Abduction, Array.Empty<Card>(), 1, missionCompleted: true))
+            return "CanCure: missionCompleted must cure Alien Abduction";
+
+        return null;
+    }
+
+    /// <summary>DE mini-test for Two-Dimensional Creatures.</summary>
+    public static string? VerifyTwoDimensionalCreatures()
+    {
+        static Card P(string name, string cls, string text) => new()
+        {
+            Name = name,
+            Type = "Personnel",
+            Class = cls,
+            Text = text,
+            Characteristics = "Human; Male;",
+            IntegrityOrRange = "5",
+            CunningOrWeapons = "5",
+            StrengthOrShields = "5"
+        };
+
+        static Ctx Make(params Card[] team) => new()
+        {
+            Dilemma = new Card { Name = "Two-Dimensional Creatures", Type = "Dilemma", MissionDilemmaType = "[S]" },
+            Mission = new Card { Name = "Test Space", Type = "Mission", MissionDilemmaType = "[S]" },
+            Team = team,
+            Present = team,
+            AttemptingPlayer = 1,
+            Rng = new Random(1)
+        };
+
+        var eng = P("Eng", "ENGINEER", "ENGINEER");
+        var sci = P("Sci", "SCIENCE", "SCIENCE");
+        var civ = P("Civ", "CIVILIAN", "CIVILIAN");
+
+        // Cured at encounter: Overcome, StopTeam = false
+        var cured = Resolve(Make(eng, sci));
+        if (cured.Fate != Fate.Overcome || cured.StopTeam)
+            return $"TwoDim cured: expected Overcome no stop, got {cured.Fate}/stop={cured.StopTeam}";
+
+        // Not cured: AttachAndContinue, StopTeam = false (ship cannot move, but attempt continues, crew NOT stopped)
+        var placed = Resolve(Make(civ));
+        if (placed.Fate != Fate.AttachAndContinue || placed.StopTeam)
+            return $"TwoDim placed: expected AttachAndContinue no stop, got {placed.Fate}/stop={placed.StopTeam}";
+        if (placed.Persist != PersistKind.TwoDim)
+            return $"TwoDim placed: expected Persist TwoDim, got {placed.Persist}";
+
+        return null;
+    }
+
+    /// <summary>DE mini-test for Tsiolkovsky Infection.</summary>
+    public static string? VerifyTsiolkovskyInfection()
+    {
+        static Card P(string name, string cls, string text) => new()
+        {
+            Name = name,
+            Type = "Personnel",
+            Class = cls,
+            Text = text,
+            Characteristics = "Human; Male;",
+            IntegrityOrRange = "5",
+            CunningOrWeapons = "5",
+            StrengthOrShields = "5"
+        };
+
+        static Ctx Make(params Card[] team) => new()
+        {
+            Dilemma = new Card { Name = "Tsiolkovsky Infection", Type = "Dilemma", MissionDilemmaType = "[S]" },
+            Mission = new Card { Name = "Test Space", Type = "Mission", MissionDilemmaType = "[S]" },
+            Team = team,
+            Present = team,
+            AttemptingPlayer = 1,
+            Rng = new Random(1)
+        };
+
+        var m1 = P("M1", "MEDICAL", "MEDICAL");
+        var m2 = P("M2", "MEDICAL", "MEDICAL");
+        var m3 = P("M3", "MEDICAL", "MEDICAL");
+        var civ = P("Civ", "CIVILIAN", "CIVILIAN");
+
+        // Cured at encounter with 3 MEDICAL: Overcome, StopTeam = false
+        var cured = Resolve(Make(m1, m2, m3));
+        if (cured.Fate != Fate.Overcome || cured.StopTeam)
+            return $"Tsiolkovsky cured: expected Overcome no stop, got {cured.Fate}/stop={cured.StopTeam}";
+
+        // Not cured: AttachAndContinue, StopTeam = false (crew infected, but attempt continues, crew NOT stopped)
+        var placed = Resolve(Make(civ));
+        if (placed.Fate != Fate.AttachAndContinue || placed.StopTeam)
+            return $"Tsiolkovsky placed: expected AttachAndContinue no stop, got {placed.Fate}/stop={placed.StopTeam}";
+        if (placed.Persist != PersistKind.Tsiolkovsky)
+            return $"Tsiolkovsky placed: expected Persist Tsiolkovsky, got {placed.Persist}";
+
+        return null;
     }
 
     // ---- Phased Matter (Premiere 42 C) ----
@@ -2095,7 +2330,7 @@ public static class DilemmaRules
             Fate = Fate.EffectAndContinue,
             StopTeam = false,
             Relocate = v,
-            Message = $"{v.Name} wird zum entferntesten anderen Planeten relocatiert."
+            Message = $"{v.Name} relocated to the furthest other planet."
         };
     }
 
@@ -2106,7 +2341,7 @@ public static class DilemmaRules
     // Spock #25 Soll / DRG Portal Guard:
     //   Pass (>=1 AT member CUNNING>7 OR Honor) -> Overcome discard + Continue.
     //   Fail -> WallFailed (dilemma under Mission) + StopTeam + BeamBackTeam (beam up then stopped).
-    // PARK: kill if beam impossible / partially blocked (Apply BeamBack leaves AT on planet if no dest).
+    //   If any member cannot beam (quarantined/stasis) or no ship/facility present: kill entire Away Team.
     // PARK: Borg abort edges.
     // Decide: DilemmaRules.DecidePortalGuard + Portal + VerifyPortalGuard.
 
@@ -2114,14 +2349,19 @@ public static class DilemmaRules
         Fate Fate,
         bool StopTeam,
         bool BeamBackTeam,
+        bool KillTeam,
         string Message);
 
     /// <summary>
-    /// #25 Soll: Pass CUNNING&gt;7 or Honor to Overcome (discard + continue).
-    /// Fail to WallFailed (stays under mission), StopTeam, BeamBackTeam.
-    /// Kill-if-no-beam / Borg PARK.
+    /// DRG Portal Guard:
+    /// If Away Team meets conditions (at least one personnel with CUNNING&gt;7 OR Honor),
+    /// discard dilemma; mission continues.
+    /// Otherwise, mission attempt immediately ends. Entire Away Team must immediately beam off of the planet.
+    /// If beaming is successful, Away Team is stopped; replace dilemma under mission to be encountered again.
+    /// Otherwise, if any Away Team member cannot beam or there is no ship or facility present to beam to,
+    /// Away Team is killed. Replace dilemma under mission to be encountered again.
     /// </summary>
-    public static PortalGuardPlan DecidePortalGuard(bool hasCunningGt7OrHonor)
+    public static PortalGuardPlan DecidePortalGuard(bool hasCunningGt7OrHonor, bool canBeamOffPlanet = true)
     {
         if (hasCunningGt7OrHonor)
         {
@@ -2129,12 +2369,23 @@ public static class DilemmaRules
                 Fate.Overcome,
                 StopTeam: false,
                 BeamBackTeam: false,
+                KillTeam: false,
                 Message: "CUNNING>7 or Honor - Portal Guard overcome.");
+        }
+        if (!canBeamOffPlanet)
+        {
+            return new PortalGuardPlan(
+                Fate.WallFailed,
+                StopTeam: true,
+                BeamBackTeam: false,
+                KillTeam: true,
+                Message: "Portal Guard: filter not met and Away Team cannot beam up (quarantined, stasis, or no ship/facility) - entire Away Team killed; dilemma remains under mission.");
         }
         return new PortalGuardPlan(
             Fate.WallFailed,
             StopTeam: true,
             BeamBackTeam: true,
+            KillTeam: false,
             Message: "Portal Guard: filter not met - Away Team beams up (stopped); dilemma remains under mission.");
     }
 
@@ -2146,14 +2397,19 @@ public static class DilemmaRules
             return e.Cunning > 7
                 || e.Skills.Keys.Any(k => k.Equals("Honor", StringComparison.OrdinalIgnoreCase));
         });
-        var plan = DecidePortalGuard(ok);
-        return new Result
+        var plan = DecidePortalGuard(ok, ctx.CanBeamOffPlanet);
+        var r = new Result
         {
             Fate = plan.Fate,
             StopTeam = plan.StopTeam,
             BeamBackTeam = plan.BeamBackTeam,
             Message = plan.Message
         };
+        if (plan.KillTeam)
+        {
+            r.Kill.AddRange(ctx.Team);
+        }
+        return r;
     }
 
     /// <summary>DE mini-test for Portal Guard. Returns null if OK, else failure reason.</summary>
@@ -2171,15 +2427,18 @@ public static class DilemmaRules
             StrengthOrShields = "5"
         };
 
-        static Ctx Make(params Card[] team) => new()
+        static Ctx Make(bool canBeam, params Card[] team) => new()
         {
             Dilemma = new Card { Name = "Portal Guard", Type = "Dilemma", MissionDilemmaType = "[P]" },
             Mission = new Card { Name = "Test Planet", Type = "Mission", MissionDilemmaType = "[P]" },
             Team = team,
             Present = team,
             AttemptingPlayer = 1,
+            CanBeamOffPlanet = canBeam,
             Rng = new Random(1)
         };
+
+        static Ctx MakeDefault(params Card[] team) => Make(true, team);
 
         var smart = P("Smart One", "OFFICER", "OFFICER", "8");          // CUNNING 8 > 7
         var honor = P("Honorable", "SECURITY", "SECURITY Honor", "5"); // Honor, low CUNNING
@@ -2188,20 +2447,27 @@ public static class DilemmaRules
 
         // Decide pass
         var dPass = DecidePortalGuard(true);
-        if (dPass.Fate != Fate.Overcome || dPass.StopTeam || dPass.BeamBackTeam)
-            return $"Decide pass: expected Overcome no stop/beam, got {dPass.Fate}/stop={dPass.StopTeam}/beam={dPass.BeamBackTeam}";
+        if (dPass.Fate != Fate.Overcome || dPass.StopTeam || dPass.BeamBackTeam || dPass.KillTeam)
+            return $"Decide pass: expected Overcome no stop/beam/kill, got {dPass.Fate}/stop={dPass.StopTeam}/beam={dPass.BeamBackTeam}/kill={dPass.KillTeam}";
         if (!ShouldRemoveFromSeed(dPass.Fate))
             return "Decide pass: dilemma should discard";
 
-        // Decide fail
-        var dFail = DecidePortalGuard(false);
-        if (dFail.Fate != Fate.WallFailed || !dFail.StopTeam || !dFail.BeamBackTeam)
-            return $"Decide fail: expected WallFailed+Stop+BeamBack, got {dFail.Fate}/stop={dFail.StopTeam}/beam={dFail.BeamBackTeam}";
+        // Decide fail with beam
+        var dFail = DecidePortalGuard(false, canBeamOffPlanet: true);
+        if (dFail.Fate != Fate.WallFailed || !dFail.StopTeam || !dFail.BeamBackTeam || dFail.KillTeam)
+            return $"Decide fail: expected WallFailed+Stop+BeamBack, got {dFail.Fate}/stop={dFail.StopTeam}/beam={dFail.BeamBackTeam}/kill={dFail.KillTeam}";
         if (ShouldRemoveFromSeed(dFail.Fate))
             return "Decide fail: dilemma must stay under mission (WallFailed)";
 
+        // Decide fail without beam (quarantine / no destination)
+        var dFailKill = DecidePortalGuard(false, canBeamOffPlanet: false);
+        if (dFailKill.Fate != Fate.WallFailed || !dFailKill.StopTeam || dFailKill.BeamBackTeam || !dFailKill.KillTeam)
+            return $"Decide fail kill: expected WallFailed+Stop+NoBeam+Kill, got {dFailKill.Fate}/stop={dFailKill.StopTeam}/beam={dFailKill.BeamBackTeam}/kill={dFailKill.KillTeam}";
+        if (ShouldRemoveFromSeed(dFailKill.Fate))
+            return "Decide fail kill: dilemma must stay under mission (WallFailed)";
+
         // Pass: CUNNING 8 > 7
-        var passCunn = Resolve(Make(smart, weak));
+        var passCunn = Resolve(MakeDefault(smart, weak));
         if (passCunn.Fate != Fate.Overcome || passCunn.StopTeam || passCunn.BeamBackTeam)
             return $"pass CUNNING>7: expected Overcome no stop/beam, got {passCunn.Fate}/stop={passCunn.StopTeam}/beam={passCunn.BeamBackTeam}";
         if (passCunn.Kill.Count != 0)
@@ -2210,34 +2476,56 @@ public static class DilemmaRules
             return "pass CUNNING>7: dilemma should discard";
 
         // Pass: Honor alone (CUNNING 5)
-        var passHonor = Resolve(Make(honor, weak));
+        var passHonor = Resolve(MakeDefault(honor, weak));
         if (passHonor.Fate != Fate.Overcome || passHonor.StopTeam || passHonor.BeamBackTeam)
             return $"pass Honor: expected Overcome no stop/beam, got {passHonor.Fate}/stop={passHonor.StopTeam}/beam={passHonor.BeamBackTeam}";
         if (!ShouldRemoveFromSeed(passHonor.Fate))
             return "pass Honor: dilemma should discard";
 
-        // Boundary fail: CUNNING == 7, no Honor
-        var failEq = Resolve(Make(low));
+        // Pass even if CanBeamOffPlanet is false (condition met so beam is not needed)
+        var passNoBeam = Resolve(Make(false, smart, weak));
+        if (passNoBeam.Fate != Fate.Overcome || passNoBeam.StopTeam || passNoBeam.BeamBackTeam || passNoBeam.Kill.Count != 0)
+            return "pass CUNNING>7 with no beam: expected Overcome without kill";
+
+        // Boundary fail: CUNNING == 7, no Honor (can beam)
+        var failEq = Resolve(MakeDefault(low));
         if (failEq.Fate != Fate.WallFailed || !failEq.StopTeam || !failEq.BeamBackTeam)
             return $"fail CUNNING=7: expected WallFailed+Stop+BeamBack, got {failEq.Fate}/stop={failEq.StopTeam}/beam={failEq.BeamBackTeam}";
         if (failEq.Kill.Count != 0)
-            return "fail CUNNING=7: no kills (kill-if-no-beam PARK)";
+            return "fail CUNNING=7: no kills when beam is possible";
         if (ShouldRemoveFromSeed(failEq.Fate))
             return "fail CUNNING=7: dilemma must stay (WallFailed)";
 
-        // Fail: weak only
-        var failWeak = Resolve(Make(weak));
+        // Fail: weak only (can beam)
+        var failWeak = Resolve(MakeDefault(weak));
         if (failWeak.Fate != Fate.WallFailed || !failWeak.StopTeam || !failWeak.BeamBackTeam)
             return $"fail weak: expected WallFailed+Stop+BeamBack, got {failWeak.Fate}/stop={failWeak.StopTeam}/beam={failWeak.BeamBackTeam}";
         if (ShouldRemoveFromSeed(failWeak.Fate))
             return "fail weak: dilemma must stay (WallFailed)";
 
         // Fail: empty AT
-        var empty = Resolve(Make());
+        var empty = Resolve(MakeDefault());
         if (empty.Fate != Fate.WallFailed || !empty.StopTeam || !empty.BeamBackTeam)
             return $"empty: expected WallFailed+Stop+BeamBack, got {empty.Fate}/stop={empty.StopTeam}/beam={empty.BeamBackTeam}";
         if (ShouldRemoveFromSeed(empty.Fate))
             return "empty: dilemma must stay (WallFailed)";
+
+        // Fail when CanBeamOffPlanet is false (quarantined or no destination) -> ENTIRE AWAY TEAM KILLED!
+        var failKillSingle = Resolve(Make(false, low));
+        if (failKillSingle.Fate != Fate.WallFailed || !failKillSingle.StopTeam || failKillSingle.BeamBackTeam)
+            return $"fail no-beam single: expected WallFailed+Stop+NoBeam, got {failKillSingle.Fate}/stop={failKillSingle.StopTeam}/beam={failKillSingle.BeamBackTeam}";
+        if (failKillSingle.Kill.Count != 1 || !ReferenceEquals(failKillSingle.Kill[0], low))
+            return $"fail no-beam single: expected low killed, got count={failKillSingle.Kill.Count}";
+        if (ShouldRemoveFromSeed(failKillSingle.Fate))
+            return "fail no-beam single: dilemma must stay under mission";
+
+        var failKillMultiple = Resolve(Make(false, low, weak));
+        if (failKillMultiple.Fate != Fate.WallFailed || !failKillMultiple.StopTeam || failKillMultiple.BeamBackTeam)
+            return $"fail no-beam multiple: expected WallFailed+Stop+NoBeam, got {failKillMultiple.Fate}/stop={failKillMultiple.StopTeam}/beam={failKillMultiple.BeamBackTeam}";
+        if (failKillMultiple.Kill.Count != 2)
+            return $"fail no-beam multiple: expected 2 killed, got count={failKillMultiple.Kill.Count}";
+        if (ShouldRemoveFromSeed(failKillMultiple.Fate))
+            return "fail no-beam multiple: dilemma must stay under mission";
 
         return null;
     }
@@ -2710,7 +2998,7 @@ public static class DilemmaRules
         var h = MissionRules.CanOvercomeDilemma(ctx.Dilemma, ctx.Present);
         return h.Ok
             ? new Result { Fate = Fate.Overcome, Message = "No catalog entry – heuristic: overcome." }
-            : new Result { Fate = Fate.WallFailed, StopTeam = true, Message = "Kein Katalog-Eintrag – " + h.Reason };
+            : new Result { Fate = Fate.WallFailed, StopTeam = true, Message = "No catalog entry – " + h.Reason };
     }
 
     public static bool CanCure(PersistKind kind, IEnumerable<Card> present, int owner, bool missionCompleted = false)
@@ -2738,6 +3026,7 @@ public static class DilemmaRules
             PersistKind.Abduction => Skill(dummy, "Leadership", 3) || missionCompleted, // OR mission completed
             PersistKind.Phased => Skill(dummy, "ENGINEER") && Skill(dummy, "SCIENCE"),
             PersistKind.Scow => Skill(dummy, "ENGINEER", 2), // + tractor: UI prüft extra
+            PersistKind.FrameOfMind => Skill(dummy, "Empathy", 3),
             _ => false
         };
     }
@@ -2772,7 +3061,7 @@ public static class DilemmaRules
             line += $"  ·  COUNTER {countdown}";
         return line;
     }
-// ---- Extract Slice 6: ApplyDilemmaResult decide gates (no WPF) ----
+    // ---- Extract Slice 6: ApplyDilemmaResult decide gates (no WPF) ----
 
     /// <summary>Overcome / effect / attach / end-attempt remove the seed; WallFailed keeps it.</summary>
     public static bool ShouldRemoveFromSeed(Fate fate) =>

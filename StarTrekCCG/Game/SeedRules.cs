@@ -234,7 +234,7 @@ public static class SeedRules
             if (IsArtifactSpaceAllowed(seedCard))
                 return (true, "");
             if (!mPlanet)
-                return (false, $"Artifact {seedCard.Name} only under planet missions (Regelbuch 2.3 / Seed).");
+                return (false, $"Artifact {seedCard.Name} only under planet missions (Rulebook 2.3 / Seed).");
             return (true, "");
         }
 
@@ -245,10 +245,10 @@ public static class SeedRules
             if (!ok)
             {
                 string need = dPlanet && dSpace ? "Planet/Space"
-                    : dPlanet ? "Planet [P]" : dSpace ? "Space [S]" : "unbekannt";
+                    : dPlanet ? "Planet [P]" : dSpace ? "Space [S]" : "unknown";
                 string have = mPlanet && mSpace ? "Planet/Space"
-                    : mPlanet ? "Planet [P]" : mSpace ? "Space [S]" : "unbekannt";
-                return (false, $"Dilemma {seedCard.Name} ({need}) passt nicht auf {mission.Name} ({have}).");
+                    : mPlanet ? "Planet [P]" : mSpace ? "Space [S]" : "unknown";
+                return (false, $"Dilemma {seedCard.Name} ({need}) cannot be seeded at {mission.Name} ({have}).");
             }
             return (true, "");
         }

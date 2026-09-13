@@ -646,7 +646,7 @@ public static class InterruptRules
             {
                 Kind = Kind.Instant,
                 Effect = Effect.None,
-                Message = $"Interrupt „{n}“ gespielt (generisch discarded)."
+                Message = $"Interrupt \"{n}\" played (generically discarded)."
             }
         };
     }

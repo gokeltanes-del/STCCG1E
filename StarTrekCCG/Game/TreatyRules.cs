@@ -260,7 +260,7 @@ public static class TreatyRules
 
     public static string FormatActiveTreaties(IReadOnlyList<TreatyLink> links)
     {
-        if (links == null || links.Count == 0) return "Keine Treaties aktiv.";
+        if (links == null || links.Count == 0) return "No treaties active.";
         return string.Join("\n",
             links.Select(l => $"• {l.SourceName}: {l.AffilA} ↔ {l.AffilB}"));
     }

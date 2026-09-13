@@ -105,6 +105,22 @@ public class Card
     [JsonIgnore]
     public string? CurrentAffiliation { get; set; }
 
+    /// <summary>Personnel is quarantined (e.g. Hyper-Aging). Cannot leave/beam away.</summary>
+    [JsonIgnore]
+    public bool Quarantined { get; set; }
+
+    /// <summary>Personnel is in stasis (e.g. Phased Matter, Alien Abduction). Cannot leave or act.</summary>
+    [JsonIgnore]
+    public bool InStasis { get; set; }
+
+    /// <summary>Personnel is disabled (e.g. Ktarian Game). Cannot act or use skills/attributes.</summary>
+    [JsonIgnore]
+    public bool Disabled { get; set; }
+
+    /// <summary>True if leave/beam is blocked (Quarantine or Stasis or Disabled).</summary>
+    [JsonIgnore]
+    public bool IsLeaveBlocked => Quarantined || InStasis || Disabled;
+
     [JsonIgnore]
     public string Set => SetFolder ?? "Unknown";
 

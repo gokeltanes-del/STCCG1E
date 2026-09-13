@@ -49,7 +49,7 @@ public static class MovementRules
         IEnumerable<Card> crewOnBoard,
         IReadOnlyList<TreatyRules.TreatyLink>? treaties)
     {
-        var crew = crewOnBoard?.ToList() ?? new List<Card>();
+        var crew = crewOnBoard?.Where(c => !c.Disabled && !c.InStasis)?.ToList() ?? new List<Card>();
         var (cmdNeed, stfNeed) = ParseStaffingRequirement(ship);
         if (cmdNeed == 0 && stfNeed == 0)
         {
@@ -61,7 +61,7 @@ public static class MovementRules
                 if (crew.Count == 0)
                 {
                     return new StaffResult(false,
-                        $"Kein Personal an Bord von {ship.Name} - auch ohne Staffing-Icons braucht es matching affiliation.",
+                        $"No personnel aboard {ship.Name} - even without staffing icons, matching affiliation is required.",
                         0, 0, 0, 0);
                 }
                 if (!HasMatchingAffiliation(ship, crew, treaties))
@@ -69,11 +69,11 @@ public static class MovementRules
                     string aboard = string.Join(", ",
                         crew.Select(p => $"{p.Name}[{p.Affiliation ?? "?"}]"));
                     return new StaffResult(false,
-                        $"Keine matching affiliation an Bord (Schiff: {ship.Affiliation ?? "?"}). Crew: {aboard}.",
+                        $"No matching affiliation aboard (Ship: {ship.Affiliation ?? "?"}). Crew: {aboard}.",
                         0, 0, 0, 0);
                 }
                 return new StaffResult(true,
-                    "Keine Staffing-Icons - matching affiliation an Bord.",
+                    "No staffing icons - matching affiliation aboard.",
                     0, crew.Count, 0, 0);
             }
             int n = crew.Count;
@@ -84,18 +84,18 @@ public static class MovementRules
                     string aboard = string.Join(", ",
                         crew.Select(p => $"{p.Name}[{p.Affiliation ?? "?"}]"));
                     return new StaffResult(false,
-                        $"Keine matching affiliation an Bord (Schiff: {ship.Affiliation ?? "?"}). Crew: {aboard}.",
+                        $"No matching affiliation aboard (Ship: {ship.Affiliation ?? "?"}). Crew: {aboard}.",
                         0, 0, 0, 0);
                 }
-                return new StaffResult(true, $"Text-Staffing \"{staff}\" - Sandbox: =1 matching Crew ok.", 0, n, 0, 0);
+                return new StaffResult(true, $"Text staffing \"{staff}\" - Sandbox: >=1 matching crew ok.", 0, n, 0, 0);
             }
-            return new StaffResult(false, $"Staffing \"{staff}\": mindestens 1 Personal noetig (vereinfacht).", 0, 0, 0, 0);
+            return new StaffResult(false, $"Staffing \"{staff}\": at least 1 personnel required (simplified).", 0, 0, 0, 0);
         }
 
         if (crew.Count == 0)
         {
             return new StaffResult(false,
-                $"Kein Personal an Bord von {ship.Name} — matching affiliation und Staffing fehlen.",
+                $"No personnel aboard {ship.Name} — matching affiliation and staffing missing.",
                 0, 0, cmdNeed, stfNeed);
         }
 
@@ -104,7 +104,7 @@ public static class MovementRules
             string aboard = string.Join(", ",
                 crew.Select(p => $"{p.Name}[{p.Affiliation ?? "?"}]"));
             return new StaffResult(false,
-                $"Keine matching affiliation an Bord (Schiff: {ship.Affiliation ?? "?"}). Crew: {aboard}.",
+                $"No matching affiliation aboard (Ship: {ship.Affiliation ?? "?"}). Crew: {aboard}.",
                 0, 0, cmdNeed, stfNeed);
         }
 
@@ -134,8 +134,8 @@ public static class MovementRules
         bool ok = cmdLeft == 0 && stfLeft == 0;
         string reason = ok
             ? "Staffed."
-            : $"Nicht staffed: braucht noch Cmd={cmdLeft}, Stf={stfLeft} " +
-              $"(an Bord Cmd-Icons={cmdPool + useCmd + cmdAsStaff}, Stf-Icons={stfPool + useStf}).";
+            : $"Not staffed: still requires Cmd={cmdLeft}, Stf={stfLeft} " +
+              $"(aboard Cmd icons={cmdPool + useCmd + cmdAsStaff}, Stf icons={stfPool + useStf}).";
 
         return new StaffResult(ok, reason,
             useCmd + cmdAsStaff + cmdPool, useStf + stfPool, cmdNeed, stfNeed);
@@ -250,17 +250,17 @@ public static class MovementRules
         }
 
         if (fromIndex == toIndex)
-            return new MoveResult(false, "Schiff ist bereits an dieser Mission.", 0, remainingRange);
+            return new MoveResult(false, "Ship is already at this mission.", 0, remainingRange);
 
         int cost = RangeCostBetween(orderedMissions, fromIndex, toIndex, forOwnerAtIndex, wrapEnds);
         if (cost > remainingRange)
         {
             return new MoveResult(false,
-                $"RANGE zu gering: braucht {cost}, übrig {remainingRange} (voller RANGE {GetShipRange(ship)}).",
+                $"RANGE too low: needs {cost}, left {remainingRange} (full RANGE {GetShipRange(ship)}).",
                 cost, remainingRange);
         }
 
-        return new MoveResult(true, $"Bewegung ok, kostet {cost} RANGE.", cost, remainingRange - cost);
+        return new MoveResult(true, $"Movement ok, costs {cost} RANGE.", cost, remainingRange - cost);
     }
 
     /// <summary>RANGE along Board locations (Gaps = own Span). Q-Net = BarrierAfter.</summary>
@@ -368,7 +368,7 @@ public static class MovementRules
         }
 
         if (fromIndex == toIndex)
-            return new MoveResult(false, "Schiff ist bereits an dieser Location.", 0, remainingRange);
+            return new MoveResult(false, "Ship is already at this location.", 0, remainingRange);
 
         bool blocked = PathBlocked(line, fromIndex, toIndex, wrapEnds, out _);
         if (blocked && !EventRules.HasSkill(crew, "Diplomacy", 2))
@@ -378,10 +378,10 @@ public static class MovementRules
         if (cost > remainingRange)
         {
             return new MoveResult(false,
-                $"RANGE zu gering: braucht {cost}, übrig {remainingRange} (voller RANGE {GetShipRange(ship)}).",
+                $"RANGE too low: needs {cost}, left {remainingRange} (full RANGE {GetShipRange(ship)}).",
                 cost, remainingRange);
         }
 
-        return new MoveResult(true, $"Bewegung ok, kostet {cost} RANGE.", cost, remainingRange - cost);
+        return new MoveResult(true, $"Movement ok, costs {cost} RANGE.", cost, remainingRange - cost);
     }
 }

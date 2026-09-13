@@ -149,6 +149,7 @@ public sealed class AttachedDilemmaSnap
     public string Kind { get; set; } = "";
     public int HostId { get; set; }
     public int Countdown { get; set; }
+    public List<int> HeldIds { get; set; } = new();
 }
 
 public sealed class LogSnap

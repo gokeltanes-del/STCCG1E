@@ -67,6 +67,20 @@ public static class DetailStatusRules
         _ => ""
     };
 
+    public static string FormatDisabledLine(string dilemmaName, string? cureHint = null)
+    {
+        string name = string.IsNullOrWhiteSpace(dilemmaName) ? "disabled" : dilemmaName.Trim();
+        if (string.IsNullOrWhiteSpace(cureHint))
+            return $"Disabled ({name})";
+        return $"Disabled ({name} — {cureHint})";
+    }
+
+    public static string DisabledCureHint(DilemmaRules.PersistKind kind) => kind switch
+    {
+        DilemmaRules.PersistKind.Ktarian => "cure: CUNNING>30 OR Android",
+        _ => ""
+    };
+
     public static string FormatHeldStasisSectionLine(string dilemmaName, string personnelNames) =>
         $"Held/Stasis: {dilemmaName} — {personnelNames}";
 
@@ -89,12 +103,13 @@ public static class DetailStatusRules
 
     /// <summary>
     /// Away-Team detail groups: same labels = same group.
-    /// Order inside a set: Quarantined, Stasis, Stopped.
+    /// Order inside a set: Disabled, Quarantined, Stasis, Stopped.
     /// Empty list = no negative personnel effect.
     /// </summary>
-    public static System.Collections.Generic.IReadOnlyList<string> PersonnelNegEffects(bool stopped, bool stasis, bool quarantined)
+    public static System.Collections.Generic.IReadOnlyList<string> PersonnelNegEffects(bool stopped, bool stasis, bool quarantined, bool disabled = false)
     {
-        var list = new System.Collections.Generic.List<string>(3);
+        var list = new System.Collections.Generic.List<string>(4);
+        if (disabled) list.Add("Disabled");
         if (quarantined) list.Add("Quarantined");
         if (stasis) list.Add("Stasis");
         if (stopped) list.Add("Stopped");

@@ -389,7 +389,7 @@ public static class MissionRules
     {
         var teamList = team.ToList();
         if (teamList.Count == 0)
-            return new AttemptResult(false, "Kein Away Team / keine Crew an der Mission.", false, 0);
+            return new AttemptResult(false, "No Away Team / crew at the mission.", false, 0);
 
         _ = dilemmasRemaining;
 
@@ -429,7 +429,7 @@ public static class MissionRules
         if (reqs.Count == 0)
         {
             int pts = ParsePoints(mission);
-            return new AttemptResult(true, "Keine Skill-Requirements erkannt – Team vor Ort genügt (Sandbox).", true, pts);
+            return new AttemptResult(true, "No skill requirements detected – present team suffices (sandbox).", true, pts);
         }
 
         var missing = new List<string>();
@@ -452,9 +452,9 @@ public static class MissionRules
         }
 
         if (missing.Count > 0)
-            return new AttemptResult(false, "Requirements nicht erfüllt: " + string.Join("; ", missing), false, 0);
+            return new AttemptResult(false, "Requirements not met: " + string.Join("; ", missing), false, 0);
 
-        return new AttemptResult(true, "Mission requirements erfüllt.", true, ParsePoints(mission));
+        return new AttemptResult(true, "Mission requirements met.", true, ParsePoints(mission));
     }
 
     public static int ParsePoints(Card mission)
@@ -600,7 +600,7 @@ public static class MissionRules
             int need = int.Parse(mAttr.Groups[3].Value);
             int have = attr == "INTEGRITY" ? integ : attr == "CUNNING" ? cunn : str;
             if (have <= need && mAttr.Groups[2].Value.StartsWith(">"))
-                return new AttemptResult(false, $"{attr}>{need} nicht erreicht (haben {have}).", false, 0);
+                return new AttemptResult(false, $"{attr}>{need} not reached (have {have}).", false, 0);
         }
 
         // Common skill words present
@@ -619,9 +619,9 @@ public static class MissionRules
                                         || skill.Contains(kv.Key, StringComparison.OrdinalIgnoreCase))
                            .Sum(kv => kv.Value);
             if (have < 1)
-                return new AttemptResult(false, $"Skill „{skill}“ fehlt im Team.", false, 0);
+                return new AttemptResult(false, $"Skill \"{skill}\" missing in team.", false, 0);
         }
 
-        return new AttemptResult(true, "Dilemma conditions (Heuristik) erfüllt.", true, 0);
+        return new AttemptResult(true, "Dilemma conditions (heuristic) met.", true, 0);
     }
 }

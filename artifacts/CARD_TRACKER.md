@@ -75,11 +75,11 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 
 | Card | Status | Notes | Source |
 | --- | --- | --- | --- |
-| Alien Abduction (10 U) | working | Pepsch green (Cure OR + Stasis Beam-Block). | Pepsch 2026-09-06 |
+| Alien Abduction (10 U) | working | Pepsch green (Cure OR + Stasis Beam-Block; zentrales Cure-System 7.2.2.3 via 3 Leadership oder Mission Completed; Fix: kein Stoppen des Teams, nahtlose Fortsetzung bei Cure oder Nicht-Cure lt. 7.2.2.3/7.2.6). | Pepsch 2026-09-13 |
 | Alien Parasites (11 U) | partial | tip Data/`f087866` Neg Control + Strip/`2976b61`. Hotseat-Chooser PARK. Pending Pepsch green → working. | Data/`2976b61` 2026-09-09 |
 | Anaphasic Organism (12 C) | partial | tip Data/`502d8e0` + Fix/`3532748` (Fail resigns=discard, not Kill). Ungetestet. | Data/`3532748` 2026-09-06 |
 | Ancient Computer (13 R) | partial | tip Data/`bb551f1`. Wall: 2 Computer Skill OR 3 SCIENCE OR 3 ENGINEER; Fail Stop+unter Mission. Ungetestet. | Data/`bb551f1` 2026-09-06 |
-| Archer (14 C) | working | Pepsch Gesamt-Grün (tip Data/`bf1f2ab`; Stop Soll Spock Condition-Fail). | Pepsch + Data/`bf1f2ab` 2026-09-06 |
+| Archer (14 C) | working | Pepsch green bestätigt: Auswertung Attribute / Opponent-Choice bei Gleichstand und Stop-Verhalten funktionieren einwandfrei. | Pepsch 2026-09-13 |
 | Armus: Skin Of Evil (15 R) | partial | tip Data/`31d0c73`. 1 AT random Kill; discard; Rest Continue (kein Stop). Ungetestet. | Data/`31d0c73` 2026-09-06 |
 | Barclay's Protomorphosis Disease (16 R) | working | Pepsch getestet OK (Metamorphosis/Transformation). | Pepsch 2026-09-06 |
 | Birth of "Junior" (17 U) | partial | tip Data/`4c92dce`. Place+Continue; EOT RANGE-1/destroy; Cure 3 ENG. PARK: pup-disable. GAP Cure-Present-Scope (Ship): Skills an Bord, nicht ortsweit — Seven FEATURES `cd468fb`. Ungetestet. | Data/`4c92dce` + Spock 2026-09-06 |
@@ -96,7 +96,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Hyper-Aging (28 U) | working | Pepsch green Quarantäne+Beam-Block `46eab15`; Detailansicht Debuff-Gruppierung OK. RemFatigue PARK. | Pepsch 2026-09-12 |
 | Iconian Computer Weapon (29 C) | partial | tip Data/`47984b5`. Pass SCIENCE Continue; Fail Stop + Non-Pers Hand discard+draw. Ungetestet. | Data/`47984b5` 2026-09-06 |
 | Impassable Door (30 C) | working | Pepsch green (komplett); tip Data/`be5062b`. | Pepsch + Data/`be5062b` 2026-09-07 |
-| Ktarian Game (31 R) | partial | tip Data/`7de28a4`. Place+Continue; Cure CUNN>30/Android. PARK: Lefler; Now+SOT Disable-Apply. GAP Cure-Present-Scope (Ship): Skills an Bord, nicht ortsweit — Seven FEATURES `cd468fb`. Ungetestet. | Data/`7de28a4` + Spock 2026-09-06 |
+| Ktarian Game (31 R) | working | Now + start of each turn 1 personnel randomly disabled (permanent until cured). Disabled cards cannot act, beam, use skills/attributes or staff ships. Cure with CUNNING>30 or Android frees all disabled crew and discards dilemma. Unit tests `VerifyKtarianGame` and `VerifyDilemmaCureRules`. | Captain 2026-09-13 |
 | Male's Love Interest (32 C) | working | Pepsch getestet OK (Continue after Relocate). | Pepsch 2026-09-06 |
 | Matriarchal Society (33 U) | partial | tip Data/`d68f511`. Wall ≥2 Female Continue; Fail Stop+unter Mission. PARK: Borg gender. Ungetestet. | Data/`d68f511` 2026-09-06 |
 | Menthar Booby Trap (34 C) | partial | tip Data/`01e5bb8`. Place immer; MED Continue else Kill+Stop; Cure 2 ENG. PARK: LegalMoves move-block. GAP Cure-Present-Scope (Ship): Skills an Bord, nicht ortsweit — Seven FEATURES `cd468fb`. Ungetestet. | Data/`01e5bb8` + Spock 2026-09-06 |
@@ -107,8 +107,8 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Nausicaans (39 U) | partial | tip Data/`485814c`. STR>44 Continue; Fail random Kill+Stop. PARK: Interphase/Zon nullify. Ungetestet. | Data/`485814c` 2026-09-06 |
 | Nitrium Metal Parasites (40 U) | working | Pepsch green (AttachAndContinue). | Pepsch 2026-09-06 |
 | Null Space (41 U) | partial | tip Data/`04f4bd6`. 2 Navigation → +5 Continue; Fail Damage+Stop. Ungetestet. | Data/`04f4bd6` 2026-09-06 |
-| Phased Matter (42 C) | partial | tip Data/`1b6ad64`. Split; groessere phased; kleine Continue; Cure ENG+SCI unphased. PARK: deep Phasing-LegalMoves. Ungetestet. | Data/`1b6ad64` 2026-09-06 |
-| Portal Guard (43 U) | partial | tip Data/`e4362e2`. CUNN>7/Honor Continue; Fail BeamBack+Stop+unter Mission. PARK: Kill wenn Beam unmoeglich (Spock: Kern-Soll, Pepsch-Retest); Borg. Ungetestet. | Data/`e4362e2` + Spock 2026-09-06 |
+| Phased Matter (42 C) | working | Pepsch green: AT-Split, Stasis der größeren Gruppe, Weiterführung der kleineren Gruppe und Cure (ENG+SCI unphased) via zentrales Cure-System bestätigt. | Pepsch 2026-09-13 |
+| Portal Guard (43 U) | working | CUNN>7/Honor Continue; Fail: BeamBack+Stop wenn Beamen möglich (Schiff/Facility vorhanden, kein Stasis/Quarantäne); Kill wenn Beamen unmöglich (z.B. Hyper-Aging Quarantäne oder kein Schiff/Facility) + unter Mission. Unit-Test `VerifyPortalGuard`. | Captain 2026-09-13 |
 | Q (44 R) | unknown |  |  |
 | Radioactive Garbage Scow (45 U) | unknown |  |  |
 | Rebel Encounter (46 U) | unknown |  |  |
@@ -117,8 +117,8 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Shaka, When the Walls Fell (49 U) | unknown |  |  |
 | Tarellian Plague Ship (50 U) | unknown |  |  |
 | Temporal Causality Loop (51 R) | unknown |  |  |
-| Tsiolkovsky Infection (52 R) | unknown |  |  |
-| Two-Dimensional Creatures (53 U) | unknown |  |  |
+| Tsiolkovsky Infection (52 R) | partial | AttachContinue: kein Team-Stop (Rulebook 7.2.2.3), Verlust 1. Skill, Versuch läuft weiter; Cure 3 MEDICAL. | Captain 2026-09-13 |
+| Two-Dimensional Creatures (53 U) | partial | AttachContinue: kein Team-Stop (Rulebook 7.2.2.3), Schiff bewegungsunfähig, Versuch läuft weiter; Cure ENG+SCI. | Captain 2026-09-13 |
 | Wind Dancer (54 R) | unknown |  |  |
 
 ### Equipment
@@ -150,7 +150,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Espionage: Romulan on Federation (73 C) | working | Pepsch green (Espionage-Familie). | Pepsch 2026-09-06 |
 | Espionage: Romulan on Klingon (74 C) | working | Pepsch green (Espionage-Familie). | Pepsch 2026-09-06 |
 | Gaps in Normal Space (75 U) | unknown |  |  |
-| Genetronic Replicator (76 U) | unknown |  |  |
+| Genetronic Replicator (76 U) | working | Glossary: Opfer & gleichzeitig Getötete ausgeschlossen; Auswahl via PickBorder; Unit-Test in EventRules. | Agent 2026-09-13 |
 | Goddess of Empathy (77 R) | unknown |  |  |
 | Holo-Projectors (78 U) | unknown |  |  |
 | Kivas Fajo: Collector (79 U) | working | Pepsch green. | Pepsch 2026-09-06 |

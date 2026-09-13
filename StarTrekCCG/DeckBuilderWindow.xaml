@@ -250,7 +250,7 @@
                         <TabItem x:Name="QContinuumTab" Header="Q-Cont." Background="#5E35B1"/>
                         <TabItem x:Name="SitePileTab" Header="Sites" Background="#00838F"/>
                         <TabItem x:Name="TribbleTab" Header="Tribble" Background="#EF6C00"/>
-                        <TabItem x:Name="SideLegacyTab" Header="Side alt" Background="#555555" Visibility="Collapsed"/>
+                        <TabItem x:Name="SideLegacyTab" Header="Side legacy" Background="#555555" Visibility="Collapsed"/>
                     </TabControl>
 
                     <ListBox x:Name="DeckList" Background="#1E1E1E" Foreground="White" BorderThickness="0"
