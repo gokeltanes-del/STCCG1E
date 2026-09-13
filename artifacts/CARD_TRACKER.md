@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-13 (Jadzia — El-Adrel tip ea1ff6d pending Pepsch retest)
+Last updated: 2026-09-13 (Jadzia — Pepsch green Ktarian + El-Adrel)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -88,7 +88,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Cosmic String Fragment (20 U) | partial | tip Data/`85ca39a`. Pass Astrophysics OR ENG OR Navigation → +5 + Continue; Fail Ship destroy. Ungetestet. | Data/`85ca39a` 2026-09-06 |
 | Crystalline Entity (21 R) | partial | tip Data/`6f11978`. Space/Planet +5; Fail kill-all life (nicht Stasis). Lore-Double geparkt. Ungetestet. | Data/`6f11978` 2026-09-06 |
 | Cytherians (22 R) | partial | tip Data/`baa9fd5`. Place+Attempt-end; far-end +15. PARK: LegalMoves-toward-far-end; Borg no-pts; Mission Debriefing. Ungetestet. | Data/`baa9fd5` 2026-09-06 |
-| El-Adrel Creature (23 U) | partial | tip Data/`4b3467b` + fix/`ea1ff6d` (Josef, no push): live-feed (owner fallback, refresh Team/Present, ignore Kill on Overcome) + encounter diag. Smoke FAIL CONFIRMED 2026-09-13 (Pepsch): two unstopped STR 9 on planet AT (9+9=18>16 should pass). Stays partial until Pepsch retests. | Data/`ea1ff6d` 2026-09-13; Pepsch smoke 2026-09-13 |
+| El-Adrel Creature (23 U) | working | Pepsch green: 2 staerkste (Tie=Owner); STR>16 Continue (9+9 planet AT Overcome OK); Fail random Kill + AT stop. tip Data/`4b3467b` + live-feed/`ea1ff6d` (owner fallback, refresh Team/Present, ignore Kill on Overcome). | Pepsch 2026-09-13; Data/`ea1ff6d` |
 | Female's Love Interest (24 C) | working | Pepsch getestet OK (Continue after Relocate). | Pepsch 2026-09-06 |
 | Firestorm (25 U) | working | Pepsch green: INT<5 Kills OK, Versuch-Fortsetzung OK, Overlay EFFECT-Header OK. PARK: ETA-Escape. | Pepsch 2026-09-12 |
 | Gravitic Mine (26 U) | partial | tip Data/`5c4f563`. Pass SCIENCE+Navigation Continue; Fail Damage + Ship/Crew stop. Ungetestet. | Data/`5c4f563` 2026-09-06 |
@@ -96,7 +96,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Hyper-Aging (28 U) | working | Pepsch green Quarantäne+Beam-Block `46eab15`; Detailansicht Debuff-Gruppierung OK. RemFatigue PARK. | Pepsch 2026-09-12 |
 | Iconian Computer Weapon (29 C) | partial | tip Data/`47984b5`. Pass SCIENCE Continue; Fail Stop + Non-Pers Hand discard+draw. Ungetestet. | Data/`47984b5` 2026-09-06 |
 | Impassable Door (30 C) | working | Pepsch green (komplett); tip Data/`be5062b`. | Pepsch + Data/`be5062b` 2026-09-07 |
-| Ktarian Game (31 R) | working | Smoke FAIL 2026-09-13 (Pepsch): attach + disable Ro Laren, then immediate cure (log: CUNNING>30 or Android) and dilemma leaves ship — host ship had exactly 30 CUNNING; second ship with full crew at same location. Data tip `3c7ee2d` (Josef, no push): ship-hosted dilemma cure present = host crew only. Stays not-green until Pepsch retests — not blocked. Prior: Now + start-of-turn disable; Cure CUNNING>30 or Android. Unit tests `VerifyKtarianGame` / `VerifyDilemmaCureRules`. | Pepsch smoke 2026-09-13; Data/`3c7ee2d` 2026-09-13 |
+| Ktarian Game (31 R) | working | Pepsch green: Now + start-of-turn disable; Cure CUNNING>30 or Android (ship-hosted cure present = host crew only, tip Data/`3c7ee2d`). Unit tests `VerifyKtarianGame` / `VerifyDilemmaCureRules`. | Pepsch 2026-09-13; Data/`3c7ee2d` |
 | Male's Love Interest (32 C) | working | Pepsch getestet OK (Continue after Relocate). | Pepsch 2026-09-06 |
 | Matriarchal Society (33 U) | partial | tip Data/`d68f511`. Wall ≥2 Female Continue; Fail Stop+unter Mission. PARK: Borg gender. Ungetestet. | Data/`d68f511` 2026-09-06 |
 | Menthar Booby Trap (34 C) | partial | tip Data/`01e5bb8`. Place immer; MED Continue else Kill+Stop; Cure 2 ENG. PARK: LegalMoves move-block. GAP Cure-Present-Scope (Ship): Skills an Bord, nicht ortsweit — Seven FEATURES `cd468fb`. Ungetestet. | Data/`01e5bb8` + Spock 2026-09-06 |
