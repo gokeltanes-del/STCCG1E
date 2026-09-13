@@ -17014,7 +17014,19 @@ public partial class TableWindow : Window
                 }
             }
 
-            var present = CollectPresentAtMissionForCure(a.Host, cureOwner);
+            // Spock Cure-Present-Scope (Ship): ship-hosted persist => present aboard host only.
+            // Planet/mission-hosted stays location/AT. Applies to ALL ship-hosted kinds (not Ktarian-only).
+            List<Card> present;
+            if (a.Host.Tag is Card hostCard && IsShipCard(hostCard))
+            {
+                present = GetAllCardsOnHost(a.Host, cureOwner)
+                    .Where(c => !IsCardDisabled(c))
+                    .ToList();
+            }
+            else
+            {
+                present = CollectPresentAtMissionForCure(a.Host, cureOwner);
+            }
             if (a.Held.Count > 0)
                 present = DilemmaRules.ExcludeHeld(present, a.Held);
 
@@ -17792,7 +17804,9 @@ public partial class TableWindow : Window
                 present = GetCrewOnShip(a.Host); // scow on mission - check ships later
             // Abduction/Phased: cure skills need location present (AT + ship crews), incl. stopped.
             // Host owner alone often misses the attempting player's AT (Pepsch: Leadership x3 never fired).
-            if (a.Kind is DilemmaRules.PersistKind.Abduction or DilemmaRules.PersistKind.Phased)
+            // Location present only when host is mission/planet (never expand ship-hosted cure present).
+            if ((a.Kind is DilemmaRules.PersistKind.Abduction or DilemmaRules.PersistKind.Phased)
+                && !(a.Host.Tag is Card shipHost && IsShipCard(shipHost)))
             {
                 int cureOwner = owner; // finishing player
                 if (a.Held.Count > 0)

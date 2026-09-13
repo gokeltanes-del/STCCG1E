@@ -4,6 +4,13 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+
+## 2026-09-13 (Fix - Cure-Present-Scope Ship)
+
+**Engine** - `TryCureAttachedDilemmas`: ship-hosted persist (Junior, Menthar, Nitrium, Ktarian, etc.) cures vs crew aboard **host ship only** (`GetAllCardsOnHost`); planet/mission-hosted stays location/AT. EOT Abduction/Phased location-present only when host is not a ship. Fixes false post-attach cure from second own ship at same mission (Pepsch Ktarian: host CUNNING==30 must not cure).
+
+---
+
 ## 2026-09-13 (Fix - Save/Load Game State & Ship Hull Damage Persistence)
 
 **Engine & Save/Load (`TableWindow.xaml.cs`)**:
