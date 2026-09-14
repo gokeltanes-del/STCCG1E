@@ -9039,6 +9039,15 @@ public partial class TableWindow : Window
         DedupTablePermanents(_oppTablePermanentCards);
         RebuildTablePermanentsPanel();
         RelayoutMissionsOnSpaceline();
+        // Scow Place during dilemma restore used pre-layout mission Left/Top — align to final column.
+        var scowLoad = _attachedDilemmas.FirstOrDefault(d => d.Kind == DilemmaRules.PersistKind.Scow);
+        if (scowLoad?.Host != null)
+        {
+            if (_scowToken == null)
+                PlaceScowToken(scowLoad.Card, scowLoad.Host);
+            else
+                PositionScowToken(scowLoad.Host);
+        }
         UpdateScoreDisplay();
         RefreshZoneCounts();
         ApplyPerspective();
@@ -18645,16 +18654,19 @@ public partial class TableWindow : Window
         PositionScowToken(hostMission);
     }
 
+
     private void PositionScowToken(Border hostMission)
     {
         if (_scowToken == null) return;
         double left = Canvas.GetLeft(hostMission);
         double top = Canvas.GetTop(hostMission);
+        // Next free slot AFTER all dockables — never share canvas Y with a ship/facility.
         var others = GetDockablesUnderMission(hostMission, exclude: _scowToken);
         int below = others.Count(b => Canvas.GetTop(b) > top + 20);
         Canvas.SetLeft(_scowToken, left);
         Canvas.SetTop(_scowToken, top + UnderMissionGap * (below + 1));
-        Panel.SetZIndex(_scowToken, 30 + below);
+        // Below dockable Z (facilities ~12+, ships ~22+) so ships stay clickable.
+        Panel.SetZIndex(_scowToken, 8);
     }
 
     private void RemoveScowToken()
@@ -21585,6 +21597,10 @@ public partial class TableWindow : Window
         var borgAt = _attachedDilemmas.FirstOrDefault(d => d.Kind == DilemmaRules.PersistKind.BorgShip);
         if (borgAt != null && ReferenceEquals(borgAt.Host, mission))
             PositionBorgShipToken(mission);
+
+        var scowAt = _attachedDilemmas.FirstOrDefault(d => d.Kind == DilemmaRules.PersistKind.Scow);
+        if (scowAt != null && ReferenceEquals(scowAt.Host, mission))
+            PositionScowToken(mission);
 
         EnsureBoardExtents();
     }

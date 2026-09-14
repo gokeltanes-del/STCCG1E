@@ -5,6 +5,12 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 ---
 
 
+## 2026-09-14 (Fix - Scow token layout/Z/load)
+
+**UI** - Scow token after all dockables under host (Relayout + load re-Position); Z below ships so dockables stay clickable; X aligns to host mission column after spaceline layout.
+
+---
+
 ## 2026-09-14 (Feat - Tractor Beam + Radioactive Garbage Scow tow)
 
 **Engine/UI** - `ShipHasSpecialEquipment` (Text comma-list); `CanTowScow` (Tractor + 2 ENG at Scow mission); ship side **Tractor** = legal fly then relocate Scow spaceline token (AttemptBlocked moves; not discard/cure). Destroy Scow interrupt unchanged.
