@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-14 (Data - Ship Seizure play-on Tractor host)
+Last updated: 2026-09-14 (Jadzia — Ship Seizure tip 3e39af8 pending Pepsch green)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -220,7 +220,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Q2 (133 U) | unknown |  |  |
 | Rogue Borg (134 C) | working | Pepsch green (Rogue Borg Mercenaries). | Pepsch 2026-09-06 |
 | Scan (135 C) | unknown |  |  |
-| Ship Seizure (136 C) | partial | tip Data play-on: drop ON your Tractor ship = host; only victim Pick among empty exposed at that location (auto if one). No own-ship menu. HostMatches Tractor Beam. Pending Pepsch smoke. | Data Go 2026-09-14; Pepsch smoke pending |
+| Ship Seizure (136 C) | partial | tips Data/`7c295d7` + play-on/`3e39af8` (Josef, no push): play-on = tractor host; then victim-only pick same location (empty exposed). Spock Soll. Stays partial until Pepsch greens — not working. | Data/`3e39af8` 2026-09-14 |
 | Subspace Interference (137 C) | unknown |  |  |
 | Subspace Schism (138 U) | unknown |  |  |
 | Tachyon Detection Grid (139 C) | unknown |  |  |
