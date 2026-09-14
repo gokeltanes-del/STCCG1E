@@ -13118,6 +13118,14 @@ public partial class TableWindow : Window
 
     private bool HostMatchesInterruptTargetForCard(Border host, int owner, Card interrupt)
     {
+        if (InterruptRules.IsShipSeizure(interrupt))
+        {
+            if (host.Tag is not Card ss || !IsShipCard(ss)) return false;
+            int o = GetBorderOwner(host);
+            if (o == 0) o = owner;
+            bool tractor = MovementRules.ShipHasSpecialEquipment(ss, "Tractor Beam");
+            return InterruptRules.IsLegalShipSeizureTractor(true, o == owner, tractor);
+        }
         if (InterruptRules.IsWormhole(interrupt))
         {
             if (_wormholeShip != null)
@@ -14057,7 +14065,7 @@ public partial class TableWindow : Window
                 AwardDilemmaPoints(5);
                 break;
             case InterruptRules.Effect.ShipSeizure:
-                ApplyShipSeizure(card, controller);
+                ApplyShipSeizure(card, controller, target);
                 break;
             case InterruptRules.Effect.Wormhole:
                 // Pair is resolved on drop (exposed ship, then location). Stack only announces.
@@ -21024,44 +21032,26 @@ public partial class TableWindow : Window
 
 
     /// <summary>
-    /// Ship Seizure: player picks (1) own Tractor Beam ship, (2) another empty exposed ship
-    /// at that location (opp or yours). Discard victim only — not Scow tow, not Escape Pod destroy.
+    /// Ship Seizure: play-on host IS the Tractor Beam ship (drop/snap). Then only pick
+    /// another empty exposed ship at FindMissionForDockable(host) (opp or yours). Discard victim.
     /// </summary>
-    private void ApplyShipSeizure(Card interrupt, int controller)
+    private void ApplyShipSeizure(Card interrupt, int controller, Card? target = null)
     {
-        var tractors = new List<Border>();
-        foreach (var b in TableCanvas.Children.OfType<Border>())
+        // Drop/play-on ship = Tractor host — no second own-ship menu (Pepsch Soll).
+        Border? tractorShip = _interruptTargetHost;
+        if ((tractorShip == null || tractorShip.Tag is not Card) && target != null)
+            tractorShip = FindBorderForCard(target);
+        if (tractorShip == null || tractorShip.Tag is not Card tractorCard || !IsShipCard(tractorCard))
         {
-            if (b.Tag is not Card sc || !IsShipCard(sc)) continue;
-            int o = GetBorderOwner(b);
-            if (o == 0) o = controller;
-            bool tractor = MovementRules.ShipHasSpecialEquipment(sc, "Tractor Beam");
-            if (!InterruptRules.IsLegalShipSeizureTractor(true, o == controller, tractor))
-                continue;
-            tractors.Add(b);
-        }
-        if (tractors.Count == 0)
-        {
-            ShowPlayError("Ship Seizure: you need a ship with Tractor Beam in play.");
+            ShowPlayError("Ship Seizure: play on your ship with Tractor Beam.");
             return;
         }
-        Card? tractorCard = tractors.Count == 1
-            ? (Card)tractors[0].Tag!
-            : PickCardFromList(
-                "Ship Seizure: choose your ship with Tractor Beam.",
-                tractors.Select(b => (Card)b.Tag!).ToList(),
-                "Ship Seizure — Tractor ship",
-                interrupt);
-        if (tractorCard == null)
+        int hostOwner = GetBorderOwner(tractorShip);
+        if (hostOwner == 0) hostOwner = controller;
+        bool hasTractor = MovementRules.ShipHasSpecialEquipment(tractorCard, "Tractor Beam");
+        if (!InterruptRules.IsLegalShipSeizureTractor(true, hostOwner == controller, hasTractor))
         {
-            ShowPlayError("Ship Seizure: no Tractor ship chosen.");
-            return;
-        }
-        var tractorShip = tractors.FirstOrDefault(b => ReferenceEquals(b.Tag, tractorCard))
-                          ?? FindBorderForCard(tractorCard);
-        if (tractorShip == null)
-        {
-            ShowPlayError("Ship Seizure: Tractor ship not on table.");
+            ShowPlayError("Ship Seizure: host must be your ship with Tractor Beam.");
             return;
         }
         var here = FindMissionForDockable(tractorShip);

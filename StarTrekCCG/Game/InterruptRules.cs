@@ -102,6 +102,8 @@ public static class InterruptRules
     public static bool IsEscapePod(Card? c) => NameIs(c, "Escape Pod");
     public static bool IsWormhole(Card? c) => NameIs(c, "Wormhole");
 
+    public static bool IsShipSeizure(Card? c) => NameIs(c, "Ship Seizure");
+
     /// <summary>Extract Slice 2: pair gate â€” need two Wormholes in hand to start the first.</summary>
     public static bool CanStartWormholePair(int wormholesInHand) => wormholesInHand >= 2;
 
@@ -653,7 +655,7 @@ public static class InterruptRules
 
     // ---------- Ship Seizure (player chooses; not random / first canvas child) ----------
 
-    /// <summary>Own ship that may be the Tractor Beam host for Ship Seizure.</summary>
+    /// <summary>Play-on host: own ship with Tractor Beam (drop target, not a second picker).</summary>
     public static bool IsLegalShipSeizureTractor(bool isShip, bool ownedByPlayer, bool hasTractorBeam) =>
         isShip && ownedByPlayer && hasTractorBeam;
 

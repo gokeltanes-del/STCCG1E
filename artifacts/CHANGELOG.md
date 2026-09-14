@@ -5,6 +5,13 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 ---
 
 
+## 2026-09-14 (Fix - Ship Seizure play-on Tractor host)
+
+**Engine/UI** - Ship Seizure: drop/play-on ship is the Tractor host (no own-ship picker); only AskChoice/Pick among empty exposed ships at FindMissionForDockable(host); discard victim; HostMatches requires Tractor Beam.
+
+---
+
+
 ## 2026-09-14 (Feat - Ship Seizure player pick)
 
 **Engine/UI** - Ship Seizure: player picks own Tractor Beam ship + another empty exposed ship at same location (`PickCardFromList`); discard victim only (not first-canvas / Escape Pod destroy). `InterruptRules.IsLegalShipSeizure*` + Verify.
