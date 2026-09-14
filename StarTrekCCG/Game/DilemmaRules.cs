@@ -3086,12 +3086,16 @@ public static class DilemmaRules
         CountEffectiveSkill(present, owner, skill) >= need;
 
     /// <summary>
-    /// Tow Radioactive Garbage Scow: ship at Scow mission + Tractor Beam + 2 effective ENGINEER
-    /// aboard that ship (skill + classification + equipment modifiers). Tow relocates the Scow
-    /// token (not a cure/discard).
+    /// Tow Radioactive Garbage Scow gate: ship at Scow mission + Tractor Beam + 2 effective ENGINEER
+    /// aboard that ship (skill + classification + equipment modifiers). Tow is attach-then-Fly-until-EOT
+    /// (not a cure/discard); Destroy Scow interrupt still discards.
     /// </summary>
     public static bool CanTowScow(bool shipAtScowMission, bool hasTractorBeam, bool hasTwoEngineerAboard) =>
         shipAtScowMission && hasTractorBeam && hasTwoEngineerAboard;
+
+    /// <summary>Begin-tow skill/equipment gate (UI also requires Fly auth / undocked / not already towing).</summary>
+    public static bool CanBeginTowScow(bool shipAtScowMission, bool hasTractorBeam, bool hasTwoEngineerAboard) =>
+        CanTowScow(shipAtScowMission, hasTractorBeam, hasTwoEngineerAboard);
 
     /// <summary>DE mini-test: CanTowScow ENG uses effective skill (Kit/PADD/class). Null = OK.</summary>
     public static string? VerifyCanTowScowEffective()
