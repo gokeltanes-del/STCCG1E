@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-14 (Jadzia — Scow tow OK/UX poor; waiting Spock attach-Fly+EOT)
+Last updated: 2026-09-14 (Jadzia — Scow Spock OK+Data Go attach-Fly-EOT; pending Pepsch smoke)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -110,7 +110,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Phased Matter (42 C) | working | Pepsch green: AT-Split, Stasis der größeren Gruppe, Weiterführung der kleineren Gruppe und Cure (ENG+SCI unphased) via zentrales Cure-System bestätigt. | Pepsch 2026-09-13 |
 | Portal Guard (43 U) | working | CUNN>7/Honor Continue; Fail: BeamBack+Stop wenn Beamen möglich (Schiff/Facility vorhanden, kein Stasis/Quarantäne); Kill wenn Beamen unmöglich (z.B. Hyper-Aging Quarantäne oder kein Schiff/Facility) + unter Mission. Unit-Test `VerifyPortalGuard`. | Captain 2026-09-13 |
 | Q (44 R) | unknown |  |  |
-| Radioactive Garbage Scow (45 U) | partial | tips Data/`a4e4e5d` + layout/`bf7a394` + ENG/`558fc4e`. Pepsch 2026-09-14: tow functionally OK but UX poor (playable-UX). Waiting Spock on attach-then-Fly + EOT clear. Stays partial — no working flip yet. | Pepsch 2026-09-14; waiting Spock |
+| Radioactive Garbage Scow (45 U) | partial | tips Data/`a4e4e5d` + layout/`bf7a394` + ENG/`558fc4e`. Spock OK + Data Go 2026-09-14: tow UX = Tractor Beam... -> click Scow attach -> normal Fly (moves both) -> EOT clear tow, Scow on current mission. Prior: tow functionally OK, UX poor. Stays partial until Pepsch smoke — not working. | Spock OK + Captain Go Data 2026-09-14 |
 | Rebel Encounter (46 U) | unknown |  |  |
 | REM Fatigue (47 U) | unknown |  |  |
 | Sarjenka (48 R) | unknown |  |  |
