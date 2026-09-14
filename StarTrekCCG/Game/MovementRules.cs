@@ -184,6 +184,13 @@ public static class MovementRules
         return 0;
     }
 
+    /// <summary>
+    /// Turn RANGE pool: EffectiveRange (printed with hull cap) minus Baryon and Junior countdown.
+    /// Junior.Countdown ticks only on ship-owner EOT; attach turn uses countdown 0 (full RANGE).
+    /// </summary>
+    public static int ComputeShipTurnRange(int effectiveRange, int baryonPenalty = 0, int juniorPenalty = 0) =>
+        Math.Max(0, effectiveRange - Math.Max(0, baryonPenalty) - Math.Max(0, juniorPenalty));
+
     public static int GetMissionSpan(Card mission, bool forOwner = true)
         => MissionRules.GetEffectiveSpan(mission, forOwner);
 

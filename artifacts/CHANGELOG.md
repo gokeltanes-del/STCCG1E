@@ -5,6 +5,13 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 ---
 
 
+## 2026-09-14 (Fix - Birth of "Junior" RANGE)
+
+**Engine** - Junior RANGE penalty = attached Countdown (EOT ticks): `ResetShipRangesForTurn` / fallback / EOT apply EffectiveRange - Baryon - Junior.Countdown; RANGE<1 destroys; attach turn full RANGE; 3 ENG nullify unchanged.
+
+---
+
+
 ## 2026-09-13 (Fix - El-Adrel Creature AT/Eff diag)
 
 **Engine** - El-Adrel: encounter message + debug log show selected names, printed STRENGTH, Eff.Strength (dual StrengthDelta/framed), sum; planet CollectTeamBorders owner fallback (Controller/OwnerPlayer); refresh Team/Present before each dilemma; ApplyDilemmaResult ignores Kill on Overcome. Verify covers 9+9=18 pass.

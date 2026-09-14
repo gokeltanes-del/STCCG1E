@@ -3059,6 +3059,9 @@ public static class DilemmaRules
         };
     }
 
+    /// <summary>Cumulative RANGE penalty from Birth of "Junior": equals attached Countdown (EOT ticks).</summary>
+    public static int GetJuniorRangePenalty(int countdown) => Math.Max(0, countdown);
+
     /// <summary>One-line host-facing effect for ship/mission detail (not full card text).</summary>
     public static string FormatHostEffectSummary(PersistKind kind, Card card, int countdown)
     {

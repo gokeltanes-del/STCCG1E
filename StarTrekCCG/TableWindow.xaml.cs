@@ -9867,17 +9867,35 @@ public partial class TableWindow : Window
     }
 
 
+    /// <summary>Sum of Junior.Countdown on this ship (EOT ticks; 0 on attach turn).</summary>
+    private int GetJuniorRangePenalty(Border shipBorder)
+    {
+        int pen = 0;
+        foreach (var a in _attachedDilemmas)
+        {
+            if (a.Kind == DilemmaRules.PersistKind.Junior && ReferenceEquals(a.Host, shipBorder))
+                pen += DilemmaRules.GetJuniorRangePenalty(a.Countdown);
+        }
+        return pen;
+    }
+
+    /// <summary>Printed/effective RANGE minus hull cap, Baryon, and Junior countdown.</summary>
+    private int ComputeShipTurnRange(Border shipBorder, Card ship)
+    {
+        int hull = GetHullDamage(shipBorder);
+        int baryon = EventsOn(shipBorder).Count(e => e.Kind == EventRules.Persist.Baryon) * 2;
+        int junior = GetJuniorRangePenalty(shipBorder);
+        return MovementRules.ComputeShipTurnRange(
+            BattleRules.EffectiveRange(ship, hull), baryon, junior);
+    }
+
     private void ResetShipRangesForTurn()
     {
         _shipRangeLeft.Clear();
         foreach (var b in TableCanvas.Children.OfType<Border>())
         {
             if (b.Tag is Card c && IsShipCard(c))
-            {
-                int hull = GetHullDamage(b);
-                int baryon = EventsOn(b).Count(e => e.Kind == EventRules.Persist.Baryon) * 2;
-                SetShipRangeLeft(b, c, Math.Max(0, BattleRules.EffectiveRange(c, hull) - baryon));
-            }
+                SetShipRangeLeft(b, c, ComputeShipTurnRange(b, c));
         }
     }
 
@@ -10099,14 +10117,8 @@ public partial class TableWindow : Window
                 sh2.RangeLeft = left;
             return left;
         }
-        int hull = GetHullDamage(shipBorder);
-        int full = BattleRules.EffectiveRange(ship, hull);
-        int junior = _attachedDilemmas.Count(a =>
-            a.Kind == DilemmaRules.PersistKind.Junior && ReferenceEquals(a.Host, shipBorder));
-        full = Math.Max(0, full - junior); // bereits abgezogene Züge: Countdown als Penalty-Zähler
-        foreach (var j in _attachedDilemmas.Where(a =>
-                     a.Kind == DilemmaRules.PersistKind.Junior && ReferenceEquals(a.Host, shipBorder)))
-            full = Math.Max(0, full - Math.Max(0, j.Countdown));
+        // Fallback: turn pool with Junior.Countdown (not attach-count).
+        int full = ComputeShipTurnRange(shipBorder, ship);
         SetShipRangeLeft(shipBorder, ship, full);
         return full;
     }
@@ -17075,6 +17087,14 @@ public partial class TableWindow : Window
             var plan = DilemmaCureRules.DecideCure(a.Kind, a.Card.Name ?? "Dilemma", present, cureOwner, missionCompleted);
             if (plan.Action == DilemmaCureRules.CureAction.CureAndDiscard)
             {
+                // Junior: restore RANGE spent only as countdown penalty (keep RANGE already flown).
+                if (a.Kind == DilemmaRules.PersistKind.Junior
+                    && a.Host.Tag is Card juniorShip && IsShipCard(juniorShip))
+                {
+                    int pen = DilemmaRules.GetJuniorRangePenalty(a.Countdown);
+                    if (pen > 0)
+                        SetShipRangeLeft(a.Host, juniorShip, GetRemainingRange(a.Host, juniorShip) + pen);
+                }
                 ClearStasisForDilemma(a);
                 _attachedDilemmas.Remove(a);
                 SendCardTo(a.Card, cureOwner, TimingRules.Destination.Discard);
@@ -17887,7 +17907,8 @@ public partial class TableWindow : Window
                 a.Countdown++;
                 if (a.Host.Tag is Card ship)
                 {
-                    int range = Math.Max(0, BattleRules.EffectiveRange(ship, GetHullDamage(a.Host)) - a.Countdown);
+                    int range = ComputeShipTurnRange(a.Host, ship);
+                    SetShipRangeLeft(a.Host, ship, range);
                     if (EndOfTurnRestRules.JuniorDestroysShip(range))
                     {
                         DestroyShipOrFacility(a.Host, ship, ho);
