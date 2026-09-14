@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-14 (Jadzia — Scow tip bf7a394 pending Pepsch retest)
+Last updated: 2026-09-14 (Jadzia — Junior working; Scow effective-ENG Data Go)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -82,7 +82,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Archer (14 C) | working | Pepsch green bestätigt: Auswertung Attribute / Opponent-Choice bei Gleichstand und Stop-Verhalten funktionieren einwandfrei. | Pepsch 2026-09-13 |
 | Armus: Skin Of Evil (15 R) | partial | tip Data/`31d0c73`. 1 AT random Kill; discard; Rest Continue (kein Stop). Ungetestet. | Data/`31d0c73` 2026-09-06 |
 | Barclay's Protomorphosis Disease (16 R) | working | Pepsch getestet OK (Metamorphosis/Transformation). | Pepsch 2026-09-06 |
-| Birth of "Junior" (17 U) | partial | tip Data/`4c92dce` + RANGE/`755242c` (Josef, no push): cumulative Countdown. Pepsch smoke 2026-09-14: 3 ENG nullify working; RANGE-1 only first turn then restored was FAIL. Stays partial until Pepsch retests multi-turn RANGE-1 + destroy at 0 + 3 ENG nullify. PARK: pup-disable. GAP Cure-Present-Scope (Ship). | Data/`755242c` 2026-09-14; Pepsch smoke 2026-09-14 |
+| Birth of "Junior" (17 U) | working | Pepsch green: Place+Continue; cumulative RANGE Countdown tip Data/`755242c`; destroy at 0; Cure 3 ENG nullify. | Pepsch 2026-09-14; Data/`755242c` |
 | Borg Ship (18 R) | working | Captain/Pepsch „soweit“ — nicht nochmal Dilemma-Welle. | Captain 2026-09-06 |
 | Chalnoth (19 U) | working | Pepsch green: Pass 3 SEC OR STR>40 → +5 + Continue; Fail Opp 1 Kill, AT stopped. tip Data/`b01d6dc`. | Pepsch 2026-09-13 |
 | Cosmic String Fragment (20 U) | partial | tip Data/`85ca39a`. Pass Astrophysics OR ENG OR Navigation → +5 + Continue; Fail Ship destroy. Ungetestet. | Data/`85ca39a` 2026-09-06 |
@@ -110,7 +110,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Phased Matter (42 C) | working | Pepsch green: AT-Split, Stasis der größeren Gruppe, Weiterführung der kleineren Gruppe und Cure (ENG+SCI unphased) via zentrales Cure-System bestätigt. | Pepsch 2026-09-13 |
 | Portal Guard (43 U) | working | CUNN>7/Honor Continue; Fail: BeamBack+Stop wenn Beamen möglich (Schiff/Facility vorhanden, kein Stasis/Quarantäne); Kill wenn Beamen unmöglich (z.B. Hyper-Aging Quarantäne oder kein Schiff/Facility) + unter Mission. Unit-Test `VerifyPortalGuard`. | Captain 2026-09-13 |
 | Q (44 R) | unknown |  |  |
-| Radioactive Garbage Scow (45 U) | partial | tips Data/`a4e4e5d` + layout/`bf7a394` (Josef, no push): token + Tractor button + fly-with-Scow; layout/Z/load fix. Spock Tractor Soll. Prior smoke FAIL: ship under token / Load between missions. Stays partial until Pepsch retests fly-onto-Scow (ship clickable) + Save/Load host column — not working. | Data/`bf7a394` 2026-09-14; Pepsch smoke FAIL 2026-09-14 |
+| Radioactive Garbage Scow (45 U) | partial | tips Data/`a4e4e5d` + layout/`bf7a394`. Spock Tractor Soll. Pepsch: Tractor button missing with Tractor Beam ship + 2 ENG via equipment. Data Go — effective ENGINEER (Kit/PADD/class). Prior: layout/Z/load retest pending. Stays partial — not working. | Pepsch 2026-09-14; Data Go effective ENG |
 | Rebel Encounter (46 U) | unknown |  |  |
 | REM Fatigue (47 U) | unknown |  |  |
 | Sarjenka (48 R) | unknown |  |  |
