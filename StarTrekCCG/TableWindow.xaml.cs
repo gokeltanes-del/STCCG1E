@@ -14057,17 +14057,8 @@ public partial class TableWindow : Window
                 AwardDilemmaPoints(5);
                 break;
             case InterruptRules.Effect.ShipSeizure:
-                {
-                    foreach (var b in TableCanvas.Children.OfType<Border>())
-                    {
-                        if (b.Tag is not Card sc || !IsShipCard(sc)) continue;
-                        if (GetBorderOwner(b) == controller) continue;
-                        if (GetCrewOnShip(b).Count > 0) continue;
-                        DestroyShipOrFacility(b, sc, GetBorderOwner(b) == 0 ? 1 : GetBorderOwner(b));
-                        break;
-                    }
-                    break;
-                }
+                ApplyShipSeizure(card, controller);
+                break;
             case InterruptRules.Effect.Wormhole:
                 // Pair is resolved on drop (exposed ship, then location). Stack only announces.
                 break;
@@ -21029,6 +21020,186 @@ public partial class TableWindow : Window
         if (pod.Mission != null) UpdateHostBadge(pod.Mission);
         StatusText.Text = $"Escape Pod crew boarded {(ship.Tag as Card)?.Name}.";
         RefreshZoneCounts();
+    }
+
+
+    /// <summary>
+    /// Ship Seizure: player picks (1) own Tractor Beam ship, (2) another empty exposed ship
+    /// at that location (opp or yours). Discard victim only — not Scow tow, not Escape Pod destroy.
+    /// </summary>
+    private void ApplyShipSeizure(Card interrupt, int controller)
+    {
+        var tractors = new List<Border>();
+        foreach (var b in TableCanvas.Children.OfType<Border>())
+        {
+            if (b.Tag is not Card sc || !IsShipCard(sc)) continue;
+            int o = GetBorderOwner(b);
+            if (o == 0) o = controller;
+            bool tractor = MovementRules.ShipHasSpecialEquipment(sc, "Tractor Beam");
+            if (!InterruptRules.IsLegalShipSeizureTractor(true, o == controller, tractor))
+                continue;
+            tractors.Add(b);
+        }
+        if (tractors.Count == 0)
+        {
+            ShowPlayError("Ship Seizure: you need a ship with Tractor Beam in play.");
+            return;
+        }
+        Card? tractorCard = tractors.Count == 1
+            ? (Card)tractors[0].Tag!
+            : PickCardFromList(
+                "Ship Seizure: choose your ship with Tractor Beam.",
+                tractors.Select(b => (Card)b.Tag!).ToList(),
+                "Ship Seizure — Tractor ship",
+                interrupt);
+        if (tractorCard == null)
+        {
+            ShowPlayError("Ship Seizure: no Tractor ship chosen.");
+            return;
+        }
+        var tractorShip = tractors.FirstOrDefault(b => ReferenceEquals(b.Tag, tractorCard))
+                          ?? FindBorderForCard(tractorCard);
+        if (tractorShip == null)
+        {
+            ShowPlayError("Ship Seizure: Tractor ship not on table.");
+            return;
+        }
+        var here = FindMissionForDockable(tractorShip);
+        if (here == null)
+        {
+            ShowPlayError("Ship Seizure: Tractor ship has no location.");
+            return;
+        }
+
+        var victims = new List<Border>();
+        foreach (var b in TableCanvas.Children.OfType<Border>())
+        {
+            if (ReferenceEquals(b, tractorShip)) continue;
+            if (b.Tag is not Card sc || !IsShipCard(sc)) continue;
+            var at = FindMissionForDockable(b);
+            bool same = at != null && ReferenceEquals(at, here);
+            bool empty = !HostHasPersonnelOf(b, 0);
+            bool exposed = IsShipSeizureExposed(b);
+            if (!InterruptRules.IsLegalShipSeizureVictim(
+                    isShip: true,
+                    isAnotherShip: true,
+                    sameLocation: same,
+                    emptyOfPersonnel: empty,
+                    exposed: exposed))
+                continue;
+            victims.Add(b);
+        }
+        if (victims.Count == 0)
+        {
+            ShowPlayError("Ship Seizure: no other empty exposed ship at that location.");
+            return;
+        }
+        Card? victimCard = victims.Count == 1
+            ? (Card)victims[0].Tag!
+            : PickCardFromList(
+                "Ship Seizure: choose another empty exposed ship here to discard.",
+                victims.Select(b => (Card)b.Tag!).ToList(),
+                "Ship Seizure — discard ship",
+                interrupt);
+        if (victimCard == null)
+        {
+            ShowPlayError("Ship Seizure: no victim chosen.");
+            return;
+        }
+        var victim = victims.FirstOrDefault(b => ReferenceEquals(b.Tag, victimCard))
+                     ?? FindBorderForCard(victimCard);
+        if (victim == null || victim.Tag is not Card vc)
+        {
+            ShowPlayError("Ship Seizure: victim not on table.");
+            return;
+        }
+        int victimOwner = GetBorderOwner(victim);
+        if (victimOwner is not (1 or 2)) victimOwner = controller;
+        DiscardShipSeizureVictim(victim, vc, victimOwner);
+        StatusText.Text =
+            $"Ship Seizure: {(tractorCard.Name ?? "ship")} discards {vc.Name} (empty exposed).";
+        _session.Log.Add(_session.TurnNumber, $"P{controller}",
+            $"Ship Seizure: {tractorCard.Name} → discard {vc.Name}");
+    }
+
+    /// <summary>Exposed for Ship Seizure: undocked, uncloaked (phased/landed/carried N/A yet).</summary>
+    private bool IsShipSeizureExposed(Border ship) =>
+        !IsShipCloaked(ship) && !IsShipDocked(ship);
+
+    /// <summary>Discard victim ship only (no Escape Pod response window).</summary>
+    private void DiscardShipSeizureVictim(Border border, Card card, int owner)
+    {
+        var mission = FindMissionForDockable(border);
+        if (IsTowingScow(border))
+            ReleaseScowTowAtMission(mission, reason: "Ship Seizure discard");
+
+        if (_stackOnHost.TryGetValue(border, out var stacked))
+        {
+            foreach (var sb in stacked.ToList())
+            {
+                if (sb.Tag is Card sc)
+                    SendCardTo(sc, owner, TimingRules.Destination.Discard);
+                if (TableCanvas.Children.Contains(sb))
+                    TableCanvas.Children.Remove(sb);
+                _hullDamagePercent.Remove(sb);
+                _stoppedBorders.Remove(sb);
+                if (_damageBadges.TryGetValue(sb, out var db))
+                {
+                    if (TableCanvas.Children.Contains(db))
+                        TableCanvas.Children.Remove(db);
+                    _damageBadges.Remove(sb);
+                }
+            }
+            _stackOnHost.Remove(border);
+        }
+
+        SendCardTo(card, owner, TimingRules.Destination.Discard);
+
+        if (_damageBadges.TryGetValue(border, out var dmgB))
+        {
+            if (TableCanvas.Children.Contains(dmgB))
+                TableCanvas.Children.Remove(dmgB);
+            _damageBadges.Remove(border);
+        }
+        if (_hostBadges.TryGetValue(border, out var hb))
+        {
+            if (TableCanvas.Children.Contains(hb))
+                TableCanvas.Children.Remove(hb);
+            _hostBadges.Remove(border);
+        }
+        if (_hostBadgesP2.TryGetValue(border, out var hb2))
+        {
+            if (TableCanvas.Children.Contains(hb2))
+                TableCanvas.Children.Remove(hb2);
+            _hostBadgesP2.Remove(border);
+        }
+
+        if (TableCanvas.Children.Contains(border))
+            TableCanvas.Children.Remove(border);
+        _tablePermanentCards.Remove(card);
+        _oppTablePermanentCards.Remove(card);
+        _hullDamagePercent.Remove(border);
+        _cloakedShips.Remove(border);
+        _dockedAt.Remove(border);
+        _stoppedBorders.Remove(border);
+        if (card.InstanceId > 0
+            && BoardStore.Current.ById.TryGetValue(card.InstanceId, out var deadShipInst)
+            && deadShipInst is ShipInstance deadSh)
+        {
+            deadSh.Cloaked = false;
+            deadSh.DockedAtId = 0;
+            deadSh.HullPercent = -1;
+            deadSh.Stopped = false;
+        }
+        _repairTurnsAtOutpost.Remove(border);
+        ClearShipRangeLeft(border);
+        _borderOwner.Remove(border);
+        _dockableAtMission.Remove(border);
+
+        if (mission != null)
+            RelayoutDockablesUnderMission(mission);
+        RefreshZoneCounts();
+        SyncBoardFromTable(logDual: false);
     }
 
     private void DestroyShipOrFacility(Border border, Card card, int owner)

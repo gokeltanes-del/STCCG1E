@@ -1,6 +1,6 @@
 ﻿# STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-14 (Data - Scow token-vs-ship + tow-follow tip pending commit)
+Last updated: 2026-09-14 (Data - Ship Seizure player-pick tip pending commit)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -220,7 +220,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Q2 (133 U) | unknown |  |  |
 | Rogue Borg (134 C) | working | Pepsch green (Rogue Borg Mercenaries). | Pepsch 2026-09-06 |
 | Scan (135 C) | unknown |  |  |
-| Ship Seizure (136 C) | blocked | Spock Soll 2026-09-14: player picks own Tractor ship + empty exposed ship here (not random). Data Go after Scow thorough layout/token-vs-ship. Flip blocked->partial when Data tip lands; not working until Pepsch smoke. | Spock Soll + Captain 2026-09-14 |
+| Ship Seizure (136 C) | partial | tip Data/pending: player pick own Tractor + empty exposed here; discard victim only (Spock Soll). Pepsch smoke. | Data 2026-09-14 |
 | Subspace Interference (137 C) | unknown |  |  |
 | Subspace Schism (138 U) | unknown |  |  |
 | Tachyon Detection Grid (139 C) | unknown |  |  |

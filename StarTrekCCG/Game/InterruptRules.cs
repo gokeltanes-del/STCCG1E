@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using StarTrekCCG.Models;
@@ -13,7 +13,7 @@ public static class InterruptRules
 {
     public enum Kind
     {
-        /// <summary>Nur Timing/Nullify – TimingRules.</summary>
+        /// <summary>Nur Timing/Nullify â€“ TimingRules.</summary>
         TimingOnly,
         Instant,
         AttachShip,
@@ -75,7 +75,7 @@ public static class InterruptRules
     public static bool IsInterrupt(Card c) =>
         (c.Type ?? "").Contains("interrupt", StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>Kevin Uxbridge / Kevin Uxbridge: Convergence — nullify event(s) in play.</summary>
+    /// <summary>Kevin Uxbridge / Kevin Uxbridge: Convergence â€” nullify event(s) in play.</summary>
     public static bool IsKevinNullify(Card c) =>
         (c.Name ?? "").StartsWith("Kevin Uxbridge", StringComparison.OrdinalIgnoreCase);
 
@@ -102,7 +102,7 @@ public static class InterruptRules
     public static bool IsEscapePod(Card? c) => NameIs(c, "Escape Pod");
     public static bool IsWormhole(Card? c) => NameIs(c, "Wormhole");
 
-    /// <summary>Extract Slice 2: pair gate — need two Wormholes in hand to start the first.</summary>
+    /// <summary>Extract Slice 2: pair gate â€” need two Wormholes in hand to start the first.</summary>
     public static bool CanStartWormholePair(int wormholesInHand) => wormholesInHand >= 2;
 
     /// <summary>First copy: own exposed (not cloaked) ship.</summary>
@@ -122,7 +122,7 @@ public static class InterruptRules
         Fail
     }
 
-    /// <summary>Extract Slice 4: Hugh resolve priority — battle cancel, Borg Ship pulse block, kill Rogue Borg, else fail.</summary>
+    /// <summary>Extract Slice 4: Hugh resolve priority â€” battle cancel, Borg Ship pulse block, kill Rogue Borg, else fail.</summary>
     public static HughResolveMode DecideHugh(
         bool hasJustInitiatedHughBattleOnStack,
         bool targetIsBorgShipDilemma,
@@ -169,7 +169,7 @@ public static class InterruptRules
         if (fromText != PlayTarget.None)
             return fromText;
 
-        // Cards whose printed line is "Plays to…" / "Examine…" without "Plays on".
+        // Cards whose printed line is "Plays toâ€¦" / "Examineâ€¦" without "Plays on".
         if (n.Equals("Emergency Transporter Armbands", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Vulcan Mindmeld", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Alien Groupie", StringComparison.OrdinalIgnoreCase))
@@ -283,13 +283,13 @@ public static class InterruptRules
             {
                 Kind = Kind.Instant,
                 Effect = Effect.PlanetScan,
-                Message = "Start of turn, your ship with ≥2 staffing icons at a planet mission: stop Computer Skill and Geology aboard to examine the bottom seed card here."
+                Message = "Start of turn, your ship with â‰¥2 staffing icons at a planet mission: stop Computer Skill and Geology aboard to examine the bottom seed card here."
             },
             "Scan" => new Result
             {
                 Kind = Kind.Instant,
                 Effect = Effect.SpaceScan,
-                Message = "Start of turn, your ship with ≥2 staffing icons at a space mission: stop Computer Skill and Stellar Cartography aboard to examine the bottom seed card here."
+                Message = "Start of turn, your ship with â‰¥2 staffing icons at a space mission: stop Computer Skill and Stellar Cartography aboard to examine the bottom seed card here."
             },
             "Life-form Scan" => new Result
             {
@@ -436,7 +436,7 @@ public static class InterruptRules
                 Effect = Effect.RogueBorg,
                 DiscardAfter = false,
                 Message = "Plays on an occupied ship. X = number of Rogue Borg present; each has STRENGTH X "
-                    + "(total X×X). End of every player's turn: that Away Team battles personnel present."
+                    + "(total XÃ—X). End of every player's turn: that Away Team battles personnel present."
             },
             "Crosis" => new Result
             {
@@ -467,14 +467,14 @@ public static class InterruptRules
             {
                 Kind = Kind.Instant,
                 Effect = Effect.None,
-                Message = "Ship battle: opposing WEAPONS −1 per CUNNING<8 aboard (sandbox marker)."
+                Message = "Ship battle: opposing WEAPONS âˆ’1 per CUNNING<8 aboard (sandbox marker)."
             },
             "Barclay Transporter Phobia" => new Result
             {
                 Kind = Kind.AttachTeam,
                 Effect = Effect.None,
                 DiscardAfter = false,
-                Message = "One personnel refuses transport until cured (Plexing) — sandbox attach."
+                Message = "One personnel refuses transport until cured (Plexing) â€” sandbox attach."
             },
             "Brain Drain" => new Result
             {
@@ -534,7 +534,7 @@ public static class InterruptRules
             {
                 Kind = Kind.Instant,
                 Effect = Effect.None,
-                Message = "This turn at location: your Youth CUNNING/STR +4; opponent non-aligned −4."
+                Message = "This turn at location: your Youth CUNNING/STR +4; opponent non-aligned âˆ’4."
             },
             "Incoming Message: Attack Authorization" => new Result
             {
@@ -649,5 +649,46 @@ public static class InterruptRules
                 Message = $"Interrupt \"{n}\" played (generically discarded)."
             }
         };
+    }
+
+    // ---------- Ship Seizure (player chooses; not random / first canvas child) ----------
+
+    /// <summary>Own ship that may be the Tractor Beam host for Ship Seizure.</summary>
+    public static bool IsLegalShipSeizureTractor(bool isShip, bool ownedByPlayer, bool hasTractorBeam) =>
+        isShip && ownedByPlayer && hasTractorBeam;
+
+    /// <summary>
+    /// Victim: another ship at same location, empty of personnel, exposed
+    /// (undocked / uncloaked / not phased / not landed / not carried).
+    /// Owner may be self or opponent ("another").
+    /// </summary>
+    public static bool IsLegalShipSeizureVictim(
+        bool isShip,
+        bool isAnotherShip,
+        bool sameLocation,
+        bool emptyOfPersonnel,
+        bool exposed) =>
+        isShip && isAnotherShip && sameLocation && emptyOfPersonnel && exposed;
+
+    /// <summary>DE mini-test: Tractor gate + victim gates. Null = OK.</summary>
+    public static string? VerifyShipSeizureDecide()
+    {
+        if (!IsLegalShipSeizureTractor(true, true, true))
+            return "own tractor ship should be legal";
+        if (IsLegalShipSeizureTractor(true, true, false))
+            return "no Tractor Beam should fail";
+        if (IsLegalShipSeizureTractor(true, false, true))
+            return "opponent ship as tractor host should fail";
+        if (!IsLegalShipSeizureVictim(true, true, true, true, true))
+            return "empty exposed another at same loc should pass";
+        if (IsLegalShipSeizureVictim(true, false, true, true, true))
+            return "same ship as tractor host should fail";
+        if (IsLegalShipSeizureVictim(true, true, false, true, true))
+            return "different location should fail";
+        if (IsLegalShipSeizureVictim(true, true, true, false, true))
+            return "crewed ship should fail";
+        if (IsLegalShipSeizureVictim(true, true, true, true, false))
+            return "unexposed (docked/cloaked/etc) should fail";
+        return null;
     }
 }
