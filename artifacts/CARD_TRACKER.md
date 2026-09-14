@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-14 (Jadzia — Scow 9cd104f pending green; Ship Seizure 7c295d7 partial)
+Last updated: 2026-09-14 (Jadzia — Scow working; Ship Seizure play-on Soll Data Go pending)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -110,7 +110,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Phased Matter (42 C) | working | Pepsch green: AT-Split, Stasis der größeren Gruppe, Weiterführung der kleineren Gruppe und Cure (ENG+SCI unphased) via zentrales Cure-System bestätigt. | Pepsch 2026-09-13 |
 | Portal Guard (43 U) | working | CUNN>7/Honor Continue; Fail: BeamBack+Stop wenn Beamen möglich (Schiff/Facility vorhanden, kein Stasis/Quarantäne); Kill wenn Beamen unmöglich (z.B. Hyper-Aging Quarantäne oder kein Schiff/Facility) + unter Mission. Unit-Test `VerifyPortalGuard`. | Captain 2026-09-13 |
 | Q (44 R) | unknown |  |  |
-| Radioactive Garbage Scow (45 U) | partial | tip Data/`9cd104f` (Josef, no push): tow hang offset column (not ship overlay); Fly follow; Borg Z helper. Prior 2c6a3f9/a4e4e5d/bf7a394/558fc4e. Stays partial until Pepsch greens attach -> offset -> Fly follow -> EOT drop — not working. | Data/`9cd104f` 2026-09-14 |
+| Radioactive Garbage Scow (45 U) | working | Pepsch green: Tractor Beam attach -> offset hang -> Fly follow -> EOT drop. tips Data through `9cd104f` (a4e4e5d/bf7a394/558fc4e/2c6a3f9/9cd104f). Spock Tractor Soll. | Pepsch 2026-09-14; Data/`9cd104f` |
 | Rebel Encounter (46 U) | unknown |  |  |
 | REM Fatigue (47 U) | unknown |  |  |
 | Sarjenka (48 R) | unknown |  |  |
@@ -220,7 +220,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Q2 (133 U) | unknown |  |  |
 | Rogue Borg (134 C) | working | Pepsch green (Rogue Borg Mercenaries). | Pepsch 2026-09-06 |
 | Scan (135 C) | unknown |  |  |
-| Ship Seizure (136 C) | partial | tip Data/`7c295d7` (Josef, no push): player picks own Tractor ship + empty exposed victim (Spock Soll). Not working until Pepsch smoke. | Data/`7c295d7` 2026-09-14; Spock Soll |
+| Ship Seizure (136 C) | partial | tip Data/`7c295d7`. Ist after tip: still asks pick-own-ship then opp ships; offered own ships not at same location. Soll (Pepsch/Captain): play/drop interrupt ON your tractor ship = that is the play-on ship; then only pick victim among empty exposed ships at THAT ship location (multi only if several). No second own-ship picker. Data Go pending. Not working until Pepsch smoke. | Data/`7c295d7`; Pepsch Ist/Soll 2026-09-14; Data Go pending |
 | Subspace Interference (137 C) | unknown |  |  |
 | Subspace Schism (138 U) | unknown |  |  |
 | Tachyon Detection Grid (139 C) | unknown |  |  |
