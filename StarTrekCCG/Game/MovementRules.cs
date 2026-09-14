@@ -185,6 +185,48 @@ public static class MovementRules
     }
 
     /// <summary>
+    /// Printed special equipment from ship Text comma-list before sentence gametext
+    /// (e.g. Galaxy: "Holodeck, Tractor Beam").
+    /// </summary>
+    public static bool ShipHasSpecialEquipment(Card ship, string equipmentName)
+    {
+        if (ship == null || string.IsNullOrWhiteSpace(equipmentName))
+            return false;
+        string t = (ship.Text ?? "").Replace("\r\n", "\n").Replace('\r', '\n').Trim();
+        if (string.IsNullOrEmpty(t))
+            return false;
+
+        int cut = t.IndexOf('.');
+        string head = (cut >= 0 ? t[..cut] : t).Trim();
+        int nl = head.IndexOf('\n');
+        if (nl >= 0)
+            head = head[..nl].Trim();
+
+        foreach (var raw in head.Split(','))
+        {
+            string part = raw.Trim();
+            if (part.Equals(equipmentName, StringComparison.OrdinalIgnoreCase))
+                return true;
+            // Gametext glued without a period: "Tractor Beam All [Holo]..."
+            if (part.StartsWith(equipmentName + " ", StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        // Trailing token after a sentence: "... captive. Tractor Beam"
+        if (cut >= 0)
+        {
+            string tail = t[(cut + 1)..].Trim();
+            foreach (var raw in tail.Split(new[] { ',', '\n' }, StringSplitOptions.None))
+            {
+                string part = raw.Trim().TrimEnd('.');
+                if (part.Equals(equipmentName, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
     /// Turn RANGE pool: EffectiveRange (printed with hull cap) minus Baryon and Junior countdown.
     /// Junior.Countdown ticks only on ship-owner EOT; attach turn uses countdown 0 (full RANGE).
     /// </summary>

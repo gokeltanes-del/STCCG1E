@@ -172,6 +172,10 @@ public partial class TableWindow : Window
     private readonly Dictionary<Border, Card> _lastEncounteredDilemma = new();
     /// <summary>Visible Borg Ship dilemma token on the spaceline (self-controlling).</summary>
     private Border? _borgShipToken;
+    /// <summary>Visible Radioactive Garbage Scow token on the spaceline (not a flyable ship).</summary>
+    private Border? _scowToken;
+    /// <summary>Next successful Fly also relocates Scow host (Tractor tow).</summary>
+    private bool _tractorTowScow;
     /// <summary>Hugh played on the Borg Ship dilemma: skip its next attack pulse.</summary>
     private bool _hughBlocksBorgShipAttack;
     private Queue<Border>? _borgEotAttackQueue;
@@ -263,7 +267,7 @@ public partial class TableWindow : Window
         public required Card Card { get; init; }
         public required DilemmaRules.PersistKind Kind { get; init; }
         public int Countdown { get; set; }
-        public required Border Host { get; init; }
+        public required Border Host { get; set; }
         public Card? Extra { get; set; }
         public Border? Dest { get; set; }
         /// <summary>Personnel held in stasis by Abduction / Phased Matter etc.</summary>
@@ -8753,6 +8757,7 @@ public partial class TableWindow : Window
         _stackOnHost.Clear(); _seedUnderMission.Clear();
         _revealedArtifactsUnderMission.Clear(); _lastEncounteredDilemma.Clear();
         RemoveBorgShipToken();
+        RemoveScowToken();
         _solvedMissions.Clear(); _missionSolver.Clear();
         _hullDamagePercent.Clear(); _stoppedBorders.Clear();
         _dockedAt.Clear(); _cloakedShips.Clear();
@@ -8959,6 +8964,10 @@ public partial class TableWindow : Window
                 }
             }
             _attachedDilemmas.Add(attached);
+            if (kind == DilemmaRules.PersistKind.Scow)
+                PlaceScowToken(card, host);
+            if (kind == DilemmaRules.PersistKind.BorgShip)
+                PlaceBorgShipToken(card, host);
         }
 
         var s = save.Session ?? new SessionSnap();
@@ -9362,6 +9371,7 @@ public partial class TableWindow : Window
         _revealedArtifactsUnderMission.Clear();
         _lastEncounteredDilemma.Clear();
         RemoveBorgShipToken();
+        RemoveScowToken();
         _missionsByQuadrant.Clear();
         _spacelineOrder.Clear();
         ClearMissionSlotPreviews();
@@ -12093,6 +12103,7 @@ public partial class TableWindow : Window
     {
         bool wasBeam = _cardActionMode == CardActionMode.BeamPickTarget;
         _cardActionMode = CardActionMode.None;
+        _tractorTowScow = false;
         _actionSourceHost = null;
         _beamSelected.Clear();
         ClearTargetHighlights();
@@ -12209,6 +12220,8 @@ public partial class TableWindow : Window
                             AddBtn($"Dock at {fname}", (_, _) => TryDockShip(cardBorder, card, facB));
                         }
                         AddBtn("Fly (highlight destinations)", (_, _) => BeginFlyHighlight(cardBorder, card));
+                        if (ShipCanOfferTractorTow(cardBorder, card))
+                            AddBtn("Tractor", (_, _) => BeginTractorTow(cardBorder, card));
                         AddBtn("Attack ship…", (_, _) => BeginAttackMode(cardBorder, card));
                     }
                     if (CanOfferPersonnelBattleFromShip(cardBorder))
@@ -15911,6 +15924,7 @@ public partial class TableWindow : Window
                     }
                     var host = scow.Host;
                     _attachedDilemmas.Remove(scow);
+                    RemoveScowToken();
                     SendCardTo(scow.Card, controller, TimingRules.Destination.Discard);
                     if (!HasThermalDeflectors() && host != null)
                     {
@@ -16446,6 +16460,8 @@ public partial class TableWindow : Window
                 ApplyKtarianDisable(attached);
             }
             _attachedDilemmas.Add(attached);
+            if (r.Persist == DilemmaRules.PersistKind.Scow)
+                PlaceScowToken(seedCard, host);
             if (r.Persist == DilemmaRules.PersistKind.BorgShip)
             {
                 PlaceBorgShipToken(seedCard, host);
@@ -17345,6 +17361,8 @@ public partial class TableWindow : Window
             if (!TryMoveShipWithRules(_actionSourceHost, ship, from, clicked))
                 return true;
             RelocateShipAlongSpaceline(_actionSourceHost, from, clicked);
+            if (_tractorTowScow)
+                RelocateScowHost(from, clicked);
             SyncBoardFromTable();
             var shipRef = _actionSourceHost;
             ClearCardActionUi();
@@ -17858,9 +17876,11 @@ public partial class TableWindow : Window
             int ho = GetBorderOwner(a.Host);
             if (ho == 0) ho = 1;
 
-            var present = GetAllCardsOnHost(a.Host, ho);
+            // Tow != cure: Scow never auto-removes from ENGINEER present at EOT.
             if (a.Kind == DilemmaRules.PersistKind.Scow)
-                present = GetCrewOnShip(a.Host); // scow on mission - check ships later
+                continue;
+
+            var present = GetAllCardsOnHost(a.Host, ho);
             // Abduction/Phased: cure skills need location present (AT + ship crews), incl. stopped.
             // Host owner alone often misses the attempting player's AT (Pepsch: Leadership x3 never fired).
             // Location present only when host is mission/planet (never expand ship-hosted cure present).
@@ -18572,6 +18592,133 @@ public partial class TableWindow : Window
             _borgShipToken = null;
         }
     }
+
+    private void PlaceScowToken(Card scowCard, Border hostMission)
+    {
+        RemoveScowToken();
+        var token = new Border
+        {
+            Width = TableCardWidth,
+            Height = TableCardHeight,
+            BorderBrush = new SolidColorBrush(Color.FromRgb(120, 140, 60)),
+            BorderThickness = new Thickness(3),
+            Background = new SolidColorBrush(Color.FromRgb(20, 25, 10)),
+            CornerRadius = new CornerRadius(4),
+            Tag = scowCard,
+            ToolTip = "Radioactive Garbage Scow\nMission cannot be attempted until towed (Tractor Beam + 2 ENGINEER)."
+        };
+        var img = new Image { Stretch = Stretch.Uniform };
+        if (!string.IsNullOrEmpty(scowCard.FullImagePath) && System.IO.File.Exists(scowCard.FullImagePath))
+        {
+            try
+            {
+                var bmp = new BitmapImage();
+                bmp.BeginInit();
+                bmp.CacheOption = BitmapCacheOption.OnLoad;
+                bmp.UriSource = new Uri(scowCard.FullImagePath, UriKind.Absolute);
+                bmp.DecodePixelWidth = 200;
+                bmp.EndInit();
+                img.Source = bmp;
+            }
+            catch { }
+        }
+        token.Child = img;
+        token.MouseLeftButtonDown += (_, e) =>
+        {
+            ShowCardDetail(scowCard);
+            if (e.ClickCount >= 2) { _detailHost = null; OpenCardDetailPopup(); }
+            e.Handled = true;
+        };
+        token.MouseRightButtonDown += (s, e) =>
+        {
+            ShowCardDetail(scowCard);
+            BeginHoldZoom(scowCard, s as IInputElement);
+            e.Handled = true;
+        };
+        token.MouseRightButtonUp += (_, e) =>
+        {
+            if (_holdZoomActive) { EndHoldZoom(); e.Handled = true; }
+        };
+        TableCanvas.Children.Add(token);
+        Panel.SetZIndex(token, 40);
+        _scowToken = token;
+        PositionScowToken(hostMission);
+    }
+
+    private void PositionScowToken(Border hostMission)
+    {
+        if (_scowToken == null) return;
+        double left = Canvas.GetLeft(hostMission);
+        double top = Canvas.GetTop(hostMission);
+        var others = GetDockablesUnderMission(hostMission, exclude: _scowToken);
+        int below = others.Count(b => Canvas.GetTop(b) > top + 20);
+        Canvas.SetLeft(_scowToken, left);
+        Canvas.SetTop(_scowToken, top + UnderMissionGap * (below + 1));
+        Panel.SetZIndex(_scowToken, 30 + below);
+    }
+
+    private void RemoveScowToken()
+    {
+        if (_scowToken != null)
+        {
+            if (TableCanvas.Children.Contains(_scowToken))
+                TableCanvas.Children.Remove(_scowToken);
+            _scowToken = null;
+        }
+    }
+
+    private AttachedDilemma? FindScowAtMission(Border? mission)
+    {
+        if (mission == null) return null;
+        return _attachedDilemmas.FirstOrDefault(d =>
+            d.Kind == DilemmaRules.PersistKind.Scow && ReferenceEquals(d.Host, mission));
+    }
+
+    private bool ShipCanOfferTractorTow(Border shipBorder, Card ship)
+    {
+        var mission = FindMissionForDockable(shipBorder);
+        var scow = FindScowAtMission(mission);
+        if (scow == null) return false;
+        bool tractor = MovementRules.ShipHasSpecialEquipment(ship, "Tractor Beam");
+        bool eng = EventRules.HasSkill(GetCrewOnShip(shipBorder), "ENGINEER", 2);
+        return DilemmaRules.CanTowScow(shipAtScowMission: true, hasTractorBeam: tractor, hasTwoEngineerAboard: eng);
+    }
+
+    private void BeginTractorTow(Border shipBorder, Card ship)
+    {
+        if (!ShipCanOfferTractorTow(shipBorder, ship))
+        {
+            ShowPlayError("Tractor tow needs Tractor Beam + 2 ENGINEER aboard at the Scow mission.");
+            return;
+        }
+        _tractorTowScow = true;
+        BeginFlyHighlight(shipBorder, ship);
+        if (_cardActionMode == CardActionMode.FlyPickMission)
+        {
+            StatusText.Text = (StatusText.Text ?? "").Replace("FLY:", "TRACTOR (tow Scow):");
+            if (string.IsNullOrWhiteSpace(StatusText.Text) || !StatusText.Text.Contains("TRACTOR"))
+                StatusText.Text = "TRACTOR: click a legal fly destination to tow the Scow (uses RANGE).";
+        }
+        else
+            _tractorTowScow = false;
+    }
+
+    private void RelocateScowHost(Border? fromMission, Border toMission)
+    {
+        var scow = FindScowAtMission(fromMission) ?? _attachedDilemmas.FirstOrDefault(d => d.Kind == DilemmaRules.PersistKind.Scow);
+        if (scow == null) return;
+        scow.Host = toMission;
+        if (_scowToken == null)
+            PlaceScowToken(scow.Card, toMission);
+        else
+            PositionScowToken(toMission);
+        string fromName = (fromMission?.Tag as Card)?.Name ?? "?";
+        string toName = (toMission.Tag as Card)?.Name ?? "?";
+        _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
+            $"Towed Radioactive Garbage Scow {fromName} -> {toName}");
+        StatusText.Text = $"Scow towed to {toName}. Mission attempt blocked there until towed again.";
+    }
+
 
     private bool SameHostShip(Border? a, Border? b)
     {

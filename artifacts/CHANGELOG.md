@@ -5,6 +5,13 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 ---
 
 
+## 2026-09-14 (Feat - Tractor Beam + Radioactive Garbage Scow tow)
+
+**Engine/UI** - `ShipHasSpecialEquipment` (Text comma-list); `CanTowScow` (Tractor + 2 ENG at Scow mission); ship side **Tractor** = legal fly then relocate Scow spaceline token (AttemptBlocked moves; not discard/cure). Destroy Scow interrupt unchanged.
+
+---
+
+
 ## 2026-09-14 (Fix - Birth of "Junior" RANGE)
 
 **Engine** - Junior RANGE penalty = attached Countdown (EOT ticks): `ResetShipRangesForTurn` / fallback / EOT apply EffectiveRange - Baryon - Junior.Countdown; RANGE<1 destroys; attach turn full RANGE; 3 ENG nullify unchanged.

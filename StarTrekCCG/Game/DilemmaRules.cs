@@ -3053,7 +3053,8 @@ public static class DilemmaRules
             PersistKind.RemFatigue => Skill(dummy, "MEDICAL", 3),
             PersistKind.Abduction => Skill(dummy, "Leadership", 3) || missionCompleted, // OR mission completed
             PersistKind.Phased => Skill(dummy, "ENGINEER") && Skill(dummy, "SCIENCE"),
-            PersistKind.Scow => Skill(dummy, "ENGINEER", 2), // + tractor: UI prüft extra
+            // Tow != cure: Scow removed only by Tractor tow or Destroy Scow interrupt.
+            PersistKind.Scow => false,
             PersistKind.FrameOfMind => Skill(dummy, "Empathy", 3),
             _ => false
         };
@@ -3062,13 +3063,21 @@ public static class DilemmaRules
     /// <summary>Cumulative RANGE penalty from Birth of "Junior": equals attached Countdown (EOT ticks).</summary>
     public static int GetJuniorRangePenalty(int countdown) => Math.Max(0, countdown);
 
+    /// <summary>
+    /// Tow Radioactive Garbage Scow: ship at Scow mission + Tractor Beam + 2 ENGINEER aboard that ship.
+    /// Tow relocates the Scow token (not a cure/discard).
+    /// </summary>
+    public static bool CanTowScow(bool shipAtScowMission, bool hasTractorBeam, bool hasTwoEngineerAboard) =>
+        shipAtScowMission && hasTractorBeam && hasTwoEngineerAboard;
+
+
     /// <summary>One-line host-facing effect for ship/mission detail (not full card text).</summary>
     public static string FormatHostEffectSummary(PersistKind kind, Card card, int countdown)
     {
         string effect = kind switch
         {
             PersistKind.Junior => "RANGE −1 each your EOT; destroy if RANGE≤0 (nullify: 3 ENGINEER)",
-            PersistKind.Scow => "ship cannot move (cure: tractor + 2 ENGINEER)",
+            PersistKind.Scow => "mission cannot be attempted until towed (Tractor Beam + 2 ENGINEER)",
             PersistKind.HyperAging => "countdown 3; AT dies if not cured (SCIENCE + MEDICAL×2)",
             PersistKind.RemFatigue => "countdown; crew dies if not cured (MEDICAL×3)",
             PersistKind.Nitrium => "countdown 2; ship destroyed unless SCIENCE×2 or ENGINEER×2",
