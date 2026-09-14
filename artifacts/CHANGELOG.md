@@ -5,6 +5,12 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 ---
 
 
+## 2026-09-14 (Fix - Scow Tractor effective ENGINEER)
+
+**Engine/UI** - CanTowScow ENG via ModifierRules present=`GetAllCardsOnHost` (skill + class + Kit/PADD); Tractor withheld debug log if 2 printed ENG at Scow.
+
+---
+
 ## 2026-09-14 (Fix - Scow token layout/Z/load)
 
 **UI** - Scow token after all dockables under host (Relayout + load re-Position); Z below ships so dockables stay clickable; X aligns to host mission column after spaceline layout.

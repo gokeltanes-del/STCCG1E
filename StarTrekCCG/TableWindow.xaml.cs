@@ -12219,6 +12219,7 @@ public partial class TableWindow : Window
                         AddBtn("Undock", (_, _) => TryUndockShip(cardBorder, card));
                         if (EscapePodHere(cardBorder, GetBorderOwner(cardBorder) is int o and (1 or 2) ? o : _activePlayer) != null)
                             AddBtn("Board Escape Pod crew", (_, _) => RecoverEscapePodCrew(cardBorder));
+                        LogTractorWithheldIfReady(cardBorder, card, "docked");
                     }
                     else
                     {
@@ -12231,6 +12232,8 @@ public partial class TableWindow : Window
                         AddBtn("Fly (highlight destinations)", (_, _) => BeginFlyHighlight(cardBorder, card));
                         if (ShipCanOfferTractorTow(cardBorder, card))
                             AddBtn("Tractor", (_, _) => BeginTractorTow(cardBorder, card));
+                        else
+                            LogTractorWithheldIfReady(cardBorder, card, null);
                         AddBtn("Attack ship…", (_, _) => BeginAttackMode(cardBorder, card));
                     }
                     if (CanOfferPersonnelBattleFromShip(cardBorder))
@@ -18692,8 +18695,42 @@ public partial class TableWindow : Window
         var scow = FindScowAtMission(mission);
         if (scow == null) return false;
         bool tractor = MovementRules.ShipHasSpecialEquipment(ship, "Tractor Beam");
-        bool eng = EventRules.HasSkill(GetCrewOnShip(shipBorder), "ENGINEER", 2);
+        int owner = GetBorderOwner(shipBorder);
+        if (owner is not (1 or 2)) owner = _activePlayer;
+        // Present includes equipment so Engineering Kit/PADD grants count (DilemmaRules.Skill spirit).
+        var present = GetAllCardsOnHost(shipBorder, owner);
+        bool eng = DilemmaRules.HasEffectiveSkill(present, owner, "ENGINEER", 2);
         return DilemmaRules.CanTowScow(shipAtScowMission: true, hasTractorBeam: tractor, hasTwoEngineerAboard: eng);
+    }
+
+    /// <summary>
+    /// When ship is at Scow with 2+ printed ENGINEER but Tractor button is withheld, log why
+    /// (no Tractor text / wrong mission / docked / effective ENG short).
+    /// </summary>
+    private void LogTractorWithheldIfReady(Border shipBorder, Card ship, string? forcedWhy)
+    {
+        var mission = FindMissionForDockable(shipBorder);
+        var scow = FindScowAtMission(mission);
+        if (scow == null) return;
+        int printedEng = EventRules.CountSkill(GetCrewOnShip(shipBorder), "ENGINEER");
+        if (printedEng < 2) return;
+
+        int owner = GetBorderOwner(shipBorder);
+        if (owner is not (1 or 2)) owner = _activePlayer;
+        var present = GetAllCardsOnHost(shipBorder, owner);
+        int effEng = DilemmaRules.CountEffectiveSkill(present, owner, "ENGINEER");
+        bool tractor = MovementRules.ShipHasSpecialEquipment(ship, "Tractor Beam");
+
+        string why = forcedWhy
+            ?? (!tractor ? "no Tractor text"
+                : mission == null ? "wrong mission"
+                : effEng < 2 ? $"effective ENGINEER={effEng}<2"
+                : "unknown");
+        if (forcedWhy == null && tractor && effEng >= 2)
+            return; // gates pass — button should show
+
+        _session.Log.AddDebug(_session.TurnNumber, "Scow",
+            $"Tractor withheld ({why}): ship={ship.Name}, printedENG={printedEng}, effENG={effEng}, tractor={tractor}");
     }
 
     private void BeginTractorTow(Border shipBorder, Card ship)

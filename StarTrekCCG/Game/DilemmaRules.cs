@@ -3064,12 +3064,83 @@ public static class DilemmaRules
     public static int GetJuniorRangePenalty(int countdown) => Math.Max(0, countdown);
 
     /// <summary>
-    /// Tow Radioactive Garbage Scow: ship at Scow mission + Tractor Beam + 2 ENGINEER aboard that ship.
-    /// Tow relocates the Scow token (not a cure/discard).
+    /// Effective skill levels among present cards (printed + classification + equipment via
+    /// ModifierRules) — same spirit as dilemma Skill().
+    /// </summary>
+    public static int CountEffectiveSkill(IEnumerable<Card> present, int owner, string skill)
+    {
+        var list = present?.ToList() ?? new List<Card>();
+        var team = list.Where(ModifierRules.IsPersonnelCard).ToList();
+        var dummy = new Ctx
+        {
+            Dilemma = new Card { Name = "?" },
+            Mission = new Card { Name = "?" },
+            Team = team,
+            Present = list,
+            AttemptingPlayer = owner
+        };
+        return SkillCount(dummy, skill);
+    }
+
+    public static bool HasEffectiveSkill(IEnumerable<Card> present, int owner, string skill, int need = 1) =>
+        CountEffectiveSkill(present, owner, skill) >= need;
+
+    /// <summary>
+    /// Tow Radioactive Garbage Scow: ship at Scow mission + Tractor Beam + 2 effective ENGINEER
+    /// aboard that ship (skill + classification + equipment modifiers). Tow relocates the Scow
+    /// token (not a cure/discard).
     /// </summary>
     public static bool CanTowScow(bool shipAtScowMission, bool hasTractorBeam, bool hasTwoEngineerAboard) =>
         shipAtScowMission && hasTractorBeam && hasTwoEngineerAboard;
 
+    /// <summary>DE mini-test: CanTowScow ENG uses effective skill (Kit/PADD/class). Null = OK.</summary>
+    public static string? VerifyCanTowScowEffective()
+    {
+        static Card Pers(string name, string cls, string text) => new()
+        {
+            Name = name,
+            Type = "Personnel",
+            Class = cls,
+            Text = text,
+            Characteristics = "Human; Male; Federation;",
+            IntegrityOrRange = "5",
+            CunningOrWeapons = "5",
+            StrengthOrShields = "5"
+        };
+        static Card Eq(string name) => new()
+        {
+            Name = name,
+            Type = "Equipment",
+            Text = name
+        };
+
+        var eng1 = Pers("Eng One", "ENGINEER", "ENGINEER");
+        var eng2 = Pers("Eng Two", "ENGINEER", "ENGINEER");
+        var off1 = Pers("Off One", "OFFICER", "OFFICER");
+        var off2 = Pers("Off Two", "OFFICER", "OFFICER");
+        var kit = Eq("Engineering Kit");
+
+        // Two printed ENGINEER
+        if (!HasEffectiveSkill(new[] { eng1, eng2 }, 1, "ENGINEER", 2))
+            return "printed 2 ENG: HasEffectiveSkill should pass";
+        if (!CanTowScow(true, true, HasEffectiveSkill(new[] { eng1, eng2 }, 1, "ENGINEER", 2)))
+            return "printed 2 ENG: CanTowScow should pass";
+
+        // OFFICER x2 + Engineering Kit => 2 effective ENGINEER (printed ENG = 0)
+        var viaKit = new Card[] { off1, off2, kit };
+        if (EventRules.HasSkill(new[] { off1, off2 }, "ENGINEER", 2))
+            return "kit path: printed-only HasSkill should NOT see ENGINEER on OFFICER";
+        if (!HasEffectiveSkill(viaKit, 1, "ENGINEER", 2))
+            return "kit path: HasEffectiveSkill should count Kit grants on OFFICER";
+        if (!CanTowScow(true, true, HasEffectiveSkill(viaKit, 1, "ENGINEER", 2)))
+            return "kit path: CanTowScow should pass with Kit ENG";
+        if (CanTowScow(true, false, true))
+            return "gate: missing Tractor should fail";
+        if (CanTowScow(false, true, true))
+            return "gate: wrong mission should fail";
+
+        return null;
+    }
 
     /// <summary>One-line host-facing effect for ship/mission detail (not full card text).</summary>
     public static string FormatHostEffectSummary(PersistKind kind, Card card, int countdown)
