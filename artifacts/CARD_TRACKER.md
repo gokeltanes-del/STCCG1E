@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-14 (Jadzia — Scow tip 2c6a3f9 pending Pepsch six-step green)
+Last updated: 2026-09-14 (Jadzia — Scow display/tow FAIL Data Go; Ship Seizure waiting Spock)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -110,7 +110,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Phased Matter (42 C) | working | Pepsch green: AT-Split, Stasis der größeren Gruppe, Weiterführung der kleineren Gruppe und Cure (ENG+SCI unphased) via zentrales Cure-System bestätigt. | Pepsch 2026-09-13 |
 | Portal Guard (43 U) | working | CUNN>7/Honor Continue; Fail: BeamBack+Stop wenn Beamen möglich (Schiff/Facility vorhanden, kein Stasis/Quarantäne); Kill wenn Beamen unmöglich (z.B. Hyper-Aging Quarantäne oder kein Schiff/Facility) + unter Mission. Unit-Test `VerifyPortalGuard`. | Captain 2026-09-13 |
 | Q (44 R) | unknown |  |  |
-| Radioactive Garbage Scow (45 U) | partial | tips Data/`a4e4e5d` + layout/`bf7a394` + ENG/`558fc4e` + UX/`2c6a3f9` (Josef, no push): Tractor Beam... -> click Scow attach -> Fly both -> EOT place on current mission. Spock OK. Stays partial until Pepsch greens the six steps — not working. | Data/`2c6a3f9` 2026-09-14 |
+| Radioactive Garbage Scow (45 U) | partial | tip Data/`2c6a3f9` + prior a4e4e5d/bf7a394/558fc4e. Pepsch severe display/tow FAIL after 2c6a3f9: art overlays ship on select; tow snap covers ship; Fly does not move Scow. Data Go thorough token-vs-ship. Stays partial — not working. | Pepsch FAIL 2026-09-14; Data Go token-vs-ship |
 | Rebel Encounter (46 U) | unknown |  |  |
 | REM Fatigue (47 U) | unknown |  |  |
 | Sarjenka (48 R) | unknown |  |  |
@@ -220,7 +220,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Q2 (133 U) | unknown |  |  |
 | Rogue Borg (134 C) | working | Pepsch green (Rogue Borg Mercenaries). | Pepsch 2026-09-06 |
 | Scan (135 C) | unknown |  |  |
-| Ship Seizure (136 C) | unknown |  |  |
+| Ship Seizure (136 C) | blocked | Waiting Spock: player pick vs random. | Captain 2026-09-14 (Spock) |
 | Subspace Interference (137 C) | unknown |  |  |
 | Subspace Schism (138 U) | unknown |  |  |
 | Tachyon Detection Grid (139 C) | unknown |  |  |
