@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-14 (Jadzia — Junior 755242c + Scow a4e4e5d tips; pending Pepsch retest/smoke)
+Last updated: 2026-09-14 (Jadzia — Scow smoke FAIL layout/Z/load, Data Go)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -110,7 +110,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Phased Matter (42 C) | working | Pepsch green: AT-Split, Stasis der größeren Gruppe, Weiterführung der kleineren Gruppe und Cure (ENG+SCI unphased) via zentrales Cure-System bestätigt. | Pepsch 2026-09-13 |
 | Portal Guard (43 U) | working | CUNN>7/Honor Continue; Fail: BeamBack+Stop wenn Beamen möglich (Schiff/Facility vorhanden, kein Stasis/Quarantäne); Kill wenn Beamen unmöglich (z.B. Hyper-Aging Quarantäne oder kein Schiff/Facility) + unter Mission. Unit-Test `VerifyPortalGuard`. | Captain 2026-09-13 |
 | Q (44 R) | unknown |  |  |
-| Radioactive Garbage Scow (45 U) | partial | Pepsch smoke 2026-09-14: attempt-abort OK; tow FAIL. Spock Tractor Soll + Data tip `a4e4e5d` (Josef, no push): token + Tractor button + fly-with-Scow. Special equipment in ship Text; side button then dest mission = legal fly; Scow spaceline token relocates with ship and blocks that mission; not discard; tow != cure. Stays partial until Pepsch smoke — not working yet. | Data/`a4e4e5d` 2026-09-14; Spock Soll; Pepsch smoke 2026-09-14 |
+| Radioactive Garbage Scow (45 U) | partial | tip Data/`a4e4e5d` (token + Tractor button + fly-with-Scow). Spock Tractor Soll. Pepsch smoke FAIL 2026-09-14: (1) ship under/unclickable under Scow token after fly-in; (2) after Load token paints between missions while Host still Romulan mission. Data Go layout/Z/load. Stays partial — not working. | Data/`a4e4e5d` + pending layout/Z/load; Pepsch smoke FAIL 2026-09-14 |
 | Rebel Encounter (46 U) | unknown |  |  |
 | REM Fatigue (47 U) | unknown |  |  |
 | Sarjenka (48 R) | unknown |  |  |
