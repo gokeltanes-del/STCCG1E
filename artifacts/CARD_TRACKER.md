@@ -1,6 +1,6 @@
-# STCCG 1E — Card Expansion Tracker
+﻿# STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-14 (Jadzia — Ship Seizure Spock Soll; blocked until Data tip after Scow)
+Last updated: 2026-09-14 (Data - Scow token-vs-ship + tow-follow tip pending commit)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -110,7 +110,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Phased Matter (42 C) | working | Pepsch green: AT-Split, Stasis der größeren Gruppe, Weiterführung der kleineren Gruppe und Cure (ENG+SCI unphased) via zentrales Cure-System bestätigt. | Pepsch 2026-09-13 |
 | Portal Guard (43 U) | working | CUNN>7/Honor Continue; Fail: BeamBack+Stop wenn Beamen möglich (Schiff/Facility vorhanden, kein Stasis/Quarantäne); Kill wenn Beamen unmöglich (z.B. Hyper-Aging Quarantäne oder kein Schiff/Facility) + unter Mission. Unit-Test `VerifyPortalGuard`. | Captain 2026-09-13 |
 | Q (44 R) | unknown |  |  |
-| Radioactive Garbage Scow (45 U) | partial | tip Data/`2c6a3f9` + prior a4e4e5d/bf7a394/558fc4e. Pepsch severe display/tow FAIL after 2c6a3f9: art overlays ship on select; tow snap covers ship; Fly does not move Scow. Data Go thorough token-vs-ship. Stays partial — not working. | Pepsch FAIL 2026-09-14; Data Go token-vs-ship |
+| Radioactive Garbage Scow (45 U) | partial | tip Data/pending: token-vs-ship + tow-follow (column/Z, Relocate pin+Sync). Pepsch retest attach-Fly-EOT display. Stays partial until smoke green. | Data Go 2026-09-14 |
 | Rebel Encounter (46 U) | unknown |  |  |
 | REM Fatigue (47 U) | unknown |  |  |
 | Sarjenka (48 R) | unknown |  |  |

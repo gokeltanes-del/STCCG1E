@@ -1,6 +1,13 @@
-# Changelog
+﻿# Changelog
 
 Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
+
+---
+
+
+## 2026-09-14 (Fix - Scow/Borg token vs ship layout + tow follow)
+
+**UI** - Tow hang no longer paints Scow on ship Left/Top (column after dockables + X nudge, Z=8); every `RelocateShipAlongSpaceline` pins dest then `SyncTowedScowAfterShipMove`; Relayout never `PositionScowToken` while towing; dilemma tokens excluded from dockables; Borg Ship token same Z/column helper (was Z=30+ over ships). AttemptBlocked / effective ENG / Destroy Scow unchanged.
 
 ---
 

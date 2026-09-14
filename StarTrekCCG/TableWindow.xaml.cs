@@ -11326,7 +11326,9 @@ public partial class TableWindow : Window
         double yMax = missionTop + UnderMissionGap * 8;
 
         return TableCanvas.Children.OfType<Border>()
-            .Where(b => b != exclude && b != mission && b.Visibility == Visibility.Visible
+            .Where(b => b != exclude && b != mission
+                        && b != _scowToken && b != _borgShipToken
+                        && b.Visibility == Visibility.Visible
                         && b.Tag is Card sc && IsDockableUnderMission(sc))
             .Where(b =>
             {
@@ -12786,14 +12788,17 @@ public partial class TableWindow : Window
     {
         int owner = GetBorderOwner(ship);
         if (owner == 0) owner = _activePlayer;
+        // Pin dest before Relayout(from) so FindMissionForDockable / tow-follow
+        // never still believe the ship is at the old column.
+        _dockableAtMission[ship] = dest;
         Canvas.SetLeft(ship, Canvas.GetLeft(dest));
         Canvas.SetTop(ship, Canvas.GetTop(dest) + DockSlotOffsetY(0, owner));
         if (from != null && !ReferenceEquals(from, dest))
             RelayoutDockablesUnderMission(from);
         RelayoutDockablesUnderMission(dest);
         UpdateHostBadge(ship);
-        if (IsTowingScow(ship))
-            PositionScowOnTowShip(ship);
+        // Every RelocateShip* path: towed Scow must follow (not only Relayout branch).
+        SyncTowedScowAfterShipMove(ship);
     }
 
     private void RelocateShipToLocation(Border ship, Border dest)
@@ -18597,15 +18602,8 @@ public partial class TableWindow : Window
 
     private void PositionBorgShipToken(Border hostMission)
     {
-        if (_borgShipToken == null) return;
-        double left = Canvas.GetLeft(hostMission);
-        double top = Canvas.GetTop(hostMission);
-        // Stack like other ships at this location (next free slot below), never same Y as Enterprise.
-        var others = GetDockablesUnderMission(hostMission, exclude: _borgShipToken);
-        int below = others.Count(b => Canvas.GetTop(b) > top + 20);
-        Canvas.SetLeft(_borgShipToken, left);
-        Canvas.SetTop(_borgShipToken, top + UnderMissionGap * (below + 1));
-        Panel.SetZIndex(_borgShipToken, 30 + below);
+        // Same column pattern as Scow: after dockables, Z below ships so ships stay clickable.
+        PositionDilemmaTokenUnderMission(_borgShipToken, hostMission, zIndex: 8);
     }
 
     private void RemoveBorgShipToken()
@@ -18678,18 +18676,27 @@ public partial class TableWindow : Window
     }
 
 
-    private void PositionScowToken(Border hostMission)
+    /// <summary>
+    /// Dilemma spaceline token (Scow / Borg Ship): mission column, slot AFTER all dockables,
+    /// Z below ships/facilities. Never paint over ship artwork or steal ship clicks.
+    /// </summary>
+    private void PositionDilemmaTokenUnderMission(Border? token, Border hostMission, int zIndex = 8)
     {
-        if (_scowToken == null) return;
+        if (token == null) return;
         double left = Canvas.GetLeft(hostMission);
         double top = Canvas.GetTop(hostMission);
-        // Next free slot AFTER all dockables — never share canvas Y with a ship/facility.
-        var others = GetDockablesUnderMission(hostMission, exclude: _scowToken);
+        var others = GetDockablesUnderMission(hostMission, exclude: token);
         int below = others.Count(b => Canvas.GetTop(b) > top + 20);
-        Canvas.SetLeft(_scowToken, left);
-        Canvas.SetTop(_scowToken, top + UnderMissionGap * (below + 1));
-        // Below dockable Z (facilities ~12+, ships ~22+) so ships stay clickable.
-        Panel.SetZIndex(_scowToken, 8);
+        // P2 ships sit above the mission; keep dilemma tokens on the P1/below side so they
+        // do not share a slot with a dockable on either side.
+        Canvas.SetLeft(token, left);
+        Canvas.SetTop(token, top + UnderMissionGap * (below + 1));
+        Panel.SetZIndex(token, zIndex);
+    }
+
+    private void PositionScowToken(Border hostMission)
+    {
+        PositionDilemmaTokenUnderMission(_scowToken, hostMission, zIndex: 8);
     }
 
     private void RemoveScowToken()
@@ -18820,16 +18827,34 @@ public partial class TableWindow : Window
         return true;
     }
 
+    /// <summary>
+    /// Tow visual: Scow stays a separate token in the ship's mission column (after dockables),
+    /// slight X nudge so it reads as towed escort — never covers ship art, Z below ships.
+    /// </summary>
     private void PositionScowOnTowShip(Border ship)
     {
         if (_scowToken == null) return;
+        var mission = FindMissionForDockable(ship);
+        if (mission != null)
+        {
+            PositionScowToken(mission);
+            // Beside column (not on ship Left/Top). Keep within dockable column tolerance (<45).
+            Canvas.SetLeft(_scowToken, Canvas.GetLeft(mission) + 28);
+            Panel.SetZIndex(_scowToken, 8);
+            return;
+        }
+        // No mission pin yet: hang in next slot under the ship without covering its art.
         double left = Canvas.GetLeft(ship);
         double top = Canvas.GetTop(ship);
-        // Hang slightly offset on the towing ship (visual attach; Scow is not a real ship).
-        Canvas.SetLeft(_scowToken, left + 36);
-        Canvas.SetTop(_scowToken, top + 28);
-        int shipZ = Panel.GetZIndex(ship);
-        Panel.SetZIndex(_scowToken, Math.Max(9, shipZ - 1));
+        Canvas.SetLeft(_scowToken, left + 28);
+        Canvas.SetTop(_scowToken, top + UnderMissionGap);
+        Panel.SetZIndex(_scowToken, 8);
+    }
+
+    private void SyncTowedScowAfterShipMove(Border ship)
+    {
+        if (!IsTowingScow(ship)) return;
+        PositionScowOnTowShip(ship);
     }
 
     /// <summary>EOT of towing player: clear tow; place Scow on mission at ship's location (AttemptBlocked). Not discard.</summary>
@@ -21742,11 +21767,15 @@ public partial class TableWindow : Window
             PositionBorgShipToken(mission);
 
         var scowAt = _attachedDilemmas.FirstOrDefault(d => d.Kind == DilemmaRules.PersistKind.Scow);
-        if (scowAt != null && ReferenceEquals(scowAt.Host, mission))
+        // While towing, Host is the ship Border — never treat Host as a mission for layout.
+        if (_scowTowShip != null)
+        {
+            if (FindMissionForDockable(_scowTowShip) is Border towMis
+                && ReferenceEquals(towMis, mission))
+                PositionScowOnTowShip(_scowTowShip);
+        }
+        else if (scowAt != null && ReferenceEquals(scowAt.Host, mission))
             PositionScowToken(mission);
-        else if (_scowTowShip != null && FindMissionForDockable(_scowTowShip) is Border towMis
-                 && ReferenceEquals(towMis, mission))
-            PositionScowOnTowShip(_scowTowShip);
 
         EnsureBoardExtents();
     }
