@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-15 (Fix - Borg Ship load single token)
+
+**UI** - After Load: strip stray Borg dilemma table Border; re-Place/Position Borg token after spaceline layout (Scow hygiene). One token only; double-click on live token.
+
+---
 ## 2026-09-15 (Fix - Escape Pod on all DestroyShip paths)
 
 **Engine/UI** - ShipDestroyed Escape Pod response opens even if another stack action is open (e.g. Borg/battle resolve). No silent DestroyShipOrFacility when Pod in hand.
