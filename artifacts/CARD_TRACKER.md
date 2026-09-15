@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-15 (Jadzia — Escape Pod pending Z-order tip; Data Go already accepted)
+Last updated: 2026-09-15 (Jadzia — Escape Pod tip c1b622e pending Pepsch Borg-destroy pick)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -200,7 +200,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Distortion of Space/Time Continuum (113 U) | unknown |  |  |
 | Emergency Transporter Armbands (114 C) | unknown |  |  |
 | Energy Vortex (115 U) | unknown |  |  |
-| Escape Pod (116 C) | partial | tips Data/`5e55eef` + `7917a30`/`a3481a1` + `acc1426`. Pepsch: Borg Ship destroy opens Pod response but Borg Ship detail overlay blocks picking Escape Pod. Data accepted Response Z-order Go (in progress) — pending tip. Stays partial until Pepsch greens — not working. | Pepsch 2026-09-15; pending Z-order tip |
+| Escape Pod (116 C) | partial | tips Data/`5e55eef` + `7917a30`/`a3481a1` + `acc1426` + Z/`c1b622e` (Josef, no push): Response/Think Tray Z over CardDetail while open. Prior: ShipDestroyed window during battle stack; crew/personnel only; crew aboard + Pod in hand; excludes captives. Stays partial until Pepsch greens Borg-destroy -> pick Pod — not working. | Data/`c1b622e` 2026-09-15 |
 | Full Planet Scan (117 U) | unknown |  |  |
 | Honor Challenge (118 R) | unknown |  |  |
 | Hugh (119 R) | working | Pepsch green: works on Borg Ship dilemma attack (valid response). | Pepsch 2026-09-15 |
