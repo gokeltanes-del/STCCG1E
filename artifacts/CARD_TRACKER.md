@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-15 (Jadzia — Ancient Computer + Null Space working)
+Last updated: 2026-09-15 (Jadzia — Ktarian reconfirm; Genetronic + Nausicaans working)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -96,7 +96,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Hyper-Aging (28 U) | working | Pepsch green Quarantäne+Beam-Block `46eab15`; Detailansicht Debuff-Gruppierung OK. RemFatigue PARK. | Pepsch 2026-09-12 |
 | Iconian Computer Weapon (29 C) | partial | tip Data/`47984b5`. Pass SCIENCE Continue; Fail Stop + Non-Pers Hand discard+draw. Ungetestet. | Data/`47984b5` 2026-09-06 |
 | Impassable Door (30 C) | working | Pepsch green (komplett); tip Data/`be5062b`. | Pepsch + Data/`be5062b` 2026-09-07 |
-| Ktarian Game (31 R) | working | Pepsch green: Now + start-of-turn disable; Cure CUNNING>30 or Android (ship-hosted cure present = host crew only, tip Data/`3c7ee2d`). Unit tests `VerifyKtarianGame` / `VerifyDilemmaCureRules`. | Pepsch 2026-09-13; Data/`3c7ee2d` |
+| Ktarian Game (31 R) | working | Pepsch green (reconfirmed): Now + start-of-turn disable; Cure CUNNING>30 or Android (ship-hosted cure present = host crew only, tip Data/`3c7ee2d`). Unit tests `VerifyKtarianGame` / `VerifyDilemmaCureRules`. | Pepsch 2026-09-15; Data/`3c7ee2d` |
 | Male's Love Interest (32 C) | working | Pepsch getestet OK (Continue after Relocate). | Pepsch 2026-09-06 |
 | Matriarchal Society (33 U) | working | Pepsch green: Wall >=2 Female Continue; Fail Stop+unter Mission. tip Data/`d68f511`. | Pepsch 2026-09-15; Data/`d68f511` |
 | Menthar Booby Trap (34 C) | working | Pepsch green: Place immer; MED Continue else Kill+Stop; Cure 2 ENG. tip Data/`01e5bb8`. | Pepsch 2026-09-15; Data/`01e5bb8` |
@@ -104,7 +104,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Microvirus (36 C) | working | Pos+neg Choose OK. PARK: UI Dilemma-groß + 2-Fenster Chooser/Beobachter. | Pepsch 2026-09-07 |
 | Nagilum (37 R) | working | Pepsch green: 3 Diplomacy OR STR>40 -> +5 Continue; Fail half-kill (abrunden)+Stop. tip Data/`b16e2b8`. | Pepsch 2026-09-15; Data/`b16e2b8` |
 | Nanites (38 U) | working | Pepsch green: 2 SCIENCE OR Diplomacy -> +5 Continue; Fail Damage+Stop. tip Data/`df0e3fa`. | Pepsch 2026-09-15; Data/`df0e3fa` |
-| Nausicaans (39 U) | partial | tip Data/`485814c`. STR>44 Continue; Fail random Kill+Stop. PARK: Interphase/Zon nullify. Ungetestet. | Data/`485814c` 2026-09-06 |
+| Nausicaans (39 U) | working | Pepsch green: STR>44 Continue; Fail random Kill+Stop. tip Data/`485814c`. | Pepsch 2026-09-15; Data/`485814c` |
 | Nitrium Metal Parasites (40 U) | working | Pepsch green (AttachAndContinue). | Pepsch 2026-09-06 |
 | Null Space (41 U) | working | Pepsch green: 2 Navigation -> +5 Continue; Fail Damage+Stop. tip Data/`04f4bd6`. | Pepsch 2026-09-15; Data/`04f4bd6` |
 | Phased Matter (42 C) | working | Pepsch green: AT-Split, Stasis der größeren Gruppe, Weiterführung der kleineren Gruppe und Cure (ENG+SCI unphased) via zentrales Cure-System bestätigt. | Pepsch 2026-09-13 |
@@ -150,7 +150,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Espionage: Romulan on Federation (73 C) | working | Pepsch green (Espionage-Familie). | Pepsch 2026-09-06 |
 | Espionage: Romulan on Klingon (74 C) | working | Pepsch green (Espionage-Familie). | Pepsch 2026-09-06 |
 | Gaps in Normal Space (75 U) | unknown |  |  |
-| Genetronic Replicator (76 U) | working | Glossary: Opfer & gleichzeitig Getötete ausgeschlossen; Auswahl via PickBorder; Unit-Test in EventRules. | Agent 2026-09-13 |
+| Genetronic Replicator (76 U) | working | Pepsch green: Opfer & gleichzeitig Getoetete ausgeschlossen; Auswahl via PickBorder; Unit-Test in EventRules. | Pepsch 2026-09-15 |
 | Goddess of Empathy (77 R) | unknown |  |  |
 | Holo-Projectors (78 U) | unknown |  |  |
 | Kivas Fajo: Collector (79 U) | working | Pepsch green. | Pepsch 2026-09-06 |
