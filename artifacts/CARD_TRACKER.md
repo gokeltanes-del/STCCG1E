@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-15 (Jadzia — Hugh working Borg Ship dilemma attack response)
+Last updated: 2026-09-15 (Jadzia — Borg Ship working; encounter-stop Data Go pending tip)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -83,7 +83,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Armus: Skin Of Evil (15 R) | partial | tip Data/`31d0c73`. 1 AT random Kill; discard; Rest Continue (kein Stop). Ungetestet. | Data/`31d0c73` 2026-09-06 |
 | Barclay's Protomorphosis Disease (16 R) | working | Pepsch getestet OK (Metamorphosis/Transformation). | Pepsch 2026-09-06 |
 | Birth of "Junior" (17 U) | working | Pepsch green: Place+Continue; cumulative RANGE Countdown tip Data/`755242c`; destroy at 0; Cure 3 ENG nullify. | Pepsch 2026-09-14; Data/`755242c` |
-| Borg Ship (18 R) | working | Captain/Pepsch „soweit“ — nicht nochmal Dilemma-Welle. | Captain 2026-09-06 |
+| Borg Ship (18 R) | working | Pepsch/Captain green overall. Hugh vs Borg Ship dilemma attack response OK (Pepsch 2026-09-15). Pending: Spock Soll no stop on encounter (StopTeam false); stop only after battle — Data Go; encounter-stop bug until tip. | Pepsch 2026-09-15; Spock Soll + Data Go encounter-stop |
 | Chalnoth (19 U) | working | Pepsch green: Pass 3 SEC OR STR>40 → +5 + Continue; Fail Opp 1 Kill, AT stopped. tip Data/`b01d6dc`. | Pepsch 2026-09-13 |
 | Cosmic String Fragment (20 U) | working | Pepsch green: Pass Astrophysics OR ENG OR Navigation -> +5 + Continue; Fail Ship destroy. tip Data/`85ca39a`. | Pepsch 2026-09-15; Data/`85ca39a` |
 | Crystalline Entity (21 R) | partial | tip Data/`6f11978`. Space/Planet +5; Fail kill-all life (nicht Stasis). Lore-Double geparkt. Ungetestet. | Data/`6f11978` 2026-09-06 |
