@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-15 (Fix - Response window above CardDetail)
+
+**UI** - Think Tray / Response UI Z above CardDetailOverlay (220); hide detail while response open so Escape Pod etc. stay clickable; restore detail after close.
+
+---
 ## 2026-09-15 (Fix - Escape Pod excludes captives)
 
 **Engine/UI** - Escape Pod saves only your personnel/crew (not equipment, not opponent captives aboard). Empty / captive-only ships get no Escape Pod window.

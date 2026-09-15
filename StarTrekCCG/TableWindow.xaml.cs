@@ -222,6 +222,7 @@ public partial class TableWindow : Window
     private System.Windows.Threading.DispatcherTimer? _responseWindowTimer;
     private DateTime _responseWindowDeadlineUtc;
     private List<TimingRules.LegalResponseItem> _currentLegalResponses = new();
+    private bool _detailHiddenForResponse;
 
     // ---------- Nur noch der zoombare Mittelbereich ----------
     // Alle Karten auf dem Spielfeld gleiche Größe
@@ -3706,6 +3707,40 @@ public partial class TableWindow : Window
         StatusText.Text = $"Response {response.Card.Name}: {check.reason}";
     }
 
+
+    /// <summary>
+    /// Response UI must sit above CardDetail / reveals so Escape Pod etc. stay clickable.
+    /// </summary>
+    private void BringResponseUiToFront()
+    {
+        if (ThinkTrayBorder != null)
+            Panel.SetZIndex(ThinkTrayBorder, 220);
+        if (ResponseIndicatorBadge != null)
+            Panel.SetZIndex(ResponseIndicatorBadge, 215);
+        // Hide blocking detail overlay while a response window is live.
+        if (CardDetailOverlay != null && CardDetailOverlay.Visibility == Visibility.Visible)
+        {
+            CardDetailOverlay.Visibility = Visibility.Collapsed;
+            _detailHiddenForResponse = true;
+        }
+        if (CardRevealOverlay != null
+            && CardRevealOverlay.Visibility == Visibility.Visible
+            && _announceKind is not (AnnounceKind.RespondOrPass or AnnounceKind.PickCard))
+        {
+            // Non-response reveal (e.g. battle summary) must not cover Think Tray.
+            CardRevealOverlay.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private void RestoreDetailAfterResponse()
+    {
+        if (_detailHiddenForResponse && CardDetailOverlay != null && _detailCard != null)
+        {
+            CardDetailOverlay.Visibility = Visibility.Visible;
+        }
+        _detailHiddenForResponse = false;
+    }
+
     private void OpenResponseWindow(int firstResponder)
     {
         _stack.ResponsePlayer = firstResponder;
@@ -3879,6 +3914,7 @@ public partial class TableWindow : Window
         _stack.State = TimingRules.ResponseWindowState.Silent;
         _stack.ResponsePlayer = responder;
         _currentLegalResponses = legal;
+        BringResponseUiToFront();
 
         if (ThinkTrayBorder != null)
             ThinkTrayBorder.Visibility = Visibility.Collapsed;
@@ -3962,6 +3998,7 @@ public partial class TableWindow : Window
                 ThinkTrayBorder.Margin = new Thickness(14, 0, 14, 6);
             }
 
+            BringResponseUiToFront();
             ThinkTrayBorder.Visibility = Visibility.Visible;
             if (ThinkTrayTitle != null)
                 ThinkTrayTitle.Text = $"LEGAL RESPONSES (P{_stack.ResponsePlayer})";
@@ -4297,6 +4334,7 @@ public partial class TableWindow : Window
             ResponseIndicatorBadge.Visibility = Visibility.Collapsed;
         if (ThinkTrayBorder != null)
             ThinkTrayBorder.Visibility = Visibility.Collapsed;
+        RestoreDetailAfterResponse();
         UpdatePhaseControls();
     }
 
