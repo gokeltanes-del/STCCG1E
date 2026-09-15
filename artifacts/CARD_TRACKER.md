@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-15 (Jadzia — Microbiotic Colony + Cosmic String Fragment working)
+Last updated: 2026-09-15 (Jadzia — Nanites, Nagilum, Menthar, Cytherians working)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -87,7 +87,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Chalnoth (19 U) | working | Pepsch green: Pass 3 SEC OR STR>40 → +5 + Continue; Fail Opp 1 Kill, AT stopped. tip Data/`b01d6dc`. | Pepsch 2026-09-13 |
 | Cosmic String Fragment (20 U) | working | Pepsch green: Pass Astrophysics OR ENG OR Navigation -> +5 + Continue; Fail Ship destroy. tip Data/`85ca39a`. | Pepsch 2026-09-15; Data/`85ca39a` |
 | Crystalline Entity (21 R) | partial | tip Data/`6f11978`. Space/Planet +5; Fail kill-all life (nicht Stasis). Lore-Double geparkt. Ungetestet. | Data/`6f11978` 2026-09-06 |
-| Cytherians (22 R) | partial | tip Data/`baa9fd5`. Place+Attempt-end; far-end +15. PARK: LegalMoves-toward-far-end; Borg no-pts; Mission Debriefing. Ungetestet. | Data/`baa9fd5` 2026-09-06 |
+| Cytherians (22 R) | working | Pepsch green: Place+Attempt-end; far-end +15. tip Data/`baa9fd5`. | Pepsch 2026-09-15; Data/`baa9fd5` |
 | El-Adrel Creature (23 U) | working | Pepsch green: 2 staerkste (Tie=Owner); STR>16 Continue (9+9 planet AT Overcome OK); Fail random Kill + AT stop. tip Data/`4b3467b` + live-feed/`ea1ff6d` (owner fallback, refresh Team/Present, ignore Kill on Overcome). | Pepsch 2026-09-13; Data/`ea1ff6d` |
 | Female's Love Interest (24 C) | working | Pepsch getestet OK (Continue after Relocate). | Pepsch 2026-09-06 |
 | Firestorm (25 U) | working | Pepsch green: INT<5 Kills OK, Versuch-Fortsetzung OK, Overlay EFFECT-Header OK. PARK: ETA-Escape. | Pepsch 2026-09-12 |
@@ -99,11 +99,11 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Ktarian Game (31 R) | working | Pepsch green: Now + start-of-turn disable; Cure CUNNING>30 or Android (ship-hosted cure present = host crew only, tip Data/`3c7ee2d`). Unit tests `VerifyKtarianGame` / `VerifyDilemmaCureRules`. | Pepsch 2026-09-13; Data/`3c7ee2d` |
 | Male's Love Interest (32 C) | working | Pepsch getestet OK (Continue after Relocate). | Pepsch 2026-09-06 |
 | Matriarchal Society (33 U) | partial | tip Data/`d68f511`. Wall ≥2 Female Continue; Fail Stop+unter Mission. PARK: Borg gender. Ungetestet. | Data/`d68f511` 2026-09-06 |
-| Menthar Booby Trap (34 C) | partial | tip Data/`01e5bb8`. Place immer; MED Continue else Kill+Stop; Cure 2 ENG. PARK: LegalMoves move-block. GAP Cure-Present-Scope (Ship): Skills an Bord, nicht ortsweit — Seven FEATURES `cd468fb`. Ungetestet. | Data/`01e5bb8` + Spock 2026-09-06 |
+| Menthar Booby Trap (34 C) | working | Pepsch green: Place immer; MED Continue else Kill+Stop; Cure 2 ENG. tip Data/`01e5bb8`. | Pepsch 2026-09-15; Data/`01e5bb8` |
 | Microbiotic Colony (35 C) | working | Pepsch green: SCI+ENG+OFF Continue; Fail Damage+Stop; immer discard. tip Data/`f8c14d5`. | Pepsch 2026-09-15; Data/`f8c14d5` |
 | Microvirus (36 C) | working | Pos+neg Choose OK. PARK: UI Dilemma-groß + 2-Fenster Chooser/Beobachter. | Pepsch 2026-09-07 |
-| Nagilum (37 R) | partial | tip Data/`b16e2b8`. 3 Diplomacy OR STR>40 → +5 Continue; Fail half-kill (abrunden)+Stop. Ungetestet. | Data/`b16e2b8` 2026-09-06 |
-| Nanites (38 U) | partial | tip Data/`df0e3fa`. 2 SCIENCE OR Diplomacy → +5 Continue; Fail Damage+Stop. Ungetestet. | Data/`df0e3fa` 2026-09-06 |
+| Nagilum (37 R) | working | Pepsch green: 3 Diplomacy OR STR>40 -> +5 Continue; Fail half-kill (abrunden)+Stop. tip Data/`b16e2b8`. | Pepsch 2026-09-15; Data/`b16e2b8` |
+| Nanites (38 U) | working | Pepsch green: 2 SCIENCE OR Diplomacy -> +5 Continue; Fail Damage+Stop. tip Data/`df0e3fa`. | Pepsch 2026-09-15; Data/`df0e3fa` |
 | Nausicaans (39 U) | partial | tip Data/`485814c`. STR>44 Continue; Fail random Kill+Stop. PARK: Interphase/Zon nullify. Ungetestet. | Data/`485814c` 2026-09-06 |
 | Nitrium Metal Parasites (40 U) | working | Pepsch green (AttachAndContinue). | Pepsch 2026-09-06 |
 | Null Space (41 U) | partial | tip Data/`04f4bd6`. 2 Navigation → +5 Continue; Fail Damage+Stop. Ungetestet. | Data/`04f4bd6` 2026-09-06 |
