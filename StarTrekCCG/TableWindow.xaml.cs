@@ -20964,6 +20964,21 @@ public partial class TableWindow : Window
     /// <summary>
     /// Schiff/Facility zerstört: Crew+Equipment → Discard des Besitzers, Karte vom Tisch.
     /// </summary>
+
+    /// <summary>True if ship has personnel/crew aboard that Escape Pod could save.</summary>
+    private bool ShipHasCrewForEscapePod(Border ship)
+    {
+        if (!_stackOnHost.TryGetValue(ship, out var stacked)) return false;
+        foreach (var sb in stacked)
+        {
+            if (sb.Tag is not Card sc) continue;
+            if (IsEquipmentType(sc)) continue;
+            if (IsCrewType(sc) || ModifierRules.IsPersonnelCard(sc))
+                return true;
+        }
+        return false;
+    }
+
     private bool HasEscapePodInHand(int owner)
     {
         var hand = owner == 2 ? _oppHandCards : _handCards;
