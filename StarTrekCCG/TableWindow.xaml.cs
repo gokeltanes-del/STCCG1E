@@ -20969,12 +20969,17 @@ public partial class TableWindow : Window
     private bool ShipHasCrewForEscapePod(Border ship)
     {
         if (!_stackOnHost.TryGetValue(ship, out var stacked)) return false;
+        int owner = GetBorderOwner(ship);
+        if (owner == 0) owner = _activePlayer;
         foreach (var sb in stacked)
         {
             if (sb.Tag is not Card sc) continue;
             if (IsEquipmentType(sc)) continue;
-            if (IsCrewType(sc) || ModifierRules.IsPersonnelCard(sc))
-                return true;
+            if (!IsCrewType(sc) && !ModifierRules.IsPersonnelCard(sc)) continue;
+            int co = CardOwner(sb);
+            if (co == 0) co = sc.Controller != 0 ? sc.Controller : sc.OwnerPlayer;
+            if (co != 0 && co != owner) continue; // captive
+            return true;
         }
         return false;
     }
@@ -21003,10 +21008,14 @@ public partial class TableWindow : Window
             foreach (var sb in stacked.ToList())
             {
                 if (sb.Tag is not Card sc) continue;
-                // PR: Escape Pod saves crew (personnel), not equipment.
+                // Spock PR: crew/personnel only — not equipment, not captives.
+                if (IsEquipmentType(sc)) continue;
                 if (!IsCrewType(sc) && !ModifierRules.IsPersonnelCard(sc))
                     continue;
-                if (IsEquipmentType(sc)) continue;
+                // Captives = opponent personnel aboard your ship (Glossary); they are not saved.
+                int co = CardOwner(sb);
+                if (co == 0) co = sc.Controller != 0 ? sc.Controller : sc.OwnerPlayer;
+                if (co != 0 && co != owner) continue;
                 crew.Add(sc);
                 stacked.Remove(sb);
                 if (TableCanvas.Children.Contains(sb))

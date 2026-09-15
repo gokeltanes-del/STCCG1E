@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-15 (Fix - Escape Pod excludes captives)
+
+**Engine/UI** - Escape Pod saves only your personnel/crew (not equipment, not opponent captives aboard). Empty / captive-only ships get no Escape Pod window.
+
+---
 ## 2026-09-15 (Fix - Escape Pod Spock: crew only + empty skip)
 
 **Engine/UI** - Escape Pod saves personnel/crew only (not equipment). Window only if ship has crew + Pod in hand (empty Ship Seizure path unchanged via DiscardShipSeizureVictim). Stack-open destroy still offers Pod.
