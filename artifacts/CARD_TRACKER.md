@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-15 (Jadzia — Matriarchal, Hologram Ruse, Anaphasic working)
+Last updated: 2026-09-15 (Jadzia — Ancient Computer + Null Space working)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -78,7 +78,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Alien Abduction (10 U) | working | Pepsch green (Cure OR + Stasis Beam-Block; zentrales Cure-System 7.2.2.3 via 3 Leadership oder Mission Completed; Fix: kein Stoppen des Teams, nahtlose Fortsetzung bei Cure oder Nicht-Cure lt. 7.2.2.3/7.2.6). | Pepsch 2026-09-13 |
 | Alien Parasites (11 U) | partial | tip Data/`f087866` Neg Control + Strip/`2976b61`. Hotseat-Chooser PARK. Pending Pepsch green → working. | Data/`2976b61` 2026-09-09 |
 | Anaphasic Organism (12 C) | working | Pepsch green: Fail resigns=discard, not Kill. tips Data/`502d8e0` + Fix/`3532748`. | Pepsch 2026-09-15; Data/`3532748` |
-| Ancient Computer (13 R) | partial | tip Data/`bb551f1`. Wall: 2 Computer Skill OR 3 SCIENCE OR 3 ENGINEER; Fail Stop+unter Mission. Ungetestet. | Data/`bb551f1` 2026-09-06 |
+| Ancient Computer (13 R) | working | Pepsch green: Wall 2 Computer Skill OR 3 SCIENCE OR 3 ENGINEER; Fail Stop+unter Mission. tip Data/`bb551f1`. | Pepsch 2026-09-15; Data/`bb551f1` |
 | Archer (14 C) | working | Pepsch green bestätigt: Auswertung Attribute / Opponent-Choice bei Gleichstand und Stop-Verhalten funktionieren einwandfrei. | Pepsch 2026-09-13 |
 | Armus: Skin Of Evil (15 R) | partial | tip Data/`31d0c73`. 1 AT random Kill; discard; Rest Continue (kein Stop). Ungetestet. | Data/`31d0c73` 2026-09-06 |
 | Barclay's Protomorphosis Disease (16 R) | working | Pepsch getestet OK (Metamorphosis/Transformation). | Pepsch 2026-09-06 |
@@ -106,7 +106,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Nanites (38 U) | working | Pepsch green: 2 SCIENCE OR Diplomacy -> +5 Continue; Fail Damage+Stop. tip Data/`df0e3fa`. | Pepsch 2026-09-15; Data/`df0e3fa` |
 | Nausicaans (39 U) | partial | tip Data/`485814c`. STR>44 Continue; Fail random Kill+Stop. PARK: Interphase/Zon nullify. Ungetestet. | Data/`485814c` 2026-09-06 |
 | Nitrium Metal Parasites (40 U) | working | Pepsch green (AttachAndContinue). | Pepsch 2026-09-06 |
-| Null Space (41 U) | partial | tip Data/`04f4bd6`. 2 Navigation → +5 Continue; Fail Damage+Stop. Ungetestet. | Data/`04f4bd6` 2026-09-06 |
+| Null Space (41 U) | working | Pepsch green: 2 Navigation -> +5 Continue; Fail Damage+Stop. tip Data/`04f4bd6`. | Pepsch 2026-09-15; Data/`04f4bd6` |
 | Phased Matter (42 C) | working | Pepsch green: AT-Split, Stasis der größeren Gruppe, Weiterführung der kleineren Gruppe und Cure (ENG+SCI unphased) via zentrales Cure-System bestätigt. | Pepsch 2026-09-13 |
 | Portal Guard (43 U) | working | CUNN>7/Honor Continue; Fail: BeamBack+Stop wenn Beamen möglich (Schiff/Facility vorhanden, kein Stasis/Quarantäne); Kill wenn Beamen unmöglich (z.B. Hyper-Aging Quarantäne oder kein Schiff/Facility) + unter Mission. Unit-Test `VerifyPortalGuard`. | Captain 2026-09-13 |
 | Q (44 R) | unknown |  |  |
