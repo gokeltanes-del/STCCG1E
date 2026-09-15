@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-15 (Jadzia — Gravitic Mine working)
+Last updated: 2026-09-15 (Jadzia — Engineering Kit working; other Kit/PADD still unknown)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -125,7 +125,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 
 | Card | Status | Notes | Source |
 | --- | --- | --- | --- |
-| Engineering Kit (55 C) | unknown |  |  |
+| Engineering Kit (55 C) | working | Pepsch green: skill counting works (mission ENGINEER via Officers+Kit). | Pepsch 2026-09-15 |
 | Engineering PADD (56 C) | unknown |  |  |
 | Federation PADD (57 C) | unknown |  |  |
 | Klingon Disruptor (58 C) | unknown |  |  |
