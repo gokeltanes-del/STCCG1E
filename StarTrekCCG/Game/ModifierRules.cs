@@ -225,16 +225,18 @@ public static class ModifierRules
                 }
             }
 
-            // Skill-Grants nach Classification
-            foreach (var def in SkillEquipment)
-            {
-                if (!NamesMatch(eqName, def.Name)) continue;
-                if (!subjectClass.Equals(def.RequiredClass, StringComparison.OrdinalIgnoreCase))
-                    continue;
+        }
 
-                skills[def.GrantedSkill] = skills.GetValueOrDefault(def.GrantedSkill) + 1;
-                applied.Add(new Modifier(eqName, ModifierKind.SkillGrant, def.GrantedSkill, 1, owner));
-            }
+        // Skill grants: one matching equipment covers all of RequiredClass present.
+        // Multiple kits do NOT stack extra levels on one personnel.
+        foreach (var def in SkillEquipment)
+        {
+            if (!subjectClass.Equals(def.RequiredClass, StringComparison.OrdinalIgnoreCase))
+                continue;
+            var match = yourEquipment.FirstOrDefault(eq => NamesMatch(eq.Name ?? "", def.Name));
+            if (match == null) continue;
+            skills[def.GrantedSkill] = skills.GetValueOrDefault(def.GrantedSkill) + 1;
+            applied.Add(new Modifier(match.Name ?? def.Name, ModifierKind.SkillGrant, def.GrantedSkill, 1, owner));
         }
 
         if (TableBuffs.YellowAlertPlayer == owner)

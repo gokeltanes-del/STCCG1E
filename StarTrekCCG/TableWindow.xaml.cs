@@ -16995,6 +16995,7 @@ public partial class TableWindow : Window
                 if (CardOwner(sb) != _activePlayer) continue;
                 if (IsBorderStopped(sb)) continue;
                 if (IsCardDisabled(c)) continue;
+                if (ModifierRules.IsPersonnelCard(c) && IsCardInStasis(c)) continue; // Spock: stasis = no skills
                 if (IsCrewType(c) || IsEquipmentType(c)
                     || (c.Type ?? "").Contains("personnel", StringComparison.OrdinalIgnoreCase))
                     cards.Add(c);

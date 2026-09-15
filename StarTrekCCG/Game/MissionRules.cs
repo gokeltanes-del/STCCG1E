@@ -227,6 +227,53 @@ public static class MissionRules
         return bits.Count > 0 ? bits : new List<string> { (req ?? "").Trim() };
     }
 
+
+    /// <summary>True when text asks for printed classification (Class box), not skill.</summary>
+    public static bool IsClassificationRequirement(string alt)
+    {
+        alt = Regex.Replace(alt ?? "", @"^\[[^\]]+\]\s*", "").Trim();
+        return Regex.IsMatch(alt, @"classification", RegexOptions.IgnoreCase);
+    }
+
+    /// <summary>
+    /// "ENGINEER-classification" / "ENGINEER classification" — Kit skill grants do not count.
+    /// </summary>
+    public static bool ClassificationRequirementMet(
+        string alt,
+        Dictionary<string, int> classPool,
+        out string detail)
+    {
+        alt = Regex.Replace(alt ?? "", @"^\[[^\]]+\]\s*", "").Trim();
+        detail = alt + " (not classification)";
+        if (!Regex.IsMatch(alt, @"classification", RegexOptions.IgnoreCase))
+            return false;
+
+        var m = Regex.Match(alt,
+            @"^([A-Za-z][A-Za-z.\s]*?)\s*-?\s*classification(?:\s*[xX×]\s*(\d+))?\.?$",
+            RegexOptions.IgnoreCase);
+        if (!m.Success)
+        {
+            m = Regex.Match(alt,
+                @"^classification\s+([A-Za-z][A-Za-z.\s]*?)(?:\s*[xX×]\s*(\d+))?\.?$",
+                RegexOptions.IgnoreCase);
+        }
+        if (!m.Success)
+        {
+            detail = alt + " (classification unparsed)";
+            return false;
+        }
+        string cls = m.Groups[1].Value.Trim();
+        int needN = m.Groups[2].Success ? int.Parse(m.Groups[2].Value) : 1;
+        int haveN = 0;
+        foreach (var kv in classPool)
+        {
+            if (kv.Key.Equals(cls, StringComparison.OrdinalIgnoreCase))
+                haveN += kv.Value;
+        }
+        detail = $"{cls}-classification x{needN} (have {haveN})";
+        return haveN >= needN;
+    }
+
     /// <summary>One alternative: "Diplomacy x5" or "CUNNING>30". Exact skill name, count >= need.</summary>
     public static bool AlternativeMet(
         string alt,
@@ -432,6 +479,16 @@ public static class MissionRules
             return new AttemptResult(true, "No skill requirements detected – present team suffices (sandbox).", true, pts);
         }
 
+        // Printed Class counts for "X-classification" only (Kit skill grants do not).
+        var classPool = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var p in teamList)
+        {
+            if (!ModifierRules.IsPersonnelCard(p)) continue;
+            string cls = (p.Class ?? "").Trim();
+            if (cls.Length == 0) continue;
+            classPool[cls] = classPool.GetValueOrDefault(cls) + 1;
+        }
+
         var missing = new List<string>();
         foreach (var req in reqs)
         {
@@ -440,6 +497,16 @@ public static class MissionRules
             var altFail = new List<string>();
             foreach (var alt in alts)
             {
+                if (ClassificationRequirementMet(alt, classPool, out string classDetail))
+                {
+                    anyOk = true;
+                    continue;
+                }
+                if (IsClassificationRequirement(alt))
+                {
+                    altFail.Add(classDetail);
+                    continue;
+                }
                 if (AlternativeMet(alt, pool, integ, cunn, str, out string detail))
                     anyOk = true;
                 else

@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-15 (Fix - Spock effective-skill gates)
+
+**Engine** - Kit skill grants once per equipment type (covers all matching Class; no multi-kit stack on one person). Present excludes stopped/disabled/stasis. Mission text "X-classification" uses printed Class only (Kit skill does not satisfy).
+
+---
 ## 2026-09-15 (Fix - Cloak vs Beam Compendium 7.6)
 
 **Engine/UI** - Deny beam to/from cloaked ships (EvaluateBeam + LegalMoves); hide Beam on cloaked ships; do not highlight cloaked destinations. Decloak first. Docking already denied cloaked.
