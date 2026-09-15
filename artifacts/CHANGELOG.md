@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-15 (Fix - Escape Pod on all DestroyShip paths)
+
+**Engine/UI** - ShipDestroyed Escape Pod response opens even if another stack action is open (e.g. Borg/battle resolve). No silent DestroyShipOrFacility when Pod in hand.
+
+---
 ## 2026-09-15 (Fix - Borg Ship encounter no stop)
 
 **Engine** - Borg Ship Decide: StopTeam=false on encounter (App B). Place furthest end + end attempt only; stop survivors after battle participation (EOT), not on reveal.
