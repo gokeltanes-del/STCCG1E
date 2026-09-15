@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-15 (Jadzia — Engineering Kit working; other Kit/PADD still unknown)
+Last updated: 2026-09-15 (Jadzia — Hugh working Borg Ship dilemma attack response)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -203,7 +203,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Escape Pod (116 C) | unknown |  |  |
 | Full Planet Scan (117 U) | unknown |  |  |
 | Honor Challenge (118 R) | unknown |  |  |
-| Hugh (119 R) | unknown |  |  |
+| Hugh (119 R) | working | Pepsch green: works on Borg Ship dilemma attack (valid response). | Pepsch 2026-09-15 |
 | Incoming Message: Federation (120 U) | unknown |  |  |
 | Incoming Message: Klingon (121 U) | unknown |  |  |
 | Incoming Message: Romulan (122 U) | unknown |  |  |
