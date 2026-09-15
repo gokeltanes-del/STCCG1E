@@ -12319,15 +12319,6 @@ public partial class TableWindow : Window
         }
         // Draw phase: no action panel on hosts (orders are Execute-only)
 
-        // Both players, any segment: show last revealed under this mission
-        if (isMission
-            && _lastEncounteredDilemma.TryGetValue(cardBorder, out var lastRevealed)
-            && lastRevealed != null)
-        {
-            var dilRef = lastRevealed;
-            AddBtn("Show last revealed card under mission", (_, _) => ShowCardDetail(dilRef));
-        }
-
         if (_actionPanel.Children.Count == 0)
         {
             _actionPanel = null;
@@ -22611,6 +22602,23 @@ public partial class TableWindow : Window
                 DetailStackCards.Children.Add(mini);
         }
 
+
+        // Already-revealed / face-up under mission (encountered dilemma)
+        if (isMission
+            && _lastEncounteredDilemma.TryGetValue(host, out var lastDil)
+            && lastDil != null)
+        {
+            DetailStackCards.Children.Add(new TextBlock
+            {
+                Text = "Last revealed under mission",
+                Foreground = new SolidColorBrush(Color.FromRgb(180, 160, 100)),
+                FontSize = 11,
+                FontWeight = FontWeights.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(4, 0, 6, 0)
+            });
+            AddStackMini(lastDil, "Encountered / revealed");
+        }
 
         // Artifacts revealed mid-attempt (face-up for both; not acquired yet)
         if (_revealedArtifactsUnderMission.TryGetValue(host, out var foundArts) && foundArts.Count > 0)

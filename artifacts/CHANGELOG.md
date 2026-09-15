@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-15 (UX - Revealed under mission in Detailfenster)
+
+**UX** - Remove mission side button "Show last revealed card under mission"; when a mission is selected, Detail stack lists last encountered/revealed dilemma under that mission (artifacts already listed). Display only.
+
+---
 
 ## 2026-09-14 (Fix - Ship Seizure play-on Tractor host)
 
