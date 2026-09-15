@@ -409,7 +409,7 @@ public static class MissionRules
         foreach (var p in teamList)
         {
             if (!ModifierRules.IsPersonnelCard(p)) continue;
-            var ep = ModifierRules.ResolvePersonnel(p, teamList, owner: 0);
+            var ep = ModifierRules.ResolvePersonnel(p, teamList, owner: attemptingPlayer);
             foreach (var kv in ep.Skills)
                 pool[kv.Key] = pool.GetValueOrDefault(kv.Key) + kv.Value;
             integ += ep.Integrity;

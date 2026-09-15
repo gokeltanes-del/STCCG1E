@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-15 (Fix - Effective skills for mission solve + EventRules)
+
+**Engine** - Mission CanSolve present includes equipment (CollectPresentAtMission) so Kit/PADD grants count; EventRules.CountSkill uses ModifierRules.ResolvePersonnel (printed + classification + equipment). Kit does not change classification. Solvable-missions QoL uses GetAllCardsOnHost.
+
+---
 ## 2026-09-15 (UX - Revealed under mission in Detailfenster)
 
 **UX** - Remove mission side button "Show last revealed card under mission"; when a mission is selected, Detail stack lists last encountered/revealed dilemma under that mission (artifacts already listed). Display only.

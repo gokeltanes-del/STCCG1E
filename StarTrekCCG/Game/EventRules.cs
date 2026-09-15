@@ -536,11 +536,15 @@ public static class EventRules
 
     public static int CountSkill(IEnumerable<Card> aboard, string skill)
     {
+        // Effective skills: printed + classification-as-skill + equipment grants
+        // (ModifierRules.ResolvePersonnel). Present should include equipment when callers care.
+        var list = aboard?.ToList() ?? new List<Card>();
         int have = 0;
-        foreach (var p in aboard)
+        foreach (var p in list)
         {
             if (!ModifierRules.IsPersonnelCard(p)) continue;
-            foreach (var kv in MissionRules.ParsePersonnelSkills(p))
+            var ep = ModifierRules.ResolvePersonnel(p, list, owner: 0);
+            foreach (var kv in ep.Skills)
             {
                 if (SkillNameMatches(kv.Key, skill))
                     have += kv.Value;

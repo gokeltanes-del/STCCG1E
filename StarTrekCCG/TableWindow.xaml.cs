@@ -12242,7 +12242,8 @@ public partial class TableWindow : Window
                         AddBtn("Attack crew…", (_, _) => BeginPersonnelAttackFromHost(cardBorder));
                     if (GetHullDamage(cardBorder) > 0 && GetHullDamage(cardBorder) < 100)
                         AddBtn("Repair status", (_, _) => ShowRepairStatus(cardBorder, card));
-                    AddBtn("Solvable missions?", (_, _) => HighlightSolvableMissions(GetCrewOnShip(cardBorder)));
+                    AddBtn("Solvable missions?", (_, _) => HighlightSolvableMissions(
+                        GetAllCardsOnHost(cardBorder, GetBorderOwner(cardBorder) == 0 ? _activePlayer : GetBorderOwner(cardBorder))));
                     if (ShipHasCloakingDevice(card) && !_cloakLocked.Contains(cardBorder))
                     {
                         bool towing = IsTowingScow(cardBorder);
@@ -12668,7 +12669,9 @@ public partial class TableWindow : Window
         int missionOwner = LocationIsYourMission(missionBorder, _activePlayer)
             ? _activePlayer
             : GetBorderOwner(missionBorder);
-        var result = MissionRules.CanSolve(mission, team, dilemmasRemaining: 0,
+        // Present includes equipment so Kit/PADD grant skills (ModifierRules).
+        var solvePresent = CollectPresentAtMission(missionBorder, mission, _attemptShip);
+        var result = MissionRules.CanSolve(mission, solvePresent, dilemmasRemaining: 0,
             attemptingPlayer: _activePlayer, missionOwner: missionOwner,
             extraMissionIcons: EspionageIconsOn(missionBorder, _activePlayer));
         if (!result.Ok)
