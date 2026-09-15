@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-15 (Fix - Borg Ship encounter no stop)
+
+**Engine** - Borg Ship Decide: StopTeam=false on encounter (App B). Place furthest end + end attempt only; stop survivors after battle participation (EOT), not on reveal.
+
+---
 ## 2026-09-15 (Fix - Spock effective-skill gates)
 
 **Engine** - Kit skill grants once per equipment type (covers all matching Class; no multi-kit stack on one person). Present excludes stopped/disabled/stasis. Mission text "X-classification" uses printed Class only (Kit skill does not satisfy).

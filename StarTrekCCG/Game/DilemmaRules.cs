@@ -160,7 +160,9 @@ public static class DilemmaRules
             {
                 Fate = Fate.AttachAndEnd,
                 Persist = PersistKind.BorgShip,
-                StopTeam = true,
+                // App B / modern PR: place at furthest end + end attempt; do NOT stop on reveal.
+                // Stop only after Borg Ship battle participation (EOT / resolve).
+                StopTeam = false,
                 Message = "Borg Ship placed at furthest spaceline end. End of every turn: attacks ships here (WEAPONS 24), then moves one mission toward the opposite end and off the spaceline. Destroy in battle for 15 points."
             },
 
