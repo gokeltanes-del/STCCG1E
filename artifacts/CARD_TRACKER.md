@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-15 (Jadzia — Asteroid Sanctuary working)
+Last updated: 2026-09-15 (Jadzia — Escape Pod 5e55eef partial; Borg Ship 51cd333 pending Load retest)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -83,7 +83,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Armus: Skin Of Evil (15 R) | partial | tip Data/`31d0c73`. 1 AT random Kill; discard; Rest Continue (kein Stop). Ungetestet. | Data/`31d0c73` 2026-09-06 |
 | Barclay's Protomorphosis Disease (16 R) | working | Pepsch getestet OK (Metamorphosis/Transformation). | Pepsch 2026-09-06 |
 | Birth of "Junior" (17 U) | working | Pepsch green: Place+Continue; cumulative RANGE Countdown tip Data/`755242c`; destroy at 0; Cure 3 ENG nullify. | Pepsch 2026-09-14; Data/`755242c` |
-| Borg Ship (18 R) | working | Pepsch green: no stop on reveal (tip Data/`ed19e08` StopTeam=false; stop only after battle). Hugh vs dilemma attack OK. | Pepsch 2026-09-15; Data/`ed19e08` |
+| Borg Ship (18 R) | working | Pepsch green: no stop on reveal (tip Data/`ed19e08`). Hugh vs dilemma attack OK. tip Data/`51cd333` (Josef, no push): load duplicate UI fix. Pending Pepsch retest one token after Load. | Pepsch 2026-09-15; Data/`ed19e08`+`51cd333` |
 | Chalnoth (19 U) | working | Pepsch green: Pass 3 SEC OR STR>40 → +5 + Continue; Fail Opp 1 Kill, AT stopped. tip Data/`b01d6dc`. | Pepsch 2026-09-13 |
 | Cosmic String Fragment (20 U) | working | Pepsch green: Pass Astrophysics OR ENG OR Navigation -> +5 + Continue; Fail Ship destroy. tip Data/`85ca39a`. | Pepsch 2026-09-15; Data/`85ca39a` |
 | Crystalline Entity (21 R) | partial | tip Data/`6f11978`. Space/Planet +5; Fail kill-all life (nicht Stasis). Lore-Double geparkt. Ungetestet. | Data/`6f11978` 2026-09-06 |
@@ -200,7 +200,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Distortion of Space/Time Continuum (113 U) | unknown |  |  |
 | Emergency Transporter Armbands (114 C) | unknown |  |  |
 | Energy Vortex (115 U) | unknown |  |  |
-| Escape Pod (116 C) | unknown |  |  |
+| Escape Pod (116 C) | partial | tip Data/`5e55eef` (Josef, no push): ShipDestroyed window even during battle stack (Borg EOT). Stays partial until Pepsch greens — not working. | Data/`5e55eef` 2026-09-15 |
 | Full Planet Scan (117 U) | unknown |  |  |
 | Honor Challenge (118 R) | unknown |  |  |
 | Hugh (119 R) | working | Pepsch green: works on Borg Ship dilemma attack (valid response). | Pepsch 2026-09-15 |
