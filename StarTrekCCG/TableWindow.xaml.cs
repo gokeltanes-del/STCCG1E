@@ -20988,8 +20988,10 @@ public partial class TableWindow : Window
             foreach (var sb in stacked.ToList())
             {
                 if (sb.Tag is not Card sc) continue;
-                if (!IsCrewType(sc) && !IsEquipmentType(sc) && !ModifierRules.IsPersonnelCard(sc))
+                // PR: Escape Pod saves crew (personnel), not equipment.
+                if (!IsCrewType(sc) && !ModifierRules.IsPersonnelCard(sc))
                     continue;
+                if (IsEquipmentType(sc)) continue;
                 crew.Add(sc);
                 stacked.Remove(sb);
                 if (TableCanvas.Children.Contains(sb))
@@ -21252,9 +21254,10 @@ public partial class TableWindow : Window
         var mission = FindMissionForDockable(border);
         if (IsTowingScow(border))
             ReleaseScowTowAtMission(mission, reason: "tow ship destroyed");
-                // Escape Pod: offer response on EVERY destroy path (battle/Borg EOT/dilemmas/events),
-        // even while another stack action is open (e.g. InitiateShipBattle still resolving).
-        if (!_resolvingDestroy && IsShipCard(card) && HasEscapePodInHand(owner))
+        // Escape Pod: offer when YOUR ship with crew is destroyed (any cause incl. Borg EOT),
+        // even while battle stack is open. Empty ships / Ship Seizure use DiscardShipSeizureVictim (no window).
+        if (!_resolvingDestroy && IsShipCard(card) && HasEscapePodInHand(owner)
+            && ShipHasCrewForEscapePod(border))
         {
             _stack.Push(new TimingRules.PendingAction
             {

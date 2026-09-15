@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-15 (Fix - Escape Pod Spock: crew only + empty skip)
+
+**Engine/UI** - Escape Pod saves personnel/crew only (not equipment). Window only if ship has crew + Pod in hand (empty Ship Seizure path unchanged via DiscardShipSeizureVictim). Stack-open destroy still offers Pod.
+
+---
 ## 2026-09-15 (Fix - Borg Ship load single token)
 
 **UI** - After Load: strip stray Borg dilemma table Border; re-Place/Position Borg token after spaceline layout (Scow hygiene). One token only; double-click on live token.
