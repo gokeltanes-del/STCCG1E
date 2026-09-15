@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-15 (Jadzia — Ktarian reconfirm; Genetronic + Nausicaans working)
+Last updated: 2026-09-15 (Jadzia — Gravitic Mine working)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -91,7 +91,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | El-Adrel Creature (23 U) | working | Pepsch green: 2 staerkste (Tie=Owner); STR>16 Continue (9+9 planet AT Overcome OK); Fail random Kill + AT stop. tip Data/`4b3467b` + live-feed/`ea1ff6d` (owner fallback, refresh Team/Present, ignore Kill on Overcome). | Pepsch 2026-09-13; Data/`ea1ff6d` |
 | Female's Love Interest (24 C) | working | Pepsch getestet OK (Continue after Relocate). | Pepsch 2026-09-06 |
 | Firestorm (25 U) | working | Pepsch green: INT<5 Kills OK, Versuch-Fortsetzung OK, Overlay EFFECT-Header OK. PARK: ETA-Escape. | Pepsch 2026-09-12 |
-| Gravitic Mine (26 U) | partial | tip Data/`5c4f563`. Pass SCIENCE+Navigation Continue; Fail Damage + Ship/Crew stop. Ungetestet. | Data/`5c4f563` 2026-09-06 |
+| Gravitic Mine (26 U) | working | Pepsch green: Pass SCIENCE+Navigation Continue; Fail Damage + Ship/Crew stop. tip Data/`5c4f563`. | Pepsch 2026-09-15; Data/`5c4f563` |
 | Hologram Ruse (27 U) | working | Pepsch green (reconfirmed). | Pepsch 2026-09-15 |
 | Hyper-Aging (28 U) | working | Pepsch green Quarantäne+Beam-Block `46eab15`; Detailansicht Debuff-Gruppierung OK. RemFatigue PARK. | Pepsch 2026-09-12 |
 | Iconian Computer Weapon (29 C) | partial | tip Data/`47984b5`. Pass SCIENCE Continue; Fail Stop + Non-Pers Hand discard+draw. Ungetestet. | Data/`47984b5` 2026-09-06 |
