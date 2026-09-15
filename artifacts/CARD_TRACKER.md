@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-15 (Jadzia — Borg Ship Pepsch retest green ed19e08)
+Last updated: 2026-09-15 (Jadzia — Asteroid Sanctuary working)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -193,7 +193,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | --- | --- | --- | --- |
 | Alien Groupie (107 R) | unknown |  |  |
 | Amanda Rogers (108 U) | unknown |  |  |
-| Asteroid Sanctuary (109 C) | unknown |  |  |
+| Asteroid Sanctuary (109 C) | working | Pepsch green. | Pepsch 2026-09-15 |
 | Auto-Destruct Sequence (110 U) | unknown |  |  |
 | Crosis (111 R) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Disruptor Overload (112 C) | unknown |  |  |
