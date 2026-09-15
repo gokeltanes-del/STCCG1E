@@ -406,7 +406,8 @@ public static class LegalMoves
                 });
             }
 
-            if (!ship.QuarantineLeaveBlocked
+            if (!ship.Cloaked
+                && !ship.QuarantineLeaveBlocked
                 && (ship.Occupied || ship.Aboard.Any(ModifierRules.IsPersonnelCard)))
                 list.Add(GameAction.Beam(player, ship.Card, note: "from ship — UI picks destination"));
         }

@@ -12215,7 +12215,9 @@ public partial class TableWindow : Window
                 else
                 {
                     // Contents + crew stats: double-click host (detail popup)
-                    AddBtn("Beam crew…", (_, _) => BeginBeamMode(cardBorder));
+                    if (!IsShipCloaked(cardBorder))
+
+                        AddBtn("Beam crew…", (_, _) => BeginBeamMode(cardBorder));
                     if (IsShipDocked(cardBorder))
                     {
                         AddBtn("Undock", (_, _) => TryUndockShip(cardBorder, card));
@@ -17194,6 +17196,11 @@ public partial class TableWindow : Window
     private void BeginBeamMode(Border hostBorder)
     {
         if (hostBorder.Tag is not Card hostCard) return;
+        if (IsShipCard(hostCard) && IsShipCloaked(hostBorder))
+        {
+            ShowPlayError("Cannot beam to or from a cloaked ship. Decloak first.");
+            return;
+        }
         var beamAuth = AuthorizePlay(GameAction.Beam(_activePlayer, hostCard));
         if (!beamAuth.Ok)
         {
@@ -17239,6 +17246,9 @@ public partial class TableWindow : Window
                 if (ReferenceEquals(dock, hostBorder)) continue;
                 int o = GetBorderOwner(dock);
                 if (o != owner) continue; // eigene Schiffe/Outposts
+                // Compendium 7.6: no beam to cloaked ship
+                if (dock.Tag is Card dc && IsShipCard(dc) && IsShipCloaked(dock))
+                    continue;
                 targets.Add(dock);
             }
             // Planet surface only — 7.1.1.0.1 no beaming into space

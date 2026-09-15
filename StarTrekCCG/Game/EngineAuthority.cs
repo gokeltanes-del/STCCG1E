@@ -447,6 +447,28 @@ public static class EngineAuthority
         if (action.Player != state.ActivePlayer)
             return ApplyResult.Deny("Only the active player may beam.", "beam", action.Player);
 
+        // Compendium 7.6: cannot beam to or from a cloaked ship — decloak first.
+        static BoardPiece? FindShipPiece(GameState st, Card? card)
+        {
+            if (card == null || !CardKinds.IsShip(card)) return null;
+            return st.Board.FirstOrDefault(p =>
+                p.Kind == BoardPieceKind.Ship
+                && (ReferenceEquals(p.Card, card)
+                    || (card.InstanceId > 0 && p.InstanceId == card.InstanceId)
+                    || (card.InstanceId == 0
+                        && string.Equals(p.Card.Name, card.Name, StringComparison.OrdinalIgnoreCase))));
+        }
+        var srcShip = FindShipPiece(state, action.Card);
+        if (srcShip != null && srcShip.Cloaked)
+            return ApplyResult.Deny(
+                "Cannot beam to or from a cloaked ship. Decloak first.",
+                "beam", action.Player, action.Card);
+        var destShip = FindShipPiece(state, action.Target);
+        if (destShip != null && destShip.Cloaked)
+            return ApplyResult.Deny(
+                "Cannot beam to or from a cloaked ship. Decloak first.",
+                "beam", action.Player, action.Target);
+
         var result = ApplyResult.OkResult(
             action.Target != null
                 ? $"Beam authorized → {action.Target.Name}."

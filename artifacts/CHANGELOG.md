@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-15 (Fix - Cloak vs Beam Compendium 7.6)
+
+**Engine/UI** - Deny beam to/from cloaked ships (EvaluateBeam + LegalMoves); hide Beam on cloaked ships; do not highlight cloaked destinations. Decloak first. Docking already denied cloaked.
+
+---
 ## 2026-09-15 (Fix - Effective skills for mission solve + EventRules)
 
 **Engine** - Mission CanSolve present includes equipment (CollectPresentAtMission) so Kit/PADD grants count; EventRules.CountSkill uses ModifierRules.ResolvePersonnel (printed + classification + equipment). Kit does not change classification. Solvable-missions QoL uses GetAllCardsOnHost.
