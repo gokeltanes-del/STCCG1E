@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-16 (UX - ThinkTray compact left rail)
+
+**UI** - ThinkTray content-width (centered, not full board). Header/Pass moved to vertical left rail; top-right Response banner and large Pass removed. Frame blink / hand-sized cards / hover unchanged.
+
+---
 ## 2026-09-16 (UX - Response ThinkTray + Hand strip mockup)
 
 **UI** - Hand labels vertical left (P1 #B5CEA8 / P2 #8EC8D8); hand strips Height ~102. Response: ThinkTray opens immediately with hand-sized minis + hover zoom; tray frame blinks 3s in owner accent (not cards); [R] only extends Think; Space cancels blink / Pass.

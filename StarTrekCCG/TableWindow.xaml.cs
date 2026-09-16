@@ -4059,18 +4059,11 @@ public partial class TableWindow : Window
         if (CardRevealOverlay != null && _announceKind is AnnounceKind.RespondOrPass or AnnounceKind.PickCard)
             CardRevealOverlay.Visibility = Visibility.Collapsed;
 
+        // Pepsch: no top-right Response banner — tray left rail is the only status UI.
         if (ResponseIndicatorBadge != null)
-        {
-            ResponseIndicatorBadge.Visibility = Visibility.Visible;
-            if (ResponseIndicatorText != null)
-                ResponseIndicatorText.Text = top.IsMandatory
-                    ? $"⚡ Response mandatory (P{responder})"
-                    : $"⚡ Response available (P{responder})";
-            if (ResponseCountdownText != null)
-                ResponseCountdownText.Text = $" · {_responseDefaultDurationSec}s";
-        }
+            ResponseIndicatorBadge.Visibility = Visibility.Collapsed;
 
-        // Pepsch mockup: ThinkTray immediately (not only after [R]); above responder hand.
+        // ThinkTray immediately; centered above responder hand (dynamic width).
         ShowThinkTrayForResponder(responder, silentCountdown: true);
         PopulateThinkTray();
 
@@ -4086,12 +4079,10 @@ public partial class TableWindow : Window
         {
             double left = (_responseWindowDeadlineUtc - DateTime.UtcNow).TotalSeconds;
             int secLeft = (int)Math.Ceiling(Math.Max(0, left));
-            if (ResponseCountdownText != null)
-                ResponseCountdownText.Text = top.IsMandatory && left <= 0 ? " · Pflicht" : $" · {secLeft}s";
             if (ThinkTrayCountdown != null && ThinkTrayBorder?.Visibility == Visibility.Visible)
                 ThinkTrayCountdown.Text = top.IsMandatory && left <= 0
-                    ? " · Pflicht (Pflicht-Aktion)"
-                    : $" · {secLeft}s remaining";
+                    ? "Pflicht"
+                    : $"{secLeft}s";
 
             if (left <= 0)
             {
@@ -4131,14 +4122,17 @@ public partial class TableWindow : Window
         if (ThinkTrayCountdown != null)
         {
             int sec = silentCountdown ? _responseDefaultDurationSec : _responseThinkDurationSec;
-            ThinkTrayCountdown.Text = $" · {sec}s remaining";
+            ThinkTrayCountdown.Text = $"{sec}s";
         }
         if (BtnThinkPass != null)
         {
             bool isMandatory = _stack.Top?.IsMandatory == true;
             BtnThinkPass.IsEnabled = !isMandatory;
-            BtnThinkPass.Content = isMandatory ? "Mandatory (no pass)" : "Pass (Space)";
+            BtnThinkPass.Content = isMandatory ? "Mandatory" : "Pass";
+            BtnThinkPass.Visibility = Visibility.Visible;
         }
+        // Keep tray content-sized and centered over the hand.
+        ThinkTrayBorder.HorizontalAlignment = HorizontalAlignment.Center;
     }
 
     private void EnterThinkMode()
@@ -4154,13 +4148,7 @@ public partial class TableWindow : Window
         _responseWindowDeadlineUtc = DateTime.UtcNow.AddSeconds(_responseThinkDurationSec);
 
         if (ResponseIndicatorBadge != null)
-        {
-            ResponseIndicatorBadge.Visibility = Visibility.Visible;
-            if (ResponseIndicatorText != null)
-                ResponseIndicatorText.Text = $"⚡ Response Think-Modus (P{_stack.ResponsePlayer})";
-            if (ResponseCountdownText != null)
-                ResponseCountdownText.Text = $" · {_responseThinkDurationSec}s";
-        }
+            ResponseIndicatorBadge.Visibility = Visibility.Collapsed;
 
         // Tray already open in Silent; [R] only extends Think duration + refresh contents.
         ShowThinkTrayForResponder(_stack.ResponsePlayer, silentCountdown: false);

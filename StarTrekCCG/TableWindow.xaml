@@ -183,20 +183,22 @@
                                 </Canvas>
                             </ScrollViewer>
                             <!-- Think Tray: Übersicht legaler Responses über der Hand -->
-                            <Border x:Name="ThinkTrayBorder" Visibility="Collapsed" VerticalAlignment="Bottom" HorizontalAlignment="Stretch" Margin="14,0,14,6" Background="#EE161622" BorderBrush="#AB47BC" BorderThickness="2" CornerRadius="6" Padding="8,4" Panel.ZIndex="220" MaxHeight="160">
-                                <DockPanel>
-                                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
-                                        <Button x:Name="BtnThinkPass" DockPanel.Dock="Right" Content="Pass (Space)" Click="BtnThinkPass_Click" Padding="14,4" Background="#3A3A58" Foreground="White" BorderBrush="#5A5A78" Cursor="Hand" FontWeight="SemiBold"/>
-                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                            <TextBlock x:Name="ThinkTrayTitle" Text="LEGAL RESPONSES (P2)" Foreground="#E1BEE7" FontSize="13" FontWeight="Bold" VerticalAlignment="Center"/>
-                                            <TextBlock x:Name="ThinkTrayCountdown" Text=" · 10s remaining" Foreground="#FFE082" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" Margin="4,0,0,0"/>
-                                            <TextBlock Text=" · Click = Play response  ·  RMB = Large view  ·  [Space] = Pass" Foreground="#AAA" FontSize="11" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                            <!-- Pepsch: dynamic width (cards + left rail), centered over responder hand -->
+                            <Border x:Name="ThinkTrayBorder" Visibility="Collapsed" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="14,6" Background="#EE161622" BorderBrush="#AB47BC" BorderThickness="2" CornerRadius="6" Padding="4" Panel.ZIndex="220" MaxHeight="130">
+                                <StackPanel Orientation="Horizontal">
+                                    <!-- Left rail: title / countdown / hints / Pass (no top banner duplicate) -->
+                                    <Border x:Name="ThinkTrayRail" Width="108" Margin="0,0,4,0" Padding="6,4" Background="#221828" CornerRadius="4" VerticalAlignment="Stretch">
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock x:Name="ThinkTrayTitle" Text="LEGAL RESPONSES (P2)" Foreground="#E1BEE7" FontSize="11" FontWeight="Bold" TextWrapping="Wrap"/>
+                                            <TextBlock x:Name="ThinkTrayCountdown" Text="3s" Foreground="#FFE082" FontSize="11" FontWeight="SemiBold" Margin="0,4,0,0"/>
+                                            <TextBlock Text="Click play&#10;RMB large&#10;Space = Pass" Foreground="#AAA" FontSize="9" LineHeight="12" Margin="0,6,0,0"/>
+                                            <Button x:Name="BtnThinkPass" Content="Pass" Click="BtnThinkPass_Click" Padding="6,2" Margin="0,8,0,0" Background="#3A3A58" Foreground="White" BorderBrush="#5A5A78" Cursor="Hand" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Stretch"/>
                                         </StackPanel>
-                                    </DockPanel>
-                                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                                    </Border>
+                                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" VerticalAlignment="Center">
                                         <StackPanel x:Name="ThinkTrayPanel" Orientation="Horizontal" VerticalAlignment="Center"/>
                                     </ScrollViewer>
-                                </DockPanel>
+                                </StackPanel>
                             </Border>
                             <Border x:Name="CardRevealOverlay" Visibility="Collapsed" Background="#CC0A0A0F" Panel.ZIndex="200">
                                 <Border HorizontalAlignment="Center" VerticalAlignment="Center" Background="#252530" BorderBrush="#6A6A80" BorderThickness="1" CornerRadius="10" Padding="16" MaxWidth="720" MaxHeight="520">
