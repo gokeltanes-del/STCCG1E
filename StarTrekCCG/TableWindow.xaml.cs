@@ -3638,6 +3638,8 @@ public partial class TableWindow : Window
             DefenderHost = defender,
             DefenderCard = defCard,
             DefenderOwner = defOwner,
+            // Ships only: cloaked = not exposed. Facilities are never Sanctuary-legal (CanRespond IsShip).
+            DefenderExposed = IsShipCard(defCard) && !IsShipCloaked(defender),
             Summary = $"P{atkOwner} Ship Battle: {atkCard.Name} → {defCard.Name}"
         };
         _stack.Push(action);
@@ -19653,11 +19655,26 @@ public partial class TableWindow : Window
     private void ApplyAsteroidSanctuary(Card card, int controller)
     {
         Border? stackDef = null;
-        if (_stack.IsOpen && _stack.Top?.DefenderCard is Card defCard)
-            stackDef = FindBorderForCard(defCard);
+        bool battleOnStack = _stack.IsOpen
+            && _stack.Top?.Kind == TimingRules.ActionKind.InitiateShipBattle
+            && _stack.Top.DefenderCard != null;
+        if (battleOnStack && _stack.Top!.DefenderCard is Card defCard)
+        {
+            // Response/attach must use the defending host — never PickOwnShip onto a different ship.
+            stackDef = (_stack.Top.DefenderHost as Border) ?? FindBorderForCard(defCard);
+            if (!IsShipCard(defCard))
+            {
+                var denyFac = InterruptShipEffectRules.SanctuaryDeny(
+                    hostIsShip: false, isYours: false, exposed: false, has2Navigation: false);
+                ShowPlayError(denyFac ?? "Asteroid Sanctuary: play on your exposed ship.");
+                var handFac = controller == 1 ? _handCards : _oppHandCards;
+                if (!handFac.Contains(card)) handFac.Add(card);
+                return;
+            }
+        }
         var host = _interruptTargetHost
                    ?? stackDef
-                   ?? PickOwnShip(controller);
+                   ?? (battleOnStack ? null : PickOwnShip(controller));
         bool hostIsShip = host != null && host.Tag is Card shipProbe && IsShipCard(shipProbe);
         Card? ship = hostIsShip ? (Card)host!.Tag! : null;
         bool isYours = hostIsShip
@@ -19668,7 +19685,7 @@ public partial class TableWindow : Window
         if (deny != null)
         {
             ShowPlayError(deny);
-            if (!hostIsShip)
+            // Always bounce on deny for response/apply — do not leave a half-applied cancel host.
             {
                 var hand = controller == 1 ? _handCards : _oppHandCards;
                 if (!hand.Contains(card)) hand.Add(card);

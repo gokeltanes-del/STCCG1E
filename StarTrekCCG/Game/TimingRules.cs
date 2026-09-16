@@ -70,6 +70,8 @@ public static class TimingRules
         public Card? AttackerCard { get; set; }
         public object? DefenderHost { get; set; }
         public Card? DefenderCard { get; set; }
+        /// <summary>Defender ship is exposed (not cloaked). Irrelevant when DefenderCard is not a ship.</summary>
+        public bool DefenderExposed { get; set; } = true;
 
         // Personnel battle
         public List<object>? AttackerTeam { get; set; }
@@ -266,6 +268,7 @@ public static class TimingRules
 
         if (n.Equals("Hugh", StringComparison.OrdinalIgnoreCase))
         {
+            // Ship or facility battle OK — Hugh nullifies the Borg Ship dilemma source, not "ship-only".
             if (top.Kind is not (ActionKind.InitiateShipBattle or ActionKind.InitiatePersonnelBattle))
                 return (false, "Hugh: no battle initiation on the stack.");
             if (!IsBorgShipDilemma(top.AttackerCard) && !IsBorgShipDilemma(top.Card))
@@ -279,11 +282,14 @@ public static class TimingRules
                 return (false, "Asteroid Sanctuary: no ship battle on the stack.");
             if (top.DefenderCard == null)
                 return (false, "No defending ship.");
-            if (top.DefenderOwner != 0 && top.DefenderOwner != responseOwner
-                && GetOwnerGuess(top) != responseOwner)
-            {
-                // DefenderOwner kann 0 sein – dann erlauben wir, wenn der Spieler der Verteidiger ist
-            }
+            // Facility/outpost battles reuse InitiateShipBattle — Sanctuary is ship-only.
+            bool hostIsShip = CardKinds.IsShip(top.DefenderCard);
+            bool isYours = top.DefenderOwner == responseOwner
+                           || (top.DefenderOwner == 0 && GetOwnerGuess(top) == responseOwner);
+            var deny = InterruptShipEffectRules.SanctuaryDeny(
+                hostIsShip, isYours, top.DefenderExposed, has2Navigation: false);
+            if (deny != null)
+                return (false, deny);
             return (true, "Can cancel the battle against your ship (2 Navigation aboard at resolution).");
         }
 

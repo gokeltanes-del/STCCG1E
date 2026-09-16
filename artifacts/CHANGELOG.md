@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-16 (Fix - Asteroid Sanctuary ship-only response)
+
+**Engine** - Asteroid Sanctuary CanRespond requires defending ship (not facility/outpost), your ship, exposed. Uses SanctuaryDeny. CollectLegalResponses/Blink inherit the gate. Apply path rejects facility defenders (no PickOwnShip fallback). Hugh still OK vs facility Borg battles. ActionKind unchanged.
+
+---
 ## 2026-09-16 (UX - Legal-action blink cue)
 
 **UI** - When legal response/action cards are known: blink those cards 3s (1 smooth cycle/sec) in owner P1/P2 accent; dim board slightly; Space cancels early; playable without waiting. Hooked on response window + Think mode.
