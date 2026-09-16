@@ -180,6 +180,7 @@ public partial class TableWindow : Window
     private bool _hughBlocksBorgShipAttack;
     private Queue<Border>? _borgEotAttackQueue;
     private AttachedDilemma? _borgEotActive;
+    private bool _borgEotDidAttack;
     private readonly List<string> _borgEotHitLog = new();
 
     /// <summary>Rogue Borg interrupt tokens aboard ships (self-controlling until Lore Returns).</summary>
@@ -18067,7 +18068,11 @@ public partial class TableWindow : Window
     /// spaceline end. When it would move past the end, it leaves play (classic "off the long end").
     /// Does not bounce back and forth.
     /// </summary>
-    private void ProcessBorgShipEndOfTurn(AttachedDilemma a) => StartBorgShipEotAttacks(a);
+    private void ProcessBorgShipEndOfTurn(AttachedDilemma a)
+    {
+        _borgEotDidAttack = false;
+        StartBorgShipEotAttacks(a);
+    }
 
     private void StartBorgShipEotAttacks(AttachedDilemma a)
     {
@@ -18081,17 +18086,26 @@ public partial class TableWindow : Window
             FinishBorgShipEotMove(a);
             return;
         }
+        _borgEotDidAttack = false;
         var targets = new Queue<Border>();
         foreach (var dock in GetDockablesUnderMission(host).ToList())
         {
-            if (dock.Tag is not Card sc || !IsShipCard(sc)) continue;
-            if (IsShipCloaked(dock)) continue;
-            targets.Enqueue(dock);
+            if (dock.Tag is not Card sc) continue;
+            // Ships (uncloaked) and outposts/facilities at this location
+            if (IsShipCard(sc))
+            {
+                if (IsShipCloaked(dock)) continue;
+                targets.Enqueue(dock);
+            }
+            else if (IsFacilityCard(sc))
+            {
+                targets.Enqueue(dock);
+            }
         }
         if (targets.Count == 0)
         {
-            _borgEotHitLog.Add("no legal (uncloaked) ships here");
-            FinishBorgShipEotMove(a);
+            _borgEotHitLog.Add("no legal targets here");
+            FinishBorgShipEotMove(a); // silent unless leaves play
             return;
         }
         if (_borgShipToken == null) PlaceBorgShipToken(a.Card, host);
@@ -18116,12 +18130,16 @@ public partial class TableWindow : Window
         while (_borgEotAttackQueue.Count > 0)
         {
             var dock = _borgEotAttackQueue.Dequeue();
-            if (dock.Tag is not Card sc || !IsShipCard(sc)) continue;
+            if (dock.Tag is not Card sc) continue;
             if (dock.Parent == null) continue;
-            if (IsShipCloaked(dock)) continue;
+            bool ship = IsShipCard(sc);
+            bool fac = IsFacilityCard(sc);
+            if (!ship && !fac) continue;
+            if (ship && IsShipCloaked(dock)) continue;
             if (_borgShipToken == null) PlaceBorgShipToken(_borgEotActive.Card, _borgEotActive.Host);
             int defOwner = GetBorderOwner(dock);
             if (defOwner == 0) defOwner = 1;
+            _borgEotDidAttack = true;
             BeginShipBattleStack(_borgShipToken!, _borgEotActive.Card, dock, sc, 0, defOwner);
             return;
         }
@@ -18167,7 +18185,9 @@ public partial class TableWindow : Window
         string msg = attackPart + " Moves to " + where + ".";
         _session.Log.Add(_session.TurnNumber, "sys", msg);
         StatusText.Text = msg;
-        ShowCardReveal(a.Card, "Borg Ship", msg, RevealButtons.Ok, a.Card.Name);
+        // Pepsch: no Detail/Reveal spam when nothing was attacked this EOT.
+        if (_borgEotDidAttack)
+            ShowCardReveal(a.Card, "Borg Ship", msg, RevealButtons.Ok, a.Card.Name);
     }
 
     private AttachedEvent? IncomingMessageOn(Border ship) =>
