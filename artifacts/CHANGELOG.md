@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-16 (UX - ThinkTray vertical padding)
+
+**UI** - ThinkTray Padding top/bottom + rail padding; MaxHeight raised so title and Pass are not clipped.
+
+---
 ## 2026-09-16 (UX - ThinkTray compact left rail)
 
 **UI** - ThinkTray content-width (centered, not full board). Header/Pass moved to vertical left rail; top-right Response banner and large Pass removed. Frame blink / hand-sized cards / hover unchanged.
