@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-16 (UX - Legal-action blink cue)
+
+**UI** - When legal response/action cards are known: blink those cards 3s (1 smooth cycle/sec) in owner P1/P2 accent; dim board slightly; Space cancels early; playable without waiting. Hooked on response window + Think mode.
+
+---
 ## 2026-09-16 (UX - Cloak more transparent)
 
 **UI** - ApplyCloakVisual Opacity 0.45 -> 0.28 (more see-through; still below stopped 0.55).

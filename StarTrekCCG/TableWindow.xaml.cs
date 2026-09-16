@@ -223,6 +223,13 @@ public partial class TableWindow : Window
     private System.Windows.Threading.DispatcherTimer? _responseWindowTimer;
     private DateTime _responseWindowDeadlineUtc;
     private List<TimingRules.LegalResponseItem> _currentLegalResponses = new();
+    // Legal-action blink cue (3s, Space cancels early; playable without waiting).
+    private System.Windows.Threading.DispatcherTimer? _legalBlinkTimer;
+    private DateTime _legalBlinkStartUtc;
+    private DateTime _legalBlinkEndUtc;
+    private readonly List<(FrameworkElement El, Brush? OldBorder, Thickness OldThick, double OldOpacity, int OldZ)> _legalBlinkRestore = new();
+    private Border? _legalBlinkDim;
+    private bool _legalBlinkActive;
     private bool _detailHiddenForResponse;
 
     // ---------- Nur noch der zoombare Mittelbereich ----------
@@ -453,6 +460,8 @@ public partial class TableWindow : Window
             }
             if (key == Key.Space)
             {
+                if (_legalBlinkActive)
+                    StopLegalActionBlink();
                 if (_stack.Top?.IsMandatory == true)
                 {
                     StatusText.Text = "Mandatory response required — cannot pass.";
@@ -463,6 +472,14 @@ public partial class TableWindow : Window
                 e.Handled = true;
                 return;
             }
+        }
+
+        // Legal-action blink: Space cancels cue early (also outside response window).
+        if (key == Key.Space && _legalBlinkActive)
+        {
+            StopLegalActionBlink();
+            e.Handled = true;
+            return;
         }
 
         if (key != _hotkeyNextPhase) return;
@@ -3910,6 +3927,196 @@ public partial class TableWindow : Window
         OpenSilentResponseWindow(responder, top, legal);
     }
 
+
+    /// <summary>
+    /// Pepsch/Captain UX: when known legal action card(s) exist, blink them 3s
+    /// (1 smooth cycle/sec). Response cards use owner P1/P2 accent. Board dims slightly.
+    /// Space cancels early; cards stay playable during the cue.
+    /// </summary>
+    private void StartLegalActionBlink(IEnumerable<Card> cards, int ownerPlayer)
+    {
+        StopLegalActionBlink();
+        var list = new List<Card>();
+        if (cards != null)
+        {
+            foreach (var c in cards)
+            {
+                if (c == null) continue;
+                if (list.Any(x => ReferenceEquals(x, c))) continue;
+                list.Add(c);
+            }
+        }
+        if (list.Count == 0) return;
+
+        var accent = ownerPlayer == 1
+            ? Color.FromRgb(40, 180, 90)
+            : Color.FromRgb(60, 120, 220);
+        var accentBrush = new SolidColorBrush(accent);
+
+        EnsureLegalBlinkDim();
+        if (_legalBlinkDim != null)
+        {
+            _legalBlinkDim.Visibility = Visibility.Visible;
+            Panel.SetZIndex(_legalBlinkDim, 180);
+        }
+
+        foreach (var card in list)
+        {
+            foreach (var el in FindVisualsForLegalBlink(card, ownerPlayer))
+            {
+                _legalBlinkRestore.Add((
+                    el,
+                    el is Border b0 ? b0.BorderBrush : null,
+                    el is Border b1 ? b1.BorderThickness : new Thickness(0),
+                    el.Opacity,
+                    Panel.GetZIndex(el)));
+                if (el is Border b)
+                {
+                    b.BorderBrush = accentBrush;
+                    b.BorderThickness = new Thickness(3);
+                }
+                Panel.SetZIndex(el, 200);
+            }
+        }
+        if (_legalBlinkRestore.Count == 0)
+        {
+            if (_legalBlinkDim != null) _legalBlinkDim.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        _legalBlinkActive = true;
+        _legalBlinkStartUtc = DateTime.UtcNow;
+        _legalBlinkEndUtc = _legalBlinkStartUtc.AddSeconds(3);
+        _legalBlinkTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(33)
+        };
+        _legalBlinkTimer.Tick += LegalBlinkTimer_Tick;
+        _legalBlinkTimer.Start();
+    }
+
+    private void LegalBlinkTimer_Tick(object? sender, EventArgs e)
+    {
+        if (!_legalBlinkActive) { StopLegalActionBlink(); return; }
+        var now = DateTime.UtcNow;
+        if (now >= _legalBlinkEndUtc)
+        {
+            StopLegalActionBlink();
+            return;
+        }
+        double elapsed = (now - _legalBlinkStartUtc).TotalSeconds;
+        // One full smooth cycle per second: 0..1..0 via sine.
+        double phase = (Math.Sin(elapsed * Math.PI * 2.0) + 1.0) * 0.5; // 0..1
+        double opacity = 0.45 + 0.55 * phase; // never fully invisible
+        foreach (var (el, _, _, _, _) in _legalBlinkRestore)
+        {
+            if (el is Border b)
+            {
+                // Pulse border brush alpha via Opacity on the element (restore base later).
+                el.Opacity = opacity;
+                var baseC = (b.BorderBrush as SolidColorBrush)?.Color
+                            ?? Color.FromRgb(40, 180, 90);
+                b.BorderBrush = new SolidColorBrush(Color.FromArgb(
+                    (byte)(80 + (int)(175 * phase)), baseC.R, baseC.G, baseC.B));
+            }
+            else
+            {
+                el.Opacity = opacity;
+            }
+        }
+        if (_legalBlinkDim != null)
+            _legalBlinkDim.Opacity = 0.22 + 0.08 * (1.0 - phase * 0.3);
+    }
+
+    private void EnsureLegalBlinkDim()
+    {
+        if (_legalBlinkDim != null) return;
+        // Cover the main play surface; ignore hits so cards stay clickable.
+        // Sibling of TableScroll inside the board Grid — dims play surface, not chrome.
+        var parent = TableScroll?.Parent as Panel
+                     ?? BoardTintOverlay?.Parent as Panel;
+        if (parent == null) return;
+        _legalBlinkDim = new Border
+        {
+            Background = new SolidColorBrush(Color.FromArgb(140, 0, 0, 0)),
+            Opacity = 0.28,
+            IsHitTestVisible = false,
+            Visibility = Visibility.Collapsed,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch
+        };
+        // If parent is Grid, span all cells.
+        if (parent is Grid g)
+        {
+            if (g.ColumnDefinitions.Count > 0)
+                Grid.SetColumnSpan(_legalBlinkDim, g.ColumnDefinitions.Count);
+            if (g.RowDefinitions.Count > 0)
+                Grid.SetRowSpan(_legalBlinkDim, g.RowDefinitions.Count);
+        }
+        parent.Children.Add(_legalBlinkDim);
+    }
+
+    private IEnumerable<FrameworkElement> FindVisualsForLegalBlink(Card card, int ownerPlayer)
+    {
+        var found = new List<FrameworkElement>();
+        var table = FindBorderForCard(card);
+        if (table != null) found.Add(table);
+
+        // Hand minis (response from hand)
+        var panel = ownerPlayer == 2 ? OppStripPanel : PlayerStripPanel;
+        if (panel != null)
+        {
+            foreach (var child in panel.Children)
+            {
+                if (child is Border mini && mini.Tag is ZoneCardRef zref
+                    && ReferenceEquals(zref.Card, card))
+                    found.Add(mini);
+            }
+        }
+
+        // Think-tray copies (Tag may be LegalResponseItem or Card)
+        if (ThinkTrayPanel != null && ThinkTrayBorder?.Visibility == Visibility.Visible)
+        {
+            foreach (var child in ThinkTrayPanel.Children)
+            {
+                if (child is not Border tb) continue;
+                if (tb.Tag is TimingRules.LegalResponseItem item && ReferenceEquals(item.Card, card))
+                    found.Add(tb);
+                else if (tb.Tag is Card c && ReferenceEquals(c, card))
+                    found.Add(tb);
+            }
+        }
+        return found;
+    }
+
+    private void StopLegalActionBlink()
+    {
+        if (_legalBlinkTimer != null)
+        {
+            _legalBlinkTimer.Stop();
+            _legalBlinkTimer.Tick -= LegalBlinkTimer_Tick;
+            _legalBlinkTimer = null;
+        }
+        foreach (var (el, oldBorder, oldThick, oldOp, oldZ) in _legalBlinkRestore)
+        {
+            try
+            {
+                if (el is Border b)
+                {
+                    if (oldBorder != null) b.BorderBrush = oldBorder;
+                    b.BorderThickness = oldThick;
+                }
+                el.Opacity = oldOp;
+                Panel.SetZIndex(el, oldZ);
+            }
+            catch { /* visual may be gone */ }
+        }
+        _legalBlinkRestore.Clear();
+        if (_legalBlinkDim != null)
+            _legalBlinkDim.Visibility = Visibility.Collapsed;
+        _legalBlinkActive = false;
+    }
+
     private void OpenSilentResponseWindow(int responder, TimingRules.PendingAction top, List<TimingRules.LegalResponseItem> legal)
     {
         _stack.State = TimingRules.ResponseWindowState.Silent;
@@ -3962,6 +4169,9 @@ public partial class TableWindow : Window
             }
         };
         _responseWindowTimer.Start();
+
+        // Cue legal response cards (owner accent); Space / close cancels early.
+        StartLegalActionBlink(legal.Select(x => x.Card), responder);
     }
 
     private void EnterThinkMode()
@@ -4014,6 +4224,8 @@ public partial class TableWindow : Window
             }
 
             PopulateThinkTray();
+            if (_currentLegalResponses.Count > 0)
+                StartLegalActionBlink(_currentLegalResponses.Select(x => x.Card), _stack.ResponsePlayer);
         }
     }
 
@@ -4172,6 +4384,7 @@ public partial class TableWindow : Window
             Cursor = Cursors.Hand,
             ToolTip = $"{item.Card.Name}\n[{item.Source}] {item.Description}\nClick = Play response · RMB = Large view"
         };
+        border.Tag = item;
 
         var grid = new Grid();
 
@@ -4328,6 +4541,7 @@ public partial class TableWindow : Window
 
     private void CloseResponseWindowUi()
     {
+        StopLegalActionBlink();
         StopResponseWindowTimer();
         _stack.State = TimingRules.ResponseWindowState.Closed;
         _currentLegalResponses.Clear();
