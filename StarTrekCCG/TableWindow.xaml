@@ -153,9 +153,17 @@
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
-                    <Border Grid.Row="0" x:Name="OppHandStripBorder" Background="#1B3038" BorderBrush="#2A4A55" BorderThickness="0,0,0,1" Padding="4,2" MinHeight="118" Height="118">
-                        <DockPanel>
-                            <TextBlock x:Name="OppStripTitle" DockPanel.Dock="Top" Text="P2 HAND" FontSize="10" FontWeight="SemiBold" Foreground="#8EC8D8" Margin="2,0,2,2"/>
+                    <Border Grid.Row="0" x:Name="OppHandStripBorder" Background="#1B3038" BorderBrush="#2A4A55" BorderThickness="0,0,0,1" Padding="2,1" MinHeight="102" Height="102">
+                        <DockPanel LastChildFill="True">
+                            <!-- Pepsch mockup: Hand-Label vertikal links (Oben→Unten) -->
+                            <Border DockPanel.Dock="Left" Width="18" Margin="0,0,2,0" VerticalAlignment="Stretch" ClipToBounds="True">
+                                <TextBlock x:Name="OppStripTitle" Text="P2 HAND" FontSize="10" FontWeight="SemiBold" Foreground="#8EC8D8"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center">
+                                    <TextBlock.LayoutTransform>
+                                        <RotateTransform Angle="-90"/>
+                                    </TextBlock.LayoutTransform>
+                                </TextBlock>
+                            </Border>
                             <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                                 <StackPanel x:Name="OppStripPanel" Orientation="Horizontal" VerticalAlignment="Center"/>
                             </ScrollViewer>
@@ -175,7 +183,7 @@
                                 </Canvas>
                             </ScrollViewer>
                             <!-- Think Tray: Übersicht legaler Responses über der Hand -->
-                            <Border x:Name="ThinkTrayBorder" Visibility="Collapsed" VerticalAlignment="Bottom" HorizontalAlignment="Stretch" Margin="14,0,14,6" Background="#EE161622" BorderBrush="#AB47BC" BorderThickness="2" CornerRadius="6" Padding="10,6" Panel.ZIndex="220" MaxHeight="220">
+                            <Border x:Name="ThinkTrayBorder" Visibility="Collapsed" VerticalAlignment="Bottom" HorizontalAlignment="Stretch" Margin="14,0,14,6" Background="#EE161622" BorderBrush="#AB47BC" BorderThickness="2" CornerRadius="6" Padding="8,4" Panel.ZIndex="220" MaxHeight="160">
                                 <DockPanel>
                                     <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
                                         <Button x:Name="BtnThinkPass" DockPanel.Dock="Right" Content="Pass (Space)" Click="BtnThinkPass_Click" Padding="14,4" Background="#3A3A58" Foreground="White" BorderBrush="#5A5A78" Cursor="Hand" FontWeight="SemiBold"/>
@@ -317,9 +325,17 @@
                             </Border>
                         </Grid>
                     </Border>
-                    <Border Grid.Row="2" x:Name="PlayerHandStripBorder" Background="#2A3A32" BorderBrush="#3A5A48" BorderThickness="0,1,0,0" Padding="4,2" MinHeight="118" Height="118">
-                        <DockPanel>
-                            <TextBlock x:Name="PlayerStripTitle" DockPanel.Dock="Top" Text="P1 HAND" FontSize="10" FontWeight="SemiBold" Foreground="#B5CEA8" Margin="2,0,2,2"/>
+                    <Border Grid.Row="2" x:Name="PlayerHandStripBorder" Background="#2A3A32" BorderBrush="#3A5A48" BorderThickness="0,1,0,0" Padding="2,1" MinHeight="102" Height="102">
+                        <DockPanel LastChildFill="True">
+                            <!-- Pepsch mockup: Hand-Label vertikal links (Oben→Unten) -->
+                            <Border DockPanel.Dock="Left" Width="18" Margin="0,0,2,0" VerticalAlignment="Stretch" ClipToBounds="True">
+                                <TextBlock x:Name="PlayerStripTitle" Text="P1 HAND" FontSize="10" FontWeight="SemiBold" Foreground="#B5CEA8"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center">
+                                    <TextBlock.LayoutTransform>
+                                        <RotateTransform Angle="-90"/>
+                                    </TextBlock.LayoutTransform>
+                                </TextBlock>
+                            </Border>
                             <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                                 <StackPanel x:Name="PlayerStripPanel" Orientation="Horizontal" VerticalAlignment="Center"/>
                             </ScrollViewer>

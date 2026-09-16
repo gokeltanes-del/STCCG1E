@@ -223,13 +223,15 @@ public partial class TableWindow : Window
     private System.Windows.Threading.DispatcherTimer? _responseWindowTimer;
     private DateTime _responseWindowDeadlineUtc;
     private List<TimingRules.LegalResponseItem> _currentLegalResponses = new();
-    // Legal-action blink cue (3s, Space cancels early; playable without waiting).
+    // ThinkTray frame blink cue (3s, Space cancels early).
     private System.Windows.Threading.DispatcherTimer? _legalBlinkTimer;
     private DateTime _legalBlinkStartUtc;
     private DateTime _legalBlinkEndUtc;
-    private readonly List<(FrameworkElement El, Brush? OldBorder, Thickness OldThick, double OldOpacity, int OldZ)> _legalBlinkRestore = new();
     private Border? _legalBlinkDim;
     private bool _legalBlinkActive;
+    private Color _legalBlinkAccent;
+    private Brush? _legalBlinkSavedBrush;
+    private Thickness _legalBlinkSavedThickness = new Thickness(2);
     private bool _detailHiddenForResponse;
 
     // ---------- Nur noch der zoombare Mittelbereich ----------
@@ -2131,8 +2133,11 @@ public partial class TableWindow : Window
         {
             string who = opponent ? "P2" : "P1";
             title.Text = zoneName == "Hand" ? $"{who} HAND" : $"{who} · {zoneName}";
+            // Pepsch mockup: P1 #B5CEA8, P2 #8EC8D8 (Hand); other zones keep aid blue
             title.Foreground = zoneName == "Hand"
-                ? new SolidColorBrush(Color.FromRgb(0x6A, 0x9A, 0x70))
+                ? new SolidColorBrush(opponent
+                    ? Color.FromRgb(0x8E, 0xC8, 0xD8)
+                    : Color.FromRgb(0xB5, 0xCE, 0xA8))
                 : new SolidColorBrush(Color.FromRgb(0x9C, 0xDC, 0xFE));
         }
 
@@ -2202,9 +2207,10 @@ public partial class TableWindow : Window
                     || _hostStripBeam && opponent && _activePlayer == 2;
         if (title != null)
         {
-            title.Text = beam
-                ? $"{who} · BEAM · {hostCard.Name}"
-                : $"{who} · {hostCard.Name}";
+            // Vertical left label: keep short so the column stays narrow
+            string hostShort = string.IsNullOrEmpty(hostCard.Name) ? "?"
+                : (hostCard.Name.Length <= 14 ? hostCard.Name : hostCard.Name[..13] + "…");
+            title.Text = beam ? $"{who}·BEAM·{hostShort}" : $"{who}·{hostShort}";
             title.Foreground = new SolidColorBrush(Color.FromRgb(0xFF, 0xE0, 0x82));
         }
 
@@ -3931,59 +3937,31 @@ public partial class TableWindow : Window
 
 
     /// <summary>
-    /// Pepsch/Captain UX: when known legal action card(s) exist, blink them 3s
-    /// (1 smooth cycle/sec). Response cards use owner P1/P2 accent. Board dims slightly.
-    /// Space cancels early; cards stay playable during the cue.
+    /// Pepsch mockup: ThinkTray frame blinks 3s in owner P1/P2 accent (1 smooth cycle/sec).
+    /// Cards in the tray do not blink. Space cancels early; Pass still uses Space after.
     /// </summary>
-    private void StartLegalActionBlink(IEnumerable<Card> cards, int ownerPlayer)
+    private void StartThinkTrayFrameBlink(int ownerPlayer)
     {
-        StopLegalActionBlink();
-        var list = new List<Card>();
-        if (cards != null)
-        {
-            foreach (var c in cards)
-            {
-                if (c == null) continue;
-                if (list.Any(x => ReferenceEquals(x, c))) continue;
-                list.Add(c);
-            }
-        }
-        if (list.Count == 0) return;
+        StopThinkTrayFrameBlink();
+        if (ThinkTrayBorder == null || ThinkTrayBorder.Visibility != Visibility.Visible)
+            return;
 
-        var accent = ownerPlayer == 1
+        _legalBlinkAccent = ownerPlayer == 1
             ? Color.FromRgb(40, 180, 90)
             : Color.FromRgb(60, 120, 220);
-        var accentBrush = new SolidColorBrush(accent);
+        _legalBlinkSavedBrush = ThinkTrayBorder.BorderBrush;
+        _legalBlinkSavedThickness = ThinkTrayBorder.BorderThickness;
+        ThinkTrayBorder.BorderThickness = new Thickness(3);
+        ThinkTrayBorder.BorderBrush = new SolidColorBrush(_legalBlinkAccent);
 
+        // Optional light board dim — keep tray readable (Z above dim).
         EnsureLegalBlinkDim();
         if (_legalBlinkDim != null)
         {
+            _legalBlinkDim.Opacity = 0.18;
             _legalBlinkDim.Visibility = Visibility.Visible;
             Panel.SetZIndex(_legalBlinkDim, 180);
-        }
-
-        foreach (var card in list)
-        {
-            foreach (var el in FindVisualsForLegalBlink(card, ownerPlayer))
-            {
-                _legalBlinkRestore.Add((
-                    el,
-                    el is Border b0 ? b0.BorderBrush : null,
-                    el is Border b1 ? b1.BorderThickness : new Thickness(0),
-                    el.Opacity,
-                    Panel.GetZIndex(el)));
-                if (el is Border b)
-                {
-                    b.BorderBrush = accentBrush;
-                    b.BorderThickness = new Thickness(3);
-                }
-                Panel.SetZIndex(el, 200);
-            }
-        }
-        if (_legalBlinkRestore.Count == 0)
-        {
-            if (_legalBlinkDim != null) _legalBlinkDim.Visibility = Visibility.Collapsed;
-            return;
+            Panel.SetZIndex(ThinkTrayBorder, 220);
         }
 
         _legalBlinkActive = true;
@@ -3999,55 +3977,41 @@ public partial class TableWindow : Window
 
     private void LegalBlinkTimer_Tick(object? sender, EventArgs e)
     {
-        if (!_legalBlinkActive) { StopLegalActionBlink(); return; }
+        if (!_legalBlinkActive || ThinkTrayBorder == null)
+        {
+            StopThinkTrayFrameBlink();
+            return;
+        }
         var now = DateTime.UtcNow;
         if (now >= _legalBlinkEndUtc)
         {
-            StopLegalActionBlink();
+            StopThinkTrayFrameBlink();
             return;
         }
         double elapsed = (now - _legalBlinkStartUtc).TotalSeconds;
-        // One full smooth cycle per second: 0..1..0 via sine.
-        double phase = (Math.Sin(elapsed * Math.PI * 2.0) + 1.0) * 0.5; // 0..1
-        double opacity = 0.45 + 0.55 * phase; // never fully invisible
-        foreach (var (el, _, _, _, _) in _legalBlinkRestore)
-        {
-            if (el is Border b)
-            {
-                // Pulse border brush alpha via Opacity on the element (restore base later).
-                el.Opacity = opacity;
-                var baseC = (b.BorderBrush as SolidColorBrush)?.Color
-                            ?? Color.FromRgb(40, 180, 90);
-                b.BorderBrush = new SolidColorBrush(Color.FromArgb(
-                    (byte)(80 + (int)(175 * phase)), baseC.R, baseC.G, baseC.B));
-            }
-            else
-            {
-                el.Opacity = opacity;
-            }
-        }
+        double phase = (Math.Sin(elapsed * Math.PI * 2.0) + 1.0) * 0.5; // 0..1, 1 Hz
+        byte a = (byte)(90 + (int)(165 * phase));
+        ThinkTrayBorder.BorderBrush = new SolidColorBrush(Color.FromArgb(
+            a, _legalBlinkAccent.R, _legalBlinkAccent.G, _legalBlinkAccent.B));
         if (_legalBlinkDim != null)
-            _legalBlinkDim.Opacity = 0.22 + 0.08 * (1.0 - phase * 0.3);
+            _legalBlinkDim.Opacity = 0.12 + 0.10 * (1.0 - phase * 0.4);
     }
 
     private void EnsureLegalBlinkDim()
     {
         if (_legalBlinkDim != null) return;
-        // Cover the main play surface; ignore hits so cards stay clickable.
-        // Sibling of TableScroll inside the board Grid — dims play surface, not chrome.
         var parent = TableScroll?.Parent as Panel
                      ?? BoardTintOverlay?.Parent as Panel;
         if (parent == null) return;
         _legalBlinkDim = new Border
         {
-            Background = new SolidColorBrush(Color.FromArgb(140, 0, 0, 0)),
-            Opacity = 0.28,
+            Background = new SolidColorBrush(Color.FromArgb(120, 0, 0, 0)),
+            Opacity = 0.18,
             IsHitTestVisible = false,
             Visibility = Visibility.Collapsed,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Stretch
         };
-        // If parent is Grid, span all cells.
         if (parent is Grid g)
         {
             if (g.ColumnDefinitions.Count > 0)
@@ -4058,40 +4022,7 @@ public partial class TableWindow : Window
         parent.Children.Add(_legalBlinkDim);
     }
 
-    private IEnumerable<FrameworkElement> FindVisualsForLegalBlink(Card card, int ownerPlayer)
-    {
-        var found = new List<FrameworkElement>();
-        var table = FindBorderForCard(card);
-        if (table != null) found.Add(table);
-
-        // Hand minis (response from hand)
-        var panel = ownerPlayer == 2 ? OppStripPanel : PlayerStripPanel;
-        if (panel != null)
-        {
-            foreach (var child in panel.Children)
-            {
-                if (child is Border mini && mini.Tag is ZoneCardRef zref
-                    && ReferenceEquals(zref.Card, card))
-                    found.Add(mini);
-            }
-        }
-
-        // Think-tray copies (Tag may be LegalResponseItem or Card)
-        if (ThinkTrayPanel != null && ThinkTrayBorder?.Visibility == Visibility.Visible)
-        {
-            foreach (var child in ThinkTrayPanel.Children)
-            {
-                if (child is not Border tb) continue;
-                if (tb.Tag is TimingRules.LegalResponseItem item && ReferenceEquals(item.Card, card))
-                    found.Add(tb);
-                else if (tb.Tag is Card c && ReferenceEquals(c, card))
-                    found.Add(tb);
-            }
-        }
-        return found;
-    }
-
-    private void StopLegalActionBlink()
+    private void StopThinkTrayFrameBlink()
     {
         if (_legalBlinkTimer != null)
         {
@@ -4099,25 +4030,24 @@ public partial class TableWindow : Window
             _legalBlinkTimer.Tick -= LegalBlinkTimer_Tick;
             _legalBlinkTimer = null;
         }
-        foreach (var (el, oldBorder, oldThick, oldOp, oldZ) in _legalBlinkRestore)
+        if (ThinkTrayBorder != null)
         {
-            try
-            {
-                if (el is Border b)
-                {
-                    if (oldBorder != null) b.BorderBrush = oldBorder;
-                    b.BorderThickness = oldThick;
-                }
-                el.Opacity = oldOp;
-                Panel.SetZIndex(el, oldZ);
-            }
-            catch { /* visual may be gone */ }
+            if (_legalBlinkSavedBrush != null)
+                ThinkTrayBorder.BorderBrush = _legalBlinkSavedBrush;
+            else
+                ThinkTrayBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(0xAB, 0x47, 0xBC));
+            ThinkTrayBorder.BorderThickness = _legalBlinkSavedThickness.Left > 0
+                ? _legalBlinkSavedThickness
+                : new Thickness(2);
         }
-        _legalBlinkRestore.Clear();
+        _legalBlinkSavedBrush = null;
         if (_legalBlinkDim != null)
             _legalBlinkDim.Visibility = Visibility.Collapsed;
         _legalBlinkActive = false;
     }
+
+    // Back-compat alias used by Space / CloseResponseWindowUi
+    private void StopLegalActionBlink() => StopThinkTrayFrameBlink();
 
     private void OpenSilentResponseWindow(int responder, TimingRules.PendingAction top, List<TimingRules.LegalResponseItem> legal)
     {
@@ -4126,8 +4056,6 @@ public partial class TableWindow : Window
         _currentLegalResponses = legal;
         BringResponseUiToFront();
 
-        if (ThinkTrayBorder != null)
-            ThinkTrayBorder.Visibility = Visibility.Collapsed;
         if (CardRevealOverlay != null && _announceKind is AnnounceKind.RespondOrPass or AnnounceKind.PickCard)
             CardRevealOverlay.Visibility = Visibility.Collapsed;
 
@@ -4141,6 +4069,10 @@ public partial class TableWindow : Window
             if (ResponseCountdownText != null)
                 ResponseCountdownText.Text = $" · {_responseDefaultDurationSec}s";
         }
+
+        // Pepsch mockup: ThinkTray immediately (not only after [R]); above responder hand.
+        ShowThinkTrayForResponder(responder, silentCountdown: true);
+        PopulateThinkTray();
 
         UpdatePhaseControls();
 
@@ -4156,8 +4088,10 @@ public partial class TableWindow : Window
             int secLeft = (int)Math.Ceiling(Math.Max(0, left));
             if (ResponseCountdownText != null)
                 ResponseCountdownText.Text = top.IsMandatory && left <= 0 ? " · Pflicht" : $" · {secLeft}s";
-            if (ThinkTrayCountdown != null && _stack.State == TimingRules.ResponseWindowState.Think)
-                ThinkTrayCountdown.Text = top.IsMandatory && left <= 0 ? " · Pflicht (Pflicht-Aktion)" : $" · {secLeft}s remaining";
+            if (ThinkTrayCountdown != null && ThinkTrayBorder?.Visibility == Visibility.Visible)
+                ThinkTrayCountdown.Text = top.IsMandatory && left <= 0
+                    ? " · Pflicht (Pflicht-Aktion)"
+                    : $" · {secLeft}s remaining";
 
             if (left <= 0)
             {
@@ -4172,8 +4106,39 @@ public partial class TableWindow : Window
         };
         _responseWindowTimer.Start();
 
-        // Cue legal response cards (owner accent); Space / close cancels early.
-        StartLegalActionBlink(legal.Select(x => x.Card), responder);
+        // Tray frame blink in owner color (cards do not blink).
+        StartThinkTrayFrameBlink(responder);
+    }
+
+    /// <summary>Position + show ThinkTray above the responder hand (P1 bottom / P2 top).</summary>
+    private void ShowThinkTrayForResponder(int responder, bool silentCountdown)
+    {
+        if (ThinkTrayBorder == null) return;
+        if (responder == 2)
+        {
+            ThinkTrayBorder.VerticalAlignment = VerticalAlignment.Top;
+            ThinkTrayBorder.Margin = new Thickness(14, 6, 14, 0);
+        }
+        else
+        {
+            ThinkTrayBorder.VerticalAlignment = VerticalAlignment.Bottom;
+            ThinkTrayBorder.Margin = new Thickness(14, 0, 14, 6);
+        }
+        BringResponseUiToFront();
+        ThinkTrayBorder.Visibility = Visibility.Visible;
+        if (ThinkTrayTitle != null)
+            ThinkTrayTitle.Text = $"LEGAL RESPONSES (P{responder})";
+        if (ThinkTrayCountdown != null)
+        {
+            int sec = silentCountdown ? _responseDefaultDurationSec : _responseThinkDurationSec;
+            ThinkTrayCountdown.Text = $" · {sec}s remaining";
+        }
+        if (BtnThinkPass != null)
+        {
+            bool isMandatory = _stack.Top?.IsMandatory == true;
+            BtnThinkPass.IsEnabled = !isMandatory;
+            BtnThinkPass.Content = isMandatory ? "Mandatory (no pass)" : "Pass (Space)";
+        }
     }
 
     private void EnterThinkMode()
@@ -4197,38 +4162,9 @@ public partial class TableWindow : Window
                 ResponseCountdownText.Text = $" · {_responseThinkDurationSec}s";
         }
 
-        if (ThinkTrayBorder != null)
-        {
-            // Position above the responder's hand (P2 is at top, P1 is at bottom)
-            if (_stack.ResponsePlayer == 2)
-            {
-                ThinkTrayBorder.VerticalAlignment = VerticalAlignment.Top;
-                ThinkTrayBorder.Margin = new Thickness(14, 6, 14, 0);
-            }
-            else
-            {
-                ThinkTrayBorder.VerticalAlignment = VerticalAlignment.Bottom;
-                ThinkTrayBorder.Margin = new Thickness(14, 0, 14, 6);
-            }
-
-            BringResponseUiToFront();
-            ThinkTrayBorder.Visibility = Visibility.Visible;
-            if (ThinkTrayTitle != null)
-                ThinkTrayTitle.Text = $"LEGAL RESPONSES (P{_stack.ResponsePlayer})";
-            if (ThinkTrayCountdown != null)
-                ThinkTrayCountdown.Text = $" · {_responseThinkDurationSec}s remaining";
-
-            if (BtnThinkPass != null)
-            {
-                bool isMandatory = _stack.Top?.IsMandatory == true;
-                BtnThinkPass.IsEnabled = !isMandatory;
-                BtnThinkPass.Content = isMandatory ? "Mandatory (no pass)" : "Pass (Space)";
-            }
-
-            PopulateThinkTray();
-            if (_currentLegalResponses.Count > 0)
-                StartLegalActionBlink(_currentLegalResponses.Select(x => x.Card), _stack.ResponsePlayer);
-        }
+        // Tray already open in Silent; [R] only extends Think duration + refresh contents.
+        ShowThinkTrayForResponder(_stack.ResponsePlayer, silentCountdown: false);
+        PopulateThinkTray();
     }
 
     private void PopulateThinkTray()
@@ -4262,95 +4198,25 @@ public partial class TableWindow : Window
 
     private FrameworkElement BuildThinkTrayTriggerCard(Card card, TimingRules.PendingAction action)
     {
-        var border = new Border
-        {
-            Width = 110,
-            Height = 154,
-            CornerRadius = new CornerRadius(5),
-            Background = new SolidColorBrush(Color.FromRgb(30, 24, 20)),
-            BorderBrush = new SolidColorBrush(Color.FromRgb(255, 167, 38)), // #FFA726
-            BorderThickness = new Thickness(2),
-            Margin = new Thickness(5, 2, 5, 2),
-            Cursor = Cursors.Hand,
-            ToolTip = $"{card.Name}\n[Action P{action.Controller}] {action.Summary}\nClick = Detail · RMB = Large view"
-        };
-
-        var grid = new Grid();
-
-        var img = new Image
-        {
-            Stretch = Stretch.Uniform
-        };
-        RenderOptions.SetBitmapScalingMode(img, BitmapScalingMode.HighQuality);
-        if (!string.IsNullOrEmpty(card.FullImagePath) && System.IO.File.Exists(card.FullImagePath))
-        {
-            try
-            {
-                var bmp = new BitmapImage();
-                bmp.BeginInit();
-                bmp.CacheOption = BitmapCacheOption.OnLoad;
-                bmp.UriSource = new Uri(card.FullImagePath, UriKind.Absolute);
-                bmp.DecodePixelWidth = 220;
-                bmp.EndInit();
-                img.Source = bmp;
-            }
-            catch { }
-        }
-        grid.Children.Add(img);
-
-        // Badge at Top-Left: TRIGGER (P1/P2)
-        var badge = new Border
-        {
-            HorizontalAlignment = HorizontalAlignment.Left,
-            VerticalAlignment = VerticalAlignment.Top,
-            Background = new SolidColorBrush(Color.FromArgb(220, 230, 81, 0)), // #E65100
-            CornerRadius = new CornerRadius(3),
-            Padding = new Thickness(4, 1, 4, 1),
-            Margin = new Thickness(3)
-        };
-        badge.Child = new TextBlock
-        {
-            Text = $"TRIGGER (P{action.Controller})",
-            Foreground = Brushes.White,
-            FontSize = 9,
-            FontWeight = FontWeights.Bold
-        };
-        grid.Children.Add(badge);
-
-        // Title at bottom
-        var titleBar = new Border
-        {
-            VerticalAlignment = VerticalAlignment.Bottom,
-            Background = new SolidColorBrush(Color.FromArgb(220, 24, 16, 12)),
-            Padding = new Thickness(4, 2, 4, 2)
-        };
-        titleBar.Child = new TextBlock
-        {
-            Text = card.Name ?? "",
-            Foreground = Brushes.White,
-            FontSize = 10,
-            FontWeight = FontWeights.SemiBold,
-            TextTrimming = TextTrimming.CharacterEllipsis,
-            TextAlignment = TextAlignment.Center
-        };
-        grid.Children.Add(titleBar);
-
-        border.Child = grid;
-
+        var border = CreateMiniCard(card, faceDown: false);
+        border.Tag = card;
+        border.BorderBrush = new SolidColorBrush(Color.FromRgb(255, 167, 38)); // #FFA726
+        border.BorderThickness = new Thickness(2);
+        border.ToolTip = card.Name + " [Action P" + action.Controller + "] " + action.Summary + " | Click = Detail / RMB = Large view";
         border.MouseLeftButtonDown += (s, e) =>
         {
+            HideMiniHover();
             ShowCardDetail(card);
             OpenCardDetailPopup();
             e.Handled = true;
         };
-
         border.MouseRightButtonDown += (s, e) =>
         {
+            HideMiniHover();
             ShowCardDetail(card);
             BeginHoldZoom(card, s as IInputElement);
             e.Handled = true;
         };
-
         border.MouseRightButtonUp += (s, e) =>
         {
             if (_holdZoomActive)
@@ -4359,110 +4225,30 @@ public partial class TableWindow : Window
                 e.Handled = true;
             }
         };
-
-        border.MouseEnter += (s, e) =>
-        {
-            border.BorderBrush = new SolidColorBrush(Color.FromRgb(255, 224, 130)); // #FFE082
-        };
-        border.MouseLeave += (s, e) =>
-        {
-            border.BorderBrush = new SolidColorBrush(Color.FromRgb(255, 167, 38));
-        };
-
         return border;
     }
 
     private FrameworkElement BuildThinkTrayCard(TimingRules.LegalResponseItem item)
     {
-        var border = new Border
-        {
-            Width = 110,
-            Height = 154,
-            CornerRadius = new CornerRadius(5),
-            Background = new SolidColorBrush(Color.FromRgb(24, 24, 34)),
-            BorderBrush = new SolidColorBrush(Color.FromRgb(171, 71, 188)), // #AB47BC
-            BorderThickness = new Thickness(2),
-            Margin = new Thickness(5, 2, 5, 2),
-            Cursor = Cursors.Hand,
-            ToolTip = $"{item.Card.Name}\n[{item.Source}] {item.Description}\nClick = Play response · RMB = Large view"
-        };
+        // Pepsch mockup: same hand mini size + hover zoom as strip cards.
+        var border = CreateMiniCard(item.Card, faceDown: false);
         border.Tag = item;
-
-        var grid = new Grid();
-
-        var img = new Image
-        {
-            Stretch = Stretch.Uniform
-        };
-        RenderOptions.SetBitmapScalingMode(img, BitmapScalingMode.HighQuality);
-        if (!string.IsNullOrEmpty(item.Card.FullImagePath) && System.IO.File.Exists(item.Card.FullImagePath))
-        {
-            try
-            {
-                var bmp = new BitmapImage();
-                bmp.BeginInit();
-                bmp.CacheOption = BitmapCacheOption.OnLoad;
-                bmp.UriSource = new Uri(item.Card.FullImagePath, UriKind.Absolute);
-                bmp.DecodePixelWidth = 220;
-                bmp.EndInit();
-                img.Source = bmp;
-            }
-            catch { }
-        }
-        grid.Children.Add(img);
-
-        // Badge at Top-Left (HAND, TABLE, HIDDEN, DOWNLOAD, SKILL)
-        var badge = new Border
-        {
-            HorizontalAlignment = HorizontalAlignment.Left,
-            VerticalAlignment = VerticalAlignment.Top,
-            Background = new SolidColorBrush(Color.FromArgb(220, 123, 31, 162)), // #7B1FA2
-            CornerRadius = new CornerRadius(3),
-            Padding = new Thickness(4, 1, 4, 1),
-            Margin = new Thickness(3)
-        };
-        badge.Child = new TextBlock
-        {
-            Text = item.Source.ToString().ToUpperInvariant(),
-            Foreground = Brushes.White,
-            FontSize = 9,
-            FontWeight = FontWeights.Bold
-        };
-        grid.Children.Add(badge);
-
-        // Title at bottom
-        var titleBar = new Border
-        {
-            VerticalAlignment = VerticalAlignment.Bottom,
-            Background = new SolidColorBrush(Color.FromArgb(220, 16, 16, 24)),
-            Padding = new Thickness(4, 2, 4, 2)
-        };
-        titleBar.Child = new TextBlock
-        {
-            Text = item.Card.Name ?? "",
-            Foreground = Brushes.White,
-            FontSize = 10,
-            FontWeight = FontWeights.SemiBold,
-            TextTrimming = TextTrimming.CharacterEllipsis,
-            TextAlignment = TextAlignment.Center
-        };
-        grid.Children.Add(titleBar);
-
-        border.Child = grid;
-
+        border.BorderBrush = new SolidColorBrush(Color.FromRgb(171, 71, 188)); // #AB47BC
+        border.BorderThickness = new Thickness(2);
+        border.ToolTip = item.Card.Name + " [" + item.Source + "] " + item.Description + " | Click = Play response / RMB = Large view";
         border.MouseLeftButtonDown += (s, e) =>
         {
             e.Handled = true;
+            HideMiniHover();
             ExecuteLegalResponse(item);
         };
-
         border.MouseRightButtonDown += (s, e) =>
         {
+            HideMiniHover();
             ShowCardDetail(item.Card);
             BeginHoldZoom(item.Card, s as IInputElement);
             e.Handled = true;
         };
-
         border.MouseRightButtonUp += (s, e) =>
         {
             if (_holdZoomActive)
@@ -4471,16 +4257,6 @@ public partial class TableWindow : Window
                 e.Handled = true;
             }
         };
-
-        border.MouseEnter += (s, e) =>
-        {
-            border.BorderBrush = new SolidColorBrush(Color.FromRgb(255, 224, 130)); // #FFE082
-        };
-        border.MouseLeave += (s, e) =>
-        {
-            border.BorderBrush = new SolidColorBrush(Color.FromRgb(171, 71, 188));
-        };
-
         return border;
     }
 

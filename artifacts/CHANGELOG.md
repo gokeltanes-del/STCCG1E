@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-16 (UX - Response ThinkTray + Hand strip mockup)
+
+**UI** - Hand labels vertical left (P1 #B5CEA8 / P2 #8EC8D8); hand strips Height ~102. Response: ThinkTray opens immediately with hand-sized minis + hover zoom; tray frame blinks 3s in owner accent (not cards); [R] only extends Think; Space cancels blink / Pass.
+
+---
 ## 2026-09-16 (Fix - Asteroid Sanctuary ship-only response)
 
 **Engine** - Asteroid Sanctuary CanRespond requires defending ship (not facility/outpost), your ship, exposed. Uses SanctuaryDeny. CollectLegalResponses/Blink inherit the gate. Apply path rejects facility defenders (no PickOwnShip fallback). Hugh still OK vs facility Borg battles. ActionKind unchanged.
