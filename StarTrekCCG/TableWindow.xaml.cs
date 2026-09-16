@@ -10047,7 +10047,7 @@ public partial class TableWindow : Window
 
     private void ApplyCloakVisual(Border border, bool cloaked)
     {
-        // Pepsch/Captain: cloak = Opacity 0.45 only (no nebula overlay, no black glow).
+        // Pepsch/Captain: cloak = Opacity ~0.28 (more see-through; keep below stopped ~0.55; no nebula/glow).
         var cloakBorder = Color.FromRgb(0x10, 0x10, 0x10);
         var cloakGlow = Color.FromRgb(0x08, 0x08, 0x08);
         // Clear any legacy nebula/glow from older builds.
@@ -10064,7 +10064,7 @@ public partial class TableWindow : Window
         }
 
         if (cloaked)
-            border.Opacity = 0.45; // Pepsch: more transparent; prefer over stopped 0.55 when both
+            border.Opacity = 0.28; // Pepsch: more see-through; keep below stopped ~0.55 when both
         else if (!IsBorderStopped(border))
             border.Opacity = 1.0;
         // else stopped alone stays 0.55
@@ -21003,7 +21003,7 @@ public partial class TableWindow : Window
 
     private void ApplyStoppedVisual(Border border, bool stopped)
     {
-        // Cloak 0.45 preferred when both stopped+cloaked (min); stopped alone 0.55; decloak 1.0
+        // Cloak 0.28 preferred when both stopped+cloaked (min); stopped alone 0.55; decloak 1.0
         if (IsShipCloaked(border))
             border.Opacity = 0.45;
         else if (stopped)

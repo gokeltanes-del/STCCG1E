@@ -4,6 +4,16 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-16 (UX - Cloak more transparent)
+
+**UI** - ApplyCloakVisual Opacity 0.45 -> 0.28 (more see-through; still below stopped 0.55).
+
+---
+## 2026-09-16 (UX - Borg Ship EOT silent unless attack)
+
+**UI** - Borg Ship EOT: Detail/Reveal only when an attack actually started (ships or outposts at location). Silent move along spaceline if nothing to attack; leave-play / destroy messages unchanged.
+
+---
 ## 2026-09-15 (Fix - Response window above CardDetail)
 
 **UI** - Think Tray / Response UI Z above CardDetailOverlay (220); hide detail while response open so Escape Pod etc. stay clickable; restore detail after close.
