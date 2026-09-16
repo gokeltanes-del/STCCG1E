@@ -1,7 +1,7 @@
 <Window x:Class="StarTrekCCG.TableWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Star Trek CCG 1E â€“ Table"
+        Title="Star Trek CCG 1E – Table"
         Height="900" Width="1680"
         WindowStartupLocation="CenterScreen"
         Background="#1A1A1A"
@@ -18,17 +18,17 @@
                 </Style>
             </Menu.Resources>
             <MenuItem Header="_File">
-                <MenuItem Header="_New gameâ€¦" Click="MenuNewGame_Click"/>
-                <MenuItem Header="_Quick gameâ€¦" Click="MenuQuickGame_Click"/>
-                <MenuItem Header="_Save gameâ€¦" Click="MenuSaveGame_Click" InputGestureText="Ctrl+S"/>
-                <MenuItem Header="_Load gameâ€¦" Click="MenuLoadGame_Click" InputGestureText="Ctrl+L"/>
+                <MenuItem Header="_New game…" Click="MenuNewGame_Click"/>
+                <MenuItem Header="_Quick game…" Click="MenuQuickGame_Click"/>
+                <MenuItem Header="_Save game…" Click="MenuSaveGame_Click" InputGestureText="Ctrl+S"/>
+                <MenuItem Header="_Load game…" Click="MenuLoadGame_Click" InputGestureText="Ctrl+L"/>
                 <Separator/>
-                <MenuItem Header="_Open deckâ€¦" Click="MenuLoadDeck_Click" InputGestureText="Ctrl+O"/>
+                <MenuItem Header="_Open deck…" Click="MenuLoadDeck_Click" InputGestureText="Ctrl+O"/>
                 <Separator/>
                 <MenuItem Header="E_xit" Click="MenuExit_Click" InputGestureText="Alt+F4"/>
             </MenuItem>
             <MenuItem Header="_Tools">
-                <MenuItem Header="_Deck Builderâ€¦" Click="MenuDeckBuilder_Click"/>
+                <MenuItem Header="_Deck Builder…" Click="MenuDeckBuilder_Click"/>
             </MenuItem>
             <MenuItem Header="_View">
                 <MenuItem Header="_Reset zoom" Click="MenuZoomReset_Click"/>
@@ -65,20 +65,20 @@
                 <MenuItem x:Name="DevPeekOpponentItem" Header="Peek opponent piles" IsCheckable="True" Click="DevPeekOpponent_Click"/>
                 <MenuItem x:Name="DevShowDebugLogItem" Header="Show Debug: lines in Action History" IsCheckable="True" IsChecked="True" Click="DevShowDebugLog_Click"/>
                 <MenuItem x:Name="DevFileLogItem" Header="Write debug file (Data/Logs)" IsCheckable="True" IsChecked="True" Click="DevFileLog_Click"/>
-                <MenuItem Header="Open debug log fileâ€¦" Click="DevOpenLogFile_Click"/>
-                <MenuItem Header="Open Logs folderâ€¦" Click="DevOpenLogFolder_Click"/>
+                <MenuItem Header="Open debug log file…" Click="DevOpenLogFile_Click"/>
+                <MenuItem Header="Open Logs folder…" Click="DevOpenLogFolder_Click"/>
                 <MenuItem x:Name="DevPlaySeedFromHandItem" Header="Play seed cards from hand" IsCheckable="True" Click="DevPlaySeedFromHand_Click"/>
                 <Separator/>
-                <MenuItem Header="Inspect opponent hand (gallery)â€¦" Click="DevInspectOppHand_Click"/>
-                <MenuItem Header="Inspect opponent discard (gallery)â€¦" Click="DevInspectOppDiscard_Click"/>
-                <MenuItem Header="Inspect opponent draw (backs)â€¦" Click="DevInspectOppDraw_Click"/>
+                <MenuItem Header="Inspect opponent hand (gallery)…" Click="DevInspectOppHand_Click"/>
+                <MenuItem Header="Inspect opponent discard (gallery)…" Click="DevInspectOppDiscard_Click"/>
+                <MenuItem Header="Inspect opponent draw (backs)…" Click="DevInspectOppDraw_Click"/>
                 <Separator/>
                 <MenuItem Header="Dump legal moves" Click="DevDumpLegalMoves_Click"/>
                 <MenuItem Header="Dump Board" Click="DevDumpBoard_Click"/>
-                <MenuItem Header="Download from Q's Tentâ€¦" Click="DevTentDownload_Click"/>
-                <MenuItem Header="Flip own Hidden Agendasâ€¦" Click="DevFlipHiddenAgendas_Click"/>
-                <MenuItem Header="Add card to gameâ€¦" Click="DevAddCard_Click"/>
-                <MenuItem Header="Deck Builderâ€¦" Click="MenuDeckBuilder_Click"/>
+                <MenuItem Header="Download from Q's Tent…" Click="DevTentDownload_Click"/>
+                <MenuItem Header="Flip own Hidden Agendas…" Click="DevFlipHiddenAgendas_Click"/>
+                <MenuItem Header="Add card to game…" Click="DevAddCard_Click"/>
+                <MenuItem Header="Deck Builder…" Click="MenuDeckBuilder_Click"/>
             </MenuItem>
         </Menu>
         <Border DockPanel.Dock="Top" Background="#1A1A20" BorderBrush="#3A3A48" BorderThickness="0,0,0,1" Padding="10,4" MinHeight="40">
@@ -89,17 +89,17 @@
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" x:Name="ScoreText" Text="P1: 0  Â·  P2: 0" Foreground="#B5CEA8" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,14,0"/>
+                <TextBlock Grid.Column="0" x:Name="ScoreText" Text="P1: 0  ·  P2: 0" Foreground="#B5CEA8" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,14,0"/>
                 <Border Grid.Column="1" x:Name="ActivePlayerBanner" Background="#2A3A4A" CornerRadius="4" Padding="14,4" VerticalAlignment="Center" Margin="0,0,10,0" Cursor="Hand" MouseLeftButtonDown="ActivePlayerBanner_MouseLeftButtonDown">
                     <DockPanel LastChildFill="True">
-                        <Border x:Name="ResponseIndicatorBadge" DockPanel.Dock="Right" Visibility="Collapsed" Background="#7B1FA2" CornerRadius="3" Padding="8,2" Margin="10,0,0,0" Cursor="Hand" MouseLeftButtonDown="ResponseIndicator_MouseLeftButtonDown" MouseRightButtonDown="ResponseIndicator_MouseRightButtonDown" MouseRightButtonUp="ResponseIndicator_MouseRightButtonUp" ToolTip="Click = Think mode  Â·  RMB = Enlarge trigger card">
+                        <Border x:Name="ResponseIndicatorBadge" DockPanel.Dock="Right" Visibility="Collapsed" Background="#7B1FA2" CornerRadius="3" Padding="8,2" Margin="10,0,0,0" Cursor="Hand" MouseLeftButtonDown="ResponseIndicator_MouseLeftButtonDown" MouseRightButtonDown="ResponseIndicator_MouseRightButtonDown" MouseRightButtonUp="ResponseIndicator_MouseRightButtonUp" ToolTip="Click = Think mode  ·  RMB = Enlarge trigger card">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock x:Name="ResponseIndicatorText" Text="âš¡ Response available (P2)" Foreground="#FFF" FontWeight="Bold" FontSize="13" VerticalAlignment="Center"/>
-                                <TextBlock x:Name="ResponseCountdownText" Text=" Â· 3s" Foreground="#FFE082" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" Margin="2,0,0,0"/>
-                                <TextBlock Text=" Â· [R] Details  [Space] Pass" Foreground="#E1BEE7" FontSize="11" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                                <TextBlock x:Name="ResponseIndicatorText" Text="⚡ Response available (P2)" Foreground="#FFF" FontWeight="Bold" FontSize="13" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="ResponseCountdownText" Text=" · 3s" Foreground="#FFE082" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" Margin="2,0,0,0"/>
+                                <TextBlock Text=" · [R] Details  [Space] Pass" Foreground="#E1BEE7" FontSize="11" VerticalAlignment="Center" Margin="6,0,0,0"/>
                             </StackPanel>
                         </Border>
-                        <TextBlock x:Name="ActivePlayerText" Text="â€“" Foreground="#FFE082" FontSize="15" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock x:Name="ActivePlayerText" Text="–" Foreground="#FFE082" FontSize="15" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
                     </DockPanel>
                 </Border>
                 <TextBlock x:Name="StatusText" Visibility="Collapsed"/>
@@ -114,7 +114,7 @@
                     </StackPanel>
                 </Border>
                 <Grid Grid.Column="2" MinWidth="200" Height="30" Margin="0,0,8,0" VerticalAlignment="Center">
-                    <Button x:Name="BtnPhaseNext" Content="Next phase â–¶" Click="BtnPhaseNext_Click" Padding="10,4" Background="#3A3A48" Foreground="White" BorderBrush="#555" Cursor="Hand" IsEnabled="False" FontWeight="SemiBold"/>
+                    <Button x:Name="BtnPhaseNext" Content="Next phase ▶" Click="BtnPhaseNext_Click" Padding="10,4" Background="#3A3A48" Foreground="White" BorderBrush="#555" Cursor="Hand" IsEnabled="False" FontWeight="SemiBold"/>
                     <Button x:Name="BtnSeedFinish" Content="Finish seed" Click="BtnSeedFinish_Click" Padding="10,4" Background="#2A4A3A" Foreground="White" BorderBrush="#3A6A4A" Cursor="Hand" IsEnabled="False" Visibility="Collapsed" FontWeight="SemiBold"/>
                     <Button x:Name="BtnEndTurn" Content="End PLAY phase (Space)" Click="BtnEndTurn_Click" Padding="10,4" Background="#4A3A2A" Foreground="White" BorderBrush="#6A5A3A" Cursor="Hand" Visibility="Collapsed" FontWeight="SemiBold"/>
                 </Grid>
@@ -155,7 +155,7 @@
                     </Grid.RowDefinitions>
                     <Border Grid.Row="0" x:Name="OppHandStripBorder" Background="#1B3038" BorderBrush="#2A4A55" BorderThickness="0,0,0,1" Padding="2,1" MinHeight="102" Height="102">
                         <DockPanel LastChildFill="True">
-                            <!-- Pepsch mockup: Hand-Label vertikal links (Obenâ†’Unten) -->
+                            <!-- Pepsch mockup: Hand-Label vertikal links (Oben→Unten) -->
                             <Border DockPanel.Dock="Left" Width="18" Margin="0,0,2,0" VerticalAlignment="Stretch" ClipToBounds="True">
                                 <TextBlock x:Name="OppStripTitle" Text="P2 HAND" FontSize="10" FontWeight="SemiBold" Foreground="#8EC8D8"
                                            HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center">
@@ -182,7 +182,7 @@
                                     </Canvas.LayoutTransform>
                                 </Canvas>
                             </ScrollViewer>
-                            <!-- Think Tray: Ãœbersicht legaler Responses Ã¼ber der Hand -->
+                            <!-- Think Tray: Übersicht legaler Responses über der Hand -->
                             <!-- Pepsch: dynamic width (cards + left rail), centered over responder hand -->
                             <Border x:Name="ThinkTrayBorder" Visibility="Collapsed" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="14,6" Background="#EE161622" BorderBrush="#AB47BC" BorderThickness="2" CornerRadius="6" Padding="6,10" Panel.ZIndex="220" MaxHeight="158">
                                 <StackPanel Orientation="Horizontal">
@@ -250,7 +250,7 @@
                                             </Border>
                                             <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                                                 <StackPanel>
-                                                    <TextBlock x:Name="DetailName" Text="â€“" FontSize="16" FontWeight="Bold" Foreground="White" TextWrapping="Wrap"/>
+                                                    <TextBlock x:Name="DetailName" Text="–" FontSize="16" FontWeight="Bold" Foreground="White" TextWrapping="Wrap"/>
                                                     <TextBlock x:Name="DetailType" Foreground="#4EC9B0" FontSize="12" Margin="0,4,0,8" TextWrapping="Wrap"/>
                                                     <TextBlock x:Name="DetailAttributes" Foreground="#B5CEA8" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,6" TextWrapping="Wrap"/>
                                                     <StackPanel x:Name="DetailStatusBlock" Margin="0,0,0,8"/>
@@ -264,7 +264,7 @@
                                             </ScrollViewer>
                                         </Grid>
                                         <StackPanel Grid.Column="1" Grid.Row="0" VerticalAlignment="Top" Margin="12,0,0,0" Width="110">
-                                            <Button x:Name="BtnDetailBack" Content="â—€ Back" Padding="10,6" Margin="0,0,0,8" Visibility="Collapsed" Click="BtnDetailBack_Click" Background="#2A3A58" Foreground="White" BorderBrush="#5A6A88" Cursor="Hand"/>
+                                            <Button x:Name="BtnDetailBack" Content="◀ Back" Padding="10,6" Margin="0,0,0,8" Visibility="Collapsed" Click="BtnDetailBack_Click" Background="#2A3A58" Foreground="White" BorderBrush="#5A6A88" Cursor="Hand"/>
                                             <Button x:Name="BtnDetailBeamSelect" Content="Select none" Padding="10,6" Margin="0,0,0,8" Visibility="Collapsed" Click="BtnDetailBeamSelect_Click" Background="#2E5A3A" Foreground="#B8F0C8" BorderBrush="#4A9A60" Cursor="Hand"/>
                                             <Button Content="Close" Padding="10,6" Click="BtnCardDetailClose_Click" Background="#3A3A58" Foreground="White" BorderBrush="#5A5A78" Cursor="Hand"/>
                                         </StackPanel>
@@ -329,7 +329,7 @@
                     </Border>
                     <Border Grid.Row="2" x:Name="PlayerHandStripBorder" Background="#2A3A32" BorderBrush="#3A5A48" BorderThickness="0,1,0,0" Padding="2,1" MinHeight="102" Height="102">
                         <DockPanel LastChildFill="True">
-                            <!-- Pepsch mockup: Hand-Label vertikal links (Obenâ†’Unten) -->
+                            <!-- Pepsch mockup: Hand-Label vertikal links (Oben→Unten) -->
                             <Border DockPanel.Dock="Left" Width="18" Margin="0,0,2,0" VerticalAlignment="Stretch" ClipToBounds="True">
                                 <TextBlock x:Name="PlayerStripTitle" Text="P1 HAND" FontSize="10" FontWeight="SemiBold" Foreground="#B5CEA8"
                                            HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center">
@@ -378,8 +378,8 @@
                         <TextBlock Text="Star Trek CCG 1E" FontSize="22" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
                         <TextBlock Text="Sandbox Table" FontSize="13" Foreground="#888" HorizontalAlignment="Center" Margin="0,4,0,22"/>
                         <Button Content="New game" Click="WelcomeNewGame_Click" Height="40" Margin="0,0,0,10" FontSize="14" Cursor="Hand" Background="#0E639C" Foreground="White" BorderThickness="0"/>
-                        <Button Content="Load gameâ€¦" Click="MenuLoadGame_Click" Height="36" Margin="0,0,0,6" FontSize="13" Cursor="Hand" Background="#333" Foreground="White" BorderThickness="0"/>
-                        <Button Content="Quick gameâ€¦" Click="MenuQuickGame_Click" Height="36" Margin="0,0,0,6" FontSize="13" Cursor="Hand" Background="#2E7D32" Foreground="White" BorderThickness="0"/>
+                        <Button Content="Load game…" Click="MenuLoadGame_Click" Height="36" Margin="0,0,0,6" FontSize="13" Cursor="Hand" Background="#333" Foreground="White" BorderThickness="0"/>
+                        <Button Content="Quick game…" Click="MenuQuickGame_Click" Height="36" Margin="0,0,0,6" FontSize="13" Cursor="Hand" Background="#2E7D32" Foreground="White" BorderThickness="0"/>
                         <StackPanel x:Name="NewGameOptions" Visibility="Collapsed" Margin="0,16,0,0">
                             <TextBlock Text="Game mode" Foreground="#AAA" FontSize="12" Margin="0,0,0,6" HorizontalAlignment="Center"/>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,12">
@@ -387,8 +387,8 @@
                                 <RadioButton x:Name="ModeNetwork" Content="Network" IsEnabled="False" Foreground="#666" Margin="0,0,14,0" GroupName="GameMode"/>
                                 <RadioButton x:Name="ModeSingle" Content="Singleplayer (AI)" IsEnabled="False" Foreground="#666" GroupName="GameMode"/>
                             </StackPanel>
-                            <Button Content="Load deckâ€¦" Click="MenuLoadDeck_Click" Height="36" Margin="0,0,0,8" Cursor="Hand" Background="#3A3A48" Foreground="White" BorderThickness="0"/>
-                            <Button Content="Create deck (Builder)â€¦" Click="WelcomeDeckBuilder_Click" Height="36" Cursor="Hand" Background="#3A3A48" Foreground="White" BorderThickness="0"/>
+                            <Button Content="Load deck…" Click="MenuLoadDeck_Click" Height="36" Margin="0,0,0,8" Cursor="Hand" Background="#3A3A48" Foreground="White" BorderThickness="0"/>
+                            <Button Content="Create deck (Builder)…" Click="WelcomeDeckBuilder_Click" Height="36" Cursor="Hand" Background="#3A3A48" Foreground="White" BorderThickness="0"/>
                         </StackPanel>
                     </StackPanel>
                 </Border>
