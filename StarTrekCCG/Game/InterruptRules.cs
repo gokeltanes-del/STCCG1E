@@ -98,6 +98,9 @@ public static class InterruptRules
         (c?.Name ?? "").StartsWith("Incoming Message", StringComparison.OrdinalIgnoreCase);
 
     public static bool IsSubspaceInterference(Card? c) => NameIs(c, "Subspace Interference");
+    public static bool IsHail(Card? c) => NameIs(c, "Hail");
+    public static bool IsInterferenceNullifyTarget(Card? c) =>
+        IsIncomingMessage(c) || IsHail(c) || IsSubspaceSchism(c);
     public static bool IsSubspaceSchism(Card? c) => NameIs(c, "Subspace Schism");
     public static bool IsEscapePod(Card? c) => NameIs(c, "Escape Pod");
     public static bool IsWormhole(Card? c) => NameIs(c, "Wormhole");

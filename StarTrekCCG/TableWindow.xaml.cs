@@ -18574,32 +18574,66 @@ public partial class TableWindow : Window
 
     private void ApplySubspaceInterference(Card card, int controller, Card? target)
     {
+        // Instant path: nullify Incoming Message (attached) and/or Hail/Schism still on the stack.
+        // Response path usually cancels via ApplyResponseEffect + CanRespond; this still covers hand play.
         Card? hit = target;
-        if (hit == null || !InterruptRules.IsIncomingMessage(hit))
+        if (hit == null || !InterruptRules.IsInterferenceNullifyTarget(hit))
         {
-            var pool = _attachedEvents
-                .Where(e => InterruptRules.IsIncomingMessage(e.Card)
-                            || (e.Card.Name ?? "").Equals("Hail", StringComparison.OrdinalIgnoreCase)
-                            || (e.Card.Name ?? "").Equals("Subspace Schism", StringComparison.OrdinalIgnoreCase))
-                .Select(e => e.Card)
-                .Distinct()
-                .ToList();
+            var pool = new List<Card>();
+            void Add(Card? c)
+            {
+                if (c == null || !InterruptRules.IsInterferenceNullifyTarget(c)) return;
+                if (pool.Any(x => ReferenceEquals(x, c))) return;
+                pool.Add(c);
+            }
+            foreach (var e in _attachedEvents)
+                Add(e.Card);
+            foreach (var a in _stack.Items)
+            {
+                if (a.Cancelled) continue;
+                if (a.Kind == TimingRules.ActionKind.PlayCard)
+                    Add(a.Card);
+            }
             if (pool.Count == 0)
             {
-                ShowPlayError("Subspace Interference: no Incoming Message / Hail / Subspace Schism in play.");
+                ShowPlayError("Subspace Interference: no Incoming Message / Hail / Subspace Schism in play or on the stack.");
+                var hand = controller == 1 ? _handCards : _oppHandCards;
+                if (!hand.Contains(card)) hand.Add(card);
                 return;
             }
-            hit = PickCardFromList("Nullify which card?", pool, card.Name, card);
+            hit = pool.Count == 1
+                ? pool[0]
+                : PickCardFromList("Nullify which card?", pool, card.Name, card);
         }
         if (hit == null) return;
+
+        // Cancel matching stack play if still open
+        foreach (var a in _stack.Items)
+        {
+            if (a.Cancelled) continue;
+            if (a.Kind == TimingRules.ActionKind.PlayCard && ReferenceEquals(a.Card, hit))
+            {
+                a.Cancelled = true;
+                a.CancelledBy = "Subspace Interference";
+            }
+        }
+
         var ae = _attachedEvents.FirstOrDefault(e => ReferenceEquals(e.Card, hit));
-        if (ae?.Host != null)
+        if (ae != null && InterruptRules.IsIncomingMessage(hit) && ae.Host != null)
+        {
             ResolveIncomingMessageArrival(ae.Host, "Subspace Interference");
-        else
+        }
+        else if (ae != null)
         {
             _attachedEvents.RemoveAll(e => ReferenceEquals(e.Card, hit));
-            SendCardTo(hit, ae?.Owner ?? controller, TimingRules.Destination.Discard);
+            if (ae.Host != null) UpdateHostBadge(ae.Host);
+            SendCardTo(hit, ae.Owner != 0 ? ae.Owner : controller, TimingRules.Destination.Discard);
         }
+        // Stack-only cancel: card goes to discard when that PlayCard resolves as Cancelled.
+
+        StatusText.Text = $"Subspace Interference nullifies {hit.Name}.";
+        _session.Log.Add(_session.TurnNumber, $"P{controller}",
+            $"Subspace Interference nullifies {hit.Name}");
     }
 
     private void PlaceBorgShipToken(Card borgCard, Border hostMission)

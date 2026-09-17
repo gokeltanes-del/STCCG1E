@@ -4,6 +4,11 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
+## 2026-09-17 (Feat - Subspace Interference)
+
+**Engine** - Subspace Interference: CanRespond nullifies Incoming Message / Hail / Subspace Schism on the stack; Instant Apply picks attached Incoming Message or stack targets (Hail/Schism). CollectLegalResponses/Blink inherit CanRespond.
+
+---
 ## 2026-09-16 (UX - ThinkTray vertical padding)
 
 **UI** - ThinkTray Padding top/bottom + rail padding; MaxHeight raised so title and Pass are not clipped.

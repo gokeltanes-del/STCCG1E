@@ -8,7 +8,7 @@ namespace StarTrekCCG;
 /// <summary>
 /// Compendium: Actions + valid responses + Stack (Premiere-Kern).
 /// Katalog: Amanda Rogers, Kevin Uxbridge, Q2, Energy Vortex, The Devil,
-/// Hugh, Asteroid Sanctuary.
+/// Hugh, Asteroid Sanctuary, Subspace Interference.
 /// </summary>
 public static class TimingRules
 {
@@ -184,7 +184,8 @@ public static class TimingRules
             || n.Equals("Hugh", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Asteroid Sanctuary", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Subspace Schism", StringComparison.OrdinalIgnoreCase)
-            || n.Equals("Escape Pod", StringComparison.OrdinalIgnoreCase);
+            || n.Equals("Escape Pod", StringComparison.OrdinalIgnoreCase)
+            || n.Equals("Subspace Interference", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -293,7 +294,17 @@ public static class TimingRules
             return (true, "Can cancel the battle against your ship (2 Navigation aboard at resolution).");
         }
 
-        return (false, $"\"{n}\" is not a valid response in this window.");
+                if (n.Equals("Subspace Interference", StringComparison.OrdinalIgnoreCase))
+        {
+            // Nullifies Incoming Message OR Hail OR Subspace Schism as they are played.
+            if (top.Kind != ActionKind.PlayCard || top.Card == null)
+                return (false, "Subspace Interference: no matching Interrupt on the stack.");
+            if (!InterruptRules.IsInterferenceNullifyTarget(top.Card))
+                return (false, "Subspace Interference nullifies only Incoming Message, Hail, or Subspace Schism.");
+            return (true, "Nullifies " + (top.Card.Name ?? "that Interrupt") + ".");
+        }
+
+return (false, $"\"{n}\" is not a valid response in this window.");
     }
 
     private static int GetOwnerGuess(PendingAction top) => top.DefenderOwner;
