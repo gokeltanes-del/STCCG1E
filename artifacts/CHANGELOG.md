@@ -1,5 +1,11 @@
 ## 2026-09-17 — Hail (AU) + table UI chrome
 
+## 2026-09-17 — Hail fly-by Pass: relocate after deferred move
+
+- **Bug:** Pass / no Hail on `ShipFlyBy` spent RANGE and logged arrival, but left the ship token at the start (desync).
+- **Fix:** `CompletePendingHailFly` now `RelocateShipAlongSpaceline` + sync after rules apply. Hail-played stop path unchanged.
+
+
 ## 2026-09-17 — Hail two-ship: spaceline click-mark (no Detail picker)
 
 - **Hail** OR-mode UX (Pepsch): play Hail to table (no ship drop target), then click two ships on the spaceline — each lights up; second click applies no-battle-this-turn and discards Hail. Fly-by path unchanged (`ShipFlyBy`).

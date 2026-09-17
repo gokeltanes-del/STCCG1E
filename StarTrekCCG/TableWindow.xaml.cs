@@ -18745,6 +18745,9 @@ public partial class TableWindow : Window
 
     private void CompletePendingHailFly()
     {
+        // Pass / no Hail: finish the deferred span move. TryMoveShipWithRules only
+        // spends RANGE + logs — callers must RelocateShipAlongSpaceline (root cause of
+        // Pepsch desync: log/RANGE at dest, token still at start).
         var shipB = _pendingHailFlyShip;
         var from = _pendingHailFlyFrom;
         var to = _pendingHailFlyTo;
@@ -18752,10 +18755,16 @@ public partial class TableWindow : Window
         _pendingHailFlyFrom = null;
         _pendingHailFlyTo = null;
         _pendingHailFlyPassMission = null;
+        _pendingHailFlyOwner = 0;
         if (shipB == null || to == null || shipB.Tag is not Card ship)
             return;
         if (!TryMoveShipWithRulesIgnoringHailFlyBy(shipB, ship, from, to))
+        {
             StatusText.Text = $"{ship.Name}: fly-by passed; move could not complete.";
+            return;
+        }
+        RelocateShipAlongSpaceline(shipB, from, to);
+        SyncBoardFromTable(logDual: false);
     }
 
     private bool TryMoveShipWithRulesIgnoringHailFlyBy(Border shipBorder, Card ship, Border? fromMission, Border toMission)
