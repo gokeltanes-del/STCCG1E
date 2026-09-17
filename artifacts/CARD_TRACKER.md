@@ -221,7 +221,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Rogue Borg (134 C) | working | Pepsch green (Rogue Borg Mercenaries). | Pepsch 2026-09-06 |
 | Scan (135 C) | unknown |  |  |
 | Ship Seizure (136 C) | working | Pepsch green: play-on = tractor host; then victim-only pick same location (empty exposed). tips Data/`7c295d7` + `3e39af8`. Spock Soll. | Pepsch 2026-09-14; Data/`3e39af8` |
-| Subspace Interference (137 C) | green | CanRespond+Apply: nullify Incoming Message / Hail / Subspace Schism (stack + attached IM). | Data/198d2ab |
+| Subspace Interference (137 C) | green | CanRespond+Apply: nullify Incoming Message / Hail / Subspace Schism (stack + attached IM). | Data/fb90d15 |
 | Subspace Schism (138 U) | unknown |  |  |
 | Tachyon Detection Grid (139 C) | unknown |  |  |
 | Temporal Rift (140 U) | unknown |  |  |
