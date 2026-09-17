@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-15 (Jadzia — Escape Pod tip c1b622e pending Pepsch Borg-destroy pick)
+Last updated: 2026-09-17 (Jadzia — Subspace Interference working; Asteroid Sanctuary partial; Hail pending)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -193,7 +193,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | --- | --- | --- | --- |
 | Alien Groupie (107 R) | unknown |  |  |
 | Amanda Rogers (108 U) | unknown |  |  |
-| Asteroid Sanctuary (109 C) | working | Pepsch green. | Pepsch 2026-09-15 |
+| Asteroid Sanctuary (109 C) | partial | Pepsch FAIL: wrongly offered as Response on Outpost/Facility battle. Data Go: CanRespond ship-only (Defender=ship, not Facility). Not working until Pepsch greens after tip. | Pepsch 2026-09-17; Data Go ship-only CanRespond |
 | Auto-Destruct Sequence (110 U) | unknown |  |  |
 | Crosis (111 R) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Disruptor Overload (112 C) | unknown |  |  |
@@ -221,7 +221,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Rogue Borg (134 C) | working | Pepsch green (Rogue Borg Mercenaries). | Pepsch 2026-09-06 |
 | Scan (135 C) | unknown |  |  |
 | Ship Seizure (136 C) | working | Pepsch green: play-on = tractor host; then victim-only pick same location (empty exposed). tips Data/`7c295d7` + `3e39af8`. Spock Soll. | Pepsch 2026-09-14; Data/`3e39af8` |
-| Subspace Interference (137 C) | green | CanRespond+Apply: nullify Incoming Message / Hail / Subspace Schism (stack + attached IM). | Data/fb90d15 |
+| Subspace Interference (137 C) | working | Pepsch green: works vs Subspace Schism + Incoming Message. tip Data/`fb90d15` CanRespond+Apply nullify IM/Hail/Schism (stack + attached IM). Hail itself still pending smoke. | Pepsch 2026-09-17; Data/`fb90d15` |
 | Subspace Schism (138 U) | unknown |  |  |
 | Tachyon Detection Grid (139 C) | unknown |  |  |
 | Temporal Rift (140 U) | unknown |  |  |
@@ -569,7 +569,7 @@ Source JSON: `artifacts/sample_data/Alternate_Universe/cards.json`
 | Devidian Foragers (C) | unknown |  |  |
 | Eyes in the Dark (C) | unknown |  |  |
 | Fire Sculptor (C) | unknown |  |  |
-| Hail (C) | unknown |  |  |
+| Hail (C) | unknown | Data Go pending. Subspace Interference nullify path Pepsch-green (`fb90d15`); leave Hail pending until Pepsch smoke — not working. | Captain 2026-09-17; Data Go |
 | Howard Heirloom Candle (C) | unknown |  |  |
 | Humuhumunukunukuapua'a (C) | unknown |  |  |
 | Incoming Message: Attack Authorization (U) | unknown |  |  |
