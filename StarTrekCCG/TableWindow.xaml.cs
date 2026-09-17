@@ -120,7 +120,7 @@ public partial class TableWindow : Window
     private Rectangle? _selectionFrame; // Rahmen um ausgewählte Karte inkl. Badge
     private Border? _selectedCard;
     private StackPanel? _actionPanel;
-    private enum CardActionMode { None, BeamPickTarget, FlyPickMission, AttackPickTarget, PersonnelAttackPick, EventPickTarget, TractorPickScow }
+    private enum CardActionMode { None, BeamPickTarget, FlyPickMission, AttackPickTarget, PersonnelAttackPick, EventPickTarget, TractorPickScow, HailMarkShips }
     private CardActionMode _cardActionMode = CardActionMode.None;
     private Border? _actionSourceHost;
     /// <summary>Host chosen by drag before event resolve (or click in EventPickTarget mode).</summary>
@@ -347,6 +347,10 @@ public partial class TableWindow : Window
     private Border? _pendingHailFlyTo;
     private Border? _pendingHailFlyPassMission;
     private int _pendingHailFlyOwner;
+    /// <summary>Hail two-ship mark mode: card stays in play until second ship clicked.</summary>
+    private Card? _hailMarkCard;
+    private int _hailMarkOwner;
+    private Border? _hailMarkShipA;
     /// <summary>Drag-Peek: host under cursor while a targeting card is held.</summary>
     private Border? _peekHoverHost;
     private System.Windows.Threading.DispatcherTimer? _peekHoverTimer;
@@ -7924,6 +7928,7 @@ public partial class TableWindow : Window
         _pendingHailFlyTo = null;
         _pendingHailFlyPassMission = null;
         _pendingHailFlyOwner = 0;
+        CancelHailMarkMode(discard: true);
     }
 
     private void CompleteTurnChange()
@@ -12207,6 +12212,8 @@ public partial class TableWindow : Window
 
     private void ClearCardActionUi()
     {
+        if (_cardActionMode == CardActionMode.HailMarkShips && _hailMarkCard != null)
+            CancelHailMarkMode(discard: true);
         bool wasBeam = _cardActionMode == CardActionMode.BeamPickTarget;
         _cardActionMode = CardActionMode.None;
         _actionSourceHost = null;
@@ -14246,16 +14253,21 @@ public partial class TableWindow : Window
 
         NoteAuPlay(card, controller);
 
+        bool hailMarkPending = r.Effect == InterruptRules.Effect.Hail
+                               && _cardActionMode == CardActionMode.HailMarkShips
+                               && ReferenceEquals(_hailMarkCard, card);
+
         if (r.OutOfPlay)
             SendCardTo(card, controller, TimingRules.Destination.OutOfPlay);
-        else if (r.DiscardAfter)
+        else if (r.DiscardAfter && !hailMarkPending)
             SendCardTo(card, controller, TimingRules.Destination.Discard);
 
         // Instant interrupts must never remain as free-floating board cards
-        // (skip Rogue Borg / Crosis that legitimately sit on a host stack)
+        // (skip Rogue Borg / Crosis / Incoming Message / Hail-in-mark-mode)
         if (r.Effect is not InterruptRules.Effect.RogueBorg
             and not InterruptRules.Effect.Crosis
-            and not InterruptRules.Effect.IncomingMessage)
+            and not InterruptRules.Effect.IncomingMessage
+            && !hailMarkPending)
             RemoveOrphanTableCopies(card);
 
         _session.Log.Add(_session.TurnNumber, $"P{controller}", $"Interrupt {card.Name}: {r.Effect}");
@@ -17461,9 +17473,14 @@ public partial class TableWindow : Window
 
     private bool TryHandleActionModeClick(Border clicked)
     {
-        if (_cardActionMode == CardActionMode.None || _actionSourceHost == null)
+        if (_cardActionMode == CardActionMode.None)
+            return false;
+        if (_cardActionMode != CardActionMode.HailMarkShips && _actionSourceHost == null)
             return false;
         if (clicked.Tag is not Card) return false;
+
+        if (_cardActionMode == CardActionMode.HailMarkShips)
+            return TryHailMarkShipClick(clicked);
 
         if (_cardActionMode == CardActionMode.TractorPickScow)
         {
@@ -18790,60 +18807,125 @@ public partial class TableWindow : Window
     /// </summary>
     private void ApplyHail(Card card, int controller, Card? target)
     {
+        // Fly-by response already applied in ApplyHailFlyByFromResponse + cancelled ShipFlyBy.
         if (_stack.Items.Any(a => a.Kind == TimingRules.ActionKind.ShipFlyBy && a.Cancelled
                                   && string.Equals(a.CancelledBy, "Hail", StringComparison.OrdinalIgnoreCase)))
         {
             StatusText.Text = "Hail: flying-by ship stopped.";
+            SendCardTo(card, controller, TimingRules.Destination.Discard);
+            RemoveOrphanTableCopies(card);
             return;
         }
 
-        Border? shipA = _interruptTargetHost;
-        if (shipA == null && target != null)
-            shipA = FindBorderForCard(target);
-        if (shipA == null || shipA.Tag is not Card ca || !IsShipCard(ca))
-        {
-            var ships = CollectAllShipBorders();
-            if (ships.Count < 2)
-            {
-                ShowPlayError("Hail: need two ships in play.");
-                return;
-            }
-            var pool = ships.Select(b => (Card)b.Tag!).ToList();
-            var pickA = PickCardFromList("Hail: first ship?", pool, "Hail", card);
-            if (pickA == null) return;
-            shipA = FindBorderForCard(pickA);
-            ca = pickA;
-        }
-        if (shipA == null) return;
+        // Two-ship mode (Pepsch): card stays in play; click two ships on the spaceline.
+        BeginHailMarkMode(card, controller);
+    }
 
-        var others = CollectAllShipBorders()
-            .Where(b => !ReferenceEquals(b, shipA) && b.Tag is Card)
-            .ToList();
-        if (others.Count == 0)
+    private void BeginHailMarkMode(Card card, int controller)
+    {
+        var ships = CollectAllShipBorders();
+        if (ships.Count < 2)
         {
-            ShowPlayError("Hail: need a second ship.");
+            ShowPlayError("Hail: need two ships in play.");
+            SendCardTo(card, controller, TimingRules.Destination.Discard);
+            RemoveOrphanTableCopies(card);
             return;
         }
-        Card? pickB = others.Count == 1
-            ? (Card)others[0].Tag!
-            : PickCardFromList(
-                "Hail: second ship (cannot battle the first this turn)?",
-                others.Select(b => (Card)b.Tag!).ToList(),
-                "Hail", card);
-        if (pickB == null) return;
-        var shipB = FindBorderForCard(pickB);
-        if (shipB == null || !HailRules.CanSelectSecondShip(ReferenceEquals(shipA, shipB)))
+
+        ClearCardActionUi();
+        _hailMarkCard = card;
+        _hailMarkOwner = controller;
+        _hailMarkShipA = null;
+        _cardActionMode = CardActionMode.HailMarkShips;
+        _actionSourceHost = null;
+
+        ClearTargetHighlights();
+        foreach (var s in ships)
+            AddTargetHighlight(s, Color.FromArgb(110, 255, 200, 60));
+
+        StatusText.Text =
+            "Hail: click first ship on the spaceline (lights up), then second ship. Right-click / empty = cancel.";
+        _session.Log.Add(_session.TurnNumber, $"P{controller}", "Hail: mark two ships");
+    }
+
+    private bool TryHailMarkShipClick(Border clicked)
+    {
+        if (clicked.Tag is not Card c || !IsShipCard(c))
         {
-            ShowPlayError("Hail: pick two different ships.");
+            StatusText.Text = "Hail: click a ship on the spaceline.";
+            return true;
+        }
+
+        if (_hailMarkShipA == null)
+        {
+            _hailMarkShipA = clicked;
+            ShowHostHighlight(clicked);
+            // Keep yellow highlights on remaining ships; strengthen selected.
+            AddTargetHighlight(clicked, Color.FromArgb(160, 80, 220, 255));
+            StatusText.Text =
+                $"Hail: {c.Name} marked. Click a second ship (cannot battle each other this turn).";
+            return true;
+        }
+
+        if (ReferenceEquals(clicked, _hailMarkShipA))
+        {
+            StatusText.Text = "Hail: pick a different second ship.";
+            return true;
+        }
+
+        CompleteHailMarkPair(clicked);
+        return true;
+    }
+
+    private void CompleteHailMarkPair(Border shipB)
+    {
+        var shipA = _hailMarkShipA;
+        var card = _hailMarkCard;
+        int owner = _hailMarkOwner;
+        if (shipA == null || card == null || shipA.Tag is not Card ca || shipB.Tag is not Card cb)
+        {
+            CancelHailMarkMode(discard: true);
             return;
         }
 
         _hailNoBattlePairs.Add((shipA, shipB));
-        StatusText.Text = $"Hail: {ca.Name} and {pickB.Name} cannot battle each other this turn.";
-        _session.Log.Add(_session.TurnNumber, $"P{controller}",
-            $"Hail no-battle {ca.Name} / {pickB.Name}");
+        StatusText.Text = $"Hail: {ca.Name} and {cb.Name} cannot battle each other this turn.";
+        _session.Log.Add(_session.TurnNumber, $"P{owner}",
+            $"Hail no-battle {ca.Name} / {cb.Name}");
+
+        _hailMarkShipA = null;
+        _hailMarkCard = null;
+        _hailMarkOwner = 0;
+        _cardActionMode = CardActionMode.None;
+        if (_hostHighlight != null)
+            _hostHighlight.Visibility = Visibility.Collapsed;
+        ClearTargetHighlights();
+
+        SendCardTo(card, owner != 0 ? owner : _activePlayer, TimingRules.Destination.Discard);
+        RemoveOrphanTableCopies(card);
+        RefreshZoneCounts();
     }
 
+    private void CancelHailMarkMode(bool discard)
+    {
+        var card = _hailMarkCard;
+        int owner = _hailMarkOwner;
+        _hailMarkCard = null;
+        _hailMarkOwner = 0;
+        _hailMarkShipA = null;
+        if (_cardActionMode == CardActionMode.HailMarkShips)
+            _cardActionMode = CardActionMode.None;
+        if (_hostHighlight != null)
+            _hostHighlight.Visibility = Visibility.Collapsed;
+        ClearTargetHighlights();
+        if (discard && card != null)
+        {
+            SendCardTo(card, owner != 0 ? owner : _activePlayer, TimingRules.Destination.Discard);
+            RemoveOrphanTableCopies(card);
+            RefreshZoneCounts();
+            StatusText.Text = "Hail cancelled.";
+        }
+    }
 
     private void ApplySubspaceInterference(Card card, int controller, Card? target)
     {

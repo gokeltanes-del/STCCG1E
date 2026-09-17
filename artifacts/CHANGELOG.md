@@ -1,5 +1,11 @@
 ## 2026-09-17 — Hail (AU) + table UI chrome
 
+## 2026-09-17 — Hail two-ship: spaceline click-mark (no Detail picker)
+
+- **Hail** OR-mode UX (Pepsch): play Hail to table (no ship drop target), then click two ships on the spaceline — each lights up; second click applies no-battle-this-turn and discards Hail. Fly-by path unchanged (`ShipFlyBy`).
+- Replaces DetailWindow list picker for identical ships.
+
+
 - **Hail** (Alternate Universe interrupt, Spock Soll): fly-by response window (`ShipFlyBy`) when a ship span-passes a location with an opposing ship — play Hail to stop it there (no further move this turn, not game-stopped); discard Hail (no attach). OR one play selecting two ships — they cannot battle each other this turn (EOT clear). Subspace Interference still nullifies Hail on the stack.
 - **UI:** removed inner `BoardInnerGlow` frame (outer `BoardFrameBorder` kept); ThinkTray chrome tightened (padding/margin/rail).
 

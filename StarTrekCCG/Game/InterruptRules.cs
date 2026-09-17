@@ -203,8 +203,8 @@ public static class InterruptRules
         if (IsTachyonDetectionGrid(card))
             return PlayTarget.AnyShip;
 
-        if (IsHail(card))
-            return PlayTarget.AnyShip;
+        // Hail two-ship: play to table, then click-mark ships (Pepsch). Fly-by = response only.
+        // Do not require a ship drop target.
 
         return PlayTarget.None;
     }
