@@ -19,7 +19,9 @@ public static class TimingRules
         InitiateShipBattle,
         InitiatePersonnelBattle,
         DrawCard,
-        ShipDestroyed
+        ShipDestroyed,
+        /// <summary>Ship span-flying past a location (Hail response window).</summary>
+        ShipFlyBy
     }
 
     public enum Destination
@@ -185,7 +187,8 @@ public static class TimingRules
             || n.Equals("Asteroid Sanctuary", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Subspace Schism", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Escape Pod", StringComparison.OrdinalIgnoreCase)
-            || n.Equals("Subspace Interference", StringComparison.OrdinalIgnoreCase);
+            || n.Equals("Subspace Interference", StringComparison.OrdinalIgnoreCase)
+            || n.Equals("Hail", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -302,6 +305,17 @@ public static class TimingRules
             if (!InterruptRules.IsInterferenceNullifyTarget(top.Card))
                 return (false, "Subspace Interference nullifies only Incoming Message, Hail, or Subspace Schism.");
             return (true, "Nullifies " + (top.Card.Name ?? "that Interrupt") + ".");
+        }
+
+
+        if (n.Equals("Hail", StringComparison.OrdinalIgnoreCase))
+        {
+            // Fly-by: play on the flying-by ship while ShipFlyBy is on the stack.
+            if (top.Kind != ActionKind.ShipFlyBy)
+                return (false, "Hail: no ship flying by on the stack.");
+            if (top.AttackerHost == null || top.AttackerCard == null)
+                return (false, "Hail: flying-by ship missing.");
+            return (true, "Stop the flying-by ship at your location (may not move further this turn).");
         }
 
 return (false, $"\"{n}\" is not a valid response in this window.");

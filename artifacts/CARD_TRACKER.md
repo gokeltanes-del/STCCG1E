@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-17 (Jadzia — Subspace Interference working; Asteroid Sanctuary partial; Hail pending)
+Last updated: 2026-09-17 (Jadzia — Subspace Interference working; Asteroid Sanctuary partial; Hail working (Josef tip))
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 

@@ -337,6 +337,16 @@ public partial class TableWindow : Window
     private int _pendingExtraDraws;
     /// <summary>First Wormhole locked an exposed ship; second must drop on a location.</summary>
     private Border? _wormholeShip;
+    /// <summary>Hail: ships that may not move further this turn (fly-by stop; not game-stopped).</summary>
+    private readonly HashSet<Border> _hailNoMoveThisTurn = new();
+    /// <summary>Hail: unordered ship pairs that cannot battle each other this turn.</summary>
+    private readonly List<(Border A, Border B)> _hailNoBattlePairs = new();
+    /// <summary>Deferred span fly paused for Hail fly-by response window.</summary>
+    private Border? _pendingHailFlyShip;
+    private Border? _pendingHailFlyFrom;
+    private Border? _pendingHailFlyTo;
+    private Border? _pendingHailFlyPassMission;
+    private int _pendingHailFlyOwner;
     /// <summary>Drag-Peek: host under cursor while a targeting card is held.</summary>
     private Border? _peekHoverHost;
     private System.Windows.Threading.DispatcherTimer? _peekHoverTimer;
@@ -3635,6 +3645,11 @@ public partial class TableWindow : Window
     private void BeginShipBattleStack(
         Border attacker, Card atkCard, Border defender, Card defCard, int atkOwner, int defOwner)
     {
+        if (HailBlocksBattle(attacker, defender))
+        {
+            ShowPlayError("Hail: those two ships cannot battle each other this turn.");
+            return;
+        }
         var action = new TimingRules.PendingAction
         {
             Kind = TimingRules.ActionKind.InitiateShipBattle,
@@ -3709,7 +3724,16 @@ public partial class TableWindow : Window
         var hand = player == 1 ? _handCards : _oppHandCards;
         var table = player == 1 ? _tablePermanentCards : _oppTablePermanentCards;
         var list = TimingRules.CollectLegalResponses(hand, table, top, player);
-        return list.Where(item => !InterruptRules.IsSubspaceSchism(item.Card) || SchismAvailable(player)).ToList();
+        return list.Where(item =>
+        {
+            if (InterruptRules.IsSubspaceSchism(item.Card) && !SchismAvailable(player))
+                return false;
+            // Hail fly-by: only the player who owns a ship at the pass location.
+            if (InterruptRules.IsHail(item.Card) && top.Kind == TimingRules.ActionKind.ShipFlyBy
+                && player != top.DefenderOwner)
+                return false;
+            return true;
+        }).ToList();
     }
 
     private List<Card> LegalResponsesFor(IEnumerable<Card> hand, TimingRules.PendingAction top, int owner)
@@ -3730,6 +3754,8 @@ public partial class TableWindow : Window
             MarkSchismUsed(response.Controller);
         if (InterruptRules.IsEscapePod(response.Card) && target.Kind == TimingRules.ActionKind.ShipDestroyed)
             ApplyEscapePodFromResponse(response.Controller, target);
+        if (InterruptRules.IsHail(response.Card) && target.Kind == TimingRules.ActionKind.ShipFlyBy)
+            ApplyHailFlyByFromResponse(response.Controller, target);
         StatusText.Text = $"Response {response.Card.Name}: {check.reason}";
     }
 
@@ -4554,6 +4580,21 @@ public partial class TableWindow : Window
             RefreshZoneCounts();
             RefreshHandStrips();
             StatusText.Text = $"P{drawer} draws {a.Card.Name}.";
+            return;
+        }
+
+        if (a.Kind == TimingRules.ActionKind.ShipFlyBy)
+        {
+            if (a.Cancelled)
+            {
+                // Hail already stopped the ship at the pass location in ApplyHailFlyByFromResponse.
+                _pendingHailFlyShip = null;
+                _pendingHailFlyFrom = null;
+                _pendingHailFlyTo = null;
+                _pendingHailFlyPassMission = null;
+                return;
+            }
+            CompletePendingHailFly();
             return;
         }
 
@@ -7873,6 +7914,18 @@ public partial class TableWindow : Window
         return preferred;
     }
 
+
+    private void ClearHailTurnState()
+    {
+        _hailNoMoveThisTurn.Clear();
+        _hailNoBattlePairs.Clear();
+        _pendingHailFlyShip = null;
+        _pendingHailFlyFrom = null;
+        _pendingHailFlyTo = null;
+        _pendingHailFlyPassMission = null;
+        _pendingHailFlyOwner = 0;
+    }
+
     private void CompleteTurnChange()
     {
         _endTurnAfterDrawStack = false;
@@ -7881,6 +7934,7 @@ public partial class TableWindow : Window
         _energyVortexBlocked.Clear();
         SyncSchismRound();
         _wormholeShip = null;
+        ClearHailTurnState();
 
         _session.EndTurn();
 
@@ -9361,6 +9415,7 @@ public partial class TableWindow : Window
         _schismRound = 0;
         _escapePods.Clear();
         _wormholeShip = null;
+        ClearHailTurnState();
         _pendingExtraDraws = 0;
         _endTurnAfterDrawStack = false;
         _attachedEvents.Clear();
@@ -10289,6 +10344,11 @@ public partial class TableWindow : Window
             StatusText.Text = $"{ship.Name} is docked — undock before flying.";
             return false;
         }
+        if (_hailNoMoveThisTurn.Contains(shipBorder))
+        {
+            ShowPlayError($"Hail: {ship.Name} may not move further this turn.");
+            return false;
+        }
         if (owner != _activePlayer)
         {
             StatusText.Text = "Only move your own ships.";
@@ -10355,6 +10415,10 @@ public partial class TableWindow : Window
             StatusText.Text = move.Reason;
             return false;
         }
+
+        // Hail fly-by: pause before relocating when path passes an opposing ship location.
+        if (TryArmHailFlyByWindow(shipBorder, ship, fromMission, toMission, fromIdx, toIdx, boardLine, wrap))
+            return false;
 
         ApplyEventAfterMove(shipBorder, ship,
             fromMission != null ? IndexOfMission(fromMission) : -1,
@@ -13977,6 +14041,9 @@ public partial class TableWindow : Window
             case InterruptRules.Effect.SubspaceInterference:
                 ApplySubspaceInterference(card, controller, target);
                 break;
+            case InterruptRules.Effect.Hail:
+                ApplyHail(card, controller, target);
+                break;
             case InterruptRules.Effect.EmergencyBeam:
                 {
                     var host = _interruptTargetHost;
@@ -15063,11 +15130,6 @@ public partial class TableWindow : Window
             BoardTintOverlay.Opacity = 0.28;
             BoardFrameBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(0x50, 0x90, 0xE0));
             BoardFrameBorder.BorderThickness = new Thickness(3);
-            if (BoardInnerGlow != null)
-            {
-                BoardInnerGlow.BorderBrush = new SolidColorBrush(Color.FromRgb(0x70, 0xB0, 0xFF));
-                BoardInnerGlow.Opacity = 0.65;
-            }
             if (OppHandStripBorder != null)
                 OppHandStripBorder.BorderThickness = new Thickness(0, 0, 0, 3);
             if (PlayerHandStripBorder != null)
@@ -15079,11 +15141,6 @@ public partial class TableWindow : Window
             BoardTintOverlay.Opacity = 0.26;
             BoardFrameBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(0x50, 0xC0, 0x70));
             BoardFrameBorder.BorderThickness = new Thickness(3);
-            if (BoardInnerGlow != null)
-            {
-                BoardInnerGlow.BorderBrush = new SolidColorBrush(Color.FromRgb(0x70, 0xE0, 0x90));
-                BoardInnerGlow.Opacity = 0.65;
-            }
             if (PlayerHandStripBorder != null)
                 PlayerHandStripBorder.BorderThickness = new Thickness(0, 3, 0, 0);
             if (OppHandStripBorder != null)
@@ -16002,7 +16059,7 @@ public partial class TableWindow : Window
                 StatusText.Text = "Senior Staff Meeting: first dilemma of the next space attempt is discarded.";
                 return;
             case NamedInterruptRules.NamedAuOutcome.Hail:
-                StatusText.Text = "Hail: flying-by ship must stop here, or two ships cannot battle this turn (choose via ship orders).";
+                ApplyHail(card, controller, target: null);
                 return;
             default:
                 return;
@@ -18571,6 +18628,222 @@ public partial class TableWindow : Window
             if (ae.Host != null) UpdateHostBadge(ae.Host);
         }
     }
+
+
+    private bool HailBlocksBattle(Border a, Border b)
+    {
+        foreach (var (x, y) in _hailNoBattlePairs)
+        {
+            if (HailRules.IsNoBattlePair(
+                    ReferenceEquals(x, a), ReferenceEquals(y, b),
+                    ReferenceEquals(x, b), ReferenceEquals(y, a)))
+                return true;
+        }
+        return false;
+    }
+
+    private List<Border> CollectAllShipBorders()
+    {
+        var list = new List<Border>();
+        foreach (var b in TableCanvas.Children.OfType<Border>())
+        {
+            if (b.Visibility != Visibility.Visible) continue;
+            if (b.Tag is Card c && IsShipCard(c))
+                list.Add(b);
+        }
+        return list;
+    }
+
+    private bool _suppressHailFlyByArm;
+
+    /// <summary>
+    /// Spock: if path visits a location with an opposing ship (fly-by), open Hail response
+    /// before completing the span move. Returns true if the move was deferred.
+    /// </summary>
+    private bool TryArmHailFlyByWindow(
+        Border shipBorder, Card ship, Border? fromMission, Border toMission,
+        int fromIdx, int toIdx, IReadOnlyList<Location> boardLine, bool wrap)
+    {
+        if (_suppressHailFlyByArm) return false;
+        if (_stack.IsOpen) return false;
+        if (fromMission == null || fromIdx < 0 || toIdx < 0) return false;
+        if (fromIdx == toIdx) return false;
+
+        int flyerOwner = GetBorderOwner(shipBorder);
+        if (flyerOwner == 0) flyerOwner = _activePlayer;
+        int count = boardLine.Count;
+        int directCost = MovementRules.RangeCostBetween(boardLine, fromIdx, toIdx, wrapEnds: false);
+        int wrapCost = MovementRules.RangeCostBetween(boardLine, fromIdx, toIdx, wrapEnds: true);
+        bool useWrap = wrap && WnohgbRules.UseWrapPath(wrap, directCost, wrapCost);
+
+        var uiLine = MissionsOnSameSpaceline(fromMission);
+        for (int passUi = 0; passUi < uiLine.Count; passUi++)
+        {
+            var passMission = uiLine[passUi];
+            int passBoard = BoardIndexOf(boardLine, passMission);
+            if (!HailRules.IsFlyByPass(fromIdx, toIdx, passBoard, count, useWrap))
+                continue;
+
+            var dockables = GetDockablesUnderMission(passMission);
+            Border? opponentShip = null;
+            int responder = 0;
+            foreach (var d in dockables)
+            {
+                if (d.Tag is not Card dc || !IsShipCard(dc)) continue;
+                int own = GetBorderOwner(d);
+                if (own == 0 || own == flyerOwner) continue;
+                opponentShip = d;
+                responder = own;
+                break;
+            }
+            if (opponentShip == null || responder == 0) continue;
+
+            _pendingHailFlyShip = shipBorder;
+            _pendingHailFlyFrom = fromMission;
+            _pendingHailFlyTo = toMission;
+            _pendingHailFlyPassMission = passMission;
+            _pendingHailFlyOwner = flyerOwner;
+
+            var action = new TimingRules.PendingAction
+            {
+                Kind = TimingRules.ActionKind.ShipFlyBy,
+                Controller = flyerOwner,
+                AttackerHost = shipBorder,
+                AttackerCard = ship,
+                DefenderHost = passMission,
+                DefenderCard = passMission.Tag as Card,
+                DefenderOwner = responder,
+                Summary = $"P{flyerOwner} {ship.Name} flying by {(passMission.Tag as Card)?.Name ?? "location"}"
+            };
+            _stack.Push(action);
+            _session.Log.Add(_session.TurnNumber, $"P{flyerOwner}",
+                $"{ship.Name} flying by — Hail window for P{responder}");
+            StatusText.Text = $"{ship.Name} flying by — P{responder} may Hail.";
+            OpenResponseWindow(responder);
+            ScheduleActionAnnounce(500);
+            return true;
+        }
+        return false;
+    }
+
+    private void CompletePendingHailFly()
+    {
+        var shipB = _pendingHailFlyShip;
+        var from = _pendingHailFlyFrom;
+        var to = _pendingHailFlyTo;
+        _pendingHailFlyShip = null;
+        _pendingHailFlyFrom = null;
+        _pendingHailFlyTo = null;
+        _pendingHailFlyPassMission = null;
+        if (shipB == null || to == null || shipB.Tag is not Card ship)
+            return;
+        if (!TryMoveShipWithRulesIgnoringHailFlyBy(shipB, ship, from, to))
+            StatusText.Text = $"{ship.Name}: fly-by passed; move could not complete.";
+    }
+
+    private bool TryMoveShipWithRulesIgnoringHailFlyBy(Border shipBorder, Card ship, Border? fromMission, Border toMission)
+    {
+        _suppressHailFlyByArm = true;
+        try { return TryMoveShipWithRules(shipBorder, ship, fromMission, toMission); }
+        finally { _suppressHailFlyByArm = false; }
+    }
+
+    private void ApplyHailFlyByFromResponse(int controller, TimingRules.PendingAction fly)
+    {
+        var shipB = fly.AttackerHost as Border ?? _pendingHailFlyShip;
+        var pass = fly.DefenderHost as Border ?? _pendingHailFlyPassMission;
+        if (shipB == null || shipB.Tag is not Card ship)
+            return;
+        if (pass == null)
+            pass = _pendingHailFlyPassMission;
+        if (pass != null)
+        {
+            RelocateShipToLocation(shipB, pass);
+            var from = _pendingHailFlyFrom;
+            if (from != null)
+            {
+                var boardLine = FlyBoardLine(from);
+                int fromIdx = BoardIndexOf(boardLine, from);
+                int passIdx = BoardIndexOf(boardLine, pass);
+                if (fromIdx >= 0 && passIdx >= 0)
+                {
+                    int own = _pendingHailFlyOwner != 0 ? _pendingHailFlyOwner : _activePlayer;
+                    bool wrap = WnohgbRules.WrapAllowed(PlayerHasWnohgb(own), boardLine.Count);
+                    int cost = MovementRules.RangeCostBetween(boardLine, fromIdx, passIdx, wrapEnds: wrap);
+                    int left = GetRemainingRange(shipB, ship);
+                    SetShipRangeLeft(shipB, ship, Math.Max(0, left - cost));
+                }
+            }
+        }
+        _hailNoMoveThisTurn.Add(shipB);
+        StatusText.Text = $"Hail: {ship.Name} stops at your location (may not move further this turn; not game-stopped).";
+        _session.Log.Add(_session.TurnNumber, $"P{controller}",
+            $"Hail fly-by stop {ship.Name}");
+        _pendingHailFlyShip = null;
+        _pendingHailFlyFrom = null;
+        _pendingHailFlyTo = null;
+        _pendingHailFlyPassMission = null;
+    }
+
+    /// <summary>
+    /// Hail (AU): fly-by handled via response; here = two-ship mode (one play, pick two ships).
+    /// </summary>
+    private void ApplyHail(Card card, int controller, Card? target)
+    {
+        if (_stack.Items.Any(a => a.Kind == TimingRules.ActionKind.ShipFlyBy && a.Cancelled
+                                  && string.Equals(a.CancelledBy, "Hail", StringComparison.OrdinalIgnoreCase)))
+        {
+            StatusText.Text = "Hail: flying-by ship stopped.";
+            return;
+        }
+
+        Border? shipA = _interruptTargetHost;
+        if (shipA == null && target != null)
+            shipA = FindBorderForCard(target);
+        if (shipA == null || shipA.Tag is not Card ca || !IsShipCard(ca))
+        {
+            var ships = CollectAllShipBorders();
+            if (ships.Count < 2)
+            {
+                ShowPlayError("Hail: need two ships in play.");
+                return;
+            }
+            var pool = ships.Select(b => (Card)b.Tag!).ToList();
+            var pickA = PickCardFromList("Hail: first ship?", pool, "Hail", card);
+            if (pickA == null) return;
+            shipA = FindBorderForCard(pickA);
+            ca = pickA;
+        }
+        if (shipA == null) return;
+
+        var others = CollectAllShipBorders()
+            .Where(b => !ReferenceEquals(b, shipA) && b.Tag is Card)
+            .ToList();
+        if (others.Count == 0)
+        {
+            ShowPlayError("Hail: need a second ship.");
+            return;
+        }
+        Card? pickB = others.Count == 1
+            ? (Card)others[0].Tag!
+            : PickCardFromList(
+                "Hail: second ship (cannot battle the first this turn)?",
+                others.Select(b => (Card)b.Tag!).ToList(),
+                "Hail", card);
+        if (pickB == null) return;
+        var shipB = FindBorderForCard(pickB);
+        if (shipB == null || !HailRules.CanSelectSecondShip(ReferenceEquals(shipA, shipB)))
+        {
+            ShowPlayError("Hail: pick two different ships.");
+            return;
+        }
+
+        _hailNoBattlePairs.Add((shipA, shipB));
+        StatusText.Text = $"Hail: {ca.Name} and {pickB.Name} cannot battle each other this turn.";
+        _session.Log.Add(_session.TurnNumber, $"P{controller}",
+            $"Hail no-battle {ca.Name} / {pickB.Name}");
+    }
+
 
     private void ApplySubspaceInterference(Card card, int controller, Card? target)
     {

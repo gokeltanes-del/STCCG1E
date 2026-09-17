@@ -1,3 +1,8 @@
+## 2026-09-17 — Hail (AU) + table UI chrome
+
+- **Hail** (Alternate Universe interrupt, Spock Soll): fly-by response window (`ShipFlyBy`) when a ship span-passes a location with an opposing ship — play Hail to stop it there (no further move this turn, not game-stopped); discard Hail (no attach). OR one play selecting two ships — they cannot battle each other this turn (EOT clear). Subspace Interference still nullifies Hail on the stack.
+- **UI:** removed inner `BoardInnerGlow` frame (outer `BoardFrameBorder` kept); ThinkTray chrome tightened (padding/margin/rail).
+
 ﻿# Changelog
 
 Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.

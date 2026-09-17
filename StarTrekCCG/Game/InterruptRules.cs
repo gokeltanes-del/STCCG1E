@@ -46,6 +46,7 @@ public static class InterruptRules
         ParticleFountain,
         ShipSeizure,
         SubspaceInterference,
+        Hail,
         SubspaceSchism,
         TemporalRift,
         TheDevil,
@@ -200,6 +201,9 @@ public static class InterruptRules
             return PlayTarget.AnyShip;
 
         if (IsTachyonDetectionGrid(card))
+            return PlayTarget.AnyShip;
+
+        if (IsHail(card))
             return PlayTarget.AnyShip;
 
         return PlayTarget.None;
@@ -526,7 +530,7 @@ public static class InterruptRules
             "Hail" => new Result
             {
                 Kind = Kind.Instant,
-                Effect = Effect.None,
+                Effect = Effect.Hail,
                 Message = "Ship flying by must stop here OR two ships cannot battle each other this turn."
             },
             "Howard Heirloom Candle" => new Result

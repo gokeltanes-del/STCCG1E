@@ -173,7 +173,6 @@
                         <Grid>
                             <Image x:Name="BoardBackdrop" Stretch="UniformToFill" StretchDirection="Both" RenderOptions.BitmapScalingMode="HighQuality" IsHitTestVisible="False"/>
                             <Border x:Name="BoardTintOverlay" Background="#121E18" Opacity="0.22" IsHitTestVisible="False"/>
-                            <Border x:Name="BoardInnerGlow" BorderBrush="#60C888" BorderThickness="2" Margin="3" CornerRadius="2" Opacity="0.55" IsHitTestVisible="False"/>
                             <Border x:Name="BoardPlayHalo" Visibility="Collapsed" BorderBrush="#70E8FF" BorderThickness="5" CornerRadius="3" Background="#2800C0E8" IsHitTestVisible="False"/>
                             <ScrollViewer x:Name="TableScroll" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden" CanContentScroll="False" PanningMode="Both">
                                 <Canvas x:Name="TableCanvas" Width="2800" Height="1400" Background="Transparent" MouseLeftButtonDown="TableCanvas_MouseLeftButtonDown" MouseWheel="TableCanvas_MouseWheel" MouseRightButtonDown="TableCanvas_MouseRightButtonDown" MouseRightButtonUp="TableCanvas_MouseRightButtonUp" MouseMove="TableCanvas_MouseMove">
@@ -184,15 +183,15 @@
                             </ScrollViewer>
                             <!-- Think Tray: Übersicht legaler Responses über der Hand -->
                             <!-- Pepsch: dynamic width (cards + left rail), centered over responder hand -->
-                            <Border x:Name="ThinkTrayBorder" Visibility="Collapsed" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="14,6" Background="#EE161622" BorderBrush="#AB47BC" BorderThickness="2" CornerRadius="6" Padding="6,10" Panel.ZIndex="220" MaxHeight="158">
+                            <Border x:Name="ThinkTrayBorder" Visibility="Collapsed" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="8,4" Background="#EE161622" BorderBrush="#AB47BC" BorderThickness="2" CornerRadius="5" Padding="3,4" Panel.ZIndex="220" MaxHeight="140">
                                 <StackPanel Orientation="Horizontal">
                                     <!-- Left rail: title / countdown / hints / Pass (no top banner duplicate) -->
-                                    <Border x:Name="ThinkTrayRail" Width="108" Margin="0,0,4,0" Padding="6,8" Background="#221828" CornerRadius="4" VerticalAlignment="Stretch">
+                                    <Border x:Name="ThinkTrayRail" Width="96" Margin="0,0,2,0" Padding="4,4" Background="#221828" CornerRadius="4" VerticalAlignment="Stretch">
                                         <StackPanel VerticalAlignment="Center">
-                                            <TextBlock x:Name="ThinkTrayTitle" Text="LEGAL RESPONSES (P2)" Foreground="#E1BEE7" FontSize="11" FontWeight="Bold" TextWrapping="Wrap"/>
+                                            <TextBlock x:Name="ThinkTrayTitle" Text="LEGAL RESPONSES (P2)" Foreground="#E1BEE7" FontSize="10" FontWeight="Bold" TextWrapping="Wrap"/>
                                             <TextBlock x:Name="ThinkTrayCountdown" Text="3s" Foreground="#FFE082" FontSize="11" FontWeight="SemiBold" Margin="0,4,0,0"/>
                                             <TextBlock Text="Click play&#10;RMB large&#10;Space = Pass" Foreground="#AAA" FontSize="9" LineHeight="12" Margin="0,6,0,0"/>
-                                            <Button x:Name="BtnThinkPass" Content="Pass" Click="BtnThinkPass_Click" Padding="6,3" Margin="0,6,0,0" Background="#3A3A58" Foreground="White" BorderBrush="#5A5A78" Cursor="Hand" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Stretch"/>
+                                            <Button x:Name="BtnThinkPass" Content="Pass" Click="BtnThinkPass_Click" Padding="4,2" Margin="0,4,0,0" Background="#3A3A58" Foreground="White" BorderBrush="#5A5A78" Cursor="Hand" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Stretch"/>
                                         </StackPanel>
                                     </Border>
                                     <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" VerticalAlignment="Center">
