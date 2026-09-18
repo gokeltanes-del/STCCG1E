@@ -17,6 +17,10 @@ See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md, CARD_TRACKER.md (Jadzia).
 - **Dilemma Cure System 7.2.2.3** - **DONE** (Pepsch green: Archer, Alien Abduction, Phased Matter 2026-09-13; Fix Team-Stop / Curable AttachContinue 7.2.2.3 & 7.2.6)
 - **Staffing/Fly/Battle Gaps G2-G7** - **DONE** (`2cd5bc8`)
 - **Glossary/Compendium** - Welle 2 Control/Owner/Present ACTIVE (Docs)
+- **Rule cites (Code + Detailfenster)** - **ACTIVE** (Pepsch 2026-09-18)
+  - Stehende Praxis ab sofort: Decide/Apply kommentieren mit Compendium-§ und/oder Glossary-Eintrag (z.B. `// Compendium 7.1.2` / `// Glossary: beaming`).
+  - Detailfenster / Action-Hinweis: wenn die Engine handelt, kurz sagen nach welcher Regel (Glossary/Compendium) — nicht nur was passiert.
+  - Retrofit: bestehende Stellen nachziehen (teilweise schon da); kein Big-Bang, mit Karten-/Extract-Arbeit mitführen. Data bei jedem neuen Tip; Coverage bei Seven.
 - **Premiere Dilemma wave** ACTIVE (einzeln; **Temporal Causality Loop** — Glossary-treu Lock; Data Implement-Go; Coverage/DONE erst nach Pepsch green)
 
 ## P1 - Parked
@@ -37,3 +41,4 @@ See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md, CARD_TRACKER.md (Jadzia).
 - Private, non-commercial
 - BoardStore + GameState = truth; TableWindow = view
 - Workflow: Josef edit+commit only; Pepsch tests then pushes (no bot-push)
+- **Rule cites:** Code-Kommentar = wo welche Regel sitzt; Detailfenster = welche Regel gerade gegriffen hat. Kein DONE ohne Pepsch green wenn UX betroffen.
