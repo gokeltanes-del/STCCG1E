@@ -112,6 +112,8 @@ public static class DilemmaRules
         public Func<Card, bool>? IsPersonnelBeamBlocked { get; init; }
         /// <summary>Skills disabled for this encounter team (e.g. Empathy under TwoDim on ship).</summary>
         public IReadOnlyList<string>? DisabledSkills { get; init; }
+        /// <summary>Tsiolkovsky Infection on ship: each personnel loses first-listed skill (not cumulative).</summary>
+        public bool LoseFirstListedSkill { get; init; }
     }
 
     public static Result Resolve(Ctx ctx)
@@ -537,7 +539,7 @@ public static class DilemmaRules
     private static readonly List<Card> _tmp = new();
 
     private static ModifierRules.EffectiveProfile Eff(Ctx ctx, Card p) =>
-        ModifierRules.ResolvePersonnel(p, ctx.Present, ctx.AttemptingPlayer, ctx.DisabledSkills);
+        ModifierRules.ResolvePersonnel(p, ctx.Present, ctx.AttemptingPlayer, ctx.DisabledSkills, ctx.LoseFirstListedSkill);
 
     private static (int integ, int cunn, int str) Sum(Ctx ctx)
     {
@@ -2223,6 +2225,35 @@ public static class DilemmaRules
         if (placed.Persist != PersistKind.Tsiolkovsky)
             return $"Tsiolkovsky placed: expected Persist Tsiolkovsky, got {placed.Persist}";
 
+        // Apply: first-listed skill stripped (not attributes -3); not cumulative
+        var sci = P("Sci", "SCIENCE", "SCIENCE Physics Biology");
+        string? first = MissionRules.FirstListedSkill(sci);
+        if (!string.Equals(first, "SCIENCE", StringComparison.OrdinalIgnoreCase))
+            return $"Tsiolkovsky FirstListedSkill: expected SCIENCE, got {first}";
+        var epLoss = ModifierRules.ResolvePersonnel(sci, new[] { sci }, 1, loseFirstListedSkill: true);
+        if (epLoss.Skills.ContainsKey("SCIENCE"))
+            return "Tsiolkovsky apply: SCIENCE (first-listed) should be removed";
+        if (!epLoss.Skills.ContainsKey("Physics") || !epLoss.Skills.ContainsKey("Biology"))
+            return "Tsiolkovsky apply: later skills Physics/Biology should remain";
+        if (!epLoss.Applied.Any(m => m.Kind == ModifierRules.ModifierKind.SkillDisable
+                                     && m.SourceName == ModifierRules.TsiolkovskySourceName
+                                     && m.StatOrSkill.Equals("SCIENCE", StringComparison.OrdinalIgnoreCase)))
+            return "Tsiolkovsky apply: expected SkillDisable modifier for SCIENCE";
+        // Not cumulative: second pass still only one disable
+        var ep2 = ModifierRules.ResolvePersonnel(sci, new[] { sci }, 1, loseFirstListedSkill: true);
+        int disables = ep2.Applied.Count(m => m.Kind == ModifierRules.ModifierKind.SkillDisable
+                                              && m.SourceName == ModifierRules.TsiolkovskySourceName);
+        if (disables != 1)
+            return $"Tsiolkovsky not cumulative: expected 1 SkillDisable, got {disables}";
+
+        // Summary must describe skill loss, not attributes -3
+        string summary = FormatHostEffectSummary(PersistKind.Tsiolkovsky,
+            new Card { Name = "Tsiolkovsky Infection", Type = "Dilemma" }, 0);
+        if (summary.IndexOf("attributes", StringComparison.OrdinalIgnoreCase) >= 0)
+            return $"Tsiolkovsky summary must not mention attributes: {summary}";
+        if (summary.IndexOf("first-listed skill", StringComparison.OrdinalIgnoreCase) < 0)
+            return $"Tsiolkovsky summary must mention first-listed skill: {summary}";
+
         return null;
     }
 
@@ -3743,7 +3774,7 @@ public static class DilemmaRules
             PersistKind.RemFatigue => "countdown; crew dies if not cured (MEDICAL×3)",
             PersistKind.Nitrium => "countdown 2; ship destroyed unless SCIENCE×2 or ENGINEER×2",
             PersistKind.Menthar => "ship cannot move (cure: 2 ENGINEER)",
-            PersistKind.Tsiolkovsky => "attributes −3 until MEDICAL×3",
+            PersistKind.Tsiolkovsky => "personnel lose first-listed skill (cure: 3 MEDICAL)",
             PersistKind.TwoDim => "Empathy disabled; ship cannot move (cure: ENGINEER + SCIENCE)",
             PersistKind.Cytherians => "must move toward far end; +15 when reached",
             PersistKind.Conundrum => "must chase opponent ship",

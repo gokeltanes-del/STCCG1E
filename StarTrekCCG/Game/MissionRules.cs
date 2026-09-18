@@ -149,7 +149,58 @@ public static class MissionRules
         return s;
     }
 
-    public static (int integ, int cunn, int str) ParseAttributes(Card p)
+    
+    /// <summary>
+    /// First-listed skill from the printed skill box (Glossary): left-to-right in skill text,
+    /// else classification. Used by Tsiolkovsky Infection (not cumulative).
+    /// </summary>
+    public static string? FirstListedSkill(Card personnel)
+    {
+        if (personnel == null) return null;
+
+        string text = (personnel.Text ?? "").Trim();
+        if (text.Length > 0)
+        {
+            var candidates = KnownMultiWordSkills
+                .Concat(Classifications)
+                .Concat(KnownSingleSkills)
+                .Distinct(StringComparer.OrdinalIgnoreCase);
+
+            int bestPos = int.MaxValue;
+            int bestLen = -1;
+            string? best = null;
+            foreach (var skill in candidates)
+            {
+                var rx = new Regex(
+                    @"\b" + Regex.Escape(skill) + @"\b",
+                    RegexOptions.IgnoreCase);
+                var match = rx.Match(text);
+                if (!match.Success) continue;
+                if (match.Index < bestPos || (match.Index == bestPos && skill.Length > bestLen))
+                {
+                    bestPos = match.Index;
+                    bestLen = skill.Length;
+                    best = skill;
+                }
+            }
+            if (best != null)
+                return NormalizeSkill(best);
+        }
+
+        string cls = (personnel.Class ?? "").Trim();
+        if (cls.Length > 0)
+        {
+            foreach (var part in cls.Split(new[] { '/', ',', ';' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                string c = part.Trim();
+                if (c.Length > 0)
+                    return NormalizeSkill(c);
+            }
+        }
+        return null;
+    }
+
+public static (int integ, int cunn, int str) ParseAttributes(Card p)
     {
         int.TryParse((p.IntegrityOrRange ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int i);
         int.TryParse((p.CunningOrWeapons ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int c);
@@ -433,7 +484,8 @@ public static class MissionRules
         int attemptingPlayer = 0,
         int missionOwner = 0,
         IEnumerable<string>? extraMissionIcons = null,
-        IEnumerable<string>? disabledSkills = null)
+        IEnumerable<string>? disabledSkills = null,
+        bool loseFirstListedSkill = false)
     {
         var teamList = team.ToList();
         if (teamList.Count == 0)
@@ -457,7 +509,7 @@ public static class MissionRules
         foreach (var p in teamList)
         {
             if (!ModifierRules.IsPersonnelCard(p)) continue;
-            var ep = ModifierRules.ResolvePersonnel(p, teamList, owner: attemptingPlayer, disabledSkills);
+            var ep = ModifierRules.ResolvePersonnel(p, teamList, owner: attemptingPlayer, disabledSkills, loseFirstListedSkill);
             foreach (var kv in ep.Skills)
                 pool[kv.Key] = pool.GetValueOrDefault(kv.Key) + kv.Value;
             integ += ep.Integrity;

@@ -215,11 +215,41 @@ public static class ModifierRules
         }
     }
 
+    public const string TsiolkovskySourceName = "Tsiolkovsky Infection";
+
+    /// <summary>
+    /// Tsiolkovsky Infection: each personnel loses printed first-listed skill (not cumulative).
+    /// </summary>
+    public static void ApplyFirstListedSkillLoss(
+        Dictionary<string, int> skills,
+        List<Modifier> applied,
+        Card subject,
+        int owner)
+    {
+        if (skills == null || applied == null || subject == null) return;
+        // Not cumulative: one strip per personnel from this source.
+        if (applied.Any(m => m.Kind == ModifierKind.SkillDisable
+                             && m.SourceName.Equals(TsiolkovskySourceName, StringComparison.OrdinalIgnoreCase)))
+            return;
+
+        string? first = null;
+        if (subject.FramedOfMind && subject.FrameSkills != null && subject.FrameSkills.Count > 0)
+            first = subject.FrameSkills[0];
+        first ??= MissionRules.FirstListedSkill(subject);
+        if (string.IsNullOrWhiteSpace(first)) return;
+
+        var hit = skills.Keys.FirstOrDefault(k => k.Equals(first, StringComparison.OrdinalIgnoreCase));
+        if (hit == null) return;
+        skills.Remove(hit);
+        applied.Add(new Modifier(TsiolkovskySourceName, ModifierKind.SkillDisable, hit, 0, owner));
+    }
+
     public static EffectiveProfile ResolvePersonnel(
         Card subject,
         IEnumerable<Card> presentCards,
         int owner,
-        IEnumerable<string>? disabledSkills = null)
+        IEnumerable<string>? disabledSkills = null,
+        bool loseFirstListedSkill = false)
     {
         var present = presentCards?.ToList() ?? new List<Card>();
         var (bi, bc, bs) = MissionRules.ParseAttributes(subject);
@@ -243,6 +273,8 @@ public static class ModifierRules
                 new("Frame of Mind", ModifierKind.AttrBonus, "ALL", 0, owner)
             };
             ApplySkillDisables(kept, fomApplied, disabledSkills, owner);
+            if (loseFirstListedSkill)
+                ApplyFirstListedSkillLoss(kept, fomApplied, subject, owner);
             return new EffectiveProfile
             {
                 Card = subject,
@@ -345,6 +377,8 @@ public static class ModifierRules
         }
 
         ApplySkillDisables(skills, applied, disabledSkills, owner);
+        if (loseFirstListedSkill)
+            ApplyFirstListedSkillLoss(skills, applied, subject, owner);
 
         return new EffectiveProfile
         {
@@ -365,7 +399,8 @@ public static class ModifierRules
     public static TeamSummary SummarizeTeam(
         IEnumerable<Card> presentCards,
         int owner,
-        IEnumerable<string>? disabledSkills = null)
+        IEnumerable<string>? disabledSkills = null,
+        bool loseFirstListedSkill = false)
     {
         var present = presentCards?.ToList() ?? new List<Card>();
         var personnel = present.Where(IsPersonnelCard).ToList();
@@ -378,7 +413,7 @@ public static class ModifierRules
 
         foreach (var p in personnel)
         {
-            var ep = ResolvePersonnel(p, present, owner, disabledSkills);
+            var ep = ResolvePersonnel(p, present, owner, disabledSkills, loseFirstListedSkill);
             integ += ep.Integrity;
             cunn += ep.Cunning;
             str += ep.Strength;

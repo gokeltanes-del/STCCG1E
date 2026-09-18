@@ -863,7 +863,7 @@ public partial class TableWindow : Window
             if (!present.Any()) continue;
             sb.AppendLine($"— Player {p} —");
             if (present.Any(ModifierRules.IsPersonnelCard))
-                sb.AppendLine(ModifierRules.FormatTeamSummary(ModifierRules.SummarizeTeam(present, p), p));
+                sb.AppendLine(ModifierRules.FormatTeamSummary(ModifierRules.SummarizeTeam(present, p, loseFirstListedSkill: LoseFirstListedOnHost(host)), p));
             foreach (var c in present)
                 sb.AppendLine($"  • {c.Name}  [{c.Type}]");
             sb.AppendLine();
@@ -12664,7 +12664,7 @@ public partial class TableWindow : Window
                     int o = CardOwner(b);
                     if (o == 0) o = pc.Controller != 0 ? pc.Controller : pc.OwnerPlayer;
                     if (o == 0) o = _activePlayer;
-                    var ep = ModifierRules.ResolvePersonnel(pc, present, _activePlayer, DisabledSkillsOnHost(_attemptShip));
+                    var ep = ModifierRules.ResolvePersonnel(pc, present, _activePlayer, DisabledSkillsOnHost(_attemptShip), LoseFirstListedOnHost(_attemptShip));
                     var mode = DualAffiliationRules.ProfileFor(pc);
                     string delta = mode != null && mode.StrengthDelta != 0
                         ? $" delta={mode.StrengthDelta:+#;-#;0}"
@@ -12722,7 +12722,9 @@ public partial class TableWindow : Window
                     return pb != null && HasAttachedNamedInterrupt(pb, "Barclay Transporter Phobia");
                 },
                 // TwoDim on attempting ship: Empathy disabled for crew skill checks
-                DisabledSkills = DisabledSkillsOnHost(_attemptShip)
+                DisabledSkills = DisabledSkillsOnHost(_attemptShip),
+                // Tsiolkovsky on ship: first-listed skill lost for crew skill checks
+                LoseFirstListedSkill = LoseFirstListedOnHost(_attemptShip)
             });
 
             var wrapped = EngineAuthority.WrapDilemma(seedCard, dilResult);
@@ -12845,7 +12847,8 @@ public partial class TableWindow : Window
         var result = MissionRules.CanSolve(mission, solvePresent, dilemmasRemaining: 0,
             attemptingPlayer: _activePlayer, missionOwner: missionOwner,
             extraMissionIcons: EspionageIconsOn(missionBorder, _activePlayer),
-            disabledSkills: DisabledSkillsOnHost(_attemptShip));
+            disabledSkills: DisabledSkillsOnHost(_attemptShip),
+            loseFirstListedSkill: LoseFirstListedOnHost(_attemptShip));
         if (!result.Ok)
         {
             ShowCardReveal(mission, "Mission not solved",
@@ -17431,7 +17434,8 @@ public partial class TableWindow : Window
             var check = MissionRules.CanSolve(mission, teamList, dilemmasRemaining: 0,
                 attemptingPlayer: _activePlayer, missionOwner: missionOwner,
                 extraMissionIcons: EspionageIconsOn(mb, _activePlayer),
-                disabledSkills: DisabledSkillsUnderMission(mb));
+                disabledSkills: DisabledSkillsUnderMission(mb),
+                loseFirstListedSkill: LoseFirstListedUnderMission(mb));
             if (!check.Ok) continue;
             if (dil > 0)
             {
@@ -22112,9 +22116,17 @@ public partial class TableWindow : Window
         _attachedDilemmas.Any(a =>
             ReferenceEquals(a.Host, host) && a.Kind == DilemmaRules.PersistKind.TwoDim);
 
+    private bool HostHasTsiolkovsky(Border host) =>
+        _attachedDilemmas.Any(a =>
+            ReferenceEquals(a.Host, host) && a.Kind == DilemmaRules.PersistKind.Tsiolkovsky);
+
     /// <summary>Skills disabled for crew/AT on this host (TwoDim → Empathy).</summary>
     private IReadOnlyList<string>? DisabledSkillsOnHost(Border? host) =>
         host != null && HostHasTwoDim(host) ? TwoDimDisabledSkills : null;
+
+    /// <summary>Tsiolkovsky Infection on host: lose first-listed skill (wired into ResolvePersonnel).</summary>
+    private bool LoseFirstListedOnHost(Border? host) =>
+        host != null && HostHasTsiolkovsky(host);
 
     /// <summary>For spaceline solve preview: Empathy off if TwoDim is on any ship here.</summary>
     private IReadOnlyList<string>? DisabledSkillsUnderMission(Border missionBorder)
@@ -22128,6 +22140,17 @@ public partial class TableWindow : Window
         if (HostHasTwoDim(missionBorder))
             return TwoDimDisabledSkills;
         return null;
+    }
+
+    private bool LoseFirstListedUnderMission(Border missionBorder)
+    {
+        foreach (var dock in GetDockablesUnderMission(missionBorder))
+        {
+            if (dock.Tag is not Card dc || !IsShipCard(dc)) continue;
+            if (HostHasTsiolkovsky(dock))
+                return true;
+        }
+        return HostHasTsiolkovsky(missionBorder);
     }
 
     private (List<Card> cards, int owner, Border host)? FindPresentContextForCard(Card card)
@@ -23218,7 +23241,8 @@ public partial class TableWindow : Window
             {
                 var ep = ModifierRules.ResolvePersonnel(
                     card, presentCtx.Value.cards, presentCtx.Value.owner,
-                    DisabledSkillsOnHost(presentCtx.Value.host));
+                    DisabledSkillsOnHost(presentCtx.Value.host),
+                    LoseFirstListedOnHost(presentCtx.Value.host));
                 var classKeys = new HashSet<string>(MissionRules.Classifications, StringComparer.OrdinalIgnoreCase);
                 DetailAttributes.Text = string.Join("\n",
                     ModifierRules.FormatProfileLines(ep)
@@ -23394,7 +23418,7 @@ public partial class TableWindow : Window
                 Run($"— Player {p} —");
                 if (present.Any(ModifierRules.IsPersonnelCard))
                 {
-                    var team = ModifierRules.SummarizeTeam(present, p, DisabledSkillsOnHost(host));
+                    var team = ModifierRules.SummarizeTeam(present, p, DisabledSkillsOnHost(host), LoseFirstListedOnHost(host));
                     Run($"S{p} Team — {team.PersonnelCount} Pers · {team.EquipmentCount} Eq", nl: false);
                     IconCatalog.AppendCounts(DetailStackStats.Inlines, present, 12);
                     DetailStackStats.Inlines.Add(new System.Windows.Documents.LineBreak());
@@ -23561,17 +23585,21 @@ public partial class TableWindow : Window
         var posColor = Color.FromRgb(0x6A, 0xD0, 0x8A);
         var negColor = Color.FromRgb(0xE0, 0x6A, 0x6A);
 
-        // 1. Positive — attached buff events
-        var buffEvents = EventsOn(host)
-            .Where(ae => DetailStatusRules.ToneForEvent(ae.Kind, ae.Countdown) == DetailStatusTone.Buff)
+        // 1. Positive — attached buff events + non-debuff events (timer/info)
+        var positiveEvents = EventsOn(host)
+            .Where(ae => DetailStatusRules.ToneForEvent(ae.Kind, ae.Countdown) != DetailStatusTone.Debuff)
             .ToList();
-        if (buffEvents.Count > 0)
+        if (positiveEvents.Count > 0)
         {
             AddGroupLabel("Positive", posColor);
-            foreach (var ae in buffEvents)
+            foreach (var ae in positiveEvents)
             {
                 if (!shown.Add(ae.Card)) continue;
-                AddStackMini(ae.Card, ae.Countdown > 0 ? $"Event — countdown {ae.Countdown}" : "Event (buff)");
+                var tone = DetailStatusRules.ToneForEvent(ae.Kind, ae.Countdown);
+                string label = ae.Countdown > 0
+                    ? $"Event — countdown {ae.Countdown}"
+                    : tone == DetailStatusTone.Buff ? "Event (buff)" : "Event";
+                AddStackMini(ae.Card, label);
             }
         }
 
@@ -23637,16 +23665,7 @@ public partial class TableWindow : Window
             }
         }
 
-        // Remaining non-buff/non-debuff events (timer/info) — keep visible under Positive-adjacent
-        foreach (var ae in EventsOn(host))
-        {
-            var tone = DetailStatusRules.ToneForEvent(ae.Kind, ae.Countdown);
-            if (tone is DetailStatusTone.Buff or DetailStatusTone.Debuff) continue;
-            if (!shown.Add(ae.Card)) continue;
-            AddStackMini(ae.Card, ae.Countdown > 0 ? $"Event — countdown {ae.Countdown}" : "Event");
-        }
-
-        // 3. Personnel — not already in Negative
+        // 3. Personnel — not already in Negative; never list Events here
         var personnelRows = new List<(Border b, Card c)>();
         var equipmentRows = new List<(Border b, Card c)>();
         if (_stackOnHost.TryGetValue(host, out var list) && list.Count > 0)
@@ -23655,7 +23674,9 @@ public partial class TableWindow : Window
             {
                 if (b.Tag is not Card card) continue;
                 if (shown.Contains(card)) continue;
-                if (EventsOn(host).Any(ae => ReferenceEquals(ae.Card, card))) continue;
+                if (EventRules.IsEvent(card) || CardKinds.IsEvent(card)) continue;
+                if (EventsOn(host).Any(ae => ReferenceEquals(ae.Card, card)
+                    || (ae.Card.InstanceId > 0 && ae.Card.InstanceId == card.InstanceId))) continue;
                 if (InterruptRules.IsCrosis(card) && HostHasCrosis(host)) continue;
                 if (ModifierRules.IsPersonnelCard(card) || IsCrewType(card))
                     personnelRows.Add((b, card));
