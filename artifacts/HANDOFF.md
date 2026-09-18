@@ -7,7 +7,7 @@ Local VS: C:\\Dev\\StarTrekCCG\\
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test.
 
 ## Current tip
-Local Josef tip **PENDING_HASH** - Feat: Tarellian Plague Ship (beam-to-dilemma, MEDICAL discard +5). Nicht gepusht.
+Local Josef tip **a97e8eb** - Feat: Tarellian Plague Ship (beam-to-dilemma, MEDICAL discard +5). Nicht gepusht.
 **Pepsch EXE (Default Debug):**
 `C:\Dev\StarTrekCCG\StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe`
 Nicht `_build_docky*` / Release / alte Side-Builds.
