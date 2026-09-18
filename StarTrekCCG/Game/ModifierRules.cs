@@ -138,6 +138,33 @@ public static class ModifierRules
         return list;
     }
 
+    /// <summary>
+    /// SkillEquipment RequiredClass for an equipment that grants <paramref name="skill"/>
+    /// (Medical Kit -> OFFICER, Medical Tricorder -> SCIENCE). Null if no match.
+    /// </summary>
+    public static string? EquipmentRequiredClassForSkill(Card equipment, string skill)
+    {
+        if (equipment == null || string.IsNullOrWhiteSpace(skill) || !IsEquipmentCard(equipment))
+            return null;
+        string name = equipment.Name ?? "";
+        foreach (var def in SkillEquipment)
+        {
+            if (!NamesMatch(name, def.Name)) continue;
+            if (def.GrantedSkill.Equals(skill, StringComparison.OrdinalIgnoreCase))
+                return def.RequiredClass;
+        }
+        return null;
+    }
+
+    /// <summary>True when personnel Classification matches equipment grant RequiredClass for skill.</summary>
+    public static bool PersonnelMatchesEquipmentGrant(Card personnel, Card equipment, string skill)
+    {
+        if (personnel == null) return false;
+        string? req = EquipmentRequiredClassForSkill(equipment, skill);
+        if (string.IsNullOrEmpty(req)) return false;
+        return (personnel.Class ?? "").Equals(req, StringComparison.OrdinalIgnoreCase);
+    }
+
     public static bool IsEquipmentCard(Card c) =>
         (c.Type ?? "").Contains("equipment", StringComparison.OrdinalIgnoreCase)
         || ArtifactRules.IsVaronT(c)

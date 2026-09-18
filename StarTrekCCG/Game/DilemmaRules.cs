@@ -2715,79 +2715,30 @@ public static class DilemmaRules
             Message: $"Tarellian: {pick.Name}{kitMsg} (MEDICAL) beamed to plague ship - discarded; +5.");
     }
 
-    private static Result Tarellian(Ctx ctx)
+    /// <summary>
+    /// Printed usable MEDICAL for Path A: Classification MEDICAL OR printed Skill MEDICAL.
+    /// Holograms still need Mobile Holo-Emitter (etc.) to be usable.
+    /// </summary>
+    public static bool HasPrintedUsableMedical(Ctx ctx, Card pick)
     {
-        if (!ctx.CanBeamToDilemma)
-        {
-            var blocked = DecideTarellian(false, false, false, false, null, null);
-            var rb = new Result { Fate = blocked.Fate, StopTeam = true, Message = blocked.Message };
-            rb.Kill.AddRange(ctx.Team);
-            return rb;
-        }
+        if (pick == null) return false;
+        if (CardIcons.IsHologram(pick) && !HasHoloSupportPresent(ctx))
+            return false;
+        if ((pick.Class ?? "").Contains("MEDICAL", StringComparison.OrdinalIgnoreCase))
+            return true;
+        var ep = Eff(ctx, pick);
+        return ep.BaseSkills.Any(kv => NameLooksMedical(kv.Key) && kv.Value > 0);
+    }
 
-        // Pepsch UX: when MEDICAL-granting equipment is present (SkillEquipment catalog),
-        // pick Equipment first, then Personnel from full encountering crew.
-        // Rules unchanged: usable MEDICAL still via TryUsableMedicalOnArrival (Kit via Present).
-        // Refusing equipment pick is OK (printed MEDICAL / Present still apply).
-        if (ctx.PickYou != null)
-        {
-            var medEq = ModifierRules.EquipmentGrantingSkill(ctx.Present, "MEDICAL");
-            if (medEq.Count > 0)
-            {
-                _ = ctx.PickYou.Invoke(
-                    "Tarellian Plague Ship: which MEDICAL equipment beams with the volunteer (discarded if grant used)?",
-                    medEq);
-            }
-        }
+    private static Result TarellianFailKill(Ctx ctx, TarellianPlan plan)
+    {
+        var r = new Result { Fate = plan.Fate, StopTeam = true, Message = plan.Message };
+        r.Kill.AddRange(ctx.Team);
+        return r;
+    }
 
-        var refusedBeam = new HashSet<Card>();
-        Card? pick = null;
-        Card? kitUsed = null;
-        bool usable = false;
-
-        while (true)
-        {
-            // Full encountering crew (not printed-MEDICAL-only). Filter only Barclay refusals.
-            var pool = ctx.Team.Where(p => !refusedBeam.Contains(p)).ToList();
-            if (pool.Count == 0)
-            {
-                var noAlt = DecideTarellian(true, selectionRefused: false, beamBlockedForPick: true,
-                    hasUsableMedical: false, pick: null, kitUsed: null);
-                var rn = new Result { Fate = noAlt.Fate, StopTeam = true, Message = noAlt.Message };
-                rn.Kill.AddRange(ctx.Team);
-                return rn;
-            }
-
-            // Explicit PickYou null = selection refused (fail). Auto path (no UI) takes first.
-            if (ctx.PickYou != null)
-                pick = ctx.PickYou.Invoke(
-                    "Tarellian Plague Ship: whom to beam aboard (usable MEDICAL saves; victim discarded)?",
-                    pool);
-            else
-                pick = pool.FirstOrDefault();
-
-            if (pick == null)
-            {
-                var refused = DecideTarellian(true, selectionRefused: true, beamBlockedForPick: false,
-                    hasUsableMedical: false, pick: null, kitUsed: null);
-                var rr = new Result { Fate = refused.Fate, StopTeam = true, Message = refused.Message };
-                rr.Kill.AddRange(ctx.Team);
-                return rr;
-            }
-
-            bool beamBlocked = ctx.IsPersonnelBeamBlocked?.Invoke(pick) == true;
-            if (beamBlocked)
-            {
-                refusedBeam.Add(pick);
-                // Barclay: valid Response - allow another personnel to be chosen.
-                continue;
-            }
-
-            usable = TryUsableMedicalOnArrival(ctx, pick, out kitUsed);
-            break;
-        }
-
-        var plan = DecideTarellian(true, false, false, usable, pick, kitUsed);
+    private static Result TarellianFromPlan(TarellianPlan plan, Ctx ctx)
+    {
         var r = new Result { Fate = plan.Fate, Score = plan.Score, StopTeam = plan.KillTeam, Message = plan.Message };
         if (plan.KillTeam)
             r.Kill.AddRange(ctx.Team);
@@ -2796,6 +2747,184 @@ public static class DilemmaRules
         if (plan.DiscardKit != null)
             r.Discard.Add(plan.DiscardKit);
         return r;
+    }
+
+    /// <summary>
+    /// Beam loop for a filtered personnel pool. Path A: kitUsed forced null (no equipment discard).
+    /// Path B: kitUsed = chosen MEDICAL-granting equipment.
+    /// </summary>
+    private static Result TarellianBeamFromPool(
+        Ctx ctx,
+        List<Card> initialPool,
+        Card? forcedKit,
+        bool pathAPrintedOnly)
+    {
+        var refusedBeam = new HashSet<Card>();
+        Card? pick = null;
+        Card? kitUsed = null;
+        bool usable = false;
+
+        while (true)
+        {
+            var pool = initialPool.Where(p => !refusedBeam.Contains(p)).ToList();
+            if (pool.Count == 0)
+            {
+                var noAlt = DecideTarellian(true, selectionRefused: false, beamBlockedForPick: true,
+                    hasUsableMedical: false, pick: null, kitUsed: null);
+                return TarellianFailKill(ctx, noAlt);
+            }
+
+            string personPrompt;
+            if (pathAPrintedOnly)
+                personPrompt = "Tarellian Plague Ship: which MEDICAL personnel to beam (victim discarded)?";
+            else if (forcedKit != null)
+                personPrompt = $"Tarellian Plague Ship: which {(ModifierRules.EquipmentRequiredClassForSkill(forcedKit, "MEDICAL") ?? "personnel")} to beam with {forcedKit.Name} (both discarded)?";
+            else
+                personPrompt = "Tarellian Plague Ship: whom to beam aboard (usable MEDICAL saves; victim discarded)?";
+
+            if (ctx.PickYou != null)
+                pick = ctx.PickYou.Invoke(personPrompt, pool);
+            else
+                pick = pool.FirstOrDefault();
+
+            if (pick == null)
+            {
+                var refused = DecideTarellian(true, selectionRefused: true, beamBlockedForPick: false,
+                    hasUsableMedical: false, pick: null, kitUsed: null);
+                return TarellianFailKill(ctx, refused);
+            }
+
+            bool beamBlocked = ctx.IsPersonnelBeamBlocked?.Invoke(pick) == true;
+            if (beamBlocked)
+            {
+                refusedBeam.Add(pick);
+                continue;
+            }
+
+            if (pathAPrintedOnly)
+            {
+                usable = HasPrintedUsableMedical(ctx, pick);
+                kitUsed = null; // Path A: never discard equipment
+            }
+            else if (forcedKit != null)
+            {
+                // Path B: chosen equipment + matching class; discard both on success.
+                usable = ModifierRules.PersonnelMatchesEquipmentGrant(pick, forcedKit, "MEDICAL")
+                    && TryUsableMedicalOnArrival(ctx, pick, out _);
+                if (CardIcons.IsHologram(pick) && !HasHoloSupportPresent(ctx))
+                    usable = false;
+                kitUsed = usable ? forcedKit : null;
+            }
+            else
+            {
+                // Legacy fallback (no A/B path): full-team pick.
+                usable = TryUsableMedicalOnArrival(ctx, pick, out kitUsed);
+            }
+            break;
+        }
+
+        var plan = DecideTarellian(true, false, false, usable, pick, kitUsed);
+        return TarellianFromPlan(plan, ctx);
+    }
+
+    private static Result Tarellian(Ctx ctx)
+    {
+        if (!ctx.CanBeamToDilemma)
+        {
+            var blocked = DecideTarellian(false, false, false, false, null, null);
+            return TarellianFailKill(ctx, blocked);
+        }
+
+        // Pepsch UX: two entry points (NOT one flat pool).
+        //   Schritt 0: A) Medical Personnel  OR  B) Equipment + Personnel
+        //   Path A: printed usable MEDICAL only (Class OR Skill); no equipment discard.
+        //   Path B: MEDICAL-granting eq (Kit/Medical Tricorder) then matching class
+        //           (Kit->OFFICER, Medical Tricorder->SCIENCE); person+eq discard.
+        // Rules (Spock) unchanged: DecideTarellian / +5 / kill crew / Barclay re-pick.
+        var medEq = ModifierRules.EquipmentGrantingSkill(ctx.Present, "MEDICAL");
+        var printedMed = ctx.Team.Where(p => HasPrintedUsableMedical(ctx, p)).ToList();
+        bool canA = printedMed.Count > 0;
+        bool canB = medEq.Count > 0;
+
+        bool usePathB = false;
+        if (ctx.PickYou != null && (canA || canB))
+        {
+            if (canA && canB)
+            {
+                var optA = new Card { Name = "Medical Personnel", Type = "Choice" };
+                var optB = new Card { Name = "Equipment + Personnel", Type = "Choice" };
+                var choice = ctx.PickYou.Invoke(
+                    "Tarellian Plague Ship: how to provide MEDICAL?",
+                    new[] { optA, optB });
+                if (choice == null)
+                {
+                    var refused = DecideTarellian(true, selectionRefused: true, beamBlockedForPick: false,
+                        hasUsableMedical: false, pick: null, kitUsed: null);
+                    return TarellianFailKill(ctx, refused);
+                }
+                usePathB = (choice.Name ?? "").Contains("Equipment", StringComparison.OrdinalIgnoreCase);
+            }
+            else
+                usePathB = canB && !canA;
+        }
+        else
+        {
+            // Auto (no UI): prefer printed MEDICAL, else equipment path.
+            usePathB = !canA && canB;
+        }
+
+        // Neither path available with UI filters -> beam anyone; fail without MEDICAL (legacy).
+        if (ctx.PickYou != null && !canA && !canB)
+        {
+            return TarellianBeamFromPool(ctx, ctx.Team.ToList(), forcedKit: null, pathAPrintedOnly: false);
+        }
+
+        if (usePathB)
+        {
+            Card? chosenEq = null;
+            if (ctx.PickYou != null)
+            {
+                chosenEq = ctx.PickYou.Invoke(
+                    "Tarellian Plague Ship: which MEDICAL equipment (discarded with volunteer)?",
+                    medEq);
+                if (chosenEq == null)
+                {
+                    var refused = DecideTarellian(true, selectionRefused: true, beamBlockedForPick: false,
+                        hasUsableMedical: false, pick: null, kitUsed: null);
+                    return TarellianFailKill(ctx, refused);
+                }
+            }
+            else
+                chosenEq = medEq.FirstOrDefault();
+
+            if (chosenEq == null)
+            {
+                var refused = DecideTarellian(true, selectionRefused: true, beamBlockedForPick: false,
+                    hasUsableMedical: false, pick: null, kitUsed: null);
+                return TarellianFailKill(ctx, refused);
+            }
+
+            string? reqClass = ModifierRules.EquipmentRequiredClassForSkill(chosenEq, "MEDICAL");
+            var classPool = ctx.Team
+                .Where(p => reqClass != null
+                    && (p.Class ?? "").Equals(reqClass, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            if (classPool.Count == 0)
+            {
+                // No matching classification for chosen equipment -> fail (crew dies).
+                var fail = DecideTarellian(true, false, false, false, ctx.Team.FirstOrDefault(), null);
+                return TarellianFailKill(ctx, fail);
+            }
+
+            return TarellianBeamFromPool(ctx, classPool, forcedKit: chosenEq, pathAPrintedOnly: false);
+        }
+
+        // Path A — Medical Personnel (printed usable MEDICAL)
+        if (canA)
+            return TarellianBeamFromPool(ctx, printedMed, forcedKit: null, pathAPrintedOnly: true);
+
+        // Fallback: no printed MEDICAL / no eq — full team, expect fail without MEDICAL
+        return TarellianBeamFromPool(ctx, ctx.Team.ToList(), forcedKit: null, pathAPrintedOnly: false);
     }
 
     /// <summary>DE mini-test for Tarellian Plague Ship. Returns null if OK, else failure reason.</summary>
@@ -2851,12 +2980,68 @@ public static class DilemmaRules
         if (!ShouldRemoveFromSeed(pass.Fate))
             return "pass MEDICAL: dilemma should discard";
 
-        // Pass: OFFICER + Medical Kit -> UX equipment-then-person; discard both, +5
+        // Helper: detect A/B Step-0 Choice cards in pool
+        static Card? PickChoice(IReadOnlyList<Card> pool, bool equipmentPath) =>
+            pool.FirstOrDefault(c =>
+                string.Equals(c.Type, "Choice", StringComparison.OrdinalIgnoreCase)
+                && (equipmentPath
+                    ? (c.Name ?? "").Contains("Equipment", StringComparison.OrdinalIgnoreCase)
+                    : (c.Name ?? "").Contains("Medical Personnel", StringComparison.OrdinalIgnoreCase)
+                      && !(c.Name ?? "").Contains("Equipment", StringComparison.OrdinalIgnoreCase)));
+
+        // Path A (Pepsch): MEDICAL + Kit present -> choose Medical Personnel, discard person only (no kit)
+        int pathAPicks = 0;
+        var pathA = Resolve(Make(new[] { med, off, civ }, new[] { med, off, civ, kit }, pick: (prompt, pool) =>
+        {
+            pathAPicks++;
+            var ch = PickChoice(pool, equipmentPath: false);
+            if (ch != null) return ch;
+            return pool.FirstOrDefault(c => ReferenceEquals(c, med)) ?? pool.FirstOrDefault();
+        }));
+        if (pathA.Fate != Fate.Overcome || pathA.Score != 5)
+            return $"path A: expected Overcome+5, got {pathA.Fate}/score={pathA.Score}";
+        if (pathA.Discard.Count != 1 || !pathA.Discard.Contains(med) || pathA.Discard.Contains(kit))
+            return $"path A: expected discard Crusher only (no kit), got {string.Join(",", pathA.Discard.Select(c => c.Name))}";
+        if (pathAPicks < 2)
+            return $"path A: expected Step0+person (>=2 picks), got {pathAPicks}";
+
+        // Path B Kit (Pepsch): MEDICAL + Kit present -> Equipment+Personnel, Kit, OFFICER only; discard both
+        int pathBKitPicks = 0;
+        bool pathBKitPoolOk = true;
+        var pathBKit = Resolve(Make(new[] { med, off, civ }, new[] { med, off, civ, kit }, pick: (prompt, pool) =>
+        {
+            pathBKitPicks++;
+            var ch = PickChoice(pool, equipmentPath: true);
+            if (ch != null) return ch;
+            if (pool.All(c => ModifierRules.IsEquipmentCard(c))
+                || prompt.Contains("MEDICAL equipment", StringComparison.OrdinalIgnoreCase))
+                return pool.FirstOrDefault(c => ReferenceEquals(c, kit)) ?? pool.FirstOrDefault();
+            // Person pool must be OFFICER-only (not Crusher / CIVILIAN)
+            if (pool.Any(c => ModifierRules.IsPersonnelCard(c)
+                              && !(c.Class ?? "").Equals("OFFICER", StringComparison.OrdinalIgnoreCase)))
+                pathBKitPoolOk = false;
+            return pool.FirstOrDefault(c => ReferenceEquals(c, off)) ?? pool.FirstOrDefault();
+        }));
+        if (pathBKit.Fate != Fate.Overcome || pathBKit.Score != 5)
+            return $"path B kit: expected Overcome+5, got {pathBKit.Fate}/score={pathBKit.Score}";
+        if (pathBKit.Discard.Count != 2 || !pathBKit.Discard.Contains(off) || !pathBKit.Discard.Contains(kit))
+            return $"path B kit: expected discard OFFICER+Kit, got {string.Join(",", pathBKit.Discard.Select(c => c.Name))}";
+        if (pathBKit.Discard.Contains(med))
+            return "path B kit: must not discard printed MEDICAL when Path B chosen";
+        if (!pathBKitPoolOk)
+            return "path B kit: person pool must be OFFICER-only (Medical Kit RequiredClass)";
+        if (pathBKitPicks < 3)
+            return $"path B kit: expected Step0+eq+person (>=3 picks), got {pathBKitPicks}";
+
+        // Path B only (no printed MEDICAL): OFFICER + Medical Kit -> eq then OFFICER; discard both
         int kitPicks = 0;
         var kitPass = Resolve(Make(new[] { off, civ }, new[] { off, civ, kit }, pick: (prompt, pool) =>
         {
             kitPicks++;
-            if (prompt.Contains("equipment", StringComparison.OrdinalIgnoreCase))
+            if (pool.Any(c => string.Equals(c.Type, "Choice", StringComparison.OrdinalIgnoreCase)))
+                return PickChoice(pool, equipmentPath: true) ?? pool.FirstOrDefault();
+            if (pool.All(c => ModifierRules.IsEquipmentCard(c))
+                || prompt.Contains("MEDICAL equipment", StringComparison.OrdinalIgnoreCase))
                 return pool.FirstOrDefault(c => ReferenceEquals(c, kit)) ?? pool.FirstOrDefault();
             return pool.FirstOrDefault(c => ReferenceEquals(c, off)) ?? pool.FirstOrDefault();
         }));
@@ -2869,15 +3054,22 @@ public static class DilemmaRules
         if (kitPicks < 2)
             return $"kit pass: expected equipment-then-person (>=2 picks), got {kitPicks}";
 
-        // Pass: SCIENCE + Medical Tricorder -> discard both, +5 (plain Tricorder is NOT MEDICAL)
+        // Path B: SCIENCE + Medical Tricorder -> discard both, +5 (plain Tricorder is NOT MEDICAL)
         var sci = P("Dax", "SCIENCE", "SCIENCE Archaeology");
         var medTri = Eq("Medical Tricorder");
         int triPicks = 0;
+        bool triPoolOk = true;
         var triPass = Resolve(Make(new[] { sci, civ }, new[] { sci, civ, medTri }, pick: (prompt, pool) =>
         {
             triPicks++;
-            if (prompt.Contains("equipment", StringComparison.OrdinalIgnoreCase))
+            if (pool.Any(c => string.Equals(c.Type, "Choice", StringComparison.OrdinalIgnoreCase)))
+                return PickChoice(pool, equipmentPath: true) ?? pool.FirstOrDefault();
+            if (pool.All(c => ModifierRules.IsEquipmentCard(c))
+                || prompt.Contains("MEDICAL equipment", StringComparison.OrdinalIgnoreCase))
                 return pool.FirstOrDefault(c => ReferenceEquals(c, medTri)) ?? pool.FirstOrDefault();
+            if (pool.Any(c => ModifierRules.IsPersonnelCard(c)
+                              && !(c.Class ?? "").Equals("SCIENCE", StringComparison.OrdinalIgnoreCase)))
+                triPoolOk = false;
             return pool.FirstOrDefault(c => ReferenceEquals(c, sci)) ?? pool.FirstOrDefault();
         }));
         if (triPass.Fate != Fate.Overcome || triPass.Score != 5)
@@ -2886,6 +3078,8 @@ public static class DilemmaRules
             || !triPass.Discard.Contains(sci)
             || !triPass.Discard.Contains(medTri))
             return $"tricorder pass: expected discard SCIENCE+Medical Tricorder, got {string.Join(",", triPass.Discard.Select(c => c.Name))}";
+        if (!triPoolOk)
+            return "tricorder pass: person pool must be SCIENCE-only (Medical Tricorder RequiredClass)";
         if (triPicks < 2)
             return $"tricorder pass: expected equipment-then-person (>=2 picks), got {triPicks}";
 
