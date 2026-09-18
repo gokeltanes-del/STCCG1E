@@ -21,7 +21,7 @@ See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md, CARD_TRACKER.md (Jadzia).
   - Stehende Praxis ab sofort: Decide/Apply kommentieren mit Compendium-§ und/oder Glossary-Eintrag (z.B. `// Compendium 7.1.2` / `// Glossary: beaming`).
   - Detailfenster / Action-Hinweis: wenn die Engine handelt, kurz sagen nach welcher Regel (Glossary/Compendium) — nicht nur was passiert.
   - Retrofit: bestehende Stellen nachziehen (teilweise schon da); kein Big-Bang, mit Karten-/Extract-Arbeit mitführen. Data bei jedem neuen Tip; Coverage bei Seven.
-- **Premiere Dilemma wave** ACTIVE (einzeln; **Temporal Causality Loop** — Glossary-treu Lock; Data Implement-Go; Coverage/DONE erst nach Pepsch green)
+- **Premiere Dilemma wave** ACTIVE (einzeln; next Captain Go). **Temporal Causality Loop** **DONE** Pepsch green `e88860e`
 
 ## P1 - Parked
 - Microvirus Opp-Chooser / DNA-Filter
@@ -30,6 +30,7 @@ See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md, CARD_TRACKER.md (Jadzia).
 - Alien Parasites Hotseat-Chooser
 
 ## Done recently
+- Temporal Causality Loop DONE `e88860e` (Pepsch green 2026-09-18)
 - Impassable Door DONE `be5062b`
 - Hyper-Aging Quarantaene DONE `46eab15`
 - Alien Parasites Neg Control `f087866` (Pepsch green)
