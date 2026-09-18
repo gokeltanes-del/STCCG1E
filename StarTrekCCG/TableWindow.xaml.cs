@@ -9833,16 +9833,26 @@ public partial class TableWindow : Window
 
         HideSnapPreview();
         cardBorder.ReleaseMouseCapture();
-        Panel.SetZIndex(cardBorder, 0);
 
-        // Nur Klick ohne Bewegung → Positionen unverändert lassen
+        // Nur Klick ohne Bewegung — Positionen unverändert lassen
         if (!wasDragging)
         {
+            // Do not force Z=0 on dockables: a click would bury a ship under another at the
+            // same mission (same class of bug as Scow covering ships). Relayout restores slot Z.
+            if (cardBorder.Tag is Card dockCard && IsDockableUnderMission(dockCard)
+                && FindMissionForDockable(cardBorder) is Border dockMis)
+                RelayoutDockablesUnderMission(dockMis);
+            else
+                Panel.SetZIndex(cardBorder, 0);
+
             _dragCard = null;
             _dragSourceMission = null;
             _isDragging = false;
             return;
         }
+
+        // Drag end: temporary Z; drop paths / Relayout assign final slot Z.
+        Panel.SetZIndex(cardBorder, 0);
 
         if (card != null && IsDoorwayCard(card) &&
             TryPlaceDoorwayOnSideDeck(card, cardBorder, e.GetPosition(this)))
@@ -11419,29 +11429,44 @@ public partial class TableWindow : Window
     /// <summary>View only — pixel column under/over a mission face. Board occupants come from Sync.</summary>
     private List<Border> GetDockablesUnderMission(Border mission, Border? exclude = null)
     {
+        // Authoritative: pins from Relayout/Relocate, plus pixel-column fallback for unpinned.
+        // Pixel-only missed ships that still belong here (same class of bug as Scow/ship stacking).
+        var found = new HashSet<Border>();
+
+        foreach (var kv in _dockableAtMission)
+        {
+            Border dock = kv.Key;
+            if (exclude != null && ReferenceEquals(dock, exclude)) continue;
+            if (!ReferenceEquals(kv.Value, mission)) continue;
+            if (!TableCanvas.Children.Contains(dock)) continue;
+            if (dock.Visibility != Visibility.Visible) continue;
+            if (ReferenceEquals(dock, _scowToken) || ReferenceEquals(dock, _borgShipToken)) continue;
+            if (dock.Tag is not Card sc || !IsDockableUnderMission(sc)) continue;
+            found.Add(dock);
+        }
+
         double missionLeft = Canvas.GetLeft(mission);
         double missionTop = Canvas.GetTop(mission);
-        // Spalte der Mission: P1 unterhalb, P2 oberhalb – beides erfassen
         double yMin = missionTop - UnderMissionGap * 8;
         double yMax = missionTop + UnderMissionGap * 8;
 
-        return TableCanvas.Children.OfType<Border>()
-            .Where(b => b != exclude && b != mission
-                        && b != _scowToken && b != _borgShipToken
-                        && b.Visibility == Visibility.Visible
-                        && b.Tag is Card sc && IsDockableUnderMission(sc))
-            .Where(b =>
-            {
-                double bx = Canvas.GetLeft(b);
-                double by = Canvas.GetTop(b);
-                // Gleiche Spalte, nicht die Mission selbst
-                if (Math.Abs(bx - missionLeft) >= 45) return false;
-                if (by >= yMin && by <= yMax && Math.Abs(by - missionTop) > 20)
-                    return true;
-                return false;
-            })
-            .OrderBy(b => Canvas.GetTop(b))
-            .ToList();
+        foreach (var b in TableCanvas.Children.OfType<Border>())
+        {
+            if (exclude != null && ReferenceEquals(b, exclude)) continue;
+            if (ReferenceEquals(b, mission)) continue;
+            if (ReferenceEquals(b, _scowToken) || ReferenceEquals(b, _borgShipToken)) continue;
+            if (b.Visibility != Visibility.Visible) continue;
+            if (b.Tag is not Card sc || !IsDockableUnderMission(sc)) continue;
+            double bx = Canvas.GetLeft(b);
+            double by = Canvas.GetTop(b);
+            if (double.IsNaN(bx) || double.IsNaN(by)) continue;
+            // Column tolerance must stay > max DockSlotOffsetX stagger (see Relayout).
+            if (Math.Abs(bx - missionLeft) >= 45) continue;
+            if (by >= yMin && by <= yMax && Math.Abs(by - missionTop) > 20)
+                found.Add(b);
+        }
+
+        return found.OrderBy(b => Canvas.GetTop(b)).ToList();
     }
 
     // ---------- Host-Stapel (digital) ----------
@@ -12904,8 +12929,11 @@ public partial class TableWindow : Window
         // Pin dest before Relayout(from) so FindMissionForDockable / tow-follow
         // never still believe the ship is at the old column.
         _dockableAtMission[ship] = dest;
-        Canvas.SetLeft(ship, Canvas.GetLeft(dest));
-        Canvas.SetTop(ship, Canvas.GetTop(dest) + DockSlotOffsetY(0, owner));
+        // Next free slot for this owner (not always 0) so we do not cover a ship already here
+        // even for one frame / if Relayout collection was incomplete.
+        int slot = CountDockablesForOwner(dest, owner, exclude: ship);
+        Canvas.SetLeft(ship, Canvas.GetLeft(dest) + DockSlotOffsetX(slot));
+        Canvas.SetTop(ship, Canvas.GetTop(dest) + DockSlotOffsetY(slot, owner));
         if (from != null && !ReferenceEquals(from, dest))
             RelayoutDockablesUnderMission(from);
         RelayoutDockablesUnderMission(dest);
@@ -22593,6 +22621,13 @@ public partial class TableWindow : Window
 
 
     /// <summary>P1: positive Y (unter Mission), P2: negative Y (über Mission).</summary>
+    private static double DockSlotOffsetX(int slotIndexZeroBased)
+    {
+        // Slight fan so N ships at one mission never share an identical Left (hit-test / visibility).
+        // Keep |offset| < 45 so GetDockablesUnderMission column test still groups them.
+        return (slotIndexZeroBased % 4) * 12.0;
+    }
+
     private static double DockSlotOffsetY(int slotIndexZeroBased, int ownerPlayer)
     {
         double sign = ownerPlayer == 2 ? -1.0 : 1.0;
@@ -22615,7 +22650,7 @@ public partial class TableWindow : Window
         double missionLeft = Canvas.GetLeft(mission);
         double missionTop = Canvas.GetTop(mission);
 
-        // Facility/Outpost näher an Mission, dann Schiffe; je Besitzer sortieren
+        // Facility/Outpost nearer mission, then ships; stable order when Y ties (fly-arrive).
         int DockSortKey(Border b)
         {
             string t = (((Card)b.Tag!).Type ?? "").ToLowerInvariant();
@@ -22623,20 +22658,25 @@ public partial class TableWindow : Window
                             || t.Contains("headquarters") || t.Contains("station");
             return facility ? 0 : 1;
         }
+        int StableId(Border b)
+        {
+            if (b.Tag is Card c && c.InstanceId > 0) return c.InstanceId;
+            return b.GetHashCode();
+        }
 
         var dockables = GetDockablesUnderMission(mission, exclude).ToList();
 
-        // Fest: Spieler 1 unter der Spaceline, Spieler 2 darüber
+        // Fixed: Player 1 below spaceline, Player 2 above
         var below = dockables.Where(d => GetBorderOwner(d) != 2)
-            .OrderBy(DockSortKey).ThenBy(b => Canvas.GetTop(b)).ToList();
+            .OrderBy(DockSortKey).ThenBy(b => Canvas.GetTop(b)).ThenBy(StableId).ToList();
         var above = dockables.Where(d => GetBorderOwner(d) == 2)
-            .OrderBy(DockSortKey).ThenByDescending(b => Canvas.GetTop(b)).ToList();
+            .OrderBy(DockSortKey).ThenByDescending(b => Canvas.GetTop(b)).ThenBy(StableId).ToList();
 
         for (int i = 0; i < below.Count; i++)
         {
-            Canvas.SetLeft(below[i], missionLeft);
+            Canvas.SetLeft(below[i], missionLeft + DockSlotOffsetX(i));
             Canvas.SetTop(below[i], missionTop + UnderMissionGap * (i + 1));
-            // Ships above facilities so they stay clickable
+            // Ships above facilities; higher slot => higher Z so topmost stays clickable
             int z = DockSortKey(below[i]) == 0 ? 12 + i : 22 + i;
             Panel.SetZIndex(below[i], z);
             SetBorderOwner(below[i], 1);
@@ -22646,8 +22686,8 @@ public partial class TableWindow : Window
         }
         for (int i = 0; i < above.Count; i++)
         {
-            // i=0 Facility directly above mission, i=1 ship above that, …
-            Canvas.SetLeft(above[i], missionLeft);
+            // i=0 facility directly above mission, i=1 ship above that, ...
+            Canvas.SetLeft(above[i], missionLeft + DockSlotOffsetX(i));
             Canvas.SetTop(above[i], missionTop - UnderMissionGap * (i + 1));
             int z = DockSortKey(above[i]) == 0 ? 12 + i : 22 + i;
             Panel.SetZIndex(above[i], z);
@@ -22657,7 +22697,7 @@ public partial class TableWindow : Window
             UpdateHostBadge(above[i]);
         }
 
-        // Mission-Badge nur für Away-Team auf der Mission, nicht für Crew auf Schiffen
+        // Mission badge only for Away Team on the mission, not crew aboard ships
         UpdateHostBadge(mission);
 
         if (_selectedCard != null)
