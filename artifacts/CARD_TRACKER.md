@@ -115,9 +115,9 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | REM Fatigue (47 U) | unknown |  |  |
 | Sarjenka (48 R) | working | Pepsch green. | Pepsch 2026-09-18 |
 | Shaka, When the Walls Fell (49 U) | working | Pepsch green. | Pepsch 2026-09-18 |
-| Tarellian Plague Ship (50 U) | partial | Pepsch hybrid beam+MEDICAL+5 OK; Overcome UX A/B (Medical Personnel OR Equipment+Personnel; Kit->OFFICER / Medical Tricorder->SCIENCE). Pending Pepsch green Path A then B. | Data Fix-Go A/B 2026-09-18 |
+| Tarellian Plague Ship (50 U) | working | Pepsch green hybrid beam+MEDICAL+5 + Overcome UX A/B + Step0 Choose preview (003f811). | Pepsch 2026-09-18 |
 | Temporal Causality Loop (51 R) | unknown |  |  |
-| Tsiolkovsky Infection (52 R) | partial | AttachContinue: kein Team-Stop (Rulebook 7.2.2.3), Verlust 1. Skill, Versuch lÃ¤uft weiter; Cure 3 MEDICAL. | Captain 2026-09-13 |
+| Tsiolkovsky Infection (52 R) | partial | AttachContinue + Cure 3 MEDICAL + no StopTeam OK. Apply: first-listed skill loss (ResolvePersonnel) + Summary skill-loss (not attributes -3). Pending Pepsch green. | Data Fix-Go 2026-09-18 |
 | Two-Dimensional Creatures (53 U) | partial | Pepsch: ship cannot move OK; Disable Empathy broken â€” Data Go. AttachContinue: kein Team-Stop (7.2.2.3); Cure ENG+SCI. Not working until Empathy disable greens. | Pepsch 2026-09-18; Data Go Empathy |
 | Wind Dancer (54 R) | working | Pepsch green (complete). | Pepsch 2026-09-18 |
 
