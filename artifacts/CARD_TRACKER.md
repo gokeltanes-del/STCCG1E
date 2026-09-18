@@ -1,6 +1,6 @@
 # STCCG 1E â€” Card Expansion Tracker
 
-Last updated: 2026-09-18 (Jadzia — Temporal Causality Loop not-started; Spec Spock+Data, Go pending)
+Last updated: 2026-09-18 (Jadzia — TCL Data Implement-Go Glossary-treu; partial when tip lands)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -116,7 +116,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Sarjenka (48 R) | working | Pepsch green. | Pepsch 2026-09-18 |
 | Shaka, When the Walls Fell (49 U) | working | Pepsch green. | Pepsch 2026-09-18 |
 | Tarellian Plague Ship (50 U) | working | Pepsch green: Hybrid Opfer+5; Overcome UX A Medical Personnel / B Equipment+matching; Step0 Dilemma-Karte UI tip `003f811`. Tips Data `a97e8eb`…`003f811`. | Pepsch 2026-09-18; Data/`003f811` |
-| Temporal Causality Loop (51 R) | not-started | Pepsch starting Premiere [S] 51 R. Spec Spock+Data; Captain Go pending. Not working. | Captain 2026-09-18 |
+| Temporal Causality Loop (51 R) | not-started | Data Implement-Go (Glossary-treu Spec). Flip to partial when tip lands. Not working. | Captain Go Data 2026-09-18 |
 | Tsiolkovsky Infection (52 R) | working | Pepsch green: FirstListedSkill Foundation (tip Data/`98aec60`); Apply+Summary skill-loss. AttachContinue + Cure 3 MEDICAL + no StopTeam. tips `948cf0f`/`98aec60`. | Pepsch 2026-09-18; Data/`98aec60` |
 | Two-Dimensional Creatures (53 U) | working | Pepsch green: move-block + full Disabled Empathy personnel aboard + beam OK. tips Data/`86f91ee`/`1690163`. AttachContinue: kein Team-Stop (7.2.2.3); Cure ENG+SCI. | Pepsch 2026-09-18; Data/`86f91ee`+`1690163` |
 | Wind Dancer (54 R) | working | Pepsch green (complete). | Pepsch 2026-09-18 |
