@@ -21,7 +21,7 @@ See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md, CARD_TRACKER.md (Jadzia).
   - Stehende Praxis ab sofort: Decide/Apply kommentieren mit Compendium-§ und/oder Glossary-Eintrag (z.B. `// Compendium 7.1.2` / `// Glossary: beaming`).
   - Detailfenster / Action-Hinweis: wenn die Engine handelt, kurz sagen nach welcher Regel (Glossary/Compendium) — nicht nur was passiert.
   - Retrofit: bestehende Stellen nachziehen (teilweise schon da); kein Big-Bang, mit Karten-/Extract-Arbeit mitführen. Data bei jedem neuen Tip; Coverage bei Seven.
-- **Occupancy Badge UX** - **ACTIVE** (Pepsch lock; Data tip 034ee39)
+- **Occupancy Badge UX** - **CODED** tip `034ee39` (Pepsch smoke pending; DONE only after Pepsch green)
   - Host footer badges in P1/P2 color; Planet = Away Team, Ship/Outpost/Station = Crew; personnel only; dual badges if both sides; no glow.
 - **Premiere Dilemma wave** ACTIVE (einzeln; next Captain Go). **Temporal Causality Loop** **DONE** Pepsch green `e88860e`
 
