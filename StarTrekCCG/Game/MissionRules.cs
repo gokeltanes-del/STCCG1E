@@ -432,7 +432,8 @@ public static class MissionRules
         int dilemmasRemaining,
         int attemptingPlayer = 0,
         int missionOwner = 0,
-        IEnumerable<string>? extraMissionIcons = null)
+        IEnumerable<string>? extraMissionIcons = null,
+        IEnumerable<string>? disabledSkills = null)
     {
         var teamList = team.ToList();
         if (teamList.Count == 0)
@@ -456,7 +457,7 @@ public static class MissionRules
         foreach (var p in teamList)
         {
             if (!ModifierRules.IsPersonnelCard(p)) continue;
-            var ep = ModifierRules.ResolvePersonnel(p, teamList, owner: attemptingPlayer);
+            var ep = ModifierRules.ResolvePersonnel(p, teamList, owner: attemptingPlayer, disabledSkills);
             foreach (var kv in ep.Skills)
                 pool[kv.Key] = pool.GetValueOrDefault(kv.Key) + kv.Value;
             integ += ep.Integrity;

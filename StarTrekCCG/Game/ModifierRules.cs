@@ -21,7 +21,9 @@ public static class ModifierRules
     public enum ModifierKind
     {
         AttrBonus,
-        SkillGrant
+        SkillGrant,
+        /// <summary>Skill present on card but disabled (e.g. Two-Dimensional Creatures → Empathy).</summary>
+        SkillDisable
     }
 
     public readonly record struct Modifier(
@@ -46,7 +48,7 @@ public static class ModifierRules
 
         public bool HasChanges =>
             Integrity != BaseIntegrity || Cunning != BaseCunning || Strength != BaseStrength
-            || Applied.Any(m => m.Kind == ModifierKind.SkillGrant);
+            || Applied.Any(m => m.Kind is ModifierKind.SkillGrant or ModifierKind.SkillDisable);
     }
 
     public sealed class TeamSummary
@@ -135,10 +137,32 @@ public static class ModifierRules
     /// Effektives Profil einer Personnel-Karte bei given present-Karten (gleicher Host, inkl. Eq).
     /// Nur Modifier des <paramref name="owner"/> greifen auf „your personnel“.
     /// </summary>
+
+    /// <summary>Remove disabled skills (exact name match, ignore case) and record SkillDisable modifiers.</summary>
+    public static void ApplySkillDisables(
+        Dictionary<string, int> skills,
+        List<Modifier> applied,
+        IEnumerable<string>? disabledSkills,
+        int owner,
+        string sourceName = "Two-Dimensional Creatures")
+    {
+        if (disabledSkills == null) return;
+        foreach (var raw in disabledSkills)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) continue;
+            string name = raw.Trim();
+            var hit = skills.Keys.FirstOrDefault(k => k.Equals(name, StringComparison.OrdinalIgnoreCase));
+            if (hit == null) continue;
+            skills.Remove(hit);
+            applied.Add(new Modifier(sourceName, ModifierKind.SkillDisable, hit, 0, owner));
+        }
+    }
+
     public static EffectiveProfile ResolvePersonnel(
         Card subject,
         IEnumerable<Card> presentCards,
-        int owner)
+        int owner,
+        IEnumerable<string>? disabledSkills = null)
     {
         var present = presentCards?.ToList() ?? new List<Card>();
         var (bi, bc, bs) = MissionRules.ParseAttributes(subject);
@@ -157,6 +181,11 @@ public static class ModifierRules
                     if (!string.IsNullOrWhiteSpace(s))
                         kept[s] = baseSkills.GetValueOrDefault(s, 1);
             }
+            var fomApplied = new List<Modifier>
+            {
+                new("Frame of Mind", ModifierKind.AttrBonus, "ALL", 0, owner)
+            };
+            ApplySkillDisables(kept, fomApplied, disabledSkills, owner);
             return new EffectiveProfile
             {
                 Card = subject,
@@ -168,10 +197,7 @@ public static class ModifierRules
                 BaseStrength = bs,
                 Skills = kept,
                 BaseSkills = baseSkills,
-                Applied = new List<Modifier>
-                {
-                    new("Frame of Mind", ModifierKind.AttrBonus, "ALL", 0, owner)
-                }
+                Applied = fomApplied
             };
         }
 
@@ -261,6 +287,8 @@ public static class ModifierRules
                 str - before, owner));
         }
 
+        ApplySkillDisables(skills, applied, disabledSkills, owner);
+
         return new EffectiveProfile
         {
             Card = subject,
@@ -279,7 +307,8 @@ public static class ModifierRules
     /// <summary>Team-Summen inkl. Equipment-Boni (nur Personnel des Owners).</summary>
     public static TeamSummary SummarizeTeam(
         IEnumerable<Card> presentCards,
-        int owner)
+        int owner,
+        IEnumerable<string>? disabledSkills = null)
     {
         var present = presentCards?.ToList() ?? new List<Card>();
         var personnel = present.Where(IsPersonnelCard).ToList();
@@ -292,7 +321,7 @@ public static class ModifierRules
 
         foreach (var p in personnel)
         {
-            var ep = ResolvePersonnel(p, present, owner);
+            var ep = ResolvePersonnel(p, present, owner, disabledSkills);
             integ += ep.Integrity;
             cunn += ep.Cunning;
             str += ep.Strength;
@@ -360,6 +389,11 @@ public static class ModifierRules
         if (grants.Count > 0)
             lines.Add("+ " + string.Join(", ",
                 grants.Select(g => $"{g.StatOrSkill} ({g.SourceName})")));
+
+        var disabled = ep.Applied.Where(m => m.Kind == ModifierKind.SkillDisable).ToList();
+        if (disabled.Count > 0)
+            lines.Add("Disabled: " + string.Join(", ",
+                disabled.Select(d => $"{d.StatOrSkill} ({d.SourceName})")));
 
         return string.Join("\n", lines);
     }

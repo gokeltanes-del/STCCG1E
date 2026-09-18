@@ -99,6 +99,8 @@ public static class DilemmaRules
         /// (no member quarantined/in stasis, and a valid destination is present).
         /// </summary>
         public bool CanBeamOffPlanet { get; init; } = true;
+        /// <summary>Skills disabled for this encounter team (e.g. Empathy under TwoDim on ship).</summary>
+        public IReadOnlyList<string>? DisabledSkills { get; init; }
     }
 
     public static Result Resolve(Ctx ctx)
@@ -524,7 +526,7 @@ public static class DilemmaRules
     private static readonly List<Card> _tmp = new();
 
     private static ModifierRules.EffectiveProfile Eff(Ctx ctx, Card p) =>
-        ModifierRules.ResolvePersonnel(p, ctx.Present, ctx.AttemptingPlayer);
+        ModifierRules.ResolvePersonnel(p, ctx.Present, ctx.AttemptingPlayer, ctx.DisabledSkills);
 
     private static (int integ, int cunn, int str) Sum(Ctx ctx)
     {
@@ -3174,7 +3176,7 @@ public static class DilemmaRules
             PersistKind.Nitrium => "countdown 2; ship destroyed unless SCIENCE×2 or ENGINEER×2",
             PersistKind.Menthar => "ship cannot move (cure: 2 ENGINEER)",
             PersistKind.Tsiolkovsky => "attributes −3 until MEDICAL×3",
-            PersistKind.TwoDim => "ship cannot move (ENGINEER + SCIENCE)",
+            PersistKind.TwoDim => "Empathy disabled; ship cannot move (cure: ENGINEER + SCIENCE)",
             PersistKind.Cytherians => "must move toward far end; +15 when reached",
             PersistKind.Conundrum => "must chase opponent ship",
             PersistKind.EdoProbe => "attempt this mission next or −10",

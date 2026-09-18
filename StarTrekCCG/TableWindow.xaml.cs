@@ -12621,7 +12621,7 @@ public partial class TableWindow : Window
                     int o = CardOwner(b);
                     if (o == 0) o = pc.Controller != 0 ? pc.Controller : pc.OwnerPlayer;
                     if (o == 0) o = _activePlayer;
-                    var ep = ModifierRules.ResolvePersonnel(pc, present, _activePlayer);
+                    var ep = ModifierRules.ResolvePersonnel(pc, present, _activePlayer, DisabledSkillsOnHost(_attemptShip));
                     var mode = DualAffiliationRules.ProfileFor(pc);
                     string delta = mode != null && mode.StrengthDelta != 0
                         ? $" delta={mode.StrengthDelta:+#;-#;0}"
@@ -12667,7 +12667,9 @@ public partial class TableWindow : Window
                             || (dc.Type ?? "").Contains("outpost", StringComparison.OrdinalIgnoreCase)
                             || (dc.Type ?? "").Contains("facility", StringComparison.OrdinalIgnoreCase)
                             || (dc.Name ?? "").Contains("outpost", StringComparison.OrdinalIgnoreCase)))
-                )
+                ),
+                // TwoDim on attempting ship: Empathy disabled for crew skill checks
+                DisabledSkills = DisabledSkillsOnHost(_attemptShip)
             });
 
             var wrapped = EngineAuthority.WrapDilemma(seedCard, dilResult);
@@ -12789,7 +12791,8 @@ public partial class TableWindow : Window
         var solvePresent = CollectPresentAtMission(missionBorder, mission, _attemptShip);
         var result = MissionRules.CanSolve(mission, solvePresent, dilemmasRemaining: 0,
             attemptingPlayer: _activePlayer, missionOwner: missionOwner,
-            extraMissionIcons: EspionageIconsOn(missionBorder, _activePlayer));
+            extraMissionIcons: EspionageIconsOn(missionBorder, _activePlayer),
+            disabledSkills: DisabledSkillsOnHost(_attemptShip));
         if (!result.Ok)
         {
             ShowCardReveal(mission, "Mission not solved",
@@ -17366,7 +17369,8 @@ public partial class TableWindow : Window
                 : GetBorderOwner(mb);
             var check = MissionRules.CanSolve(mission, teamList, dilemmasRemaining: 0,
                 attemptingPlayer: _activePlayer, missionOwner: missionOwner,
-                extraMissionIcons: EspionageIconsOn(mb, _activePlayer));
+                extraMissionIcons: EspionageIconsOn(mb, _activePlayer),
+                disabledSkills: DisabledSkillsUnderMission(mb));
             if (!check.Ok) continue;
             if (dil > 0)
             {
@@ -21264,6 +21268,18 @@ public partial class TableWindow : Window
                         DetailStatusRules.QuarantineCureHint(qdil.Kind)),
                     DetailStatusTone.Stasis);
             }
+
+            var presentCtxEmp = FindPresentContextForCard(card);
+            if (presentCtxEmp != null && HostHasTwoDim(presentCtxEmp.Value.host))
+            {
+                var baseSk = MissionRules.ParsePersonnelSkills(card);
+                if (baseSk.Keys.Any(k => k.Equals("Empathy", StringComparison.OrdinalIgnoreCase)))
+                {
+                    AddDetailStatusLine(
+                        "Empathy disabled (Two-Dimensional Creatures) — cure: ENGINEER + SCIENCE",
+                        DetailStatusTone.Debuff);
+                }
+            }
         }
 
         // Ship: outpost repair amber timer
@@ -21988,7 +22004,31 @@ public partial class TableWindow : Window
     /// <summary>
     /// Sucht den Host-Stapel, in dem diese Karte liegt → present-Context für Modifier.
     /// </summary>
-    private (List<Card> cards, int owner)? FindPresentContextForCard(Card card)
+    private static readonly string[] TwoDimDisabledSkills = { "Empathy" };
+
+    private bool HostHasTwoDim(Border host) =>
+        _attachedDilemmas.Any(a =>
+            ReferenceEquals(a.Host, host) && a.Kind == DilemmaRules.PersistKind.TwoDim);
+
+    /// <summary>Skills disabled for crew/AT on this host (TwoDim → Empathy).</summary>
+    private IReadOnlyList<string>? DisabledSkillsOnHost(Border? host) =>
+        host != null && HostHasTwoDim(host) ? TwoDimDisabledSkills : null;
+
+    /// <summary>For spaceline solve preview: Empathy off if TwoDim is on any ship here.</summary>
+    private IReadOnlyList<string>? DisabledSkillsUnderMission(Border missionBorder)
+    {
+        foreach (var dock in GetDockablesUnderMission(missionBorder))
+        {
+            if (dock.Tag is not Card dc || !IsShipCard(dc)) continue;
+            if (HostHasTwoDim(dock))
+                return TwoDimDisabledSkills;
+        }
+        if (HostHasTwoDim(missionBorder))
+            return TwoDimDisabledSkills;
+        return null;
+    }
+
+    private (List<Card> cards, int owner, Border host)? FindPresentContextForCard(Card card)
     {
         foreach (var kv in _stackOnHost)
         {
@@ -21997,7 +22037,7 @@ public partial class TableWindow : Window
                 if (!ReferenceEquals(b.Tag, card)) continue;
                 int o = CardOwner(b);
                 if (o == 0) o = 1;
-                return (GetAllCardsOnHost(kv.Key, o), o);
+                return (GetAllCardsOnHost(kv.Key, o), o, kv.Key);
             }
         }
         // Fallback: gleiche Instanz nicht gefunden – Name + Owner am Host
@@ -22010,7 +22050,7 @@ public partial class TableWindow : Window
                     continue;
                 int o = CardOwner(b);
                 if (o == 0) o = 1;
-                return (GetAllCardsOnHost(kv.Key, o), o);
+                return (GetAllCardsOnHost(kv.Key, o), o, kv.Key);
             }
         }
         return null;
@@ -23015,7 +23055,9 @@ public partial class TableWindow : Window
             string skillsLine = "";
             if (presentCtx != null)
             {
-                var ep = ModifierRules.ResolvePersonnel(card, presentCtx.Value.cards, presentCtx.Value.owner);
+                var ep = ModifierRules.ResolvePersonnel(
+                    card, presentCtx.Value.cards, presentCtx.Value.owner,
+                    DisabledSkillsOnHost(presentCtx.Value.host));
                 var classKeys = new HashSet<string>(MissionRules.Classifications, StringComparer.OrdinalIgnoreCase);
                 DetailAttributes.Text = string.Join("\n",
                     ModifierRules.FormatProfileLines(ep)
@@ -23191,7 +23233,7 @@ public partial class TableWindow : Window
                 Run($"— Player {p} —");
                 if (present.Any(ModifierRules.IsPersonnelCard))
                 {
-                    var team = ModifierRules.SummarizeTeam(present, p);
+                    var team = ModifierRules.SummarizeTeam(present, p, DisabledSkillsOnHost(host));
                     Run($"S{p} Team — {team.PersonnelCount} Pers · {team.EquipmentCount} Eq", nl: false);
                     IconCatalog.AppendCounts(DetailStackStats.Inlines, present, 12);
                     DetailStackStats.Inlines.Add(new System.Windows.Documents.LineBreak());

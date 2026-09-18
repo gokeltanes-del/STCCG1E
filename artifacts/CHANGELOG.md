@@ -1,5 +1,11 @@
 ## 2026-09-17 — Hail (AU) + table UI chrome
 
+## 2026-09-18 — Two-Dimensional Creatures: Empathy disabled
+
+- While TwoDim persist on ship: Empathy stripped in ResolvePersonnel (Detail skills, Contents team sum, dilemma Skill(), CanSolve).
+- Move-block unchanged. Cure ENGINEER+SCIENCE unchanged. Detail debuff line when printed Empathy present.
+
+
 ## 2026-09-18 — FINAL: IG after Resolve (Spock Glossary)
 
 - Pepsch decided strict: reveal → Resolve (targets+conditions) → optional IG Yes/No → else effects.
