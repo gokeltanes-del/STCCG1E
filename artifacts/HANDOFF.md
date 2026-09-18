@@ -1,27 +1,26 @@
-﻿# STCCG 1E - Handoff
+# STCCG 1E - Handoff
 
-Last updated: 2026-09-18 (Data -- load dock-Y settle; unstaged tip for Pepsch)
+Last updated: 2026-09-18 (Data -- dock horizontal baseline; no Y cascade)
 Repo: https://github.com/gokeltanes-del/STCCG1E
 Local VS: C:\\Dev\\StarTrekCCG\\
 **Ein Branch: master.** GrokTest nicht nutzen.
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test.
 
 ## Current tip
-Local Josef tip **056f6b0** — Fix: Load Dock-Y settle Relayout + X-Pin. Nicht gepusht.
+Local Josef tip **4a61fa1** - Fix: Dockables horizontale Linie (X-Stagger, Y-Baseline). Nicht gepusht.
 **Pepsch EXE (Default Debug, gerade gebaut):**
 `C:\Dev\StarTrekCCG\StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe`
 Nicht `_build_docky*` / Release / alte Side-Builds.
 
-## Warum 8c88b2d bei Pepsch nicht sichtbar
-1) **Bin-Pfad:** Fix lag in `_build_docky2` (12:49); Default-Debug war teils noch stale bis Rebuild. Side-Build ist nicht der VS-F5/Doppelklick-Pfad.
-2) **Code noch lueckenhaft:** 8c88b2d pinnte nur Snapshot aus GetDockables (Pixel-Y). Wenn Save-Y ausserhalb Fenster -> leerer Snapshot -> nach Mission->SpacelineY bleiben Docks auf Save-Y (Y-Versatz). Kein Relayout nach Layout-Settle.
+## Warum diagonal / Smoke fail (vor diesem Tip)
+6b6033f / 8c88b2d / 056f6b0 nutzten `DockSlotOffsetY(slot)` -> Y-Cascade (diagonale Tuerme). SOLL: eine gerade horizontale Linie pro Seite (konstantes Y), N Schiffe nur via `DockSlotOffsetX`.
 
 ## Pipeline (zwei Straenge, nie im selben Commit)
 
 ### Sofort -- Pepsch smoke
 - Response Window UX (Silent Badge, [R] Think Tray, [Space] Pass, Presets)
 - Artifact Beaming: Varon-T Planet auf Schiff ohne Treaty-Fehler
-- **Load Dock-Y** tip **056f6b0** (nach 8c88b2d / 6b6033f): gerade Baseline P1 unten / P2 oben
+- **Dock horizontal** tip **4a61fa1**: Ships+Outposts gleiche Y-Baseline, X side-by-side; Load+live Relayout gleich
 
 ### Strang A -- Premiere-Dilemmas (ACTIVE, Pause)
 Pause bei **#26 Q** bis Captain Go. REM Fatigue bleibt parked.
@@ -39,12 +38,14 @@ Hugh Borg Ship; IM FindMission; dump@Gaps; Distortion; Parasites Hotseat-UI; REM
 ## Docs map
 HANDOFF, PROJECT, ENGINE, CODE_PLACEMENT, EXTRACT_REST, FEATURES, CARD_TRACKER, CHANGELOG
 
-## Tip detail (Data, Josef, 2026-09-18) — 056f6b0
-Root cause: Load orphaned docks when pixel Y-window missed save Y; plus Pepsch often not on Default Debug exe.
+## Tip detail (Data, Josef, 2026-09-18) - 4a61fa1
+Root: `DockSlotOffsetY(i)` in Relayout/Relocate -> diagonale/vertikale Stacks (Pepsch SOLL = horizontale Linie).
 Fix:
-- PinDockablesToSpacelineByColumn (X only) before Relayout
-- RelayoutMissionsOnSpaceline + UpdateLayout + second Relayout + RelayoutAllDockables
-- ScheduleRelayoutAfterLoadSettle (Dispatcher Loaded)
-- Top = missionTop + DockSlotOffsetY only (never save Y + offset)
+- `DockSlotOffsetY`: konstante Baseline pro Seite (slot ignoriert); multi-ship nur `DockSlotOffsetX(i*18)`
+- Relayout / Relocate / Snap-Preview: Top = missionTop + DockSlotOffsetY(0); Left += X-Stagger; Z steigt weiter
+- Column-Tolerance 120 fuer X-Stagger; Load-Settle-Pfad unveraendert (gleiche Regel)
 File: StarTrekCCG/TableWindow.xaml.cs. Build: 0 errors. Not pushed.
 Exe: StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe
+
+## Prior tip (056f6b0) load settle
+PinDockablesToSpacelineByColumn + Relayout after UpdateLayout + ScheduleRelayoutAfterLoadSettle; Top immer missionTop+DockSlotOffsetY, nie Save-Y.
