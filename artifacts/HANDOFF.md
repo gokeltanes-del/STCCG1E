@@ -1,26 +1,24 @@
-# STCCG 1E - Handoff
+﻿# STCCG 1E - Handoff
 
-Last updated: 2026-09-18 (Data -- Tarellian Plague Ship Pepsch hybrid)
+Last updated: 2026-09-18 (Data -- Tarellian Overcome UX Equipment-then-Person)
 Repo: https://github.com/gokeltanes-del/STCCG1E
 Local VS: C:\\Dev\\StarTrekCCG\\
 **Ein Branch: master.** GrokTest nicht nutzen.
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test.
 
 ## Current tip
-Local Josef tip **a97e8eb** - Feat: Tarellian Plague Ship (beam-to-dilemma, MEDICAL discard +5). Nicht gepusht.
+Local Josef tip **4575df4** - Fix: Tarellian Overcome UX (Equipment-then-Person for MEDICAL Kit/Tricorder). Nicht gepusht.
 **Pepsch EXE (Default Debug):**
 `C:\Dev\StarTrekCCG\StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe`
 Nicht `_build_docky*` / Release / alte Side-Builds.
 
-## Tip detail (Data, Josef, 2026-09-18) - Tarellian Plague Ship
-Captain Go / Pepsch hybrid:
-- Mechanik = Glossary / App B Opfer-Linie (eine Person auf Dilemma beamen, temp in space)
-- Punkte = Overcome +5 wenn usable MEDICAL bei Ankunft
-- Erfolg: MEDICAL (+ Medical Kit falls Kit-Grant) discard; Crew lebt; Dilemma discard; +5
-- Fail: encountering Crew stirbt; Dilemma discard; keine Punkte
-- Distortion Field blockt Beam; Barclay Transporter Phobia = Response, Re-Pick erlaubt
-- KEIN persistentes Spaceline-Token
-Files: `Game/DilemmaRules.cs` (Decide/Verify), `TableWindow.xaml.cs` (Ctx CanBeamToDilemma + Barclay). Not pushed.
+## Tip detail (Data, Josef, 2026-09-18) - Tarellian Overcome UX Nacharbeit
+Captain Fix-Go / Pepsch Gap (Spock): Overcome-Picker UX only â€” Rules unveraendert.
+- Step 1: MEDICAL-granting Equipment present (ModifierRules SkillEquipment catalog: Medical Kit, Medical Tricorder; plain Tricorder NOT MEDICAL)
+- Step 2: Person aus full encountering crew; usable MEDICAL via TryUsableMedicalOnArrival (Kit via Present)
+- Kit+OFFICER / Medical Tricorder+SCIENCE: beide discard +5; Fail kill unchanged
+- VerifyTarellian: kit + tricorder + plain-Tricorder-fail extended
+Files: `Game/DilemmaRules.cs`, `Game/ModifierRules.cs` (EquipmentGrantsSkill query). TW untouched. Not pushed.
 Exe: StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe
 
 ## Warum 4a61fa1 falsch war
@@ -55,7 +53,7 @@ Root: 4a61fa1 X-cascade war falsch (Pepsch misspoke "horizontal").
 Fix:
 - `DockSlotOffsetY(slot)` wieder: Y-Stufen; `DockSlotOffsetX` = 0 (mission-centered)
 - Relayout / Relocate / Snap-Preview / RelayoutAll: Top = missionTop + DockSlotOffsetY(i); Left = missionLeft
-- Column-Tolerance 45; Z steigt mit Slot; PinâˆªPixel Membership; CountDockablesForOwner
+- Column-Tolerance 45; Z steigt mit Slot; PinÃ¢Ë†ÂªPixel Membership; CountDockablesForOwner
 - KEEP Load-Pfad 8c88b2d/056f6b0: X-Pin, Relayout after settle, Top nie Save-Y+offset, Pins clear, SpacelineYDefault
 File: StarTrekCCG/TableWindow.xaml.cs. Not pushed.
 Exe: StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe
