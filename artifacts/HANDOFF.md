@@ -1,16 +1,23 @@
 # STCCG 1E - Handoff
 
-Last updated: 2026-09-18 (Data -- Tarellian Overcome UX A/B entry points)
+Last updated: 2026-09-18 (Data -- Tarellian Step0 Choose-dialog preview)
 Repo: https://github.com/gokeltanes-del/STCCG1E
 Local VS: C:\\Dev\\StarTrekCCG\\
 **Ein Branch: master.** GrokTest nicht nutzen.
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test.
 
 ## Current tip
-Local Josef tip **c36642b** - Fix: Tarellian Overcome UX A/B (Medical Personnel OR Equipment+Personnel). Nicht gepusht.
+Local Josef tip **003f811** - Fix: Tarellian Step0 A/B shows dilemma card in Choose dialog top-left. Nicht gepusht.
 **Pepsch EXE (Default Debug):**
 `C:\Dev\StarTrekCCG\StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe`
 Nicht `_build_docky*` / Release / alte Side-Builds.
+
+## Tip detail (Data, Josef, 2026-09-18) - Tarellian Step0 display polish
+Captain Fix-Go / Pepsch: Logic A/B OK; Bug = dilemmacard missing in Step0 Choose dialog top-left.
+- Cause: dilemma `PickYou`/`PickOpp` called `PickCardFromList` without `source`; synthetic Choice cards have no art -> empty slot
+- Fix: pass `seedCard` as source (same as `AskChoice` / other card-choice dialogs). Display only; Rules/Picker flow unchanged.
+File: `TableWindow.xaml.cs`. Not pushed.
+Exe: StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe
 
 ## Tip detail (Data, Josef, 2026-09-18) - Tarellian Overcome UX A/B
 Captain Fix-Go / Pepsch Soll: two entry points, NOT one flat pool. Rules (Spock) unchanged.
@@ -54,7 +61,7 @@ Root: 4a61fa1 X-cascade war falsch (Pepsch misspoke "horizontal").
 Fix:
 - `DockSlotOffsetY(slot)` wieder: Y-Stufen; `DockSlotOffsetX` = 0 (mission-centered)
 - Relayout / Relocate / Snap-Preview / RelayoutAll: Top = missionTop + DockSlotOffsetY(i); Left = missionLeft
-- Column-Tolerance 45; Z steigt mit Slot; PinÃ¢Ë†ÂªPixel Membership; CountDockablesForOwner
+- Column-Tolerance 45; Z steigt mit Slot; PinÃƒÂ¢Ã‹â€ Ã‚ÂªPixel Membership; CountDockablesForOwner
 - KEEP Load-Pfad 8c88b2d/056f6b0: X-Pin, Relayout after settle, Top nie Save-Y+offset, Pins clear, SpacelineYDefault
 File: StarTrekCCG/TableWindow.xaml.cs. Not pushed.
 Exe: StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe
