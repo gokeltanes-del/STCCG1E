@@ -1,6 +1,6 @@
 # STCCG 1E â€” Card Expansion Tracker
 
-Last updated: 2026-09-18 (Jadzia — Tarellian working 003f811; Tsiolkovsky tip 948cf0f pending Pepsch)
+Last updated: 2026-09-18 (Data — Foundation first-listed 98aec60; Tarellian working 003f811; Tsiolkovsky pending Pepsch)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
