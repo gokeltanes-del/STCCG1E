@@ -9127,7 +9127,15 @@ public partial class TableWindow : Window
         DedupTablePermanents(_tablePermanentCards);
         DedupTablePermanents(_oppTablePermanentCards);
         RebuildTablePermanentsPanel();
+        // Load: pin by column (X) before any Relayout so save absolute Y cannot
+        // orphan docks when mission Top jumps to SpacelineY (pixel Y-window miss).
+        PinDockablesToSpacelineByColumn();
         RelayoutMissionsOnSpaceline();
+        TableCanvas.UpdateLayout();
+        // Second pass: EnsureBoardExtents may have shifted SpacelineY mid-first-pass.
+        RelayoutMissionsOnSpaceline();
+        RelayoutAllDockables();
+        ScheduleRelayoutAfterLoadSettle();
         // Scow Place during dilemma restore used pre-layout mission Left/Top — align to final column.
         var scowLoad = _attachedDilemmas.FirstOrDefault(d => d.Kind == DilemmaRules.PersistKind.Scow);
         if (scowLoad?.Host != null)
@@ -22653,6 +22661,41 @@ public partial class TableWindow : Window
                 if (o == 0) o = 1;
                 return o == ownerPlayer;
             });
+    }
+
+    /// <summary>
+    /// Load hygiene: associate every visible dockable with nearest mission by X only.
+    /// Ignores save absolute Y so Relayout can always rebase Top from missionTop + DockSlotOffsetY.
+    /// </summary>
+    private void PinDockablesToSpacelineByColumn()
+    {
+        foreach (var b in TableCanvas.Children.OfType<Border>().ToList())
+        {
+            if (b.Visibility != Visibility.Visible) continue;
+            if (ReferenceEquals(b, _scowToken) || ReferenceEquals(b, _borgShipToken)) continue;
+            if (b.Tag is not Card c || !IsDockableUnderMission(c)) continue;
+            _dockableAtMission.Remove(b);
+            FindMissionForDockable(b);
+        }
+    }
+
+    private void RelayoutAllDockables()
+    {
+        foreach (var m in _spacelineOrder)
+        {
+            if (m.Tag is Card c && IsMissionCard(c))
+                RelayoutDockablesUnderMission(m);
+        }
+    }
+
+    /// <summary>After measure/arrange settle, rebase dock Y from final mission Tops only.</summary>
+    private void ScheduleRelayoutAfterLoadSettle()
+    {
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            RelayoutMissionsOnSpaceline();
+            RelayoutAllDockables();
+        }), System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
     private void RelayoutDockablesUnderMission(Border mission, Border? exclude = null)
