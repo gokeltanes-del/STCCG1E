@@ -132,9 +132,10 @@ public static class EventRules
     public static bool IsHorgahn(Card? c) => ArtifactRules.IsHorgahn(c);
     public static bool IsAlienProbe(Card? c) => NameIs(c, "Alien Probe");
     public static bool IsAtmosphericIonization(Card? c) => NameIs(c, "Atmospheric Ionization");
+    public static bool IsDistortionField(Card? c) => NameIs(c, "Distortion Field");
     /// <summary>Printed Unique events (Glossary Unique).</summary>
     public static bool IsPrintedUniqueEvent(Card? c) =>
-        IsAtmosphericIonization(c) || NameIs(c, "Distortion Field");
+        IsAtmosphericIonization(c) || IsDistortionField(c);
     public static bool NameEquals(Card? c, string? name) =>
         c != null && !string.IsNullOrEmpty(name)
         && (c.Name ?? "").Equals(name, StringComparison.OrdinalIgnoreCase);
@@ -244,11 +245,14 @@ public static class EventRules
                 Persist = Persist.Ionization,
                 Message = "Unique. Plays on a planet. Beam to/from this planet 1 at a time (incl. planet-vicinity beams); max 3 personnel this way per controller per turn. (Glossary: Atmospheric Ionization)"
             },
+            // Glossary: Distortion Field — Unique; enters play FACE UP (blocks immediately);
+            // EOT each turn flips (even while face-down). "to/from this planet" includes planet-vicinity
+            // beams (landed ship <-> planet facility), same as Atmospheric Ionization.
             "Distortion Field" => new PlayResult
             {
                 Place = Place.OnPlanet,
                 Persist = Persist.Distortion,
-                Message = "Plays on a planet (unique). End of each turn (even face-down): flip. Face-up: no beaming to/from here."
+                Message = "Unique. Plays on a planet face-up (blocks beaming immediately). End of each turn (even while face-down): flip. While face-up: prevents all beaming to/from this planet (incl. planet-vicinity beams). (Glossary: Distortion Field)"
             },
             "Holo-Projectors" => new PlayResult
             {
@@ -625,7 +629,8 @@ public static class EventRules
             Persist.WarpCore => "destroys ship at end of controller's next turn (may be nullified by ENGINEER)",
             Persist.Baryon => "RANGE −2",
             Persist.NeuralServo => "control of this ship until EOT",
-            Persist.Distortion => "RANGE may be used to unstop",
+            // Glossary: Distortion Field (NOT Interrupt Distortion of S/T Continuum)
+            Persist.Distortion => "while face-up: no beaming to/from this planet (incl. planet-vicinities); EOT flip",
             Persist.ParticleScatter => "no beaming to/from this ship",
             Persist.Spacedock => "docking here fully repairs",
             Persist.CaptainsLog => "WEAPONS +3 / SHIELDS +3 if matching commander aboard",
@@ -858,6 +863,37 @@ public static class EventRules
             return "Atmospheric Ionization: Glossary planet-vicinity cite missing";
         if (r.Message.IndexOf("per controller", StringComparison.OrdinalIgnoreCase) < 0)
             return "Atmospheric Ionization: per controller limit";
+        return null;
+    }
+
+    /// <summary>Glossary: Distortion Field - Standing Practice verify.</summary>
+    public static string? VerifyDistortionField()
+    {
+        var df = new Card { Name = "Distortion Field", Type = "Event" };
+        var r = ResolvePlay(df);
+        if (!r.Ok) return "Distortion Field: ResolvePlay failed";
+        if (r.Place != Place.OnPlanet) return "Distortion Field: Plays on Planet";
+        if (r.Persist != Persist.Distortion) return "Distortion Field: Persist.Distortion";
+        if (!IsDistortionField(df)) return "Distortion Field: IsDistortionField helper";
+        if (!IsPrintedUniqueEvent(df)) return "Distortion Field: Unique helper";
+        if (r.Message.IndexOf("Unique", StringComparison.OrdinalIgnoreCase) < 0)
+            return "Distortion Field: Unique in message";
+        if (r.Message.IndexOf("face-up", StringComparison.OrdinalIgnoreCase) < 0)
+            return "Distortion Field: enters/blocks face-up in message";
+        if (r.Message.IndexOf("flip", StringComparison.OrdinalIgnoreCase) < 0)
+            return "Distortion Field: EOT flip in message";
+        if (r.Message.IndexOf("face-down", StringComparison.OrdinalIgnoreCase) < 0)
+            return "Distortion Field: flip even while face-down in message";
+        if (r.Message.IndexOf("planet-vicinity", StringComparison.OrdinalIgnoreCase) < 0)
+            return "Distortion Field: Glossary planet-vicinity cite missing";
+        if (r.Message.IndexOf("Glossary: Distortion Field", StringComparison.OrdinalIgnoreCase) < 0)
+            return "Distortion Field: Glossary rule cite missing";
+        string summary = FormatHostEffectSummary(Persist.Distortion, df, null, 0);
+        if (summary.IndexOf("RANGE", StringComparison.OrdinalIgnoreCase) >= 0
+            || summary.IndexOf("unstop", StringComparison.OrdinalIgnoreCase) >= 0)
+            return "Distortion Field: FormatHostEffectSummary must not confuse with Interrupt Distortion of S/T Continuum";
+        if (summary.IndexOf("beaming", StringComparison.OrdinalIgnoreCase) < 0)
+            return "Distortion Field: FormatHostEffectSummary must mention beaming block";
         return null;
     }
 

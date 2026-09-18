@@ -73,7 +73,24 @@ public static class EndOfTurnEventRules
     public static bool ShouldDiscardTranswarp(bool cardIsTranswarp, bool eventOwnerIsFinishingPlayer) =>
         cardIsTranswarp && eventOwnerIsFinishingPlayer;
 
+    /// <summary>
+    /// Glossary: Distortion Field — End of each turn (even while face-down), flip card over.
+    /// Enters play face-up; first EOT → face-down. Gate is kind-only (always flip).
+    /// </summary>
     public static bool ShouldFlipDistortion(bool kindIsDistortion) => kindIsDistortion;
+
+    /// <summary>Standing Practice: enter face-up, flip every EOT.</summary>
+    public static string? VerifyDistortionFlip()
+    {
+        if (!ShouldFlipDistortion(true)) return "Distortion flip: must flip when kind is Distortion";
+        if (ShouldFlipDistortion(false)) return "Distortion flip: must not flip other kinds";
+        bool faceUp = true; // enters play face-up (blocks immediately)
+        faceUp = !faceUp;   // first EOT → face-down
+        if (faceUp) return "Distortion flip: first EOT must leave face-down";
+        faceUp = !faceUp;   // second EOT → face-up again
+        if (!faceUp) return "Distortion flip: second EOT must restore face-up";
+        return null;
+    }
 
     public static bool ShouldGrantTravelerExtraDraw(bool kindIsTraveler, bool travelerPlayerIsFinishing) =>
         kindIsTraveler && travelerPlayerIsFinishing;

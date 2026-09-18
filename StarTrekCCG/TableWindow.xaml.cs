@@ -14703,6 +14703,9 @@ public partial class TableWindow : Window
                 EspionageAs = r.EspionageAs,
                 EspionageOn = r.EspionageOn
             };
+            // Glossary: Distortion Field — enters play FACE UP (blocks immediately); first EOT flips face-down.
+            if (r.Persist == EventRules.Persist.Distortion)
+                ae.FaceUp = true;
             // Compendium turn wording defaults for known persist kinds
             AssignTurnScopeForEvent(ae, r.Persist, controller, host);
             if (r.Persist == EventRules.Persist.Traveler)
@@ -20894,9 +20897,11 @@ public partial class TableWindow : Window
         if (HasPatternEnhancers()) return true;
         foreach (var e in EventsOn(mission))
         {
+            // Glossary: Distortion Field — while face-up, prevents ALL beaming to/from this planet
+            // (incl. planet-vicinity beams: landed ship <-> facility). Same-mission gate covers hosts here.
             if (e.Kind == EventRules.Persist.Distortion && e.FaceUp)
             {
-                ShowPlayError("Distortion Field (face-up): no beaming.");
+                ShowPlayError("Distortion Field (face-up): no beaming to/from this planet (incl. planet-vicinities). Glossary: Distortion Field.");
                 return false;
             }
             // Glossary: Atmospheric Ionization — 1 at a time; max 3 personnel this way per controller/turn.
@@ -21095,11 +21100,12 @@ public partial class TableWindow : Window
                 continue;
             }
 
+            // Glossary: Distortion Field — EOT flip even while face-down
             if (EndOfTurnEventRules.ShouldFlipDistortion(e.Kind == EventRules.Persist.Distortion))
             {
                 e.FaceUp = !e.FaceUp;
                 _session.Log.Add(_session.TurnNumber, "sys",
-                    $"Distortion Field now {(e.FaceUp ? "face-up" : "face-down")}");
+                    $"Distortion Field flipped → now {(e.FaceUp ? "face-up (no beaming)" : "face-down (beaming OK)")}");
             }
 
             if (e.Kind == EventRules.Persist.PlasmaFire && e.Host != null

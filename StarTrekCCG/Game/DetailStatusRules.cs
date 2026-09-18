@@ -36,7 +36,6 @@ public static class DetailStatusRules
                 or EventRules.Persist.Bynars
                 or EventRules.Persist.Spacedock
                 or EventRules.Persist.CaptainsLog
-                or EventRules.Persist.Distortion
                 or EventRules.Persist.YellowAlert
                 => DetailStatusTone.Buff,
             EventRules.Persist.PlasmaFire
@@ -48,6 +47,8 @@ public static class DetailStatusRules
                 or EventRules.Persist.Thermal
                 or EventRules.Persist.IncomingMessage
                 or EventRules.Persist.Ionization
+                // Glossary: Distortion Field — beaming lock (not Interrupt Distortion of S/T Continuum)
+                or EventRules.Persist.Distortion
                 => DetailStatusTone.Debuff,
             _ => DetailStatusTone.Info
         };

@@ -1,6 +1,6 @@
 # STCCG 1E â€” Card Expansion Tracker
 
-Last updated: 2026-09-18 (Jadzia — Atmospheric Ionization working; Distortion Field Data Go; Alien Probe still partial)
+Last updated: 2026-09-18 (Data - Distortion Field partial tip; Atmospheric Ionization working; Alien Probe still partial)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -144,7 +144,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Alien Probe (66 U) | partial | tip Data/`5c08269`. No Pepsch green yet (only Atmospheric Ionization confirmed). Stays partial — not working. | Data/`5c08269` 2026-09-18 |
 | Atmospheric Ionization (68 C) | working | Pepsch green tip Data/`5c08269`. | Pepsch 2026-09-18; Data/`5c08269` |
 | Bynars Weapon Enhancement (69 R) | working | Pepsch green. | Pepsch 2026-09-06 |
-| Distortion Field (70 U) | not-started | Data Go (Event). Flip to partial when tip lands. Not working. | Captain Go Data 2026-09-18 |
+| Distortion Field (70 U) | partial | tip Data/`TIPHASH`. Face-up enter; EOT flip; face-up blocks all beaming incl. vicinity; FormatHostEffectSummary Interrupt confusion fixed. Pending Pepsch green -> working. | Data/`TIPHASH` 2026-09-18 |
 | Espionage: Federation on Klingon (71 C) | working | Pepsch green (Espionage-Familie). | Pepsch 2026-09-06 |
 | Espionage: Klingon on Federation (72 C) | working | Pepsch green (Espionage-Familie). | Pepsch 2026-09-06 |
 | Espionage: Romulan on Federation (73 C) | working | Pepsch green (Espionage-Familie). | Pepsch 2026-09-06 |

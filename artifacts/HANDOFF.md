@@ -1,16 +1,29 @@
 # STCCG 1E - Handoff
 
-Last updated: 2026-09-18 (Data — Alien Probe + Atmospheric Ionization + IPG Detail-Overkill)
+Last updated: 2026-09-18 (Data - Distortion Field PR 70 U)
 Repo: https://github.com/gokeltanes-del/STCCG1E
 Local VS: C:\\Dev\\StarTrekCCG\\
 **Ein Branch: master.** GrokTest nicht nutzen.
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test.
 
 ## Current tip
-Local Josef tip **5c08269** — Alien Probe (PR 66 U) + Atmospheric Ionization (PR 68 C) + IPG Detail-Overkill. Nicht gepusht.
+Local Josef tip **TIPHASH** - Distortion Field (PR 70 U). Nicht gepusht. (Prior tip 5c08269 Atmospheric Ionization Pepsch green.)
 **Pepsch EXE (Default Debug):**
 `C:\Dev\StarTrekCCG\StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe`
 Nicht `_build_docky*` / Release / alte Side-Builds.
+
+## Tip detail (Data, Josef, 2026-09-18) - Distortion Field (PR 70 U)
+Captain/Spock Soll-OK. Standing Practice Glossary cites. CODE_PLACEMENT: Events in Rules; UI wire.
+### Distortion Field (PR 70 U) - EN Distortion
+- Unique (IsPrintedUniqueEvent / IsDistortionField); Plays on Planet; enters play **FACE UP** (blocks immediately); first EOT -> face-down.
+- EOT each turn: flip (even while face-down) via EndOfTurnEventRules.ShouldFlipDistortion.
+- Face-up: prevents ALL beaming to/from this planet incl. planet-vicinity (landed <-> facility); same-mission gate as Atmospheric Ionization.
+- Face-down: beaming allowed.
+- Fix: FormatHostEffectSummary was Interrupt confusion ("RANGE may be used to unstop") -> beaming block summary; DetailStatus Debuff (not Buff).
+- Verify: EventRules.VerifyDistortionField + EndOfTurnEventRules.VerifyDistortionFlip.
+- KEEP: Atmospheric Ionization (5c08269) untouched / no regress.
+Files: Game/EventRules.cs, Game/DetailStatusRules.cs, Game/EndOfTurnEventRules.cs, TableWindow.xaml.cs, artifacts/CARD_TRACKER.md, artifacts/HANDOFF.md.
+Exe: StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe
 
 ## Tip detail (Data, Josef, 2026-09-18) - Alien Probe + Atmospheric Ionization + IPG UX
 Captain/Spock Soll-OK. Standing Practice Glossary cites folded in. CODE_PLACEMENT: Events in Rules; UI wire.
@@ -102,7 +115,7 @@ Welle 1 Slices 1-9 DONE. Naechstes Ticket wenn Captain Go: **P0-D1 + P0-E1**.
 BoardStore Persist-Wahrheit zuerst. Localhost zwei Exes.
 
 ## Parked
-Hugh Borg Ship; IM FindMission; dump@Gaps; Distortion; Parasites Hotseat-UI; REM Fatigue; Cure-Present-Scope Ship
+Hugh Borg Ship; IM FindMission; dump@Gaps; Parasites Hotseat-UI; REM Fatigue; Cure-Present-Scope Ship
 
 ## Docs map
 HANDOFF, PROJECT, ENGINE, CODE_PLACEMENT, EXTRACT_REST, FEATURES, CARD_TRACKER, CHANGELOG
