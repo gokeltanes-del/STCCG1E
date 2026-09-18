@@ -9,7 +9,7 @@ Local VS: C:\\Dev\\StarTrekCCG\\
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test.
 
 ## Current tip
-Local Josef tip **TIPHASH** - Gaps Host-Action-Panel stick (Pepsch smoke). Nicht gepusht. (Prior tip 034ee39 Occupancy Badge.)
+Local Josef tip **651a63f** - Gaps Host-Action-Panel stick (Pepsch smoke). Nicht gepusht. (Prior tip 034ee39 Occupancy Badge.)
 **Pepsch EXE (Default Debug):**
 `C:\Dev\StarTrekCCG\StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe`
 Nicht `_build_docky*` / Release / alte Side-Builds.
