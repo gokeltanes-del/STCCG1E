@@ -1,5 +1,5 @@
 # STCCG 1E - Features backlog
-Last updated: 2026-09-13
+Last updated: 2026-09-18
 
 Living list - **Seven owns ranking.**
 See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md, CARD_TRACKER.md (Jadzia).
@@ -17,7 +17,7 @@ See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md, CARD_TRACKER.md (Jadzia).
 - **Dilemma Cure System 7.2.2.3** - **DONE** (Pepsch green: Archer, Alien Abduction, Phased Matter 2026-09-13; Fix Team-Stop / Curable AttachContinue 7.2.2.3 & 7.2.6)
 - **Staffing/Fly/Battle Gaps G2-G7** - **DONE** (`2cd5bc8`)
 - **Glossary/Compendium** - Welle 2 Control/Owner/Present ACTIVE (Docs)
-- **Premiere Dilemma wave** ACTIVE (einzeln; paused at **#26 Q** bis Captain Go)
+- **Premiere Dilemma wave** ACTIVE (einzeln; **Temporal Causality Loop** — wait Spock Spec; no premature DONE / GLOSSARY_COVERAGE)
 
 ## P1 - Parked
 - Microvirus Opp-Chooser / DNA-Filter
