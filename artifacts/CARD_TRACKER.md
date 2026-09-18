@@ -1,6 +1,6 @@
 # STCCG 1E â€” Card Expansion Tracker
 
-Last updated: 2026-09-18 (Jadzia — Two-Dimensional Creatures working)
+Last updated: 2026-09-18 (Jadzia — Tarellian working 003f811; Tsiolkovsky tip 948cf0f pending Pepsch)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -115,9 +115,9 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | REM Fatigue (47 U) | unknown |  |  |
 | Sarjenka (48 R) | working | Pepsch green. | Pepsch 2026-09-18 |
 | Shaka, When the Walls Fell (49 U) | working | Pepsch green. | Pepsch 2026-09-18 |
-| Tarellian Plague Ship (50 U) | working | Pepsch green hybrid beam+MEDICAL+5 + Overcome UX A/B + Step0 Choose preview (003f811). | Pepsch 2026-09-18 |
+| Tarellian Plague Ship (50 U) | working | Pepsch green: Hybrid Opfer+5; Overcome UX A Medical Personnel / B Equipment+matching; Step0 Dilemma-Karte UI tip `003f811`. Tips Data `a97e8eb`…`003f811`. | Pepsch 2026-09-18; Data/`003f811` |
 | Temporal Causality Loop (51 R) | unknown |  |  |
-| Tsiolkovsky Infection (52 R) | partial | AttachContinue + Cure 3 MEDICAL + no StopTeam OK. Apply: first-listed skill loss (ResolvePersonnel) + Summary skill-loss (not attributes -3). Pending Pepsch green. | Data Fix-Go 2026-09-18 |
+| Tsiolkovsky Infection (52 R) | partial | tip Data/`948cf0f` (Josef, no push): first-listed skill Apply+Summary (not attributes -3). AttachContinue + Cure 3 MEDICAL + no StopTeam OK. Ship Events nur Positive. Stays partial until Pepsch greens. | Data/`948cf0f` 2026-09-18 |
 | Two-Dimensional Creatures (53 U) | working | Pepsch green: move-block + full Disabled Empathy personnel aboard + beam OK. tips Data/`86f91ee`/`1690163`. AttachContinue: kein Team-Stop (7.2.2.3); Cure ENG+SCI. | Pepsch 2026-09-18; Data/`86f91ee`+`1690163` |
 | Wind Dancer (54 R) | working | Pepsch green (complete). | Pepsch 2026-09-18 |
 
