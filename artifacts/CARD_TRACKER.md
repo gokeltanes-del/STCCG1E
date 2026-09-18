@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-18 (Jadzia — Sarjenka + Interphase Generator working; Rebel Encounter partial)
+Last updated: 2026-09-18 (Jadzia — Wind Dancer + The Devil working)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -119,7 +119,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Temporal Causality Loop (51 R) | unknown |  |  |
 | Tsiolkovsky Infection (52 R) | partial | AttachContinue: kein Team-Stop (Rulebook 7.2.2.3), Verlust 1. Skill, Versuch läuft weiter; Cure 3 MEDICAL. | Captain 2026-09-13 |
 | Two-Dimensional Creatures (53 U) | partial | AttachContinue: kein Team-Stop (Rulebook 7.2.2.3), Schiff bewegungsunfähig, Versuch läuft weiter; Cure ENG+SCI. | Captain 2026-09-13 |
-| Wind Dancer (54 R) | unknown |  |  |
+| Wind Dancer (54 R) | working | Pepsch green (complete). | Pepsch 2026-09-18 |
 
 ### Equipment
 
@@ -225,7 +225,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Subspace Schism (138 U) | unknown |  |  |
 | Tachyon Detection Grid (139 C) | unknown |  |  |
 | Temporal Rift (140 U) | unknown |  |  |
-| The Devil (141 R) | unknown |  |  |
+| The Devil (141 R) | working | Pepsch green: nullify Wind Dancer. | Pepsch 2026-09-18 |
 | The Juggler (142 U) | unknown |  |  |
 | Transwarp Conduit (143 U) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Vulcan Mindmeld (144 U) | unknown |  |  |
