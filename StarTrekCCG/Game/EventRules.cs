@@ -133,6 +133,13 @@ public static class EventRules
     public static bool IsAlienProbe(Card? c) => NameIs(c, "Alien Probe");
     public static bool IsAtmosphericIonization(Card? c) => NameIs(c, "Atmospheric Ionization");
     public static bool IsDistortionField(Card? c) => NameIs(c, "Distortion Field");
+    public static bool IsHoloProjectors(Card? c) => NameIs(c, "Holo-Projectors");
+    public static bool IsMobileHoloEmitter(Card? c) =>
+        c != null && (
+            NameIs(c, "Mobile Holo-Emitter")
+            || (c.Name ?? "").Contains("Mobile Holo", StringComparison.OrdinalIgnoreCase)
+            || ((c.Name ?? "").Contains("Holo-Emitter", StringComparison.OrdinalIgnoreCase)
+                && (c.Name ?? "").Contains("Mobile", StringComparison.OrdinalIgnoreCase)));
     /// <summary>Printed Unique events (Glossary Unique).</summary>
     public static bool IsPrintedUniqueEvent(Card? c) =>
         IsAtmosphericIonization(c) || IsDistortionField(c);
@@ -254,11 +261,15 @@ public static class EventRules
                 Persist = Persist.Distortion,
                 Message = "Unique. Plays on a planet face-up (blocks beaming immediately). End of each turn (even while face-down): flip. While face-up: prevents all beaming to/from this planet (incl. planet-vicinity beams). (Glossary: Distortion Field)"
             },
+            // Glossary: hologram / Holo-Projectors (Spock Premiere Holo bullet-Soll).
+            // Plays on [P]; [Holo] may exist there activated or deactivated.
+            // Nullify -> erase only [Holo] at THIS planet that depended on THIS copy
+            // (MHE / other enabler protects; other planets untouched). Not a ship Holodeck.
             "Holo-Projectors" => new PlayResult
             {
                 Place = Place.OnPlanet,
                 Persist = Persist.HoloProjectors,
-                Message = "Plays on a planet. Holo cards may exist here. If nullified, holos that depended on this are erased."
+                Message = "Plays on a planet. [Holo] cards may exist here (activated or deactivated). If nullified, [Holo] that depended on these Holo-Projectors for existence are erased (other enablers protect). (Glossary: hologram / Holo-Projectors)"
             },
             "Espionage: Federation on Klingon" => Espionage("FED", "KLI"),
             "Espionage: Klingon on Federation" => Espionage("KLI", "FED"),
@@ -655,6 +666,8 @@ public static class EventRules
             Persist.Ionization => "beam to/from this planet 1 at a time; max 3 personnel/controller/turn (planet-vicinities included)",
             // Glossary: Alien Probe
             Persist.Probe => "both hands revealed (hand cards not nullifiable until played; Battle Bridge unaffected)",
+            // Glossary: hologram / Holo-Projectors
+            Persist.HoloProjectors => "[Holo] may exist here (act/deact); nullify erases dependents of this copy only",
             _ => ""
         };
 
@@ -943,5 +956,110 @@ public static class EventRules
         return null;
     }
 
+    // --- Glossary: hologram / Holo-Projectors (Spock Premiere Holo bullet-Soll) ---
+
+    /// <summary>Ship/facility Holodeck enables [Holo] aboard only — never planet surface.</summary>
+    public static bool HasHolodeck(Card? shipOrFacility) =>
+        shipOrFacility != null && MovementRules.ShipHasSpecialEquipment(shipOrFacility, "Holodeck");
+
+    /// <summary>True if present cards include Mobile Holo-Emitter (or name-like).</summary>
+    public static bool HasMobileHoloEmitterPresent(IEnumerable<Card>? present) =>
+        present != null && present.Any(IsMobileHoloEmitter);
+
+    /// <summary>
+    /// Planet surface existence: Holo-Projectors at this planet, and/or MHE / other printed enabler.
+    /// Ship Holodeck does NOT enable planet existence.
+    /// </summary>
+    public static bool HoloMayExistOnPlanet(bool holoProjectorsAtPlanet, bool hasMheOrOtherPrintedEnabler) =>
+        holoProjectorsAtPlanet || hasMheOrOtherPrintedEnabler;
+
+    /// <summary>Aboard ship/facility: Holodeck and/or MHE / other printed enabler.</summary>
+    public static bool HoloMayExistAboard(bool holodeckAboard, bool hasMheOrOtherPrintedEnabler) =>
+        holodeckAboard || hasMheOrOtherPrintedEnabler;
+
+    /// <summary>
+    /// Nullify erase gate: only [Holo] at THIS planet that depended on THIS Projectors copy.
+    /// Protected if another Projectors remains, or MHE / other printed enabler is present.
+    /// </summary>
+    public static bool DependsOnThisHoloProjectorsForExistence(
+        bool isHologram,
+        bool atPlanetOfTheseProjectors,
+        bool otherProjectorsStillAtPlanet,
+        bool hasMheOrOtherPrintedEnabler)
+    {
+        if (!isHologram || !atPlanetOfTheseProjectors) return false;
+        if (hasMheOrOtherPrintedEnabler) return false;
+        if (otherProjectorsStillAtPlanet) return false;
+        return true;
+    }
+
+    /// <summary>Kill/destroy hologram -> deactivate (Disabled), not erase. Glossary: hologram.</summary>
+    public static void DeactivateHologram(Card? holo)
+    {
+        if (holo == null) return;
+        holo.Disabled = true;
+    }
+
+    /// <summary>Stuck where [Holo] cannot exist -> erase (out of play). Caller sends OutOfPlay.</summary>
+    public static bool ShouldEraseWhenStuckWithoutEnabler(bool isHologram, bool mayExistHere) =>
+        isHologram && !mayExistHere;
+
+    /// <summary>Glossary: hologram / Holo-Projectors — Standing Practice verify.</summary>
+    public static string? VerifyHoloProjectors()
+    {
+        var hp = new Card { Name = "Holo-Projectors", Type = "Event" };
+        var r = ResolvePlay(hp);
+        if (!r.Ok) return "Holo-Projectors: ResolvePlay failed";
+        if (r.Place != Place.OnPlanet) return "Holo-Projectors: Plays on Planet";
+        if (r.Persist != Persist.HoloProjectors) return "Holo-Projectors: Persist.HoloProjectors";
+        if (!IsHoloProjectors(hp)) return "Holo-Projectors: IsHoloProjectors helper";
+        if (r.Message.IndexOf("activated", StringComparison.OrdinalIgnoreCase) < 0
+            || r.Message.IndexOf("deactivated", StringComparison.OrdinalIgnoreCase) < 0)
+            return "Holo-Projectors: act/deact existence in message";
+        if (r.Message.IndexOf("erased", StringComparison.OrdinalIgnoreCase) < 0)
+            return "Holo-Projectors: nullify erase in message";
+        if (r.Message.IndexOf("Glossary: hologram", StringComparison.OrdinalIgnoreCase) < 0)
+            return "Holo-Projectors: Glossary cite missing";
+
+        string summary = FormatHostEffectSummary(Persist.HoloProjectors, hp, null, 0);
+        if (summary.IndexOf("Holo", StringComparison.OrdinalIgnoreCase) < 0)
+            return "Holo-Projectors: FormatHostEffectSummary must mention Holo exist";
+        if (summary.IndexOf("this copy", StringComparison.OrdinalIgnoreCase) < 0
+            && summary.IndexOf("depend", StringComparison.OrdinalIgnoreCase) < 0)
+            return "Holo-Projectors: FormatHostEffectSummary must note this-copy erase";
+
+        var galaxy = new Card { Name = "Galaxy", Type = "Ship", Text = "Holodeck, Tractor Beam." };
+        if (!HasHolodeck(galaxy)) return "Holo-Projectors: HasHolodeck true for Galaxy";
+        if (HoloMayExistOnPlanet(false, false)) return "Holo-Projectors: planet without enabler must deny exist";
+        if (!HoloMayExistOnPlanet(true, false)) return "Holo-Projectors: Projectors enables planet exist";
+        if (!HoloMayExistOnPlanet(false, true)) return "Holo-Projectors: MHE enables planet exist";
+        if (!HoloMayExistAboard(true, false)) return "Holo-Projectors: Holodeck enables aboard";
+        if (HoloMayExistAboard(false, false)) return "Holo-Projectors: no Holodeck/MHE aboard must deny";
+
+        if (!DependsOnThisHoloProjectorsForExistence(true, true, false, false))
+            return "Holo-Projectors: dependent holo at planet must erase on nullify";
+        if (DependsOnThisHoloProjectorsForExistence(true, true, false, true))
+            return "Holo-Projectors: MHE must protect from erase";
+        if (DependsOnThisHoloProjectorsForExistence(true, true, true, false))
+            return "Holo-Projectors: other Projectors copy must protect";
+        if (DependsOnThisHoloProjectorsForExistence(true, false, false, false))
+            return "Holo-Projectors: other planet must not erase";
+        if (DependsOnThisHoloProjectorsForExistence(false, true, false, false))
+            return "Holo-Projectors: non-holo must not erase";
+
+        var holo = new Card { Name = "Holodoc", Type = "Personnel", Icons = "[Holo]", Disabled = false };
+        DeactivateHologram(holo);
+        if (!holo.Disabled) return "Holo-Projectors: kill/destroy path deactivates (Disabled)";
+        if (!ShouldEraseWhenStuckWithoutEnabler(true, false))
+            return "Holo-Projectors: stuck without enabler -> erase";
+        if (ShouldEraseWhenStuckWithoutEnabler(true, true))
+            return "Holo-Projectors: may exist -> do not erase";
+
+        var mhe = new Card { Name = "Mobile Holo-Emitter", Type = "Equipment" };
+        if (!IsMobileHoloEmitter(mhe)) return "Holo-Projectors: IsMobileHoloEmitter helper";
+        if (!HasMobileHoloEmitterPresent(new[] { holo, mhe }))
+            return "Holo-Projectors: HasMobileHoloEmitterPresent";
+        return null;
+    }
 
 }

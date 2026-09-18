@@ -2,17 +2,56 @@
 
 # STCCG 1E - Handoff
 
-Last updated: 2026-09-18 (Data - Goddess of Empathy Amanda)
+Last updated: 2026-09-18 (Data - Holo-Projectors)
 Repo: https://github.com/gokeltanes-del/STCCG1E
 Local VS: C:\\Dev\\StarTrekCCG\\
 **Ein Branch: master.** GrokTest nicht nutzen.
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test.
 
 ## Current tip
-Local Josef tip **23d1c17** - Goddess of Empathy: Amanda blocked in response/nullify (Pepsch smoke). Nicht gepusht. (Prior tip 651a63f Gaps panel.)
+Local Josef tip **8e22a42** - Holo-Projectors (PR 78 U) EventRules + nullify erase. Nicht gepusht. (Prior tip Goddess 23d1c17.)
 **Pepsch EXE (Default Debug):**
 `C:\Dev\StarTrekCCG\StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe`
 Nicht `_build_docky*` / Release / alte Side-Builds.
+
+## Tip detail (Data, Josef, 2026-09-18) - Holo-Projectors (PR 78 U)
+Captain Go / Spock Premiere Holo bullet-Soll. Standing Practice Glossary cites. CODE_PLACEMENT: EventRules (+ TW nullify wire).
+
+### Holo-Projectors required
+- Plays on [P] (Place.OnPlanet / Persist.HoloProjectors).
+- While in play: [Holo] may exist on that planet activated or deactivated.
+- Nullify -> erase only [Holo] at THIS planet that depended on THIS copy (MHE / other enabler / other Projectors protect; other planets untouched).
+- Not a ship Holodeck (Holodeck enables aboard only).
+
+### Core helpers (EventRules)
+- IsHoloProjectors / IsMobileHoloEmitter / HasHolodeck / HasMobileHoloEmitterPresent
+- HoloMayExistOnPlanet / HoloMayExistAboard
+- DependsOnThisHoloProjectorsForExistence (nullify erase gate)
+- DeactivateHologram (kill/destroy -> Disabled, not erase)
+- ShouldEraseWhenStuckWithoutEnabler
+- FormatHostEffectSummary(Persist.HoloProjectors) + VerifyHoloProjectors
+
+### TW wire
+- NullifyEventInPlay: before detach, EraseHoloDependentsOfProjectors -> OutOfPlay for dependents of this copy.
+
+### Parked (for Pepsch / later tips)
+- Captive / opponent Holodeck deep; Holodeck Door suite / Holoprograms
+- Post-PR existence cards; advanced Barclay
+- Full report/beam illegal-location gates + same-turn reactivate tracking
+- Personnel-battle safety (holo cannot kill organics; holo-only STRENGTH force)
+
+### Fallen (avoided)
+- Holodeck != planet existence; nullify != erase all [Holo]; kill != erase; planet [Holo] without enabler
+
+### Bewusst nicht
+No push; no Holodeck Door/captive deep; battle safety not wired this tip.
+
+### Pepsch smoke
+1. Play Holo-Projectors on planet -> [Holo] may exist there (act or deact).
+2. Nullify Projectors with [Holo] only depending on it -> that [Holo] erased (out of play); MHE-protected survives; other planet untouched.
+3. Ship Holodeck: [Holo] aboard OK; Holodeck alone does not enable planet surface.
+Files: Game/EventRules.cs, TableWindow.xaml.cs, artifacts/CARD_TRACKER.md, artifacts/HANDOFF.md, _VerifyHolo/*
+Exe: StarTrekCCG\\bin\\Debug\\net8.0-windows\\StarTrekCCG.exe (side-build _build_holo green while Pepsch EXE locked)
 
 ## Tip detail (Data, Josef, 2026-09-18) - Goddess of Empathy (Amanda response)
 Captain/Spock Soll-OK. Standing Practice Glossary cites.

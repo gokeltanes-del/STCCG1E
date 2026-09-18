@@ -14056,6 +14056,11 @@ public partial class TableWindow : Window
             : attached.FirstOrDefault()?.Owner is int ao && ao is 1 or 2 ? ao
             : byPlayer;
 
+        // Glossary: hologram / Holo-Projectors — erase dependents of THIS copy at THIS planet
+        // before the event leaves play (MHE / other enabler / other Projectors protect).
+        if (EventRules.IsHoloProjectors(ev))
+            EraseHoloDependentsOfProjectors(ev, attached);
+
         // Gaps nullify (Spock): relocate occupants BEFORE span is removed — nullifier chooses adjacent.
         if (GapsNullifyRules.NeedsRelocateOnNullify(EventRules.IsGapsInNormalSpace(ev)))
             RelocateOccupantsAfterGapsNullify(ev, attached, byPlayer);
@@ -14101,6 +14106,57 @@ public partial class TableWindow : Window
             $"Nullified {ev.Name} (owner P{owner} → discard)");
         StatusText.Text = $"{ev.Name} nullified → P{owner} discard.";
     }
+
+
+    /// <summary>
+    /// Glossary: hologram / Holo-Projectors — on nullify, erase [Holo] at this planet that
+    /// depended on THIS Projectors copy (not MHE-protected; not other planets; not if another
+    /// Projectors remains on the same planet).
+    /// </summary>
+    private void EraseHoloDependentsOfProjectors(Card projectors, List<AttachedEvent> attached)
+    {
+        var host = attached.FirstOrDefault()?.Host;
+        if (host == null) return;
+
+        bool otherProjectorsStill = EventsOn(host).Any(ae =>
+            !ReferenceEquals(ae.Card, projectors)
+            && EventRules.IsHoloProjectors(ae.Card));
+
+        var stacked = StackOnHost(host);
+        if (stacked == null || stacked.Count == 0) return;
+
+        var present = stacked.Select(b => b.Tag).OfType<Card>().ToList();
+        bool mhePresent = EventRules.HasMobileHoloEmitterPresent(present);
+
+        foreach (var b in stacked.ToList())
+        {
+            if (b.Tag is not Card c) continue;
+            if (!CardIcons.IsHologram(c)) continue;
+            if (!EventRules.DependsOnThisHoloProjectorsForExistence(
+                    isHologram: true,
+                    atPlanetOfTheseProjectors: true,
+                    otherProjectorsStillAtPlanet: otherProjectorsStill,
+                    hasMheOrOtherPrintedEnabler: mhePresent))
+                continue;
+
+            int owner = GetBorderOwner(b);
+            if (owner is not (1 or 2))
+                owner = c.OwnerPlayer is 1 or 2 ? c.OwnerPlayer : _activePlayer;
+
+            // Erase = out of play (not discard). Remove from host stack first.
+            stacked.Remove(b);
+            if (TableCanvas.Children.Contains(b))
+                TableCanvas.Children.Remove(b);
+            SendCardTo(c, owner, TimingRules.Destination.OutOfPlay);
+            _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
+                $"Holo-Projectors nullify: erased {c.Name} (depended on these projectors)");
+        }
+
+        UpdateHostBadge(host);
+        if (stacked.Count == 0)
+            _stackOnHost.Remove(host);
+    }
+
 
     private bool TryResolveInterruptPlay(Card card, int controller, bool isResponse, Card? target = null)
     {
