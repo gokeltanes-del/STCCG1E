@@ -1,24 +1,25 @@
-﻿# STCCG 1E - Handoff
+# STCCG 1E - Handoff
 
-Last updated: 2026-09-18 (Data -- Tarellian Overcome UX Equipment-then-Person)
+Last updated: 2026-09-18 (Data -- Tarellian Overcome UX A/B entry points)
 Repo: https://github.com/gokeltanes-del/STCCG1E
 Local VS: C:\\Dev\\StarTrekCCG\\
 **Ein Branch: master.** GrokTest nicht nutzen.
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test.
 
 ## Current tip
-Local Josef tip **4575df4** - Fix: Tarellian Overcome UX (Equipment-then-Person for MEDICAL Kit/Tricorder). Nicht gepusht.
+Local Josef tip **c36642b** - Fix: Tarellian Overcome UX A/B (Medical Personnel OR Equipment+Personnel). Nicht gepusht.
 **Pepsch EXE (Default Debug):**
 `C:\Dev\StarTrekCCG\StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe`
 Nicht `_build_docky*` / Release / alte Side-Builds.
 
-## Tip detail (Data, Josef, 2026-09-18) - Tarellian Overcome UX Nacharbeit
-Captain Fix-Go / Pepsch Gap (Spock): Overcome-Picker UX only â€” Rules unveraendert.
-- Step 1: MEDICAL-granting Equipment present (ModifierRules SkillEquipment catalog: Medical Kit, Medical Tricorder; plain Tricorder NOT MEDICAL)
-- Step 2: Person aus full encountering crew; usable MEDICAL via TryUsableMedicalOnArrival (Kit via Present)
-- Kit+OFFICER / Medical Tricorder+SCIENCE: beide discard +5; Fail kill unchanged
-- VerifyTarellian: kit + tricorder + plain-Tricorder-fail extended
-Files: `Game/DilemmaRules.cs`, `Game/ModifierRules.cs` (EquipmentGrantsSkill query). TW untouched. Not pushed.
+## Tip detail (Data, Josef, 2026-09-18) - Tarellian Overcome UX A/B
+Captain Fix-Go / Pepsch Soll: two entry points, NOT one flat pool. Rules (Spock) unchanged.
+- Schritt 0: A) Medical Personnel OR B) Equipment + Personnel (Choice cards)
+- Path A: encountering crew filtered to printed usable MEDICAL (Class OR Skill); beam/sacrifice; no equipment discard
+- Path B: MEDICAL-granting eq only (Medical Kit, Medical Tricorder via SkillEquipment); then personnel matching RequiredClass (Kit->OFFICER, Medical Tricorder->SCIENCE); person+eq discard +5
+- Plain Tricorder still no MEDICAL / not offered
+- VerifyTarellian: Path A then Path B (+ Kit-only, Tricorder class-filter, plain fail)
+Files: `Game/DilemmaRules.cs`, `Game/ModifierRules.cs` (EquipmentRequiredClassForSkill). TW untouched. CARD_TRACKER partial until Pepsch green. Not pushed.
 Exe: StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe
 
 ## Warum 4a61fa1 falsch war
