@@ -2225,34 +2225,86 @@ public static class DilemmaRules
         if (placed.Persist != PersistKind.Tsiolkovsky)
             return $"Tsiolkovsky placed: expected Persist Tsiolkovsky, got {placed.Persist}";
 
-        // Apply: first-listed skill stripped (not attributes -3); not cumulative
+        // Apply: first-listed skill = skill box after class echo (Spock), not attributes -3; not cumulative
+        // Sci: class SCIENCE echoed in text; first-listed = Physics (not SCIENCE)
         var sci = P("Sci", "SCIENCE", "SCIENCE Physics Biology");
         string? first = MissionRules.FirstListedSkill(sci);
-        if (!string.Equals(first, "SCIENCE", StringComparison.OrdinalIgnoreCase))
-            return $"Tsiolkovsky FirstListedSkill: expected SCIENCE, got {first}";
+        if (!string.Equals(first, "Physics", StringComparison.OrdinalIgnoreCase))
+            return $"Tsiolkovsky FirstListedSkill: expected Physics, got {first}";
         var epLoss = ModifierRules.ResolvePersonnel(sci, new[] { sci }, 1, loseFirstListedSkill: true);
-        if (epLoss.Skills.ContainsKey("SCIENCE"))
-            return "Tsiolkovsky apply: SCIENCE (first-listed) should be removed";
-        if (!epLoss.Skills.ContainsKey("Physics") || !epLoss.Skills.ContainsKey("Biology"))
-            return "Tsiolkovsky apply: later skills Physics/Biology should remain";
+        if (epLoss.Skills.ContainsKey("Physics"))
+            return "Tsiolkovsky apply: Physics (first-listed) should be removed";
+        if (!epLoss.Skills.ContainsKey("SCIENCE"))
+            return "Tsiolkovsky apply: classification SCIENCE must remain";
+        if (!epLoss.Skills.ContainsKey("Biology"))
+            return "Tsiolkovsky apply: later skill Biology should remain";
         if (!epLoss.Applied.Any(m => m.Kind == ModifierRules.ModifierKind.SkillDisable
                                      && m.SourceName == ModifierRules.TsiolkovskySourceName
-                                     && m.StatOrSkill.Equals("SCIENCE", StringComparison.OrdinalIgnoreCase)))
-            return "Tsiolkovsky apply: expected SkillDisable modifier for SCIENCE";
-        // Not cumulative: second pass still only one disable
+                                     && m.StatOrSkill.Equals("Physics", StringComparison.OrdinalIgnoreCase)))
+            return "Tsiolkovsky apply: expected SkillDisable modifier for Physics";
+        // Not cumulative: second pass still only one disable; second skill does not slide up
         var ep2 = ModifierRules.ResolvePersonnel(sci, new[] { sci }, 1, loseFirstListedSkill: true);
         int disables = ep2.Applied.Count(m => m.Kind == ModifierRules.ModifierKind.SkillDisable
                                               && m.SourceName == ModifierRules.TsiolkovskySourceName);
         if (disables != 1)
             return $"Tsiolkovsky not cumulative: expected 1 SkillDisable, got {disables}";
+        if (ep2.Skills.ContainsKey("Physics") || !ep2.Skills.ContainsKey("Biology"))
+            return "Tsiolkovsky not cumulative: Physics stays blank; Biology must not slide into loss";
 
-        // Summary must describe skill loss, not attributes -3
+        // Data (PR): class OFFICER echoed; first-listed = ENGINEER (not OFFICER)
+        var data = P("Data", "OFFICER",
+            "OFFICER ENGINEER Computer Skill x 2 Music Astrophysics Exobiology");
+        string? dataFirst = MissionRules.FirstListedSkill(data);
+        if (!string.Equals(dataFirst, "ENGINEER", StringComparison.OrdinalIgnoreCase))
+            return $"Data FirstListedSkill: expected ENGINEER, got {dataFirst}";
+        var epData = ModifierRules.ResolvePersonnel(data, new[] { data }, 1, loseFirstListedSkill: true);
+        if (epData.Skills.ContainsKey("ENGINEER"))
+            return "Data apply: ENGINEER (first-listed) should be removed";
+        if (!epData.Skills.ContainsKey("OFFICER"))
+            return "Data apply: classification OFFICER must remain";
+        if (!epData.Skills.ContainsKey("Computer Skill"))
+            return "Data apply: Computer Skill must remain (does not slide up)";
+        if (!epData.Applied.Any(m => m.Kind == ModifierRules.ModifierKind.SkillDisable
+                                     && m.SourceName == ModifierRules.TsiolkovskySourceName
+                                     && m.StatOrSkill.Equals("ENGINEER", StringComparison.OrdinalIgnoreCase)))
+            return "Data apply: expected SkillDisable for ENGINEER";
+
+        // Seskal-shaped: first-listed = SCIENCE not OFFICER
+        var seskal = P("Seskal", "OFFICER", "OFFICER SCIENCE Leadership");
+        string? sesFirst = MissionRules.FirstListedSkill(seskal);
+        if (!string.Equals(sesFirst, "SCIENCE", StringComparison.OrdinalIgnoreCase))
+            return $"Seskal FirstListedSkill: expected SCIENCE, got {sesFirst}";
+
+        // Bashir-shaped: MEDICAL class + MEDICAL x2 first skill -> MEDICAL (x2 blanked together); class remains
+        var bashir = P("Bashir", "MEDICAL", "MEDICAL MEDICAL x2 Biology");
+        string? bashFirst = MissionRules.FirstListedSkill(bashir);
+        if (!string.Equals(bashFirst, "MEDICAL", StringComparison.OrdinalIgnoreCase))
+            return $"Bashir FirstListedSkill: expected MEDICAL, got {bashFirst}";
+        var epBash = ModifierRules.ResolvePersonnel(bashir, new[] { bashir }, 1, loseFirstListedSkill: true);
+        if (!epBash.Skills.ContainsKey("MEDICAL") || epBash.Skills["MEDICAL"] != 1)
+            return $"Bashir apply: classification MEDICAL must remain at 1, got {epBash.Skills.GetValueOrDefault("MEDICAL")}";
+        if (!epBash.Skills.ContainsKey("Biology"))
+            return "Bashir apply: Biology should remain";
+        if (!epBash.Applied.Any(m => m.Kind == ModifierRules.ModifierKind.SkillDisable
+                                     && m.SourceName == ModifierRules.TsiolkovskySourceName
+                                     && m.StatOrSkill.Equals("MEDICAL", StringComparison.OrdinalIgnoreCase)))
+            return "Bashir apply: expected SkillDisable for MEDICAL skill";
+
+        // Assimilation-shaped: Class no longer matches leading token -> former class is first-listed
+        var assim = P("Assim", "ANIMAL", "OFFICER ENGINEER");
+        string? assimFirst = MissionRules.FirstListedSkill(assim);
+        if (!string.Equals(assimFirst, "OFFICER", StringComparison.OrdinalIgnoreCase))
+            return $"Assimilation FirstListedSkill: expected OFFICER, got {assimFirst}";
+
+        // Summary must describe skill loss, not attributes -3; cure 3 MEDICAL unchanged
         string summary = FormatHostEffectSummary(PersistKind.Tsiolkovsky,
             new Card { Name = "Tsiolkovsky Infection", Type = "Dilemma" }, 0);
         if (summary.IndexOf("attributes", StringComparison.OrdinalIgnoreCase) >= 0)
             return $"Tsiolkovsky summary must not mention attributes: {summary}";
         if (summary.IndexOf("first-listed skill", StringComparison.OrdinalIgnoreCase) < 0)
             return $"Tsiolkovsky summary must mention first-listed skill: {summary}";
+        if (summary.IndexOf("3 MEDICAL", StringComparison.OrdinalIgnoreCase) < 0)
+            return $"Tsiolkovsky summary must mention cure 3 MEDICAL: {summary}";
 
         return null;
     }

@@ -241,6 +241,15 @@ public static class ModifierRules
         var hit = skills.Keys.FirstOrDefault(k => k.Equals(first, StringComparison.OrdinalIgnoreCase));
         if (hit == null) return;
         skills.Remove(hit);
+        // Glossary: blank the skill (multipliers together), NOT the classification box.
+        // When first-listed shares the class name (Bashir MEDICAL x2), restore printed class at 1.
+        foreach (var part in MissionRules.PrintedClassificationParts(subject))
+        {
+            if (!part.Equals(hit, StringComparison.OrdinalIgnoreCase)) continue;
+            if (!skills.Keys.Any(k => k.Equals(hit, StringComparison.OrdinalIgnoreCase)))
+                skills[hit] = 1;
+            break;
+        }
         applied.Add(new Modifier(TsiolkovskySourceName, ModifierKind.SkillDisable, hit, 0, owner));
     }
 

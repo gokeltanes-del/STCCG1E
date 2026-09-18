@@ -151,53 +151,98 @@ public static class MissionRules
 
     
     /// <summary>
-    /// First-listed skill from the printed skill box (Glossary): left-to-right in skill text,
-    /// else classification. Used by Tsiolkovsky Infection (not cumulative).
+    /// Printed classification parts from the classification box (not the skill box).
+    /// Lackey also echoes these as leading token(s) in <c>text</c>.
+    /// </summary>
+    public static IReadOnlyList<string> PrintedClassificationParts(Card personnel)
+    {
+        var parts = new List<string>();
+        if (personnel == null) return parts;
+        string cls = (personnel.Class ?? "").Trim();
+        if (cls.Length == 0) return parts;
+        foreach (var part in cls.Split(new[] { '/', ',', ';' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            string c = NormalizeSkill(part.Trim());
+            if (c.Length == 0) continue;
+            if (!parts.Exists(p => p.Equals(c, StringComparison.OrdinalIgnoreCase)))
+                parts.Add(c);
+            // VIP / V.I.P. aliases so leading-echo strip matches either form
+            if (c.Equals("VIP", StringComparison.OrdinalIgnoreCase)
+                && !parts.Exists(p => p.Equals("V.I.P.", StringComparison.OrdinalIgnoreCase)))
+                parts.Add("V.I.P.");
+            if (c.Equals("V.I.P.", StringComparison.OrdinalIgnoreCase)
+                && !parts.Exists(p => p.Equals("VIP", StringComparison.OrdinalIgnoreCase)))
+                parts.Add("VIP");
+        }
+        return parts;
+    }
+
+    /// <summary>
+    /// First-listed skill from the printed skill box (Glossary / Spock):
+    /// left-to-right regular/special skill — NOT the classification box.
+    /// Lackey puts classification as leading token(s) in <c>text</c>; those are skipped
+    /// when they match <see cref="Card.Class"/>. Next skill (incl. multi-word / xN name)
+    /// is first-listed. Same-named skill after the echo (e.g. Bashir MEDICAL x2) counts.
+    /// Assimilation: when Class no longer matches the leading token, that token is the
+    /// first-listed skill (former classification). Used by Tsiolkovsky Infection (not cumulative).
     /// </summary>
     public static string? FirstListedSkill(Card personnel)
     {
         if (personnel == null) return null;
 
         string text = (personnel.Text ?? "").Trim();
-        if (text.Length > 0)
-        {
-            var candidates = KnownMultiWordSkills
-                .Concat(Classifications)
-                .Concat(KnownSingleSkills)
-                .Distinct(StringComparer.OrdinalIgnoreCase);
+        if (text.Length == 0)
+            return null;
 
-            int bestPos = int.MaxValue;
-            int bestLen = -1;
-            string? best = null;
-            foreach (var skill in candidates)
+        // Strip Lackey leading classification-box echo(s) matching Card.Class (each part once).
+        string remaining = text;
+        var classParts = PrintedClassificationParts(personnel);
+        var skipped = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        bool progressed = true;
+        while (progressed)
+        {
+            progressed = false;
+            foreach (var part in classParts)
             {
-                var rx = new Regex(
-                    @"\b" + Regex.Escape(skill) + @"\b",
+                if (skipped.Contains(part)) continue;
+                var lead = new Regex(
+                    @"^\s*" + Regex.Escape(part) + @"\b",
                     RegexOptions.IgnoreCase);
-                var match = rx.Match(text);
-                if (!match.Success) continue;
-                if (match.Index < bestPos || (match.Index == bestPos && skill.Length > bestLen))
-                {
-                    bestPos = match.Index;
-                    bestLen = skill.Length;
-                    best = skill;
-                }
+                var m = lead.Match(remaining);
+                if (!m.Success) continue;
+                remaining = remaining.Substring(m.Length);
+                skipped.Add(part);
+                progressed = true;
+                break;
             }
-            if (best != null)
-                return NormalizeSkill(best);
         }
+        remaining = remaining.Trim();
+        if (remaining.Length == 0)
+            return null;
 
-        string cls = (personnel.Class ?? "").Trim();
-        if (cls.Length > 0)
+        var candidates = KnownMultiWordSkills
+            .Concat(Classifications)
+            .Concat(KnownSingleSkills)
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+
+        int bestPos = int.MaxValue;
+        int bestLen = -1;
+        string? best = null;
+        foreach (var skill in candidates)
         {
-            foreach (var part in cls.Split(new[] { '/', ',', ';' }, StringSplitOptions.RemoveEmptyEntries))
+            var rx = new Regex(
+                @"\b" + Regex.Escape(skill) + @"\b",
+                RegexOptions.IgnoreCase);
+            var match = rx.Match(remaining);
+            if (!match.Success) continue;
+            if (match.Index < bestPos || (match.Index == bestPos && skill.Length > bestLen))
             {
-                string c = part.Trim();
-                if (c.Length > 0)
-                    return NormalizeSkill(c);
+                bestPos = match.Index;
+                bestLen = skill.Length;
+                best = skill;
             }
         }
-        return null;
+        return best != null ? NormalizeSkill(best) : null;
     }
 
 public static (int integ, int cunn, int str) ParseAttributes(Card p)
