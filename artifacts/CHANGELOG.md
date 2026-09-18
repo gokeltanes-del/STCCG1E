@@ -1,5 +1,11 @@
 ## 2026-09-17 — Hail (AU) + table UI chrome
 
+## 2026-09-18 — FINAL: IG after Resolve (Spock Glossary)
+
+- Pepsch decided strict: reveal → Resolve (targets+conditions) → optional IG Yes/No → else effects.
+- Reverted house UX (4cbac3d). May-nullify + IG kept + [IPG] icon path unchanged. No further order flips.
+
+
 ## 2026-09-18 — HOLD: keep house UX IG pre-Resolve
 
 - Restored Pepsch house UX (IG Yes/No before Resolve for all [IPG]); undid Glossary revert 17f468e.
