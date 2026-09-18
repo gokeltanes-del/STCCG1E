@@ -1,6 +1,6 @@
 # STCCG 1E â€” Card Expansion Tracker
 
-Last updated: 2026-09-18 (Data -- Tarellian Overcome UX A/B entry points)
+Last updated: 2026-09-18 (Jadzia — Two-Dimensional Creatures working)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -118,7 +118,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Tarellian Plague Ship (50 U) | working | Pepsch green hybrid beam+MEDICAL+5 + Overcome UX A/B + Step0 Choose preview (003f811). | Pepsch 2026-09-18 |
 | Temporal Causality Loop (51 R) | unknown |  |  |
 | Tsiolkovsky Infection (52 R) | partial | AttachContinue + Cure 3 MEDICAL + no StopTeam OK. Apply: first-listed skill loss (ResolvePersonnel) + Summary skill-loss (not attributes -3). Pending Pepsch green. | Data Fix-Go 2026-09-18 |
-| Two-Dimensional Creatures (53 U) | partial | Pepsch: ship cannot move OK; Disable Empathy broken â€” Data Go. AttachContinue: kein Team-Stop (7.2.2.3); Cure ENG+SCI. Not working until Empathy disable greens. | Pepsch 2026-09-18; Data Go Empathy |
+| Two-Dimensional Creatures (53 U) | working | Pepsch green: move-block + full Disabled Empathy personnel aboard + beam OK. tips Data/`86f91ee`/`1690163`. AttachContinue: kein Team-Stop (7.2.2.3); Cure ENG+SCI. | Pepsch 2026-09-18; Data/`86f91ee`+`1690163` |
 | Wind Dancer (54 R) | working | Pepsch green (complete). | Pepsch 2026-09-18 |
 
 ### Equipment
