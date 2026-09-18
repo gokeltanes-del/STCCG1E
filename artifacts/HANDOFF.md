@@ -9,7 +9,7 @@ Local VS: C:\\Dev\\StarTrekCCG\\
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test.
 
 ## Current tip
-Local Josef tip **TIPHASH** - Goddess of Empathy: Amanda blocked in response/nullify (Pepsch smoke). Nicht gepusht. (Prior tip 651a63f Gaps panel.)
+Local Josef tip **23d1c17** - Goddess of Empathy: Amanda blocked in response/nullify (Pepsch smoke). Nicht gepusht. (Prior tip 651a63f Gaps panel.)
 **Pepsch EXE (Default Debug):**
 `C:\Dev\StarTrekCCG\StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe`
 Nicht `_build_docky*` / Release / alte Side-Builds.
