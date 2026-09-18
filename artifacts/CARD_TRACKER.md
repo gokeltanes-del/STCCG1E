@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-17 (Jadzia — Subspace Interference working; Asteroid Sanctuary partial; Hail working (Josef tip))
+Last updated: 2026-09-18 (Jadzia — Hail working Pepsch green)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -569,7 +569,7 @@ Source JSON: `artifacts/sample_data/Alternate_Universe/cards.json`
 | Devidian Foragers (C) | unknown |  |  |
 | Eyes in the Dark (C) | unknown |  |  |
 | Fire Sculptor (C) | unknown |  |  |
-| Hail (C) | unknown | Data Go pending. Subspace Interference nullify path Pepsch-green (`fb90d15`); leave Hail pending until Pepsch smoke — not working. | Captain 2026-09-17; Data Go |
+| Hail (C) | working | Pepsch green: fly-by; two-ship table drop + Detail red debuff; SI nullify. tips Data/`d551d2e`/`529874e`/`cffa908`/`56ca9f0`/`4bee6cf`. | Pepsch 2026-09-18; Data tips |
 | Howard Heirloom Candle (C) | unknown |  |  |
 | Humuhumunukunukuapua'a (C) | unknown |  |  |
 | Incoming Message: Attack Authorization (U) | unknown |  |  |
