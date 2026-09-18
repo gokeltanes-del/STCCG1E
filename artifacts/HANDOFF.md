@@ -7,7 +7,7 @@ Local VS: C:\\Dev\\StarTrekCCG\\
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test.
 
 ## Current tip
-Local Josef tip **TIPHASH** - Occupancy Badge UX (Pepsch lock). Nicht gepusht. (Prior tip a866bbe Distortion Field Pepsch green.)
+Local Josef tip **034ee39** - Occupancy Badge UX (Pepsch lock). Nicht gepusht. (Prior tip a866bbe Distortion Field Pepsch green.)
 **Pepsch EXE (Default Debug):**
 `C:\Dev\StarTrekCCG\StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe`
 Nicht `_build_docky*` / Release / alte Side-Builds.
