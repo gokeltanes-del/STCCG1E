@@ -9,10 +9,28 @@ Local VS: C:\\Dev\\StarTrekCCG\\
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test.
 
 ## Current tip
-Local Josef tip **034ee39** - Occupancy Badge UX (Pepsch lock). Nicht gepusht. (Prior tip a866bbe Distortion Field Pepsch green.)
+Local Josef tip **TIPHASH** - Gaps Host-Action-Panel stick (Pepsch smoke). Nicht gepusht. (Prior tip 034ee39 Occupancy Badge.)
 **Pepsch EXE (Default Debug):**
 `C:\Dev\StarTrekCCG\StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe`
 Nicht `_build_docky*` / Release / alte Side-Builds.
+
+## Tip detail (Data, Josef, 2026-09-18) - Gaps Host-Action-Panel stick
+Captain Go: panel follows ship after Fly on/over Gaps in Normal Space. **NO** general auto-dismiss.
+### Root
+Relayout/Relocate moved ship + selection frame; `_actionPanel` stayed at mid/old column. Gaps span skipped dockable Relayout (missions only) so ships/panel desynced on span.
+### Fix
+- `RepositionHostActionPanelIfAny` - bind panel Canvas L/T to `_selectedCard` (reposition only, never dismisses).
+- Call after `RelayoutDockablesUnderMission` + `RelocateShipAlongSpaceline` when ship selected.
+- `RelayoutMissionsOnSpaceline` / `RelayoutAllDockables`: landables incl. Gaps (`IsLandableLocation`), pin+Relayout dockables under span.
+- KEEP: FlyPick still Clear+SetSelection (exit Fly mode / rebuild buttons) - not dismiss-as-the-fix.
+### Bewusst nicht
+No Fake-Fly; no general menu auto-dismiss after every Fly.
+### Pepsch smoke
+1. Galaxy -> Gaps in Normal Space (Fly): Host action buttons stay glued to the ship (not mid/old).
+2. Fly over Gaps to another mission: panel still on ship after arrive.
+3. Enterprise / normal mission Fly still OK; Occupancy Badge / Distortion untouched.
+Files: TableWindow.xaml.cs, artifacts/FEATURES.md, artifacts/HANDOFF.md.
+Exe: StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe
 
 ## Tip detail (Data, Josef, 2026-09-18) - Occupancy Badge UX
 Captain/Spock Soll-OK. UX only (Host footer). Standing Practice: personnel-present chrome; no glow/split.

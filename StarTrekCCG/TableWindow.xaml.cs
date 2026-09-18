@@ -6320,7 +6320,9 @@ public partial class TableWindow : Window
         var dockByMission = new Dictionary<Border, List<Border>>();
         foreach (var m in _spacelineOrder)
         {
-            if (m.Tag is not Card mc || !IsMissionCard(mc)) continue;
+            // Gaps span is landable: ships docked there must move with Relayout
+            // (same pin contract as missions) or Host action panel lags mid-column.
+            if (m.Tag is not Card mc || !IsLandableLocation(mc)) continue;
             dockByMission[m] = GetDockablesUnderMission(m).ToList();
         }
 
@@ -6365,14 +6367,16 @@ public partial class TableWindow : Window
             {
                 ApplyMissionFaceVisual(cell, x);
             }
-            if (cell.Tag is Card oc && IsMissionCard(oc))
+            if (cell.Tag is Card oc && IsLandableLocation(oc))
             {
-                UpdateSeedBadge(cell);
+                if (IsMissionCard(oc))
+                    UpdateSeedBadge(cell);
                 if (dockByMission.TryGetValue(cell, out var docks))
                 {
                     // Pin before Relayout (same contract as RelocateShipAlongSpaceline): after
                     // mission Top jumps to SpacelineY, save absolute Y can fall outside the
                     // pixel Y-window; Pin+Pixel must still find every dock for baseline Y.
+                    // Gaps: ships on the span follow the span column (Host panel sticks via Relayout).
                     foreach (var d in docks)
                     {
                         Canvas.SetLeft(d, x);
@@ -12968,6 +12972,12 @@ public partial class TableWindow : Window
         UpdateHostBadge(ship);
         // Every RelocateShip* path: towed Scow must follow (not only Relayout branch).
         SyncTowedScowAfterShipMove(ship);
+        // Host action panel sticks to ship visual (Gaps span Fly/Relayout — no auto-dismiss).
+        if (ReferenceEquals(_selectedCard, ship))
+        {
+            UpdateSelectionFrame(ship);
+            RepositionHostActionPanelIfAny();
+        }
     }
 
     private void RelocateShipToLocation(Border ship, Border dest)
@@ -22760,6 +22770,22 @@ public partial class TableWindow : Window
         _selectionFrame.Visibility = Visibility.Visible;
     }
 
+    /// <summary>
+    /// Bind Host action panel to the selected ship visual after Relayout/Fly
+    /// (esp. Gaps in Normal Space span). Repositions only — never dismisses.
+    /// </summary>
+    private void RepositionHostActionPanelIfAny()
+    {
+        if (_actionPanel == null || _selectedCard == null) return;
+        if (!TableCanvas.Children.Contains(_actionPanel)) return;
+        if (!TableCanvas.Children.Contains(_selectedCard)) return;
+        double left = Canvas.GetLeft(_selectedCard);
+        double top = Canvas.GetTop(_selectedCard);
+        if (double.IsNaN(left) || double.IsNaN(top)) return;
+        Canvas.SetLeft(_actionPanel, left + TableCardWidth + 6);
+        Canvas.SetTop(_actionPanel, top);
+    }
+
     private sealed class HostCardRef
     {
         public Border Host { get; }
@@ -22933,7 +22959,7 @@ public partial class TableWindow : Window
     {
         foreach (var m in _spacelineOrder)
         {
-            if (m.Tag is Card c && IsMissionCard(c))
+            if (m.Tag is Card c && IsLandableLocation(c))
                 RelayoutDockablesUnderMission(m);
         }
     }
@@ -23005,7 +23031,10 @@ public partial class TableWindow : Window
         UpdateHostBadge(mission);
 
         if (_selectedCard != null)
+        {
             UpdateSelectionFrame(_selectedCard);
+            RepositionHostActionPanelIfAny();
+        }
 
         var borgAt = _attachedDilemmas.FirstOrDefault(d => d.Kind == DilemmaRules.PersistKind.BorgShip);
         if (borgAt != null && ReferenceEquals(borgAt.Host, mission))
