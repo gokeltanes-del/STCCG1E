@@ -1,3 +1,5 @@
+<!-- tip: PROJECT_STATUS.md (Repo-Root) entfernt — Wahrheit = artifacts/HANDOFF.md + artifacts/PROJECT.md (2026-09-18) -->
+
 # STCCG 1E - Handoff
 
 Last updated: 2026-09-18 (Data - Occupancy Badge UX)
