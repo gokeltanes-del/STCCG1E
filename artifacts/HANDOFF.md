@@ -7,7 +7,7 @@ Local VS: C:\\Dev\\StarTrekCCG\\
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test.
 
 ## Current tip
-Local Josef tip **TIPHASH** - Temporal Causality Loop (Premiere [S]) Glossary-treu Implement-Go. Nicht gepusht.
+Local Josef tip **e88860e** - Temporal Causality Loop (Premiere [S]) Glossary-treu Implement-Go. Nicht gepusht.
 **Pepsch EXE (Default Debug):**
 `C:\Dev\StarTrekCCG\StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe`
 Nicht `_build_docky*` / Release / alte Side-Builds.
@@ -75,7 +75,7 @@ Pepsch meinte VERTIKALE Linie, nicht horizontal. 4a61fa1 (X-Stagger, Y-Baseline)
 ### Strang A -- Premiere-Dilemmas (ACTIVE, Pause)
 Pause bei **#26 Q** bis Captain Go. REM Fatigue bleibt parked.
 Next unknown: Q, Radioactive Garbage Scow, Rebel Encounter, (REM Fatigue skip), Sarjenka, Shaka (TCL tip landed — Pepsch smoke). Reminder: Tsiolkovsky/Two-Dim/Wind Dancer already green.
-Done prior: **Tarellian Plague Ship** Pepsch green; **Tsiolkovsky** Foundation tip; **Temporal Causality Loop** Data Implement-Go (partial, tip TIPHASH).
+Done prior: **Tarellian Plague Ship** Pepsch green; **Tsiolkovsky** Foundation tip; **Temporal Causality Loop** Data Implement-Go (partial, tip e88860e).
 
 ### Strang B -- Welle 2 Extract (artifacts/EXTRACT_REST.md)
 Welle 1 Slices 1-9 DONE. Naechstes Ticket wenn Captain Go: **P0-D1 + P0-E1**.
