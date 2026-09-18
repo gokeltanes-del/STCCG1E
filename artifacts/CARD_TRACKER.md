@@ -1,6 +1,6 @@
 # STCCG 1E â€” Card Expansion Tracker
 
-Last updated: 2026-09-18 (Data tip — Alien Probe + Atmospheric Ionization + IPG Detail-Overkill)
+Last updated: 2026-09-18 (Jadzia — Alien Probe + Atmospheric Ionization tip 5c08269 partial; IPG display done)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -63,7 +63,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | --- | --- | --- | --- |
 | Betazoid Gift Box (1 R) | unknown |  |  |
 | Horga'hn (2 R) | unknown |  |  |
-| Interphase Generator (3 R) | working | Pepsch green nullify path OK. IPG Detail-Overkill: removed green+purple `Icons:[IPG]` literals; glyph-only remains (Data tip). | Pepsch 2026-09-18; Data IPG UX |
+| Interphase Generator (3 R) | working | Pepsch green: nullify path vs [IPG] incl. Nausicaans; Rebel Encounter nullify also OK. IPG display cleanup done (Glyph only; tip with `5c08269` batch). | Pepsch 2026-09-18; Data/`5c08269` display |
 | Kurlan Naiskos (4 R) | unknown |  |  |
 | Thought Maker (5 R) | unknown |  |  |
 | Time Travel Pod (6 R) | unknown |  |  |
@@ -141,8 +141,8 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 
 | Card | Status | Notes | Source |
 | --- | --- | --- | --- |
-| Alien Probe (66 U) | partial | Data tip: table play; continuous both hands revealed; hand cards not nullifiable until played; Battle Bridge unaffected. Glossary cites. Hotseat already reveals — Probe wires + Verify. | Data tip 5c08269 |
-| Atmospheric Ionization (68 C) | partial | Data tip: Unique; Plays on Planet; beam 1-at-a-time; max 3 personnel/controller/turn; Glossary planet-vicinity (landed↔facility). Per-controller counter. Verify. | Data tip 5c08269 |
+| Alien Probe (66 U) | partial | tip Data/`5c08269` (Josef, no push). Stays partial until Pepsch smoke — not working. | Data/`5c08269` 2026-09-18 |
+| Atmospheric Ionization (68 C) | partial | tip Data/`5c08269` (Josef, no push). Stays partial until Pepsch smoke — not working. | Data/`5c08269` 2026-09-18 |
 | Bynars Weapon Enhancement (69 R) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Distortion Field (70 U) | unknown |  |  |
 | Espionage: Federation on Klingon (71 C) | working | Pepsch green (Espionage-Familie). | Pepsch 2026-09-06 |
