@@ -108,6 +108,36 @@ public static class ModifierRules
         new("Tricorder", "ENGINEER", "SCIENCE"),
     };
 
+    /// <summary>
+    /// Premiere SkillEquipment catalog query: does this equipment grant the named skill?
+    /// Mirrors existing SkillEquipment only (Medical Kit/Medical Tricorder -> MEDICAL;
+    /// plain Tricorder grants SCIENCE, not MEDICAL). No new grant rules.
+    /// </summary>
+    public static bool EquipmentGrantsSkill(Card equipment, string skill)
+    {
+        if (equipment == null || string.IsNullOrWhiteSpace(skill) || !IsEquipmentCard(equipment))
+            return false;
+        string name = equipment.Name ?? "";
+        foreach (var def in SkillEquipment)
+        {
+            if (!NamesMatch(name, def.Name)) continue;
+            if (def.GrantedSkill.Equals(skill, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>Present equipment cards that grant <paramref name="skill"/> per SkillEquipment catalog.</summary>
+    public static List<Card> EquipmentGrantingSkill(IEnumerable<Card>? present, string skill)
+    {
+        var list = new List<Card>();
+        if (present == null) return list;
+        foreach (var c in present)
+            if (EquipmentGrantsSkill(c, skill))
+                list.Add(c);
+        return list;
+    }
+
     public static bool IsEquipmentCard(Card c) =>
         (c.Type ?? "").Contains("equipment", StringComparison.OrdinalIgnoreCase)
         || ArtifactRules.IsVaronT(c)

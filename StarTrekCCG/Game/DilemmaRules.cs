@@ -2725,6 +2725,21 @@ public static class DilemmaRules
             return rb;
         }
 
+        // Pepsch UX: when MEDICAL-granting equipment is present (SkillEquipment catalog),
+        // pick Equipment first, then Personnel from full encountering crew.
+        // Rules unchanged: usable MEDICAL still via TryUsableMedicalOnArrival (Kit via Present).
+        // Refusing equipment pick is OK (printed MEDICAL / Present still apply).
+        if (ctx.PickYou != null)
+        {
+            var medEq = ModifierRules.EquipmentGrantingSkill(ctx.Present, "MEDICAL");
+            if (medEq.Count > 0)
+            {
+                _ = ctx.PickYou.Invoke(
+                    "Tarellian Plague Ship: which MEDICAL equipment beams with the volunteer (discarded if grant used)?",
+                    medEq);
+            }
+        }
+
         var refusedBeam = new HashSet<Card>();
         Card? pick = null;
         Card? kitUsed = null;
@@ -2732,6 +2747,7 @@ public static class DilemmaRules
 
         while (true)
         {
+            // Full encountering crew (not printed-MEDICAL-only). Filter only Barclay refusals.
             var pool = ctx.Team.Where(p => !refusedBeam.Contains(p)).ToList();
             if (pool.Count == 0)
             {
@@ -2763,7 +2779,7 @@ public static class DilemmaRules
             if (beamBlocked)
             {
                 refusedBeam.Add(pick);
-                // Barclay: valid Response — allow another personnel to be chosen.
+                // Barclay: valid Response - allow another personnel to be chosen.
                 continue;
             }
 
@@ -2835,14 +2851,56 @@ public static class DilemmaRules
         if (!ShouldRemoveFromSeed(pass.Fate))
             return "pass MEDICAL: dilemma should discard";
 
-        // Pass: OFFICER + Medical Kit -> discard both, +5
-        var kitPass = Resolve(Make(new[] { off, civ }, new[] { off, civ, kit }, pick: (_, __) => off));
+        // Pass: OFFICER + Medical Kit -> UX equipment-then-person; discard both, +5
+        int kitPicks = 0;
+        var kitPass = Resolve(Make(new[] { off, civ }, new[] { off, civ, kit }, pick: (prompt, pool) =>
+        {
+            kitPicks++;
+            if (prompt.Contains("equipment", StringComparison.OrdinalIgnoreCase))
+                return pool.FirstOrDefault(c => ReferenceEquals(c, kit)) ?? pool.FirstOrDefault();
+            return pool.FirstOrDefault(c => ReferenceEquals(c, off)) ?? pool.FirstOrDefault();
+        }));
         if (kitPass.Fate != Fate.Overcome || kitPass.Score != 5)
             return $"kit pass: expected Overcome+5, got {kitPass.Fate}/score={kitPass.Score}";
         if (kitPass.Discard.Count != 2
             || !kitPass.Discard.Contains(off)
             || !kitPass.Discard.Contains(kit))
             return $"kit pass: expected discard OFFICER+Kit, got {string.Join(",", kitPass.Discard.Select(c => c.Name))}";
+        if (kitPicks < 2)
+            return $"kit pass: expected equipment-then-person (>=2 picks), got {kitPicks}";
+
+        // Pass: SCIENCE + Medical Tricorder -> discard both, +5 (plain Tricorder is NOT MEDICAL)
+        var sci = P("Dax", "SCIENCE", "SCIENCE Archaeology");
+        var medTri = Eq("Medical Tricorder");
+        int triPicks = 0;
+        var triPass = Resolve(Make(new[] { sci, civ }, new[] { sci, civ, medTri }, pick: (prompt, pool) =>
+        {
+            triPicks++;
+            if (prompt.Contains("equipment", StringComparison.OrdinalIgnoreCase))
+                return pool.FirstOrDefault(c => ReferenceEquals(c, medTri)) ?? pool.FirstOrDefault();
+            return pool.FirstOrDefault(c => ReferenceEquals(c, sci)) ?? pool.FirstOrDefault();
+        }));
+        if (triPass.Fate != Fate.Overcome || triPass.Score != 5)
+            return $"tricorder pass: expected Overcome+5, got {triPass.Fate}/score={triPass.Score}";
+        if (triPass.Discard.Count != 2
+            || !triPass.Discard.Contains(sci)
+            || !triPass.Discard.Contains(medTri))
+            return $"tricorder pass: expected discard SCIENCE+Medical Tricorder, got {string.Join(",", triPass.Discard.Select(c => c.Name))}";
+        if (triPicks < 2)
+            return $"tricorder pass: expected equipment-then-person (>=2 picks), got {triPicks}";
+
+        // Fail: plain Tricorder (ENGINEER->SCIENCE) does NOT grant MEDICAL
+        var eng = P("Scout", "ENGINEER", "ENGINEER");
+        var plainTri = Eq("Tricorder");
+        var plainFail = Resolve(Make(new[] { eng, civ }, new[] { eng, civ, plainTri }, pick: (prompt, pool) =>
+        {
+            // No MEDICAL-granting eq -> only person pick; pick ENGINEER
+            if (prompt.Contains("equipment", StringComparison.OrdinalIgnoreCase))
+                return pool.FirstOrDefault();
+            return pool.FirstOrDefault(c => ReferenceEquals(c, eng)) ?? pool.FirstOrDefault();
+        }));
+        if (plainFail.Fate != Fate.EffectAndEnd || plainFail.Kill.Count != 2 || plainFail.Score != 0)
+            return $"plain Tricorder: expected fail kill crew, got {plainFail.Fate}/kills={plainFail.Kill.Count}/score={plainFail.Score}";
 
         // Fail: no MEDICAL
         var fail = Resolve(Make(new[] { civ, off }, pick: (_, __) => civ));
