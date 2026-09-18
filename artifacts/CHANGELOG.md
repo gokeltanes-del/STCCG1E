@@ -1,5 +1,10 @@
 ## 2026-09-17 — Hail (AU) + table UI chrome
 
+## 2026-09-18 — HOLD: IG back to post-Resolve (Glossary)
+
+- Reverted Pepsch pre-filter IG order (d32da9c). Strict Spock: Resolve (targets+conditions) → optional IG → else effects. Waiting Pepsch: strict vs house UX.
+
+
 ## 2026-09-18 — IG nullify BEFORE Resolve for all [IPG]
 
 - Pepsch: Interphase Generator Yes/No runs once at start of encounter handling for every IsIpgDilemma, before DilemmaRules.Resolve (before Rebel destroy-Equipment, filters, kills). Yes = discard dilemma + continue, IG kept. No = normal resolve.
