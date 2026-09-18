@@ -1,16 +1,31 @@
 # STCCG 1E - Handoff
 
-Last updated: 2026-09-18 (Data - Distortion Field PR 70 U)
+Last updated: 2026-09-18 (Data - Occupancy Badge UX)
 Repo: https://github.com/gokeltanes-del/STCCG1E
 Local VS: C:\\Dev\\StarTrekCCG\\
 **Ein Branch: master.** GrokTest nicht nutzen.
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test.
 
 ## Current tip
-Local Josef tip **a866bbe** - Distortion Field (PR 70 U). Nicht gepusht. (Prior tip 5c08269 Atmospheric Ionization Pepsch green.)
+Local Josef tip **TIPHASH** - Occupancy Badge UX (Pepsch lock). Nicht gepusht. (Prior tip a866bbe Distortion Field Pepsch green.)
 **Pepsch EXE (Default Debug):**
 `C:\Dev\StarTrekCCG\StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe`
 Nicht `_build_docky*` / Release / alte Side-Builds.
+
+## Tip detail (Data, Josef, 2026-09-18) - Occupancy Badge UX
+Captain/Spock Soll-OK. UX only (Host footer). Standing Practice: personnel-present chrome; no glow/split.
+### Occupancy Badge (Pepsch lock)
+- Host footer badges in P1 (cyan) / P2 (orange) color.
+- Planet mission + personnel -> label `Away Team`; Ship/Outpost/Station (facility) + personnel -> `Crew`.
+- Empty (no personnel) = no badge. Eq/Art/Event/Dilemma = detail only, no badge.
+- Both players occupied = two badges side by side (same footer row).
+- KEEP: Rogue Borg notice on badge when present; Distortion Field / prior tips untouched.
+Files: TableWindow.xaml.cs (UpdateHostBadge / EnsureSideBadge / selection frame), artifacts/FEATURES.md (already ACTIVE), artifacts/HANDOFF.md.
+Exe: StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe
+### Pepsch smoke
+1. Planet mission: beam/report P1 personnel onto planet -> footer `Away Team` in P1 color; remove all personnel -> badge gone.
+2. Same planet: add P2 personnel too -> two badges side by side (`Away Team` each color); Eq alone on planet -> still no occupancy badge.
+3. Ship or Outpost/Station with crew -> footer `Crew` in owner color; dual crew both sides -> side by side; no card-glow / diagonal split.
 
 ## Tip detail (Data, Josef, 2026-09-18) - Distortion Field (PR 70 U)
 Captain/Spock Soll-OK. Standing Practice Glossary cites. CODE_PLACEMENT: Events in Rules; UI wire.

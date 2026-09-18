@@ -115,7 +115,7 @@ public partial class TableWindow : Window
     private bool _isDragging;           // true erst nach Bewegungsschwelle
     private Point _mouseDownScreen;     // für Schwelle
     private const double DragThreshold = 6; // Pixel, bevor echtes Ziehen beginnt
-    private const double BadgeAreaHeight = 22; // Platz unter der Karte für Crew/Eq-Badge
+    private const double BadgeAreaHeight = 22; // Platz unter der Karte fuer Occupancy-Badge
 
     private Rectangle? _selectionFrame; // Rahmen um ausgewählte Karte inkl. Badge
     private Border? _selectedCard;
@@ -197,7 +197,7 @@ public partial class TableWindow : Window
     private readonly List<RogueBorgUnit> _rogueBorg = new();
     /// <summary>Ship borders with active Crosis (doubles Rogue Borg STRENGTH until start of next turn).</summary>
     private readonly HashSet<Border> _crosisShips = new();
-    // Badge unter dem Host (Crew/Eq)
+    // Occupancy Badge (Pepsch): Host footer - Away Team (Planet) / Crew (Ship|Facility), P1/P2
     private readonly Dictionary<Border, TextBlock> _hostBadges = new();
     private readonly Dictionary<Border, TextBlock> _hostBadgesP2 = new();
     // Badge für verdeckte Seed-Karten unter Mission
@@ -11749,77 +11749,54 @@ public partial class TableWindow : Window
         if (host.Tag is not Card hostCard)
             return;
 
+        // Pepsch Occupancy Badge UX: personnel-only footer labels in P1/P2 color.
+        // Planet mission -> "Away Team"; Ship/Outpost/Station (facility) -> "Crew".
+        // No Equipment/Artifact/Event/Dilemma badges. Empty = no badge. Dual = side by side.
         bool isMission = string.Equals(hostCard.Type, "Mission", StringComparison.OrdinalIgnoreCase);
+        bool isPlanet = isMission && MissionRules.IsPlanetMission(hostCard);
+        bool isCrewHost = IsShipCard(hostCard) || IsFacilityCard(hostCard);
 
-        int crew1 = 0, equip1 = 0, art1 = 0, other1 = 0;
-        int crew2 = 0, equip2 = 0, art2 = 0, other2 = 0;
+        int crew1 = 0, crew2 = 0;
         if (_stackOnHost.TryGetValue(host, out var list))
         {
             foreach (var b in list)
             {
                 if (b.Tag is not Card c) continue;
+                if (!IsCrewType(c)) continue; // personnel only
                 int o = GetBorderOwner(b);
                 if (o == 0) o = 1;
-                if (o == 1)
-                {
-                    if (IsCrewType(c)) crew1++;
-                    else if (IsEquipmentType(c)) equip1++;
-                    else if ((c.Type ?? "").Contains("artifact", StringComparison.OrdinalIgnoreCase)) art1++;
-                    else other1++;
-                }
-                else
-                {
-                    if (IsCrewType(c)) crew2++;
-                    else if (IsEquipmentType(c)) equip2++;
-                    else if ((c.Type ?? "").Contains("artifact", StringComparison.OrdinalIgnoreCase)) art2++;
-                    else other2++;
-                }
+                if (o == 1) crew1++;
+                else crew2++;
             }
         }
 
-        string LabelFor(int crew, int equip, int art, int other, int player)
+        string OccupancyLabel(int crew)
         {
-            var parts = new List<string>();
-            if (isMission)
-            {
-                if (crew > 0) parts.Add($"Away P{player} {crew}");
-                if (equip > 0) parts.Add($"Eq P{player} {equip}");
-                if (art > 0) parts.Add($"Art P{player} {art}");
-                if (other > 0) parts.Add($"+{other}");
-            }
-            else
-            {
-                if (crew > 0) parts.Add($"Crew {crew}");
-                if (equip > 0) parts.Add($"Eq {equip}");
-                if (art > 0) parts.Add($"Art {art}");
-                if (other > 0) parts.Add($"+{other}");
-            }
-            return parts.Count > 0 ? string.Join(" · ", parts) : "";
+            if (crew <= 0) return "";
+            if (isPlanet) return "Away Team";
+            if (isCrewHost) return "Crew";
+            return "";
         }
 
-        // Missions: Pepsch — no Away/Eq/Art under-mission status strip (overloads UI).
-        // Ships/facilities keep Crew/Eq/Art badges. Rogue Borg badge still shown on missions.
-        string text1 = isMission ? "" : LabelFor(crew1, equip1, art1, other1, 1);
-        string text2 = isMission ? "" : LabelFor(crew2, equip2, art2, other2, 2);
+        string text1 = OccupancyLabel(crew1);
+        string text2 = OccupancyLabel(crew2);
 
+        // Rogue Borg notice (gameplay) - keep on active controller side; not an Eq/Art badge.
         int rbCount = CountRogueBorgOn(host);
         if (rbCount > 0)
         {
-            string rbBadge = $"RB×{rbCount} STR{RogueBorgStrengthOn(host)}";
-            if (HostHasCrosis(host)) rbBadge += " C×2";
+            string rbBadge = $"RB-{rbCount} STR{RogueBorgStrengthOn(host)}";
+            if (HostHasCrosis(host)) rbBadge += " C*2";
             if (ShipHasLoreReturns(host)) rbBadge += " Lore";
-            // Show on active controller side if Lore, else P1 badge as neutral notice
             var units = RogueBorgUnitsOn(host).ToList();
             int ctrl = units.Select(u => u.Controller).FirstOrDefault(c => c != 0);
             if (ctrl == 2)
-                text2 = string.IsNullOrEmpty(text2) ? rbBadge : text2 + " · " + rbBadge;
+                text2 = string.IsNullOrEmpty(text2) ? rbBadge : text2 + " | " + rbBadge;
             else
-                text1 = string.IsNullOrEmpty(text1) ? rbBadge : text1 + " · " + rbBadge;
+                text1 = string.IsNullOrEmpty(text1) ? rbBadge : text1 + " | " + rbBadge;
         }
 
-        // Badge P1: unter der Karte
         EnsureSideBadge(host, playerSide: 1, text1, isMission);
-        // Badge P2: bei Mission über der Karte, sonst unter Crew-Badge
         EnsureSideBadge(host, playerSide: 2, text2, isMission);
 
         if (_selectedCard == host)
@@ -11828,7 +11805,6 @@ public partial class TableWindow : Window
 
     private void EnsureSideBadge(Border host, int playerSide, string text, bool isMission)
     {
-        // Key-Trick: zweites Dictionary für P2
         var dict = playerSide == 1 ? _hostBadges : _hostBadgesP2;
         if (!dict.TryGetValue(host, out var badge))
         {
@@ -11850,40 +11826,20 @@ public partial class TableWindow : Window
         badge.Text = text;
         badge.Visibility = string.IsNullOrEmpty(text) ? Visibility.Collapsed : Visibility.Visible;
 
-        double left = Canvas.GetLeft(host);
+        double hostLeft = Canvas.GetLeft(host);
         double hostTop = Canvas.GetTop(host);
-        double top;
-        int hostOwner = GetBorderOwner(host);
-        if (hostOwner == 0) hostOwner = 1;
+        // Host-Card-Footer: both sides under the card; dual = side by side (no stack, no glow).
+        double top = hostTop + TableCardHeight + 3;
+        if (isMission && _seedUnderMission.TryGetValue(host, out var seeds) && seeds.Count > 0)
+            top += BadgeAreaHeight;
 
-        if (isMission)
+        double left = hostLeft;
+        if (playerSide == 2 && badge.Visibility == Visibility.Visible
+            && _hostBadges.TryGetValue(host, out var other)
+            && other.Visibility == Visibility.Visible)
         {
-            // P1 unter Mission, P2 über Mission – gleicher Abstand zur Kante
-            if (playerSide == 2)
-                top = hostTop - BadgeAreaHeight - 2;
-            else
-            {
-                top = hostTop + TableCardHeight + 3;
-                if (_seedUnderMission.TryGetValue(host, out var seeds) && seeds.Count > 0)
-                    top += BadgeAreaHeight;
-            }
-        }
-        else
-        {
-            // Schiff/Facility: Badge direkt an der Karte (gleicher Gap wie P1)
-            // P2-Hosts stehen über der Spaceline → Badge knapp unter der Karte (Richtung Mission)
-            // P1-Hosts unter der Spaceline → Badge knapp unter der Karte
-            top = hostTop + TableCardHeight + 3;
-
-            // Zwei Badges nur stapeln, wenn beide Seiten Text haben
-            if (playerSide == 2)
-            {
-                string otherText = "";
-                if (_hostBadges.TryGetValue(host, out var other) && other.Visibility == Visibility.Visible)
-                    otherText = other.Text ?? "";
-                if (!string.IsNullOrEmpty(otherText))
-                    top += BadgeAreaHeight; // unter P1-Badge
-            }
+            other.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            left = hostLeft + other.DesiredSize.Width + 4;
         }
 
         Canvas.SetLeft(badge, left);
@@ -22784,8 +22740,10 @@ public partial class TableWindow : Window
             TableCanvas.Children.Add(_selectionFrame);
         }
 
-        bool hasHostBadge = _hostBadges.TryGetValue(cardBorder, out var badge)
-                            && badge.Visibility == Visibility.Visible;
+        bool hasHostBadge = (_hostBadges.TryGetValue(cardBorder, out var badge)
+                             && badge.Visibility == Visibility.Visible)
+                            || (_hostBadgesP2.TryGetValue(cardBorder, out var badge2)
+                                && badge2.Visibility == Visibility.Visible);
         bool hasSeedBadge = _seedBadges.TryGetValue(cardBorder, out var sb)
                             && sb.Visibility == Visibility.Visible;
 
