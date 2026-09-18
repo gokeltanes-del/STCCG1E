@@ -12711,6 +12711,16 @@ public partial class TableWindow : Window
                             || (dc.Type ?? "").Contains("facility", StringComparison.OrdinalIgnoreCase)
                             || (dc.Name ?? "").Contains("outpost", StringComparison.OrdinalIgnoreCase)))
                 ),
+                // Tarellian: dilemma supplies transporters; Distortion Field (face-up) still blocks
+                // (Pattern Enhancers allow beaming through). No ionization side-effect here.
+                CanBeamToDilemma = HasPatternEnhancers() || !EventsOn(missionBorder).Any(e =>
+                    e.Kind == EventRules.Persist.Distortion && e.FaceUp),
+                // Barclay Transporter Phobia: personnel with interrupt attached refuses this beam.
+                IsPersonnelBeamBlocked = p =>
+                {
+                    var pb = teamBorders.FirstOrDefault(x => x.Tag is Card c && ReferenceEquals(c, p));
+                    return pb != null && HasAttachedNamedInterrupt(pb, "Barclay Transporter Phobia");
+                },
                 // TwoDim on attempting ship: Empathy disabled for crew skill checks
                 DisabledSkills = DisabledSkillsOnHost(_attemptShip)
             });

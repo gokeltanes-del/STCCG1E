@@ -99,6 +99,17 @@ public static class DilemmaRules
         /// (no member quarantined/in stasis, and a valid destination is present).
         /// </summary>
         public bool CanBeamOffPlanet { get; init; } = true;
+        /// <summary>
+        /// Tarellian Plague Ship: true when beaming to the dilemma (in space) is allowed.
+        /// Dilemma supplies transporters if needed; Distortion Field (face-up) etc. still block.
+        /// Pattern Enhancers may allow beaming through Distortion (TW sets this flag).
+        /// </summary>
+        public bool CanBeamToDilemma { get; init; } = true;
+        /// <summary>
+        /// Tarellian / beam-to-dilemma: true when this personnel refuses or cannot beam
+        /// (e.g. Barclay Transporter Phobia attached). Null = nobody blocked.
+        /// </summary>
+        public Func<Card, bool>? IsPersonnelBeamBlocked { get; init; }
         /// <summary>Skills disabled for this encounter team (e.g. Empathy under TwoDim on ship).</summary>
         public IReadOnlyList<string>? DisabledSkills { get; init; }
     }
@@ -2583,17 +2594,322 @@ public static class DilemmaRules
         return new Result { Fate = Fate.Overcome, Message = "Sarjenka declined – attempt continues." };
     }
 
+    // ---- Tarellian Plague Ship (Premiere 50 U) [S] ----
+    // Printed (PR): "Unless MEDICAL present ... " / Pepsch hybrid:
+    //   Mechanik = Glossary / App B Opfer-Linie (beam one to dilemma in space).
+    //   Punkte = Overcome +5 ("Wenn Medical, dann 5 points").
+    // Spock / Captain Go Soll:
+    //   1) Reveal; player chooses one Personnel from encountering crew.
+    //   2) Beam onto dilemma "in space" (temp during encounter; dilemma supplies transporters;
+    //      Distortion Field etc. still block). NO persistent Borg-Ship-like token.
+    //   3) Overcome only if beamed person has usable MEDICAL on arrival
+    //      (skill/class MEDICAL; OFFICER+Medical Kit both beam+discard; Borg shared OK;
+    //      Holo MEDICAL needs Mobile Holo-Emitter o.ä.).
+    //   4) Success: crew lives; beamed MEDICAL (+ Kit if used) discard; dilemma discard; +5.
+    //   5) Fail (no MEDICAL / beam impossible / MEDICAL not usable / selection refused):
+    //      encountering crew dies; dilemma discard; no points.
+    //   6) Deaths: only encountering crew — not other ATs / whole spaceline.
+    //   7) Barclay Transporter Phobia: valid Response; if first beam prevented, may pick another.
+    // Decide: DilemmaRules.Tarellian + VerifyTarellian. Apply: Result.Discard / Kill (TW).
+
+    private static bool NameLooksMedical(string? k) =>
+        !string.IsNullOrEmpty(k) && k.Contains("MEDICAL", StringComparison.OrdinalIgnoreCase);
+
+    private static bool HasHoloSupportPresent(Ctx ctx) =>
+        ctx.Present.Any(c =>
+        {
+            string n = c.Name ?? "";
+            return n.Contains("Mobile Holo", StringComparison.OrdinalIgnoreCase)
+                   || n.Contains("Holo-Emitter", StringComparison.OrdinalIgnoreCase)
+                   || n.Contains("Holo Emitter", StringComparison.OrdinalIgnoreCase);
+        });
+
+    /// <summary>
+    /// Usable MEDICAL on arrival at the plague ship. Holograms need Mobile Holo-Emitter (etc.).
+    /// If MEDICAL is only via Medical Kit / Medical Tricorder grant, that equipment must beam too
+    /// (returned in kitUsed for Discard).
+    /// </summary>
+    public static bool TryUsableMedicalOnArrival(Ctx ctx, Card pick, out Card? kitUsed)
+    {
+        kitUsed = null;
+        if (pick == null) return false;
+
+        if (CardIcons.IsHologram(pick) && !HasHoloSupportPresent(ctx))
+            return false;
+
+        var ep = Eff(ctx, pick);
+        bool hasEffMed = ep.Skills.Any(kv => NameLooksMedical(kv.Key) && kv.Value > 0);
+        if (!hasEffMed) return false;
+
+        bool baseMed = ep.BaseSkills.Any(kv => NameLooksMedical(kv.Key) && kv.Value > 0);
+        if (baseMed) return true;
+
+        // MEDICAL only from equipment skill-grant — kit/tricorder must accompany and be discarded.
+        var grant = ep.Applied.FirstOrDefault(m =>
+            m.Kind == ModifierRules.ModifierKind.SkillGrant && NameLooksMedical(m.StatOrSkill));
+        if (string.IsNullOrEmpty(grant.SourceName))
+            return true; // Eff shows MEDICAL (e.g. future Borg shared) without a kit source
+
+        kitUsed = ctx.Present.FirstOrDefault(c =>
+            ModifierRules.IsEquipmentCard(c)
+            && !string.IsNullOrEmpty(c.Name)
+            && (c.Name.Equals(grant.SourceName, StringComparison.OrdinalIgnoreCase)
+                || c.Name.Contains(grant.SourceName, StringComparison.OrdinalIgnoreCase)
+                || grant.SourceName.Contains(c.Name, StringComparison.OrdinalIgnoreCase)));
+        return kitUsed != null;
+    }
+
+    public readonly record struct TarellianPlan(
+        Fate Fate,
+        int Score,
+        bool KillTeam,
+        Card? DiscardPersonnel,
+        Card? DiscardKit,
+        string Message);
+
+    /// <summary>
+    /// Pure decide helper for Tarellian after pick + beam/medical checks are known.
+    /// </summary>
+    public static TarellianPlan DecideTarellian(
+        bool canBeamToDilemma,
+        bool selectionRefused,
+        bool beamBlockedForPick,
+        bool hasUsableMedical,
+        Card? pick,
+        Card? kitUsed)
+    {
+        if (!canBeamToDilemma)
+        {
+            return new TarellianPlan(
+                Fate.EffectAndEnd, 0, KillTeam: true,
+                DiscardPersonnel: null, DiscardKit: null,
+                Message: "Tarellian: beaming to plague ship blocked (e.g. Distortion Field) - encountering crew dies.");
+        }
+        if (selectionRefused || pick == null)
+        {
+            return new TarellianPlan(
+                Fate.EffectAndEnd, 0, KillTeam: true,
+                DiscardPersonnel: null, DiscardKit: null,
+                Message: "Tarellian: no personnel beamed - encountering crew dies.");
+        }
+        if (beamBlockedForPick)
+        {
+            // Caller should re-pick; this plan is only if no alternate remains.
+            return new TarellianPlan(
+                Fate.EffectAndEnd, 0, KillTeam: true,
+                DiscardPersonnel: null, DiscardKit: null,
+                Message: "Tarellian: beam prevented (Barclay Transporter Phobia) and no alternate - encountering crew dies.");
+        }
+        if (!hasUsableMedical)
+        {
+            return new TarellianPlan(
+                Fate.EffectAndEnd, 0, KillTeam: true,
+                DiscardPersonnel: null, DiscardKit: null,
+                Message: $"Tarellian: {pick.Name} arrives without usable MEDICAL - encountering crew dies.");
+        }
+
+        string kitMsg = kitUsed != null ? $" + {kitUsed.Name}" : "";
+        return new TarellianPlan(
+            Fate.Overcome, 5, KillTeam: false,
+            DiscardPersonnel: pick, DiscardKit: kitUsed,
+            Message: $"Tarellian: {pick.Name}{kitMsg} (MEDICAL) beamed to plague ship - discarded; +5.");
+    }
+
     private static Result Tarellian(Ctx ctx)
     {
-        var pick = ctx.PickYou?.Invoke("Tarellian: whom to beam (MEDICAL saves)?", ctx.Team.ToList())
-                   ?? ctx.Team.FirstOrDefault();
-        bool med = pick != null && Eff(ctx, pick).Skills.Keys.Any(k =>
-            k.Contains("MEDICAL", StringComparison.OrdinalIgnoreCase));
-        if (med)
-            return new Result { Fate = Fate.Overcome, Score = 5, Message = $"{pick!.Name} (MEDICAL) → +5." };
-        var r = new Result { Fate = Fate.EffectAndEnd, StopTeam = true, Message = "No MEDICAL aboard – crew dies." };
-        r.Kill.AddRange(ctx.Team);
+        if (!ctx.CanBeamToDilemma)
+        {
+            var blocked = DecideTarellian(false, false, false, false, null, null);
+            var rb = new Result { Fate = blocked.Fate, StopTeam = true, Message = blocked.Message };
+            rb.Kill.AddRange(ctx.Team);
+            return rb;
+        }
+
+        var refusedBeam = new HashSet<Card>();
+        Card? pick = null;
+        Card? kitUsed = null;
+        bool usable = false;
+
+        while (true)
+        {
+            var pool = ctx.Team.Where(p => !refusedBeam.Contains(p)).ToList();
+            if (pool.Count == 0)
+            {
+                var noAlt = DecideTarellian(true, selectionRefused: false, beamBlockedForPick: true,
+                    hasUsableMedical: false, pick: null, kitUsed: null);
+                var rn = new Result { Fate = noAlt.Fate, StopTeam = true, Message = noAlt.Message };
+                rn.Kill.AddRange(ctx.Team);
+                return rn;
+            }
+
+            // Explicit PickYou null = selection refused (fail). Auto path (no UI) takes first.
+            if (ctx.PickYou != null)
+                pick = ctx.PickYou.Invoke(
+                    "Tarellian Plague Ship: whom to beam aboard (usable MEDICAL saves; victim discarded)?",
+                    pool);
+            else
+                pick = pool.FirstOrDefault();
+
+            if (pick == null)
+            {
+                var refused = DecideTarellian(true, selectionRefused: true, beamBlockedForPick: false,
+                    hasUsableMedical: false, pick: null, kitUsed: null);
+                var rr = new Result { Fate = refused.Fate, StopTeam = true, Message = refused.Message };
+                rr.Kill.AddRange(ctx.Team);
+                return rr;
+            }
+
+            bool beamBlocked = ctx.IsPersonnelBeamBlocked?.Invoke(pick) == true;
+            if (beamBlocked)
+            {
+                refusedBeam.Add(pick);
+                // Barclay: valid Response — allow another personnel to be chosen.
+                continue;
+            }
+
+            usable = TryUsableMedicalOnArrival(ctx, pick, out kitUsed);
+            break;
+        }
+
+        var plan = DecideTarellian(true, false, false, usable, pick, kitUsed);
+        var r = new Result { Fate = plan.Fate, Score = plan.Score, StopTeam = plan.KillTeam, Message = plan.Message };
+        if (plan.KillTeam)
+            r.Kill.AddRange(ctx.Team);
+        if (plan.DiscardPersonnel != null)
+            r.Discard.Add(plan.DiscardPersonnel);
+        if (plan.DiscardKit != null)
+            r.Discard.Add(plan.DiscardKit);
         return r;
+    }
+
+    /// <summary>DE mini-test for Tarellian Plague Ship. Returns null if OK, else failure reason.</summary>
+    public static string? VerifyTarellian()
+    {
+        static Card P(string name, string cls, string text, string chars = "Human; Male;") => new()
+        {
+            Name = name,
+            Type = "Personnel",
+            Class = cls,
+            Text = text,
+            Characteristics = chars,
+            IntegrityOrRange = "5",
+            CunningOrWeapons = "5",
+            StrengthOrShields = "5"
+        };
+
+        static Card Eq(string name) => new() { Name = name, Type = "Equipment", Text = "Equipment" };
+
+        static Ctx Make(
+            Card[] team,
+            Card[]? present = null,
+            bool canBeam = true,
+            Func<Card, bool>? beamBlocked = null,
+            Func<string, IReadOnlyList<Card>, Card?>? pick = null) => new()
+        {
+            Dilemma = new Card { Name = "Tarellian Plague Ship", Type = "Dilemma", MissionDilemmaType = "[S]" },
+            Mission = new Card { Name = "Test Space", Type = "Mission", MissionDilemmaType = "[S]" },
+            Team = team,
+            Present = present ?? team,
+            AttemptingPlayer = 1,
+            CanBeamToDilemma = canBeam,
+            IsPersonnelBeamBlocked = beamBlocked,
+            PickYou = pick,
+            Rng = new Random(1)
+        };
+
+        var med = P("Dr Crusher", "MEDICAL", "MEDICAL Biology");
+        var off = P("Riker", "OFFICER", "OFFICER Leadership");
+        var civ = P("Guest", "CIVILIAN", "CIVILIAN");
+        var kit = Eq("Medical Kit");
+        var holoMed = P("Holodoc", "MEDICAL", "MEDICAL", "Hologram; Male; [Holo]");
+        var emitter = Eq("Mobile Holo-Emitter");
+
+        // Pass: printed MEDICAL -> Overcome +5, discard MEDICAL, no kill, dilemma discard
+        var pass = Resolve(Make(new[] { med, civ }, pick: (_, __) => med));
+        if (pass.Fate != Fate.Overcome || pass.Score != 5 || pass.StopTeam)
+            return $"pass MEDICAL: expected Overcome+5 no stop, got {pass.Fate}/score={pass.Score}/stop={pass.StopTeam}";
+        if (pass.Kill.Count != 0)
+            return "pass MEDICAL: no kills";
+        if (pass.Discard.Count != 1 || !ReferenceEquals(pass.Discard[0], med))
+            return $"pass MEDICAL: expected discard Crusher only, got {pass.Discard.Count}";
+        if (!ShouldRemoveFromSeed(pass.Fate))
+            return "pass MEDICAL: dilemma should discard";
+
+        // Pass: OFFICER + Medical Kit -> discard both, +5
+        var kitPass = Resolve(Make(new[] { off, civ }, new[] { off, civ, kit }, pick: (_, __) => off));
+        if (kitPass.Fate != Fate.Overcome || kitPass.Score != 5)
+            return $"kit pass: expected Overcome+5, got {kitPass.Fate}/score={kitPass.Score}";
+        if (kitPass.Discard.Count != 2
+            || !kitPass.Discard.Contains(off)
+            || !kitPass.Discard.Contains(kit))
+            return $"kit pass: expected discard OFFICER+Kit, got {string.Join(",", kitPass.Discard.Select(c => c.Name))}";
+
+        // Fail: no MEDICAL
+        var fail = Resolve(Make(new[] { civ, off }, pick: (_, __) => civ));
+        if (fail.Fate != Fate.EffectAndEnd || !fail.StopTeam || fail.Score != 0)
+            return $"fail no-MED: expected EffectAndEnd+Stop score0, got {fail.Fate}/stop={fail.StopTeam}/score={fail.Score}";
+        if (fail.Kill.Count != 2)
+            return $"fail no-MED: expected kill encountering crew (2), got {fail.Kill.Count}";
+        if (fail.Discard.Count != 0)
+            return "fail no-MED: no discard victims";
+        if (!ShouldRemoveFromSeed(fail.Fate))
+            return "fail no-MED: dilemma should discard";
+
+        // Fail: Distortion / beam blocked at location
+        var noBeam = Resolve(Make(new[] { med }, canBeam: false, pick: (_, __) => med));
+        if (noBeam.Fate != Fate.EffectAndEnd || !noBeam.StopTeam || noBeam.Kill.Count != 1 || noBeam.Score != 0)
+            return $"noBeam: expected EffectAndEnd+kill crew, got {noBeam.Fate}/kills={noBeam.Kill.Count}/score={noBeam.Score}";
+
+        // Fail: selection refused (PickYou returns null; no FirstOrDefault fallback when PickYou present)
+        var refuse = Resolve(Make(new[] { med }, pick: (_, __) => null));
+        if (refuse.Fate != Fate.EffectAndEnd || refuse.Kill.Count != 1)
+            return $"refuse pick: expected kill crew, got {refuse.Fate}/kills={refuse.Kill.Count}";
+
+        // Barclay: first pick (Crusher) blocked, second MEDICAL (Pulaski) succeeds
+        var med2 = P("Pulaski", "MEDICAL", "MEDICAL");
+        int picks = 0;
+        var barclay = Resolve(Make(
+            new[] { med, med2, civ },
+            beamBlocked: c => ReferenceEquals(c, med),
+            pick: (_, pool) =>
+            {
+                picks++;
+                // First call: choose blocked MEDICAL; later: choose remaining MEDICAL
+                if (picks == 1)
+                    return pool.FirstOrDefault(p => ReferenceEquals(p, med)) ?? pool.FirstOrDefault();
+                return pool.FirstOrDefault(p => ReferenceEquals(p, med2)) ?? pool.FirstOrDefault();
+            }));
+        if (barclay.Fate != Fate.Overcome || barclay.Score != 5)
+            return $"Barclay re-pick: expected Overcome+5, got {barclay.Fate}/score={barclay.Score}";
+        if (!barclay.Discard.Contains(med2))
+            return "Barclay re-pick: should discard second MEDICAL";
+        if (picks < 2)
+            return $"Barclay re-pick: expected >=2 picks, got {picks}";
+
+        // Holo MEDICAL without emitter -> fail
+        var holoFail = Resolve(Make(new[] { holoMed, civ }, new[] { holoMed, civ }, pick: (_, __) => holoMed));
+        if (holoFail.Fate != Fate.EffectAndEnd || holoFail.Kill.Count != 2)
+            return $"holo no-emitter: expected fail kill crew, got {holoFail.Fate}/kills={holoFail.Kill.Count}";
+
+        // Holo MEDICAL with Mobile Holo-Emitter -> pass discard holo (not emitter unless kit-grant)
+        var holoOk = Resolve(Make(
+            new[] { holoMed, civ },
+            new[] { holoMed, civ, emitter },
+            pick: (_, __) => holoMed));
+        if (holoOk.Fate != Fate.Overcome || holoOk.Score != 5)
+            return $"holo+emitter: expected Overcome+5, got {holoOk.Fate}/score={holoOk.Score}";
+        if (!holoOk.Discard.Contains(holoMed) || holoOk.Discard.Contains(emitter))
+            return "holo+emitter: discard Holodoc only (printed MEDICAL)";
+
+        // Decide helper: Overcome plan carries discard + score
+        var dOk = DecideTarellian(true, false, false, true, med, null);
+        if (dOk.Fate != Fate.Overcome || dOk.Score != 5 || !ReferenceEquals(dOk.DiscardPersonnel, med))
+            return "DecideTarellian pass shape wrong";
+        var dFail = DecideTarellian(true, false, false, false, civ, null);
+        if (dFail.Fate != Fate.EffectAndEnd || !dFail.KillTeam || dFail.Score != 0)
+            return "DecideTarellian fail shape wrong";
+
+        return null;
     }
 
     // ---- Iconian Computer Weapon (Premiere 29 C) ----

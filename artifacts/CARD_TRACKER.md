@@ -115,7 +115,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | REM Fatigue (47 U) | unknown |  |  |
 | Sarjenka (48 R) | working | Pepsch green. | Pepsch 2026-09-18 |
 | Shaka, When the Walls Fell (49 U) | working | Pepsch green. | Pepsch 2026-09-18 |
-| Tarellian Plague Ship (50 U) | unknown |  |  |
+| Tarellian Plague Ship (50 U) | working | Pepsch hybrid: beam one to dilemma; usable MEDICAL Overcome +5 + discard victim (+Kit); fail = encountering crew dies. Distortion/Barclay wired. No spaceline token. | Captain Go 2026-09-18; Data |
 | Temporal Causality Loop (51 R) | unknown |  |  |
 | Tsiolkovsky Infection (52 R) | partial | AttachContinue: kein Team-Stop (Rulebook 7.2.2.3), Verlust 1. Skill, Versuch läuft weiter; Cure 3 MEDICAL. | Captain 2026-09-13 |
 | Two-Dimensional Creatures (53 U) | partial | Pepsch: ship cannot move OK; Disable Empathy broken — Data Go. AttachContinue: kein Team-Stop (7.2.2.3); Cure ENG+SCI. Not working until Empathy disable greens. | Pepsch 2026-09-18; Data Go Empathy |
