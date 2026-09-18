@@ -1,5 +1,10 @@
 ## 2026-09-17 — Hail (AU) + table UI chrome
 
+## 2026-09-18 — IG nullify BEFORE Resolve for all [IPG]
+
+- Pepsch: Interphase Generator Yes/No runs once at start of encounter handling for every IsIpgDilemma, before DilemmaRules.Resolve (before Rebel destroy-Equipment, filters, kills). Yes = discard dilemma + continue, IG kept. No = normal resolve.
+
+
 ## 2026-09-18 — Mission badge strip + Rebel Encounter destroy-Equipment
 
 - Mission under-card status strip (Away/Eq/Art counts) removed; ship/facility badges unchanged; Rogue Borg badge kept.

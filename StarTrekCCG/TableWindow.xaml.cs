@@ -12612,6 +12612,12 @@ public partial class TableWindow : Window
             teamBorders = CollectTeamBordersAtMission(missionBorder, mission, _attemptShip);
             team = teamBorders.Where(b => b.Tag is Card).Select(b => (Card)b.Tag!).ToList();
             present = CollectPresentAtMission(missionBorder, mission, _attemptShip);
+
+            // Pepsch UX: for every [IPG] dilemma, IG Yes/No BEFORE DilemmaRules.Resolve
+            // (before filters, destroy-Equipment, kills, etc.). Spock glossary check in parallel.
+            if (TryNullifyIpgWithInterphaseGenerator(seedCard, missionBorder, seedStack, present))
+                continue;
+
             if (string.Equals(seedCard.Name, "El-Adrel Creature", StringComparison.OrdinalIgnoreCase))
             {
                 var teamDiag = new List<string>();
@@ -12672,11 +12678,6 @@ public partial class TableWindow : Window
 
             var wrapped = EngineAuthority.WrapDilemma(seedCard, dilResult);
             _session.Log.AddDebug(_session.TurnNumber, "Engine", EngineAuthority.FormatResult(wrapped));
-
-            // Spock: after just-encountered (Resolve = targets + conditions), may nullify [IPG]
-            // before results. IG stays (continuous equipment). Not auto.
-            if (TryNullifyIpgWithInterphaseGenerator(seedCard, missionBorder, seedStack, present))
-                continue;
 
             bool failed = dilResult.Fate is DilemmaRules.Fate.WallFailed
                 or DilemmaRules.Fate.EffectAndEnd
@@ -13730,8 +13731,8 @@ public partial class TableWindow : Window
     /// </summary>
     /// <summary>
     /// Interphase Generator (Use as Equipment, continuous): where present with the
-    /// encountering AT/crew, player may nullify a just-encountered [IPG] dilemma
-    /// before results (Spock Soll). Icon check — no name list. IG is kept.
+    /// encountering AT/crew, player may nullify an [IPG] dilemma BEFORE Resolve
+    /// (Pepsch UX: before any dilemma filters/choices/effects). Icon check — no name list. IG kept.
     /// </summary>
     private bool TryNullifyIpgWithInterphaseGenerator(
         Card seedCard, Border missionBorder, List<Border> seedStack, IReadOnlyList<Card> present)
@@ -13742,9 +13743,9 @@ public partial class TableWindow : Window
         var ans = ShowCardReveal(
             seedCard,
             "Interphase Generator",
-            $"{seedCard.Name} just encountered ([IPG]).\n"
-            + "Interphase Generator is present with your attempting team.\n"
-            + "Nullify this dilemma? (IG stays in play.)",
+            $"{seedCard.Name} ([IPG]) — Interphase Generator is present with your attempting team.\n"
+            + "Nullify this dilemma before it resolves? (IG stays in play.)\n"
+            + "Yes = discard dilemma, continue attempt. No = resolve normally.",
             RevealButtons.YesNo,
             seedCard.Name);
         if (ans != RevealAnswer.Yes) return false;
