@@ -659,16 +659,30 @@ public static class DilemmaRules
 
     private static Result Rebel(Ctx ctx)
     {
+        // Printed: Unless STRENGTH>44 OR you destroy an Equipment present → else kill random + discard.
+        // Equipment = Equipment type OR Artifact used as Equipment (e.g. Interphase Generator).
         bool str = Sum(ctx).str > 44;
+        if (str)
+            return new Result { Fate = Fate.Overcome, Message = "STRENGTH>44." };
+
         var eq = ctx.Present.Where(ModifierRules.IsEquipmentCard).ToList();
-        bool smashEq = eq.Count > 0 && (ctx.Confirm?.Invoke("Rebel Encounter: destroy equipment instead of STRENGTH>44?") ?? false);
-        if (str || smashEq)
+        if (eq.Count > 0)
         {
-            var r = new Result { Fate = Fate.Overcome, Message = str ? "STRENGTH>44." : "Equipment destroyed." };
-            if (smashEq && eq.Count > 0)
-                r.Kill.Add(ctx.PickYou?.Invoke("Which equipment?", eq) ?? eq[0]);
-            return r;
+            bool smash = ctx.Confirm?.Invoke(
+                "Rebel Encounter: STRENGTH not >44. Destroy one Equipment present to overcome?") ?? false;
+            if (smash)
+            {
+                var pick = eq.Count == 1
+                    ? eq[0]
+                    : (ctx.PickYou?.Invoke("Which equipment to destroy?", eq) ?? eq[0]);
+                var r = new Result { Fate = Fate.Overcome, Message = "Equipment destroyed." };
+                // Discard (not Kill): Overcome clears Kill lists in ApplyDilemmaResult.
+                if (pick != null)
+                    r.Discard.Add(pick);
+                return r;
+            }
         }
+
         var x = new Result { Fate = Fate.EffectAndEnd, StopTeam = true, Message = "Rebel Encounter kills one at random." };
         AddKill(x.Kill, RandomOf(ctx, ctx.Team));
         return x;

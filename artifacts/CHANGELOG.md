@@ -1,5 +1,11 @@
 ## 2026-09-17 — Hail (AU) + table UI chrome
 
+## 2026-09-18 — Mission badge strip + Rebel Encounter destroy-Equipment
+
+- Mission under-card status strip (Away/Eq/Art counts) removed; ship/facility badges unchanged; Rogue Borg badge kept.
+- Rebel Encounter: when STRENGTH not >44, offer destroy one Equipment present (Equipment type OR Artifact-as-Equipment via IsEquipmentCard). Destroy uses Discard so Overcome applies it. CollectPresentAtMission now includes Artifact-as-Equipment.
+
+
 ## 2026-09-18 — Mission detail: revealed-still-under (no last-revealed)
 
 - Removed "Last revealed under Mission" (could show discarded cards).

@@ -11720,8 +11720,10 @@ public partial class TableWindow : Window
             return parts.Count > 0 ? string.Join(" · ", parts) : "";
         }
 
-        string text1 = LabelFor(crew1, equip1, art1, other1, 1);
-        string text2 = LabelFor(crew2, equip2, art2, other2, 2);
+        // Missions: Pepsch — no Away/Eq/Art under-mission status strip (overloads UI).
+        // Ships/facilities keep Crew/Eq/Art badges. Rogue Borg badge still shown on missions.
+        string text1 = isMission ? "" : LabelFor(crew1, equip1, art1, other1, 1);
+        string text2 = isMission ? "" : LabelFor(crew2, equip2, art2, other2, 2);
 
         int rbCount = CountRogueBorgOn(host);
         if (rbCount > 0)
@@ -17183,7 +17185,9 @@ public partial class TableWindow : Window
                 if (IsBorderStopped(sb)) continue;
                 if (IsCardDisabled(c)) continue;
                 if (ModifierRules.IsPersonnelCard(c) && IsCardInStasis(c)) continue; // Spock: stasis = no skills
-                if (IsCrewType(c) || IsEquipmentType(c)
+                // Equipment type OR Artifact used as Equipment (IG, Varon-T, Data's Head, …)
+                if (IsCrewType(c) || IsEquipmentType(c) || ModifierRules.IsEquipmentCard(c)
+                    || ModifierRules.IsPersonnelCard(c)
                     || (c.Type ?? "").Contains("personnel", StringComparison.OrdinalIgnoreCase))
                     cards.Add(c);
             }
