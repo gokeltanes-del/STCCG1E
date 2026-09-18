@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-18 (Jadzia — Wind Dancer + The Devil working)
+Last updated: 2026-09-18 (Jadzia — Rebel Encounter + Shaka working; Two-Dimensional partial Empathy Go)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -111,14 +111,14 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Portal Guard (43 U) | working | CUNN>7/Honor Continue; Fail: BeamBack+Stop wenn Beamen möglich (Schiff/Facility vorhanden, kein Stasis/Quarantäne); Kill wenn Beamen unmöglich (z.B. Hyper-Aging Quarantäne oder kein Schiff/Facility) + unter Mission. Unit-Test `VerifyPortalGuard`. | Captain 2026-09-13 |
 | Q (44 R) | unknown |  |  |
 | Radioactive Garbage Scow (45 U) | working | Pepsch green: Tractor Beam attach -> offset hang -> Fly follow -> EOT drop. tips Data through `9cd104f` (a4e4e5d/bf7a394/558fc4e/2c6a3f9/9cd104f). Spock Tractor Soll. | Pepsch 2026-09-14; Data/`9cd104f` |
-| Rebel Encounter (46 U) | partial | Interphase Generator nullify Pepsch-OK. Equipment-destroy still open — Data Go. Not fully working. | Pepsch 2026-09-18; Data Go equipment-destroy |
+| Rebel Encounter (46 U) | working | Pepsch green: destroy Equipment path OK. tip Data/`7d649f7`. Interphase Generator nullify also OK. | Pepsch 2026-09-18; Data/`7d649f7` |
 | REM Fatigue (47 U) | unknown |  |  |
 | Sarjenka (48 R) | working | Pepsch green. | Pepsch 2026-09-18 |
-| Shaka, When the Walls Fell (49 U) | unknown |  |  |
+| Shaka, When the Walls Fell (49 U) | working | Pepsch green. | Pepsch 2026-09-18 |
 | Tarellian Plague Ship (50 U) | unknown |  |  |
 | Temporal Causality Loop (51 R) | unknown |  |  |
 | Tsiolkovsky Infection (52 R) | partial | AttachContinue: kein Team-Stop (Rulebook 7.2.2.3), Verlust 1. Skill, Versuch läuft weiter; Cure 3 MEDICAL. | Captain 2026-09-13 |
-| Two-Dimensional Creatures (53 U) | partial | AttachContinue: kein Team-Stop (Rulebook 7.2.2.3), Schiff bewegungsunfähig, Versuch läuft weiter; Cure ENG+SCI. | Captain 2026-09-13 |
+| Two-Dimensional Creatures (53 U) | partial | Pepsch: ship cannot move OK; Disable Empathy broken — Data Go. AttachContinue: kein Team-Stop (7.2.2.3); Cure ENG+SCI. Not working until Empathy disable greens. | Pepsch 2026-09-18; Data Go Empathy |
 | Wind Dancer (54 R) | working | Pepsch green (complete). | Pepsch 2026-09-18 |
 
 ### Equipment
