@@ -117,7 +117,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Shaka, When the Walls Fell (49 U) | working | Pepsch green. | Pepsch 2026-09-18 |
 | Tarellian Plague Ship (50 U) | working | Pepsch green: Hybrid Opfer+5; Overcome UX A Medical Personnel / B Equipment+matching; Step0 Dilemma-Karte UI tip `003f811`. Tips Data `a97e8eb`…`003f811`. | Pepsch 2026-09-18; Data/`003f811` |
 | Temporal Causality Loop (51 R) | unknown |  |  |
-| Tsiolkovsky Infection (52 R) | partial | tip Data/`948cf0f` (Josef, no push): first-listed skill Apply+Summary (not attributes -3). AttachContinue + Cure 3 MEDICAL + no StopTeam OK. Ship Events nur Positive. Stays partial until Pepsch greens. | Data/`948cf0f` 2026-09-18 |
+| Tsiolkovsky Infection (52 R) | partial | tip Data/`98aec60` (Josef, no push): Foundation first-listed skips Classification (Data→ENGINEER). Apply+Summary + Cure 3 MEDICAL OK. Events Positive kept from 948cf0f. Stays partial until Pepsch greens. | Data/`98aec60` 2026-09-18 |
 | Two-Dimensional Creatures (53 U) | working | Pepsch green: move-block + full Disabled Empathy personnel aboard + beam OK. tips Data/`86f91ee`/`1690163`. AttachContinue: kein Team-Stop (7.2.2.3); Cure ENG+SCI. | Pepsch 2026-09-18; Data/`86f91ee`+`1690163` |
 | Wind Dancer (54 R) | working | Pepsch green (complete). | Pepsch 2026-09-18 |
 
