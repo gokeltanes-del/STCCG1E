@@ -11,7 +11,7 @@ namespace StarTrekCCG;
 ///   Data/Sets/<SetName>/   cards.json + images  (legacy: Data/<SetName>/)
 ///   Assets/card_back.jpg
 ///   Assets/BoardBackgrounds/*.png
-///   Assets/Icons/Icon_{Token}.png   ([Cmd] → Icon_Cmd.png)
+///   Assets/Icons/Icon_{Token}.png   ([Cmd] → Icon_Cmd.png; [IPG] → Icon_IPG.png)
 ///
 /// Override: environment variable STCCG_DATA (legacy C:\STCCG_Data still works as fallback).
 /// </summary>

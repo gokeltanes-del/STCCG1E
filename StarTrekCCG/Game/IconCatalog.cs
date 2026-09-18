@@ -12,6 +12,7 @@ namespace StarTrekCCG;
 
 /// <summary>
 /// PNG glyphs in Assets/Icons/Icon_{Token}.png (e.g. Icon_Cmd.png for [Cmd]).
+/// // [IPG] → Icon_IPG.png (Interphase Generator; source INTERPHASE_GENERATOR.png)
 /// Missing file → text fallback [Token]. Safe to add icons one at a time.
 /// </summary>
 public static class IconCatalog
@@ -30,7 +31,10 @@ public static class IconCatalog
         ImageSource? src = null;
         try
         {
+            // Prefer Icon_{Token}.png (Cmd/Stf). Alt names: [IPG] → INTERPHASE_GENERATOR.png
             string path = Path.Combine(Folder, "Icon_" + token + ".png");
+            if (!File.Exists(path) && AltFileName(token) is string alt)
+                path = Path.Combine(Folder, alt);
             if (File.Exists(path))
             {
                 var bmp = new BitmapImage();
@@ -204,6 +208,10 @@ public static class IconCatalog
     private static bool IsCountdown(string tok) =>
         tok.Length == 1 && char.IsDigit(tok[0]);
 
+
+    /// <summary>Non-Icon_* filenames. // [IPG] → INTERPHASE_GENERATOR.png</summary>
+    private static string? AltFileName(string token) =>
+        token.Equals("IPG", StringComparison.OrdinalIgnoreCase) ? "INTERPHASE_GENERATOR.png" : null;
     private static string Sanitize(string? token)
     {
         if (string.IsNullOrWhiteSpace(token)) return "";
