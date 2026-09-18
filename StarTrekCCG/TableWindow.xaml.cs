@@ -10729,8 +10729,8 @@ public partial class TableWindow : Window
             int owner = GetBorderOwner(dragging);
             if (owner == 0) owner = _activePlayer;
             int index = CountDockablesForOwner(target, owner, exclude: dragging);
-            previewLeft = Canvas.GetLeft(target);
-            previewTop = Canvas.GetTop(target) + DockSlotOffsetY(index, owner);
+            previewLeft = Canvas.GetLeft(target) + DockSlotOffsetX(index);
+            previewTop = Canvas.GetTop(target) + DockSlotOffsetY(0, owner);
             showSlotPreview = true;
         }
         else if (IsDockableUnderMission(card))
@@ -10745,8 +10745,8 @@ public partial class TableWindow : Window
             int owner = GetBorderOwner(dragging);
             if (owner == 0) owner = _activePlayer;
             int index = CountDockablesForOwner(target, owner, exclude: dragging);
-            previewLeft = Canvas.GetLeft(target);
-            previewTop = Canvas.GetTop(target) + DockSlotOffsetY(index, owner);
+            previewLeft = Canvas.GetLeft(target) + DockSlotOffsetX(index);
+            previewTop = Canvas.GetTop(target) + DockSlotOffsetY(0, owner);
             showSlotPreview = true;
         }
         else if (TargetingRules.UsesBoardSnap(card))
@@ -11479,7 +11479,7 @@ public partial class TableWindow : Window
             double by = Canvas.GetTop(b);
             if (double.IsNaN(bx) || double.IsNaN(by)) continue;
             // Column tolerance must stay > max DockSlotOffsetX stagger (see Relayout).
-            if (Math.Abs(bx - missionLeft) >= 45) continue;
+            if (Math.Abs(bx - missionLeft) >= 120) continue;
             if (by >= yMin && by <= yMax && Math.Abs(by - missionTop) > 20)
                 found.Add(b);
         }
@@ -12947,11 +12947,10 @@ public partial class TableWindow : Window
         // Pin dest before Relayout(from) so FindMissionForDockable / tow-follow
         // never still believe the ship is at the old column.
         _dockableAtMission[ship] = dest;
-        // Next free slot for this owner (not always 0) so we do not cover a ship already here
-        // even for one frame / if Relayout collection was incomplete.
+        // Next free X-slot for this owner (shared Y baseline — no diagonal stack).
         int slot = CountDockablesForOwner(dest, owner, exclude: ship);
         Canvas.SetLeft(ship, Canvas.GetLeft(dest) + DockSlotOffsetX(slot));
-        Canvas.SetTop(ship, Canvas.GetTop(dest) + DockSlotOffsetY(slot, owner));
+        Canvas.SetTop(ship, Canvas.GetTop(dest) + DockSlotOffsetY(0, owner));
         if (from != null && !ReferenceEquals(from, dest))
             RelayoutDockablesUnderMission(from);
         RelayoutDockablesUnderMission(dest);
@@ -22641,15 +22640,19 @@ public partial class TableWindow : Window
     /// <summary>P1: positive Y (unter Mission), P2: negative Y (über Mission).</summary>
     private static double DockSlotOffsetX(int slotIndexZeroBased)
     {
-        // Slight fan so N ships at one mission never share an identical Left (hit-test / visibility).
-        // Keep |offset| < 45 so GetDockablesUnderMission column test still groups them.
-        return (slotIndexZeroBased % 4) * 12.0;
+        // Horizontal stagger only: N dockables share one Y baseline; never cascade Y.
+        // Step keeps Left distinct (hit-test / non-cover) while staying in the mission column
+        // (see GetDockablesUnderMission column tolerance).
+        return slotIndexZeroBased * 18.0;
     }
 
     private static double DockSlotOffsetY(int slotIndexZeroBased, int ownerPlayer)
     {
+        // Constant baseline per side (P1 below / P2 above). slotIndex ignored on purpose --
+        // multi-ship non-cover is DockSlotOffsetX, not a Y cascade (diagonal stacks).
+        _ = slotIndexZeroBased;
         double sign = ownerPlayer == 2 ? -1.0 : 1.0;
-        return sign * UnderMissionGap * (slotIndexZeroBased + 1);
+        return sign * UnderMissionGap;
     }
 
     private int CountDockablesForOwner(Border mission, int ownerPlayer, Border? exclude = null)
@@ -22665,7 +22668,7 @@ public partial class TableWindow : Window
 
     /// <summary>
     /// Load hygiene: associate every visible dockable with nearest mission by X only.
-    /// Ignores save absolute Y so Relayout can always rebase Top from missionTop + DockSlotOffsetY.
+    /// Ignores save absolute Y so Relayout can always rebase Top from missionTop + DockSlotOffsetY(0).
     /// </summary>
     private void PinDockablesToSpacelineByColumn()
     {
@@ -22728,8 +22731,8 @@ public partial class TableWindow : Window
         for (int i = 0; i < below.Count; i++)
         {
             Canvas.SetLeft(below[i], missionLeft + DockSlotOffsetX(i));
-            // Shared baseline: mission Top + DockSlotOffsetY steps (same as live Relocate).
-            Canvas.SetTop(below[i], missionTop + DockSlotOffsetY(i, 1));
+            // Straight horizontal line: shared baseline Y; X stagger for N ships.
+            Canvas.SetTop(below[i], missionTop + DockSlotOffsetY(0, 1));
             // Ships above facilities; higher slot => higher Z so topmost stays clickable
             int z = DockSortKey(below[i]) == 0 ? 12 + i : 22 + i;
             Panel.SetZIndex(below[i], z);
@@ -22740,9 +22743,9 @@ public partial class TableWindow : Window
         }
         for (int i = 0; i < above.Count; i++)
         {
-            // i=0 facility directly above mission, i=1 ship above that, ...
+            // Same baseline Y for all on this side; i only shifts X / Z.
             Canvas.SetLeft(above[i], missionLeft + DockSlotOffsetX(i));
-            Canvas.SetTop(above[i], missionTop + DockSlotOffsetY(i, 2));
+            Canvas.SetTop(above[i], missionTop + DockSlotOffsetY(0, 2));
             int z = DockSortKey(above[i]) == 0 ? 12 + i : 22 + i;
             Panel.SetZIndex(above[i], z);
             SetBorderOwner(above[i], 2);
