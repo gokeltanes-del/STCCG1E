@@ -12688,8 +12688,8 @@ public partial class TableWindow : Window
                 ShipShields = ship != null ? BattleRules.GetShields(ship) : 0,
                 AttemptingPlayer = _activePlayer,
                 Hand = hand.ToList(),
-                PickYou = (prompt, pool) => PickCardFromList(prompt, pool, "Choose a card"),
-                PickOpp = (prompt, pool) => PickCardFromList(prompt, pool, "Opponent chooses"),
+                PickYou = (prompt, pool) => PickCardFromList(prompt, pool, "Choose a card", seedCard),
+                PickOpp = (prompt, pool) => PickCardFromList(prompt, pool, "Opponent chooses", seedCard),
                 Confirm = prompt =>
                     ShowCardReveal(seedCard, seedCard.Name ?? "Dilemma", prompt,
                         RevealButtons.YesNo, "Your choice") == RevealAnswer.Yes,
