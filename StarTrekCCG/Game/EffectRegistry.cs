@@ -751,10 +751,11 @@ internal sealed class HiddenAgendaEffect : IEffect
 internal sealed class CorePermanentEffect : IEffect
 {
     public string TemplateId => "core-permanent";
-    public string DisplayName => "Core permanent (Incident / Objective)";
+    public string DisplayName => "Core permanent (Incident / Objective / mapped Event)";
 
     public bool Matches(Card card) =>
-        CardKinds.IsIncident(card) || CardKinds.IsObjective(card);
+        CardKinds.IsIncident(card) || CardKinds.IsObjective(card)
+        || CardEffectMap.TemplateIdFor(card) == TemplateId;
 
     public (bool ok, string reason) CanPlay(GameState state, GameAction action)
     {

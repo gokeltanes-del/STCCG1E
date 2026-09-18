@@ -83,6 +83,8 @@ public sealed class SessionSnap
     public bool HorgahnP2 { get; set; }
     public bool HorgahnExtraUsed { get; set; }
     public int IonizationBeamsThisTurn { get; set; }
+    public int IonizationBeamsP1 { get; set; }
+    public int IonizationBeamsP2 { get; set; }
     public int RedAlertPlaysLeft { get; set; }
     public int PointsToWin { get; set; } = 100;
     public int? Winner { get; set; }

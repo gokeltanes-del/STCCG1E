@@ -388,7 +388,8 @@ public partial class TableWindow : Window
     }
 
     private readonly List<AttachedEvent> _attachedEvents = new();
-    private int _ionizationBeamsThisTurn;
+    /// <summary>Glossary Atmospheric Ionization: personnel beamed this way per controller this turn.</summary>
+    private readonly int[] _ionizationBeamsThisTurnByPlayer = new int[3]; // [1],[2]
     private int _redAlertPlaysLeft;
     private readonly HashSet<Border> _movedThisTurnAfterArrival = new();
     /// <summary>Mission index this ship arrived at during the current turn (Rift / Tetryon “move again”).</summary>
@@ -2165,10 +2166,11 @@ public partial class TableWindow : Window
 
         var cards = CardsForStripDisplay(GetCardsForZone(zoneName, opponent), zoneName);
         int stripOwner = opponent ? 2 : 1;
-        // Hotseat: both hands stay face-up so either player can play interrupts at any time.
-        // Draw / seed / side decks remain hidden for the inactive player.
-        bool isActiveSide = stripOwner == _activePlayer || _devPeekOpponentPiles
-                            || (_gameMode == GameMode.Hotseat && zoneName == "Hand");
+        // Hotseat OR Glossary Alien Probe: both hands face-up (continuous while Probe in play).
+        // Battle Bridge / used tactics NOT affected (stay face-down). Draw/seed/side remain private.
+        bool revealHands = zoneName == "Hand"
+            && (_gameMode == GameMode.Hotseat || HasAlienProbeInPlay());
+        bool isActiveSide = stripOwner == _activePlayer || _devPeekOpponentPiles || revealHands;
         bool privateZone = zoneName is "Hand" or "Draw Deck" or "Seed Deck"
             or "Q's Tent" or "Battle Bridge" or "Q-Continuum" or "Site Pile" or "Tribble" or "Side Deck";
         bool faceDownAlways = zoneName is "Draw Deck" or "Battle Bridge" or "Q-Continuum";
@@ -7866,7 +7868,7 @@ public partial class TableWindow : Window
         if (_skipNormalEndOfTurn || DilemmaRules.ShouldSkipNormalEndOfTurn(_skipNormalEndOfTurn))
         {
             _skipNormalEndOfTurn = false;
-            _ionizationBeamsThisTurn = 0;
+            _ionizationBeamsThisTurnByPlayer[1] = 0; _ionizationBeamsThisTurnByPlayer[2] = 0;
             _movedThisTurnAfterArrival.Clear();
             _arrivedMissionThisTurn.Clear();
             _auPlayedThisTurnP1 = false;
@@ -7893,7 +7895,7 @@ public partial class TableWindow : Window
         ApplyEdoEndOfTurnPenalties(finishingPlayer);
         if (KlimBlocksDraw(finishingPlayer))
             _session.SuppressEndOfTurnDraw = true;
-        _ionizationBeamsThisTurn = 0;
+        _ionizationBeamsThisTurnByPlayer[1] = 0; _ionizationBeamsThisTurnByPlayer[2] = 0;
         _movedThisTurnAfterArrival.Clear();
         _arrivedMissionThisTurn.Clear();
         _auPlayedThisTurnP1 = false;
@@ -8682,7 +8684,9 @@ public partial class TableWindow : Window
                 HorgahnP1 = _horgahnP1,
                 HorgahnP2 = _horgahnP2,
                 HorgahnExtraUsed = _horgahnExtraPlayUsed,
-                IonizationBeamsThisTurn = _ionizationBeamsThisTurn,
+                IonizationBeamsThisTurn = _ionizationBeamsThisTurnByPlayer[1] + _ionizationBeamsThisTurnByPlayer[2],
+                IonizationBeamsP1 = _ionizationBeamsThisTurnByPlayer[1],
+                IonizationBeamsP2 = _ionizationBeamsThisTurnByPlayer[2],
                 RedAlertPlaysLeft = _redAlertPlaysLeft,
                 PointsToWin = _session.PointsToWin,
                 Winner = _session.Winner,
@@ -9103,7 +9107,10 @@ public partial class TableWindow : Window
         _horgahnP1 = s.HorgahnP1;
         _horgahnP2 = s.HorgahnP2;
         _horgahnExtraPlayUsed = s.HorgahnExtraUsed;
-        _ionizationBeamsThisTurn = s.IonizationBeamsThisTurn;
+        _ionizationBeamsThisTurnByPlayer[1] = s.IonizationBeamsP1;
+        _ionizationBeamsThisTurnByPlayer[2] = s.IonizationBeamsP2;
+        if (s.IonizationBeamsP1 == 0 && s.IonizationBeamsP2 == 0 && s.IonizationBeamsThisTurn > 0)
+            _ionizationBeamsThisTurnByPlayer[_activePlayer is >= 1 and <= 2 ? _activePlayer : 1] = s.IonizationBeamsThisTurn;
         _redAlertPlaysLeft = s.RedAlertPlaysLeft;
         if (s.PointsToWin > 0) _session.PointsToWin = s.PointsToWin;
         _session.OncePerGame.Clear();
@@ -9469,7 +9476,7 @@ public partial class TableWindow : Window
         _pendingExtraDraws = 0;
         _endTurnAfterDrawStack = false;
         _attachedEvents.Clear();
-        _ionizationBeamsThisTurn = 0;
+        _ionizationBeamsThisTurnByPlayer[1] = 0; _ionizationBeamsThisTurnByPlayer[2] = 0;
         _redAlertPlaysLeft = 0;
         _movedThisTurnAfterArrival.Clear();
         _arrivedMissionThisTurn.Clear();
@@ -14062,6 +14069,12 @@ public partial class TableWindow : Window
 
     private void NullifyEventInPlay(Card ev, int byPlayer)
     {
+        // Glossary Alien Probe: cards still in hand are not nullifiable until played.
+        if (!CanNullifyTargetCard(ev, out string denyHand))
+        {
+            ShowPlayError(denyHand);
+            return;
+        }
         var attached = _attachedEvents.Where(x => ReferenceEquals(x.Card, ev)).ToList();
         int owner = _tablePermanentCards.Contains(ev) ? 1
             : _oppTablePermanentCards.Contains(ev) ? 2
@@ -14574,6 +14587,30 @@ public partial class TableWindow : Window
         }
 
         var r = auth.EventPlay ?? EventRules.ResolvePlay(ev);
+        // Glossary Unique (printed): Atmospheric Ionization / Distortion Field — one in play.
+        if (EventRules.IsPrintedUniqueEvent(ev))
+        {
+            bool dup = _attachedEvents.Any(e => EventRules.NameEquals(e.Card, ev.Name))
+                       || HasTableCard(c => EventRules.NameEquals(c, ev.Name));
+            if (dup)
+            {
+                ShowPlayError($"{ev.Name} is unique — already in play.");
+                var handBack = controller == 1 ? _handCards : _oppHandCards;
+                if (!handBack.Contains(ev)) handBack.Add(ev);
+                RemoveCardFromTableColumn(ev);
+                RefreshHandStrips();
+                RefreshZoneCounts();
+                return true;
+            }
+        }
+        if (EventRules.IsAlienProbe(ev))
+        {
+            _session.Log.Add(_session.TurnNumber, $"P{controller}",
+                "Alien Probe: both hands revealed (continuous). "
+                + "Hand cards not nullifiable until played; Battle Bridge tactics unaffected. "
+                + "(Glossary: Alien Probe)");
+            RefreshHandStrips();
+        }
         if (EventRules.IsRedAlert(ev) && HasYellowAlert())
         {
             ShowPlayError("Yellow Alert prevents Red Alert!");
@@ -20819,6 +20856,39 @@ public partial class TableWindow : Window
         }
     }
 
+    /// <summary>Glossary: Alien Probe — continuous both hands revealed while in play.</summary>
+    private bool HasAlienProbeInPlay() =>
+        _attachedEvents.Any(e => e.Kind == EventRules.Persist.Probe)
+        || HasTableCard(EventRules.IsAlienProbe);
+
+    /// <summary>Glossary: Alien Probe — hand cards are not legal nullify targets until played.</summary>
+    private bool IsCardStillInHand(Card card) =>
+        _handCards.Contains(card) || _oppHandCards.Contains(card);
+
+    /// <summary>Glossary Alien Probe: cards in hand are not nullifiable until played.</summary>
+    private bool CanNullifyTargetCard(Card target, out string deny)
+    {
+        deny = "";
+        if (HasAlienProbeInPlay() && IsCardStillInHand(target))
+        {
+            deny = "Alien Probe: cards in hand are not nullifiable until played (Glossary).";
+            return false;
+        }
+        return true;
+    }
+
+    /// <summary>Count successful Ionization-limited beams for the active controller.</summary>
+    private void NoteIonizationBeam(Border? mission, int personnelCount)
+    {
+        if (mission == null || personnelCount <= 0) return;
+        if (!EventsOn(mission).Any(e => e.Kind == EventRules.Persist.Ionization)) return;
+        int ctrl = _activePlayer is >= 1 and <= 2 ? _activePlayer : 1;
+        _ionizationBeamsThisTurnByPlayer[ctrl] += personnelCount;
+        _session.Log.Add(_session.TurnNumber, $"P{ctrl}",
+            $"Atmospheric Ionization: beamed {personnelCount} this way "
+            + $"({_ionizationBeamsThisTurnByPlayer[ctrl]}/3 this turn). Glossary: to/from this planet.");
+    }
+
     private bool CanBeamAtMission(Border mission, int plannedCount)
     {
         if (HasPatternEnhancers()) return true;
@@ -20829,19 +20899,22 @@ public partial class TableWindow : Window
                 ShowPlayError("Distortion Field (face-up): no beaming.");
                 return false;
             }
+            // Glossary: Atmospheric Ionization — 1 at a time; max 3 personnel this way per controller/turn.
+            // "to/from this planet" includes planet-vicinity beams (landed ship <-> facility). Same-mission gate covers all hosts here.
             if (e.Kind == EventRules.Persist.Ionization)
             {
                 if (plannedCount > 1)
                 {
-                    ShowPlayError("Atmospheric Ionization: only 1 personnel per beam.");
+                    ShowPlayError("Atmospheric Ionization: only 1 personnel at a time (Glossary: to/from this planet).");
                     return false;
                 }
-                if (_ionizationBeamsThisTurn >= 3)
+                int ctrl = _activePlayer is >= 1 and <= 2 ? _activePlayer : 1;
+                if (_ionizationBeamsThisTurnByPlayer[ctrl] >= 3)
                 {
-                    ShowPlayError("Atmospheric Ionization: max 3 beams this turn.");
+                    ShowPlayError("Atmospheric Ionization: max 3 personnel this way per controller this turn.");
                     return false;
                 }
-                _ionizationBeamsThisTurn++;
+                // Count increments only after a successful beam (NoteIonizationBeam).
             }
         }
         return true;
@@ -22661,6 +22734,8 @@ public partial class TableWindow : Window
                 ApplyDisabledVisual(b, IsCardDisabled(c));
         }
 
+                NoteIonizationBeam(srcMission, toMove.Count(b => b.Tag is Card bc && CardKinds.IsPersonnel(bc)));
+
         UpdateHostBadge(source);
         UpdateHostBadge(targetHost);
         if (targetHost.Tag is Card tc)
@@ -23383,7 +23458,7 @@ public partial class TableWindow : Window
         }
         else if (EventRules.IsEvent(card) || CardKinds.IsDilemma(card))
         {
-            if (!string.IsNullOrWhiteSpace(card.Icons)) attrs.Add($"Icons: {card.Icons}");
+            // IPG Detail-Overkill: glyph only via IconCatalog.Fill — no green "Icons: [IPG]" text.
             DetailAttributes.Text = string.Join("  •  ", attrs);
             DetailClass.Text = "";
             DetailStaff.Text = "";
@@ -23405,8 +23480,7 @@ public partial class TableWindow : Window
             }
             if (EventRules.IsRedAlert(card))
                 counterLines.Add(FormatRedAlertStatusLine(card));
-            if (counterLines.Count == 0 && !string.IsNullOrWhiteSpace(card.Icons))
-                counterLines.Add($"Icons: {card.Icons}");
+            // IPG Detail-Overkill: no purple "Icons: [IPG]" fallback — glyph strip is enough.
             DetailIcons.Text = string.Join("\n", counterLines);
         }
         else if (CardKinds.IsPersonnel(card))

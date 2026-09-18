@@ -130,6 +130,14 @@ public static class EventRules
     public static bool IsAntiTimeAnomaly(Card? c) => NameIs(c, "Anti-Time Anomaly");
     public static bool IsTemporalCausalityLoop(Card? c) => NameIs(c, "Temporal Causality Loop");
     public static bool IsHorgahn(Card? c) => ArtifactRules.IsHorgahn(c);
+    public static bool IsAlienProbe(Card? c) => NameIs(c, "Alien Probe");
+    public static bool IsAtmosphericIonization(Card? c) => NameIs(c, "Atmospheric Ionization");
+    /// <summary>Printed Unique events (Glossary Unique).</summary>
+    public static bool IsPrintedUniqueEvent(Card? c) =>
+        IsAtmosphericIonization(c) || NameIs(c, "Distortion Field");
+    public static bool NameEquals(Card? c, string? name) =>
+        c != null && !string.IsNullOrEmpty(name)
+        && (c.Name ?? "").Equals(name, StringComparison.OrdinalIgnoreCase);
 
     public static TargetKind GetTargetKind(PlayResult r)
     {
@@ -228,11 +236,13 @@ public static class EventRules
                 Persist = Persist.Spacedock,
                 Message = "Plays on your outpost. Any of your ships that docks here is fully repaired."
             },
+            // Glossary: Atmospheric Ionization — Unique; "to/from this planet" includes
+            // beams between different planet-vicinities (e.g. landed ship <-> planet facility), not only Ship<->Planet.
             "Atmospheric Ionization" => new PlayResult
             {
                 Place = Place.OnPlanet,
                 Persist = Persist.Ionization,
-                Message = "Plays on a planet (unique). Beam to/from here one at a time; max 3 personnel this way per controller per turn."
+                Message = "Unique. Plays on a planet. Beam to/from this planet 1 at a time (incl. planet-vicinity beams); max 3 personnel this way per controller per turn. (Glossary: Atmospheric Ionization)"
             },
             "Distortion Field" => new PlayResult
             {
@@ -287,11 +297,13 @@ public static class EventRules
                 Persist = Persist.Goddess,
                 Message = "Interrupts (except Ref/Q/Kevin/Q2) may not be played."
             },
+            // Glossary: Alien Probe — continuous both hands revealed; hand cards not nullifiable until played;
+            // Battle Bridge used tactics NOT affected.
             "Alien Probe" => new PlayResult
             {
                 Place = Place.Table,
                 Persist = Persist.Probe,
-                Message = "Plays on table. Players play with their hands revealed."
+                Message = "Plays on table. Both hands revealed (continuous). Hand cards not nullifiable until played; Battle Bridge tactics unaffected. (Glossary: Alien Probe)"
             },
             "Static Warp Bubble" => new PlayResult
             {
@@ -621,6 +633,10 @@ public static class EventRules
             Persist.YellowAlert => "ship on Yellow Alert",
             Persist.Thermal => "WEAPONS may not be used",
             Persist.IncomingMessage => "must do nothing but move to the targeted facility on this spaceline",
+            // Glossary: Atmospheric Ionization
+            Persist.Ionization => "beam to/from this planet 1 at a time; max 3 personnel/controller/turn (planet-vicinities included)",
+            // Glossary: Alien Probe
+            Persist.Probe => "both hands revealed (hand cards not nullifiable until played; Battle Bridge unaffected)",
             _ => ""
         };
 
@@ -805,4 +821,44 @@ public static class EventRules
 
         return null;
     }
+
+    /// <summary>Glossary: Alien Probe — Standing Practice verify.</summary>
+    public static string? VerifyAlienProbe()
+    {
+        var probe = new Card { Name = "Alien Probe", Type = "Event" };
+        var r = ResolvePlay(probe);
+        if (!r.Ok) return "Alien Probe: ResolvePlay failed";
+        if (r.Place != Place.Table) return "Alien Probe: must play on table";
+        if (r.Persist != Persist.Probe) return "Alien Probe: Persist.Probe expected";
+        if (!IsAlienProbe(probe)) return "Alien Probe: IsAlienProbe helper";
+        if (r.Message.IndexOf("hands revealed", StringComparison.OrdinalIgnoreCase) < 0)
+            return "Alien Probe: message must cite hands revealed";
+        if (r.Message.IndexOf("Battle Bridge", StringComparison.OrdinalIgnoreCase) < 0)
+            return "Alien Probe: message must note Battle Bridge unaffected";
+        if (r.Message.IndexOf("nullifiable", StringComparison.OrdinalIgnoreCase) < 0)
+            return "Alien Probe: message must note hand cards not nullifiable until played";
+        return null;
+    }
+
+    /// <summary>Glossary: Atmospheric Ionization — Standing Practice verify.</summary>
+    public static string? VerifyAtmosphericIonization()
+    {
+        var ion = new Card { Name = "Atmospheric Ionization", Type = "Event" };
+        var r = ResolvePlay(ion);
+        if (!r.Ok) return "Atmospheric Ionization: ResolvePlay failed";
+        if (r.Place != Place.OnPlanet) return "Atmospheric Ionization: Plays on Planet";
+        if (r.Persist != Persist.Ionization) return "Atmospheric Ionization: Persist.Ionization";
+        if (!IsAtmosphericIonization(ion)) return "Atmospheric Ionization: Is* helper";
+        if (!IsPrintedUniqueEvent(ion)) return "Atmospheric Ionization: Unique helper";
+        if (r.Message.IndexOf("Unique", StringComparison.OrdinalIgnoreCase) < 0)
+            return "Atmospheric Ionization: Unique in message";
+        if (r.Message.IndexOf("1 at a time", StringComparison.OrdinalIgnoreCase) < 0)
+            return "Atmospheric Ionization: 1-at-a-time in message";
+        if (r.Message.IndexOf("planet-vicinity", StringComparison.OrdinalIgnoreCase) < 0)
+            return "Atmospheric Ionization: Glossary planet-vicinity cite missing";
+        if (r.Message.IndexOf("per controller", StringComparison.OrdinalIgnoreCase) < 0)
+            return "Atmospheric Ionization: per controller limit";
+        return null;
+    }
+
 }

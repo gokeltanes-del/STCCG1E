@@ -47,6 +47,7 @@ public static class DetailStatusRules
                 or EventRules.Persist.LoreReturns
                 or EventRules.Persist.Thermal
                 or EventRules.Persist.IncomingMessage
+                or EventRules.Persist.Ionization
                 => DetailStatusTone.Debuff,
             _ => DetailStatusTone.Info
         };

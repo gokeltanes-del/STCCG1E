@@ -1,16 +1,34 @@
 # STCCG 1E - Handoff
 
-Last updated: 2026-09-18 (Data -- Temporal Causality Loop Glossary-treu Implement-Go)
+Last updated: 2026-09-18 (Data — Alien Probe + Atmospheric Ionization + IPG Detail-Overkill)
 Repo: https://github.com/gokeltanes-del/STCCG1E
 Local VS: C:\\Dev\\StarTrekCCG\\
 **Ein Branch: master.** GrokTest nicht nutzen.
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test.
 
 ## Current tip
-Local Josef tip **e88860e** - Temporal Causality Loop (Premiere [S]) Glossary-treu Implement-Go. Nicht gepusht.
+Local Josef tip **830b2c2** — Alien Probe (PR 66 U) + Atmospheric Ionization (PR 68 C) + IPG Detail-Overkill. Nicht gepusht.
 **Pepsch EXE (Default Debug):**
 `C:\Dev\StarTrekCCG\StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe`
 Nicht `_build_docky*` / Release / alte Side-Builds.
+
+## Tip detail (Data, Josef, 2026-09-18) - Alien Probe + Atmospheric Ionization + IPG UX
+Captain/Spock Soll-OK. Standing Practice Glossary cites folded in. CODE_PLACEMENT: Events in Rules; UI wire.
+### IPG Detail-Overkill (UX only)
+Armus detail showed 3× IPG: green Icons:[IPG] (DetailAttributes), glyph (IconCatalog.Fill), purple Icons:[IPG] (DetailIcons fallback).
+**Removed 2:** green Attributes Icons-line + purple DetailIcons Icons-fallback. **Kept:** glyph strip. Cmd/Staffing untouched (FillStaffing).
+### Alien Probe (PR 66 U)
+- Plays on table (Persist.Probe); continuous both hands revealed (HasAlienProbeInPlay → hand strip).
+- Hand cards not nullifiable until played (CanNullifyTargetCard in NullifyEventInPlay).
+- Battle Bridge / used tactics NOT affected (faceDownAlways stays).
+- Verify: EventRules.VerifyAlienProbe.
+### Atmospheric Ionization (PR 68 C) — EN Ionization
+- Unique (IsPrintedUniqueEvent); Plays on Planet; beam 1 at a time; max 3 personnel this way per controller per turn.
+- Glossary-Add: to/from this planet includes planet-vicinity beams (landed ship ↔ planet facility); same-mission gate covers.
+- Count increments only after successful beam (NoteIonizationBeam); per-player save fields.
+- Verify: EventRules.VerifyAtmosphericIonization.
+Files: Game/EventRules.cs, Game/DetailStatusRules.cs, Game/EffectRegistry.cs, Services/GameSave.cs, TableWindow.xaml.cs, artifacts/CARD_TRACKER.md, artifacts/HANDOFF.md.
+Exe: StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe
 
 ## Tip detail (Data, Josef, 2026-09-18) - Temporal Causality Loop (Glossary-treu)
 Captain/Pepsch Implement-Go. Lock: Glossary-true (NOT Seeds-only). Standing Practice rule cites folded in.
