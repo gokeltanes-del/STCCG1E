@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-18 (Jadzia — Hail working Pepsch green)
+Last updated: 2026-09-18 (Jadzia — Sarjenka + Interphase Generator working; Rebel Encounter partial)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -63,7 +63,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | --- | --- | --- | --- |
 | Betazoid Gift Box (1 R) | unknown |  |  |
 | Horga'hn (2 R) | unknown |  |  |
-| Interphase Generator (3 R) | unknown |  |  |
+| Interphase Generator (3 R) | working | Pepsch green: nullify path vs [IPG] incl. Nausicaans; Rebel Encounter nullify also OK. | Pepsch 2026-09-18 |
 | Kurlan Naiskos (4 R) | unknown |  |  |
 | Thought Maker (5 R) | unknown |  |  |
 | Time Travel Pod (6 R) | unknown |  |  |
@@ -111,9 +111,9 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Portal Guard (43 U) | working | CUNN>7/Honor Continue; Fail: BeamBack+Stop wenn Beamen möglich (Schiff/Facility vorhanden, kein Stasis/Quarantäne); Kill wenn Beamen unmöglich (z.B. Hyper-Aging Quarantäne oder kein Schiff/Facility) + unter Mission. Unit-Test `VerifyPortalGuard`. | Captain 2026-09-13 |
 | Q (44 R) | unknown |  |  |
 | Radioactive Garbage Scow (45 U) | working | Pepsch green: Tractor Beam attach -> offset hang -> Fly follow -> EOT drop. tips Data through `9cd104f` (a4e4e5d/bf7a394/558fc4e/2c6a3f9/9cd104f). Spock Tractor Soll. | Pepsch 2026-09-14; Data/`9cd104f` |
-| Rebel Encounter (46 U) | unknown |  |  |
+| Rebel Encounter (46 U) | partial | Interphase Generator nullify Pepsch-OK. Equipment-destroy still open — Data Go. Not fully working. | Pepsch 2026-09-18; Data Go equipment-destroy |
 | REM Fatigue (47 U) | unknown |  |  |
-| Sarjenka (48 R) | unknown |  |  |
+| Sarjenka (48 R) | working | Pepsch green. | Pepsch 2026-09-18 |
 | Shaka, When the Walls Fell (49 U) | unknown |  |  |
 | Tarellian Plague Ship (50 U) | unknown |  |  |
 | Temporal Causality Loop (51 R) | unknown |  |  |
