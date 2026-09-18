@@ -1,5 +1,12 @@
 ## 2026-09-17 — Hail (AU) + table UI chrome
 
+## 2026-09-18 — TwoDim: full Disabled for Empathy aboard (Spock)
+
+- Upgrade from Empathy skill-strip: Empathy personnel are Disabled while aboard TwoDim ship (live; clears when beamed off).
+- Disabled may beam (Glossary); IsBeamableFromHost no longer blocks Disabled.
+- Cure ENG+SCI + move-block unchanged. Visuals sync on attach/beam/cure.
+
+
 ## 2026-09-18 — Two-Dimensional Creatures: Empathy disabled
 
 - While TwoDim persist on ship: Empathy stripped in ResolvePersonnel (Detail skills, Contents team sum, dilemma Skill(), CanSolve).

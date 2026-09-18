@@ -78,6 +78,7 @@ public static class DetailStatusRules
     public static string DisabledCureHint(DilemmaRules.PersistKind kind) => kind switch
     {
         DilemmaRules.PersistKind.Ktarian => "cure: CUNNING>30 OR Android",
+        DilemmaRules.PersistKind.TwoDim => "cure: ENGINEER + SCIENCE (while aboard Empathy ship)",
         _ => ""
     };
 

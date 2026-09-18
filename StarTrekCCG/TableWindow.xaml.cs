@@ -10525,7 +10525,7 @@ public partial class TableWindow : Window
             return false;
         }
         if (IsCardLeaveBlocked(c)) return false;
-        if (IsCardDisabled(c)) return false;
+        // Glossary Disabled: may beam like equipment (TwoDim Empathy / Ktarian). Do not block.
         if (IsBorderStopped(cardBorder)) return false; // Spock: Stopped cannot beam
         if (!IsBeamableCard(c)) return false;
         return CardOwner(cardBorder) == _activePlayer || GetBorderOwner(cardBorder) == _activePlayer;
@@ -16671,6 +16671,8 @@ public partial class TableWindow : Window
                 ApplyKtarianDisable(attached);
             }
             _attachedDilemmas.Add(attached);
+            if (r.Persist == DilemmaRules.PersistKind.TwoDim)
+                SyncTwoDimDisabledVisuals(host);
             if (r.Persist == DilemmaRules.PersistKind.Scow)
                 PlaceScowToken(seedCard, host);
             if (r.Persist == DilemmaRules.PersistKind.BorgShip)
@@ -17326,9 +17328,13 @@ public partial class TableWindow : Window
                     if (pen > 0)
                         SetShipRangeLeft(a.Host, juniorShip, GetRemainingRange(a.Host, juniorShip) + pen);
                 }
+                var curedHost = a.Host;
+                var curedKind = a.Kind;
                 ClearStasisForDilemma(a);
                 _attachedDilemmas.Remove(a);
                 SendCardTo(a.Card, cureOwner, TimingRules.Destination.Discard);
+                if (curedKind == DilemmaRules.PersistKind.TwoDim)
+                    SyncTwoDimDisabledVisuals(curedHost);
                 if (plan.PointsAwarded > 0)
                     AwardDilemmaPoints(plan.PointsAwarded);
                 _session.Log.Add(_session.TurnNumber, $"P{cureOwner}", plan.LogMessage);
@@ -21067,25 +21073,76 @@ public partial class TableWindow : Window
         return stacked.Any(b => b.Tag is Card c && ReferenceEquals(c, card));
     }
 
+    private static bool PrintedHasEmpathy(Card card)
+    {
+        var sk = MissionRules.ParsePersonnelSkills(card);
+        return sk.Keys.Any(k => k.Equals("Empathy", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>TwoDim: Empathy personnel are Disabled only while aboard the TwoDim ship (live, not sticky Held).</summary>
+    private bool IsTwoDimEmpathyDisabledAboard(Card card)
+    {
+        if (!ModifierRules.IsPersonnelCard(card) || !PrintedHasEmpathy(card)) return false;
+        var host = FindHostBorderForPersonnel(card);
+        return host != null && HostHasTwoDim(host);
+    }
+
+    private Border? FindHostBorderForPersonnel(Card card)
+    {
+        foreach (var kv in _stackOnHost)
+        {
+            foreach (var b in kv.Value)
+            {
+                if (ReferenceEquals(b.Tag, card)) return kv.Key;
+                if (b.Tag is Card c
+                    && c.InstanceId > 0 && c.InstanceId == card.InstanceId)
+                    return kv.Key;
+            }
+        }
+        return null;
+    }
+
     private bool IsCardDisabled(Card card)
     {
-        bool disabled = card.Disabled || _attachedDilemmas.Any(d =>
+        bool ktarian = _attachedDilemmas.Any(d =>
             d.Kind == DilemmaRules.PersistKind.Ktarian
             && d.Held.Any(h => ReferenceEquals(h, card)
                                 || (h.InstanceId > 0 && h.InstanceId == card.InstanceId)
                                 || string.Equals(h.Name, card.Name, StringComparison.OrdinalIgnoreCase)));
+        bool twoDim = IsTwoDimEmpathyDisabledAboard(card);
+        // Live: TwoDim clears when beamed off; Ktarian Held keeps Disabled until cure.
+        bool disabled = ktarian || twoDim;
         card.Disabled = disabled;
         if (card.InstanceId > 0 && BoardStore.Current.ById.TryGetValue(card.InstanceId, out var inst) && inst is PersonnelInstance pi)
             pi.Disabled = disabled;
         return disabled;
     }
 
-    private AttachedDilemma? FindDisableDilemmaForCard(Card card) =>
-        _attachedDilemmas.FirstOrDefault(d =>
+    private AttachedDilemma? FindDisableDilemmaForCard(Card card)
+    {
+        var ktarian = _attachedDilemmas.FirstOrDefault(d =>
             d.Kind == DilemmaRules.PersistKind.Ktarian
             && d.Held.Any(h => ReferenceEquals(h, card)
                                 || (h.InstanceId > 0 && h.InstanceId == card.InstanceId)
                                 || string.Equals(h.Name, card.Name, StringComparison.OrdinalIgnoreCase)));
+        if (ktarian != null) return ktarian;
+        if (!IsTwoDimEmpathyDisabledAboard(card)) return null;
+        var host = FindHostBorderForPersonnel(card);
+        return _attachedDilemmas.FirstOrDefault(d =>
+            d.Kind == DilemmaRules.PersistKind.TwoDim && ReferenceEquals(d.Host, host));
+    }
+
+    /// <summary>Refresh Disabled visuals for Empathy crew on a TwoDim ship (and clear when cured/beamed).</summary>
+    private void SyncTwoDimDisabledVisuals(Border? host)
+    {
+        if (host == null) return;
+        if (!_stackOnHost.TryGetValue(host, out var list)) return;
+        foreach (var b in list)
+        {
+            if (b.Tag is not Card c || !ModifierRules.IsPersonnelCard(c)) continue;
+            ApplyDisabledVisual(b, IsCardDisabled(c));
+        }
+    }
 
     private void ApplyKtarianDisable(AttachedDilemma attached)
     {
@@ -21124,7 +21181,8 @@ public partial class TableWindow : Window
         }
     }
 
-    private bool IsCardLeaveBlocked(Card card) => card.IsLeaveBlocked || IsCardInStasis(card) || IsCardQuarantined(card) || IsCardDisabled(card);
+    // Glossary Disabled: may be moved/beamed like equipment (not leave-blocked). Stasis/quarantine still block.
+    private bool IsCardLeaveBlocked(Card card) => card.IsLeaveBlocked || IsCardInStasis(card) || IsCardQuarantined(card);
 
     private AttachedDilemma? FindStasisDilemmaForCard(Card card) =>
         _attachedDilemmas.FirstOrDefault(d =>
@@ -21269,17 +21327,6 @@ public partial class TableWindow : Window
                     DetailStatusTone.Stasis);
             }
 
-            var presentCtxEmp = FindPresentContextForCard(card);
-            if (presentCtxEmp != null && HostHasTwoDim(presentCtxEmp.Value.host))
-            {
-                var baseSk = MissionRules.ParsePersonnelSkills(card);
-                if (baseSk.Keys.Any(k => k.Equals("Empathy", StringComparison.OrdinalIgnoreCase)))
-                {
-                    AddDetailStatusLine(
-                        "Empathy disabled (Two-Dimensional Creatures) — cure: ENGINEER + SCIENCE",
-                        DetailStatusTone.Debuff);
-                }
-            }
         }
 
         // Ship: outpost repair amber timer
@@ -22349,6 +22396,15 @@ public partial class TableWindow : Window
         }
 
         TryCureAttachedDilemmas(targetHost);
+
+        // TwoDim: Empathy Disabled only while aboard — refresh both hosts after beam
+        SyncTwoDimDisabledVisuals(source);
+        SyncTwoDimDisabledVisuals(targetHost);
+        foreach (var b in toMove)
+        {
+            if (b.Tag is Card c && ModifierRules.IsPersonnelCard(c))
+                ApplyDisabledVisual(b, IsCardDisabled(c));
+        }
 
         UpdateHostBadge(source);
         UpdateHostBadge(targetHost);
