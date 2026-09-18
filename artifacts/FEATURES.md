@@ -46,3 +46,6 @@ See also: HANDOFF.md, PROJECT.md, RULES_CHECKLIST.md, CARD_TRACKER.md (Jadzia).
 - BoardStore + GameState = truth; TableWindow = view
 - Workflow: Josef edit+commit only; Pepsch tests then pushes (no bot-push)
 - **Rule cites:** Code-Kommentar = wo welche Regel sitzt; Detailfenster = welche Regel gerade gegriffen hat. Kein DONE ohne Pepsch green wenn UX betroffen.
+
+## Goddess of Empathy (2026-09-18)
+Glossary-true: while in play, Interrupt cards cannot be played except [Ref], [Q], Kevin Uxbridge, Q2 - **including response/nullify window**. Amanda Rogers is not excepted. Gates: EventRules / LegalMoves stack / NullifyStackEffect / TableWindow Collect+TryAllow / EngineAuthority.

@@ -3740,6 +3740,9 @@ public partial class TableWindow : Window
         var list = TimingRules.CollectLegalResponses(hand, table, top, player);
         return list.Where(item =>
         {
+            // Glossary: Goddess of Empathy — response/nullify window blocked too (Amanda not excepted).
+            if (TimingRules.IsInterrupt(item.Card) && GoddessBlocksInterrupt(item.Card))
+                return false;
             if (InterruptRules.IsSubspaceSchism(item.Card) && !SchismAvailable(player))
                 return false;
             // Hail fly-by: only the player who owns a ship at the pass location.
@@ -4901,6 +4904,12 @@ public partial class TableWindow : Window
             if (_stack.Top == null)
             {
                 denyReason = "Action stack is inconsistent.";
+                return false;
+            }
+            // Glossary: Goddess of Empathy — Amanda etc. illegal even as stack response (Kevin/Q2/Q/Ref ok).
+            if (TimingRules.IsInterrupt(card) && GoddessBlocksInterrupt(card))
+            {
+                denyReason = "Goddess of Empathy: interrupts may not be played (except Kevin/Q2/Q/Ref).";
                 return false;
             }
             var cr = TimingRules.CanRespond(card, _stack.Top, _stack.ResponsePlayer);
@@ -14484,6 +14493,7 @@ public partial class TableWindow : Window
         return null;
     }
 
+    /// <summary>Glossary: Goddess of Empathy — blocks interrupt plays incl. response/nullify (Amanda not excepted).</summary>
     private bool GoddessBlocksInterrupt(Card interrupt)
     {
         if (EventRules.IsGoddessException(interrupt)) return false;

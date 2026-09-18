@@ -151,7 +151,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Espionage: Romulan on Klingon (74 C) | working | Pepsch green (Espionage-Familie). | Pepsch 2026-09-06 |
 | Gaps in Normal Space (75 U) | unknown | UX only: Pepsch green Host-Sidebar panel-follow tip Data/`651a63f` (not card-status green). | Data/`651a63f` UX 2026-09-18 |
 | Genetronic Replicator (76 U) | working | Pepsch green: Opfer & gleichzeitig Getoetete ausgeschlossen; Auswahl via PickBorder; Unit-Test in EventRules. | Pepsch 2026-09-15 |
-| Goddess of Empathy (77 R) | unknown |  |  |
+| Goddess of Empathy (77 R) | working | Pepsch tip TIPHASH: Amanda blocked in response/nullify; Kevin/Q2/[Q]/[Ref] ok. Standing Practice verify. | Pepsch 2026-09-18; Data/`TIPHASH` |
 | Holo-Projectors (78 U) | unknown |  |  |
 | Kivas Fajo: Collector (79 U) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Lore Returns (80 R) | working | Pepsch green. | Pepsch 2026-09-06 |

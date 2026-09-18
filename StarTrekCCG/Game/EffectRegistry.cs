@@ -693,6 +693,9 @@ internal sealed class NullifyStackEffect : IEffect
     public (bool ok, string reason) CanPlay(GameState state, GameAction action)
     {
         if (action.Card == null) return (false, "No card.");
+        // Glossary: Goddess of Empathy — Amanda (nullify-stack) is NOT excepted; Kevin/Q2/Q/Ref still ok.
+        if (state.HasGoddess && !EventRules.IsGoddessException(action.Card))
+            return (false, "Goddess of Empathy: interrupts blocked.");
         if (!state.StackOpen || state.StackTop == null)
             return (false, "No open stack to respond to.");
         return TimingRules.CanRespond(action.Card, state.StackTop, action.Player);

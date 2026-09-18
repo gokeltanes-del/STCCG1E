@@ -2,17 +2,36 @@
 
 # STCCG 1E - Handoff
 
-Last updated: 2026-09-18 (Data - Occupancy Badge UX)
+Last updated: 2026-09-18 (Data - Goddess of Empathy Amanda)
 Repo: https://github.com/gokeltanes-del/STCCG1E
 Local VS: C:\\Dev\\StarTrekCCG\\
 **Ein Branch: master.** GrokTest nicht nutzen.
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test.
 
 ## Current tip
-Local Josef tip **651a63f** - Gaps Host-Action-Panel stick (Pepsch smoke). Nicht gepusht. (Prior tip 034ee39 Occupancy Badge.)
+Local Josef tip **TIPHASH** - Goddess of Empathy: Amanda blocked in response/nullify (Pepsch smoke). Nicht gepusht. (Prior tip 651a63f Gaps panel.)
 **Pepsch EXE (Default Debug):**
 `C:\Dev\StarTrekCCG\StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe`
 Nicht `_build_docky*` / Release / alte Side-Builds.
+
+## Tip detail (Data, Josef, 2026-09-18) - Goddess of Empathy (Amanda response)
+Captain/Spock Soll-OK. Standing Practice Glossary cites.
+### Root
+Goddess gate lived on normal hand-play / EngineAuthority / InterruptPlayEffect, but **response/nullify window** skipped it: `CollectAllLegalResponses` + stack-open `TryAllowHandPlay` only called `CanRespond`; `NullifyStackEffect` (Amanda) had no `HasGoddess` check. Amanda could nullify under Goddess.
+### Fix
+- `EventRules`: Glossary cite + `GoddessBlocksInterruptPlay` + `VerifyGoddessOfEmpathy` (Amanda NOT excepted; Kevin/Q2/[Q]/[Ref] ok).
+- `LegalMoves` stack responses: filter via HasGoddess + IsGoddessException.
+- `NullifyStackEffect.CanPlay`: Goddess gate (Amanda blocked; Q2 still exception).
+- `TableWindow`: CollectAllLegalResponses + stack-open TryAllowHandPlay GoddessBlocksInterrupt.
+- EngineAuthority cite tightened for Respond.
+### Bewusst nicht
+No change to Kevin/Q2/[Ref]/[Q] exceptions; no push; no Kevin Convergence rename as exception.
+### Pepsch smoke
+1. Goddess of Empathy on table -> play Interrupt (e.g. Q2 on stack) -> Amanda Rogers illegal (not in ThinkTray / deny on play).
+2. Kevin Uxbridge and Q2 still legal under Goddess.
+3. Without Goddess, Amanda still nullifies interrupts as before.
+Files: EventRules.cs, EffectRegistry.cs, LegalMoves.cs, EngineAuthority.cs, TableWindow.xaml.cs, artifacts/*.
+Exe: StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe
 
 ## Tip detail (Data, Josef, 2026-09-18) - Gaps Host-Action-Panel stick
 Captain Go: panel follows ship after Fly on/over Gaps in Normal Space. **NO** general auto-dismiss.

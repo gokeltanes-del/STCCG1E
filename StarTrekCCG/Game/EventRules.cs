@@ -295,11 +295,13 @@ public static class EventRules
                 NeedsToxUthat = true,
                 Message = "Requires Tox Uthat. Destroys all ships and facilities here. Mission becomes unattemptable space, loses gametext / points / affiliation icons."
             },
+            // Glossary: Goddess of Empathy — interrupts may not be played (except [Ref]/[Q]/Kevin Uxbridge/Q2),
+            // including response/nullify window (Amanda Rogers is NOT excepted).
             "Goddess of Empathy" => new PlayResult
             {
                 Place = Place.Table,
                 Persist = Persist.Goddess,
-                Message = "Interrupts (except Ref/Q/Kevin/Q2) may not be played."
+                Message = "Plays on table. Interrupt cards (except [Ref], [Q], Kevin Uxbridge, and Q2) cannot be played — including responses/nullify (Amanda Rogers not excepted). (Glossary: Goddess of Empathy)"
             },
             // Glossary: Alien Probe — continuous both hands revealed; hand cards not nullifiable until played;
             // Battle Bridge used tactics NOT affected.
@@ -510,6 +512,10 @@ public static class EventRules
         Message = $"Plays on a [{onAff}] mission. Your cards may attempt it as if [{asAff}]. Discard when that mission is solved."
     };
 
+    /// <summary>
+    /// Glossary: Goddess of Empathy — only [Ref], [Q], Kevin Uxbridge, and Q2 may still be played.
+    /// Amanda Rogers is NOT an exception (blocks response/nullify window too).
+    /// </summary>
     public static bool IsGoddessException(Card interrupt)
     {
         string n = (interrupt.Name ?? "").Trim();
@@ -519,6 +525,13 @@ public static class EventRules
         if (icons.Contains("[Q]", StringComparison.OrdinalIgnoreCase)) return true;
         if (icons.Contains("[Ref]", StringComparison.OrdinalIgnoreCase)) return true;
         return false;
+    }
+
+    /// <summary>Glossary: Goddess of Empathy — true when HasGoddess blocks this interrupt play (incl. response).</summary>
+    public static bool GoddessBlocksInterruptPlay(bool hasGoddess, Card? interrupt)
+    {
+        if (!hasGoddess || interrupt == null) return false;
+        return !IsGoddessException(interrupt);
     }
 
     public static int CountClass(IEnumerable<Card> aboard, string classification)
@@ -896,5 +909,39 @@ public static class EventRules
             return "Distortion Field: FormatHostEffectSummary must mention beaming block";
         return null;
     }
+
+    /// <summary>Glossary: Goddess of Empathy — Standing Practice verify.</summary>
+    public static string? VerifyGoddessOfEmpathy()
+    {
+        var goddess = new Card { Name = "Goddess of Empathy", Type = "Event" };
+        var r = ResolvePlay(goddess);
+        if (!r.Ok) return "Goddess: ResolvePlay failed";
+        if (r.Place != Place.Table) return "Goddess: must play on table";
+        if (r.Persist != Persist.Goddess) return "Goddess: Persist.Goddess expected";
+        if (!IsGoddess(goddess)) return "Goddess: IsGoddess helper";
+        if (r.Message.IndexOf("Glossary: Goddess of Empathy", StringComparison.OrdinalIgnoreCase) < 0)
+            return "Goddess: Glossary rule cite missing";
+
+        var amanda = new Card { Name = "Amanda Rogers", Type = "Interrupt", Icons = "[Shield]" };
+        var kevin = new Card { Name = "Kevin Uxbridge", Type = "Interrupt" };
+        var q2 = new Card { Name = "Q2", Type = "Interrupt" };
+        var energy = new Card { Name = "Energy Vortex", Type = "Interrupt" };
+        var qIcon = new Card { Name = "Q-Flash", Type = "Interrupt", Icons = "[Q]" };
+        var refIcon = new Card { Name = "Referee", Type = "Interrupt", Icons = "[Ref]" };
+
+        if (IsGoddessException(amanda)) return "Goddess: Amanda Rogers must NOT be exception";
+        if (!IsGoddessException(kevin)) return "Goddess: Kevin Uxbridge must be exception";
+        if (!IsGoddessException(q2)) return "Goddess: Q2 must be exception";
+        if (!IsGoddessException(qIcon)) return "Goddess: [Q] must be exception";
+        if (!IsGoddessException(refIcon)) return "Goddess: [Ref] must be exception";
+        if (IsGoddessException(energy)) return "Goddess: Energy Vortex must NOT be exception";
+
+        if (!GoddessBlocksInterruptPlay(true, amanda)) return "Goddess: Amanda must be blocked while in play";
+        if (GoddessBlocksInterruptPlay(true, kevin)) return "Goddess: Kevin must remain legal";
+        if (GoddessBlocksInterruptPlay(true, q2)) return "Goddess: Q2 must remain legal";
+        if (GoddessBlocksInterruptPlay(false, amanda)) return "Goddess: no block when Goddess not in play";
+        return null;
+    }
+
 
 }

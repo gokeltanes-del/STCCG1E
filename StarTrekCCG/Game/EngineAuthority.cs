@@ -518,7 +518,7 @@ public static class EngineAuthority
         if (card == null)
             return ApplyResult.Deny("No card.", "generic", action.Player);
 
-        // Goddess: interrupts blocked except catalog exceptions (Kevin / Q2 / …).
+        // Glossary: Goddess of Empathy — interrupts blocked except [Ref]/[Q]/Kevin/Q2 (Amanda NOT excepted; incl. Respond).
         if (InterruptRules.IsInterrupt(card)
             && state.HasGoddess
             && !EventRules.IsGoddessException(card))

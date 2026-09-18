@@ -30,8 +30,13 @@ public static class LegalMoves
             var hand = state.HandOf(player);
             if (state.StackTop != null)
             {
+                // Glossary: Goddess of Empathy — interrupts blocked in response/nullify window too (Amanda not excepted).
                 foreach (var c in TimingRules.LegalResponsesInHand(hand, state.StackTop, player))
+                {
+                    if (state.HasGoddess && TimingRules.IsInterrupt(c) && !EventRules.IsGoddessException(c))
+                        continue;
                     list.Add(GameAction.Respond(player, c));
+                }
             }
             return list;
         }
