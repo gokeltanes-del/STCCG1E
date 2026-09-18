@@ -1,5 +1,11 @@
 ## 2026-09-17 — Hail (AU) + table UI chrome
 
+## 2026-09-18 — HOLD: keep house UX IG pre-Resolve
+
+- Restored Pepsch house UX (IG Yes/No before Resolve for all [IPG]); undid Glossary revert 17f468e.
+- No further IG-order changes until Pepsch picks strict vs house. Spock still flags Glossary conflict.
+
+
 ## 2026-09-18 — HOLD: IG back to post-Resolve (Glossary)
 
 - Reverted Pepsch pre-filter IG order (d32da9c). Strict Spock: Resolve (targets+conditions) → optional IG → else effects. Waiting Pepsch: strict vs house UX.
