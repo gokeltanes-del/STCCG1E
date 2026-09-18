@@ -241,7 +241,8 @@ public partial class TableWindow : Window
     private const double TableCardHeight = 140;
     private const double MissionGap = 20;
     private const double SpacelineStartX = 200;
-    private double SpacelineY = 520;             // rises when P2 stacks need room above
+    private const double SpacelineYDefault = 520;
+    private double SpacelineY = SpacelineYDefault; // rises when P2 stacks need room above
     private const double ShipYPlayer = 700;
     private const double ShipYOpponent = 300;
     // Platz für Facility unter Mission + mehrere Schiffe untereinander
@@ -6361,8 +6362,14 @@ public partial class TableWindow : Window
                 UpdateSeedBadge(cell);
                 if (dockByMission.TryGetValue(cell, out var docks))
                 {
+                    // Pin before Relayout (same contract as RelocateShipAlongSpaceline): after
+                    // mission Top jumps to SpacelineY, save absolute Y can fall outside the
+                    // pixel Y-window; Pin+Pixel must still find every dock for baseline Y.
                     foreach (var d in docks)
+                    {
                         Canvas.SetLeft(d, x);
+                        _dockableAtMission[d] = cell;
+                    }
                 }
                 RelayoutDockablesUnderMission(cell);
             }
@@ -8843,6 +8850,8 @@ public partial class TableWindow : Window
         _dockedAt.Clear(); _cloakedShips.Clear();
         _repairTurnsAtOutpost.Clear(); _shipRangeLeft.Clear();
         _borderOwner.Clear(); _attachedDilemmas.Clear(); _alienParasiteControls.Clear(); _attachedEvents.Clear();
+        _dockableAtMission.Clear();
+        SpacelineY = SpacelineYDefault;
         _missionsByQuadrant.Clear(); _spacelineOrder.Clear();
         ClearMissionSlotPreviews();
         foreach (var kv in _damageBadges.ToList())
@@ -9541,6 +9550,7 @@ public partial class TableWindow : Window
             .ToList();
         foreach (var b in toRemove)
             TableCanvas.Children.Remove(b);
+        _dockableAtMission.Clear();
 
         foreach (var badge in _hostBadges.Values.ToList())
             TableCanvas.Children.Remove(badge);
@@ -22675,7 +22685,8 @@ public partial class TableWindow : Window
         for (int i = 0; i < below.Count; i++)
         {
             Canvas.SetLeft(below[i], missionLeft + DockSlotOffsetX(i));
-            Canvas.SetTop(below[i], missionTop + UnderMissionGap * (i + 1));
+            // Shared baseline: mission Top + DockSlotOffsetY steps (same as live Relocate).
+            Canvas.SetTop(below[i], missionTop + DockSlotOffsetY(i, 1));
             // Ships above facilities; higher slot => higher Z so topmost stays clickable
             int z = DockSortKey(below[i]) == 0 ? 12 + i : 22 + i;
             Panel.SetZIndex(below[i], z);
@@ -22688,7 +22699,7 @@ public partial class TableWindow : Window
         {
             // i=0 facility directly above mission, i=1 ship above that, ...
             Canvas.SetLeft(above[i], missionLeft + DockSlotOffsetX(i));
-            Canvas.SetTop(above[i], missionTop - UnderMissionGap * (i + 1));
+            Canvas.SetTop(above[i], missionTop + DockSlotOffsetY(i, 2));
             int z = DockSortKey(above[i]) == 0 ? 12 + i : 22 + i;
             Panel.SetZIndex(above[i], z);
             SetBorderOwner(above[i], 2);
