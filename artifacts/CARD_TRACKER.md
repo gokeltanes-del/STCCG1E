@@ -141,8 +141,8 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 
 | Card | Status | Notes | Source |
 | --- | --- | --- | --- |
-| Alien Probe (66 U) | partial | Data tip: table play; continuous both hands revealed; hand cards not nullifiable until played; Battle Bridge unaffected. Glossary cites. Hotseat already reveals — Probe wires + Verify. | Data 2026-09-18 tip |
-| Atmospheric Ionization (68 C) | partial | Data tip: Unique; Plays on Planet; beam 1-at-a-time; max 3 personnel/controller/turn; Glossary planet-vicinity (landed↔facility). Per-controller counter. Verify. | Data 2026-09-18 tip |
+| Alien Probe (66 U) | partial | Data tip: table play; continuous both hands revealed; hand cards not nullifiable until played; Battle Bridge unaffected. Glossary cites. Hotseat already reveals — Probe wires + Verify. | Data tip 5c08269 |
+| Atmospheric Ionization (68 C) | partial | Data tip: Unique; Plays on Planet; beam 1-at-a-time; max 3 personnel/controller/turn; Glossary planet-vicinity (landed↔facility). Per-controller counter. Verify. | Data tip 5c08269 |
 | Bynars Weapon Enhancement (69 R) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Distortion Field (70 U) | unknown |  |  |
 | Espionage: Federation on Klingon (71 C) | working | Pepsch green (Espionage-Familie). | Pepsch 2026-09-06 |
