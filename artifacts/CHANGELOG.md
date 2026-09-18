@@ -1,5 +1,12 @@
 ## 2026-09-17 — Hail (AU) + table UI chrome
 
+## 2026-09-18 — Hail no-battle: Detail debuff (not under-card)
+
+- Removed under-card "Hail: no battle" flags.
+- Show as red **Debuff** line in card Detail status block (same place as Metaphasic / other host effects): "Hail: cannot battle X this turn".
+- Status line kept; cleared at EOT with the restriction. Table-drop path unchanged.
+
+
 ## 2026-09-18 — Hail OR: table drop + no-battle flags
 
 - **Drop:** Hail `GetPlayTarget` = None before PlayOnRules (printed "Plays on any ship" was forcing ship host). Play onto empty table/play area like Jaglom, then mark two ships.

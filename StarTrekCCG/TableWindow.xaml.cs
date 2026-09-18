@@ -341,8 +341,6 @@ public partial class TableWindow : Window
     private readonly HashSet<Border> _hailNoMoveThisTurn = new();
     /// <summary>Hail: unordered ship pairs that cannot battle each other this turn.</summary>
     private readonly List<(Border A, Border B)> _hailNoBattlePairs = new();
-    /// <summary>Light "no battle" flags on ships paired by Hail (cleared EOT).</summary>
-    private readonly Dictionary<Border, TextBlock> _hailNoBattleFlags = new();
     /// <summary>Deferred span fly paused for Hail fly-by response window.</summary>
     private Border? _pendingHailFlyShip;
     private Border? _pendingHailFlyFrom;
@@ -7923,7 +7921,6 @@ public partial class TableWindow : Window
 
     private void ClearHailTurnState()
     {
-        ClearHailNoBattleFlags();
         _hailNoMoveThisTurn.Clear();
         _hailNoBattlePairs.Clear();
         _pendingHailFlyShip = null;
@@ -12899,8 +12896,6 @@ public partial class TableWindow : Window
         UpdateHostBadge(ship);
         // Every RelocateShip* path: towed Scow must follow (not only Relayout branch).
         SyncTowedScowAfterShipMove(ship);
-        if (_hailNoBattlePairs.Count > 0)
-            RefreshHailNoBattleFlags();
     }
 
     private void RelocateShipToLocation(Border ship, Border dest)
@@ -18903,13 +18898,14 @@ public partial class TableWindow : Window
         }
 
         _hailNoBattlePairs.Add((shipA, shipB));
-        RefreshHailNoBattleFlags();
         string msg = $"Hail: {ca.Name} and {cb.Name} cannot battle each other this turn.";
         StatusText.Text = msg;
-        if (ActivePlayerBanner != null)
-            ActivePlayerBanner.ToolTip = msg;
         _session.Log.Add(_session.TurnNumber, $"P{owner}",
             $"Hail no-battle {ca.Name} / {cb.Name}");
+        // Pepsch: red debuff in Detail window (not under-card marker).
+        if (_detailCard != null
+            && (ReferenceEquals(_detailCard, ca) || ReferenceEquals(_detailCard, cb)))
+            RefreshDetailStatusBlock(_detailCard);
 
         _hailMarkShipA = null;
         _hailMarkCard = null;
@@ -18945,62 +18941,6 @@ public partial class TableWindow : Window
         }
     }
 
-
-    private void RefreshHailNoBattleFlags()
-    {
-        ClearHailNoBattleFlags();
-        var ships = new HashSet<Border>();
-        foreach (var (a, b) in _hailNoBattlePairs)
-        {
-            if (a != null) ships.Add(a);
-            if (b != null) ships.Add(b);
-        }
-        foreach (var ship in ships)
-        {
-            if (ship.Tag is not Card sc) continue;
-            var partners = _hailNoBattlePairs
-                .Where(p => ReferenceEquals(p.A, ship) || ReferenceEquals(p.B, ship))
-                .Select(p => ReferenceEquals(p.A, ship) ? p.B : p.A)
-                .Where(x => x?.Tag is Card)
-                .Select(x => ((Card)x!.Tag!).Name ?? "?")
-                .Distinct()
-                .ToList();
-            string partnerBit = partners.Count == 0 ? "" : (" vs " + string.Join("/", partners));
-            var flag = new TextBlock
-            {
-                Text = "Hail: no battle" + partnerBit,
-                FontSize = 10,
-                FontWeight = FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Color.FromRgb(255, 220, 120)),
-                Background = new SolidColorBrush(Color.FromArgb(200, 40, 30, 10)),
-                Padding = new Thickness(4, 1, 4, 1),
-                IsHitTestVisible = false,
-                ToolTip = $"Hail: cannot battle{partnerBit} this turn"
-            };
-            double left = Canvas.GetLeft(ship);
-            double top = Canvas.GetTop(ship);
-            double w = ship.Width > 0 ? ship.Width : TableCardWidth;
-            Canvas.SetLeft(flag, left);
-            Canvas.SetTop(flag, top + (ship.Height > 0 ? ship.Height : TableCardHeight) + 2);
-            Panel.SetZIndex(flag, 80);
-            TableCanvas.Children.Add(flag);
-            _hailNoBattleFlags[ship] = flag;
-        }
-    }
-
-    private void ClearHailNoBattleFlags()
-    {
-        foreach (var kv in _hailNoBattleFlags.ToList())
-        {
-            if (TableCanvas.Children.Contains(kv.Value))
-                TableCanvas.Children.Remove(kv.Value);
-        }
-        _hailNoBattleFlags.Clear();
-        if (ActivePlayerBanner != null
-            && ActivePlayerBanner.ToolTip is string tip
-            && tip.StartsWith("Hail:", StringComparison.Ordinal))
-            ActivePlayerBanner.ToolTip = null;
-    }
 
     private void ApplySubspaceInterference(Card card, int controller, Card? target)
     {
@@ -21272,6 +21212,18 @@ public partial class TableWindow : Window
                         string line = FormatAttachedHostEffectLine("Dilemma", ad.Card, ad.Countdown, ad.Kind.ToString(), null);
                         AddDetailStatusLine(line, tone);
                     }
+                }
+
+                // Hail: cannot battle paired ship(s) this turn (Pepsch — Detail debuff, not under-card).
+                foreach (var (a, b) in _hailNoBattlePairs)
+                {
+                    Border? other = null;
+                    if (ReferenceEquals(a, shipBorder)) other = b;
+                    else if (ReferenceEquals(b, shipBorder)) other = a;
+                    if (other?.Tag is not Card otherCard) continue;
+                    AddDetailStatusLine(
+                        $"Hail: cannot battle {otherCard.Name} this turn",
+                        DetailStatusTone.Debuff);
                 }
             }
         }
