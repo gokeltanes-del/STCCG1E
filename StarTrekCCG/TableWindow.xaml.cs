@@ -302,11 +302,17 @@ public partial class TableWindow : Window
 
     private readonly List<AlienParasiteControlState> _alienParasiteControls = new();
 
-    /// <summary>During a mission attempt: cards discarded from this location (for Temporal Causality Loop).</summary>
+    /// <summary>During a mission attempt: cards discarded from this location (Glossary: Temporal Causality Loop).</summary>
     private Border? _attemptMission;
     /// <summary>Space attempt: the one selected Attempting-Ship (crew/present scoped to this ship only).</summary>
     private Border? _attemptShip;
-    private readonly List<(Card card, int owner, Border? returnHost, bool wasSeed)> _attemptDiscards = new();
+    /// <summary>
+    /// Attempt discard log (order = list order). seedOrderHint = seed-stack index at discard (-1 non-seed).
+    /// Origin names the path (DiscardPersonnelBorder, RemoveEquipmentFromHost, DestroyShipOrFacility, SeniorStaff, IpgNullify, OvercomeSeed).
+    /// </summary>
+    private readonly List<(Card card, int owner, Border? returnHost, bool wasSeed, int seedOrderHint, string origin)> _attemptDiscards = new();
+    /// <summary>Glossary / Compendium 8: card-instructed end turn (TCL) skips normal EOT actions.</summary>
+    private bool _skipNormalEndOfTurn;
     /// <summary>Borg Ship dilemma token direction along spaceline (+1 / -1).</summary>
     private int _borgShipDir = 1;
 
@@ -7853,9 +7859,30 @@ public partial class TableWindow : Window
     /// </summary>
     private void FinishExecuteAndEndTurn()
     {
+        int finishingPlayer = _session.ActivePlayer;
+
+        // Glossary: Temporal Causality Loop / End Transmission — end turn immediately,
+        // skipping all end-of-turn actions (countdowns, probes, draws). Compendium 8 / _rb69.
+        if (_skipNormalEndOfTurn || DilemmaRules.ShouldSkipNormalEndOfTurn(_skipNormalEndOfTurn))
+        {
+            _skipNormalEndOfTurn = false;
+            _ionizationBeamsThisTurn = 0;
+            _movedThisTurnAfterArrival.Clear();
+            _arrivedMissionThisTurn.Clear();
+            _auPlayedThisTurnP1 = false;
+            _auPlayedThisTurnP2 = false;
+            _uniquePersonnelPlayedP1 = false;
+            _uniquePersonnelPlayedP2 = false;
+            _session.SuppressEndOfTurnDraw = true;
+            _session.Log.Add(_session.TurnNumber, $"P{finishingPlayer}",
+                "Glossary: card ends turn — skip normal EOT actions (no countdown/probe/draw)");
+            StatusText.Text = "Glossary: turn ended by card effect — normal end-of-turn actions skipped.";
+            CompleteTurnChange();
+            return;
+        }
+
         // Compendium 8: "at end of turn" effects first, THEN the end-of-turn draw.
         // Static Warp Bubble must discard from the current hand, not the card just drawn.
-        int finishingPlayer = _session.ActivePlayer;
         ProcessEndOfTurnRepairs(finishingPlayer);
         ProcessScowTowEndOfTurn(finishingPlayer);
         ProcessEndOfTurnDilemmas(finishingPlayer);
@@ -12591,10 +12618,14 @@ public partial class TableWindow : Window
                 && MissionRules.IsDilemma(seedCard))
             {
                 _seniorStaffArmed = false;
+                int ssOwner = GetBorderOwner(seedBorder);
+                if (ssOwner is not (1 or 2)) ssOwner = opponentOf(_activePlayer);
+                // Glossary: Temporal Causality Loop — seed discarded from here this attempt (track + zone discard).
+                TrackAttemptDiscard(seedCard, ssOwner, missionBorder, wasSeed: true, seedOrderHint: idx, origin: "SeniorStaff");
                 seedStack.RemoveAt(idx);
                 _seedUnderMission[missionBorder] = seedStack;
                 UpdateSeedBadge(missionBorder);
-                var disc = _activePlayer == 2 ? _oppDiscardCards : _discardCards;
+                var disc = ssOwner == 2 ? _oppDiscardCards : _discardCards;
                 if (!disc.Contains(seedCard)) disc.Add(seedCard);
                 ShowCardReveal(seedCard, "Senior Staff Meeting",
                     $"First dilemma discarded: {seedCard.Name}.",
@@ -12807,7 +12838,11 @@ public partial class TableWindow : Window
                 _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
                     $"Dilemma {seedCard.Name} FAILED: {logMsg}");
                 if (dilResult.EndTurn)
+                {
+                    // Glossary: Temporal Causality Loop — EndTurn skips normal EOT (Compendium 8).
+                    _skipNormalEndOfTurn = DilemmaRules.ShouldSkipNormalEndOfTurn(true);
                     FinishExecuteAndEndTurn();
+                }
                 ClearCardActionUi();
                 return;
             }
@@ -13816,6 +13851,9 @@ public partial class TableWindow : Window
         if (ri >= 0)
         {
             seedOwner = GetBorderOwner(seedStack[ri]);
+            // Glossary: Temporal Causality Loop — IPG-nullified seed discarded from here this attempt.
+            TrackAttemptDiscard(seedCard, seedOwner is (1 or 2) ? seedOwner : opponentOf(_activePlayer),
+                missionBorder, wasSeed: true, seedOrderHint: ri, origin: "IpgNullify");
             seedStack.RemoveAt(ri);
         }
         if (seedOwner is not (1 or 2)) seedOwner = opponentOf(_activePlayer);
@@ -13886,6 +13924,9 @@ public partial class TableWindow : Window
             if (ri >= 0)
             {
                 seedOwner = GetBorderOwner(seedStack[ri]);
+                // Glossary: Temporal Causality Loop — nullified seed discarded from here this attempt.
+                TrackAttemptDiscard(seedCard, seedOwner is (1 or 2) ? seedOwner : opponentOf(attempter),
+                    missionBorder, wasSeed: true, seedOrderHint: ri, origin: "DevilNullify");
                 seedStack.RemoveAt(ri);
             }
             if (seedOwner is not (1 or 2)) seedOwner = opponentOf(attempter);
@@ -16648,16 +16689,23 @@ public partial class TableWindow : Window
 
         if (removeFromSeed && seedStack.Count > 0)
         {
-            // Track overcome/removed seeds for Temporal Causality Loop re-seed
+            // Glossary: Temporal Causality Loop — Zone-truth A: overcome/removed seeds go through discard,
+            // then fail-restore re-seeds from the pile. Track Encounter-Order index.
+            int ri = seedStack.FindLastIndex(b => b.Tag is Card c && ReferenceEquals(c, seedCard));
+            if (ri < 0) ri = seedStack.Count - 1;
             if (_attemptMission != null && ReferenceEquals(_attemptMission, missionBorder)
                 && DilemmaRules.ShouldTrackOvercomeDiscard(
                     r.Fate, EventRules.IsTemporalCausalityLoop(seedCard)))
             {
-                _attemptDiscards.Add((seedCard, _activePlayer, missionBorder, wasSeed: true));
+                int seedOwner = (ri >= 0 && ri < seedStack.Count) ? GetBorderOwner(seedStack[ri]) : _activePlayer;
+                if (seedOwner is not (1 or 2)) seedOwner = _activePlayer;
+                TrackAttemptDiscard(seedCard, seedOwner, missionBorder, wasSeed: true,
+                    seedOrderHint: ri >= 0 ? ri : seedStack.Count, origin: "OvercomeSeed");
+                var discPile = seedOwner == 2 ? _oppDiscardCards : _discardCards;
+                if (!discPile.Contains(seedCard))
+                    discPile.Add(seedCard);
             }
             // Prefer remove by card identity (not a stale index)
-            int ri = seedStack.FindLastIndex(b => b.Tag is Card c && ReferenceEquals(c, seedCard));
-            if (ri < 0) ri = seedStack.Count - 1;
             if (ri >= 0 && ri < seedStack.Count)
                 seedStack.RemoveAt(ri);
             _seedUnderMission[missionBorder] = seedStack;
@@ -16770,38 +16818,77 @@ public partial class TableWindow : Window
 
 
     /// <summary>
-    /// Temporal Causality Loop fail: return personnel/equipment discarded from this attempt
-    /// and re-seed overcome seed cards under the mission; TCL itself is discarded.
+    /// Glossary: Temporal Causality Loop fail — return cards discarded from here this attempt
+    /// (seeds face-down re-seed under mission in Encounter-Order as far as possible;
+    /// non-seeds re-play to host if it still exists, else legal report, else stay discarded).
+    /// TCL itself is not re-seeded. Attach*/WallFailed untouched (never in this log).
     /// </summary>
     private void ApplyTemporalCausalityLoopRestore(Border missionBorder, Card loopCard)
     {
         int restored = 0;
-        foreach (var (card, owner, returnHost, wasSeed) in _attemptDiscards.ToList())
+        int stayedDiscarded = 0;
+
+        // Seeds first, by recorded seed-stack index (Encounter-Order), then non-seeds in log order.
+        var seedEntries = _attemptDiscards
+            .Select((e, i) => (e, i))
+            .Where(t => t.e.wasSeed && !EventRules.IsTemporalCausalityLoop(t.e.card))
+            .OrderBy(t => t.e.seedOrderHint)
+            .ThenBy(t => t.i)
+            .Select(t => t.e)
+            .ToList();
+        var nonSeedEntries = _attemptDiscards
+            .Where(e => !e.wasSeed)
+            .ToList();
+
+        if (!_seedUnderMission.TryGetValue(missionBorder, out var seeds))
+        {
+            seeds = new List<Border>();
+            _seedUnderMission[missionBorder] = seeds;
+        }
+
+        foreach (var (card, owner, returnHost, wasSeed, seedOrderHint, origin) in seedEntries)
         {
             var disc = owner == 2 ? _oppDiscardCards : _discardCards;
+            // Zone-truth A: pull from discard pile (re-seed even if somehow missing).
             disc.Remove(card);
 
-            if (wasSeed)
+            var mini = CreateMiniCard(card, faceDown: true);
+            SetBorderOwner(mini, owner);
+            mini.Visibility = Visibility.Collapsed;
+            int idx = DilemmaRules.ReseedInsertIndex(seedOrderHint, seeds.Count);
+            seeds.Insert(idx, mini);
+            if (!TableCanvas.Children.Contains(mini))
+                TableCanvas.Children.Add(mini);
+            restored++;
+            _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
+                $"Glossary TCL re-seed [{origin}] @{idx}: {card.Name}");
+        }
+
+        foreach (var (card, owner, returnHost, wasSeed, seedOrderHint, origin) in nonSeedEntries)
+        {
+            var disc = owner == 2 ? _oppDiscardCards : _discardCards;
+
+            Border? host = returnHost;
+            if (host == null || !TableCanvas.Children.Contains(host))
+                host = null;
+
+            // Glossary: re-play if possible — return to host if host still exists;
+            // if host gone, legal report elsewhere or stay discarded.
+            if (host == null)
+                host = FindTemporalLoopReplayHost(card, owner, missionBorder);
+
+            if (host == null)
             {
-                var mini = CreateMiniCard(card, faceDown: true);
-                SetBorderOwner(mini, owner);
-                mini.Visibility = Visibility.Collapsed;
-                if (!_seedUnderMission.TryGetValue(missionBorder, out var seeds))
-                {
-                    seeds = new List<Border>();
-                    _seedUnderMission[missionBorder] = seeds;
-                }
-                // Re-seed under (bottom of encounter order = top of list for our Add-at-end scheme: insert at 0)
-                seeds.Insert(0, mini);
-                if (!TableCanvas.Children.Contains(mini))
-                    TableCanvas.Children.Add(mini);
-                restored++;
+                // stay discarded
+                stayedDiscarded++;
+                _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
+                    $"Glossary TCL: {card.Name} stays discarded (no legal re-play host) [{origin}]");
                 continue;
             }
 
-            Border host = returnHost ?? missionBorder;
-            if (!TableCanvas.Children.Contains(host))
-                host = missionBorder;
+            if (disc.Contains(card))
+                disc.Remove(card);
+
             if (!_stackOnHost.TryGetValue(host, out var list))
             {
                 list = new List<Border>();
@@ -16813,20 +16900,93 @@ public partial class TableWindow : Window
             list.Add(b);
             if (!TableCanvas.Children.Contains(b))
                 TableCanvas.Children.Add(b);
+            UpdateHostBadge(host);
             restored++;
+            _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
+                $"Glossary TCL re-play [{origin}]: {card.Name} → host");
         }
+
         _attemptDiscards.Clear();
         UpdateSeedBadge(missionBorder);
-        // Loop dilemma is discarded (already removed from seed as EffectAndEnd)
-        var loopDisc = _activePlayer == 2 ? _oppDiscardCards : _discardCards;
+
+        // Loop dilemma is discarded (already removed from seed as EffectAndEnd); never re-seed TCL.
+        var loopOwner = _activePlayer;
+        var loopDisc = loopOwner == 2 ? _oppDiscardCards : _discardCards;
         if (!loopDisc.Contains(loopCard))
             loopDisc.Add(loopCard);
         RefreshZoneCounts();
         _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
-            $"Temporal Causality Loop: restored {restored} card(s); turn ends");
-        StatusText.Text = $"Temporal Causality Loop: {restored} card(s) returned; turn ends.";
+            $"Glossary: Temporal Causality Loop — restored {restored} card(s)"
+            + (stayedDiscarded > 0 ? $", {stayedDiscarded} stayed discarded" : "")
+            + "; turn ends (skip EOT)");
+        StatusText.Text =
+            $"Glossary: Temporal Causality Loop — restored {restored} from here this attempt"
+            + (stayedDiscarded > 0 ? $" ({stayedDiscarded} stayed discarded)" : "")
+            + "; turn ends (normal EOT skipped).";
         _attemptMission = null;
         _attemptShip = null;
+    }
+
+    /// <summary>Glossary TCL: when original host is gone, find a legal report host or null (stay discarded).</summary>
+    private Border? FindTemporalLoopReplayHost(Card card, int owner, Border missionBorder)
+    {
+        // Ships/facilities destroyed with the attempt: no silent re-report to spaceline.
+        if (IsShipCard(card) || CardKinds.IsFacility(card))
+            return null;
+
+        if (TableCanvas.Children.Contains(missionBorder)
+            && missionBorder.Tag is Card mc
+            && CanReportToHost(card, mc, missionBorder).ok)
+            return missionBorder;
+
+        if (_attemptShip != null
+            && TableCanvas.Children.Contains(_attemptShip)
+            && _attemptShip.Tag is Card sc
+            && CanReportToHost(card, sc, _attemptShip).ok)
+            return _attemptShip;
+
+        foreach (var h in CollectLegalReportHosts(card, owner))
+        {
+            if (TableCanvas.Children.Contains(h))
+                return h;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Glossary: Temporal Causality Loop attempt log — cards discarded from the attempted location
+    /// (order preserved; seeds carry Encounter-Order index).
+    /// </summary>
+    private void TrackAttemptDiscard(
+        Card card, int owner, Border? returnHost, bool wasSeed, int seedOrderHint, string origin)
+    {
+        if (_attemptMission == null) return;
+        if (EventRules.IsTemporalCausalityLoop(card))
+            return; // TCL never re-seeded / never tracked as restore target
+        if (!wasSeed)
+        {
+            if (!IsDiscardFromAttemptLocation(returnHost))
+                return;
+        }
+        else if (returnHost != null && !ReferenceEquals(returnHost, _attemptMission))
+        {
+            // seeds belong under the attempt mission
+            if (!ReferenceEquals(returnHost, _attemptMission))
+                return;
+        }
+
+        _attemptDiscards.Add((card, owner, returnHost, wasSeed, seedOrderHint, origin));
+        _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
+            $"TCL-track [{origin}]{(wasSeed ? $" seed@{seedOrderHint}" : "")}: {card.Name}");
+    }
+
+    private bool IsDiscardFromAttemptLocation(Border? returnHost)
+    {
+        if (_attemptMission == null || returnHost == null) return false;
+        return ReferenceEquals(returnHost, _attemptMission)
+            || FindMissionForDockable(returnHost) == _attemptMission
+            || (returnHost.Tag is Card hc && IsShipCard(hc)
+                && GetDockablesUnderMission(_attemptMission).Contains(returnHost));
     }
 
     private void RemoveEquipmentFromHost(Border host, Card eq)
@@ -16835,7 +16995,12 @@ public partial class TableWindow : Window
         var b = list.FirstOrDefault(x => x.Tag is Card c && ReferenceEquals(c, eq));
         if (b == null) return;
         list.Remove(b);
-        var disc = _activePlayer == 2 ? _oppDiscardCards : _discardCards;
+        int eqOwner = GetBorderOwner(b);
+        if (eqOwner == 0) eqOwner = CardOwner(b);
+        if (eqOwner == 0) eqOwner = _activePlayer;
+        // Glossary: Temporal Causality Loop — equipment discarded outside DiscardPersonnelBorder.
+        TrackAttemptDiscard(eq, eqOwner, host, wasSeed: false, seedOrderHint: -1, origin: "RemoveEquipmentFromHost");
+        var disc = eqOwner == 2 ? _oppDiscardCards : _discardCards;
         if (!disc.Contains(eq)) disc.Add(eq);
         if (TableCanvas.Children.Contains(b)) TableCanvas.Children.Remove(b);
         RefreshZoneCounts();
@@ -21984,6 +22149,16 @@ public partial class TableWindow : Window
         bool opp = owner == 2;
         var discardList = opp ? _oppDiscardCards : _discardCards;
 
+        // Glossary: Temporal Causality Loop — ship/facility + crew/eq discarded outside DiscardPersonnelBorder.
+        // Track when destroy is at the attempted location (mission or dockable under it).
+        Border? destroyMission = FindMissionForDockable(border)
+            ?? (string.Equals((border.Tag as Card)?.Type, "Mission", StringComparison.OrdinalIgnoreCase) ? border : null);
+        bool destroyFromAttempt = _attemptMission != null && (
+            ReferenceEquals(destroyMission, _attemptMission)
+            || ReferenceEquals(border, _attemptMission)
+            || ReferenceEquals(border, _attemptShip)
+            || (_attemptShip != null && ReferenceEquals(border, _attemptShip)));
+
         // Crew / Equipment an Bord mit in den Discard
         if (_stackOnHost.TryGetValue(border, out var stacked))
         {
@@ -21991,6 +22166,14 @@ public partial class TableWindow : Window
             {
                 if (sb.Tag is Card sc)
                 {
+                    if (destroyFromAttempt)
+                    {
+                        int co = CardOwner(sb);
+                        if (co == 0) co = GetBorderOwner(sb);
+                        if (co == 0) co = owner;
+                        TrackAttemptDiscard(sc, co, border, wasSeed: false, seedOrderHint: -1,
+                            origin: "DestroyShipOrFacility");
+                    }
                     if (!discardList.Contains(sc))
                         discardList.Add(sc);
                 }
@@ -22010,6 +22193,9 @@ public partial class TableWindow : Window
             _stackOnHost.Remove(border);
         }
 
+        if (destroyFromAttempt)
+            TrackAttemptDiscard(card, owner, border, wasSeed: false, seedOrderHint: -1,
+                origin: "DestroyShipOrFacility");
         if (!discardList.Contains(card))
             discardList.Add(card);
 
@@ -22356,17 +22542,8 @@ public partial class TableWindow : Window
                 break;
             }
         }
-        // Temporal Causality Loop: only cards discarded from the attempted location
-        if (_attemptMission != null)
-        {
-            bool fromHere = returnHost != null && (
-                ReferenceEquals(returnHost, _attemptMission)
-                || FindMissionForDockable(returnHost) == _attemptMission
-                || (returnHost.Tag is Card hc && IsShipCard(hc)
-                    && GetDockablesUnderMission(_attemptMission).Contains(returnHost)));
-            if (fromHere)
-                _attemptDiscards.Add((card, owner, returnHost, wasSeed: false));
-        }
+        // Glossary: Temporal Causality Loop — only cards discarded from the attempted location
+        TrackAttemptDiscard(card, owner, returnHost, wasSeed: false, seedOrderHint: -1, origin: "DiscardPersonnelBorder");
 
         bool opp = owner == 2;
         var discardList = opp ? _oppDiscardCards : _discardCards;

@@ -235,6 +235,10 @@ Klick → GameAction → EngineAuthority(GameState)
 
 ---
 
+## Rule cites (Standing Practice)
+
+Pepsch / FEATURES: bei Decide/Apply Glossary-Lemma oder Compendium-§ im Kommentar; Detail/Action-Hinweis nennt die Regel, nicht nur den Effekt. Mit Karten-Tips nachziehen (kein Big-Bang). Beispiel: Temporal Causality Loop → `// Glossary: Temporal Causality Loop` + Status „Glossary: … turn ends (skip EOT)“.
+
 ## Prinzip (unverändert)
 
 - Ein Chat = ein Schritt, Spiel bleibt startbar.

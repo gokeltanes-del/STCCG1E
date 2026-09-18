@@ -1,6 +1,6 @@
 ﻿# CODE_PLACEMENT.md — where new rules / cards / mechanics go
 
-**Stand:** 2026-09-05  
+**Stand:** 2026-09-18  
 **Owner:** Data (Klasse C) + Captain (process)  
 **Warum:** Nach TableWindow-Extract (Slices 1–8) sollen neue Karten, Kartentypen und Regelupdates **nicht** wieder in `TableWindow.xaml.cs` landen.
 
@@ -12,6 +12,8 @@
 4. **Ein Schritt = ein Commit-Thema** — Klasse A (Karte) / B (Phrase) / C (Grundlage) laut `RULES.md`.
 5. **Kein big-bang** — keine TableWindow-Split-PR; keine Premiere-Wellen ohne Captain Go.
 6. **Lookup-Reihenfolge (Spock):** Checklist → Glossary → Temp Rulings → App A Errata → App B.
+
+7. **Rule cites (Pepsch Standing Practice, FEATURES):** Decide/Apply-Kommentare mit Compendium-§ und/oder Glossary-Lemma (z.B. `// Glossary: Temporal Causality Loop` / `// Compendium 8`). Detail/Action-UI: wenn die Engine handelt, kurz **welche Regel** — nicht nur der Effekt. Retrofit mit Kartenarbeit, kein Big-Bang.
 
 ## Schicht-Karte (Mechanik → Code)
 

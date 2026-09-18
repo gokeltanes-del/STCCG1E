@@ -3676,17 +3676,26 @@ public static class DilemmaRules
         };
     }
 
+    // Glossary: Temporal Causality Loop (Premiere [S]).
+    // Unless SCIENCE and CUNNING>35 present -> return here all cards in discard piles
+    // discarded from here this attempt (re-seed seeds; re-play non-seeds if possible); turn ends.
+    // Else +5; discard TCL. Compendium 8 / _rb69: card-instructed end turn skips normal EOT actions.
     private static Result Loop(Ctx ctx)
     {
         if (Skill(ctx, "SCIENCE") && Sum(ctx).cunn > 35)
-            return new Result { Fate = Fate.Overcome, Score = 5, Message = "SCIENCE + CUNNING>35 → +5. Discard dilemma." };
+            return new Result
+            {
+                Fate = Fate.Overcome,
+                Score = 5,
+                Message = "Glossary: Temporal Causality Loop — SCIENCE + CUNNING>35 present → +5; discard dilemma."
+            };
         return new Result
         {
             Fate = Fate.EffectAndEnd,
             StopTeam = true,
             EndTurn = true,
-            // UI restores discards from this attempt and re-seeds seed cards under the mission.
-            Message = "Temporal Causality Loop: cards discarded here this attempt return (seeds re-seeded); turn ends."
+            // Apply (TW): restore attempt discards; re-seed seeds (Encounter-Order); TCL stays discarded.
+            Message = "Glossary: Temporal Causality Loop — restore cards discarded from here this attempt (re-seed seeds; re-play non-seeds if possible); turn ends (skip EOT)."
         };
     }
 
@@ -3851,11 +3860,16 @@ public static class DilemmaRules
     public static bool ShouldRemoveFromSeed(Fate fate) =>
         fate is Fate.EffectAndEnd or Fate.EffectAndContinue or Fate.AttachAndEnd or Fate.AttachAndContinue or Fate.EndAttempt or Fate.Overcome;
 
-    /// <summary>Track overcome/removed seeds for Temporal Causality Loop re-seed (not the loop card itself).</summary>
+    /// <summary>
+    /// Glossary: Temporal Causality Loop — track overcome/removed seeds for re-seed from discard
+    /// (Zone-truth A). Never track the TCL seed itself (it stays discarded).
+    /// Attach*/WallFailed keep seed in play / under mission — not tracked.
+    /// </summary>
     public static bool ShouldTrackOvercomeDiscard(Fate fate, bool isTemporalCausalityLoopSeed) =>
-        fate == Fate.Overcome
-        || fate == Fate.EffectAndContinue
-        || (fate == Fate.EffectAndEnd && !isTemporalCausalityLoopSeed);
+        !isTemporalCausalityLoopSeed
+        && (fate == Fate.Overcome
+            || fate == Fate.EffectAndContinue
+            || fate == Fate.EffectAndEnd);
 
     public enum AttachHostPreference
     {
@@ -3930,8 +3944,107 @@ public static class DilemmaRules
     public static bool ShouldAwardScoreOnApply(int score, Fate fate) =>
         score > 0 && fate != Fate.Overcome;
 
+    /// <summary>Glossary: Temporal Causality Loop fail path (EffectAndEnd) triggers restore + skip-EOT end turn.</summary>
     public static bool ShouldRestoreTemporalLoop(bool isTemporalCausalityLoop, Fate fate) =>
         isTemporalCausalityLoop && fate == Fate.EffectAndEnd;
+
+    /// <summary>
+    /// Glossary: Temporal Causality Loop / End Transmission — when a card ends your turn,
+    /// skip normal end-of-turn actions (countdowns, probes, draws). Compendium 8 / _rb69.
+    /// </summary>
+    public static bool ShouldSkipNormalEndOfTurn(bool cardEndsTurn) => cardEndsTurn;
+
+    /// <summary>
+    /// Encounter-Order re-seed: insert at recorded seed-stack index (clamped), not only Insert(0).
+    /// Seed list end = encountered first; restoring by original index preserves relative order.
+    /// </summary>
+    public static int ReseedInsertIndex(int seedOrderHint, int currentSeedCount)
+    {
+        if (currentSeedCount < 0) currentSeedCount = 0;
+        if (seedOrderHint < 0) return 0; // unknown → under (encountered last among restored batch if used carefully)
+        if (seedOrderHint > currentSeedCount) return currentSeedCount;
+        return seedOrderHint;
+    }
+
+
+    /// <summary>Glossary-true Temporal Causality Loop Decide helpers (Apply/UI in TableWindow).</summary>
+    public static string? VerifyTemporalCausalityLoop()
+    {
+        static Card P(string name, string cls, string text, string cunn = "8") => new()
+        {
+            Name = name,
+            Type = "Personnel",
+            Class = cls,
+            Text = text,
+            Characteristics = "Human; Male;",
+            IntegrityOrRange = "5",
+            CunningOrWeapons = cunn,
+            StrengthOrShields = "5"
+        };
+
+        static Ctx Make(params Card[] team) => new()
+        {
+            Dilemma = new Card { Name = "Temporal Causality Loop", Type = "Dilemma", MissionDilemmaType = "[S]" },
+            Mission = new Card { Name = "Test Space", Type = "Mission", MissionDilemmaType = "[S]" },
+            Team = team,
+            Present = team,
+            AttemptingPlayer = 1,
+            Rng = new Random(1)
+        };
+
+        // Overcome: SCIENCE present + sum CUNNING>35 → +5, no EndTurn
+        var sci = P("Dax", "SCIENCE", "SCIENCE Anthropology", "18");
+        var off = P("Sisko", "OFFICER", "OFFICER Leadership", "18");
+        var pass = Resolve(Make(sci, off));
+        if (pass.Fate != Fate.Overcome || pass.Score != 5 || pass.EndTurn || pass.StopTeam)
+            return $"TCL overcome: expected Overcome+5 no EndTurn/stop, got {pass.Fate}/score={pass.Score}/end={pass.EndTurn}/stop={pass.StopTeam}";
+        if (!ShouldRemoveFromSeed(pass.Fate))
+            return "TCL overcome: dilemma should leave seed (discard)";
+        if (ShouldRestoreTemporalLoop(true, pass.Fate))
+            return "TCL overcome: must not restore";
+
+        // Fail: no SCIENCE or CUNNING≤35 → EffectAndEnd, EndTurn, StopTeam, no +5
+        var weak = P("Crewman", "OFFICER", "OFFICER", "5");
+        var fail = Resolve(Make(weak));
+        if (fail.Fate != Fate.EffectAndEnd || !fail.EndTurn || !fail.StopTeam || fail.Score != 0)
+            return $"TCL fail: expected EffectAndEnd EndTurn StopTeam score0, got {fail.Fate}/end={fail.EndTurn}/stop={fail.StopTeam}/score={fail.Score}";
+        if (!ShouldRestoreTemporalLoop(true, fail.Fate))
+            return "TCL fail: ShouldRestoreTemporalLoop required";
+        if (!ShouldSkipNormalEndOfTurn(fail.EndTurn))
+            return "TCL fail: ShouldSkipNormalEndOfTurn required";
+        if (ShouldAwardScoreOnApply(fail.Score, fail.Fate))
+            return "TCL fail: no +5 on fail";
+
+        // SCIENCE present but CUNNING not >35
+        var sciLow = P("Jr", "SCIENCE", "SCIENCE", "10");
+        var fail2 = Resolve(Make(sciLow)); // cunn 10 only
+        if (fail2.Fate != Fate.EffectAndEnd)
+            return $"TCL SCIENCE but CUNNING≤35: expected fail, got {fail2.Fate}";
+
+        // Track / not track
+        if (!ShouldTrackOvercomeDiscard(Fate.Overcome, false))
+            return "track Overcome seed";
+        if (ShouldTrackOvercomeDiscard(Fate.Overcome, true))
+            return "never track TCL seed itself (even Overcome)";
+        if (ShouldTrackOvercomeDiscard(Fate.EffectAndEnd, true))
+            return "never track TCL seed itself (EffectAndEnd)";
+        if (ShouldTrackOvercomeDiscard(Fate.WallFailed, false))
+            return "WallFailed seed stays — not tracked";
+        if (ShouldTrackOvercomeDiscard(Fate.AttachAndContinue, false))
+            return "Attach* stays in play — not tracked as seed discard";
+
+        // Encounter-Order insert index
+        if (ReseedInsertIndex(2, 1) != 1)
+            return "ReseedInsertIndex clamp high";
+        if (ReseedInsertIndex(0, 3) != 0)
+            return "ReseedInsertIndex keep 0";
+        if (ReseedInsertIndex(-1, 3) != 0)
+            return "ReseedInsertIndex unknown → 0";
+        if (ReseedInsertIndex(3, 3) != 3)
+            return "ReseedInsertIndex append";
+
+        return null;
+    }
 
     public static bool IsEdoContinuePenalty(string? seedName, Fate fate) =>
         (seedName ?? "").Equals("Edo Probe", StringComparison.OrdinalIgnoreCase)
