@@ -1,5 +1,11 @@
 ## 2026-09-17 — Hail (AU) + table UI chrome
 
+## 2026-09-18 — Interphase Generator nullifies [IPG] dilemmas
+
+- `CardIcons.HasIpg` / `IsIpgDilemma` from printed `[IPG]` tokens (no name list).
+- On mission attempt: if Interphase Generator is present with the attempting team, revealed [IPG] dilemmas are discarded and the attempt continues (before Resolve).
+
+
 ## 2026-09-18 — Hail no-battle: Detail debuff (not under-card)
 
 - Removed under-card "Hail: no battle" flags.

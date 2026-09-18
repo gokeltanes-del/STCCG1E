@@ -26,6 +26,8 @@ public readonly struct ParsedIcons
     public bool GammaQuadrant { get; init; }
     public bool MirrorUniverse { get; init; }
     public bool BattleBridge { get; init; }
+    /// <summary>Interphase Generator icon on dilemmas ([IPG]).</summary>
+    public bool InterphaseGenerator { get; init; }
     public int? PrintedCountdown { get; init; }
 
     public bool Has(string token)
@@ -82,6 +84,7 @@ public static class CardIcons
             GammaQuadrant = HasTok("GQ"),
             MirrorUniverse = HasTok("MU", "MQ"),
             BattleBridge = HasTok("BB"),
+            InterphaseGenerator = HasTok("IPG"),
             PrintedCountdown = countdown
         };
     }
@@ -100,4 +103,12 @@ public static class CardIcons
     public static bool HasAlternateUniverse(Card card) => Parse(card).AlternateUniverse;
     public static bool IsHologram(Card card) => Parse(card).Hologram;
     public static bool IsSelfControlling(Card card) => Parse(card).SelfControlling;
+
+    /// <summary>Dilemma (or other card) printed with [IPG] — nullified where Interphase Generator is present.</summary>
+    public static bool HasIpg(Card? card) => card != null && Parse(card).InterphaseGenerator;
+
+    /// <summary>Same as HasIpg; name mirrors rules wording "[IPG] dilemmas".</summary>
+    public static bool IsIpgDilemma(Card? card) =>
+        card != null && CardKinds.IsDilemma(card) && HasIpg(card);
+
 }

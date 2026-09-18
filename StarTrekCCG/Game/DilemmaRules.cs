@@ -1581,7 +1581,7 @@ public static class DilemmaRules
     //   Pass (STRENGTH>44) -> Overcome + Continue; discard.
     //   Fail -> kill 1 Away Team (random) + AT stopped (EffectAndEnd+StopTeam); dilemma always discarded.
     //   Boundary STRENGTH==44 fails.
-    // PARK: nullify via Interphase Generator / Zon (artifact/personnel nullify) - not wired here.
+    // IPG nullify: TableWindow TryNullifyIpgWithInterphaseGenerator via CardIcons.IsIpgDilemma (not name list).
     // Card+DRG Decide: DilemmaRules.Nausicaans + VerifyNausicaans.
 
     private static Result Nausicaans(Ctx ctx) =>

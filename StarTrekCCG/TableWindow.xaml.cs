@@ -12581,6 +12581,10 @@ public partial class TableWindow : Window
             if (TryNullifyEncounteredWindDancer(seedCard, missionBorder, seedStack))
                 continue;
 
+            // Interphase Generator: nullify [IPG] dilemmas where present (icon, not name list).
+            if (TryNullifyIpgWithInterphaseGenerator(seedCard, missionBorder, seedStack))
+                continue;
+
             // During attempt: present = Attempting-Ship crew only (not whole location).
             var present = CollectPresentAtMission(missionBorder, mission, _attemptShip);
             Card? ship = _attemptShip?.Tag as Card;
@@ -13707,6 +13711,63 @@ public partial class TableWindow : Window
     /// Wind Dancer is in play the moment it is encountered. The Devil may nullify it
     /// before the filter is checked (Glossary nullify + printed Devil text).
     /// </summary>
+
+    /// <summary>
+    /// Interphase Generator (Use as Equipment): where present with the attempting team,
+    /// nullifies revealed [IPG] dilemmas (CardIcons) — discard + continue attempt.
+    /// </summary>
+    private bool TryNullifyIpgWithInterphaseGenerator(Card seedCard, Border missionBorder, List<Border> seedStack)
+    {
+        if (!CardIcons.IsIpgDilemma(seedCard)) return false;
+
+        var missionCard = MissionPrintedFor(missionBorder, _activePlayer);
+        var present = CollectPresentAtMission(missionBorder, missionCard, _attemptShip);
+        bool igPresent = present.Any(ArtifactRules.IsInterphaseGenerator);
+        if (!igPresent)
+        {
+            void ScanHost(Border? host)
+            {
+                if (igPresent || host == null) return;
+                if (!_stackOnHost.TryGetValue(host, out var stacked)) return;
+                foreach (var sb in stacked)
+                {
+                    if (sb.Tag is not Card c || !ArtifactRules.IsInterphaseGenerator(c)) continue;
+                    int o = CardOwner(sb);
+                    if (o == 0) o = GetBorderOwner(sb);
+                    if (o != _activePlayer) continue;
+                    if (IsBorderStopped(sb)) continue;
+                    igPresent = true;
+                    return;
+                }
+            }
+            if (MissionRules.IsPlanetMission(missionCard))
+                ScanHost(missionBorder);
+            else
+                ScanHost(_attemptShip);
+        }
+        if (!igPresent) return false;
+
+        int seedOwner = 0;
+        int ri = seedStack.FindLastIndex(b => b.Tag is Card c && ReferenceEquals(c, seedCard));
+        if (ri >= 0)
+        {
+            seedOwner = GetBorderOwner(seedStack[ri]);
+            seedStack.RemoveAt(ri);
+        }
+        if (seedOwner is not (1 or 2)) seedOwner = opponentOf(_activePlayer);
+        _seedUnderMission[missionBorder] = seedStack;
+        UpdateSeedBadge(missionBorder);
+        SendCardTo(seedCard, seedOwner, TimingRules.Destination.Discard);
+        ShowCardReveal(seedCard, "Nullified",
+            $"Interphase Generator nullifies {seedCard.Name} ([IPG]). Mission attempt continues.",
+            RevealButtons.Ok, seedCard.Name);
+        _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
+            $"Interphase Generator nullifies {seedCard.Name} ([IPG])");
+        StatusText.Text = $"{seedCard.Name} nullified (Interphase Generator). Attempt continues.";
+        RefreshZoneCounts();
+        return true;
+    }
+
     private bool TryNullifyEncounteredWindDancer(Card seedCard, Border missionBorder, List<Border> seedStack)
     {
         if (!TimingRules.CanDevilTarget(seedCard).ok) return false;

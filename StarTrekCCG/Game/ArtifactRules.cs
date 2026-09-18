@@ -156,6 +156,12 @@ public static class ArtifactRules
     public static bool IsBetazoidGiftBox(Card? c) => NameIs(c, "Betazoid Gift Box");
     public static bool IsHorgahn(Card? c) => NameIs(c, "Horga'hn");
     public static bool IsInterphaseGenerator(Card? c) => NameIs(c, "Interphase Generator");
+
+    /// <summary>Printed: where present, nullifies [IPG] dilemmas (icon check, not name list).</summary>
+    public static bool CanNullifyIpgDilemma(Card? dilemma, System.Collections.Generic.IEnumerable<Card>? present) =>
+        CardIcons.IsIpgDilemma(dilemma)
+        && present != null
+        && System.Linq.Enumerable.Any(present, IsInterphaseGenerator);
     public static bool IsVaronT(Card? c) => NameIs(c, "Varon-T Disruptor");
     public static bool IsKurlanNaiskos(Card? c) => NameIs(c, "Kurlan Naiskos");
     public static bool IsThoughtMaker(Card? c) => NameIs(c, "Thought Maker");
