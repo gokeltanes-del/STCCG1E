@@ -169,7 +169,8 @@ public partial class TableWindow : Window
     /// <summary>Artifacts revealed mid-attempt (face-up for both players); acquired only on solve.</summary>
     private readonly Dictionary<Border, List<Card>> _revealedArtifactsUnderMission = new();
     /// <summary>Last dilemma faced at this mission (for View contents).</summary>
-    private readonly Dictionary<Border, Card> _lastEncounteredDilemma = new();
+    /// <summary>Cards revealed under a mission during attempts; UI shows those still in the seed pile.</summary>
+    private readonly Dictionary<Border, HashSet<Card>> _revealedUnderMission = new();
     /// <summary>Visible Borg Ship dilemma token on the spaceline (self-controlling).</summary>
     private Border? _borgShipToken;
     /// <summary>Visible Radioactive Garbage Scow token on the spaceline (not a flyable ship).</summary>
@@ -2235,7 +2236,7 @@ public partial class TableWindow : Window
         bool hasStack = _stackOnHost.TryGetValue(host, out var list) && list.Count > 0;
 
 
-        if (!hasStack && seedCount == 0 && !_lastEncounteredDilemma.ContainsKey(host))
+        if (!hasStack && seedCount == 0 && !MissionHasRevealedStillUnder(host))
         {
             panel.Children.Add(new TextBlock
             {
@@ -8834,7 +8835,7 @@ public partial class TableWindow : Window
         _outOfPlayP1.Clear(); _outOfPlayP2.Clear();
         _tablePermanentCards.Clear(); _oppTablePermanentCards.Clear();
         _stackOnHost.Clear(); _seedUnderMission.Clear();
-        _revealedArtifactsUnderMission.Clear(); _lastEncounteredDilemma.Clear();
+        _revealedArtifactsUnderMission.Clear(); _revealedUnderMission.Clear();
         RemoveBorgShipToken();
         RemoveScowToken();
         _solvedMissions.Clear(); _missionSolver.Clear();
@@ -9469,7 +9470,7 @@ public partial class TableWindow : Window
 
         _seedUnderMission.Clear();
         _revealedArtifactsUnderMission.Clear();
-        _lastEncounteredDilemma.Clear();
+        _revealedUnderMission.Clear();
         RemoveBorgShipToken();
         RemoveScowToken();
         _missionsByQuadrant.Clear();
@@ -10861,8 +10862,8 @@ public partial class TableWindow : Window
             Add(ae.Card);
         foreach (var rb in RogueBorgUnitsOn(host))
             Add(rb.Card);
-        if (_lastEncounteredDilemma.TryGetValue(host, out var dil))
-            Add(dil);
+        foreach (var c in RevealedStillUnderMission(host))
+            Add(c);
         if (_targetSites.Count > 0 && host.Tag is Card hc)
         {
             foreach (var s in _targetSites)
@@ -12575,7 +12576,12 @@ public partial class TableWindow : Window
                 continue;
             }
 
-            _lastEncounteredDilemma[missionBorder] = seedCard;
+            if (!_revealedUnderMission.TryGetValue(missionBorder, out var revealedSet))
+            {
+                revealedSet = new HashSet<Card>();
+                _revealedUnderMission[missionBorder] = revealedSet;
+            }
+            revealedSet.Add(seedCard);
             ShowCardDetail(seedCard);
 
             if (TryNullifyEncounteredWindDancer(seedCard, missionBorder, seedStack))
@@ -13553,10 +13559,13 @@ public partial class TableWindow : Window
             if (!TimingRules.CanDevilTarget(row.Card).ok) continue;
             if (!list.Contains(row.Card)) list.Add(row.Card);
         }
-        foreach (var dil in _lastEncounteredDilemma.Values)
+        foreach (var kv in _revealedUnderMission)
         {
-            if (dil != null && TimingRules.CanDevilTarget(dil).ok && !list.Contains(dil))
-                list.Add(dil);
+            foreach (var dil in RevealedStillUnderMission(kv.Key))
+            {
+                if (TimingRules.CanDevilTarget(dil).ok && !list.Contains(dil))
+                    list.Add(dil);
+            }
         }
         return list;
     }
@@ -23082,6 +23091,24 @@ public partial class TableWindow : Window
     /// <summary>
     /// Host double-click: show scrollable contents + crew/stats under the card detail.
     /// </summary>
+
+    private bool MissionHasRevealedStillUnder(Border host) =>
+        RevealedStillUnderMission(host).Any();
+
+    /// <summary>Revealed during attempts and still present on the under-mission seed pile.</summary>
+    private IEnumerable<Card> RevealedStillUnderMission(Border host)
+    {
+        if (!_revealedUnderMission.TryGetValue(host, out var revealed) || revealed.Count == 0)
+            yield break;
+        if (!_seedUnderMission.TryGetValue(host, out var seeds) || seeds.Count == 0)
+            yield break;
+        foreach (var sb in seeds)
+        {
+            if (sb.Tag is Card c && revealed.Contains(c))
+                yield return c;
+        }
+    }
+
     private void FillDetailStackSection(Border? host)
     {
         if (DetailStackSection == null || DetailStackCards == null)
@@ -23242,21 +23269,24 @@ public partial class TableWindow : Window
         }
 
 
-        // Already-revealed / face-up under mission (encountered dilemma)
-        if (isMission
-            && _lastEncounteredDilemma.TryGetValue(host, out var lastDil)
-            && lastDil != null)
+        // Revealed under mission AND still in the seed pile (visible to all players).
+        if (isMission)
         {
-            DetailStackCards.Children.Add(new TextBlock
+            var stillHere = RevealedStillUnderMission(host).ToList();
+            if (stillHere.Count > 0)
             {
-                Text = "Last revealed under mission",
-                Foreground = new SolidColorBrush(Color.FromRgb(180, 160, 100)),
-                FontSize = 11,
-                FontWeight = FontWeights.SemiBold,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(4, 0, 6, 0)
-            });
-            AddStackMini(lastDil, "Encountered / revealed");
+                DetailStackCards.Children.Add(new TextBlock
+                {
+                    Text = $"Revealed under mission ({stillHere.Count})",
+                    Foreground = new SolidColorBrush(Color.FromRgb(180, 160, 100)),
+                    FontSize = 11,
+                    FontWeight = FontWeights.SemiBold,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(4, 0, 6, 0)
+                });
+                foreach (var rc in stillHere)
+                    AddStackMini(rc, "Revealed — still under mission");
+            }
         }
 
         // Artifacts revealed mid-attempt (face-up for both; not acquired yet)
@@ -23280,7 +23310,9 @@ public partial class TableWindow : Window
         {
             DetailStackCards.Children.Add(new TextBlock
             {
-                Text = _devRevealSeed ? $"Seed remaining ({seeds.Count})" : $"Seed remaining: {seeds.Count} face-down",
+                Text = _devRevealSeed
+                    ? $"Seed remaining ({seeds.Count})"
+                    : $"Seed remaining: {seeds.Count(sb => sb.Tag is Card sc && (!_revealedUnderMission.TryGetValue(host, out var rv) || !rv.Contains(sc)))} face-down",
                 Foreground = new SolidColorBrush(Color.FromRgb(180, 160, 100)),
                 FontSize = 11,
                 FontWeight = FontWeights.SemiBold,

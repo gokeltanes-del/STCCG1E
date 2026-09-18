@@ -1,5 +1,11 @@
 ## 2026-09-17 — Hail (AU) + table UI chrome
 
+## 2026-09-18 — Mission detail: revealed-still-under (no last-revealed)
+
+- Removed "Last revealed under Mission" (could show discarded cards).
+- Detail shows all cards revealed under that mission that are still on the under-mission seed pile (visible to all). Face-down count excludes those.
+
+
 ## 2026-09-18 — Interphase Generator: may-nullify after just-encountered (Spock)
 
 - Removed auto-nullify at reveal.
