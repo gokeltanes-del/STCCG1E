@@ -9,7 +9,7 @@ Local VS: C:\\Dev\\StarTrekCCG\\
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test.
 
 ## Current tip
-Local Josef tip **8e22a42** - Holo-Projectors (PR 78 U) EventRules + nullify erase. Nicht gepusht. (Prior tip Goddess 23d1c17.)
+Local Josef tip **3c50792** - Holo-Projectors (PR 78 U) EventRules + nullify erase. Nicht gepusht. (Prior tip Goddess 23d1c17.)
 **Pepsch EXE (Default Debug):**
 `C:\Dev\StarTrekCCG\StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe`
 Nicht `_build_docky*` / Release / alte Side-Builds.
