@@ -7,7 +7,7 @@ Local VS: C:\\Dev\\StarTrekCCG\\
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test.
 
 ## Current tip
-Local Josef tip **TIPHASH** - Distortion Field (PR 70 U). Nicht gepusht. (Prior tip 5c08269 Atmospheric Ionization Pepsch green.)
+Local Josef tip **a866bbe** - Distortion Field (PR 70 U). Nicht gepusht. (Prior tip 5c08269 Atmospheric Ionization Pepsch green.)
 **Pepsch EXE (Default Debug):**
 `C:\Dev\StarTrekCCG\StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe`
 Nicht `_build_docky*` / Release / alte Side-Builds.
