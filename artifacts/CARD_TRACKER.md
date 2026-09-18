@@ -1,6 +1,6 @@
 # STCCG 1E â€” Card Expansion Tracker
 
-Last updated: 2026-09-18 (Data — Holo-Projectors tip partial)
+Last updated: 2026-09-18 (Jadzia — Holo-Projectors tip 3c50792 partial pending Pepsch smoke)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -152,7 +152,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Gaps in Normal Space (75 U) | unknown | UX only: Pepsch green Host-Sidebar panel-follow tip Data/`651a63f` (not card-status green). | Data/`651a63f` UX 2026-09-18 |
 | Genetronic Replicator (76 U) | working | Pepsch green: Opfer & gleichzeitig Getoetete ausgeschlossen; Auswahl via PickBorder; Unit-Test in EventRules. | Pepsch 2026-09-15 |
 | Goddess of Empathy (77 R) | working | Pepsch mostly green tip Data/`23d1c17`: Amanda block OK. Pending later smoke: [Ref] and [Q] interrupts still allowed under Goddess. | Pepsch 2026-09-18; Data/`23d1c17` |
-| Holo-Projectors (78 U) | partial | tip Data (Josef): Plays on [P]; [Holo] act/deact; nullify erase THIS-copy dependents only (MHE protects). Standing Practice VerifyHoloProjectors. Not working until Pepsch green. | Data tip 2026-09-18 |
+| Holo-Projectors (78 U) | partial | tip Data/`3c50792` (Josef, no push). Parked: captive/opp Holodeck, Door suite, battle safety, same-turn reactivate, full report/beam gates. Stays partial until Pepsch smoke — not working. | Data/`3c50792` 2026-09-18 |
 | Kivas Fajo: Collector (79 U) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Lore Returns (80 R) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Lore's Fingernail (81 R) | unknown |  |  |
