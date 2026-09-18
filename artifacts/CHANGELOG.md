@@ -1,5 +1,11 @@
 ## 2026-09-17 — Hail (AU) + table UI chrome
 
+## 2026-09-18 — Hail OR: table drop + no-battle flags
+
+- **Drop:** Hail `GetPlayTarget` = None before PlayOnRules (printed "Plays on any ship" was forcing ship host). Play onto empty table/play area like Jaglom, then mark two ships.
+- **Feedback:** after pair marked — status line + light "no battle" flags on both ships (partner name); cleared at EOT with the restriction.
+
+
 ## 2026-09-17 — Hail fly-by Pass: relocate after deferred move
 
 - **Bug:** Pass / no Hail on `ShipFlyBy` spent RANGE and logged arrival, but left the ship token at the start (desync).

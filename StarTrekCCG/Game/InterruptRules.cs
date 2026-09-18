@@ -170,6 +170,12 @@ public static class InterruptRules
         if (IsKevinNullify(card) || IsDevil(card))
             return PlayTarget.Event;
 
+        // Hail OR-mode: play to table (like Jaglom/Juggler), then click-mark two ships.
+        // Printed "Plays on any ship…" is the fly-by OR — do not force a ship drop target.
+        // Fly-by uses the response window, not GetPlayTarget.
+        if (IsHail(card))
+            return PlayTarget.None;
+
         var spec = PlayOnRules.Parse(card);
         var fromText = PlayOnRules.ToInterruptTarget(spec);
         if (fromText != PlayTarget.None)
@@ -202,9 +208,6 @@ public static class InterruptRules
 
         if (IsTachyonDetectionGrid(card))
             return PlayTarget.AnyShip;
-
-        // Hail two-ship: play to table, then click-mark ships (Pepsch). Fly-by = response only.
-        // Do not require a ship drop target.
 
         return PlayTarget.None;
     }
