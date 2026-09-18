@@ -12581,10 +12581,6 @@ public partial class TableWindow : Window
             if (TryNullifyEncounteredWindDancer(seedCard, missionBorder, seedStack))
                 continue;
 
-            // Interphase Generator: nullify [IPG] dilemmas where present (icon, not name list).
-            if (TryNullifyIpgWithInterphaseGenerator(seedCard, missionBorder, seedStack))
-                continue;
-
             // During attempt: present = Attempting-Ship crew only (not whole location).
             var present = CollectPresentAtMission(missionBorder, mission, _attemptShip);
             Card? ship = _attemptShip?.Tag as Card;
@@ -12668,6 +12664,11 @@ public partial class TableWindow : Window
 
             var wrapped = EngineAuthority.WrapDilemma(seedCard, dilResult);
             _session.Log.AddDebug(_session.TurnNumber, "Engine", EngineAuthority.FormatResult(wrapped));
+
+            // Spock: after just-encountered (Resolve = targets + conditions), may nullify [IPG]
+            // before results. IG stays (continuous equipment). Not auto.
+            if (TryNullifyIpgWithInterphaseGenerator(seedCard, missionBorder, seedStack, present))
+                continue;
 
             bool failed = dilResult.Fate is DilemmaRules.Fate.WallFailed
                 or DilemmaRules.Fate.EffectAndEnd
@@ -13716,36 +13717,26 @@ public partial class TableWindow : Window
     /// Interphase Generator (Use as Equipment): where present with the attempting team,
     /// nullifies revealed [IPG] dilemmas (CardIcons) — discard + continue attempt.
     /// </summary>
-    private bool TryNullifyIpgWithInterphaseGenerator(Card seedCard, Border missionBorder, List<Border> seedStack)
+    /// <summary>
+    /// Interphase Generator (Use as Equipment, continuous): where present with the
+    /// encountering AT/crew, player may nullify a just-encountered [IPG] dilemma
+    /// before results (Spock Soll). Icon check — no name list. IG is kept.
+    /// </summary>
+    private bool TryNullifyIpgWithInterphaseGenerator(
+        Card seedCard, Border missionBorder, List<Border> seedStack, IReadOnlyList<Card> present)
     {
         if (!CardIcons.IsIpgDilemma(seedCard)) return false;
+        if (!InterphaseGeneratorPresentWithAttempt(missionBorder, present)) return false;
 
-        var missionCard = MissionPrintedFor(missionBorder, _activePlayer);
-        var present = CollectPresentAtMission(missionBorder, missionCard, _attemptShip);
-        bool igPresent = present.Any(ArtifactRules.IsInterphaseGenerator);
-        if (!igPresent)
-        {
-            void ScanHost(Border? host)
-            {
-                if (igPresent || host == null) return;
-                if (!_stackOnHost.TryGetValue(host, out var stacked)) return;
-                foreach (var sb in stacked)
-                {
-                    if (sb.Tag is not Card c || !ArtifactRules.IsInterphaseGenerator(c)) continue;
-                    int o = CardOwner(sb);
-                    if (o == 0) o = GetBorderOwner(sb);
-                    if (o != _activePlayer) continue;
-                    if (IsBorderStopped(sb)) continue;
-                    igPresent = true;
-                    return;
-                }
-            }
-            if (MissionRules.IsPlanetMission(missionCard))
-                ScanHost(missionBorder);
-            else
-                ScanHost(_attemptShip);
-        }
-        if (!igPresent) return false;
+        var ans = ShowCardReveal(
+            seedCard,
+            "Interphase Generator",
+            $"{seedCard.Name} just encountered ([IPG]).\n"
+            + "Interphase Generator is present with your attempting team.\n"
+            + "Nullify this dilemma? (IG stays in play.)",
+            RevealButtons.YesNo,
+            seedCard.Name);
+        if (ans != RevealAnswer.Yes) return false;
 
         int seedOwner = 0;
         int ri = seedStack.FindLastIndex(b => b.Tag is Card c && ReferenceEquals(c, seedCard));
@@ -13758,14 +13749,40 @@ public partial class TableWindow : Window
         _seedUnderMission[missionBorder] = seedStack;
         UpdateSeedBadge(missionBorder);
         SendCardTo(seedCard, seedOwner, TimingRules.Destination.Discard);
+        // Do NOT discard Interphase Generator — continuous equipment.
         ShowCardReveal(seedCard, "Nullified",
             $"Interphase Generator nullifies {seedCard.Name} ([IPG]). Mission attempt continues.",
             RevealButtons.Ok, seedCard.Name);
         _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
-            $"Interphase Generator nullifies {seedCard.Name} ([IPG])");
+            $"Interphase Generator nullifies {seedCard.Name} ([IPG]) — IG kept");
         StatusText.Text = $"{seedCard.Name} nullified (Interphase Generator). Attempt continues.";
         RefreshZoneCounts();
         return true;
+    }
+
+    /// <summary>
+    /// IG present only with the encountering team: planet = AT on surface;
+    /// space = attempting-ship crew. Not orbiting ship vs planet AT; not table-wide.
+    /// </summary>
+    private bool InterphaseGeneratorPresentWithAttempt(Border missionBorder, IReadOnlyList<Card> present)
+    {
+        if (present.Any(ArtifactRules.IsInterphaseGenerator))
+            return true;
+
+        var missionCard = MissionPrintedFor(missionBorder, _activePlayer);
+        Border? host = MissionRules.IsPlanetMission(missionCard) ? missionBorder : _attemptShip;
+        if (host == null || !_stackOnHost.TryGetValue(host, out var stacked))
+            return false;
+        foreach (var sb in stacked)
+        {
+            if (sb.Tag is not Card c || !ArtifactRules.IsInterphaseGenerator(c)) continue;
+            int o = CardOwner(sb);
+            if (o == 0) o = GetBorderOwner(sb);
+            if (o != _activePlayer) continue;
+            if (IsBorderStopped(sb)) continue;
+            return true;
+        }
+        return false;
     }
 
     private bool TryNullifyEncounteredWindDancer(Card seedCard, Border missionBorder, List<Border> seedStack)

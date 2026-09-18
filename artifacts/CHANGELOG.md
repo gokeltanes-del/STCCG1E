@@ -1,5 +1,11 @@
 ## 2026-09-17 — Hail (AU) + table UI chrome
 
+## 2026-09-18 — Interphase Generator: may-nullify after just-encountered (Spock)
+
+- Removed auto-nullify at reveal.
+- After `DilemmaRules.Resolve` (targets + conditions), if [IPG] and IG present with attempting AT/crew: Yes/No to nullify before results. IG kept. Scope = planet surface AT or attempting-ship crew only.
+
+
 ## 2026-09-18 — Interphase Generator nullifies [IPG] dilemmas
 
 - `CardIcons.HasIpg` / `IsIpgDilemma` from printed `[IPG]` tokens (no name list).
