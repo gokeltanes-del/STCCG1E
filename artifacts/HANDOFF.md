@@ -9,6 +9,7 @@ Local VS: C:\\Dev\\StarTrekCCG\\
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test.
 
 ## Current tip
+Local Josef tip **7223ad2** (+ Docs map expand follow-up) — Doc-Pass Org PROJECT.md refresh. Nicht gepusht.
 Local Josef tip **bcf7f9d** - Holo existence gates (Pepsch Fix-Go; Spock precise Soll). Nicht gepusht. (Prior Holo-Projectors tip 3c50792; LF UI eaf0c24.)
 **Pepsch EXE (Default Debug):**
 `C:\Dev\StarTrekCCG\StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe`
@@ -310,8 +311,24 @@ BoardStore Persist-Wahrheit zuerst. Localhost zwei Exes.
 ## Parked
 Hugh Borg Ship; IM FindMission; dump@Gaps; Parasites Hotseat-UI; REM Fatigue; Cure-Present-Scope Ship
 
-## Docs map
-HANDOFF, PROJECT, ENGINE, CODE_PLACEMENT, EXTRACT_REST, FEATURES, CARD_TRACKER, CHANGELOG
+## Docs map (canon)
+| File | Owner |
+|------|--------|
+| HANDOFF.md | Captain + Data (tips) |
+| PROJECT.md | Captain + Data |
+| ENGINE.md | Data |
+| CODE_PLACEMENT.md | Data |
+| TABLEWINDOW_INVENTORY.md | Data |
+| FEATURES.md | Seven |
+| CARD_TRACKER.md | Jadzia |
+| RULES.md / RULES_CHECKLIST.md | Spock (+ Seven coverage) |
+| GLOSSARY_COVERAGE.md / GLOSSARY_WELLE1.md | Seven / Spock |
+| EXTRACT_REST.md | Data / Captain |
+| CHANGELOG.md | Data (playable lines) |
+
+Wahrheit: HANDOFF + PROJECT (PROJECT_STATUS entfernt).
+Pepsch EXE: Default Debug `StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe` — **nicht** `_build_*`.
+
 
 ## Tip detail (Data, Josef, 2026-09-18) - dock vertical correction
 Root: 4a61fa1 X-cascade war falsch (Pepsch misspoke "horizontal").
