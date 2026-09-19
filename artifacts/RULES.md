@@ -16,7 +16,9 @@ Legende Checklist: ✅ spielbar · 🟡 teilweise · ❌ offen · ➖ außerhalb
 |-------|---------|-----------|
 | `PROJECT.md` | Architektur, Quellbaum, Chat-Startblock, „nicht jetzt“ | Keine Bugstories |
 | `RULES.md` | **Dieses** Fix-/Karten-Protokoll + Lookup | Keine Changelog-Zeilen |
-| `RULES_CHECKLIST.md` | Compendium 2.7.4 auf x.x.x, Status + Code-Datei | Keine Implementierungsdetails |
+| `RULES_CHECKLIST.md` | Compendium 2.7.4 auf x.x.x **inkl. Sidebars**, Status + Code-Datei | Keine Implementierungsdetails |
+| `GLOSSARY_COVERAGE.md` | Glossary A–Z, gleiche Status-Logik | Kein Engine-C# |
+| `APPENDIX_A_COVERAGE.md` | Appendix A Errata, gleiche Status-Logik | Errata ≠ „Karte working“ |
 | `CHANGELOG.md` | Eine Zeile pro **spielbarer** Änderung + §-Nummer | Keine Chat-Metadaten |
 | Compendium-PDF | Norm. Glossary / Temp. Rulings / App. A Errata / App. B | Nicht aus dem Gedächtnis zitieren |
 
