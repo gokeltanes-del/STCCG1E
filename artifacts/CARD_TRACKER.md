@@ -97,11 +97,11 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Card | Status | Notes | Source |
 | --- | --- | --- | --- |
 | Alien Abduction (10 U) | working | Pepsch green (Cure OR + Stasis Beam-Block; zentrales Cure-System 7.2.2.3 via 3 Leadership oder Mission Completed; Fix: kein Stoppen des Teams, nahtlose Fortsetzung bei Cure oder Nicht-Cure lt. 7.2.2.3/7.2.6). | Pepsch 2026-09-13 |
-| Alien Parasites (11 U) | partial | Pepsch PARTIAL BUG: Chooser Away Team / Ship+Crew / Away Team+Ship&Crew OK; bei Away Team+Ship&Crew Ship-Pick OK, aber Away Team wurde auf anderes Gegner-Schiff gebeamed. SOLL: Away Team gehoert dem Parasites-Controller (Neg Control), nicht Beam auf fremdes Schiff. tip Data/`f087866`+`2976b61`. | Pepsch 2026-09-19; Data/`2976b61` |
+| Alien Parasites (11 U) | partial | Neg-Control Fix-Go: Away Team+Ship places AT on **chosen** ship (same controller); no beam to foreign opp ship. tip Data pending. Pepsch green still needed for working. | Data Fix-Go 2026-09-19 |
 | Anaphasic Organism (12 C) | working | Pepsch green: Fail resigns=discard, not Kill. tips Data/`502d8e0` + Fix/`3532748`. | Pepsch 2026-09-15; Data/`3532748` |
 | Ancient Computer (13 R) | working | Pepsch green: Wall 2 Computer Skill OR 3 SCIENCE OR 3 ENGINEER; Fail Stop+unter Mission. tip Data/`bb551f1`. | Pepsch 2026-09-15; Data/`bb551f1` |
 | Archer (14 C) | working | Pepsch green bestÃ¤tigt: Auswertung Attribute / Opponent-Choice bei Gleichstand und Stop-Verhalten funktionieren einwandfrei. | Pepsch 2026-09-13 |
-| Armus: Skin Of Evil (15 R) | working | Pepsch green komplett (war partial tip `31d0c73`). 1 AT random Kill; discard; Rest Continue (kein Stop). | Pepsch 2026-09-19; Data/`31d0c73` |
+| Armus: Skin Of Evil (15 R) | working | Pepsch green (Captain 2026-09-19). tip Data/`31d0c73` 1 AT random Kill; discard; Rest Continue. | Pepsch 2026-09-19 |
 | Barclay's Protomorphosis Disease (16 R) | working | Pepsch getestet OK (Metamorphosis/Transformation). | Pepsch 2026-09-06 |
 | Birth of "Junior" (17 U) | working | Pepsch green: Place+Continue; cumulative RANGE Countdown tip Data/`755242c`; destroy at 0; Cure 3 ENG nullify. | Pepsch 2026-09-14; Data/`755242c` |
 | Borg Ship (18 R) | working | Pepsch green: no stop on reveal (`ed19e08`); load duplicate UI fixed (`51cd333`); Hugh vs dilemma attack OK. | Pepsch 2026-09-15; Data/`ed19e08`+`51cd333` |
