@@ -2,17 +2,63 @@
 
 # STCCG 1E - Handoff
 
-Last updated: 2026-09-19 (Data - Lore's Fingernail UI Fix-Go)
+Last updated: 2026-09-19 (Data - Holo existence gates Fix-Go)
 Repo: https://github.com/gokeltanes-del/STCCG1E
 Local VS: C:\\Dev\\StarTrekCCG\\
 **Ein Branch: master.** GrokTest nicht nutzen.
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test.
 
 ## Current tip
-Local Josef tip **eaf0c24** - Lore's Fingernail UI (Pepsch Fix-Go). Nicht gepusht. (Prior engine tip 980317a.)
+Local Josef tip **TIPHASH** - Holo existence gates (Pepsch Fix-Go; Spock precise Soll). Nicht gepusht. (Prior Holo-Projectors tip 3c50792; LF UI eaf0c24.)
 **Pepsch EXE (Default Debug):**
 `C:\Dev\StarTrekCCG\StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe`
-Nicht `_build_lf_ui*` / Release / alte Side-Builds.
+Nicht `_build_holo*` / Release / alte Side-Builds.
+
+
+## Tip detail (Data, Josef, 2026-09-19) - Holo existence gates (Pepsch Fix-Go)
+Captain confirms Spock precise Holo Soll. Standing Practice Glossary cites. CODE_PLACEMENT: EventRules decide + TW Apply (beam/kill/report).
+Prior tip **3c50792** helpers/nullify; this tip wires report/beam gates + kill=deact + stranded erase + same-turn no-reactivate.
+
+### Spock Soll (in-scope)
+1. Activated: Holodeck ship/fac OR planet+Projectors OR MHE
+2. Deactivated: any ship/fac OR planet+Projectors OR MHE
+3. Illegal even deact: planet without Projectors/MHE
+4. Illegal attempt → deactivate, do NOT complete relocate
+5. Erase if illegally present; Projectors nullify dependents (MHE protects); ship destroy→discard; kill→deactivate
+6. Holodeck=activate aboard; Projectors=planet only; MHE=exist+activate where allowed
+7. Same-turn: no reactivate after deactivate this turn
+
+### Core helpers (EventRules)
+- HoloMayExistOnPlanet / HoloMayExistAboard(activated,…) / HoloMayExistHere / HoloMayActivateHere
+- CanVoluntaryRelocateHolo / IllegalRelocateShouldDeactivate / MayReactivateHologram
+- DependsOnThisHoloProjectorsForExistence / DeactivateHologram / ShouldEraseWhenStuckWithoutEnabler
+- VerifyHoloProjectors expanded (act/deact/planet beam/same-turn)
+
+### TW wire
+- CompleteBeamTo → FilterHoloBeamAllowed (bare planet block; illegal act→deact stay)
+- DiscardPersonnelBorder → [Holo] kill = MarkHologramDeactivated (ship destroy still discards)
+- EraseStrandedHologramsOnHost after beam; report auto-deact without activate enabler
+- PersonnelInstance.HologramDeactivated + _holoDeactivatedThisTurn (EOT clear)
+- IsCardDisabled ORs hologram deactivated (does not wipe via Ktarian sync)
+
+### Parked
+- Captive / opponent Holodeck deep; Holodeck Door suite / Holoprograms
+- Personnel-battle safety (holo cannot kill organics; holo-only STRENGTH force)
+- Activate UI button (helper CanReactivateHologramNow ready)
+
+### Bewusst nicht
+No push; no Door/captive/battle safety; no activate UI chrome.
+
+### Pepsch smoke
+1. Cannot beam [Holo] to bare planet (no Projectors/MHE) — blocked; stays put.
+2. Holo-Projectors on planet → [Holo] may beam there (act or deact).
+3. MHE with/aboard → [Holo] may exist/activate where allowed.
+4. Kill [Holo] → deactivated (not discard); ship destroy → discard crew incl. [Holo].
+5. Nullify Projectors → dependents erased; MHE-protected survives.
+
+### Files
+Game/EventRules.cs, Game/Board/CardInstance.cs, TableWindow.xaml.cs, artifacts/CARD_TRACKER.md, artifacts/HANDOFF.md, _VerifyHolo/*
+Exe: StarTrekCCG\\bin\\Debug\\net8.0-windows\\StarTrekCCG.exe (side-build _build_holo_gates green while Pepsch EXE locked)
 
 ## Tip detail (Data, Josef, 2026-09-19) - Lore's Fingernail UI (Pepsch Fix-Go)
 Engine live-affil (980317a) OK for battle; Surface/Detail still showed printed Federation.

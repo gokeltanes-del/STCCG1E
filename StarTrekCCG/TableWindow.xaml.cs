@@ -390,6 +390,9 @@ public partial class TableWindow : Window
     private readonly List<AttachedEvent> _attachedEvents = new();
     /// <summary>Glossary Atmospheric Ionization: personnel beamed this way per controller this turn.</summary>
     private readonly int[] _ionizationBeamsThisTurnByPlayer = new int[3]; // [1],[2]
+
+    /// <summary>Glossary hologram: InstanceIds deactivated this turn (same-turn no-reactivate).</summary>
+    private readonly HashSet<int> _holoDeactivatedThisTurn = new();
     private int _redAlertPlaysLeft;
     private readonly HashSet<Border> _movedThisTurnAfterArrival = new();
     /// <summary>Mission index this ship arrived at during the current turn (Rift / Tetryon “move again”).</summary>
@@ -5450,6 +5453,11 @@ public partial class TableWindow : Window
                         SetSelection(host);
                         StatusText.Text = $"P{owner}: {card.Name} reports for duty at {hostCard.Name}.";
                         placedOk = true;
+                        // Glossary hologram: report deactivated unless Holodeck/Projectors/MHE allows activate.
+                        if (CardIcons.IsHologram(card)
+                            && !HoloEnablersAtHost(host, movingWith: null).canActivate)
+                            MarkHologramDeactivated(card, cardBorder,
+                                reason: "reported — no activate enabler (Glossary: hologram)");
                         TryAnnounceNormalPlayForVortex(card, owner, host);
                     }
                 }
@@ -7898,6 +7906,7 @@ public partial class TableWindow : Window
         {
             _skipNormalEndOfTurn = false;
             _ionizationBeamsThisTurnByPlayer[1] = 0; _ionizationBeamsThisTurnByPlayer[2] = 0;
+            _holoDeactivatedThisTurn.Clear();
             _movedThisTurnAfterArrival.Clear();
             _arrivedMissionThisTurn.Clear();
             _auPlayedThisTurnP1 = false;
@@ -7925,6 +7934,7 @@ public partial class TableWindow : Window
         if (KlimBlocksDraw(finishingPlayer))
             _session.SuppressEndOfTurnDraw = true;
         _ionizationBeamsThisTurnByPlayer[1] = 0; _ionizationBeamsThisTurnByPlayer[2] = 0;
+        _holoDeactivatedThisTurn.Clear();
         _movedThisTurnAfterArrival.Clear();
         _arrivedMissionThisTurn.Clear();
         _auPlayedThisTurnP1 = false;
@@ -9506,6 +9516,7 @@ public partial class TableWindow : Window
         _endTurnAfterDrawStack = false;
         _attachedEvents.Clear();
         _ionizationBeamsThisTurnByPlayer[1] = 0; _ionizationBeamsThisTurnByPlayer[2] = 0;
+        _holoDeactivatedThisTurn.Clear();
         _redAlertPlaysLeft = 0;
         _movedThisTurnAfterArrival.Clear();
         _arrivedMissionThisTurn.Clear();
@@ -14184,6 +14195,184 @@ public partial class TableWindow : Window
             SendCardTo(c, owner, TimingRules.Destination.OutOfPlay);
             _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
                 $"Holo-Projectors nullify: erased {c.Name} (depended on these projectors)");
+        }
+
+        UpdateHostBadge(host);
+        if (stacked.Count == 0)
+            _stackOnHost.Remove(host);
+    }
+
+
+    /// <summary>Glossary hologram: board-truth deactivated flag (PersonnelInstance).</summary>
+    private bool IsHologramDeactivated(Card card)
+    {
+        if (!CardIcons.IsHologram(card)) return false;
+        if (card.InstanceId > 0
+            && BoardStore.Current.ById.TryGetValue(card.InstanceId, out var inst)
+            && inst is PersonnelInstance pi)
+            return pi.HologramDeactivated;
+        return card.Disabled; // fallback before BoardStore wrap
+    }
+
+    /// <summary>Glossary hologram: deactivate + same-turn no-reactivate tracking.</summary>
+    private void MarkHologramDeactivated(Card card, Border? border, string reason)
+    {
+        EventRules.DeactivateHologram(card);
+        if (card.InstanceId > 0)
+        {
+            _holoDeactivatedThisTurn.Add(card.InstanceId);
+            if (BoardStore.Current.ById.TryGetValue(card.InstanceId, out var inst)
+                && inst is PersonnelInstance pi)
+            {
+                pi.HologramDeactivated = true;
+                pi.Disabled = true;
+            }
+        }
+        if (border != null)
+            ApplyDisabledVisual(border, true);
+        _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
+            $"Hologram deactivated: {card.Name} ({reason})");
+        StatusText.Text = $"{card.Name} deactivated ({reason}).";
+    }
+
+    /// <summary>Glossary hologram: may reactivate only if enabler present and not same-turn deact.</summary>
+    private bool CanReactivateHologramNow(Card card, Border host)
+    {
+        if (!CardIcons.IsHologram(card)) return false;
+        if (!IsHologramDeactivated(card)) return false;
+        if (card.InstanceId > 0 && _holoDeactivatedThisTurn.Contains(card.InstanceId))
+            return false; // EventRules.MayReactivateHologram
+        return HoloEnablersAtHost(host, movingWith: null).canActivate;
+    }
+
+    private (bool isPlanet, bool projectors, bool holodeck, bool mhe, bool canActivate) HoloEnablersAtHost(
+        Border host, IEnumerable<Card>? movingWith)
+    {
+        bool isPlanet = host.Tag is Card hc
+            && CardKinds.IsMission(hc)
+            && MissionRules.IsPlanetMission(hc);
+        bool holodeck = host.Tag is Card shipFac
+            && (CardKinds.IsShip(shipFac) || CardKinds.IsFacility(shipFac))
+            && EventRules.HasHolodeck(shipFac);
+
+        Border? mission = FindMissionForDockable(host)
+            ?? (host.Tag is Card m && CardKinds.IsMission(m) ? host : null);
+        bool projectors = mission != null
+            && EventsOn(mission).Any(e => e.Kind == EventRules.Persist.HoloProjectors);
+
+        var present = new List<Card>();
+        if (_stackOnHost.TryGetValue(host, out var stacked))
+            present.AddRange(stacked.Select(b => b.Tag).OfType<Card>());
+        if (movingWith != null)
+            present.AddRange(movingWith);
+        bool mhe = EventRules.HasMobileHoloEmitterPresent(present);
+
+        bool canActivate = EventRules.HoloMayActivateHere(isPlanet, projectors, holodeck, mhe);
+        return (isPlanet, projectors, holodeck, mhe, canActivate);
+    }
+
+    /// <summary>
+    /// Glossary hologram beam gate: filter toMove; illegal activated attempts deactivate in place.
+    /// Bare planet without Projectors/MHE: never relocate [Holo].
+    /// </summary>
+    private List<Border> FilterHoloBeamAllowed(
+        List<Border> toMove, Border source, Border targetHost, Border? srcMission, Border? dstMission)
+    {
+        var movingCards = toMove.Select(b => b.Tag).OfType<Card>().ToList();
+        var en = HoloEnablersAtHost(targetHost, movingWith: movingCards);
+        // Planet surface destination = beaming onto the mission itself (Away Team).
+        bool destIsPlanet = en.isPlanet
+            && targetHost.Tag is Card tc
+            && CardKinds.IsMission(tc);
+
+        var allowed = new List<Border>();
+        var denied = new List<string>();
+        foreach (var b in toMove)
+        {
+            if (b.Tag is not Card c || !CardIcons.IsHologram(c))
+            {
+                allowed.Add(b);
+                continue;
+            }
+
+            bool activated = !IsHologramDeactivated(c);
+            bool ok = EventRules.CanVoluntaryRelocateHolo(
+                isHologram: true,
+                activated: activated,
+                destIsPlanetSurface: destIsPlanet,
+                projectorsAtDest: en.projectors,
+                holodeckAtDest: en.holodeck,
+                mheAtDestOrMoving: en.mhe);
+
+            if (ok)
+            {
+                allowed.Add(b);
+                continue;
+            }
+
+            // Illegal: deactivate if activated; do NOT relocate.
+            if (EventRules.IllegalRelocateShouldDeactivate(true, activated, destAllowsThisState: false))
+                MarkHologramDeactivated(c, b, reason: "illegal beam — stayed, deactivated (Glossary: hologram)");
+            denied.Add(c.Name ?? "?");
+        }
+
+        if (denied.Count > 0)
+        {
+            string where = destIsPlanet
+                ? "planet without Holo-Projectors/MHE"
+                : "destination without Holodeck/MHE (activated)";
+            ShowPlayError(
+                $"Cannot beam [Holo] {string.Join(", ", denied)} — {where}. "
+                + "(Glossary: hologram / Holo-Projectors)");
+        }
+        return allowed;
+    }
+
+    /// <summary>
+    /// Glossary hologram: erase [Holo] illegally present on bare planet (no Projectors/MHE).
+    /// Aboard without Holodeck while activated -> deactivate (not erase).
+    /// </summary>
+    private void EraseStrandedHologramsOnHost(Border? host)
+    {
+        if (host == null) return;
+        if (!_stackOnHost.TryGetValue(host, out var stacked) || stacked.Count == 0) return;
+
+        var en = HoloEnablersAtHost(host, movingWith: null);
+        bool onPlanetSurface = en.isPlanet
+            && host.Tag is Card hc
+            && CardKinds.IsMission(hc);
+
+        foreach (var b in stacked.ToList())
+        {
+            if (b.Tag is not Card c || !CardIcons.IsHologram(c)) continue;
+
+            bool activated = !IsHologramDeactivated(c);
+            bool mayExist = EventRules.HoloMayExistHere(
+                activated, onPlanetSurface, en.projectors, en.holodeck, en.mhe);
+
+            if (mayExist) continue;
+
+            // Activated aboard without Holodeck/MHE: deactivate in place (still may exist deact).
+            if (!onPlanetSurface && activated
+                && EventRules.HoloMayExistAboard(activated: false, en.holodeck, en.mhe))
+            {
+                MarkHologramDeactivated(c, b, reason: "no Holodeck/MHE — deactivated aboard");
+                continue;
+            }
+
+            if (!EventRules.ShouldEraseWhenStuckWithoutEnabler(true, mayExistHere: false))
+                continue;
+
+            int owner = GetBorderOwner(b);
+            if (owner is not (1 or 2))
+                owner = c.OwnerPlayer is 1 or 2 ? c.OwnerPlayer : _activePlayer;
+
+            stacked.Remove(b);
+            if (TableCanvas.Children.Contains(b))
+                TableCanvas.Children.Remove(b);
+            SendCardTo(c, owner, TimingRules.Destination.OutOfPlay);
+            _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
+                $"Hologram erased (cannot exist here): {c.Name}");
         }
 
         UpdateHostBadge(host);
@@ -21497,8 +21686,10 @@ public partial class TableWindow : Window
                                 || (h.InstanceId > 0 && h.InstanceId == card.InstanceId)
                                 || string.Equals(h.Name, card.Name, StringComparison.OrdinalIgnoreCase)));
         bool twoDim = IsTwoDimEmpathyDisabledAboard(card);
+        // Glossary hologram: deactivated (PersonnelInstance.HologramDeactivated) — not Ktarian wipe.
+        bool holoDeact = IsHologramDeactivated(card);
         // Live: TwoDim clears when beamed off; Ktarian Held keeps Disabled until cure.
-        bool disabled = ktarian || twoDim;
+        bool disabled = ktarian || twoDim || holoDeact;
         card.Disabled = disabled;
         if (card.InstanceId > 0 && BoardStore.Current.ById.TryGetValue(card.InstanceId, out var inst) && inst is PersonnelInstance pi)
             pi.Disabled = disabled;
@@ -22700,6 +22891,13 @@ public partial class TableWindow : Window
         if (allowGenetronicSave && TryGenetronicSave(border, card, owner, alsoTargetedToDie))
             return;
 
+        // Glossary: hologram — kill/destroy -> deactivate (not discard). Ship destroy path still discards.
+        if (CardIcons.IsHologram(card))
+        {
+            MarkHologramDeactivated(card, border, reason: "killed — deactivated (Glossary: hologram)");
+            return;
+        }
+
         Border? returnHost = null;
         foreach (var kv in _stackOnHost.ToList())
         {
@@ -22798,6 +22996,13 @@ public partial class TableWindow : Window
             }
         }
 
+        // Glossary: hologram — voluntary beam exist gate (Spock Soll).
+        // Illegal even deact: planet without Projectors/MHE.
+        // Activated to ship/fac without Holodeck/MHE: deactivate, do NOT relocate.
+        toMove = FilterHoloBeamAllowed(toMove, source, targetHost, srcMission, dstMission);
+        if (toMove.Count == 0)
+            return true;
+
         foreach (var b in toMove.ToList())
         {
             if (b.Tag is Card bc && IsCardLeaveBlocked(bc))
@@ -22818,6 +23023,10 @@ public partial class TableWindow : Window
         }
 
         TryCureAttachedDilemmas(targetHost);
+
+        // Glossary: hologram — erase [Holo] stuck where they cannot exist (bare planet).
+        EraseStrandedHologramsOnHost(source);
+        EraseStrandedHologramsOnHost(targetHost);
 
         // TwoDim: Empathy Disabled only while aboard — refresh both hosts after beam
         SyncTwoDimDisabledVisuals(source);

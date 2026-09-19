@@ -981,8 +981,14 @@ public static class EventRules
     }
 
     // --- Glossary: hologram / Holo-Projectors (Spock Premiere Holo bullet-Soll) ---
+    // Activated: Holodeck (ship/fac) OR planet+Projectors OR MHE.
+    // Deactivated: any ship/fac OR planet+Projectors OR MHE.
+    // Illegal even deact: planet without Projectors/MHE.
+    // Illegal voluntary relocate -> deactivate, do NOT complete relocate.
+    // Erase if illegally present (planet bare); Projectors nullify dependents (MHE protects);
+    // ship destroy -> discard; kill -> deactivate. Same-turn: no reactivate.
 
-    /// <summary>Ship/facility Holodeck enables [Holo] aboard only — never planet surface.</summary>
+    /// <summary>Ship/facility Holodeck enables [Holo] activation aboard only — never planet surface.</summary>
     public static bool HasHolodeck(Card? shipOrFacility) =>
         shipOrFacility != null && MovementRules.ShipHasSpecialEquipment(shipOrFacility, "Holodeck");
 
@@ -991,15 +997,67 @@ public static class EventRules
         present != null && present.Any(IsMobileHoloEmitter);
 
     /// <summary>
-    /// Planet surface existence: Holo-Projectors at this planet, and/or MHE / other printed enabler.
+    /// Planet surface existence (act or deact): Holo-Projectors and/or MHE / other printed enabler.
     /// Ship Holodeck does NOT enable planet existence.
     /// </summary>
     public static bool HoloMayExistOnPlanet(bool holoProjectorsAtPlanet, bool hasMheOrOtherPrintedEnabler) =>
         holoProjectorsAtPlanet || hasMheOrOtherPrintedEnabler;
 
-    /// <summary>Aboard ship/facility: Holodeck and/or MHE / other printed enabler.</summary>
-    public static bool HoloMayExistAboard(bool holodeckAboard, bool hasMheOrOtherPrintedEnabler) =>
-        holodeckAboard || hasMheOrOtherPrintedEnabler;
+    /// <summary>
+    /// Aboard ship/facility: deactivated always OK; activated needs Holodeck or MHE.
+    /// </summary>
+    public static bool HoloMayExistAboard(bool activated, bool holodeckAboard, bool hasMheOrOtherPrintedEnabler) =>
+        !activated || holodeckAboard || hasMheOrOtherPrintedEnabler;
+
+    /// <summary>
+    /// Where [Holo] may be / stay activated: Holodeck (ship/fac), Projectors (planet), or MHE.
+    /// </summary>
+    public static bool HoloMayActivateHere(
+        bool isPlanetSurface,
+        bool projectorsAtPlanet,
+        bool holodeckAboard,
+        bool hasMheOrOtherPrintedEnabler) =>
+        hasMheOrOtherPrintedEnabler
+        || (isPlanetSurface ? projectorsAtPlanet : holodeckAboard);
+
+    /// <summary>
+    /// Combined exist gate for a destination (voluntary beam/report/move).
+    /// </summary>
+    public static bool HoloMayExistHere(
+        bool activated,
+        bool isPlanetSurface,
+        bool projectorsAtPlanet,
+        bool holodeckAboard,
+        bool hasMheOrOtherPrintedEnabler)
+    {
+        if (isPlanetSurface)
+            return HoloMayExistOnPlanet(projectorsAtPlanet, hasMheOrOtherPrintedEnabler);
+        return HoloMayExistAboard(activated, holodeckAboard, hasMheOrOtherPrintedEnabler);
+    }
+
+    /// <summary>
+    /// Voluntary beam/report/move of [Holo] — deny planet without Projectors/MHE;
+    /// deny activated aboard without Holodeck/MHE.
+    /// </summary>
+    public static bool CanVoluntaryRelocateHolo(
+        bool isHologram,
+        bool activated,
+        bool destIsPlanetSurface,
+        bool projectorsAtDest,
+        bool holodeckAtDest,
+        bool mheAtDestOrMoving)
+    {
+        if (!isHologram) return true;
+        return HoloMayExistHere(
+            activated, destIsPlanetSurface, projectorsAtDest, holodeckAtDest, mheAtDestOrMoving);
+    }
+
+    /// <summary>
+    /// Illegal relocate attempt while activated -> deactivate and do not complete relocate.
+    /// </summary>
+    public static bool IllegalRelocateShouldDeactivate(
+        bool isHologram, bool activated, bool destAllowsThisState) =>
+        isHologram && activated && !destAllowsThisState;
 
     /// <summary>
     /// Nullify erase gate: only [Holo] at THIS planet that depended on THIS Projectors copy.
@@ -1017,16 +1075,20 @@ public static class EventRules
         return true;
     }
 
-    /// <summary>Kill/destroy hologram -> deactivate (Disabled), not erase. Glossary: hologram.</summary>
+    /// <summary>Kill path: hologram -> deactivate (not discard/erase). Glossary: hologram.</summary>
     public static void DeactivateHologram(Card? holo)
     {
         if (holo == null) return;
         holo.Disabled = true;
     }
 
-    /// <summary>Stuck where [Holo] cannot exist -> erase (out of play). Caller sends OutOfPlay.</summary>
+    /// <summary>Stuck where [Holo] cannot exist (e.g. bare planet) -> erase (out of play).</summary>
     public static bool ShouldEraseWhenStuckWithoutEnabler(bool isHologram, bool mayExistHere) =>
         isHologram && !mayExistHere;
+
+    /// <summary>Same-turn: after deactivate, may not reactivate until next turn.</summary>
+    public static bool MayReactivateHologram(bool deactivatedEarlierThisTurn) =>
+        !deactivatedEarlierThisTurn;
 
     /// <summary>Glossary: hologram / Holo-Projectors — Standing Practice verify.</summary>
     public static string? VerifyHoloProjectors()
@@ -1053,12 +1115,47 @@ public static class EventRules
             return "Holo-Projectors: FormatHostEffectSummary must note this-copy erase";
 
         var galaxy = new Card { Name = "Galaxy", Type = "Ship", Text = "Holodeck, Tractor Beam." };
+        var noDeck = new Card { Name = "Excelsior", Type = "Ship", Text = "Tractor Beam." };
         if (!HasHolodeck(galaxy)) return "Holo-Projectors: HasHolodeck true for Galaxy";
-        if (HoloMayExistOnPlanet(false, false)) return "Holo-Projectors: planet without enabler must deny exist";
-        if (!HoloMayExistOnPlanet(true, false)) return "Holo-Projectors: Projectors enables planet exist";
-        if (!HoloMayExistOnPlanet(false, true)) return "Holo-Projectors: MHE enables planet exist";
-        if (!HoloMayExistAboard(true, false)) return "Holo-Projectors: Holodeck enables aboard";
-        if (HoloMayExistAboard(false, false)) return "Holo-Projectors: no Holodeck/MHE aboard must deny";
+        if (HasHolodeck(noDeck)) return "Holo-Projectors: HasHolodeck false without Holodeck";
+
+        // Planet: bare deny; Projectors/MHE allow (act or deact)
+        if (HoloMayExistOnPlanet(false, false)) return "Holo: planet without enabler must deny exist";
+        if (!HoloMayExistOnPlanet(true, false)) return "Holo: Projectors enables planet exist";
+        if (!HoloMayExistOnPlanet(false, true)) return "Holo: MHE enables planet exist";
+
+        // Aboard: deact always; act needs Holodeck/MHE
+        if (!HoloMayExistAboard(activated: false, holodeckAboard: false, hasMheOrOtherPrintedEnabler: false))
+            return "Holo: deactivated must exist aboard any ship/fac";
+        if (HoloMayExistAboard(activated: true, holodeckAboard: false, hasMheOrOtherPrintedEnabler: false))
+            return "Holo: activated without Holodeck/MHE aboard must deny";
+        if (!HoloMayExistAboard(activated: true, holodeckAboard: true, hasMheOrOtherPrintedEnabler: false))
+            return "Holo: Holodeck enables activated aboard";
+        if (!HoloMayExistAboard(activated: true, holodeckAboard: false, hasMheOrOtherPrintedEnabler: true))
+            return "Holo: MHE enables activated aboard";
+
+        if (!HoloMayActivateHere(isPlanetSurface: false, projectorsAtPlanet: false, holodeckAboard: true, hasMheOrOtherPrintedEnabler: false))
+            return "Holo: Holodeck = activate aboard";
+        if (HoloMayActivateHere(isPlanetSurface: true, projectorsAtPlanet: false, holodeckAboard: true, hasMheOrOtherPrintedEnabler: false))
+            return "Holo: Holodeck must NOT activate on planet";
+        if (!HoloMayActivateHere(isPlanetSurface: true, projectorsAtPlanet: true, holodeckAboard: false, hasMheOrOtherPrintedEnabler: false))
+            return "Holo: Projectors = activate on planet";
+
+        if (CanVoluntaryRelocateHolo(true, activated: false, destIsPlanetSurface: true, projectorsAtDest: false, holodeckAtDest: false, mheAtDestOrMoving: false))
+            return "Holo: voluntary beam deact to bare planet must deny";
+        if (!CanVoluntaryRelocateHolo(true, activated: false, destIsPlanetSurface: true, projectorsAtDest: true, holodeckAtDest: false, mheAtDestOrMoving: false))
+            return "Holo: Projectors allow beam to planet";
+        if (!CanVoluntaryRelocateHolo(true, activated: false, destIsPlanetSurface: true, projectorsAtDest: false, holodeckAtDest: false, mheAtDestOrMoving: true))
+            return "Holo: MHE allow beam to planet";
+        if (CanVoluntaryRelocateHolo(true, activated: true, destIsPlanetSurface: false, projectorsAtDest: false, holodeckAtDest: false, mheAtDestOrMoving: false))
+            return "Holo: activated beam to no-Holodeck ship must deny";
+        if (!CanVoluntaryRelocateHolo(true, activated: false, destIsPlanetSurface: false, projectorsAtDest: false, holodeckAtDest: false, mheAtDestOrMoving: false))
+            return "Holo: deactivated beam to any ship must allow";
+
+        if (!IllegalRelocateShouldDeactivate(true, activated: true, destAllowsThisState: false))
+            return "Holo: illegal activated relocate should deactivate";
+        if (IllegalRelocateShouldDeactivate(true, activated: false, destAllowsThisState: false))
+            return "Holo: already deact illegal relocate — no extra deactivate flag required";
 
         if (!DependsOnThisHoloProjectorsForExistence(true, true, false, false))
             return "Holo-Projectors: dependent holo at planet must erase on nullify";
@@ -1073,11 +1170,15 @@ public static class EventRules
 
         var holo = new Card { Name = "Holodoc", Type = "Personnel", Icons = "[Holo]", Disabled = false };
         DeactivateHologram(holo);
-        if (!holo.Disabled) return "Holo-Projectors: kill/destroy path deactivates (Disabled)";
+        if (!holo.Disabled) return "Holo: kill path deactivates (Disabled)";
         if (!ShouldEraseWhenStuckWithoutEnabler(true, false))
-            return "Holo-Projectors: stuck without enabler -> erase";
+            return "Holo: stuck without enabler -> erase";
         if (ShouldEraseWhenStuckWithoutEnabler(true, true))
-            return "Holo-Projectors: may exist -> do not erase";
+            return "Holo: may exist -> do not erase";
+        if (MayReactivateHologram(deactivatedEarlierThisTurn: true))
+            return "Holo: same-turn no-reactivate";
+        if (!MayReactivateHologram(deactivatedEarlierThisTurn: false))
+            return "Holo: may reactivate next turn";
 
         var mhe = new Card { Name = "Mobile Holo-Emitter", Type = "Equipment" };
         if (!IsMobileHoloEmitter(mhe)) return "Holo-Projectors: IsMobileHoloEmitter helper";
@@ -1085,6 +1186,7 @@ public static class EventRules
             return "Holo-Projectors: HasMobileHoloEmitterPresent";
         return null;
     }
+
 
     /// <summary>Glossary: Lore's Fingernail — Standing Practice verify (Premiere smoke).</summary>
     public static string? VerifyLoresFingernail()

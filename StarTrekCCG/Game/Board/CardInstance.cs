@@ -42,6 +42,12 @@ public sealed class PersonnelInstance : CardInstance
     /// <summary>Personnel is disabled (e.g. Ktarian Game). Cannot act or use skills/attributes.</summary>
     public bool Disabled { get; set; }
 
+    /// <summary>
+    /// Glossary: hologram — deactivated (not erased). May exist aboard any ship/facility;
+    /// planet needs Holo-Projectors/MHE. Distinct from dilemma Disabled (Ktarian/TwoDim).
+    /// </summary>
+    public bool HologramDeactivated { get; set; }
+
     /// <summary>True if leave/beam is blocked (Quarantine, Stasis, or Disabled).</summary>
     public override bool IsLeaveBlocked => Quarantined || InStasis || Disabled;
 }

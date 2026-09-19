@@ -152,7 +152,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Gaps in Normal Space (75 U) | unknown | UX only: Pepsch green Host-Sidebar panel-follow tip Data/`651a63f` (not card-status green). | Data/`651a63f` UX 2026-09-18 |
 | Genetronic Replicator (76 U) | working | Pepsch green: Opfer & gleichzeitig Getoetete ausgeschlossen; Auswahl via PickBorder; Unit-Test in EventRules. | Pepsch 2026-09-15 |
 | Goddess of Empathy (77 R) | working | Pepsch mostly green tip Data/`23d1c17`: Amanda block OK. Pending later smoke: [Ref] and [Q] interrupts still allowed under Goddess. | Pepsch 2026-09-18; Data/`23d1c17` |
-| Holo-Projectors (78 U) | partial | tip Data/`3c50792` (Josef, no push). Parked: captive/opp Holodeck, Door suite, battle safety, same-turn reactivate, full report/beam gates. Stays partial until Pepsch smoke — not working. | Data/`3c50792` 2026-09-18 |
+| Holo-Projectors (78 U) | partial | tip Data/`TIPHASH` existence gates Fix-Go (Josef, no push): planet beam block; act/deact exist; kill=deact; stranded erase; same-turn no-reactivate. Parked: captive/opp Holodeck, Door, battle safety, activate UI. Stays partial until Pepsch smoke. | Data/`TIPHASH` 2026-09-19 |
 | Kivas Fajo: Collector (79 U) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Lore Returns (80 R) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Lore's Fingernail (81 R) | working | Pepsch green: Inorganic(!Holo)->Non live; restore on leave. tips Data/`980317a` + UI/`eaf0c24`. | Pepsch 2026-09-19; Data/`980317a`+`eaf0c24` |
