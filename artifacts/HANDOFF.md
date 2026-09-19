@@ -1,18 +1,52 @@
-<!-- tip: PROJECT_STATUS.md (Repo-Root) entfernt � Wahrheit = artifacts/HANDOFF.md + artifacts/PROJECT.md (2026-09-18) -->
+<!-- tip: PROJECT_STATUS.md (Repo-Root) entfernt - Wahrheit = artifacts/HANDOFF.md + artifacts/PROJECT.md (2026-09-18) -->
 
 # STCCG 1E - Handoff
 
-Last updated: 2026-09-18 (Data - Holo-Projectors)
+Last updated: 2026-09-19 (Data - Lore's Fingernail)
 Repo: https://github.com/gokeltanes-del/STCCG1E
 Local VS: C:\\Dev\\StarTrekCCG\\
 **Ein Branch: master.** GrokTest nicht nutzen.
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test.
 
 ## Current tip
-Local Josef tip **3c50792** - Holo-Projectors (PR 78 U) EventRules + nullify erase. Nicht gepusht. (Prior tip Goddess 23d1c17.)
+Local Josef tip **TIPHASH** - Lore's Fingernail (PR 81 R). Nicht gepusht. (Prior tip Holo-Projectors 3c50792 / tracker a8e9f45.)
 **Pepsch EXE (Default Debug):**
 `C:\Dev\StarTrekCCG\StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe`
-Nicht `_build_docky*` / Release / alte Side-Builds.
+Nicht `_build_fingernail*` / Release / alte Side-Builds.
+
+## Tip detail (Data, Josef, 2026-09-19) - Lore's Fingernail (PR 81 R)
+Captain Go / Spock Soll-OK (fold all). Standing Practice Glossary cites. CODE_PLACEMENT: EventRules + ReportingRules/DualAffiliation (+ TW ambient).
+
+### Lore's Fingernail required
+- Plays on table (Place.Table / Persist.Fingernail).
+- While in play: inorganic (not [Holo]) **effective affiliation = Non only**; dual toggle off / ProfileFor not active as printed.
+- Nullify/leave -> restore prior multi-affil mode (ambient clear; CurrentAffiliation preserved underneath).
+- Treaties: Non mixing separate (existing NA rules); Fed battle limits lift (no longer Fed).
+- Matching affiliation / house arrest: re-check as Non via GetAffiliations.
+- Glossary: androids may report as Non.
+- Classic: Soong-type + Exocomps; [Holo] excepted. Modern: all Inorganic except [Holo].
+
+### Core helpers
+- `DilemmaRules.IsInorganic` — Characteristics Inorganic and/or Android (central; whitelist verify-only).
+- `EventRules.FingernailMakesNon` — IsInorganic && !CardIcons.IsHologram while FingernailInPlay.
+- `EventRules.SetFingernailInPlay` / ambient refreshed in `RefreshTableBuffs` + CommitCardToTable.
+- `ReportingRules.GetAffiliations` early NA override; DualAffiliationRules.TrySetMode/ProfileFor gated.
+- `VerifyLoresFingernail` Premiere smoke.
+
+### TW wire
+- HasFingernail on GameState / BoardStore; TrySwitchAffiliation deny while affected.
+
+### Pepsch smoke
+1. Play Lore's Fingernail on table -> Data / Exocomp become Non (effective); Fed battle limit lifts for them.
+2. Einstein / Brahms / Fek'lhr / K'Tesh / Jera / Tomek ([Holo]+Inorganic) stay printed affil (NOT Non).
+3. Nullify Fingernail -> Data back to Federation; dual toggle works again.
+
+### Bewusst nicht
+No push; no house-arrest deep UI; no persona/report exhaustive matrix; K'Tesh/Jera/Tomek correctly [Holo]-excepted (brief smoke listing them as -> Non contradicted printed except [Holo]).
+
+### Files
+Game/DilemmaRules.cs, Game/EventRules.cs, Game/ReportingRules.cs, Game/DualAffiliationRules.cs, Game/GameState.cs, Game/Board/BoardStore.cs, TableWindow.xaml.cs, artifacts/CARD_TRACKER.md, artifacts/HANDOFF.md, _VerifyFingernail/*
+Exe: StarTrekCCG\\bin\\Debug\\net8.0-windows\\StarTrekCCG.exe (side-build _build_fingernail green)
 
 ## Tip detail (Data, Josef, 2026-09-18) - Holo-Projectors (PR 78 U)
 Captain Go / Spock Premiere Holo bullet-Soll. Standing Practice Glossary cites. CODE_PLACEMENT: EventRules (+ TW nullify wire).
@@ -121,16 +155,16 @@ Exe: StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe
 ## Tip detail (Data, Josef, 2026-09-18) - Alien Probe + Atmospheric Ionization + IPG UX
 Captain/Spock Soll-OK. Standing Practice Glossary cites folded in. CODE_PLACEMENT: Events in Rules; UI wire.
 ### IPG Detail-Overkill (UX only)
-Armus detail showed 3× IPG: green Icons:[IPG] (DetailAttributes), glyph (IconCatalog.Fill), purple Icons:[IPG] (DetailIcons fallback).
+Armus detail showed 3Ã— IPG: green Icons:[IPG] (DetailAttributes), glyph (IconCatalog.Fill), purple Icons:[IPG] (DetailIcons fallback).
 **Removed 2:** green Attributes Icons-line + purple DetailIcons Icons-fallback. **Kept:** glyph strip. Cmd/Staffing untouched (FillStaffing).
 ### Alien Probe (PR 66 U)
-- Plays on table (Persist.Probe); continuous both hands revealed (HasAlienProbeInPlay → hand strip).
+- Plays on table (Persist.Probe); continuous both hands revealed (HasAlienProbeInPlay â†’ hand strip).
 - Hand cards not nullifiable until played (CanNullifyTargetCard in NullifyEventInPlay).
 - Battle Bridge / used tactics NOT affected (faceDownAlways stays).
 - Verify: EventRules.VerifyAlienProbe.
-### Atmospheric Ionization (PR 68 C) — EN Ionization
+### Atmospheric Ionization (PR 68 C) â€” EN Ionization
 - Unique (IsPrintedUniqueEvent); Plays on Planet; beam 1 at a time; max 3 personnel this way per controller per turn.
-- Glossary-Add: to/from this planet includes planet-vicinity beams (landed ship ↔ planet facility); same-mission gate covers.
+- Glossary-Add: to/from this planet includes planet-vicinity beams (landed ship â†” planet facility); same-mission gate covers.
 - Count increments only after successful beam (NoteIonizationBeam); per-player save fields.
 - Verify: EventRules.VerifyAtmosphericIonization.
 Files: Game/EventRules.cs, Game/DetailStatusRules.cs, Game/EffectRegistry.cs, Services/GameSave.cs, TableWindow.xaml.cs, artifacts/CARD_TRACKER.md, artifacts/HANDOFF.md.
@@ -138,22 +172,22 @@ Exe: StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe
 
 ## Tip detail (Data, Josef, 2026-09-18) - Temporal Causality Loop (Glossary-treu)
 Captain/Pepsch Implement-Go. Lock: Glossary-true (NOT Seeds-only). Standing Practice rule cites folded in.
-- Decide (`DilemmaRules.Loop`): SCIENCE + CUNNING>35 → Overcome +5; else EffectAndEnd + EndTurn + StopTeam (no +5).
+- Decide (`DilemmaRules.Loop`): SCIENCE + CUNNING>35 â†’ Overcome +5; else EffectAndEnd + EndTurn + StopTeam (no +5).
 - Apply (TW): `_attemptDiscards` log (order+origin+seedOrderHint) from attempt start; holes closed (RemoveEquipmentFromHost, DestroyShipOrFacility, SeniorStaff, IpgNullify, DevilNullify, OvercomeSeed Zone-truth A via discard).
 - Fail restore: seeds face-down Encounter-Order (`ReseedInsertIndex`); non-seeds re-play host / legal report / stay discarded; TCL not re-seeded; Attach*/WallFailed untouched.
 - EndTurn: `_skipNormalEndOfTurn` skips normal EOT (Compendium 8 / _rb69).
-- Verify: `_VerifyTemporal` → `DilemmaRules.VerifyTemporalCausalityLoop`.
+- Verify: `_VerifyTemporal` â†’ `DilemmaRules.VerifyTemporalCausalityLoop`.
 - Docs: CODE_PLACEMENT + ENGINE Standing Practice (rule cites); CARD_TRACKER partial until Pepsch green.
 Files: `Game/DilemmaRules.cs`, `TableWindow.xaml.cs`, `_VerifyTemporal/*`, `artifacts/CODE_PLACEMENT.md`, `artifacts/ENGINE.md`, `artifacts/CARD_TRACKER.md`, `artifacts/HANDOFF.md`.
 Exe: StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe
 
 ## Tip detail (Data, Josef, 2026-09-18) - Foundation first-listed skill (Classification skip)
-Captain Foundation-Fix-Go / Spock Rules-OK: first-listed skill ≠ classification box.
-- Root cause: `FirstListedSkill` treated Lackey leading class token in `text` as first skill (Data OFFICER→wrong).
-- Fix shared parse: skip leading `Card.Class` echo(s); next skill (multi-word/xN) = first-listed. Assimilation: Class mismatch → former class token is first-listed.
+Captain Foundation-Fix-Go / Spock Rules-OK: first-listed skill â‰  classification box.
+- Root cause: `FirstListedSkill` treated Lackey leading class token in `text` as first skill (Data OFFICERâ†’wrong).
+- Fix shared parse: skip leading `Card.Class` echo(s); next skill (multi-word/xN) = first-listed. Assimilation: Class mismatch â†’ former class token is first-listed.
 - Apply: strip that skill (multipliers together); restore printed classification if same-named (Bashir MEDICAL x2). Second skill does not slide up.
 - ALL first-listed consumers already use `MissionRules.FirstListedSkill` / `ApplyFirstListedSkillLoss` (Tsiolkovsky Apply+Summary).
-- Verify: Data→ENGINEER gone / OFFICER stays; Seskal SCIENCE; Bashir MEDICAL class remains; Sci Physics; cure 3 MEDICAL; not-cumulative.
+- Verify: Dataâ†’ENGINEER gone / OFFICER stays; Seskal SCIENCE; Bashir MEDICAL class remains; Sci Physics; cure 3 MEDICAL; not-cumulative.
 - KEEP ship Events Positive-only from 948cf0f (untouched).
 Files: `Game/MissionRules.cs`, `Game/ModifierRules.cs`, `Game/DilemmaRules.cs`. Not pushed.
 Exe: StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe
@@ -161,7 +195,7 @@ Exe: StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe
 ## Tip detail (Data, Josef, 2026-09-18) - Tsiolkovsky Infection Apply + Summary + Events UX
 Captain Fix-Go / Spock: AttachContinue + Cure 3 MEDICAL + no StopTeam already OK.
 - Bug Summary: `FormatHostEffectSummary` showed attributes -3 (wrong).
-- Apply-Gap: `DisabledSkillsOnHost` only TwoDim Empathy — no first-listed strip for Tsiolkovsky.
+- Apply-Gap: `DisabledSkillsOnHost` only TwoDim Empathy â€” no first-listed strip for Tsiolkovsky.
 - Fix Apply: `MissionRules.FirstListedSkill` + `ModifierRules.ApplyFirstListedSkillLoss` (not cumulative); TW `HostHasTsiolkovsky` / `LoseFirstListedOnHost` wired into Resolve/Summarize/CanSolve/Ctx.
 - Fix Summary: host effect = personnel lose first-listed skill (cure: 3 MEDICAL).
 - VerifyTsiolkovskyInfection: apply + summary + not-cumulative OK.
@@ -198,7 +232,7 @@ Pepsch meinte VERTIKALE Linie, nicht horizontal. 4a61fa1 (X-Stagger, Y-Baseline)
 
 ### Strang A -- Premiere-Dilemmas (ACTIVE, Pause)
 Pause bei **#26 Q** bis Captain Go. REM Fatigue bleibt parked.
-Next unknown: Q, Radioactive Garbage Scow, Rebel Encounter, (REM Fatigue skip), Sarjenka, Shaka (TCL tip landed — Pepsch smoke). Reminder: Tsiolkovsky/Two-Dim/Wind Dancer already green.
+Next unknown: Q, Radioactive Garbage Scow, Rebel Encounter, (REM Fatigue skip), Sarjenka, Shaka (TCL tip landed â€” Pepsch smoke). Reminder: Tsiolkovsky/Two-Dim/Wind Dancer already green.
 Done prior: **Tarellian Plague Ship** Pepsch green; **Tsiolkovsky** Foundation tip; **Temporal Causality Loop** Data Implement-Go (partial, tip e88860e).
 
 ### Strang B -- Welle 2 Extract (artifacts/EXTRACT_REST.md)
@@ -218,7 +252,7 @@ Root: 4a61fa1 X-cascade war falsch (Pepsch misspoke "horizontal").
 Fix:
 - `DockSlotOffsetY(slot)` wieder: Y-Stufen; `DockSlotOffsetX` = 0 (mission-centered)
 - Relayout / Relocate / Snap-Preview / RelayoutAll: Top = missionTop + DockSlotOffsetY(i); Left = missionLeft
-- Column-Tolerance 45; Z steigt mit Slot; PinÃƒÂ¢Ã‹â€ Ã‚ÂªPixel Membership; CountDockablesForOwner
+- Column-Tolerance 45; Z steigt mit Slot; PinÃƒÆ’Ã‚Â¢Ãƒâ€¹Ã¢â‚¬Â Ãƒâ€šÃ‚ÂªPixel Membership; CountDockablesForOwner
 - KEEP Load-Pfad 8c88b2d/056f6b0: X-Pin, Relayout after settle, Top nie Save-Y+offset, Pins clear, SpacelineYDefault
 File: StarTrekCCG/TableWindow.xaml.cs. Not pushed.
 Exe: StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe

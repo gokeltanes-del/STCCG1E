@@ -123,6 +123,26 @@ public static class EventRules
     public static bool IsPatternEnhancers(Card? c) => NameIs(c, "Pattern Enhancers");
     public static bool IsGenetronicReplicator(Card? c) => NameIs(c, "Genetronic Replicator");
     public static bool IsLoreReturns(Card? c) => NameIs(c, "Lore Returns");
+    public static bool IsLoresFingernail(Card? c) => NameIs(c, "Lore's Fingernail");
+
+    /// <summary>
+    /// Glossary: Lore's Fingernail — while in play, ambient for GetAffiliations.
+    /// TW refreshes via RefreshTableBuffs / play / nullify.
+    /// </summary>
+    public static bool FingernailInPlay { get; set; }
+
+    /// <summary>
+    /// Glossary: Lore's Fingernail — inorganic (not [Holo]) become Non while in play.
+    /// Classic: Soong-type + Exocomps; [Holo] excepted. Detect via IsInorganic + !IsHologram.
+    /// </summary>
+    public static bool FingernailMakesNon(Card? c) =>
+        FingernailInPlay
+        && c != null
+        && ModifierRules.IsPersonnelCard(c)
+        && DilemmaRules.IsInorganic(c)
+        && !CardIcons.IsHologram(c);
+
+    public static void SetFingernailInPlay(bool on) => FingernailInPlay = on;
     public static bool IsTravelerTranscendence(Card? c) => NameIs(c, "The Traveler: Transcendence");
     public static bool IsNeuralServo(Card? c) => NameIs(c, "Neural Servo Device");
     /// <summary>Prefer ArtifactRules for ownership; aliases keep Event table scans compiling.</summary>
@@ -373,11 +393,13 @@ public static class EventRules
                 Persist = Persist.Table,
                 Message = "You may move ships between opposite ends of a spaceline as if those locations were adjacent."
             },
+            // Glossary: Lore's Fingernail
             "Lore's Fingernail" => new PlayResult
             {
                 Place = Place.Table,
                 Persist = Persist.Fingernail,
-                Message = "All inorganics (except holograms) become Non-Aligned."
+                Message = "Glossary: Lore's Fingernail — while in play, all inorganics (except [Holo]) "
+                          + "become Non-Aligned (effective affiliation Non only; dual toggle off)."
             },
             "Neural Servo Device" => new PlayResult
             {
@@ -668,6 +690,8 @@ public static class EventRules
             Persist.Probe => "both hands revealed (hand cards not nullifiable until played; Battle Bridge unaffected)",
             // Glossary: hologram / Holo-Projectors
             Persist.HoloProjectors => "[Holo] may exist here (act/deact); nullify erases dependents of this copy only",
+            // Glossary: Lore's Fingernail
+            Persist.Fingernail => "inorganics (except [Holo]) are Non-Aligned while in play; leave/nullify restores",
             _ => ""
         };
 
@@ -1059,6 +1083,122 @@ public static class EventRules
         if (!IsMobileHoloEmitter(mhe)) return "Holo-Projectors: IsMobileHoloEmitter helper";
         if (!HasMobileHoloEmitterPresent(new[] { holo, mhe }))
             return "Holo-Projectors: HasMobileHoloEmitterPresent";
+        return null;
+    }
+
+    /// <summary>Glossary: Lore's Fingernail — Standing Practice verify (Premiere smoke).</summary>
+    public static string? VerifyLoresFingernail()
+    {
+        var nail = new Card { Name = "Lore's Fingernail", Type = "Event" };
+        var r = ResolvePlay(nail);
+        if (!r.Ok) return "Fingernail: ResolvePlay failed";
+        if (r.Place != Place.Table) return "Fingernail: must play on table";
+        if (r.Persist != Persist.Fingernail) return "Fingernail: Persist.Fingernail expected";
+        if (!IsLoresFingernail(nail)) return "Fingernail: IsLoresFingernail helper";
+        if (r.Message.IndexOf("Glossary: Lore's Fingernail", StringComparison.OrdinalIgnoreCase) < 0)
+            return "Fingernail: Glossary rule cite missing";
+
+        string summary = FormatHostEffectSummary(Persist.Fingernail, nail, null, 0);
+        if (summary.IndexOf("Non", StringComparison.OrdinalIgnoreCase) < 0
+            && summary.IndexOf("inorganic", StringComparison.OrdinalIgnoreCase) < 0)
+            return "Fingernail: FormatHostEffectSummary must mention Non/inorganic";
+
+        static Card Pers(string name, string aff, string chars, string icons = "") => new()
+        {
+            Name = name,
+            Type = "Personnel",
+            Affiliation = aff,
+            Characteristics = chars,
+            Icons = icons,
+            Class = "OFFICER",
+            Text = "OFFICER",
+            IntegrityOrRange = "5",
+            CunningOrWeapons = "5",
+            StrengthOrShields = "5"
+        };
+
+        var data = Pers("Data", "Federation", "Android; Inorganic; Male; Soong-type android;");
+        var exo = Pers("Exocomp", "Federation", "Exocomp; Inorganic;");
+        var ktesh = Pers("K'Tesh", "Klingon", "Hologram; Inorganic; Male;", "[Holo]");
+        var jera = Pers("Jera", "Romulan", "Hologram; Female; Inorganic;", "[Holo]");
+        var tomek = Pers("Tomek", "Romulan", "Hologram; Inorganic; Male;", "[Holo]");
+        var einstein = Pers("Albert Einstein", "Federation", "Hologram; Inorganic; Male;", "[Holo]");
+        var brahms = Pers("Dr. Leah Brahms", "Federation", "Hologram; Female; Inorganic;", "[Holo]");
+        var feklhr = Pers("Fek'lhr", "Klingon", "Hologram; Inorganic; Male;", "[Holo]");
+        var picard = Pers("Jean-Luc Picard", "Federation", "Human; Male;");
+
+        if (!DilemmaRules.IsInorganic(data)) return "Fingernail: Data must be IsInorganic";
+        if (!DilemmaRules.IsInorganic(exo)) return "Fingernail: Exocomp must be IsInorganic";
+        if (!DilemmaRules.IsInorganic(ktesh)) return "Fingernail: K'Tesh must be IsInorganic (char)";
+        if (DilemmaRules.IsInorganic(picard)) return "Fingernail: Picard must NOT be IsInorganic";
+        if (!CardIcons.IsHologram(einstein)) return "Fingernail: Einstein must be IsHologram";
+        if (CardIcons.IsHologram(data)) return "Fingernail: Data must NOT be IsHologram";
+
+        SetFingernailInPlay(false);
+        if (FingernailMakesNon(data)) return "Fingernail: no effect when not in play";
+        var affOff = ReportingRules.GetAffiliations(data);
+        if (!affOff.Contains("FED")) return "Fingernail: Data remains FED when nail not in play";
+
+        SetFingernailInPlay(true);
+        try
+        {
+            if (!FingernailMakesNon(data)) return "Fingernail: Data must become Non";
+            if (!FingernailMakesNon(exo)) return "Fingernail: Exocomp must become Non";
+            if (FingernailMakesNon(ktesh)) return "Fingernail: K'Tesh [Holo] must NOT become Non";
+            if (FingernailMakesNon(jera)) return "Fingernail: Jera [Holo] must NOT become Non";
+            if (FingernailMakesNon(tomek)) return "Fingernail: Tomek [Holo] must NOT become Non";
+            if (FingernailMakesNon(einstein)) return "Fingernail: Einstein [Holo] must NOT become Non";
+            if (FingernailMakesNon(brahms)) return "Fingernail: Brahms [Holo] must NOT become Non";
+            if (FingernailMakesNon(feklhr)) return "Fingernail: Fek'lhr [Holo] must NOT become Non";
+            if (FingernailMakesNon(picard)) return "Fingernail: Picard organic must NOT become Non";
+
+            var affData = ReportingRules.GetAffiliations(data);
+            if (affData.Count != 1 || !affData.Contains("NA"))
+                return $"Fingernail: Data effective aff must be NA-only, got [{string.Join(",", affData)}]";
+            var affK = ReportingRules.GetAffiliations(ktesh);
+            if (!affK.Contains("KLI"))
+                return $"Fingernail: K'Tesh [Holo] keeps Klingon, got [{string.Join(",", affK)}]";
+
+            var dual = new Card
+            {
+                Name = "Major Rakal",
+                Type = "Personnel",
+                Affiliation = "Federation/Romulan",
+                Characteristics = "Android; Inorganic; Female;",
+                Text = "Federation: OFFICER Diplomacy  Romulan: VIP Treachery",
+                CurrentAffiliation = "FED"
+            };
+            if (!FingernailMakesNon(dual)) return "Fingernail: dual inorganic must be affected";
+            if (DualAffiliationRules.TrySetMode(dual, "ROM"))
+                return "Fingernail: dual toggle must be off while affected";
+            if (DualAffiliationRules.ProfileFor(dual) != null)
+                return "Fingernail: ProfileFor must not be active as printed while affected";
+            var affDual = ReportingRules.GetAffiliations(dual);
+            if (!affDual.Contains("NA") || affDual.Count != 1)
+                return $"Fingernail: dual effective NA-only, got [{string.Join(",", affDual)}]";
+        }
+        finally
+        {
+            SetFingernailInPlay(false);
+        }
+
+        var restore = Pers("Data", "Federation", "Android; Inorganic; Male; Soong-type android;");
+        restore.CurrentAffiliation = "FED";
+        SetFingernailInPlay(true);
+        _ = ReportingRules.GetAffiliations(restore);
+        SetFingernailInPlay(false);
+        var affRestored = ReportingRules.GetAffiliations(restore);
+        if (!affRestored.Contains("FED"))
+            return $"Fingernail: after leave restore FED, got [{string.Join(",", affRestored)}]";
+
+        SetFingernailInPlay(true);
+        try
+        {
+            if (ReportingRules.GetAffiliations(data).Contains("FED"))
+                return "Fingernail: Data must not remain FED (battle limit lift)";
+        }
+        finally { SetFingernailInPlay(false); }
+
         return null;
     }
 

@@ -282,6 +282,7 @@ public sealed class BoardStore
             HandP2 = hands2,
             Board = board,
             HasGoddess = seed.HasGoddess,
+            HasFingernail = seed.HasFingernail,
             TentOpenP1 = seed.TentOpenP1,
             TentOpenP2 = seed.TentOpenP2,
             TentCountP1 = seed.TentCountP1,

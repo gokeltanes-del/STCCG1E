@@ -32,6 +32,8 @@ public sealed class GameStateSeed
     public IReadOnlyList<Card> HandP2 { get; init; } = Array.Empty<Card>();
     public IReadOnlyList<BoardPiece> UiBoard { get; init; } = Array.Empty<BoardPiece>();
     public bool HasGoddess { get; init; }
+    /// <summary>Glossary: Lore's Fingernail on table.</summary>
+    public bool HasFingernail { get; init; }
     public bool TentOpenP1 { get; init; }
     public bool TentOpenP2 { get; init; }
     public int TentCountP1 { get; init; }
@@ -85,6 +87,8 @@ public sealed class GameState
     public IReadOnlyList<BoardPiece> Board { get; init; } = Array.Empty<BoardPiece>();
 
     public bool HasGoddess { get; init; }
+    /// <summary>Glossary: Lore's Fingernail on table.</summary>
+    public bool HasFingernail { get; init; }
     public bool TentOpenP1 { get; init; }
     public bool TentOpenP2 { get; init; }
     public int TentCountP1 { get; init; }

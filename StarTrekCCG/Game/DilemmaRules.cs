@@ -575,11 +575,15 @@ public static class DilemmaRules
         (p.Characteristics ?? "").Contains("Female", StringComparison.OrdinalIgnoreCase);
     public static bool IsMale(Card p) =>
         (p.Characteristics ?? "").Contains("Male", StringComparison.OrdinalIgnoreCase);
+    /// <summary>
+    /// Glossary inorganic: Characteristics contain Inorganic and/or Android.
+    /// Premiere holograms also print Inorganic; [Holo] is a separate icon gate
+    /// (e.g. Lore's Fingernail excepts CardIcons.IsHologram).
+    /// </summary>
     public static bool IsInorganic(Card p)
     {
         string ch = (p.Characteristics ?? "") + " " + (p.Type ?? "");
         return ch.Contains("Inorganic", StringComparison.OrdinalIgnoreCase)
-               || ch.Contains("Hologram", StringComparison.OrdinalIgnoreCase)
                || ch.Contains("Android", StringComparison.OrdinalIgnoreCase);
     }
     public static bool IsAndroid(Card p) =>
@@ -1240,7 +1244,7 @@ public static class DilemmaRules
     //   Pass -> Overcome +5 Bonus-Area + Continue; dilemma discard.
     //   Fail -> Opp chooses 1 AT Kill (except inorganic) + AT stopped (EffectAndEnd+StopTeam);
     //           dilemma always discarded.
-    //   DNA-related: Android / Exocomp (Inorganic) / Hologram not choosable (IsInorganic).
+    //   DNA-related: Android / Exocomp / Inorganic (incl. [Holo] that print Inorganic) not choosable (IsInorganic).
     //   PARK: opponent-choice UI filter thin (engine pool already excludes inorganic).
 
     private static Result Microvirus(Ctx ctx) =>
@@ -1279,7 +1283,7 @@ public static class DilemmaRules
         var both = P("Both", "MEDICAL", "MEDICAL SECURITY");
         var civ = P("Civilian", "CIVILIAN", "CIVILIAN");
         var android = P("Data", "OFFICER", "OFFICER", "Android; Male;");
-        var holo = P("Holodoc", "MEDICAL", "MEDICAL", "Hologram; Male;");
+        var holo = P("Holodoc", "MEDICAL", "MEDICAL", "Hologram; Inorganic; Male;");
 
         // Pass: MEDICAL + SECURITY (two personnel) -> Overcome +5, no stop, discard
         var passSplit = Resolve(Make(null, med, sec, civ));

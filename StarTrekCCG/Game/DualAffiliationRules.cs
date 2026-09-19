@@ -69,6 +69,8 @@ public static class DualAffiliationRules
 
     public static ModeProfile? ProfileFor(Card card, string? mode = null)
     {
+        // Glossary: Lore's Fingernail — dual ProfileFor not active as printed while Non.
+        if (EventRules.FingernailMakesNon(card)) return null;
         mode ??= CurrentMode(card);
         if (mode == null) return null;
         var all = ParseModeProfiles(card);
@@ -163,6 +165,8 @@ public static class DualAffiliationRules
 
     public static bool TrySetMode(Card card, string mode)
     {
+        // Glossary: Lore's Fingernail — dual toggle off while inorganic becomes Non.
+        if (EventRules.FingernailMakesNon(card)) return false;
         string n = ReportingRules.NormalizeAffil(mode);
         if (!PrintedModes(card).Contains(n)) return false;
         card.CurrentAffiliation = n;

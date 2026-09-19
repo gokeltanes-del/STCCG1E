@@ -1187,6 +1187,8 @@ public partial class TableWindow : Window
             HandP2 = _oppHandCards.ToList(),
             UiBoard = board,
             HasGoddess = HasTableCard(EventRules.IsGoddess),
+            HasFingernail = HasTableCard(EventRules.IsLoresFingernail)
+                || _attachedEvents.Any(e => e.Kind == EventRules.Persist.Fingernail),
             TentOpenP1 = IsSideDeckUnlocked("Q's Tent", opponent: false),
             TentOpenP2 = IsSideDeckUnlocked("Q's Tent", opponent: true),
             TentCountP1 = _qsTentCards.Count,
@@ -5736,6 +5738,7 @@ public partial class TableWindow : Window
         if (ArtifactRules.IsHorgahn(card))
             SetHorgahnFlag(owner, true);
         RebuildTablePermanentsPanel();
+        RefreshTableBuffs();
 
         if (TreatyRules.IsTreatyCard(card) || TreatyRules.ParseTreaty(card) != null)
         {
@@ -6665,6 +6668,12 @@ public partial class TableWindow : Window
         if (_attemptMission != null)
         {
             ShowPlayError("Cannot change affiliation during a mission attempt.");
+            return;
+        }
+        // Glossary: Lore's Fingernail — dual toggle off while inorganic is Non.
+        if (EventRules.FingernailMakesNon(card))
+        {
+            ShowPlayError($"{card.Name} is Non-Aligned while Lore's Fingernail is in play (dual toggle off).");
             return;
         }
         string? prev = card.CurrentAffiliation;
@@ -16072,6 +16081,11 @@ public partial class TableWindow : Window
         }
         ModifierRules.TableBuffs.LowerDecksPlayer =
             _attachedEvents.FirstOrDefault(e => e.Kind == EventRules.Persist.LowerDecks)?.Owner ?? 0;
+
+        // Glossary: Lore's Fingernail — ambient for GetAffiliations / dual toggle.
+        EventRules.SetFingernailInPlay(
+            HasTableCard(EventRules.IsLoresFingernail)
+            || _attachedEvents.Any(e => e.Kind == EventRules.Persist.Fingernail));
     }
 
     private void ApplyYellowAlert(int controller, Card ev)

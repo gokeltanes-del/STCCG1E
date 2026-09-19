@@ -100,6 +100,10 @@ public static class ReportingRules
     /// <summary>Affiliation aus Feld oder Kartenname (z.B. „Federation Outpost“).</summary>
     public static HashSet<string> GetAffiliations(Card card)
     {
+        // Glossary: Lore's Fingernail — effective affiliation Non only (dual mode parked).
+        if (EventRules.FingernailMakesNon(card))
+            return new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "NA" };
+
         if (DualAffiliationRules.IsMulti(card))
             return DualAffiliationRules.ActiveAffiliations(card);
         // Commandeer / Lore Returns / Frame: live mode overrides printed affiliation.
