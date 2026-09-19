@@ -98,6 +98,22 @@ public static class IconCatalog
 
         var staff = new HashSet<string>(StaffTokens(card), StringComparer.OrdinalIgnoreCase);
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        //         // Live affiliation badges when effective != printed (e.g. [Non] under Lore's Fingernail).
+        var liveAff = ReportingRules.GetAffiliations(card);
+        var printedAff = ReportingRules.ParseAffiliationTokens(card.Affiliation);
+        bool liveDiffers = liveAff.Count != printedAff.Count
+            || liveAff.Any(a => !printedAff.Contains(a));
+        if (liveDiffers || EventRules.FingernailMakesNon(card)
+            || !string.IsNullOrWhiteSpace(card.CurrentAffiliation))
+        {
+            foreach (var a in liveAff)
+            {
+                string br = ReportingRules.BracketAffil(a);
+                string tok = br.Trim('[', ']');
+                if (tok.Length == 0 || !seen.Add(tok)) continue;
+                AddGlyph(row, tok, size);
+            }
+        }
         foreach (var raw in BracketTokens(card.Icons))
         {
             string tok = Sanitize(raw);

@@ -2,17 +2,37 @@
 
 # STCCG 1E - Handoff
 
-Last updated: 2026-09-19 (Data - Lore's Fingernail)
+Last updated: 2026-09-19 (Data - Lore's Fingernail UI Fix-Go)
 Repo: https://github.com/gokeltanes-del/STCCG1E
 Local VS: C:\\Dev\\StarTrekCCG\\
 **Ein Branch: master.** GrokTest nicht nutzen.
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test.
 
 ## Current tip
-Local Josef tip **980317a** - Lore's Fingernail (PR 81 R). Nicht gepusht. (Prior tip Holo-Projectors 3c50792 / tracker a8e9f45.)
+Local Josef tip **TIPHASH** - Lore's Fingernail UI (Pepsch Fix-Go). Nicht gepusht. (Prior engine tip 980317a.)
 **Pepsch EXE (Default Debug):**
 `C:\Dev\StarTrekCCG\StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe`
-Nicht `_build_fingernail*` / Release / alte Side-Builds.
+Nicht `_build_lf_ui*` / Release / alte Side-Builds.
+
+## Tip detail (Data, Josef, 2026-09-19) - Lore's Fingernail UI (Pepsch Fix-Go)
+Engine live-affil (980317a) OK for battle; Surface/Detail still showed printed Federation.
+### Root
+DetailType / RevealSubtitle / Icon row used printed `card.Affiliation` - not `GetAffiliations` live mode. No status naming Lore's Fingernail.
+### Fix
+- `ReportingRules.FormatLiveAffiliation` / `FormatAffiliationTypeSuffix` / `FormatLiveAffiliationBracket` / `BracketAffil` from GetAffiliations.
+- DetailType + RevealSubtitle + IconCatalog badge: live Non-Aligned / [Non] under Fingernail.
+- DetailStatus: `Lore's Fingernail: Non-Aligned` (Debuff); ToneForEvent.Fingernail Debuff.
+- Dual-affil action badge shows live Non + rule name; RefreshTableBuffs refreshes open Detail.
+- Verify harness asserts FormatLiveAffiliation / Bracket / FormatFingernailLine.
+### Pepsch smoke
+1. Play Lore's Fingernail -> select Data: Detail shows Non-Aligned [Non]; status `Lore's Fingernail: Non-Aligned`; icon badge [Non].
+2. Nullify Fingernail -> Data Detail back to Federation; status/badge gone.
+3. Battle path still Non (engine unchanged).
+### Bewusst nicht
+No push; no house-arrest deep UI; no DeckBuilder printed filter change; no new PNG affil icons.
+### Files
+Game/ReportingRules.cs, Game/DetailStatusRules.cs, Game/IconCatalog.cs, Game/EventRules.cs (verify), TableWindow.xaml.cs, artifacts/*
+Exe: StarTrekCCG\\bin\\Debug\\net8.0-windows\\StarTrekCCG.exe (side-build _build_lf_ui green)
 
 ## Tip detail (Data, Josef, 2026-09-19) - Lore's Fingernail (PR 81 R)
 Captain Go / Spock Soll-OK (fold all). Standing Practice Glossary cites. CODE_PLACEMENT: EventRules + ReportingRules/DualAffiliation (+ TW ambient).

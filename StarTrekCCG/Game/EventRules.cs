@@ -1138,6 +1138,10 @@ public static class EventRules
         if (FingernailMakesNon(data)) return "Fingernail: no effect when not in play";
         var affOff = ReportingRules.GetAffiliations(data);
         if (!affOff.Contains("FED")) return "Fingernail: Data remains FED when nail not in play";
+        string liveOff = ReportingRules.FormatLiveAffiliation(data);
+        if (liveOff.IndexOf("Federation", StringComparison.OrdinalIgnoreCase) < 0)
+            return $"Fingernail: FormatLiveAffiliation off expected Federation, got {liveOff}";
+
 
         SetFingernailInPlay(true);
         try
@@ -1155,6 +1159,14 @@ public static class EventRules
             var affData = ReportingRules.GetAffiliations(data);
             if (affData.Count != 1 || !affData.Contains("NA"))
                 return $"Fingernail: Data effective aff must be NA-only, got [{string.Join(",", affData)}]";
+            string liveOn = ReportingRules.FormatLiveAffiliation(data);
+            if (!string.Equals(liveOn, "Non-Aligned", StringComparison.OrdinalIgnoreCase))
+                return $"Fingernail: FormatLiveAffiliation on expected Non-Aligned, got {liveOn}";
+            if (ReportingRules.FormatLiveAffiliationBracket(data) != "[Non]")
+                return $"Fingernail: Bracket expected [Non], got {ReportingRules.FormatLiveAffiliationBracket(data)}";
+            if (DetailStatusRules.FormatFingernailLine().IndexOf("Lore's Fingernail", StringComparison.OrdinalIgnoreCase) < 0)
+                return "Fingernail: FormatFingernailLine must name Lore's Fingernail";
+
             var affK = ReportingRules.GetAffiliations(ktesh);
             if (!affK.Contains("KLI"))
                 return $"Fingernail: K'Tesh [Holo] keeps Klingon, got [{string.Join(",", affK)}]";

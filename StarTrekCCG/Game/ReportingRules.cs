@@ -117,6 +117,52 @@ public static class ReportingRules
         return ParseAffiliationTokens(card.Name);
     }
 
+    /// <summary>
+    /// Live affiliation label for UI (Detail / Reveal / Badge).
+    /// Uses GetAffiliations (Fingernail / CurrentAffiliation / dual mode), not printed only.
+    /// </summary>
+    public static string FormatLiveAffiliation(Card card)
+    {
+        var set = GetAffiliations(card);
+        if (set.Count == 0) return "";
+        return string.Join("/", set
+            .Select(DualAffiliationRules.DisplayName)
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Distinct(StringComparer.OrdinalIgnoreCase));
+    }
+
+    /// <summary>Type-line suffix e.g. "  ·  Non-Aligned" (empty when no affiliation).</summary>
+    public static string FormatAffiliationTypeSuffix(Card card, string sep = "  ·  ")
+    {
+        string live = FormatLiveAffiliation(card);
+        return string.IsNullOrEmpty(live) ? "" : sep + live;
+    }
+
+    /// <summary>Short bracket form e.g. [Non] / [Fed] from live GetAffiliations.</summary>
+    public static string FormatLiveAffiliationBracket(Card card)
+    {
+        var set = GetAffiliations(card);
+        if (set.Count == 0) return "";
+        return string.Join("/", set.Select(BracketAffil));
+    }
+
+    public static string BracketAffil(string token) => NormalizeAffil(token) switch
+    {
+        "FED" => "[Fed]",
+        "KLI" => "[Kli]",
+        "ROM" => "[Rom]",
+        "BAJ" => "[Baj]",
+        "CARD" => "[Car]",
+        "DOM" => "[Dom]",
+        "FER" => "[Fer]",
+        "BORG" => "[Bor]",
+        "NA" => "[Non]",
+        "HIR" => "[Hir]",
+        "KAZ" => "[Kaz]",
+        "VID" => "[Vid]",
+        _ => "[" + token + "]"
+    };
+
     public static string NormalizeAffil(string t)
     {
         t = t.ToUpperInvariant();

@@ -1747,8 +1747,15 @@ public partial class TableWindow : Window
 
         RevealTitle.Text = title;
         RevealSubtitle.Text = subtitle ?? (card != null
-            ? $"{card.Type}" + (string.IsNullOrEmpty(card.Affiliation) ? "" : $"  ·  {card.Affiliation}")
-              + (DualAffiliationRules.CurrentMode(card) is string mode ? $"  [{DualAffiliationRules.DisplayName(mode)}]" : "")
+            ? $"{card.Type}" + ReportingRules.FormatAffiliationTypeSuffix(card, "  ·  ")
+              + (EventRules.FingernailMakesNon(card)
+                  ? $"  {ReportingRules.FormatLiveAffiliationBracket(card)}"
+                  : DualAffiliationRules.CurrentMode(card) is string mode
+                      ? $"  [{DualAffiliationRules.DisplayName(mode)}]"
+                      : (ReportingRules.GetAffiliations(card).Count > 0
+                          && !string.Equals(ReportingRules.FormatLiveAffiliation(card), card.Affiliation,
+                              StringComparison.OrdinalIgnoreCase)
+                          ? $"  {ReportingRules.FormatLiveAffiliationBracket(card)}" : ""))
             : "");
         RevealBody.Text = body;
         if (RevealAudience != null) RevealAudience.Text = "";
@@ -12359,10 +12366,20 @@ public partial class TableWindow : Window
         {
             if (isMultiPersonnel)
             {
-                var next = NextAffiliationMode(card);
-                AddBtn(
-                    $"Affiliation: {DualAffiliationRules.DisplayName(DualAffiliationRules.CurrentMode(card) ?? "?")} → {DualAffiliationRules.DisplayName(next)}",
-                    (_, _) => TrySwitchAffiliation(cardBorder, card, next));
+                // Glossary: Lore's Fingernail - live Non; dual toggle off.
+                if (EventRules.FingernailMakesNon(card))
+                {
+                    AddBtn(
+                        $"Affiliation: {ReportingRules.FormatLiveAffiliation(card)} {ReportingRules.FormatLiveAffiliationBracket(card)} (Lore's Fingernail)",
+                        (_, _) => TrySwitchAffiliation(cardBorder, card, "NA"));
+                }
+                else
+                {
+                    var next = NextAffiliationMode(card);
+                    AddBtn(
+                        $"Affiliation: {DualAffiliationRules.DisplayName(DualAffiliationRules.CurrentMode(card) ?? "?")} → {DualAffiliationRules.DisplayName(next)}",
+                        (_, _) => TrySwitchAffiliation(cardBorder, card, next));
+                }
             }
             if (isShip)
             {
@@ -12421,9 +12438,17 @@ public partial class TableWindow : Window
                     }
                     if (DualAffiliationRules.IsMulti(card))
                     {
-                        var next = NextAffiliationMode(card);
-                        AddBtn($"Affiliation → {DualAffiliationRules.DisplayName(next)}", (_, _) =>
-                            TrySwitchAffiliation(cardBorder, card, next));
+                        if (EventRules.FingernailMakesNon(card))
+                        {
+                            AddBtn($"Affiliation: {ReportingRules.FormatLiveAffiliation(card)} {ReportingRules.FormatLiveAffiliationBracket(card)} (Lore's Fingernail)",
+                                (_, _) => TrySwitchAffiliation(cardBorder, card, "NA"));
+                        }
+                        else
+                        {
+                            var next = NextAffiliationMode(card);
+                            AddBtn($"Affiliation → {DualAffiliationRules.DisplayName(next)}", (_, _) =>
+                                TrySwitchAffiliation(cardBorder, card, next));
+                        }
                     }
                     foreach (var sd in CrewWithSpecialDownload(cardBorder))
                     {
@@ -16086,6 +16111,19 @@ public partial class TableWindow : Window
         EventRules.SetFingernailInPlay(
             HasTableCard(EventRules.IsLoresFingernail)
             || _attachedEvents.Any(e => e.Kind == EventRules.Persist.Fingernail));
+
+        // Live affiliation UI: Detail / status must track ambient Fingernail.
+        if (_detailCard != null)
+        {
+            string affilSuffix = ReportingRules.FormatAffiliationTypeSuffix(_detailCard, "  •  ");
+            string affilBracket = "";
+            if (EventRules.FingernailMakesNon(_detailCard)
+                || (!string.IsNullOrWhiteSpace(_detailCard.CurrentAffiliation)
+                    && !DualAffiliationRules.IsMulti(_detailCard)))
+                affilBracket = "  " + ReportingRules.FormatLiveAffiliationBracket(_detailCard);
+            DetailType.Text = $"{_detailCard.Type}" + affilSuffix + affilBracket;
+            RefreshDetailStatusBlock(_detailCard);
+        }
     }
 
     private void ApplyYellowAlert(int controller, Card ev)
@@ -21648,7 +21686,11 @@ public partial class TableWindow : Window
         if (stoppedBorder != null && IsBorderStopped(stoppedBorder))
             AddDetailStatusLine("Stopped", DetailStatusTone.Debuff);
 
-        // Personnel: In stasis / quarantine line
+                // Glossary: Lore's Fingernail — live Non; Standing Practice name which rule.
+        if (EventRules.FingernailMakesNon(card))
+            AddDetailStatusLine(DetailStatusRules.FormatFingernailLine(), DetailStatusTone.Debuff);
+
+// Personnel: In stasis / quarantine line
         if (CardKinds.IsPersonnel(card))
         {
             var disDil = FindDisableDilemmaForCard(card);
@@ -23482,7 +23524,17 @@ public partial class TableWindow : Window
         _detailCard = card;
         ClearDetailStatusBlock();
         DetailName.Text = card.Name;
-        DetailType.Text = $"{card.Type}" + (string.IsNullOrEmpty(card.Affiliation) ? "" : $"  •  {card.Affiliation}");
+        // Live affiliation (GetAffiliations / Fingernail / CurrentAffiliation) — not printed-only.
+        string affilSuffix = ReportingRules.FormatAffiliationTypeSuffix(card, "  •  ");
+        string affilBracket = "";
+        if (EventRules.FingernailMakesNon(card)
+            || (!string.IsNullOrWhiteSpace(card.CurrentAffiliation)
+                && !DualAffiliationRules.IsMulti(card))
+            || (affilSuffix.Length > 0
+                && !string.Equals(ReportingRules.FormatLiveAffiliation(card), (card.Affiliation ?? "").Trim(),
+                    StringComparison.OrdinalIgnoreCase)))
+            affilBracket = "  " + ReportingRules.FormatLiveAffiliationBracket(card);
+        DetailType.Text = $"{card.Type}" + affilSuffix + affilBracket;
         DetailText.Text = string.IsNullOrWhiteSpace(card.Text) ? "" : card.Text;
 
         string type = (card.Type ?? "").ToLowerInvariant();

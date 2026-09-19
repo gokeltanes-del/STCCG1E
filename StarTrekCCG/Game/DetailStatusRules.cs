@@ -48,6 +48,7 @@ public static class DetailStatusRules
                 or EventRules.Persist.IncomingMessage
                 or EventRules.Persist.Ionization
                 // Glossary: Distortion Field — beaming lock (not Interrupt Distortion of S/T Continuum)
+                or EventRules.Persist.Fingernail
                 or EventRules.Persist.Distortion
                 => DetailStatusTone.Debuff,
             _ => DetailStatusTone.Info
@@ -103,6 +104,10 @@ public static class DetailStatusRules
 
     public static string FormatHeldQuarantineSectionLine(string dilemmaName, string personnelNames) =>
         $"Quarantine: {dilemmaName} — {personnelNames}";
+
+    /// <summary>Glossary: Lore's Fingernail — Standing Practice: name which rule.</summary>
+    public static string FormatFingernailLine() =>
+        "Lore's Fingernail: Non-Aligned";
 
     /// <summary>
     /// Away-Team detail groups: same labels = same group.
