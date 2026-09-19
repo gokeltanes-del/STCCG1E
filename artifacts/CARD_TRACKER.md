@@ -97,7 +97,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Card | Status | Notes | Source |
 | --- | --- | --- | --- |
 | Alien Abduction (10 U) | working | Pepsch green (Cure OR + Stasis Beam-Block; zentrales Cure-System 7.2.2.3 via 3 Leadership oder Mission Completed; Fix: kein Stoppen des Teams, nahtlose Fortsetzung bei Cure oder Nicht-Cure lt. 7.2.2.3/7.2.6). | Pepsch 2026-09-13 |
-| Alien Parasites (11 U) | partial | Neg-Control Fix2: no auto BeamBack before chooser. Away-only=planet in place; Ship-only=planet AT untouched; Dual=AT on chosen ship. tip Data pending. | Data Fix-Go 2026-09-19 |
+| Alien Parasites (11 U) | partial | Neg-Control Fix2 tip Data/79a7612: no BeamBack before chooser; Away-only=planet; Ship-only=AT untouched; Dual=chosen ship. Pending Pepsch green. | Data/79a7612 2026-09-19 |
 | Anaphasic Organism (12 C) | working | Pepsch green: Fail resigns=discard, not Kill. tips Data/`502d8e0` + Fix/`3532748`. | Pepsch 2026-09-15; Data/`3532748` |
 | Ancient Computer (13 R) | working | Pepsch green: Wall 2 Computer Skill OR 3 SCIENCE OR 3 ENGINEER; Fail Stop+unter Mission. tip Data/`bb551f1`. | Pepsch 2026-09-15; Data/`bb551f1` |
 | Archer (14 C) | working | Pepsch green bestÃ¤tigt: Auswertung Attribute / Opponent-Choice bei Gleichstand und Stop-Verhalten funktionieren einwandfrei. | Pepsch 2026-09-13 |
