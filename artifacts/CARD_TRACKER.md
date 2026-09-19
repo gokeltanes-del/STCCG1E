@@ -1,6 +1,6 @@
 # STCCG 1E â€” Card Expansion Tracker
 
-Last updated: 2026-09-18 (Jadzia — Holo-Projectors tip 3c50792 partial pending Pepsch smoke)
+Last updated: 2026-09-19 (Jadzia — seven Events working; Lore's Fingernail Data Go)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -155,22 +155,22 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Holo-Projectors (78 U) | partial | tip Data/`3c50792` (Josef, no push). Parked: captive/opp Holodeck, Door suite, battle safety, same-turn reactivate, full report/beam gates. Stays partial until Pepsch smoke — not working. | Data/`3c50792` 2026-09-18 |
 | Kivas Fajo: Collector (79 U) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Lore Returns (80 R) | working | Pepsch green. | Pepsch 2026-09-06 |
-| Lore's Fingernail (81 R) | unknown |  |  |
-| Masaka Transformations (82 U) | unknown |  |  |
-| Metaphasic Shields (83 U) | working | Pepsch green. | Pepsch 2026-09-06 |
+| Lore's Fingernail (81 R) | not-started | Data Go. Flip to partial when tip lands. Not working. | Captain Go Data 2026-09-19 |
+| Masaka Transformations (82 U) | working | Pepsch green. | Pepsch 2026-09-19 |
+| Metaphasic Shields (83 U) | working | Pepsch green (reconfirmed). | Pepsch 2026-09-19 |
 | Neural Servo Device (84 U) | working | Pepsch green; Side-Sync OK (Data/55d96ef). | Pepsch 2026-09-06 |
-| Nutational Shields (85 U) | working | Pepsch green. | Pepsch 2026-09-06 |
+| Nutational Shields (85 U) | working | Pepsch green (reconfirmed). | Pepsch 2026-09-19 |
 | Pattern Enhancers (86 C) | unknown |  |  |
-| Plasma Fire (87 C) | working | Pepsch green. | Pepsch 2026-09-06 |
+| Plasma Fire (87 C) | working | Pepsch green (reconfirmed). | Pepsch 2026-09-19 |
 | Q-Net (88 C) | unknown |  |  |
 | Raise the Stakes (89 U) | unknown |  |  |
 | Red Alert! (90 C) | working | Pepsch green. | Pepsch 2026-09-06 |
-| Res-Q (91 C) | unknown |  |  |
+| Res-Q (91 C) | working | Pepsch green. | Pepsch 2026-09-19 |
 | Spacedock (92 C) | working | Pepsch green. | Pepsch 2026-09-06 |
-| Static Warp Bubble (93 C) | working | Pepsch green. | Pepsch 2026-09-06 |
+| Static Warp Bubble (93 C) | working | Pepsch green (reconfirmed). | Pepsch 2026-09-19 |
 | Subspace Warp Rift (94 C) | unknown |  |  |
 | Supernova (95 R) | unknown |  |  |
-| Telepathic Alien Kidnappers (96 U) | unknown |  |  |
+| Telepathic Alien Kidnappers (96 U) | working | Pepsch green. | Pepsch 2026-09-19 |
 | Tetryon Field (97 C) | unknown |  |  |
 | The Traveler: Transcendence (98 U) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Treaty: Federation/Klingon (99 C) | unknown |  |  |
