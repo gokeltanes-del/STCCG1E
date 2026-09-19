@@ -1,6 +1,6 @@
 # STCCG 1E â€” Card Expansion Tracker
 
-Last updated: 2026-09-19 (Data - Lore's Fingernail tip 980317a)
+Last updated: 2026-09-19 (Jadzia — Lore's Fingernail tip 980317a partial pending Pepsch smoke)
 Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -155,7 +155,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Holo-Projectors (78 U) | partial | tip Data/`3c50792` (Josef, no push). Parked: captive/opp Holodeck, Door suite, battle safety, same-turn reactivate, full report/beam gates. Stays partial until Pepsch smoke — not working. | Data/`3c50792` 2026-09-18 |
 | Kivas Fajo: Collector (79 U) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Lore Returns (80 R) | working | Pepsch green. | Pepsch 2026-09-06 |
-| Lore's Fingernail (81 R) | partial | tip Data/`980317a`. Inorganic(![Holo])->Non while in play; dual off; leave restores. Verify green. Ungetestet Pepsch. | Data/`980317a` 2026-09-19 |
+| Lore's Fingernail (81 R) | partial | tip Data/`980317a` (Josef, no push): Inorganic(!Holo)->Non live; restore on leave. Stays partial until Pepsch smoke — not working. | Data/`980317a` 2026-09-19 |
 | Masaka Transformations (82 U) | working | Pepsch green. | Pepsch 2026-09-19 |
 | Metaphasic Shields (83 U) | working | Pepsch green (reconfirmed). | Pepsch 2026-09-19 |
 | Neural Servo Device (84 U) | working | Pepsch green; Side-Sync OK (Data/55d96ef). | Pepsch 2026-09-06 |
