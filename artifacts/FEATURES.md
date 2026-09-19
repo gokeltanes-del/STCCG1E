@@ -29,6 +29,7 @@ Ranking (Pepsch/Captain 2026-09-19): **Premiere CARD_TRACKER-Welle ist P0-top**;
 | 12.3 / 12.4 | Glossary/Compendium Welle 2 Control/Owner/Present | 🟡 | ACTIVE (Docs); Seven + Spock |
 | — | Rule cites (Code + Detailfenster) | 🟡 | ACTIVE Pepsch 2026-09-18 Standing Practice; Decide/Apply mit Compendium-§ / Glossary-Lemma; Retrofit kein Big-Bang; Coverage bei Seven |
 | UX / 7.0.1 | Occupancy Badge UX | 🟡 | CODED tip `034ee39` (Pepsch lock, smoke pending). Host footer P1 cyan / P2 orange; Planet=Away Team, Ship/Outpost/Station=Crew; personnel only; dual badges; no glow. **DONE only after Pepsch green** |
+| 7.2.2 | Armus | ✅ | Pepsch green 2026-09-19 (Captain) |
 | Glossary TCL | Temporal Causality Loop | ✅ | DONE Pepsch green `e88860e` (Glossary-treu, skip EOT / Compendium 8) |
 | UX / 7.1.4 | Dock vertikal (Ships+Outposts gleiche X-Spalte) | 🟡 | Handoff Sofort-Smoke; Korrektur nach 4a61fa1; nicht als Pepsch-green in FEATURES geführt |
 
@@ -39,15 +40,17 @@ Ranking (Pepsch/Captain 2026-09-19): **Premiere CARD_TRACKER-Welle ist P0-top**;
 | 7.2.2 / Microvirus | Microvirus Opp-Chooser / DNA-Filter | ➖ | Parked; Karte selbst CARD_TRACKER working (Pos+neg Choose OK) |
 | 7.2.2 / REM | REM Fatigue | ➖ | Parked; Pause der Dilemma-Welle |
 | 7.2.2.3 | Cure-Present-Scope (Ship) | ➖ | Parked; Ktarian ship-hosted cure already narrowed |
-| 7.2.2 / Parasites | Alien Parasites Hotseat-Chooser | ➖ | Parked; Neg Control `f087866` Pepsch green, Chooser PARK |
+| 7.2.2 / Parasites | Alien Parasites Hotseat-Chooser | ➖ | Parked Chooser; Neg Control green; **Control-Bug in Fix** (Captain 2026-09-19) |
 | 11.1 | Hugh vs Borg Ship (extract P1 / P4-H1) | ➖ | Hugh CanRespond Dilemma-only DONE; Borg Ship EOT still EXTRACT_REST |
 | 7.10 | IM FindMission | ➖ | Parked |
+| UX / 7.2.5 | Mission Solved visuelle Kennzeichnung | ➖ | Pepsch 2026-09-19 später: Detailfenster-Text wer gelöst hat; Missionskarte ~1/3 vertikal Richtung lösendem Player. Kein Go. |
 | 7.1.5 | dump@Gaps | ➖ | Parked |
 
 ## Done recently (Pepsch green / belegt)
 
 | § | Thema | Status | Code / Hinweis |
 |---|--------|--------|----------------|
+| 7.2.2 | Armus | ✅ | Pepsch green 2026-09-19 (Captain) |
 | Glossary TCL | Temporal Causality Loop | ✅ | `e88860e` Pepsch green 2026-09-18 |
 | 7.2.2 | Impassable Door | ✅ | `be5062b` |
 | 10.2.7 | Hyper-Aging Quarantäne | ✅ | `46eab15` (Karte); allgemeine §10.2.7 weiter 🟡 |
