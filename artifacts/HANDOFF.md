@@ -17,7 +17,7 @@ Nicht `_build_holo*` / Release / alte Side-Builds.
 
 
 ## Tip detail (Data, Josef, 2026-09-19) - Q + REM Fatigue
-Captain/Spock Soll LOCK (rtifacts/SOLL_Q_REM_2026-09-19.md). Continuum/Q-Flash PARK.
+Captain/Spock Soll LOCK (`GROK_TEMP/SOLL_Q_REM_2026-09-19.md`). Continuum/Q-Flash PARK.
 ### Q (44 R)
 - Pass: 2 Leadership + INTEGRITY>60 -> Overcome; purge remaining Dilemma seeds under mission; discard Q; attempt continues.
 - Fail: opponent spaceline rearrange (location units, Left/Right/Done); AT/ship+crew stopped; discard Q.
