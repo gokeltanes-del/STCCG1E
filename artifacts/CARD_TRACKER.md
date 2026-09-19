@@ -1,8 +1,14 @@
-# STCCG 1E â€” Card Expansion Tracker
+# STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-19 (Jadzia — Holo-Projectors working 3c50792+bcf7f9d)
-Scope: **Premiere** (`PR`) + **Alternate Universe** only. Further expansions only on Captain/Pepsch Go.
+Last updated: 2026-09-19 (Jadzia — Premiere backlog priority)
+Scope: **Premiere** (`PR`) + **Alternate Universe** catalogued. **Priority: finish all unfinished Premiere cards first.** AU is logged only; not prioritized unless already wired.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
+
+## Priority (Captain / Pepsch 2026-09-19)
+
+1. **Premiere** `partial` → Pepsch green/fail → `working` or rework
+2. **Premiere** `unknown` / `not-started` → assess + wire until `working`
+3. **AU** — note only; no new AU work unless already in flight / Captain Go
 
 ## Status legend
 
@@ -14,12 +20,22 @@ Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No E
 | `working` | Playable / green tip confirmed |
 | `blocked` | Waiting on rules, extract, or Captain Go |
 
-Columns: **Status** Â· **Notes** Â· **Source** (who / tip / date).
+Columns: **Status** · **Notes** · **Source** (who / tip / date).
 Source tip: when Data/Spock/Seven/Captain report, update the row.
 
 ## Summary counts
 
-### Premiere ($(System.Collections.Hashtable.Folder)) â€” 363 cards
+### Premiere — focus (363 cards)
+
+| Status | Count | Role |
+| --- | ---: | --- |
+| `working` | 70 | Done (Pepsch green) |
+| `partial` | 7 | **Next smoke / rework** |
+| `unknown` | 286 | **Backlog — finish Premiere** |
+| `blocked` | 0 | — |
+| **Total** | **363** | |
+
+**Premiere partials (queue):** Alien Parasites · Armus: Skin Of Evil · Crystalline Entity · Iconian Computer Weapon · Alien Probe · Asteroid Sanctuary · Escape Pod
 
 | Card Type | Count |
 | --- | ---: |
@@ -35,7 +51,13 @@ Source tip: when Data/Spock/Seven/Captain report, update the row.
 | Ship | 33 |
 | **Total** | **363** |
 
-### Alternate Universe ($(System.Collections.Hashtable.Folder)) â€” 122 cards
+### Alternate Universe — deprioritized (122 cards)
+
+| Status | Count | Role |
+| --- | ---: | --- |
+| `working` | 1 | Hail only (already wired) |
+| `unknown` | 121 | Logged; not prioritized |
+| **Total** | **122** | |
 
 | Card Type | Count |
 | --- | ---: |
@@ -52,7 +74,6 @@ Source tip: when Data/Spock/Seven/Captain report, update the row.
 | **Total** | **122** |
 
 ---
-
 ## Premiere
 
 Source JSON: `artifacts/sample_data/PR/cards.json`
