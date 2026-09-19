@@ -7,17 +7,19 @@ Stand: 2026-09-19. Living list — **Seven owns ranking.**
 
 Siehe auch: `HANDOFF.md`, `PROJECT.md`, `CARD_TRACKER.md` (Jadzia), `EXTRACT_REST.md`.
 Status-Updates nur aus bekanntem Pepsch-green / HANDOFF — **kein DONE ohne Beleg.**
+Ranking (Pepsch/Captain 2026-09-19): **Premiere CARD_TRACKER-Welle ist P0-top**; Extract P0-D1/E1/S1 nachrangig, bis der Premiere-Tracker leer von unknown/partial ist.
 
 ---
 
-## P0 — Foundation / Smoke (zuerst)
+## P0 — Premiere wave zuerst (dann Extract / Smoke)
 
 | § | Thema | Status | Code / Hinweis |
 |---|--------|--------|----------------|
-| P0-D1 | TableWindow extract: `AttachedDilemma` → Board | ❌ | `EXTRACT_REST.md`; Welle 1 Slices 1–9 DONE; nächstes Ticket **wenn Captain Go** |
-| P0-E1 | TableWindow extract: `AttachedEvent` → Board | ❌ | wie P0-D1; Persist/Battle ticketed (not deferred) |
-| P0-S1 | Dual-Run BoardStore abschließen | ❌ | EXTRACT_REST; nach ersten Persist-Ticks |
-| — | Premiere A card waves | ➖ | **only Captain Go** — nicht in Extract-Commits mischen |
+| 7.2 | Premiere Dilemma wave | 🟡 | **P0-top.** ACTIVE einzeln; Pause bei **#26 Q** bis Captain Go. Next unknown: Q; REM Fatigue skip/park. (RGS / Rebel / Sarjenka / Shaka / TCL already working in CARD_TRACKER — nicht neu grün markiert.) |
+| — | Premiere A card waves | 🟡 | **P0-top / Captain Go.** Aktive Premiere-Prio (nicht ➖). CARD_TRACKER unknown/partial zuerst; nicht in Extract-Commits mischen |
+| P0-D1 | TableWindow extract: `AttachedDilemma` → Board | ❌ | Nachrangig bis Premiere-Tracker leer von unknown/partial (Captain 2026-09-19). `EXTRACT_REST.md`; Welle 1 Slices 1–9 DONE |
+| P0-E1 | TableWindow extract: `AttachedEvent` → Board | ❌ | Nachrangig bis Premiere-Tracker leer von unknown/partial (Captain 2026-09-19). Persist/Battle ticketed (not deferred) |
+| P0-S1 | Dual-Run BoardStore abschließen | ❌ | Nachrangig bis Premiere-Tracker leer von unknown/partial (Captain 2026-09-19). EXTRACT_REST; nach ersten Persist-Ticks |
 | UX | Status-UX / Stasis-Held / Detail | ✅ | DONE tip `bf1f2ab` |
 | UX / 7.2.2 | AT-Detail Effekt-Gruppen + Firestorm EFFECT | ✅ | Pepsch green 2026-09-12; Parasites-Strip `2976b61`; Stopped/Quarantined/Stasis `702f644`; Firestorm Overlay `87e297d` |
 | 7.1.1 | Artifact Beaming / Affiliation-Free | 🟡 | CODED `TreatyRules.CanOccupyHost` / `CardsCompatibleUnderTreaties`; Varon-T Karte Pepsch green 2026-09-12; **Beaming-smoke laut FEATURES weiter offen** |
@@ -27,7 +29,6 @@ Status-Updates nur aus bekanntem Pepsch-green / HANDOFF — **kein DONE ohne Bel
 | 12.3 / 12.4 | Glossary/Compendium Welle 2 Control/Owner/Present | 🟡 | ACTIVE (Docs); Seven + Spock |
 | — | Rule cites (Code + Detailfenster) | 🟡 | ACTIVE Pepsch 2026-09-18 Standing Practice; Decide/Apply mit Compendium-§ / Glossary-Lemma; Retrofit kein Big-Bang; Coverage bei Seven |
 | UX / 7.0.1 | Occupancy Badge UX | 🟡 | CODED tip `034ee39` (Pepsch lock, smoke pending). Host footer P1 cyan / P2 orange; Planet=Away Team, Ship/Outpost/Station=Crew; personnel only; dual badges; no glow. **DONE only after Pepsch green** |
-| 7.2 | Premiere Dilemma wave | 🟡 | ACTIVE einzeln; Pause bei **#26 Q** bis Captain Go. Next unknown: Q, Radioactive Garbage Scow already working, Rebel Encounter working, REM Fatigue skip/park, Sarjenka/Shaka/TCL green |
 | Glossary TCL | Temporal Causality Loop | ✅ | DONE Pepsch green `e88860e` (Glossary-treu, skip EOT / Compendium 8) |
 | UX / 7.1.4 | Dock vertikal (Ships+Outposts gleiche X-Spalte) | 🟡 | Handoff Sofort-Smoke; Korrektur nach 4a61fa1; nicht als Pepsch-green in FEATURES geführt |
 
