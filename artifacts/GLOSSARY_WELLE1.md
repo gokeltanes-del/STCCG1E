@@ -1,3 +1,5 @@
+﻿> **Deprecated (2026-09-19):** Living tracker is `GLOSSARY_COVERAGE.md` (A-Z, Checklist-Format). This file is an archive of Welle-1 Ist/Soll notes; do not maintain it as the coverage matrix.
+
 # Welle 1 — Timing / Actions / Nullify
 ACTIVE 2026-09-05 · Seven (Code?) + Spock (Soll + Quellen)  
 Parent: `GLOSSARY_COVERAGE.md` · Lookup: Checklist ? Glossary ? Temp Rulings ? App A/B  
@@ -141,3 +143,4 @@ Checklist leave ?? for partial; Gaps done
 3 present/here: spaceline here = anywhere at location; site = site only; attempting crew excludes disabled/house-arrest/intruder for dilemma aboard
 4 Traveler continuous: Transcendence while in play nullifies all SWB both players; SWB stay; leave play = SWB active again; not Kevin discard
 Gaps nullify unchanged done. No Welle 2 until Captain Go.
+
