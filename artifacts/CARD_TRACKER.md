@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-19 (Jadzia — Premiere backlog priority)
+Last updated: 2026-09-19 (Spock - Q Printed Soll)
 Scope: **Premiere** (`PR`) + **Alternate Universe** catalogued. **Priority: finish all unfinished Premiere cards first.** AU is logged only; not prioritized unless already wired.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -130,7 +130,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Null Space (41 U) | working | Pepsch green: 2 Navigation -> +5 Continue; Fail Damage+Stop. tip Data/`04f4bd6`. | Pepsch 2026-09-15; Data/`04f4bd6` |
 | Phased Matter (42 C) | working | Pepsch green: AT-Split, Stasis der grÃ¶ÃŸeren Gruppe, WeiterfÃ¼hrung der kleineren Gruppe und Cure (ENG+SCI unphased) via zentrales Cure-System bestÃ¤tigt. | Pepsch 2026-09-13 |
 | Portal Guard (43 U) | working | CUNN>7/Honor Continue; Fail: BeamBack+Stop wenn Beamen mÃ¶glich (Schiff/Facility vorhanden, kein Stasis/QuarantÃ¤ne); Kill wenn Beamen unmÃ¶glich (z.B. Hyper-Aging QuarantÃ¤ne oder kein Schiff/Facility) + unter Mission. Unit-Test `VerifyPortalGuard`. | Captain 2026-09-13 |
-| Q (44 R) | partial | Spock+Captain LOCK Glossary Spaceline-Rearrange+Seed-Purge; Continuum/Q-Flash PARK. Data tip (Josef, no push): Overcome purge dilemma seeds; fail opponent rearrange UI + stop. Pending Pepsch green. | Data 2026-09-19 |
+| Q (44 R) | partial | Pepsch Printed LOCK (`GROK_TEMP/SOLL_Q_PRINTED_2026-09-19.md`). Pass Overcome no purge/rearrange. Fail: download <=2 [Q] atop Continuum + Q-Flash 4 pending + stop. Glossary Rearrange tip superseded. Pending Pepsch green + full Q-Flash verb. | Data 2026-09-19 Printed |
 | Radioactive Garbage Scow (45 U) | working | Pepsch green: Tractor Beam attach -> offset hang -> Fly follow -> EOT drop. tips Data through `9cd104f` (a4e4e5d/bf7a394/558fc4e/2c6a3f9/9cd104f). Spock Tractor Soll. | Pepsch 2026-09-14; Data/`9cd104f` |
 | Rebel Encounter (46 U) | working | Pepsch green: destroy Equipment path OK. tip Data/`7d649f7`. Interphase Generator nullify also OK. | Pepsch 2026-09-18; Data/`7d649f7` |
 | REM Fatigue (47 U) | partial | Spock+Captain LOCK CD[4]; quarantine=HyperAging; cure 3 MEDICAL or Outpost dock +5; kill OriginalEncounter only. Data tip (Josef, no push). Pending Pepsch green. | Data 2026-09-19 |

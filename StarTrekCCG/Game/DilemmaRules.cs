@@ -73,10 +73,14 @@ public static class DilemmaRules
         public bool GrantOpponentControl { get; init; }
         /// <summary>Spock #8 Crystalline Entity (space fail): kill all life aboard (Stopped/Disabled/Intruder; NOT Stasis). Apply expands beyond encounter Team.</summary>
         public bool KillAllLifeAboardExceptStasis { get; init; }
-        /// <summary>Q (Glossary): on Overcome, discard remaining Dilemma seeds under this mission.</summary>
+        /// <summary>Legacy Glossary flag (not used by Printed Q).</summary>
         public bool PurgeDilemmaSeedsUnderMission { get; init; }
-        /// <summary>Q (Glossary): on fail, opponent rearranges this spaceline (location units).</summary>
+        /// <summary>Legacy Glossary flag (not used by Printed Q).</summary>
         public bool OpponentRearrangeSpaceline { get; init; }
+        /// <summary>Printed Q fail: Q-Flash of N cards (Apply when verb exists).</summary>
+        public int QFlashCount { get; init; }
+        /// <summary>Printed Q fail: opp may download up to N [Q] atop Continuum.</summary>
+        public int AllowOpponentDownloadQToContinuumMax { get; init; }
     }
 
     public sealed class Ctx
@@ -3674,23 +3678,25 @@ public static class DilemmaRules
             Message = plan.Message
         };
     }
-    // Glossary Premiere Q (Captain/Spock LOCK 2026-09-19): Spaceline-Rearrange + Seed-Purge.
-    // Continuum / Q-Flash / Download-[Q] PARK (cards.json modern text does NOT apply).
+    // Printed Q (Pepsch / Spock SOLL_Q_PRINTED 2026-09-19): cards.json text is truth.
+    // Pass: 2 Leadership + INTEGRITY>60 -> Overcome; no seed-purge; no rearrange.
+    // Fail: Opp may download <=2 [Q] atop Continuum; Q-Flash of 4; then stopped; discard Q.
+    // Q-Flash full resolve PARK if verb missing — flags + Stop (no Glossary rearrange fake).
     private static Result Qdil(Ctx ctx)
     {
         if (Skill(ctx, "Leadership", 2) && Sum(ctx).integ > 60)
             return new Result
             {
                 Fate = Fate.Overcome,
-                PurgeDilemmaSeedsUnderMission = true,
-                Message = "Q: 2 Leadership + INTEGRITY>60 — overcome; purge remaining dilemma seeds under mission; discard Q."
+                Message = "Q: 2 Leadership + INTEGRITY>60 — overcome; discard dilemma; attempt continues."
             };
         return new Result
         {
             Fate = Fate.EffectAndEnd,
             StopTeam = true,
-            OpponentRearrangeSpaceline = true,
-            Message = "Q: fail — opponent rearranges spaceline (location units); team stopped; discard Q. (Q-Flash/Continuum PARK.)"
+            QFlashCount = 4,
+            AllowOpponentDownloadQToContinuumMax = 2,
+            Message = "Q: fail — opponent may download up to 2 [Q] atop Continuum; Q-Flash of 4 (Apply); team stopped; discard dilemma."
         };
     }
 
@@ -3961,7 +3967,7 @@ public static class DilemmaRules
         return null;
     }
 
-    /// <summary>DE mini-test Q Glossary LOCK (no Continuum). Returns null if OK.</summary>
+    /// <summary>DE mini-test Printed Q (Pepsch). Returns null if OK.</summary>
     public static string? VerifyQDilemma()
     {
         static Card P(string name, string text, string integ = "5") => new()
@@ -3972,7 +3978,6 @@ public static class DilemmaRules
         };
         var lead1 = P("L1", "Leadership");
         var lead2 = P("L2", "Leadership x2", "50");
-        // integ sum: lead1 5 + lead2 50 = 55 — fail pass threshold
         var failTeam = new[] { lead1, lead2 };
         var ctxFail = new Ctx
         {
@@ -3981,13 +3986,15 @@ public static class DilemmaRules
             Team = failTeam, Present = failTeam, AttemptingPlayer = 1
         };
         var rFail = Resolve(ctxFail);
-        if (rFail.Fate != Fate.EffectAndEnd || !rFail.StopTeam || !rFail.OpponentRearrangeSpaceline)
-            return $"Q fail: expected EffectAndEnd+Stop+Rearrange, got {rFail.Fate}/{rFail.StopTeam}/{rFail.OpponentRearrangeSpaceline}";
-        if (rFail.PurgeDilemmaSeedsUnderMission)
-            return "Q fail must not purge seeds";
+        if (rFail.Fate != Fate.EffectAndEnd || !rFail.StopTeam)
+            return $"Q fail: expected EffectAndEnd+Stop, got {rFail.Fate}/{rFail.StopTeam}";
+        if (rFail.OpponentRearrangeSpaceline || rFail.PurgeDilemmaSeedsUnderMission)
+            return "Q fail must not rearrange or purge seeds (Printed)";
+        if (rFail.QFlashCount != 4 || rFail.AllowOpponentDownloadQToContinuumMax != 2)
+            return $"Q fail flags: expected Flash4 + DownloadMax2, got {rFail.QFlashCount}/{rFail.AllowOpponentDownloadQToContinuumMax}";
 
         var lead3 = P("L3", "Leadership", "20");
-        var passTeam = new[] { lead1, lead2, lead3 }; // Leadership x1+x2+x1 >=2; integ 5+50+20=75
+        var passTeam = new[] { lead1, lead2, lead3 };
         var ctxPass = new Ctx
         {
             Dilemma = new Card { Name = "Q", Type = "Dilemma", MissionDilemmaType = "[S/P]" },
@@ -3995,10 +4002,12 @@ public static class DilemmaRules
             Team = passTeam, Present = passTeam, AttemptingPlayer = 1
         };
         var rPass = Resolve(ctxPass);
-        if (rPass.Fate != Fate.Overcome || !rPass.PurgeDilemmaSeedsUnderMission)
-            return $"Q pass: expected Overcome+Purge, got {rPass.Fate}/{rPass.PurgeDilemmaSeedsUnderMission}";
-        if (rPass.OpponentRearrangeSpaceline)
-            return "Q pass must not rearrange";
+        if (rPass.Fate != Fate.Overcome)
+            return $"Q pass: expected Overcome, got {rPass.Fate}";
+        if (rPass.PurgeDilemmaSeedsUnderMission || rPass.OpponentRearrangeSpaceline)
+            return "Q pass must not purge or rearrange (Printed)";
+        if (rPass.QFlashCount != 0 || rPass.AllowOpponentDownloadQToContinuumMax != 0)
+            return "Q pass must not set Flash/Download flags";
         return null;
     }
 

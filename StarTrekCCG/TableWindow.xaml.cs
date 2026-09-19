@@ -17133,9 +17133,14 @@ public partial class TableWindow : Window
         if (r.Persist == DilemmaRules.PersistKind.FrameOfMind && r.Relocate != null)
             ApplyFrameOfMind(r.Relocate, missionBorder, shipBorder);
 
+        // Printed Q: Continuum download + Q-Flash pending; no Glossary purge/rearrange.
+        if (r.AllowOpponentDownloadQToContinuumMax > 0)
+            ApplyQOpponentDownloadToContinuum(r.AllowOpponentDownloadQToContinuumMax, seedCard);
+        if (r.QFlashCount > 0)
+            ApplyQFlashPending(r.QFlashCount, seedCard);
+
         if (r.PurgeDilemmaSeedsUnderMission)
             PurgeRemainingDilemmaSeedsUnderMission(missionBorder, seedStack, seedCard);
-
         if (r.OpponentRearrangeSpaceline)
             ApplyQOpponentSpacelineRearrange(seedCard);
     }
@@ -21647,6 +21652,75 @@ public partial class TableWindow : Window
         if (card.InstanceId > 0 && BoardStore.Current.ById.TryGetValue(card.InstanceId, out var inst) && inst is PersonnelInstance pi)
             pi.InStasis = inStasis;
         return inStasis;
+    }
+
+
+
+    /// <summary>Printed Q fail: opponent may download up to maxCount [Q] cards atop Continuum (draw / Q's Tent).</summary>
+    private void ApplyQOpponentDownloadToContinuum(int maxCount, Card qCard)
+    {
+        if (maxCount <= 0) return;
+        int opp = _activePlayer == 1 ? 2 : 1;
+        var continuum = opp == 2 ? _oppQContinuumCards : _qContinuumCards;
+        var draw = opp == 2 ? _oppDrawCards : _drawCards;
+        var tent = opp == 2 ? _oppQsTentCards : _qsTentCards;
+
+        static bool IsQIconCard(Card c)
+        {
+            if (c == null) return false;
+            if (CardKinds.IsQCard(c) || CardKinds.AllowedInQContinuum(c)) return true;
+            string icons = c.Icons ?? "";
+            return icons.Contains("[Q]", StringComparison.OrdinalIgnoreCase);
+        }
+
+        var pool = draw.Concat(tent).Where(IsQIconCard).Distinct().ToList();
+        if (pool.Count == 0)
+        {
+            StatusText.Text = $"Q: P{opp} may download up to {maxCount} [Q] atop Continuum — none in draw/tent (0).";
+            _session.Log.Add(_session.TurnNumber, $"P{opp}",
+                $"Q download-atop-Continuum: 0/{maxCount} (no legal [Q] in sources)");
+            return;
+        }
+
+        string howMany = AskChoice(qCard, $"Q Continuum download (P{opp})",
+            $"Download how many [Q] atop Continuum? (max {maxCount})",
+            Enumerable.Range(0, maxCount + 1).Select(n => n.ToString()).ToArray());
+        if (!int.TryParse(howMany, out int want) || want <= 0)
+        {
+            _session.Log.Add(_session.TurnNumber, $"P{opp}", "Q download-atop-Continuum: 0");
+            return;
+        }
+        want = Math.Min(want, maxCount);
+
+        int taken = 0;
+        for (int n = 0; n < want; n++)
+        {
+            pool = draw.Concat(tent).Where(IsQIconCard).Distinct().ToList();
+            if (pool.Count == 0) break;
+            var pick = PickCardFromList(
+                $"Q: pick [Q] {taken + 1}/{want} atop Continuum.",
+                pool, $"Download Continuum (P{opp})", qCard);
+            if (pick == null) break;
+            draw.Remove(pick);
+            tent.Remove(pick);
+            continuum.Insert(0, pick);
+            taken++;
+            _session.Log.Add(_session.TurnNumber, $"P{opp}", $"Q: downloaded {pick.Name} atop Continuum");
+        }
+        RefreshZoneCounts();
+        StatusText.Text = $"Q: P{opp} downloaded {taken} [Q] atop Continuum.";
+    }
+
+    /// <summary>Printed Q fail: Q-Flash of N — full Continuum resolve PARK; reveal + log (StopTeam already set).</summary>
+    private void ApplyQFlashPending(int flashCount, Card qCard)
+    {
+        if (flashCount <= 0) return;
+        ShowCardReveal(qCard, "Q — Q-Flash",
+            $"Q-Flash of {flashCount} cards pending full Continuum resolve.\nTeam is stopped. (Tip 1: flag only.)",
+            RevealButtons.Ok, qCard.Name);
+        _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
+            $"Q-Flash of {flashCount} pending (Printed; resolve later)");
+        StatusText.Text = $"Q-Flash of {flashCount} pending — team stopped.";
     }
 
 

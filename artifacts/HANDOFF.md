@@ -9,12 +9,29 @@ Local VS: C:\\Dev\\StarTrekCCG\\
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test.
 
 ## Current tip
-Local Josef tip **638fde8** - Q + REM Fatigue (Pepsch smoke). Nicht gepusht.
+Local Josef tip **PENDING** - Q Printed rework (Pepsch smoke). Nicht gepusht.
 Local Josef tip **bcf7f9d** - Holo existence gates (Pepsch Fix-Go; Spock precise Soll). Nicht gepusht. (Prior Holo-Projectors tip 3c50792; LF UI eaf0c24.)
 **Pepsch EXE (Default Debug):**
 `C:\Dev\StarTrekCCG\StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe`
 Nicht `_build_holo*` / Release / alte Side-Builds.
 
+
+## Tip detail (Data, Josef, 2026-09-19) - Q Printed rework
+Pepsch: cards.json/Compendium text = truth. Spock `GROK_TEMP/SOLL_Q_PRINTED_2026-09-19.md`.
+Supersedes Glossary Rearrange/Purge for Q from tip 638fde8.
+### Q (44 R) Printed
+- Pass: 2 Leadership + INTEGRITY>60 -> Overcome; no seed-purge; no rearrange; attempt continues.
+- Fail: Opp may download 0..2 [Q] from draw/Q's Tent atop Continuum; Q-Flash of 4 **pending** (flag+reveal); team stopped; discard Q.
+- Verify: `DilemmaRules.VerifyQDilemma` (Printed).
+- PARK: full Q-Flash Continuum resolve verb.
+### REM Fatigue
+Unchanged (still tip 638fde8 quarantine/dock/original-group).
+Files: DilemmaRules.cs, TableWindow.xaml.cs, CARD_TRACKER, HANDOFF.
+Exe: StarTrekCCG\\bin\\Debug\\net8.0-windows\\StarTrekCCG.exe
+### Pepsch smoke
+1. Q pass: seeds under mission remain; no spaceline rearrange.
+2. Q fail: optional Continuum download; Q-Flash pending message; team stopped; no rearrange.
+3. REM smoke unchanged.
 
 ## Tip detail (Data, Josef, 2026-09-19) - Q + REM Fatigue
 Captain/Spock Soll LOCK (`GROK_TEMP/SOLL_Q_REM_2026-09-19.md`). Continuum/Q-Flash PARK.
