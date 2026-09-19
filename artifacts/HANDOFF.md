@@ -9,7 +9,7 @@ Local VS: C:\\Dev\\StarTrekCCG\\
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test.
 
 ## Current tip
-Local Josef tip **TIPHASH** - Lore's Fingernail UI (Pepsch Fix-Go). Nicht gepusht. (Prior engine tip 980317a.)
+Local Josef tip **eaf0c24** - Lore's Fingernail UI (Pepsch Fix-Go). Nicht gepusht. (Prior engine tip 980317a.)
 **Pepsch EXE (Default Debug):**
 `C:\Dev\StarTrekCCG\StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe`
 Nicht `_build_lf_ui*` / Release / alte Side-Builds.
