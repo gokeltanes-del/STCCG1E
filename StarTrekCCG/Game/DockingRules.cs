@@ -20,4 +20,8 @@ public static class DockingRules
             return (false, "Must dock at a facility.");
         return (true, "May dock.");
     }
+
+    /// <summary>REM Fatigue dock cure: facility must be an Outpost (not HQ/Station).</summary>
+    public static bool IsOutpostDockCureTarget(Card? facility) =>
+        DilemmaRules.IsOutpostFacility(facility);
 }

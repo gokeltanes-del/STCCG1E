@@ -283,8 +283,10 @@ public partial class TableWindow : Window
         public required Border Host { get; set; }
         public Card? Extra { get; set; }
         public Border? Dest { get; set; }
-        /// <summary>Personnel held in stasis by Abduction / Phased Matter etc.</summary>
+        /// <summary>Personnel held in stasis by Abduction / Phased Matter etc. Quarantine: originals + joiners.</summary>
         public List<Card> Held { get; } = new();
+        /// <summary>REM Fatigue: personnel present at encounter (kill on countdown 0). Joiners not listed.</summary>
+        public List<Card> OriginalEncounter { get; } = new();
     }
 
     private readonly List<AttachedDilemma> _attachedDilemmas = new();
@@ -17082,6 +17084,9 @@ public partial class TableWindow : Window
                         pi.Quarantined = true;
                     if (!attached.Held.Contains(pc))
                         attached.Held.Add(pc);
+                    if (r.Persist == DilemmaRules.PersistKind.RemFatigue
+                        && !attached.OriginalEncounter.Contains(pc))
+                        attached.OriginalEncounter.Add(pc);
                     ApplyStasisVisual(b, true); // quarantine share stasis leave-block UX
                 }
             }
@@ -17127,6 +17132,12 @@ public partial class TableWindow : Window
 
         if (r.Persist == DilemmaRules.PersistKind.FrameOfMind && r.Relocate != null)
             ApplyFrameOfMind(r.Relocate, missionBorder, shipBorder);
+
+        if (r.PurgeDilemmaSeedsUnderMission)
+            PurgeRemainingDilemmaSeedsUnderMission(missionBorder, seedStack, seedCard);
+
+        if (r.OpponentRearrangeSpaceline)
+            ApplyQOpponentSpacelineRearrange(seedCard);
     }
 
 
@@ -17847,7 +17858,7 @@ public partial class TableWindow : Window
             {
                 present = CollectPresentAtMissionForCure(a.Host, cureOwner);
             }
-            if (a.Held.Count > 0)
+            if (a.Held.Count > 0 && !DilemmaRules.IsQuarantinePersist(a.Kind))
                 present = DilemmaRules.ExcludeHeld(present, a.Held);
 
             bool missionCompleted = _solvedMissions.Contains(a.Host)
@@ -18728,9 +18739,13 @@ public partial class TableWindow : Window
                     {
                         if (_stackOnHost.TryGetValue(a.Host, out var stacked))
                         {
+                            bool remOriginalOnly = a.Kind == DilemmaRules.PersistKind.RemFatigue
+                                && a.OriginalEncounter.Count > 0;
                             var dyingCards = stacked
                                 .Where(b => b.Tag is Card p && ModifierRules.IsPersonnelCard(p)
-                                            && !(a.Kind == DilemmaRules.PersistKind.HyperAging && DilemmaRules.IsInorganic(p)))
+                                            && !(a.Kind == DilemmaRules.PersistKind.HyperAging && DilemmaRules.IsInorganic(p))
+                                            && (!remOriginalOnly || a.OriginalEncounter.Any(o => ReferenceEquals(o, p)
+                                                || (o.InstanceId > 0 && o.InstanceId == p.InstanceId))))
                                 .Select(b => (Card)b.Tag!)
                                 .ToList();
 
@@ -18738,6 +18753,9 @@ public partial class TableWindow : Window
                             {
                                 if (b.Tag is not Card p || !ModifierRules.IsPersonnelCard(p)) continue;
                                 if (a.Kind == DilemmaRules.PersistKind.HyperAging && DilemmaRules.IsInorganic(p))
+                                    continue;
+                                if (remOriginalOnly && !a.OriginalEncounter.Any(o => ReferenceEquals(o, p)
+                                        || (o.InstanceId > 0 && o.InstanceId == p.InstanceId)))
                                     continue;
                                 DiscardPersonnelBorder(b, p, ho, allowGenetronicSave: true, alsoTargetedToDie: dyingCards);
                             }
@@ -20293,6 +20311,7 @@ public partial class TableWindow : Window
             $"{shipCard.Name} docked");
         UpdateHostBadge(ship);
         RefreshCardActionPanel(ship);
+        TryCureRemFatigueByOutpostDock(ship, facility);
     }
 
     private void TryUndockShip(Border ship, Card shipCard)
@@ -21628,6 +21647,120 @@ public partial class TableWindow : Window
         if (card.InstanceId > 0 && BoardStore.Current.ById.TryGetValue(card.InstanceId, out var inst) && inst is PersonnelInstance pi)
             pi.InStasis = inStasis;
         return inStasis;
+    }
+
+
+    /// <summary>Q Overcome: discard remaining Dilemma-type seeds under this mission (Artifacts stay).</summary>
+    private void PurgeRemainingDilemmaSeedsUnderMission(Border missionBorder, List<Border> seedStack, Card qCard)
+    {
+        if (seedStack == null || seedStack.Count == 0) return;
+        var toRemove = new List<Border>();
+        foreach (var b in seedStack)
+        {
+            if (b.Tag is not Card sc) continue;
+            if (ReferenceEquals(sc, qCard)) continue;
+            string t = sc.Type ?? "";
+            if (!t.Contains("dilemma", StringComparison.OrdinalIgnoreCase)) continue;
+            toRemove.Add(b);
+        }
+        foreach (var b in toRemove)
+        {
+            if (b.Tag is not Card sc) continue;
+            int seedOwner = GetBorderOwner(b);
+            if (seedOwner is not (1 or 2)) seedOwner = _activePlayer;
+            seedStack.Remove(b);
+            var disc = seedOwner == 2 ? _oppDiscardCards : _discardCards;
+            if (!disc.Contains(sc)) disc.Add(sc);
+            if (TableCanvas.Children.Contains(b))
+                TableCanvas.Children.Remove(b);
+            _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
+                $"Q overcome: purged dilemma seed {sc.Name}");
+        }
+        _seedUnderMission[missionBorder] = seedStack;
+        UpdateSeedBadge(missionBorder);
+        StatusText.Text = toRemove.Count > 0
+            ? $"Q: purged {toRemove.Count} remaining dilemma seed(s) under mission."
+            : "Q: overcome — no other dilemma seeds to purge.";
+    }
+
+    /// <summary>Q fail: opponent rearranges spaceline location units (regions splittable; free order).</summary>
+    private void ApplyQOpponentSpacelineRearrange(Card qCard)
+    {
+        int opp = _activePlayer == 1 ? 2 : 1;
+        if (_spacelineOrder.Count < 2)
+        {
+            StatusText.Text = "Q: spaceline too short to rearrange.";
+            _session.Log.Add(_session.TurnNumber, $"P{opp}", "Q rearrange skipped (short spaceline)");
+            return;
+        }
+
+        ShowCardReveal(qCard, "Q — Spaceline rearrange",
+            $"Player {opp}: rearrange the spaceline.\nEach location moves with all cards on it.\nUse Left/Right, then Done.",
+            RevealButtons.Ok, qCard.Name);
+
+        while (true)
+        {
+            var labels = new List<string>();
+            for (int i = 0; i < _spacelineOrder.Count; i++)
+            {
+                string nm = (_spacelineOrder[i].Tag as Card)?.Name ?? $"Loc{i + 1}";
+                labels.Add($"{i + 1}. {nm}");
+            }
+            labels.Add("Done");
+            string pick = AskChoice(qCard, $"Q rearrange (P{opp})", "Pick a location to move, or Done.", labels.ToArray());
+            if (string.IsNullOrWhiteSpace(pick) || pick.Equals("Done", StringComparison.OrdinalIgnoreCase))
+                break;
+            int idx = labels.IndexOf(pick);
+            if (idx < 0 || idx >= _spacelineOrder.Count) break;
+            string dir = AskChoice(qCard, "Move location", pick, "Left", "Right", "Cancel");
+            if (dir.Equals("Cancel", StringComparison.OrdinalIgnoreCase)) continue;
+            int dest = dir.Equals("Left", StringComparison.OrdinalIgnoreCase) ? idx - 1 : idx + 1;
+            if (dest < 0 || dest >= _spacelineOrder.Count) continue;
+            var item = _spacelineOrder[idx];
+            _spacelineOrder.RemoveAt(idx);
+            _spacelineOrder.Insert(dest, item);
+            RelayoutMissionsOnSpaceline();
+            _session.Log.Add(_session.TurnNumber, $"P{opp}",
+                $"Q rearrange: moved {(_spacelineOrder[dest].Tag as Card)?.Name} {dir}");
+        }
+        StatusText.Text = $"Q: Player {opp} finished spaceline rearrange.";
+    }
+
+    /// <summary>REM Fatigue: docking at an Outpost cures (+5). Not HQ/Station.</summary>
+    private void TryCureRemFatigueByOutpostDock(Border ship, Border facility)
+    {
+        if (facility.Tag is not Card facCard) return;
+        if (!DockingRules.IsOutpostDockCureTarget(facCard)) return;
+        var rem = _attachedDilemmas.FirstOrDefault(a =>
+            a.Kind == DilemmaRules.PersistKind.RemFatigue && ReferenceEquals(a.Host, ship));
+        if (rem == null) return;
+        var plan = DilemmaCureRules.DecideCure(
+            rem.Kind, rem.Card.Name ?? "REM Fatigue", Array.Empty<Card>(), GetBorderOwner(ship),
+            missionCompleted: false, dockedAtOutpost: true);
+        if (plan.Action != DilemmaCureRules.CureAction.CureAndDiscard) return;
+        foreach (var pc in rem.Held.ToList())
+        {
+            pc.Quarantined = false;
+            if (pc.InstanceId > 0 && BoardStore.Current.ById.TryGetValue(pc.InstanceId, out var inst) && inst is PersonnelInstance pi)
+                pi.Quarantined = false;
+            foreach (var kv in _stackOnHost)
+            {
+                foreach (var b in kv.Value)
+                {
+                    if (b.Tag is Card c && ReferenceEquals(c, pc))
+                        ApplyStasisVisual(b, false);
+                }
+            }
+        }
+        if (DilemmaRules.ShouldAwardScoreOnApply(plan.PointsAwarded, DilemmaRules.Fate.Overcome))
+            AwardDilemmaPoints(plan.PointsAwarded);
+        int owner = GetBorderOwner(ship);
+        if (owner is not (1 or 2)) owner = _activePlayer;
+        var disc = owner == 2 ? _oppDiscardCards : _discardCards;
+        if (!disc.Contains(rem.Card)) disc.Add(rem.Card);
+        _attachedDilemmas.Remove(rem);
+        _session.Log.Add(_session.TurnNumber, $"P{owner}", plan.LogMessage);
+        StatusText.Text = plan.StatusMessage;
     }
 
     private bool IsCardQuarantined(Card card)

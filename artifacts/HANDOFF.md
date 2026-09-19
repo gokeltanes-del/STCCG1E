@@ -9,12 +9,30 @@ Local VS: C:\\Dev\\StarTrekCCG\\
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test.
 
 ## Current tip
-Local Josef tip **7223ad2** (+ Docs map expand follow-up) — Doc-Pass Org PROJECT.md refresh. Nicht gepusht.
+Local Josef tip **PENDING_HASH** - Q + REM Fatigue (Pepsch smoke). Nicht gepusht.
 Local Josef tip **bcf7f9d** - Holo existence gates (Pepsch Fix-Go; Spock precise Soll). Nicht gepusht. (Prior Holo-Projectors tip 3c50792; LF UI eaf0c24.)
 **Pepsch EXE (Default Debug):**
 `C:\Dev\StarTrekCCG\StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe`
 Nicht `_build_holo*` / Release / alte Side-Builds.
 
+
+## Tip detail (Data, Josef, 2026-09-19) - Q + REM Fatigue
+Captain/Spock Soll LOCK (rtifacts/SOLL_Q_REM_2026-09-19.md). Continuum/Q-Flash PARK.
+### Q (44 R)
+- Pass: 2 Leadership + INTEGRITY>60 -> Overcome; purge remaining Dilemma seeds under mission; discard Q; attempt continues.
+- Fail: opponent spaceline rearrange (location units, Left/Right/Done); AT/ship+crew stopped; discard Q.
+- Verify: DilemmaRules.VerifyQDilemma.
+### REM Fatigue (47 U)
+- AttachContinue CD Icon-[4]; IsQuarantinePersist(RemFatigue); OriginalEncounter kill on CD0 (joiners live).
+- Cure: 3 MEDICAL (group counts) or dock at Outpost (not HQ/Station) -> +5.
+- Verify: DilemmaRules.VerifyRemFatigue + cure tests in DilemmaCureRules.
+Files: Game/DilemmaRules.cs, Game/DilemmaCureRules.cs, Game/DockingRules.cs, TableWindow.xaml.cs, rtifacts/CARD_TRACKER.md, rtifacts/HANDOFF.md.
+Exe: StarTrekCCG\\StarTrekCCG\\bin\\Debug\\net8.0-windows\\StarTrekCCG.exe
+### Pepsch smoke
+1. Q pass: 2 Leadership + INTEGRITY>60 at attempt -> overcome; other dilemma seeds under that mission discarded; attempt continues.
+2. Q fail: no pass -> stop; opponent Left/Right/Done rearrange; Q discarded; no Q-Flash/Continuum.
+3. REM: encounter without 3 MEDICAL -> quarantine CD4, attempt continues; cannot beam away; joiner quarantined but survives CD0 kill of originals only.
+4. REM cure: 3 MEDICAL present -> +5 discard; OR dock ship at Outpost -> +5 discard (Station/HQ must NOT cure).
 
 ## Tip detail (Data, Josef, 2026-09-19) - Holo existence gates (Pepsch Fix-Go)
 Captain confirms Spock precise Holo Soll. Standing Practice Glossary cites. CODE_PLACEMENT: EventRules decide + TW Apply (beam/kill/report).
@@ -298,7 +316,7 @@ Pepsch meinte VERTIKALE Linie, nicht horizontal. 4a61fa1 (X-Stagger, Y-Baseline)
 - **Dock vertikal** tip: Ships+Outposts gleiche X-Spalte, Y-Slots; Load+live Relayout gleich
 
 ### Strang A -- Premiere-Dilemmas (ACTIVE, Pause)
-Pause bei **#26 Q** bis Captain Go. REM Fatigue bleibt parked.
+**Q + REM Fatigue** Data tip landed (partial) — Pepsch smoke. Continuum/Q-Flash still PARK.
 Next unknown: Q, Radioactive Garbage Scow, Rebel Encounter, (REM Fatigue skip), Sarjenka, Shaka (TCL tip landed â€” Pepsch smoke). Reminder: Tsiolkovsky/Two-Dim/Wind Dancer already green.
 Done prior: **Tarellian Plague Ship** Pepsch green; **Tsiolkovsky** Foundation tip; **Temporal Causality Loop** Data Implement-Go (partial, tip e88860e).
 

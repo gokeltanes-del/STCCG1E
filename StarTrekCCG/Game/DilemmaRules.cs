@@ -73,6 +73,10 @@ public static class DilemmaRules
         public bool GrantOpponentControl { get; init; }
         /// <summary>Spock #8 Crystalline Entity (space fail): kill all life aboard (Stopped/Disabled/Intruder; NOT Stasis). Apply expands beyond encounter Team.</summary>
         public bool KillAllLifeAboardExceptStasis { get; init; }
+        /// <summary>Q (Glossary): on Overcome, discard remaining Dilemma seeds under this mission.</summary>
+        public bool PurgeDilemmaSeedsUnderMission { get; init; }
+        /// <summary>Q (Glossary): on fail, opponent rearranges this spaceline (location units).</summary>
+        public bool OpponentRearrangeSpaceline { get; init; }
     }
 
     public sealed class Ctx
@@ -1909,6 +1913,8 @@ public static class DilemmaRules
             "Hyper-Aging (quarantine, countdown 3): no leave/beam away; joiners quarantined. Cure: SCIENCE + 2 MEDICAL. Attempt continues (not stopped).");
     }
 
+    // REM Fatigue (47 U) Captain/Spock LOCK: CD Icon-[4]; quarantine like HyperAging;
+    // Cure 3 MEDICAL or Outpost dock; kill Original-Encounter-Group only; +5 on cure/overcome.
     private static Result RemFatigueEncounter(Ctx ctx)
     {
         if (CanCure(PersistKind.RemFatigue, ctx.Present, ctx.AttemptingPlayer))
@@ -1917,10 +1923,10 @@ public static class DilemmaRules
                 Fate = Fate.Overcome,
                 Score = 5,
                 StopTeam = false,
-                Message = "REM Fatigue cured (3 MEDICAL) - +5; discarded; attempt continues."
+                Message = "REM Fatigue cured (3 MEDICAL) — +5; discarded; attempt continues."
             };
         return AttachContinue(ctx, PersistKind.RemFatigue, 4,
-            "REM Fatigue (quarantine, countdown 4). Cure: 3 MEDICAL or dock (score points). Attempt continues.");
+            "REM Fatigue (quarantine, countdown 4). Cure: 3 MEDICAL or dock at Outpost (+5). Attempt continues.");
     }
 
     // ---- Menthar Booby Trap (Premiere 34 C) ----
@@ -3668,15 +3674,23 @@ public static class DilemmaRules
             Message = plan.Message
         };
     }
+    // Glossary Premiere Q (Captain/Spock LOCK 2026-09-19): Spaceline-Rearrange + Seed-Purge.
+    // Continuum / Q-Flash / Download-[Q] PARK (cards.json modern text does NOT apply).
     private static Result Qdil(Ctx ctx)
     {
         if (Skill(ctx, "Leadership", 2) && Sum(ctx).integ > 60)
-            return new Result { Fate = Fate.Overcome, Message = "2 Leadership + INTEGRITY>60." };
+            return new Result
+            {
+                Fate = Fate.Overcome,
+                PurgeDilemmaSeedsUnderMission = true,
+                Message = "Q: 2 Leadership + INTEGRITY>60 — overcome; purge remaining dilemma seeds under mission; discard Q."
+            };
         return new Result
         {
             Fate = Fate.EffectAndEnd,
             StopTeam = true,
-            Message = "Q: Q-Flash (sandbox: team stopped). Q-Continuum later."
+            OpponentRearrangeSpaceline = true,
+            Message = "Q: fail — opponent rearranges spaceline (location units); team stopped; discard Q. (Q-Flash/Continuum PARK.)"
         };
     }
 
@@ -3895,9 +3909,9 @@ public static class DilemmaRules
     public static bool IsStasisPersist(PersistKind persist) =>
         persist is PersistKind.Phased or PersistKind.Abduction;
 
-    /// <summary>Hyper-Aging quarantine: cannot leave/beam away; joiners also quarantined.</summary>
+    /// <summary>Hyper-Aging / REM Fatigue quarantine: cannot leave/beam away; joiners also quarantined.</summary>
     public static bool IsQuarantinePersist(PersistKind persist) =>
-        persist is PersistKind.HyperAging;
+        persist is PersistKind.HyperAging or PersistKind.RemFatigue;
 
     /// <summary>Leave/Beam blocked (stasis OR quarantine).</summary>
     public static bool IsLeaveBlockedPersist(PersistKind persist) =>
@@ -3908,10 +3922,12 @@ public static class DilemmaRules
     {
         if (!IsQuarantinePersist(PersistKind.HyperAging))
             return "HyperAging should be quarantine persist";
-        if (IsQuarantinePersist(PersistKind.RemFatigue))
-            return "RemFatigue quarantine out of scope for this fix";
+        if (!IsQuarantinePersist(PersistKind.RemFatigue))
+            return "RemFatigue should be quarantine persist (Captain/Spock LOCK)";
         if (!IsLeaveBlockedPersist(PersistKind.HyperAging))
             return "HyperAging should leave-block";
+        if (!IsLeaveBlockedPersist(PersistKind.RemFatigue))
+            return "RemFatigue should leave-block";
         if (!IsLeaveBlockedPersist(PersistKind.Abduction))
             return "Abduction should still leave-block via stasis";
         if (IsStasisPersist(PersistKind.HyperAging))
@@ -3944,6 +3960,105 @@ public static class DilemmaRules
             return "encounter: seed removed when attached";
         return null;
     }
+
+    /// <summary>DE mini-test Q Glossary LOCK (no Continuum). Returns null if OK.</summary>
+    public static string? VerifyQDilemma()
+    {
+        static Card P(string name, string text, string integ = "5") => new()
+        {
+            Name = name, Type = "Personnel", Class = "OFFICER", Text = text,
+            Characteristics = "Human; Male;", IntegrityOrRange = integ,
+            CunningOrWeapons = "5", StrengthOrShields = "5"
+        };
+        var lead1 = P("L1", "Leadership");
+        var lead2 = P("L2", "Leadership x2", "50");
+        // integ sum: lead1 5 + lead2 50 = 55 — fail pass threshold
+        var failTeam = new[] { lead1, lead2 };
+        var ctxFail = new Ctx
+        {
+            Dilemma = new Card { Name = "Q", Type = "Dilemma", MissionDilemmaType = "[S/P]" },
+            Mission = new Card { Name = "Test", Type = "Mission" },
+            Team = failTeam, Present = failTeam, AttemptingPlayer = 1
+        };
+        var rFail = Resolve(ctxFail);
+        if (rFail.Fate != Fate.EffectAndEnd || !rFail.StopTeam || !rFail.OpponentRearrangeSpaceline)
+            return $"Q fail: expected EffectAndEnd+Stop+Rearrange, got {rFail.Fate}/{rFail.StopTeam}/{rFail.OpponentRearrangeSpaceline}";
+        if (rFail.PurgeDilemmaSeedsUnderMission)
+            return "Q fail must not purge seeds";
+
+        var lead3 = P("L3", "Leadership", "20");
+        var passTeam = new[] { lead1, lead2, lead3 }; // Leadership x1+x2+x1 >=2; integ 5+50+20=75
+        var ctxPass = new Ctx
+        {
+            Dilemma = new Card { Name = "Q", Type = "Dilemma", MissionDilemmaType = "[S/P]" },
+            Mission = new Card { Name = "Test", Type = "Mission" },
+            Team = passTeam, Present = passTeam, AttemptingPlayer = 1
+        };
+        var rPass = Resolve(ctxPass);
+        if (rPass.Fate != Fate.Overcome || !rPass.PurgeDilemmaSeedsUnderMission)
+            return $"Q pass: expected Overcome+Purge, got {rPass.Fate}/{rPass.PurgeDilemmaSeedsUnderMission}";
+        if (rPass.OpponentRearrangeSpaceline)
+            return "Q pass must not rearrange";
+        return null;
+    }
+
+    /// <summary>DE mini-test REM Fatigue LOCK. Returns null if OK.</summary>
+    public static string? VerifyRemFatigue()
+    {
+        static Card P(string name, string cls, string text) => new()
+        {
+            Name = name, Type = "Personnel", Class = cls, Text = text,
+            Characteristics = "Human; Male;", IntegrityOrRange = "5",
+            CunningOrWeapons = "5", StrengthOrShields = "5"
+        };
+        var m1 = P("M1", "MEDICAL", "MEDICAL");
+        var m2 = P("M2", "MEDICAL", "MEDICAL");
+        var m3 = P("M3", "MEDICAL", "MEDICAL");
+        var civ = P("Civ", "CIVILIAN", "CIVILIAN");
+        var presentCure = new[] { m1, m2, m3 };
+        var ctxCure = new Ctx
+        {
+            Dilemma = new Card { Name = "REM Fatigue", Type = "Dilemma", MissionDilemmaType = "[S/P]", Icons = "[4]" },
+            Mission = new Card { Name = "Test", Type = "Mission" },
+            Team = presentCure, Present = presentCure, AttemptingPlayer = 1
+        };
+        var rCure = Resolve(ctxCure);
+        if (rCure.Fate != Fate.Overcome || rCure.Score != 5)
+            return $"REM immediate cure: expected Overcome+5, got {rCure.Fate}/{rCure.Score}";
+
+        var presentFail = new[] { m1, civ };
+        var ctxFail = new Ctx
+        {
+            Dilemma = new Card { Name = "REM Fatigue", Type = "Dilemma", MissionDilemmaType = "[S/P]", Icons = "[4]" },
+            Mission = new Card { Name = "Test", Type = "Mission" },
+            Team = presentFail, Present = presentFail, AttemptingPlayer = 1
+        };
+        var rFail = Resolve(ctxFail);
+        if (rFail.Fate != Fate.AttachAndContinue || rFail.Persist != PersistKind.RemFatigue || rFail.Countdown != 4)
+            return $"REM attach: expected AttachContinue RemFatigue cd4, got {rFail.Fate}/{rFail.Persist}/{rFail.Countdown}";
+        if (!IsQuarantinePersist(PersistKind.RemFatigue))
+            return "REM must be quarantine persist";
+        if (!IsOutpostFacility(new Card { Name = "Federation Outpost", Type = "Facility" }))
+            return "Federation Outpost should count as Outpost dock cure target";
+        if (IsOutpostFacility(new Card { Name = "Nor", Type = "Facility", Text = "Station" }))
+            return "Station must not count as Outpost for REM dock cure";
+        return null;
+    }
+
+    /// <summary>True for Premiere Outpost facilities (not HQ / Station).</summary>
+    public static bool IsOutpostFacility(Card? facility)
+    {
+        if (facility == null) return false;
+        string n = facility.Name ?? "";
+        string t = facility.Type ?? "";
+        string text = facility.Text ?? "";
+        string blob = $"{n} {t} {text}";
+        if (blob.Contains("Headquarters", StringComparison.OrdinalIgnoreCase)) return false;
+        if (blob.Contains("Station", StringComparison.OrdinalIgnoreCase) && !blob.Contains("Outpost", StringComparison.OrdinalIgnoreCase))
+            return false;
+        return blob.Contains("Outpost", StringComparison.OrdinalIgnoreCase);
+    }
+
 
     public static bool ShouldAwardScoreOnApply(int score, Fate fate) =>
         score > 0 && fate != Fate.Overcome;

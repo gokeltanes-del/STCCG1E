@@ -47,8 +47,19 @@ public static class DilemmaCureRules
         string cardName,
         IEnumerable<Card> present,
         int owner,
-        bool missionCompleted = false)
+        bool missionCompleted = false,
+        bool dockedAtOutpost = false)
     {
+        // REM Fatigue: Outpost dock is an alternate cure path (Captain/Spock LOCK).
+        if (kind == DilemmaRules.PersistKind.RemFatigue && dockedAtOutpost)
+        {
+            return new CurePlan(
+                CureAction.CureAndDiscard,
+                5,
+                $"REM Fatigue cured (docked at Outpost) +5 pts: {cardName}",
+                $"{cardName} cured (Outpost dock).");
+        }
+
         if (!CanCure(kind, present, owner, missionCompleted))
         {
             return new CurePlan(CureAction.None, 0, "", "");
@@ -134,6 +145,17 @@ public static class DilemmaCureRules
         var hyperPlan = DecideCure(DilemmaRules.PersistKind.HyperAging, "Hyper-Aging", new[] { sci, med1, med2 }, 1);
         if (hyperPlan.Action != CureAction.CureAndDiscard || hyperPlan.PointsAwarded != 5)
             return "Hyper-Aging: expected CureAndDiscard with 5 points";
+
+        var remMed3 = P("RemMed3", "MEDICAL", "MEDICAL");
+        var remPlan = DecideCure(DilemmaRules.PersistKind.RemFatigue, "REM Fatigue", new[] { med1, med2, remMed3 }, 1);
+        if (remPlan.Action != CureAction.CureAndDiscard || remPlan.PointsAwarded != 5)
+            return "REM Fatigue: expected CureAndDiscard with 5 points (3 MEDICAL)";
+        var remDock = DecideCure(DilemmaRules.PersistKind.RemFatigue, "REM Fatigue", Array.Empty<Card>(), 1, dockedAtOutpost: true);
+        if (remDock.Action != CureAction.CureAndDiscard || remDock.PointsAwarded != 5)
+            return "REM Fatigue: Outpost dock should cure +5";
+        var remFail = DecideCure(DilemmaRules.PersistKind.RemFatigue, "REM Fatigue", new[] { med1 }, 1);
+        if (remFail.Action != CureAction.None)
+            return "REM Fatigue: 1 MEDICAL should not cure";
 
         // Frame of Mind test: 3 Empathy cures
         var emp1 = P("Emp1", "CIVILIAN", "Empathy x2");
