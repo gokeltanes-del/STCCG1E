@@ -9,13 +9,29 @@ Local VS: C:\\Dev\\StarTrekCCG\\
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test.
 
 ## Current tip
-Local Josef tip **
-** - Q Printed rework (Pepsch smoke). Nicht gepusht.
+Local Josef tip **PENDING** - Alien Parasites Neg-Control Fix (Pepsch smoke). Nicht gepusht.
 Local Josef tip **bcf7f9d** - Holo existence gates (Pepsch Fix-Go; Spock precise Soll). Nicht gepusht. (Prior Holo-Projectors tip 3c50792; LF UI eaf0c24.)
 **Pepsch EXE (Default Debug):**
 `C:\Dev\StarTrekCCG\StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe`
 Nicht `_build_holo*` / Release / alte Side-Builds.
 
+
+## Tip detail (Data, Josef, 2026-09-19) - Alien Parasites Neg-Control Fix
+Captain Fix-Go. Pepsch: Away Team+Ship&Crew beamed AT onto wrong opp ship.
+### Fix
+- Dual choice: `MoveAlienParasitesAwayTeamOntoShip` onto **chosen** ship, then same Neg-Control as ship/crew.
+- No relocate onto any other ship at the location.
+- Away-Team-only: controller in place (no foreign-ship beam).
+### Also
+- Armus → CARD_TRACKER **working** (Pepsch green; no code).
+- Q-Flash full verb remains PARK (smoke after Continuum expansion).
+Files: `TableWindow.xaml.cs`, `DilemmaRules.cs` (verify note), `CARD_TRACKER`, `HANDOFF`.
+Exe: StarTrekCCG\\bin\\Debug\\net8.0-windows\\StarTrekCCG.exe
+### Pepsch smoke
+1. Parasites fail planet: Opp picks Away Team AND one ship+crew → pick ship → AT ends **aboard that ship** under Opp control (not another opp ship).
+2. Opp picks Away Team only → AT stays (planet/prior host); controller Opp; no beam to foreign ship.
+3. Opp picks ship only → ship+crew control OK.
+4. Armus: already green / tracker working.
 
 ## Tip detail (Data, Josef, 2026-09-19) - Q Printed rework
 Pepsch: cards.json/Compendium text = truth. Spock `GROK_TEMP/SOLL_Q_PRINTED_2026-09-19.md`.

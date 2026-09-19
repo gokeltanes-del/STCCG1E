@@ -4278,6 +4278,7 @@ public static class DilemmaRules
         if (ParseAlienParasitesControlChoice("Away Team AND one ship + crew") != AlienParasitesControlChoice.AwayTeamAndShip)
             return "parse: Both";
 
+                // Captain Fix-Go: dual AT placement is TW MoveAlienParasitesAwayTeamOntoShip.
         return null;
     }
     // ---- Anaphasic Organism (Premiere 12 C) ----

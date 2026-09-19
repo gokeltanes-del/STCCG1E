@@ -17468,6 +17468,43 @@ public partial class TableWindow : Window
     /// Control applies now; Opp acts on their turn; restore at Opp EOT (= start of victim next turn).
     /// PARK: dual-window hotseat chooser; deep "not compatible with Opp other cards" affiliation mix.
     /// </summary>
+    /// <summary>
+    /// Captain Fix-Go: place encounter Away Team onto the chosen ship (same Neg-Control host).
+    /// Removes from planet / other hosts first. Does not target any other ship at the location.
+    /// </summary>
+    private void MoveAlienParasitesAwayTeamOntoShip(
+        List<(Border Border, Card Card)> awayTeam, Border chosenShip, Border missionBorder)
+    {
+        foreach (var (b, pc) in awayTeam)
+        {
+            Border? currentHost = null;
+            foreach (var kv in _stackOnHost)
+            {
+                if (kv.Value.Contains(b))
+                {
+                    currentHost = kv.Key;
+                    break;
+                }
+            }
+            if (currentHost != null && !ReferenceEquals(currentHost, chosenShip))
+            {
+                RemoveCardFromHostStack(currentHost, b);
+                UpdateHostBadge(currentHost);
+            }
+            else if (_stackOnHost.TryGetValue(missionBorder, out var onMis) && onMis.Contains(b))
+            {
+                RemoveCardFromHostStack(missionBorder, b);
+            }
+
+            if (!_stackOnHost.TryGetValue(chosenShip, out var crew) || !crew.Contains(b))
+                AddCardToHostStack(chosenShip, b);
+        }
+        UpdateHostBadge(chosenShip);
+        UpdateHostBadge(missionBorder);
+        _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
+            $"Alien Parasites: Away Team placed on chosen ship {(chosenShip.Tag as Card)?.Name} (same Neg-Control; no foreign ship).");
+    }
+
     private void BeginAlienParasitesOpponentControl(
         Card seedCard, Border missionBorder, List<Border> teamBorders, Border? shipBorder)
     {
@@ -17555,7 +17592,17 @@ public partial class TableWindow : Window
                 : 0
         };
 
-        if (choice.HasFlag(DilemmaRules.AlienParasitesControlChoice.AwayTeam))
+        // Captain Fix-Go 2026-09-19: Away Team + Ship => AT must join CHOSEN ship under same Neg-Control.
+        // Never beam/relocate AT onto a different (opponent) ship at the location.
+        bool takeAway = choice.HasFlag(DilemmaRules.AlienParasitesControlChoice.AwayTeam);
+        bool takeShip = chosenShip != null;
+
+        if (takeAway && takeShip && chosenShip != null)
+        {
+            MoveAlienParasitesAwayTeamOntoShip(awayTeam, chosenShip, missionBorder);
+        }
+
+        if (takeAway && !takeShip)
         {
             foreach (var (b, pc) in awayTeam)
             {
@@ -17575,15 +17622,15 @@ public partial class TableWindow : Window
 
             if (_stackOnHost.TryGetValue(chosenShip, out var crew))
             {
-                foreach (var b in crew)
+                foreach (var b in crew.ToList())
                 {
                     if (b.Tag is not Card pc) continue;
                     if (!ModifierRules.IsPersonnelCard(pc) && !ModifierRules.IsEquipmentCard(pc))
                         continue;
-                    // Avoid double-entry if already in Away Team list
                     if (state.Cards.Any(x => ReferenceEquals(x.Card, pc)))
                     {
                         pc.Controller = opp;
+                        SetBorderOwner(b, opp);
                         continue;
                     }
                     int orig = pc.Controller != 0 ? pc.Controller : victim;
@@ -17592,8 +17639,28 @@ public partial class TableWindow : Window
                     state.Cards.Add((pc, orig, b));
                 }
             }
+
+            // Dual choice: AT already moved onto chosenShip above — ensure they are in state + controller.
+            if (takeAway)
+            {
+                foreach (var (b, pc) in awayTeam)
+                {
+                    if (state.Cards.Any(x => ReferenceEquals(x.Card, pc)))
+                    {
+                        pc.Controller = opp;
+                        SetBorderOwner(b, opp);
+                        continue;
+                    }
+                    int orig = pc.Controller != 0 ? pc.Controller : victim;
+                    pc.Controller = opp;
+                    SetBorderOwner(b, opp);
+                    state.Cards.Add((pc, orig, b));
+                }
+            }
+
             SyncDockableSideAfterOwnerChange(chosenShip);
             UpdateHostBadge(chosenShip);
+            UpdateHostBadge(missionBorder);
         }
 
         _alienParasiteControls.Add(state);
