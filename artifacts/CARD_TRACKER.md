@@ -97,7 +97,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Card | Status | Notes | Source |
 | --- | --- | --- | --- |
 | Alien Abduction (10 U) | working | Pepsch green (Cure OR + Stasis Beam-Block; zentrales Cure-System 7.2.2.3 via 3 Leadership oder Mission Completed; Fix: kein Stoppen des Teams, nahtlose Fortsetzung bei Cure oder Nicht-Cure lt. 7.2.2.3/7.2.6). | Pepsch 2026-09-13 |
-| Alien Parasites (11 U) | partial | Pepsch: AT+Ship OK (tip Data/`e8cf505` Neg-Control). Noch BUG Away-Team-only (Beam) und Ship-only (AT mitgebeamed). Data Fix-Go. Bleibt partial bis Pepsch green. | Pepsch 2026-09-19; Data/`e8cf505` |
+| Alien Parasites (11 U) | partial | Neg-Control Fix2: no auto BeamBack before chooser. Away-only=planet in place; Ship-only=planet AT untouched; Dual=AT on chosen ship. tip Data pending. | Data Fix-Go 2026-09-19 |
 | Anaphasic Organism (12 C) | working | Pepsch green: Fail resigns=discard, not Kill. tips Data/`502d8e0` + Fix/`3532748`. | Pepsch 2026-09-15; Data/`3532748` |
 | Ancient Computer (13 R) | working | Pepsch green: Wall 2 Computer Skill OR 3 SCIENCE OR 3 ENGINEER; Fail Stop+unter Mission. tip Data/`bb551f1`. | Pepsch 2026-09-15; Data/`bb551f1` |
 | Archer (14 C) | working | Pepsch green bestÃ¤tigt: Auswertung Attribute / Opponent-Choice bei Gleichstand und Stop-Verhalten funktionieren einwandfrei. | Pepsch 2026-09-13 |
@@ -133,7 +133,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Q (44 R) | partial | Pepsch: Smoke blockiert bis Q-Continuum Expansion. Needs Continuum foundation; tip `59b51e6` bleibt bis Continuum+Smoke. Printed LOCK; Q-Flash full verb PARK. Not working. | Pepsch 2026-09-19; Data/`59b51e6` |
 | Radioactive Garbage Scow (45 U) | working | Pepsch green: Tractor Beam attach -> offset hang -> Fly follow -> EOT drop. tips Data through `9cd104f` (a4e4e5d/bf7a394/558fc4e/2c6a3f9/9cd104f). Spock Tractor Soll. | Pepsch 2026-09-14; Data/`9cd104f` |
 | Rebel Encounter (46 U) | working | Pepsch green: destroy Equipment path OK. tip Data/`7d649f7`. Interphase Generator nullify also OK. | Pepsch 2026-09-18; Data/`7d649f7` |
-| REM Fatigue (47 U) | working | Pepsch green: Dock + Planet/3 MEDICAL OK. tip Data/`638fde8` (CD[4]; quarantine=HyperAging; cure 3 MEDICAL or Outpost dock +5; kill OriginalEncounter only). | Pepsch 2026-09-19; Data/`638fde8` |
+| REM Fatigue (47 U) | working | Pepsch green: Dock + Planet/3 MEDICAL. tip Data/`638fde8` quarantine CD[4]/Outpost dock/OriginalEncounter. | Pepsch 2026-09-19; Data/`638fde8` |
 | Sarjenka (48 R) | working | Pepsch green. | Pepsch 2026-09-18 |
 | Shaka, When the Walls Fell (49 U) | working | Pepsch green. | Pepsch 2026-09-18 |
 | Tarellian Plague Ship (50 U) | working | Pepsch green: Hybrid Opfer+5; Overcome UX A Medical Personnel / B Equipment+matching; Step0 Dilemma-Karte UI tip `003f811`. Tips Data `a97e8eb`…`003f811`. | Pepsch 2026-09-18; Data/`003f811` |

@@ -9,12 +9,29 @@ Local VS: C:\\Dev\\StarTrekCCG\\
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test.
 
 ## Current tip
-Local Josef tip **e8cf505** - Alien Parasites Neg-Control Fix (Pepsch smoke). Nicht gepusht.
+Local Josef tip **PENDING** - Alien Parasites Neg-Control Fix2 (Pepsch smoke). Nicht gepusht.
 Local Josef tip **bcf7f9d** - Holo existence gates (Pepsch Fix-Go; Spock precise Soll). Nicht gepusht. (Prior Holo-Projectors tip 3c50792; LF UI eaf0c24.)
 **Pepsch EXE (Default Debug):**
 `C:\Dev\StarTrekCCG\StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe`
 Nicht `_build_holo*` / Release / alte Side-Builds.
 
+
+## Tip detail (Data, Josef, 2026-09-19) - Alien Parasites Neg-Control Fix2
+Captain Fix-Go after Pepsch smoke on e8cf505.
+### Bugs
+- Away Team only: auto BeamBack put AT on a ship. SOLL: stay on planet + Neg-Control.
+- Ship only: BeamBack put AT aboard chosen ship so they got Control too. SOLL: planet AT untouched.
+### Fix
+- `DecideAlienParasites` fail: **BeamBackTeam=false** when GrantOpponentControl (chooser owns placement).
+- Dual still uses `MoveAlienParasitesAwayTeamOntoShip` onto chosen ship only.
+### Also
+- REM Fatigue → CARD_TRACKER **working** (Pepsch green Dock+Planet/3 MED; no code).
+Files: `Game/DilemmaRules.cs`, CARD_TRACKER, HANDOFF.
+Exe: StarTrekCCG\\bin\\Debug\\net8.0-windows\\StarTrekCCG.exe
+### Pepsch smoke
+1. Away Team only → AT stays on **planet**, Opp Neg-Control; no beam.
+2. Ship + crew only → only ship+crew controlled; planet AT unmoved/uncontrolled.
+3. Away Team + ship&crew → AT on **chosen** ship under Opp control (still OK from e8cf505).
 
 ## Tip detail (Data, Josef, 2026-09-19) - Alien Parasites Neg-Control Fix
 Captain Fix-Go. Pepsch: Away Team+Ship&Crew beamed AT onto wrong opp ship.

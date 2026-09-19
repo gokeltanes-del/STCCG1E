@@ -4203,8 +4203,9 @@ public static class DilemmaRules
 
     /// <summary>
     /// Pass INTEGRITY>32 to Overcome (discard + continue).
-    /// Fail to WallFailed (dilemma stays under mission), StopTeam, planet BeamBack,
+    /// Fail to WallFailed (dilemma stays under mission), StopTeam,
     /// GrantOpponentControl (Opp chooses AT and/or one ship+crew until start of your next turn).
+    /// No auto BeamBack before Neg-Control (Captain Fix-Go: planet AT stays until dual choice moves it).
     /// </summary>
     public static AlienParasitesPlan DecideAlienParasites(int integritySum, bool isPlanetMission)
     {
@@ -4217,13 +4218,16 @@ public static class DilemmaRules
                 GrantOpponentControl: false,
                 Message: "INTEGRITY>32 - Alien Parasites overcome.");
         }
+        // Captain Fix-Go 2026-09-19 (after e8cf505 smoke): Neg-Control choices own placement.
+        // Away Team only => stay on planet (no auto beam-back). Ship only => planet AT untouched.
+        // Dual => TW moves AT onto chosen ship. Never BeamBack before chooser.
         string msg = isPlanetMission
-            ? "Alien Parasites: INTEGRITY<=32 - attempt ends; Away Team beams back; dilemma remains under mission; team stopped; opponent may take control."
+            ? "Alien Parasites: INTEGRITY<=32 - attempt ends; dilemma remains under mission; team stopped; opponent may take control (Away Team stays on planet unless Opp chooses Away Team+ship)."
             : "Alien Parasites: INTEGRITY<=32 - attempt ends; dilemma remains under mission; crew and ship stopped; opponent may take control.";
         return new AlienParasitesPlan(
             Fate.WallFailed,
             StopTeam: true,
-            BeamBackTeam: isPlanetMission,
+            BeamBackTeam: false,
             GrantOpponentControl: true,
             Message: msg);
     }
@@ -4255,8 +4259,8 @@ public static class DilemmaRules
             return "pass: seed should discard (Overcome)";
 
         var failEq = DecideAlienParasites(32, isPlanetMission: true);
-        if (failEq.Fate != Fate.WallFailed || !failEq.StopTeam || !failEq.BeamBackTeam || !failEq.GrantOpponentControl)
-            return "fail(32,planet): expected WallFailed+Stop+BeamBack+Control";
+        if (failEq.Fate != Fate.WallFailed || !failEq.StopTeam || failEq.BeamBackTeam || !failEq.GrantOpponentControl)
+            return "fail(32,planet): expected WallFailed+Stop+NoBeamBack+Control (Neg-Control Fix-Go)";
         if (ShouldRemoveFromSeed(failEq.Fate))
             return "fail planet: dilemma must stay under mission (WallFailed)";
 
