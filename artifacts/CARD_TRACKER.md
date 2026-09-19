@@ -35,7 +35,7 @@ Source tip: when Data/Spock/Seven/Captain report, update the row.
 | `blocked` | 0 | — |
 | **Total** | **363** | |
 
-**Premiere partials (queue):** REM Fatigue · Alien Parasites · Armus: Skin Of Evil · Crystalline Entity · Iconian Computer Weapon · Alien Probe · Asteroid Sanctuary · Escape Pod
+**Premiere partials (queue):** Alien Parasites (BUG) · Q (blocked Continuum) · REM Fatigue · Crystalline Entity · Iconian Computer Weapon · Alien Probe · Asteroid Sanctuary · Escape Pod
 
 | Card Type | Count |
 | --- | ---: |
@@ -97,11 +97,11 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Card | Status | Notes | Source |
 | --- | --- | --- | --- |
 | Alien Abduction (10 U) | working | Pepsch green (Cure OR + Stasis Beam-Block; zentrales Cure-System 7.2.2.3 via 3 Leadership oder Mission Completed; Fix: kein Stoppen des Teams, nahtlose Fortsetzung bei Cure oder Nicht-Cure lt. 7.2.2.3/7.2.6). | Pepsch 2026-09-13 |
-| Alien Parasites (11 U) | partial | tip Data/`f087866` Neg Control + Strip/`2976b61`. Hotseat-Chooser PARK. Pending Pepsch green â†’ working. | Data/`2976b61` 2026-09-09 |
+| Alien Parasites (11 U) | partial | Pepsch PARTIAL BUG: Chooser Away Team / Ship+Crew / Away Team+Ship&Crew OK; bei Away Team+Ship&Crew Ship-Pick OK, aber Away Team wurde auf anderes Gegner-Schiff gebeamed. SOLL: Away Team gehoert dem Parasites-Controller (Neg Control), nicht Beam auf fremdes Schiff. tip Data/`f087866`+`2976b61`. | Pepsch 2026-09-19; Data/`2976b61` |
 | Anaphasic Organism (12 C) | working | Pepsch green: Fail resigns=discard, not Kill. tips Data/`502d8e0` + Fix/`3532748`. | Pepsch 2026-09-15; Data/`3532748` |
 | Ancient Computer (13 R) | working | Pepsch green: Wall 2 Computer Skill OR 3 SCIENCE OR 3 ENGINEER; Fail Stop+unter Mission. tip Data/`bb551f1`. | Pepsch 2026-09-15; Data/`bb551f1` |
 | Archer (14 C) | working | Pepsch green bestÃ¤tigt: Auswertung Attribute / Opponent-Choice bei Gleichstand und Stop-Verhalten funktionieren einwandfrei. | Pepsch 2026-09-13 |
-| Armus: Skin Of Evil (15 R) | partial | tip Data/`31d0c73`. 1 AT random Kill; discard; Rest Continue (kein Stop). Ungetestet. | Data/`31d0c73` 2026-09-06 |
+| Armus: Skin Of Evil (15 R) | working | Pepsch green komplett (war partial tip `31d0c73`). 1 AT random Kill; discard; Rest Continue (kein Stop). | Pepsch 2026-09-19; Data/`31d0c73` |
 | Barclay's Protomorphosis Disease (16 R) | working | Pepsch getestet OK (Metamorphosis/Transformation). | Pepsch 2026-09-06 |
 | Birth of "Junior" (17 U) | working | Pepsch green: Place+Continue; cumulative RANGE Countdown tip Data/`755242c`; destroy at 0; Cure 3 ENG nullify. | Pepsch 2026-09-14; Data/`755242c` |
 | Borg Ship (18 R) | working | Pepsch green: no stop on reveal (`ed19e08`); load duplicate UI fixed (`51cd333`); Hugh vs dilemma attack OK. | Pepsch 2026-09-15; Data/`ed19e08`+`51cd333` |
@@ -130,7 +130,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Null Space (41 U) | working | Pepsch green: 2 Navigation -> +5 Continue; Fail Damage+Stop. tip Data/`04f4bd6`. | Pepsch 2026-09-15; Data/`04f4bd6` |
 | Phased Matter (42 C) | working | Pepsch green: AT-Split, Stasis der grÃ¶ÃŸeren Gruppe, WeiterfÃ¼hrung der kleineren Gruppe und Cure (ENG+SCI unphased) via zentrales Cure-System bestÃ¤tigt. | Pepsch 2026-09-13 |
 | Portal Guard (43 U) | working | CUNN>7/Honor Continue; Fail: BeamBack+Stop wenn Beamen mÃ¶glich (Schiff/Facility vorhanden, kein Stasis/QuarantÃ¤ne); Kill wenn Beamen unmÃ¶glich (z.B. Hyper-Aging QuarantÃ¤ne oder kein Schiff/Facility) + unter Mission. Unit-Test `VerifyPortalGuard`. | Captain 2026-09-13 |
-| Q (44 R) | partial | Pepsch Printed LOCK (`GROK_TEMP/SOLL_Q_PRINTED_2026-09-19.md`). Pass Overcome no purge/rearrange. Fail: download <=2 [Q] atop Continuum + Q-Flash 4 pending + stop. Glossary Rearrange tip superseded. Pending Pepsch green + full Q-Flash verb. | Data 2026-09-19 Printed |
+| Q (44 R) | partial | Pepsch: Smoke blockiert bis Q-Continuum Expansion. Needs Continuum foundation; tip `59b51e6` bleibt bis Continuum+Smoke. Printed LOCK; Q-Flash full verb PARK. Not working. | Pepsch 2026-09-19; Data/`59b51e6` |
 | Radioactive Garbage Scow (45 U) | working | Pepsch green: Tractor Beam attach -> offset hang -> Fly follow -> EOT drop. tips Data through `9cd104f` (a4e4e5d/bf7a394/558fc4e/2c6a3f9/9cd104f). Spock Tractor Soll. | Pepsch 2026-09-14; Data/`9cd104f` |
 | Rebel Encounter (46 U) | working | Pepsch green: destroy Equipment path OK. tip Data/`7d649f7`. Interphase Generator nullify also OK. | Pepsch 2026-09-18; Data/`7d649f7` |
 | REM Fatigue (47 U) | partial | Spock+Captain LOCK CD[4]; quarantine=HyperAging; cure 3 MEDICAL or Outpost dock +5; kill OriginalEncounter only. Data tip (Josef, no push). Pending Pepsch green. | Data 2026-09-19 |
