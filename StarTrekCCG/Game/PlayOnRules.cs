@@ -227,23 +227,31 @@ public static class PlayOnRules
     public static string? ParseAffiliationIcon(string? clause)
     {
         if (string.IsNullOrWhiteSpace(clause)) return null;
-        var m = Regex.Match(clause, @"\\[(?<a>[^\\]]+)\\]");
-        if (!m.Success) return null;
-        string raw = m.Groups["a"].Value.Trim();
-        return raw.ToUpperInvariant() switch
+        try
         {
-            "FED" or "FEDERATION" => "FED",
-            "KLI" or "KLINGON" => "KLI",
-            "ROM" or "ROMULAN" => "ROM",
-            "BAJ" or "BAJORAN" => "BAJ",
-            "CAR" or "CARD" or "CARDASSIAN" => "CARD",
-            "FER" or "FERENGI" => "FER",
-            "DOM" or "DOMINION" => "DOM",
-            "BOR" or "BORG" => "BORG",
-            "NA" or "NON" or "NON-ALIGNED" => "NA",
-            "P" => null,
-            _ => raw.ToUpperInvariant()
-        };
+            // One bracket pair: [FED] / [P]. Never throw — Stone etc. have no affil icon.
+            var m = Regex.Match(clause, @"\[(?<a>[^\]]+)\]");
+            if (!m.Success) return null;
+            string raw = m.Groups["a"].Value.Trim();
+            return raw.ToUpperInvariant() switch
+            {
+                "FED" or "FEDERATION" => "FED",
+                "KLI" or "KLINGON" => "KLI",
+                "ROM" or "ROMULAN" => "ROM",
+                "BAJ" or "BAJORAN" => "BAJ",
+                "CAR" or "CARD" or "CARDASSIAN" => "CARD",
+                "FER" or "FERENGI" => "FER",
+                "DOM" or "DOMINION" => "DOM",
+                "BOR" or "BORG" => "BORG",
+                "NA" or "NON" or "NON-ALIGNED" => "NA",
+                "P" => null, // planet icon, not affiliation
+                _ => raw.ToUpperInvariant()
+            };
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
     }
 
     public static InterruptRules.PlayTarget ToInterruptTarget(Spec spec)
