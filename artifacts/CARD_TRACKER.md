@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-20 (Jadzia — Pepsch green Horga'hn tip 5b92210)
+Last updated: 2026-09-20 (Jadzia — Pepsch green Kevin Uxbridge Response tip 8cc832f)
 Scope: **Premiere** (`PR`) + **Alternate Universe** catalogued. **Priority: finish all unfinished Premiere cards first.** AU is logged only; not prioritized unless already wired.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -29,9 +29,9 @@ Source tip: when Data/Spock/Seven/Captain report, update the row.
 
 | Status | Count | Role |
 | --- | ---: | --- |
-| `working` | 83 | Done (Pepsch green) |
+| `working` | 84 | Done (Pepsch green) |
 | `partial` | 6 | **Next smoke / rework** |
-| `unknown` | 274 | **Backlog — finish Premiere** |
+| `unknown` | 273 | **Backlog — finish Premiere** |
 | `blocked` | 0 | — |
 | **Total** | **363** | |
 
@@ -90,7 +90,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Time Travel Pod (6 R) | unknown |  |  |
 | Tox Uthat (7 R) | unknown |  |  |
 | Varon-T Disruptor (8 R) | working | Pepsch getestet: Looten OK, verdoppelt STRENGTH auf Planet; Beamen auf Schiff ohne Treaty repariert (`TreatyRules.CanOccupyHost`). | Pepsch 2026-09-12 |
-| Vulcan Stone of Gol (9 R) | working | Pepsch green (inkl. Kevin as Event). tip Data/`6d15780`: planet AT only; Plays-as-Event kill+discard (no inert host). | Pepsch 2026-09-20; Data/`6d15780` |
+| Vulcan Stone of Gol (9 R) | working | Pepsch green. tip Data/`6d15780` (planet AT; Plays-as-Event kill+discard). Response Kevin Uxbridge tip Data/`8cc832f`: nullify OK, Mission bleibt auf Spaceline (kein Mission-Nullify-Regression). UX Ship-Detail Kevin-Targets+Scrollbar Pepsch OK. | Pepsch 2026-09-20; Data/`6d15780`+`8cc832f` |
 
 ### Dilemma
 
@@ -229,7 +229,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Incoming Message: Klingon (121 U) | unknown |  |  |
 | Incoming Message: Romulan (122 U) | unknown |  |  |
 | Jaglom Shrek: Information Broker (123 R) | unknown |  |  |
-| Kevin Uxbridge (124 U) | unknown |  |  |
+| Kevin Uxbridge (124 U) | working | Pepsch green Response auf Vulcan Stone of Gol (Play-on Away Team): Event nullify OK; Mission bleibt auf Spaceline. tip Data/`8cc832f`. UX Ship-Detail Kevin-Targets+Scrollbar OK. | Pepsch 2026-09-20; Data/`8cc832f` |
 | Klingon Death Yell (125 R) | unknown |  |  |
 | Klingon Right of Vengeance (126 C) | unknown |  |  |
 | Life-form Scan (127 U) | unknown |  |  |
