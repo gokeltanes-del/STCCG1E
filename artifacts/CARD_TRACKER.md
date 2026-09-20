@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-20 (Jadzia — Distortion tip f378f10 Spock Lock pending Pepsch green)
+Last updated: 2026-09-20 (Jadzia — Pepsch green Distortion Continuum; ETA in progress)
 Scope: **Premiere** (`PR`) + **Alternate Universe** catalogued. **Priority: finish all unfinished Premiere cards first.** AU is logged only; not prioritized unless already wired.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -29,13 +29,13 @@ Source tip: when Data/Spock/Seven/Captain report, update the row.
 
 | Status | Count | Role |
 | --- | ---: | --- |
-| `working` | 102 | Done (Pepsch green) |
+| `working` | 103 | Done (Pepsch green) |
 | `partial` | 6 | **Next smoke / rework** |
-| `unknown` | 255 | **Backlog — finish Premiere** |
+| `unknown` | 254 | **Backlog — finish Premiere** |
 | `blocked` | 0 | — |
 | **Total** | **363** | |
 
-**Premiere partials (queue):** Q (blocked Continuum) · Crystalline Entity · Iconian Computer Weapon · Alien Probe · Escape Pod · Raise the Stakes (tip 7f5ae62) · Distortion of Space/Time Continuum (LegalResponse after opp [AU])
+**Premiere partials (queue):** Q (blocked Continuum) · Crystalline Entity · Iconian Computer Weapon · Alien Probe · Escape Pod · Raise the Stakes (tip 7f5ae62) · Emergency Transporter Armbands (in progress)
 
 | Card Type | Count |
 | --- | ---: |
@@ -220,8 +220,8 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Auto-Destruct Sequence (110 U) | working | Countdown 1; destroy ship + splash SHIELDS<8. tip 96336de. | Data 2026-09-20 |
 | Crosis (111 R) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Disruptor Overload (112 C) | working | Pepsch green 2026-09-20. | Pepsch 2026-09-20 |
-| Distortion of Space/Time Continuum (113 U) | partial | tip f378f10 Spock Lock RANGE (Printed+Boni−HULL); just-AU LegalResponse. Pending Pepsch green. | Data 2026-09-20 |
-| Emergency Transporter Armbands (114 C) | unknown |  |  |
+| Distortion of Space/Time Continuum (113 U) | working | Pepsch green 2026-09-20 (rest OK; unstop untested). | Pepsch 2026-09-20 |
+| Emergency Transporter Armbands (114 C) | partial | Data building (in progress). Pending Pepsch green. | Data 2026-09-20 |
 | Energy Vortex (115 U) | unknown |  |  |
 | Escape Pod (116 C) | partial | tips Data/`5e55eef` + `7917a30`/`a3481a1` + `acc1426` + Z/`c1b622e` (Josef, no push): Response/Think Tray Z over CardDetail while open. Prior: ShipDestroyed window during battle stack; crew/personnel only; crew aboard + Pod in hand; excludes captives. Stays partial until Pepsch greens Borg-destroy -> pick Pod â€” not working. | Data/`c1b622e` 2026-09-15 |
 | Full Planet Scan (117 U) | unknown |  |  |
