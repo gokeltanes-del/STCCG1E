@@ -920,6 +920,8 @@ public partial class TableWindow : Window
         int rangeFull = printedR * (transwarp ? 2 : 1);
         if (border != null)
             rangeFull = Math.Max(0, rangeFull - EventsOn(border).Count(e => e.Kind == EventRules.Persist.Baryon) * 2);
+        // Printed Kurlan: triples ship attributes (RANGE too), same as WEAPONS/SHIELDS.
+        rangeFull = BattleRules.ApplyKurlan(rangeFull, aboard);
         if (border != null && GetHullDamage(border) >= 50 && rangeFull > 5)
             rangeFull = 5;
         int remain = border != null ? GetRemainingRange(border, ship) : rangeFull;
@@ -10094,14 +10096,17 @@ public partial class TableWindow : Window
         return pen;
     }
 
-    /// <summary>Printed/effective RANGE minus hull cap, Baryon, and Junior countdown.</summary>
+    /// <summary>Printed/effective RANGE (x Kurlan when staffed) minus hull cap, Baryon, and Junior countdown.</summary>
     private int ComputeShipTurnRange(Border shipBorder, Card ship)
     {
         int hull = GetHullDamage(shipBorder);
         int baryon = EventsOn(shipBorder).Count(e => e.Kind == EventRules.Persist.Baryon) * 2;
         int junior = GetJuniorRangePenalty(shipBorder);
-        return MovementRules.ComputeShipTurnRange(
-            BattleRules.EffectiveRange(ship, hull), baryon, junior);
+        int owner = GetBorderOwner(shipBorder);
+        if (owner == 0) owner = _activePlayer;
+        var aboard = GetAllCardsOnHost(shipBorder, owner);
+        int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), aboard);
+        return MovementRules.ComputeShipTurnRange(baseRange, baryon, junior);
     }
 
     private void ResetShipRangesForTurn()
@@ -10540,7 +10545,7 @@ public partial class TableWindow : Window
                 $"range #{ship.InstanceId} left={move.RangeLeft} source=instance");
         StatusText.Text =
             $"{ship.Name} → {((Card)toMission.Tag!).Name} · −{move.RangeCost} RANGE " +
-            $"({move.RangeLeft}/{MovementRules.GetShipRange(ship)} remaining) · {staff.Reason}";
+            $"({move.RangeLeft}/{ComputeShipTurnRange(shipBorder, ship)} remaining) · {staff.Reason}";
         _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
             $"{ship.Name} moved, cost {move.RangeCost}, left {move.RangeLeft}");
         DebugLog.MoveShip(_session.TurnNumber, _activePlayer, ship,
@@ -22441,7 +22446,7 @@ public partial class TableWindow : Window
         UpdateDamageBadge(shipBorder, 0);
 
         // RANGE wieder voll (nächster Zug / sofort für Rest des Spiels)
-        int full = MovementRules.GetShipRange(ship);
+        int full = ComputeShipTurnRange(shipBorder, ship);
         SetShipRangeLeft(shipBorder, ship, full);
 
         _session.Log.Add(_session.TurnNumber, $"P{GetBorderOwner(shipBorder)}",

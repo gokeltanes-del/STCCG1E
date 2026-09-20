@@ -59,6 +59,45 @@ public static class BattleRules
         return ArtifactRules.KurlanFullyStaffed(list) ? 3 : 1;
     }
 
+    /// <summary>Apply Kurlan x3 to one ship attribute (RANGE/WEAPONS/SHIELDS).</summary>
+    public static int ApplyKurlan(int attribute, IEnumerable<Card>? aboard) =>
+        Math.Max(0, attribute) * KurlanMultiplier(aboard);
+
+    /// <summary>DE mini-test: Kurlan multiplies only when artifact + all 7 classifications aboard.</summary>
+    public static string? VerifyKurlanMultiplier()
+    {
+        var shipOnly = new List<Card> { new Card { Name = "Galaxy", Type = "Ship" } };
+        if (KurlanMultiplier(shipOnly) != 1)
+            return "no Kurlan => 1";
+        var withArt = new List<Card>
+        {
+            new Card { Name = "Kurlan Naiskos", Type = "Artifact" },
+            new Card { Name = "Galaxy", Type = "Ship" }
+        };
+        if (KurlanMultiplier(withArt) != 1)
+            return "Kurlan without classifications => 1";
+        if (ApplyKurlan(9, withArt) != 9)
+            return "ApplyKurlan without staff should be printed";
+        var staffed = new List<Card>
+        {
+            new Card { Name = "Kurlan Naiskos", Type = "Artifact" },
+            new Card { Name = "O1", Type = "Personnel", Class = "OFFICER" },
+            new Card { Name = "E1", Type = "Personnel", Class = "ENGINEER" },
+            new Card { Name = "M1", Type = "Personnel", Class = "MEDICAL" },
+            new Card { Name = "S1", Type = "Personnel", Class = "SCIENCE" },
+            new Card { Name = "Sec", Type = "Personnel", Class = "SECURITY" },
+            new Card { Name = "V1", Type = "Personnel", Class = "V.I.P." },
+            new Card { Name = "C1", Type = "Personnel", Class = "CIVILIAN" },
+        };
+        if (KurlanMultiplier(staffed) != 3)
+            return "fully staffed Kurlan => 3";
+        if (ApplyKurlan(9, staffed) != 27)
+            return "RANGE 9 x3 must be 27";
+        if (ApplyKurlan(8, staffed) != 24)
+            return "WEAPONS 8 x3 must be 24";
+        return null;
+    }
+
     private static int ParseAttr(string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw)) return 0;

@@ -9,6 +9,8 @@ Local VS: C:\\Dev\\StarTrekCCG\\
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test.
 
 ## Current tip
+Local Josef tip **PENDING_KURLAN** - Kurlan RANGE x3 (Pepsch smoke). Nicht gepusht.
+
 Local Josef tip **adac172** - Betazoid Gift Box (Pepsch smoke). Nicht gepusht.
 
 Local Josef tip **e954f03** - Vulcan Stone of Gol (Pepsch smoke). Nicht gepusht.
@@ -18,6 +20,19 @@ Local Josef tip **bcf7f9d** - Holo existence gates (Pepsch Fix-Go; Spock precise
 Nicht `_build_holo*` / Release / alte Side-Builds.
 
 
+
+
+## Tip detail (Data, Josef, 2026-09-20) - Kurlan Naiskos RANGE x3
+Captain queue after Gift Box. Gap: WEAPONS/SHIELDS used KurlanMultiplier; RANGE did not.
+### Fix
+- \BattleRules.ApplyKurlan\ + \VerifyKurlanMultiplier\ (9x3=27).
+- \ComputeShipTurnRange\: base RANGE = EffectiveRange * Kurlan when artifact + 7 classifications aboard.
+- \FormatShipEffectiveLine\: RANGE full also * Kurlan (same order as W/S).
+- Repair / move status use ComputeShipTurnRange.
+### Smoke
+1. Play Kurlan on ship with all 7 classifications aboard → RANGE display x3; turn pool x3; W/S still x3.
+2. Missing a classification → RANGE stays printed (mult 1).
+3. Remove classification mid-game → next turn reset drops to printed (RangeLeft from ResetShipRangesForTurn).
 
 ## Tip detail (Data, Josef, 2026-09-20) - Betazoid Gift Box
 Captain Go / Spock \GROK_TEMP/SOLL_BETAZOID_GIFT_BOX_2026-09-20.md\. Printed = truth.
