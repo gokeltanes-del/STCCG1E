@@ -5023,7 +5023,7 @@ public partial class TableWindow : Window
                 && (ModifierRules.IsPersonnelCard(card) || ModifierRules.IsEquipmentCard(card)))
                 return true;
             // Horga'hn: eine zusätzliche Normal-Play pro Zug
-            if (HasHorgahn(_activePlayer) && !_horgahnExtraPlayUsed)
+            if (HasHorgahn(_session.ActivePlayer) && !_horgahnExtraPlayUsed)
                 return true;
             denyReason =
                 "Normal card play already used (1 personnel/ship/event per turn). "
@@ -5050,9 +5050,23 @@ public partial class TableWindow : Window
             _redAlertPlaysLeft--;
             _session.Log.Add(_session.TurnNumber, $"P{_session.ActivePlayer}",
                 $"Red Alert play: {card.Name} ({_redAlertPlaysLeft} left)");
-            StatusText.Text = _redAlertPlaysLeft > 0
-                ? $"Red Alert: {card.Name} reported. {_redAlertPlaysLeft} personnel/equipment still allowed this turn."
-                : $"Red Alert: {card.Name} reported. That was the last of 5 this turn.";
+            // Red Alert consumes the normal-play slot once; Horga 2nd still available in Play
+            // for a non-RA normal play (event/ship) or when RA pool is empty.
+            if (_session.Segment == GameSession.TurnSegment.Play
+                && HasHorgahn(_session.ActivePlayer) && !_horgahnExtraPlayUsed)
+            {
+                _session.Log.Add(_session.TurnNumber, $"P{_session.ActivePlayer}",
+                    "Horga'hn: 2nd play available or End PLAY for extra EOT draw");
+                StatusText.Text =
+                    $"Red Alert: {card.Name}. Horga'hn: play 1 more normal card now (Play), or End PLAY for extra EOT draw."
+                    + (_redAlertPlaysLeft > 0 ? $" ({_redAlertPlaysLeft} RA personnel/equipment left)" : "");
+            }
+            else
+            {
+                StatusText.Text = _redAlertPlaysLeft > 0
+                    ? $"Red Alert: {card.Name} reported. {_redAlertPlaysLeft} personnel/equipment still allowed this turn."
+                    : $"Red Alert: {card.Name} reported. That was the last of 5 this turn.";
+            }
             UpdatePhaseControls();
             return;
         }
@@ -5066,7 +5080,7 @@ public partial class TableWindow : Window
             return;
         }
 
-        if (_session.NormalCardPlayUsed && HasHorgahn(_activePlayer) && !_horgahnExtraPlayUsed)
+        if (_session.NormalCardPlayUsed && HasHorgahn(_session.ActivePlayer) && !_horgahnExtraPlayUsed)
         {
             // 2nd normal card play this turn (Play segment only) via Horga'hn.
             _horgahnExtraPlayUsed = true;
@@ -5097,12 +5111,14 @@ public partial class TableWindow : Window
             && _session.NormalCardPlayUsed
             && !_session.NormalCardPlayForfeited)
         {
-            if (HasHorgahn(_activePlayer) && !_horgahnExtraPlayUsed)
+            if (HasHorgahn(_session.ActivePlayer) && !_horgahnExtraPlayUsed)
             {
+                _session.Log.Add(_session.TurnNumber, $"P{_session.ActivePlayer}",
+                    "Horga'hn: 2nd play available or End PLAY for extra EOT draw");
                 StatusText.Text =
                     $"{card.Name} played. Horga'hn: play 1 more card now (Play), or End PLAY and take extra draw at EOT.";
                 UpdatePhaseControls();
-                return;
+                return; // stay in Play — no AdvanceSegment
             }
             _session.AdvanceSegment();
             SyncSessionToUi();
@@ -7888,11 +7904,11 @@ private List<Card> CollectCardsInPlay(bool opponent)
                 if (_redAlertPlaysLeft > 0)
                     actions = $"Red Alert: up to {_redAlertPlaysLeft} personnel/equipment";
                 else if (_session.NormalCardPlayUsed
-                         && HasHorgahn(_activePlayer) && !_horgahnExtraPlayUsed)
+                         && HasHorgahn(_session.ActivePlayer) && !_horgahnExtraPlayUsed)
                     actions = "Horga'hn: 2nd Play available (or End PLAY -> EOT draw)";
                 else if (_session.NormalCardPlayUsed)
                     actions = "Normal card play used";
-                else if (HasHorgahn(_activePlayer))
+                else if (HasHorgahn(_session.ActivePlayer))
                     actions = "1-2 card plays (Horga'hn)";
                 else
                     actions = "1 card play possible";
@@ -16572,6 +16588,9 @@ private List<Card> CollectCardsInPlay(bool opponent)
 
     private bool HasHorgahn(int player)
     {
+        // Flag set when Horga'hn commits to table; also scan table (load / edge cases).
+        if (player == 1 && _horgahnP1) return true;
+        if (player == 2 && _horgahnP2) return true;
         var table = player == 2 ? _oppTablePermanentCards : _tablePermanentCards;
         return table.Any(ArtifactRules.IsHorgahn);
     }
