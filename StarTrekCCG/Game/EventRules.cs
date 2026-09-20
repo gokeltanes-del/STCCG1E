@@ -147,6 +147,7 @@ public static class EventRules
     public static bool IsNeuralServo(Card? c) => NameIs(c, "Neural Servo Device");
     /// <summary>Prefer ArtifactRules for ownership; aliases keep Event table scans compiling.</summary>
     public static bool IsToxUthat(Card? c) => ArtifactRules.IsToxUthat(c);
+    public static bool IsSupernova(Card? c) => NameIs(c, "Supernova");
     public static bool IsAntiTimeAnomaly(Card? c) => NameIs(c, "Anti-Time Anomaly");
     public static bool IsTemporalCausalityLoop(Card? c) => NameIs(c, "Temporal Causality Loop");
     public static bool IsHorgahn(Card? c) => ArtifactRules.IsHorgahn(c);
@@ -324,7 +325,7 @@ public static class EventRules
                 Place = Place.OnMission,
                 Persist = Persist.Supernova,
                 NeedsToxUthat = true,
-                Message = "Requires Tox Uthat. Destroys all ships and facilities here. Mission becomes unattemptable space, loses gametext / points / affiliation icons."
+                Message = "Requires Tox Uthat on table. Destroys ships/facilities/AT here. Mission husk: span only, unattemptable/unscoutable space, lose gametext/points/icons."
             },
             // Glossary: Goddess of Empathy — interrupts may not be played (except [Ref]/[Q]/Kevin Uxbridge/Q2),
             // including response/nullify window (Amanda Rogers is NOT excepted).

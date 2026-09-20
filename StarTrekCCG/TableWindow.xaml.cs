@@ -336,6 +336,10 @@ public partial class TableWindow : Window
     private bool _horgahnP1, _horgahnP2;
     /// <summary>Zusätzliche Normal-Play durch Horga'hn in diesem Zug bereits verbraucht.</summary>
     private bool _horgahnExtraPlayUsed;
+    /// <summary>Tox Uthat played as Event this turn — blocks Supernova for that controller.</summary>
+    private bool _toxPlayedAsEventThisTurnP1, _toxPlayedAsEventThisTurnP2;
+    /// <summary>Missions after Supernova resolve: span husk (treat as space, unscoutable).</summary>
+    private readonly HashSet<Border> _supernovaHuskMissions = new();
     /// <summary>Cards Energy Vortex returned to hand this turn — not legal as the replacement play.</summary>
     private readonly HashSet<Card> _energyVortexBlocked = new();
     /// <summary>Subspace Schism: once every turn per player (resets with TurnNumber).</summary>
@@ -1123,10 +1127,11 @@ public partial class TableWindow : Window
                         "Radioactive Garbage Scow: this mission cannot be attempted (tow with Tractor Beam + 2 ENGINEER).";
                 }
                 if (_attachedEvents.Any(e =>
-                        e.Kind == EventRules.Persist.Supernova && ReferenceEquals(e.Host, kv.Key)))
+                        e.Kind == EventRules.Persist.Supernova && ReferenceEquals(e.Host, kv.Key))
+                    || _supernovaHuskMissions.Contains(kv.Key))
                 {
                     attemptBlocked = true;
-                    attemptBlock = "Supernova: this mission can no longer be attempted.";
+                    attemptBlock = "Supernova: this mission can no longer be attempted or scouted (span husk).";
                 }
                 spacelineIndex = IndexOfMission(kv.Key);
             }
@@ -3666,6 +3671,31 @@ public partial class TableWindow : Window
     {
         int controller = controllerOverride
                          ?? (isResponse ? _stack.ResponsePlayer : _activePlayer);
+
+        // Supernova initiation: Tox on table required; discard Tox even if later nullified.
+        if (!isResponse && EventRules.IsSupernova(card))
+        {
+            if (ToxPlayedAsEventThisTurn(controller))
+            {
+                ShowPlayError("Tox Uthat played as Event this turn — cannot play Supernova.");
+                var hand = controller == 1 ? _handCards : _oppHandCards;
+                if (!hand.Contains(card)) hand.Add(card);
+                RefreshHandStrips();
+                RefreshZoneCounts();
+                return;
+            }
+            if (!ControllerHasToxOnTable(controller))
+            {
+                ShowPlayError("Supernova requires Tox Uthat on table (not in hand).");
+                var hand = controller == 1 ? _handCards : _oppHandCards;
+                if (!hand.Contains(card)) hand.Add(card);
+                RefreshHandStrips();
+                RefreshZoneCounts();
+                return;
+            }
+            DiscardToxUthatFromTable(controller, "used to initiate Supernova");
+        }
+
         string targetBit = target != null ? $" → {target.Name}" : "";
         var action = new TimingRules.PendingAction
         {
@@ -8184,6 +8214,8 @@ private List<Card> CollectCardsInPlay(bool opponent)
             _endTurnAfterDrawStack = false;
             _horgahnExtraPlayUsed = false;
             _pendingExtraDraws = 0;
+            _toxPlayedAsEventThisTurnP1 = false;
+            _toxPlayedAsEventThisTurnP2 = false;
             _energyVortexBlocked.Clear();
             SyncSchismRound();
             _wormholeShip = null;
@@ -9700,6 +9732,8 @@ private List<Card> CollectCardsInPlay(bool opponent)
         _attachedDilemmas.Clear();
         _alienParasiteControls.Clear();
         _horgahnP1 = _horgahnP2 = false;
+        _toxPlayedAsEventThisTurnP1 = _toxPlayedAsEventThisTurnP2 = false;
+        _supernovaHuskMissions.Clear();
         _horgahnExtraPlayUsed = false;
         _energyVortexBlocked.Clear();
         _schismUsedBy.Clear();
@@ -15135,15 +15169,22 @@ private List<Card> CollectCardsInPlay(bool opponent)
         }
         if (r.NeedsToxUthat)
         {
-            bool toxOnTable = HasTableCard(ArtifactRules.IsToxUthat);
-            var ownTable = controller == 1 ? _tablePermanentCards : _oppTablePermanentCards;
             var hand = controller == 1 ? _handCards : _oppHandCards;
-            if (!toxOnTable && !ownTable.Any(ArtifactRules.IsToxUthat) && !hand.Any(ArtifactRules.IsToxUthat))
+            if (ToxPlayedAsEventThisTurn(controller))
             {
-                ShowPlayError("Supernova requires Tox Uthat.");
+                ShowPlayError("Tox Uthat played as Event this turn — cannot play Supernova.");
                 if (!hand.Contains(ev)) hand.Add(ev);
                 return true;
             }
+            if (!ControllerHasToxOnTable(controller))
+            {
+                ShowPlayError("Supernova requires Tox Uthat on table (not in hand).");
+                if (!hand.Contains(ev)) hand.Add(ev);
+                return true;
+            }
+            // Initiation already discarded Tox in BeginPlayCardStack; ensure discarded if resolve-only path.
+            if (ControllerHasToxOnTable(controller))
+                DiscardToxUthatFromTable(controller, "used to play Supernova");
         }
 
         if (r.Place == EventRules.Place.Instant)
@@ -16250,13 +16291,41 @@ private List<Card> CollectCardsInPlay(bool opponent)
 
     private void ApplySupernova(Border mission)
     {
+        // Destroy all ships and facilities at this location (docked + at mission).
         foreach (var dock in GetDockablesUnderMission(mission).ToList())
         {
             if (dock.Tag is Card c)
-                DestroyShipOrFacility(dock, c, GetBorderOwner(dock) == 0 ? 1 : GetBorderOwner(dock));
+            {
+                int own = GetBorderOwner(dock);
+                if (own == 0) own = 1;
+                DestroyShipOrFacility(dock, c, own);
+            }
         }
+
+        // Away Teams / cards stacked on the mission (planet surface).
+        if (_stackOnHost.TryGetValue(mission, out var onMission))
+        {
+            foreach (var b in onMission.ToList())
+            {
+                if (b.Tag is not Card c) continue;
+                // Supernova event card itself may be on host — skip Persist attach face if still resolving
+                if (EventRules.IsSupernova(c)) continue;
+                int o = GetBorderOwner(b);
+                if (o == 0) o = c.Controller != 0 ? c.Controller : (c.OwnerPlayer != 0 ? c.OwnerPlayer : _session.ActivePlayer);
+                if (CardKinds.IsShip(c) || CardKinds.IsFacility(c))
+                    DestroyShipOrFacility(b, c, o);
+                else
+                    DiscardPersonnelBorder(b, c, o, allowGenetronicSave: false);
+            }
+        }
+
         _solvedMissions.Add(mission); // unattemptable
-        StatusText.Text = $"Supernova at {(mission.Tag as Card)?.Name}.";
+        _supernovaHuskMissions.Add(mission); // treat as space; unscoutable; lose icons/text/points (UI)
+        _session.Log.Add(_session.TurnNumber, "sys",
+            $"Supernova resolved at {(mission.Tag as Card)?.Name} — ships/facilities/AT destroyed; mission husk (span only)");
+        StatusText.Text =
+            $"Supernova at {(mission.Tag as Card)?.Name}: ships/facilities destroyed. Mission remains for span only (unattemptable space).";
+        SyncBoardFromTable(logDual: false);
     }
 
     /// <summary>Hand-Play von Artifacts die als Event/Interrupt wirken. true = erledigt.</summary>
@@ -16408,8 +16477,71 @@ private List<Card> CollectCardsInPlay(bool opponent)
 
         if (ArtifactRules.IsToxUthat(art))
         {
-            CommitCardToTable(art, controller);
-            StatusText.Text = "Tox Uthat on table (Supernova protection / nullify).";
+            string pick = AskChoice(art, "Tox Uthat",
+                "Play as Event on table (no Supernova this turn), or as Interrupt to nullify Supernova?",
+                "As Event on table",
+                "As Interrupt: nullify Supernova",
+                "Cancel");
+            if (pick == null || pick.StartsWith("Cancel", StringComparison.OrdinalIgnoreCase))
+            {
+                var handBack = controller == 1 ? _handCards : _oppHandCards;
+                if (!handBack.Contains(art)) handBack.Add(art);
+                RefreshHandStrips();
+                RefreshZoneCounts();
+                StatusText.Text = "Tox Uthat: cancelled.";
+                return true;
+            }
+            if (pick.StartsWith("As Event", StringComparison.OrdinalIgnoreCase))
+            {
+                CommitCardToTable(art, controller);
+                SetToxPlayedAsEventThisTurn(controller, true);
+                _session.Log.Add(_session.TurnNumber, $"P{controller}",
+                    "Tox Uthat plays as Event on table (no Supernova this turn)");
+                StatusText.Text = "Tox Uthat on table as Event — you may not play Supernova this turn.";
+                return true;
+            }
+            // As Interrupt: nullify Supernova on stack or in play, discard Tox
+            bool nulled = false;
+            if (_stack.IsOpen && _stack.Top?.Card != null && EventRules.IsSupernova(_stack.Top.Card))
+            {
+                _stack.Top.Cancelled = true;
+                _session.Log.Add(_session.TurnNumber, $"P{controller}",
+                    $"Tox Uthat (Interrupt) cancelled {_stack.Top.Card.Name} on stack");
+                nulled = true;
+            }
+            else
+            {
+                var sn = _attachedEvents.FirstOrDefault(e => e.Kind == EventRules.Persist.Supernova);
+                if (sn != null)
+                {
+                    NullifyEventInPlay(sn.Card, controller);
+                    nulled = true;
+                }
+                else
+                {
+                    // Table-permanent copy of Supernova if any
+                    Card? snCard = _tablePermanentCards.Concat(_oppTablePermanentCards)
+                        .FirstOrDefault(EventRules.IsSupernova);
+                    if (snCard != null)
+                    {
+                        NullifyEventInPlay(snCard, controller);
+                        nulled = true;
+                    }
+                }
+            }
+            SendCardTo(art, controller, TimingRules.Destination.Discard);
+            RemoveCardFromTableColumn(art);
+            if (!nulled)
+            {
+                _session.Log.Add(_session.TurnNumber, $"P{controller}",
+                    "Tox Uthat (Interrupt): no Supernova to nullify — discarded");
+                StatusText.Text = "Tox Uthat: no Supernova in play or on stack — discarded.";
+            }
+            else
+                StatusText.Text = "Tox Uthat nullified Supernova (Interrupt) — discarded.";
+            RefreshHandStrips();
+            RebuildTablePermanentsPanel();
+            RefreshZoneCounts();
             return true;
         }
 
@@ -16623,6 +16755,41 @@ private List<Card> CollectCardsInPlay(bool opponent)
         && !_session.NormalCardPlayForfeited
         && HasHorgahn(_session.ActivePlayer)
         && !_horgahnExtraPlayUsed;
+
+    private bool ToxPlayedAsEventThisTurn(int player) =>
+        player == 1 ? _toxPlayedAsEventThisTurnP1 : _toxPlayedAsEventThisTurnP2;
+
+    private void SetToxPlayedAsEventThisTurn(int player, bool on)
+    {
+        if (player == 1) _toxPlayedAsEventThisTurnP1 = on;
+        else _toxPlayedAsEventThisTurnP2 = on;
+    }
+
+        private bool IsSupernovaHuskMission(Border? mission) =>
+        mission != null && _supernovaHuskMissions.Contains(mission);
+
+    private bool MissionCountsAsPlanet(Border mission, Card mc) =>
+        !IsSupernovaHuskMission(mission) && MissionRules.IsPlanetMission(mc);
+
+private bool ControllerHasToxOnTable(int controller)
+    {
+        var table = controller == 1 ? _tablePermanentCards : _oppTablePermanentCards;
+        return table.Any(ArtifactRules.IsToxUthat);
+    }
+
+    private void DiscardToxUthatFromTable(int controller, string reason)
+    {
+        var table = controller == 1 ? _tablePermanentCards : _oppTablePermanentCards;
+        var tox = table.FirstOrDefault(ArtifactRules.IsToxUthat);
+        if (tox == null) return;
+        RemoveCardFromTableColumn(tox);
+        SendCardTo(tox, controller, TimingRules.Destination.Discard);
+        _session.Log.Add(_session.TurnNumber, $"P{controller}",
+            $"Tox Uthat discarded ({reason})");
+        RebuildTablePermanentsPanel();
+        RefreshZoneCounts();
+    }
+
 
     /// <summary>Leaving play ends continuous effects (Horga'hn extra play/draw, …).</summary>
     private void OnCardLeftPlay(Card card)
