@@ -1,3 +1,18 @@
+Local Josef tip docs: Gift Box Pepsch green → working (adac172). Kein Code.
+
+## Note (Data, 2026-09-20) - Detail Name x3 (Ursache, kein Fix-Tip)
+Pepsch smoke: weisser Name + Typ OK, Name 3x darunter (auch andere Typen); aehnlich IPG-Ueberkill.
+### Ursache (Event/Dilemma-Pfad)
+1. \DetailName\ = card.Name (weiss, OK)
+2. \ShowCardDetail\ Event/Dilemma-Zweig: \DetailIcons\ = \FormatAttachedHostEffectLine\ / \FormatHostEffectSummary\ → immer Prefix \Event: {Name}\ / \Dilemma: {Name}3. \RefreshDetailStatusBlock\: dieselbe Summary-Zeile nochmals in \DetailStatusBlock= Name 3x (Header + Icons + Status). IPG-Analog: gleiche Info in mehreren Detail-Kanaelen.
+### Nicht die Ursache
+- cards.json Text/Icons fuer Stone/Gift/Kurlan (kein Name-Tripel in Daten)
+- IconCatalog.Fill Glyph-Strip (wie bei IPG behalten)
+### Fix-Richtung (warten Captain Go / kein Big-Bang)
+- Summary-Zeilen effect-only (ohne Name-Prefix), ODER nur StatusBlock (Icons-Kanal leer) — analog IPG: einen Kanal behalten.
+- Artifact else-Zweig hat diesen Doppel-Pfad nicht; wenn Artifact-only auch 3x: Smoke welcher View (Karte vs Host-Contents).
+- Plays-as / Stone/Kurlan Fixes: warte Spock Away-Team + Plays-on Soll.
+
 <!-- tip: PROJECT_STATUS.md (Repo-Root) entfernt - Wahrheit = artifacts/HANDOFF.md + artifacts/PROJECT.md (2026-09-18) -->
 
 # STCCG 1E - Handoff

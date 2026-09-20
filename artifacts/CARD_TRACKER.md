@@ -82,7 +82,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 
 | Card | Status | Notes | Source |
 | --- | --- | --- | --- |
-| Betazoid Gift Box (1 R) | working | Pepsch green. tip Data/`adac172`: real 0..3 draw search download + IgnoreOppPrevent; discard always. Soll GROK_TEMP\SOLL_BETAZOID_GIFT_BOX_2026-09-20.md. | Pepsch 2026-09-20; Data/`adac172` |
+| Betazoid Gift Box (1 R) | working | Pepsch green tip Data/adac172 (search download 0..3 + IgnoreOppPrevent; discard always). | Pepsch 2026-09-20; Data/adac172 |
 | Horga'hn (2 R) | unknown |  |  |
 | Interphase Generator (3 R) | working | Pepsch green: nullify path vs [IPG] incl. Nausicaans; Rebel Encounter nullify also OK. IPG display cleanup done (Glyph only; tip with `5c08269` batch). | Pepsch 2026-09-18; Data/`5c08269` display |
 | Kurlan Naiskos (4 R) | partial | tip Data/c77d0d1: RANGE now x3 via ApplyKurlan (was W/S only). Pending Pepsch green. | Data/c77d0d1 2026-09-20 |
