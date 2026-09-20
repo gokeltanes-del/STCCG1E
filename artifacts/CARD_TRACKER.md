@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-20 (Jadzia — Pepsch green Alien Groupie; Auto-Destruct in progress)
+Last updated: 2026-09-20 (Data — Auto-Destruct Sequence; Alien Groupie green)
 Scope: **Premiere** (`PR`) + **Alternate Universe** catalogued. **Priority: finish all unfinished Premiere cards first.** AU is logged only; not prioritized unless already wired.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -214,10 +214,10 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 
 | Card | Status | Notes | Source |
 | --- | --- | --- | --- |
-| Alien Groupie (107 R) | working | Pepsch green. LegalResponse tips (Just-UX → LegalResponse window). Female req; random male stop countdown 2. | Pepsch 2026-09-20 |
+| Alien Groupie (107 R) | working | Pepsch green. tips Data/9980a89/9a0ac4f/7624ad5. | Pepsch 2026-09-20; Data |
 | Amanda Rogers (108 R) | working | Pepsch green. | Pepsch 2026-09-20 |
 | Asteroid Sanctuary (109 C) | working | Pepsch green. | Pepsch 2026-09-20 |
-| Auto-Destruct Sequence (110 U) | partial | Data building (in progress). Pending Pepsch green. | Data 2026-09-20 |
+| Auto-Destruct Sequence (110 U) | working | Countdown 1; destroy ship + splash SHIELDS<8. tip HASH. | Data 2026-09-20 |
 | Crosis (111 R) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Disruptor Overload (112 C) | unknown |  |  |
 | Distortion of Space/Time Continuum (113 U) | unknown |  |  |

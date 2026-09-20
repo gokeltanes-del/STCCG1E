@@ -106,6 +106,9 @@ public static class InterruptRules
         public static bool IsAlienGroupie(Card c) =>
         NameIs(c, "Alien Groupie");
 
+    public static bool IsAutoDestruct(Card c) =>
+        NameIs(c, "Auto-Destruct Sequence");
+
 public static bool IsEscapePod(Card? c) => NameIs(c, "Escape Pod");
     public static bool IsWormhole(Card? c) => NameIs(c, "Wormhole");
 
@@ -194,7 +197,8 @@ public static bool IsEscapePod(Card? c) => NameIs(c, "Escape Pod");
             return PlayTarget.AnyCrew;
 
         if (n.Equals("Near-Warp Transport", StringComparison.OrdinalIgnoreCase)
-            || n.Equals("Distortion of Space/Time Continuum", StringComparison.OrdinalIgnoreCase))
+            || n.Equals("Distortion of Space/Time Continuum", StringComparison.OrdinalIgnoreCase)
+            || n.Equals("Auto-Destruct Sequence", StringComparison.OrdinalIgnoreCase))
             return PlayTarget.OwnShip;
 
         if (IsIncomingMessage(card) || IsHugh(card))

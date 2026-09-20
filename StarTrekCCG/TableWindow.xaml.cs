@@ -4669,7 +4669,8 @@ public partial class TableWindow : Window
                 bool attachStay = InterruptRules.IsAsteroidSanctuary(a.Card)
                                   || InterruptRules.IsDistortionContinuum(a.Card)
                                   || InterruptRules.IsTachyonDetectionGrid(a.Card)
-                                  || InterruptRules.IsAlienGroupie(a.Card);
+                                  || InterruptRules.IsAlienGroupie(a.Card)
+                                  || InterruptRules.IsAutoDestruct(a.Card);
                 // Kevin (etc.) may still need TargetCard nullify when used as a response
                 if ((TimingRules.IsInterrupt(a.Card) || InterruptRules.IsInterrupt(a.Card))
                     && (a.TargetCard != null || attachStay))
@@ -15208,20 +15209,8 @@ private List<Card> CollectCardsInPlay(bool opponent)
                 ApplyAlienGroupie(card, controller, r);
                 break;
             case InterruptRules.Effect.AutoDestruct:
-                {
-                    Border? shipB = PickOwnShip(controller);
-                    if (shipB != null)
-                    {
-                        _attachedDilemmas.Add(new AttachedDilemma
-                        {
-                            Card = card,
-                            Kind = DilemmaRules.PersistKind.Nitrium, // countdown destroy ship
-                            Countdown = r.Countdown > 0 ? r.Countdown : 2,
-                            Host = shipB
-                        });
-                    }
-                    break;
-                }
+                ApplyAutoDestruct(card, controller, r);
+                break;
             case InterruptRules.Effect.SubspaceSchism:
                 _session.SuppressEndOfTurnDraw = false;
                 // next draw discard: simple flag on session via log note
@@ -15249,6 +15238,7 @@ private List<Card> CollectCardsInPlay(bool opponent)
             and not InterruptRules.Effect.Crosis
             and not InterruptRules.Effect.IncomingMessage
             and not InterruptRules.Effect.AlienGroupie
+            and not InterruptRules.Effect.AutoDestruct
             && !hailMarkPending)
             RemoveOrphanTableCopies(card);
 
@@ -21937,6 +21927,128 @@ _spacelineOrder.Remove(pod);
         _session.Log.AddDebug(_session.TurnNumber, "Just", $"Alien Groupie window cleared ({reason})");
     }
 
+
+    private void ApplyAutoDestruct(Card card, int controller, InterruptRules.Result r)
+    {
+        Border? shipB = _interruptTargetHost;
+        if (shipB == null || shipB.Tag is not Card sc0 || !IsShipCard(sc0)
+            || GetBorderOwner(shipB) != controller)
+        {
+            shipB = PickOwnShip(controller);
+        }
+        if (shipB == null || shipB.Tag is not Card ship || !IsShipCard(ship)
+            || GetBorderOwner(shipB) != controller)
+        {
+            ShowPlayError("Auto-Destruct Sequence: drop on your ship.");
+            var hand = controller == 1 ? _handCards : _oppHandCards;
+            if (!hand.Contains(card)) hand.Add(card);
+            RefreshHandStrips();
+            RefreshZoneCounts();
+            return;
+        }
+
+        var mini = CreateFloatingCard(card);
+        mini.Visibility = Visibility.Collapsed;
+        if (!TableCanvas.Children.Contains(mini))
+            TableCanvas.Children.Add(mini);
+        AddCardToHostStack(shipB, mini);
+
+        int cd = r.Countdown > 0 ? r.Countdown : 1;
+        _attachedEvents.Add(new AttachedEvent
+        {
+            Card = card,
+            Kind = EventRules.Persist.None,
+            Owner = controller,
+            Host = shipB,
+            Countdown = cd,
+            TurnScope = TimingRules.TurnScope.EveryTurn,
+            PhasePoint = TimingRules.TurnPhasePoint.EndOfTurn,
+            ScopePlayer = null
+        });
+
+        StatusText.Text = $"Auto-Destruct Sequence on {ship.Name} (countdown {cd}).";
+        _session.Log.Add(_session.TurnNumber, $"P{controller}",
+            $"Auto-Destruct Sequence on {ship.Name} (countdown {cd})");
+        UpdateHostBadge(shipB);
+        ShowCardReveal(card, "Auto-Destruct Sequence",
+            $"On {ship.Name}.\nWhen countdown {cd} expires: destroy this ship, then damage all other ships present with SHIELDS<8.",
+            RevealButtons.Ok, card.Name);
+    }
+
+    private int GetEffectiveShipShields(Border shipBorder, Card ship)
+    {
+        int printed = BattleRules.GetShields(ship);
+        int owner = GetBorderOwner(shipBorder);
+        if (owner == 0) owner = _activePlayer;
+        var aboard = GetAllCardsOnHost(shipBorder, owner);
+        var evs = EventsOn(shipBorder).Select(e => (e.Kind, e.Card));
+        return printed + EventRules.ShieldsBonusFromEvents(evs, aboard);
+    }
+
+    private void ExpireAutoDestruct(AttachedEvent e)
+    {
+        if (e.Host == null || e.Host.Tag is not Card ship || !IsShipCard(ship))
+        {
+            _attachedEvents.Remove(e);
+            SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
+            return;
+        }
+
+        Border host = e.Host;
+        int shipOwner = GetBorderOwner(host);
+        if (shipOwner == 0) shipOwner = e.Owner;
+        var mission = FindMissionForDockable(host);
+
+        // Snapshot other ships present with SHIELDS<8 before destroy
+        var splash = new List<(Border b, Card c)>();
+        if (mission != null)
+        {
+            foreach (var dock in GetDockablesUnderMission(mission))
+            {
+                if (ReferenceEquals(dock, host)) continue;
+                if (dock.Tag is not Card other || !IsShipCard(other)) continue;
+                int sh = GetEffectiveShipShields(dock, other);
+                if (sh < 8)
+                    splash.Add((dock, other));
+            }
+        }
+
+        // Remove Auto-Destruct from host stack before destroy
+        if (_stackOnHost.TryGetValue(host, out var stack))
+        {
+            foreach (var b in stack.Where(x => x.Tag is Card c && ReferenceEquals(c, e.Card)).ToList())
+            {
+                stack.Remove(b);
+                if (TableCanvas.Children.Contains(b))
+                    TableCanvas.Children.Remove(b);
+            }
+        }
+        _attachedEvents.Remove(e);
+
+        ShowCardReveal(e.Card, "Auto-Destruct Sequence",
+            $"{ship.Name} is destroyed (countdown expired).",
+            RevealButtons.Ok, ship.Name, autoCloseMs: 3500);
+        DestroyShipOrFacility(host, ship, shipOwner);
+
+        foreach (var (b, c) in splash)
+        {
+            // Still on table?
+            if (!TableCanvas.Children.Contains(b)) continue;
+            int next = Math.Min(100, GetHullDamage(b) + 50);
+            ApplyHullDamage(b, c, next);
+            _session.Log.Add(_session.TurnNumber, "sys",
+                $"Auto-Destruct splash: {c.Name} damaged (SHIELDS<8 → HULL {next}%).");
+            if (next >= 100)
+                DestroyShipOrFacility(b, c, GetBorderOwner(b) == 0 ? e.Owner : GetBorderOwner(b));
+        }
+
+        SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
+        StatusText.Text = $"Auto-Destruct: {ship.Name} destroyed" +
+            (splash.Count > 0 ? $"; {splash.Count} other ship(s) damaged." : ".");
+        _session.Log.Add(_session.TurnNumber, "sys",
+            $"Auto-Destruct Sequence destroys {ship.Name}; splash {splash.Count}.");
+    }
+
     private void ApplyAlienGroupie(Card card, int controller, InterruptRules.Result r)
     {
         if (_justSolvedPlanetMission == null || _justSolvedPlayer != controller)
@@ -22763,6 +22875,18 @@ _spacelineOrder.Remove(pod);
                 e.Countdown = cd;
                 if (expired)
                     ExpireAlienGroupie(e);
+                continue;
+            }
+
+            if (InterruptRules.IsAutoDestruct(e.Card) && e.Countdown > 0)
+            {
+                int cd = e.Countdown;
+                bool expired = TimingRules.TickCountdown(
+                    ref cd, e.TurnScope, e.PhasePoint,
+                    TimingRules.TurnPhasePoint.EndOfTurn, owner, e.ScopePlayer);
+                e.Countdown = cd;
+                if (expired)
+                    ExpireAutoDestruct(e);
                 continue;
             }
 
