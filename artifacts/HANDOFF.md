@@ -1,6 +1,6 @@
 Local Josef tip docs: Gift Box Pepsch green → working (adac172). Kein Code.
 
-Local Josef tip **PENDING_NAME3** - Detail Name x3 fix (Pepsch smoke). Nicht gepusht.
+Local Josef tip **389f950** - Detail Name x3 fix (Pepsch smoke). Nicht gepusht.
 
 ## Tip detail (Data, Josef, 2026-09-20) - Detail Name x3 fix
 Captain Go (separater Tip; Stone/Kurlan still waiting Spock).
