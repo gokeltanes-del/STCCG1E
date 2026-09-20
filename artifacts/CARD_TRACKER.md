@@ -35,7 +35,7 @@ Source tip: when Data/Spock/Seven/Captain report, update the row.
 | `blocked` | 0 | — |
 | **Total** | **363** | |
 
-**Premiere partials (queue):** ** Q (blocked Continuum) · Crystalline Entity · Iconian Computer Weapon · Alien Probe · Asteroid Sanctuary · Escape Pod · Pattern Enhancers (in progress)
+**Premiere partials (queue):** Q (blocked Continuum) · Crystalline Entity · Iconian Computer Weapon · Alien Probe · Asteroid Sanctuary · Escape Pod · Pattern Enhancers (in progress)
 
 | Card Type | Count |
 | --- | ---: |
