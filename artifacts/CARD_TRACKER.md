@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-20 (Data — Alien Groupie tip; Amanda+Tetryon working)
+Last updated: 2026-09-20 (Jadzia — Pepsch green Asteroid Sanctuary; Alien Groupie LegalResponse fix)
 Scope: **Premiere** (`PR`) + **Alternate Universe** catalogued. **Priority: finish all unfinished Premiere cards first.** AU is logged only; not prioritized unless already wired.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -29,13 +29,13 @@ Source tip: when Data/Spock/Seven/Captain report, update the row.
 
 | Status | Count | Role |
 | --- | ---: | --- |
-| `working` | 98 | Done (Pepsch green) |
-| `partial` | 7 | **Next smoke / rework** |
+| `working` | 99 | Done (Pepsch green) |
+| `partial` | 6 | **Next smoke / rework** |
 | `unknown` | 258 | **Backlog — finish Premiere** |
 | `blocked` | 0 | — |
 | **Total** | **363** | |
 
-**Premiere partials (queue):** Q (blocked Continuum) · Crystalline Entity · Iconian Computer Weapon · Alien Probe · Asteroid Sanctuary · Escape Pod · Raise the Stakes (tip 7f5ae62) · Alien Groupie (in progress)
+**Premiere partials (queue):** Q (blocked Continuum) · Crystalline Entity · Iconian Computer Weapon · Alien Probe · Escape Pod · Raise the Stakes (tip 7f5ae62) · Alien Groupie (LegalResponse fix)
 
 | Card Type | Count |
 | --- | ---: |
@@ -214,9 +214,9 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 
 | Card | Status | Notes | Source |
 | --- | --- | --- | --- |
-| Alien Groupie (107 R) | working | Just-solve window; Female req; random male stop countdown 2. tip 9980a89. | Data 2026-09-20 |
+| Alien Groupie (107 R) | partial | Just-solve UX war falsch; Data Fix: LegalResponse window. Prior tip `9980a89` (Female req; random male stop countdown 2). Pending Pepsch green after LegalResponse fix. | Data Fix-Go 2026-09-20 |
 | Amanda Rogers (108 R) | working | Pepsch green. | Pepsch 2026-09-20 |
-| Asteroid Sanctuary (109 C) | partial | Pepsch FAIL: wrongly offered as Response on Outpost/Facility battle. Data Go: CanRespond ship-only (Defender=ship, not Facility). Not working until Pepsch greens after tip. | Pepsch 2026-09-17; Data Go ship-only CanRespond |
+| Asteroid Sanctuary (109 C) | working | Pepsch green 2026-09-20 (ship-only CanRespond; was FAIL on Outpost/Facility). | Pepsch 2026-09-20 |
 | Auto-Destruct Sequence (110 U) | unknown |  |  |
 | Crosis (111 R) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Disruptor Overload (112 C) | unknown |  |  |
