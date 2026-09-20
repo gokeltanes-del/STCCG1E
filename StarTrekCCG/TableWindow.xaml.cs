@@ -8137,7 +8137,7 @@ private List<Card> CollectCardsInPlay(bool opponent)
                 ProcessScowTowEndOfTurn(p);
                 ProcessEndOfTurnDilemmas(p);
                 ProcessEndOfTurnEvents(p);
-                ProcessTimeTravelPodCountdowns();
+                ProcessTimeTravelPodCountdowns(p); // Spock: only pod-owner EOT
                 ProcessUntilEndOfTurnBag(p);
                 RestoreAlienParasitesControlsIfDue(p);
                 ProcessRogueBorgEndOfTurn(p);
@@ -18800,7 +18800,11 @@ private bool ControllerHasToxOnTable(int controller)
             ship => RelocateShipOntoTimeTravelPod(ship, pod, owner, opponentInit: false));
     }
     
-    private void ProcessTimeTravelPodCountdowns()
+    /// <summary>
+    /// Spock: countdown icon [2]; tick only at end of <paramref name="endingPlayer"/>'s turn
+    /// while a ship is present (pause with no ship); at 0 discard + return ships.
+    /// </summary>
+    private void ProcessTimeTravelPodCountdowns(int endingPlayer)
     {
         foreach (var kv in _ttpCountdown.ToList())
         {
@@ -18810,6 +18814,10 @@ private bool ControllerHasToxOnTable(int controller)
                 _ttpCountdown.Remove(pod);
                 continue;
             }
+            int podOwner = GetBorderOwner(pod);
+            if (podOwner == 0) podOwner = pc.Controller != 0 ? pc.Controller : pc.OwnerPlayer;
+            if (podOwner != endingPlayer)
+                continue; // not this player's EOT
             bool shipHere = GetDockablesUnderMission(pod).Any(b => b.Tag is Card c && IsShipCard(c));
             if (!shipHere)
                 continue; // pause while no ship here
@@ -23042,12 +23050,12 @@ _spacelineOrder.Remove(pod);
                 if (shipNames.Count == 0)
                 {
                     AddDetailStatusLine(
-                        $"Countdown: {cd} (paused — no ship here)",
+                        $"Countdown [{cd}] (paused — no ship here)",
                         DetailStatusTone.Timer);
                 }
                 else
                 {
-                    AddDetailStatusLine($"Countdown: {cd}", DetailStatusTone.Timer);
+                    AddDetailStatusLine($"Countdown [{cd}]", DetailStatusTone.Timer);
                     AddDetailStatusLine(
                         "Ship present: " + string.Join(", ", shipNames),
                         DetailStatusTone.Buff);
