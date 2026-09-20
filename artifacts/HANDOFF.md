@@ -9,7 +9,7 @@ Local VS: C:\\Dev\\StarTrekCCG\\
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test.
 
 ## Current tip
-Local Josef tip **PENDING_KURLAN** - Kurlan RANGE x3 (Pepsch smoke). Nicht gepusht.
+Local Josef tip **c77d0d1** - Kurlan RANGE x3 (Pepsch smoke). Nicht gepusht.
 
 Local Josef tip **adac172** - Betazoid Gift Box (Pepsch smoke). Nicht gepusht.
 
