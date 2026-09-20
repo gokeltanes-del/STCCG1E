@@ -18800,10 +18800,23 @@ private bool ControllerHasToxOnTable(int controller)
             ship => RelocateShipOntoTimeTravelPod(ship, pod, owner, opponentInit: false));
     }
     
-    /// <summary>
-    /// Spock: countdown icon [2]; tick only at end of <paramref name="endingPlayer"/>'s turn
-    /// while a ship is present (pause with no ship); at 0 discard + return ships.
+        /// <summary>
+    /// Spock: countdown icon [2]; tick only at end of pod-owner's turn while a ship is present
+    /// (pause with no ship); at 0 discard + return ships.
+    /// Owner comes from <see cref="_ttpPodByOwner"/> — spaceline GetBorderOwner is often 0.
     /// </summary>
+    private int ResolveTimeTravelPodOwner(Border pod, Card pc)
+    {
+        foreach (var kv in _ttpPodByOwner)
+        {
+            if (ReferenceEquals(kv.Value, pod))
+                return kv.Key;
+        }
+        int o = GetBorderOwner(pod);
+        if (o == 0) o = pc.Controller != 0 ? pc.Controller : pc.OwnerPlayer;
+        return o;
+    }
+
     private void ProcessTimeTravelPodCountdowns(int endingPlayer)
     {
         foreach (var kv in _ttpCountdown.ToList())
@@ -18814,10 +18827,19 @@ private bool ControllerHasToxOnTable(int controller)
                 _ttpCountdown.Remove(pod);
                 continue;
             }
-            int podOwner = GetBorderOwner(pod);
-            if (podOwner == 0) podOwner = pc.Controller != 0 ? pc.Controller : pc.OwnerPlayer;
+            int podOwner = ResolveTimeTravelPodOwner(pod, pc);
+            if (podOwner is not (1 or 2))
+            {
+                DebugLog.Engine(_session.TurnNumber, endingPlayer,
+                    $"TTP countdown skip: unresolved owner (ending P{endingPlayer})");
+                continue;
+            }
             if (podOwner != endingPlayer)
-                continue; // not this player's EOT
+            {
+                DebugLog.Engine(_session.TurnNumber, endingPlayer,
+                    $"TTP countdown skip: owner P{podOwner} != ending P{endingPlayer}");
+                continue;
+            }
             bool shipHere = GetDockablesUnderMission(pod).Any(b => b.Tag is Card c && IsShipCard(c));
             if (!shipHere)
                 continue; // pause while no ship here
@@ -18826,14 +18848,13 @@ private bool ControllerHasToxOnTable(int controller)
             if (_detailCard != null && ArtifactRules.IsTimeTravelPod(_detailCard)
                 && pod.Tag is Card dpc && ReferenceEquals(dpc, _detailCard))
                 RefreshDetailStatusBlock(_detailCard);
-            _session.Log.Add(_session.TurnNumber, "sys",
-                $"Time Travel Pod countdown → {cd} (ship present)");
+            _session.Log.Add(_session.TurnNumber, $"P{podOwner}",
+                $"Time Travel Pod countdown → {cd} (ship present, owner EOT)");
             if (cd > 0) continue;
-            int owner = GetBorderOwner(pod);
-            if (owner == 0) owner = 1;
-            _session.Log.Add(_session.TurnNumber, "sys", "Time Travel Pod countdown expired — discard");
+            _session.Log.Add(_session.TurnNumber, $"P{podOwner}",
+                "Time Travel Pod countdown expired - discard");
             ReturnShipsFromTimeTravelPod(pc);
-            SendCardTo(pc, owner, TimingRules.Destination.Discard);
+            SendCardTo(pc, podOwner, TimingRules.Destination.Discard);
             _ttpCountdown.Remove(pod);
         }
     }
