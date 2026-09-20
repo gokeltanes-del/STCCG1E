@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-20 (Data — Alien Groupie LegalResponse window; Asteroid Sanctuary green)
+Last updated: 2026-09-20 (Jadzia — Pepsch green Alien Groupie; Auto-Destruct in progress)
 Scope: **Premiere** (`PR`) + **Alternate Universe** catalogued. **Priority: finish all unfinished Premiere cards first.** AU is logged only; not prioritized unless already wired.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -29,13 +29,13 @@ Source tip: when Data/Spock/Seven/Captain report, update the row.
 
 | Status | Count | Role |
 | --- | ---: | --- |
-| `working` | 99 | Done (Pepsch green) |
+| `working` | 100 | Done (Pepsch green) |
 | `partial` | 6 | **Next smoke / rework** |
-| `unknown` | 258 | **Backlog — finish Premiere** |
+| `unknown` | 257 | **Backlog — finish Premiere** |
 | `blocked` | 0 | — |
 | **Total** | **363** | |
 
-**Premiere partials (queue):** Q (blocked Continuum) · Crystalline Entity · Iconian Computer Weapon · Alien Probe · Escape Pod · Raise the Stakes (tip 7f5ae62) · Alien Groupie (LegalResponse fix)
+**Premiere partials (queue):** Q (blocked Continuum) · Crystalline Entity · Iconian Computer Weapon · Alien Probe · Escape Pod · Raise the Stakes (tip 7f5ae62) · Auto-Destruct Sequence (in progress)
 
 | Card Type | Count |
 | --- | ---: |
@@ -214,10 +214,10 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 
 | Card | Status | Notes | Source |
 | --- | --- | --- | --- |
-| Alien Groupie (107 R) | working | Just-solve LegalResponse window tip 9a0ac4f; Female; male stop CD2. | Data 2026-09-20 |
+| Alien Groupie (107 R) | working | Pepsch green. LegalResponse tips (Just-UX → LegalResponse window). Female req; random male stop countdown 2. | Pepsch 2026-09-20 |
 | Amanda Rogers (108 R) | working | Pepsch green. | Pepsch 2026-09-20 |
 | Asteroid Sanctuary (109 C) | working | Pepsch green. | Pepsch 2026-09-20 |
-| Auto-Destruct Sequence (110 U) | unknown |  |  |
+| Auto-Destruct Sequence (110 U) | partial | Data building (in progress). Pending Pepsch green. | Data 2026-09-20 |
 | Crosis (111 R) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Disruptor Overload (112 C) | unknown |  |  |
 | Distortion of Space/Time Continuum (113 U) | unknown |  |  |
