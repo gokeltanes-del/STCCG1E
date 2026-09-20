@@ -1,5 +1,5 @@
 ﻿# Smoke — Horga'hn Play-phase timing (2026-09-20)
-Tip: PENDING · EXE Debug
+Tip: 9770425 · EXE Debug
 
 Printed: extra **normal card play** OR EOT draw (not both). Extra only in **Play**.
 
