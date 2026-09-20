@@ -1,10 +1,9 @@
-# SMOKE Pattern Enhancers
+# SMOKE Pattern Enhancers (Spock Lock)
 
-tip: 500c94e  EXE: 2026-09-20 19:12:12
+tip: 03c44eb  EXE: 2026-09-20 19:13:02
 
-1. P1 plays Pattern Enhancers on table.
-2. Distortion Field face-up on planet: P1 beams OK; P2 without PE blocked.
-3. Atmospheric Ionization: P1 ignores 1-at-a-time / 3-cap; P2 still limited.
-4. Particle Scattering Field: P1 can beam to/from planet; P2 cannot.
-5. (Optional) Barclay Transporter Phobia: PE owner may still beam that personnel for Tarellian.
-6. Kevin can nullify Pattern Enhancers.
+1. P1 PE on table.
+2. Distortion face-up: P1 OK; P2 blocked.
+3. Ionization: **both** still 1-at-a-time / max 3 (PE does not bypass).
+4. Particle Scattering: P1 OK; P2 blocked.
+5. Kevin nullify PE OK.

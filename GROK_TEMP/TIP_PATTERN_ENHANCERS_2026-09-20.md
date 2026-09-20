@@ -1,16 +1,12 @@
 # Tip Pattern Enhancers (Josef)
 
-tip: 500c94e
-EXE: 2026-09-20 19:12:12
-msg: feat(premiere): Pattern Enhancers owner-scoped beam ignore
+tip: 03c44eb
+EXE: 2026-09-20 19:13:02
+msg: fix(premiere): Pattern Enhancers Distortion only not Ionization
 
-## Code
-- `HasPatternEnhancers(player)` via `_attachedEvents.Owner` / `PlayerHasTableCard`
-- `CanBeamAtMission(..., beamingPlayer)` early-OK only for PE owner
-- `PlanetBeamBlockedAt` ignores Particle Scattering for PE owner
-- Barclay beam-block ignored for PE owner (just-beamed / beam-target effects)
-- EventRules Message = Pepsch printed text
-- Kevin nullify unchanged (table Event)
-
-## Smoke
-See SMOKE_PATTERN_ENHANCERS_2026-09-20.md
+## Spock Lock
+- Owner-scoped: yes
+- Bypass Distortion Field (prevent): yes
+- Bypass Atmospheric Ionization (limit): NO
+- Particle Scatter / Barclay (prevent / just-beamed hook): PE owner may ignore
+- Message Pepsch; Kevin OK

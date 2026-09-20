@@ -22251,7 +22251,6 @@ _spacelineOrder.Remove(pod);
         if (mission == null || personnelCount <= 0) return;
         if (!EventsOn(mission).Any(e => e.Kind == EventRules.Persist.Ionization)) return;
         int ctrl = _activePlayer is >= 1 and <= 2 ? _activePlayer : 1;
-        if (HasPatternEnhancers(ctrl)) return; // ignored prevent-beam effect
         _ionizationBeamsThisTurnByPlayer[ctrl] += personnelCount;
         _session.Log.Add(_session.TurnNumber, $"P{ctrl}",
             $"Atmospheric Ionization: beamed {personnelCount} this way "
@@ -22261,17 +22260,18 @@ _spacelineOrder.Remove(pod);
     private bool CanBeamAtMission(Border mission, int plannedCount, int? beamingPlayer = null)
     {
         int who = beamingPlayer ?? (_activePlayer is 1 or 2 ? _activePlayer : 1);
-        if (HasPatternEnhancers(who)) return true;
+        bool pe = HasPatternEnhancers(who);
         foreach (var e in EventsOn(mission))
         {
-            // Glossary: Distortion Field — while face-up, prevents ALL beaming to/from this planet
+            // Glossary: Distortion Field — while face-up, prevents ALL beaming (true prevent — PE may ignore).
             // (incl. planet-vicinity beams: landed ship <-> facility). Same-mission gate covers hosts here.
             if (e.Kind == EventRules.Persist.Distortion && e.FaceUp)
             {
+                if (pe) continue; // Spock: PE ignores prevent-beaming only
                 ShowPlayError("Distortion Field (face-up): no beaming to/from this planet (incl. planet-vicinities). Glossary: Distortion Field.");
                 return false;
             }
-            // Glossary: Atmospheric Ionization — 1 at a time; max 3 personnel this way per controller/turn.
+            // Glossary: Atmospheric Ionization — LIMIT only (not prevent). Spock: PE must NOT bypass.
             // "to/from this planet" includes planet-vicinity beams (landed ship <-> facility). Same-mission gate covers all hosts here.
             if (e.Kind == EventRules.Persist.Ionization)
             {
