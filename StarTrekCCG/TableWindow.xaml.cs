@@ -12588,6 +12588,7 @@ private List<Card> CollectCardsInPlay(bool opponent)
         _actionSourceHost = null;
         _beamSelected.Clear();
         ClearTargetHighlights();
+        UpdateCardDetailCloseButton();
         if (_actionPanel != null)
         {
             TableCanvas.Children.Remove(_actionPanel);
@@ -18634,6 +18635,7 @@ private bool ControllerHasToxOnTable(int controller)
         }
 
         _cardActionMode = CardActionMode.BeamPickTarget;
+        UpdateCardDetailCloseButton();
         var mission = sourceIsMission ? hostBorder : FindMissionForDockable(hostBorder);
         int owner = _activePlayer;
         var targets = new List<Border>();
@@ -25155,7 +25157,18 @@ private bool ControllerHasToxOnTable(int controller)
 
     private void BtnCardDetailClose_Click(object sender, RoutedEventArgs e)
     {
+        // During beam: close detail so destination can be picked; beam mode stays active.
         CloseCardDetailPopup();
+    }
+
+    /// <summary>
+    /// Beam pick: label "Beam selected" (close detail, keep BeamPickTarget). Otherwise "Close".
+    /// </summary>
+    private void UpdateCardDetailCloseButton()
+    {
+        if (BtnCardDetailClose == null) return;
+        bool beam = _hostStripBeam || _cardActionMode == CardActionMode.BeamPickTarget;
+        BtnCardDetailClose.Content = beam ? "Beam selected" : "Close";
     }
 
     private void UpdateDetailBackButton(Card shown)
@@ -25173,6 +25186,7 @@ private bool ControllerHasToxOnTable(int controller)
 
     private void UpdateDetailBeamSelectButton(Border? host)
     {
+        UpdateCardDetailCloseButton();
         if (BtnDetailBeamSelect == null) return;
         if (!_hostStripBeam || host == null)
         {
@@ -25243,6 +25257,7 @@ private bool ControllerHasToxOnTable(int controller)
         if (BtnDetailBack != null)
             BtnDetailBack.Visibility = Visibility.Collapsed;
         _detailHost = null;
+        UpdateCardDetailCloseButton();
     }
 
     private void CardDetailOverlay_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)

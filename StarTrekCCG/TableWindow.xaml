@@ -265,7 +265,7 @@
                                         <StackPanel Grid.Column="1" Grid.Row="0" VerticalAlignment="Top" Margin="12,0,0,0" Width="110">
                                             <Button x:Name="BtnDetailBack" Content="◀ Back" Padding="10,6" Margin="0,0,0,8" Visibility="Collapsed" Click="BtnDetailBack_Click" Background="#2A3A58" Foreground="White" BorderBrush="#5A6A88" Cursor="Hand"/>
                                             <Button x:Name="BtnDetailBeamSelect" Content="Select none" Padding="10,6" Margin="0,0,0,8" Visibility="Collapsed" Click="BtnDetailBeamSelect_Click" Background="#2E5A3A" Foreground="#B8F0C8" BorderBrush="#4A9A60" Cursor="Hand"/>
-                                            <Button Content="Close" Padding="10,6" Click="BtnCardDetailClose_Click" Background="#3A3A58" Foreground="White" BorderBrush="#5A5A78" Cursor="Hand"/>
+                                            <Button x:Name="BtnCardDetailClose" Content="Close" Padding="10,6" Click="BtnCardDetailClose_Click" Background="#3A3A58" Foreground="White" BorderBrush="#5A5A78" Cursor="Hand"/>
                                         </StackPanel>
                                         <Border x:Name="DetailStackSection" Grid.Column="0" Grid.ColumnSpan="2" Grid.Row="1" Visibility="Collapsed" Margin="0,12,0,0" BorderBrush="#3A3A50" BorderThickness="0,1,0,0" Padding="0,10,0,0">
                                             <DockPanel>
