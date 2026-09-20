@@ -4570,7 +4570,7 @@ public partial class TableWindow : Window
             }
 
             // Ungestörte Card Play
-            if (ArtifactRules.IsArtifact(a.Card) && TryResolveArtifactHandPlay(a.Card, a.Controller))
+            if (ArtifactRules.IsArtifact(a.Card) && TryResolveArtifactHandPlay(a.Card, a.Controller, a.TargetCard))
             {
                 // Spezial-Effekt erledigt
             }
@@ -5491,6 +5491,19 @@ public partial class TableWindow : Window
         }
         else if (IsTablePermanentType(card))
         {
+            // F2: Artifact-as-Event — capture Spec-legal host under drop for TargetCard.
+            if (!_seedPhaseActive && ArtifactRules.IsPlaysAsEventFromHand(card))
+            {
+                int owner = zref.Opponent ? 2 : 1;
+                var tablePt = WindowToTablePoint(windowPos);
+                var near = NearestLegalSnapHost(card, owner, tablePt.X, tablePt.Y, out double dist);
+                if (near?.Tag is Card hc && dist <= ShipSnapRange * 1.6
+                    && TargetQuery.CanPlayOn(card, hc, FactsFor(near), owner).ok)
+                {
+                    _snapSite = new TargetSite(TargetSiteKind.HostFace, hc, hc, null,
+                        TargetWhy.PlayOn, "Play on that host.");
+                }
+            }
             // Events with a table host: prefer drag-snap onto ship/mission/gap
             if (EventRules.IsEvent(card) && !_seedPhaseActive)
             {
@@ -5705,8 +5718,22 @@ public partial class TableWindow : Window
         if (!_seedPhaseActive && _session.Match == GameSession.MatchPhase.Play
             && ArtifactRules.IsPlaysAsEventFromHand(card))
         {
-            // Stone / Kurlan / Thought Maker / … — Event-equivalent hand play (not TABLE column inert).
-            BeginPlayCardStack(card, isResponse: false);
+            // F2: Spec-legal snap host → TargetCard; effect remains in TryResolveArtifactHandPlay.
+            Card? hostTarget = null;
+            if (_snapSite != null)
+            {
+                var sc = _snapSite.Value.Card;
+                var face = FindBorderForCard(sc);
+                if (face != null && TargetQuery.CanPlayOn(card, sc, FactsFor(face), _activePlayer).ok)
+                    hostTarget = sc;
+            }
+            if (hostTarget == null)
+            {
+                var sites = CollectLegalSnapHosts(card, _activePlayer);
+                if (sites.Count == 1 && sites[0].Tag is Card only)
+                    hostTarget = only;
+            }
+            BeginPlayCardStack(card, isResponse: false, target: hostTarget);
             return;
         }
 
@@ -15440,6 +15467,19 @@ public partial class TableWindow : Window
             return list;
         }
 
+        // F2: Spec-driven play-on (Stone AwayTeam, Kurlan Ship, dual AT/Crew) — typ-agnostic.
+        if (TargetQuery.IsPlayOnDrag(card) && !InterruptRules.IsKevinNullify(card) && !InterruptRules.IsDevil(card))
+        {
+            foreach (var b in TableCanvas.Children.OfType<Border>())
+            {
+                if (b.Visibility != Visibility.Visible || b.Tag is not Card hc) continue;
+                if (!TargetQuery.CanPlayOn(card, hc, FactsFor(b), owner).ok) continue;
+                Add(b);
+            }
+            if (list.Count > 0)
+                return list;
+        }
+
         if (InterruptRules.IsKevinNullify(card) || InterruptRules.IsDevil(card))
         {
             bool devil = InterruptRules.IsDevil(card);
@@ -16021,7 +16061,7 @@ public partial class TableWindow : Window
     }
 
     /// <summary>Hand-Play von Artifacts die als Event/Interrupt wirken. true = erledigt.</summary>
-    private bool TryResolveArtifactHandPlay(Card art, int controller)
+    private bool TryResolveArtifactHandPlay(Card art, int controller, Card? preferredHost = null)
     {
         var auth = AuthorizePlay(GameAction.Play(controller, art));
         if (!auth.Ok)
@@ -16063,6 +16103,13 @@ public partial class TableWindow : Window
                     string label = $"P{awayOwner} Away Team @ {mc.Name}";
                     awayChoices.Add((missionB, awayOwner, members, label));
                 }
+            }
+
+            if (preferredHost != null)
+            {
+                awayChoices = awayChoices
+                    .Where(c => c.Mission.Tag is Card mc && ReferenceEquals(mc, preferredHost))
+                    .ToList();
             }
 
             if (awayChoices.Count == 0)
@@ -16140,7 +16187,14 @@ public partial class TableWindow : Window
             var anyShips = TableCanvas.Children.OfType<Border>()
                 .Where(b => b.Tag is Card sc && IsShipCard(sc))
                 .ToList();
-            Border? shipB = PickBorderFromList(art, anyShips, "Kurlan Naiskos: play on which ship? (any)");
+            Border? shipB = null;
+            if (preferredHost != null)
+            {
+                var face = FindBorderForCard(preferredHost);
+                if (face != null && face.Tag is Card sc && IsShipCard(sc))
+                    shipB = face;
+            }
+            shipB ??= PickBorderFromList(art, anyShips, "Kurlan Naiskos: play on which ship? (any)");
             if (shipB == null)
             {
                 StatusText.Text = "Kurlan: no ship chosen → kept in hand.";

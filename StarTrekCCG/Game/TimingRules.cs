@@ -131,10 +131,25 @@ public static class TimingRules
     /// Static Warp Bubble is a normal Event (Traveler: Transcendence nullifies it;
     /// Rishon / [Shield] are the Kevin immunities, not SWB itself).
     /// </summary>
+    /// <summary>
+    /// Printed Event OR Artifact-as-Event (Plays as [Event] / Role ArtifactAsEvent). F2 Pepsch-Lock.
+    /// </summary>
+    public static bool IsEventEquivalentForKevin(Card? ev)
+    {
+        if (ev == null) return false;
+        if (IsEvent(ev)) return true;
+        var role = PlayOnRules.ResolvePlayOn(ev).Role;
+        if (role == PlayOnRules.CardPlayRole.ArtifactAsEvent)
+            return true;
+        if (ArtifactRules.IsPlaysAsEventFromHand(ev))
+            return true;
+        return false;
+    }
+
     public static (bool ok, string reason) CanKevinTargetEvent(Card ev)
     {
-        if (!IsEvent(ev))
-            return (false, "Kevin Uxbridge nullifies only an Event.");
+        if (!IsEventEquivalentForKevin(ev))
+            return (false, "Kevin Uxbridge nullifies only an Event (incl. Artifact that plays as Event).");
         if (HasShieldIcon(ev))
             return (false, "Kevin Uxbridge: that Event has a Shield icon.");
         if (TreatyRules.IsTreatyCard(ev))

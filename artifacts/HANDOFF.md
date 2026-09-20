@@ -1,3 +1,14 @@
+Local Josef tip **PENDING_F2** - Plays-on F2 Kevin + Spec-Host. Nicht gepusht.
+
+## Tip detail (Data, Josef, 2026-09-20) - Plays-on F2 Kevin + Spec-Host
+### F2
+- TimingRules.IsEventEquivalentForKevin + CanKevinTargetEvent (ArtifactAsEvent / IsPlaysAsEventFromHand)
+- CollectLegalSnapHosts: IsPlayOnDrag Spec path (Stone planet / Kurlan ship)
+- Drop sets _snapSite for Artifact-as-Event; PlaceOnTablePermanents → BeginPlayCardStack(target)
+- TryResolveArtifactHandPlay(preferredHost): Stone filter AT to planet; Kurlan use ship
+### Deferred F3
+Premiere smoke matrix (Stone snap, Kurlan+Kevin, IG/Varon Use-as, Horga'hn Immediate)
+
 Local Josef tip **548e573** - Plays-on F1 Spec+Snap typ-agnostisch. Nicht gepusht.
 
 ## Tip detail (Data, Josef, 2026-09-20) - Plays-on F1 Spec+Snap typ-agnostisch
