@@ -1,3 +1,9 @@
+Local Josef tip **PENDING_F3** - Plays-on F3 smoke matrix docs. Nicht gepusht.
+
+## Tip detail (Data, Josef, 2026-09-20) - Plays-on F3 smoke matrix (docs)
+GROK_TEMP/SMOKE_PLAYSON_F3_2026-09-20.md — Premiere checklist for Pepsch.
+Code F0–F2 already tipped; F3 = human smoke, no engine change this tip.
+
 Local Josef tip **7719373** - Plays-on F2 Kevin + Spec-Host. Nicht gepusht.
 
 ## Tip detail (Data, Josef, 2026-09-20) - Plays-on F2 Kevin + Spec-Host
