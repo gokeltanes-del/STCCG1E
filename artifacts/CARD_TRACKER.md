@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-20 (Spock - AwayTeam/PlaysOn/Kurlan)
+Last updated: 2026-09-20 (Jadzia — Pepsch green Stone of Gol + Kurlan Naiskos)
 Scope: **Premiere** (`PR`) + **Alternate Universe** catalogued. **Priority: finish all unfinished Premiere cards first.** AU is logged only; not prioritized unless already wired.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -29,8 +29,8 @@ Source tip: when Data/Spock/Seven/Captain report, update the row.
 
 | Status | Count | Role |
 | --- | ---: | --- |
-| `working` | 80 | Done (Pepsch green) |
-| `partial` | 8 | **Next smoke / rework** |
+| `working` | 82 | Done (Pepsch green) |
+| `partial` | 6 | **Next smoke / rework** |
 | `unknown` | 275 | **Backlog — finish Premiere** |
 | `blocked` | 0 | — |
 | **Total** | **363** | |
@@ -85,12 +85,12 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Betazoid Gift Box (1 R) | working | Pepsch green tip Data/adac172 (search download 0..3 + IgnoreOppPrevent; discard always). | Pepsch 2026-09-20; Data/adac172 |
 | Horga'hn (2 R) | unknown |  |  |
 | Interphase Generator (3 R) | working | Pepsch green: nullify path vs [IPG] incl. Nausicaans; Rebel Encounter nullify also OK. IPG display cleanup done (Glyph only; tip with `5c08269` batch). | Pepsch 2026-09-18; Data/`5c08269` display |
-| Kurlan Naiskos (4 R) | partial | tip Data/6d15780: any ship incl. opp; RANGE/W/S x3 when staffed. Pending Pepsch green. | Data/6d15780 2026-09-20 |
+| Kurlan Naiskos (4 R) | working | Pepsch green (inkl. Kevin as Event). tip Data/`6d15780`: any ship incl. opp; RANGE/W/S x3 when staffed. | Pepsch 2026-09-20; Data/`6d15780` |
 | Thought Maker (5 R) | unknown |  |  |
 | Time Travel Pod (6 R) | unknown |  |  |
 | Tox Uthat (7 R) | unknown |  |  |
 | Varon-T Disruptor (8 R) | working | Pepsch getestet: Looten OK, verdoppelt STRENGTH auf Planet; Beamen auf Schiff ohne Treaty repariert (`TreatyRules.CanOccupyHost`). | Pepsch 2026-09-12 |
-| Vulcan Stone of Gol (9 R) | partial | tip Data/6d15780: planet AT only; Plays-as-Event kill+discard (no inert host). Pending Pepsch green. | Data/6d15780 2026-09-20 |
+| Vulcan Stone of Gol (9 R) | working | Pepsch green (inkl. Kevin as Event). tip Data/`6d15780`: planet AT only; Plays-as-Event kill+discard (no inert host). | Pepsch 2026-09-20; Data/`6d15780` |
 
 ### Dilemma
 
