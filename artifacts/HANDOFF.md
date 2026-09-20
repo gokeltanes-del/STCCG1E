@@ -1,4 +1,4 @@
-- tip 70c085c feat(premiere): Raise the Stakes + win 100 / Dev 500 — EXE 2026-09-20 19:31:33 — GROK_TEMP/TIP_RAISE_THE_STAKES_2026-09-20.md
+- tip 7f5ae62 feat(premiere): Raise the Stakes + win 100 / Dev 500 — EXE 2026-09-20 19:31:33 — GROK_TEMP/TIP_RAISE_THE_STAKES_2026-09-20.md
 - tip 03c44eb fix(premiere): Pattern Enhancers Distortion only not Ionization — EXE 2026-09-20 19:13:02 — GROK_TEMP/TIP_PATTERN_ENHANCERS_2026-09-20.md
 - tip 500c94e feat(premiere): Pattern Enhancers owner-scoped beam ignore — EXE 2026-09-20 19:12:12 — details GROK_TEMP/TIP_PATTERN_ENHANCERS_2026-09-20.md
 Local Josef tip 9f4d741 — Thought Maker Plays as Interrupt anytime. Nicht gepusht.

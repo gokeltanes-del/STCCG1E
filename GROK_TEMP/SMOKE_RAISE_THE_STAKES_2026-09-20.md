@@ -1,6 +1,6 @@
 ﻿# SMOKE Raise the Stakes + Win
 
-tip: 70c085c  EXE: 2026-09-20 19:31:33
+tip: 7f5ae62  EXE: 2026-09-20 19:31:33
 
 1. Score to 100: Match Ended MessageBox; Winner set.
 2. Dev > Long game (500): target 500; uncheck → 100.
