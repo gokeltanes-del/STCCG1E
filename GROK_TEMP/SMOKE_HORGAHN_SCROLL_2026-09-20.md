@@ -1,5 +1,5 @@
 ﻿# Smoke — Horga'hn turn + Detail auto-scroll (2026-09-20)
-EXE: Debug default. Tip: PENDING
+EXE: Debug default. Tip: 5c1388d
 
 | # | Check | Soll | Smoke |
 |---|-------|------|-------|

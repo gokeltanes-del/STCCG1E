@@ -1,9 +1,9 @@
-Local Josef tip **PENDING_HS** - Horga turn + Detail scroll. Nicht gepusht.
+Local Josef tip **5c1388d** - Horga turn + Detail scroll. Nicht gepusht.
 
 ## Tip detail (Data, Josef, 2026-09-20) - Horga turn + Detail scroll
 1) Horga'hn: first normal play always -> Execute (no stay-in-Play wait). Extra card allowed in Execute OR EOT draw.
 2) DetailStackScroll edge auto-scroll while dragging.
-Stone/Kurlan Pepsch GREEN. PENDING_HS
+Stone/Kurlan Pepsch GREEN. 5c1388d
 
 Local Josef tip **71b6552** - Affil ignore non-affil brackets. Nicht gepusht.
 
