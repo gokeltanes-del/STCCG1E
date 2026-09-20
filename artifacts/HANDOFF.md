@@ -1,3 +1,10 @@
+Local Josef tip **PENDING_AF** - Captain A-F EOT hang. Nicht gepusht.
+
+## Tip detail (Data, Josef, 2026-09-20) - Captain A-F EOT hang
+A PreviewKeyDown EOT Space→Resume first. B ResolveEntireStack also _eotEndingInProgress.
+C FinishExecute try/finally CompleteTurnChange. D EOT skipSchism. E OpenResponse no force-disable EndTurn.
+F Log EOT complete → P{n} PLAY. PENDING_AF
+
 Local Josef tip **c328826** - Horga EXECUTE draw loop. Nicht gepusht.
 
 ## Tip detail (Data, Josef, 2026-09-20) - Horga EXECUTE draw loop
