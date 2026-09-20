@@ -13143,11 +13143,12 @@ private List<Card> CollectCardsInPlay(bool opponent)
                 ),
                 // Tarellian: dilemma supplies transporters; Distortion Field (face-up) still blocks
                 // (Pattern Enhancers allow beaming through). No ionization side-effect here.
-                CanBeamToDilemma = HasPatternEnhancers() || !EventsOn(missionBorder).Any(e =>
+                CanBeamToDilemma = HasPatternEnhancers(_activePlayer) || !EventsOn(missionBorder).Any(e =>
                     e.Kind == EventRules.Persist.Distortion && e.FaceUp),
-                // Barclay Transporter Phobia: personnel with interrupt attached refuses this beam.
+                // Barclay Transporter Phobia: refuses transport; PE owner may ignore just-beamed / beam-target effects.
                 IsPersonnelBeamBlocked = p =>
                 {
+                    if (HasPatternEnhancers(_activePlayer)) return false;
                     var pb = teamBorders.FirstOrDefault(x => x.Tag is Card c && ReferenceEquals(c, p));
                     return pb != null && HasAttachedNamedInterrupt(pb, "Barclay Transporter Phobia");
                 },
@@ -15194,9 +15195,12 @@ private List<Card> CollectCardsInPlay(bool opponent)
             && e.Owner == player
             && EventRules.IsWhereNoOneHasGoneBefore(e.Card));
 
-    private bool HasPatternEnhancers() =>
-        _attachedEvents.Any(e => e.Kind == EventRules.Persist.PatternEnhancers)
-        || HasTableCard(EventRules.IsPatternEnhancers);
+    /// <summary>Pepsch: Pattern Enhancers is owner-scoped — only that controller ignores anti-beam / just-beamed targeting.</summary>
+    private bool HasPatternEnhancers(int player) =>
+        player is 1 or 2
+        && (_attachedEvents.Any(e =>
+                e.Kind == EventRules.Persist.PatternEnhancers && e.Owner == player)
+            || PlayerHasTableCard(player, EventRules.IsPatternEnhancers));
 
     /// <summary>Espionage on this mission: add [As] icon for that player if mission is [On].</summary>
     private IEnumerable<string> EspionageIconsOn(Border mission, int player)
@@ -17284,8 +17288,11 @@ private bool ControllerHasToxOnTable(int controller)
         return false;
     }
 
-    private bool PlanetBeamBlockedAt(Border host)
+    private bool PlanetBeamBlockedAt(Border host, int? beamingPlayer = null)
     {
+        int who = beamingPlayer ?? (_activePlayer is 1 or 2 ? _activePlayer : 1);
+        if (HasPatternEnhancers(who))
+            return false; // ignore Particle Scattering Field prevent-beam
         Card? hc = host.Tag as Card;
         Border? mission = hc != null && CardKinds.IsMission(hc) ? host : FindMissionForDockable(host);
         if (mission?.Tag is not Card mc || !MissionCountsAsPlanetCard(mc))
@@ -19015,7 +19022,7 @@ _spacelineOrder.Remove(pod);
             ShowPlayError(beamAuth.Message);
             return;
         }
-        if (PlanetBeamBlockedAt(hostBorder))
+        if (PlanetBeamBlockedAt(hostBorder, beamingPlayer: _activePlayer))
         {
             ShowPlayError("Particle Scattering Field: no beaming to or from a planet here.");
             return;
@@ -22244,15 +22251,17 @@ _spacelineOrder.Remove(pod);
         if (mission == null || personnelCount <= 0) return;
         if (!EventsOn(mission).Any(e => e.Kind == EventRules.Persist.Ionization)) return;
         int ctrl = _activePlayer is >= 1 and <= 2 ? _activePlayer : 1;
+        if (HasPatternEnhancers(ctrl)) return; // ignored prevent-beam effect
         _ionizationBeamsThisTurnByPlayer[ctrl] += personnelCount;
         _session.Log.Add(_session.TurnNumber, $"P{ctrl}",
             $"Atmospheric Ionization: beamed {personnelCount} this way "
             + $"({_ionizationBeamsThisTurnByPlayer[ctrl]}/3 this turn). Glossary: to/from this planet.");
     }
 
-    private bool CanBeamAtMission(Border mission, int plannedCount)
+    private bool CanBeamAtMission(Border mission, int plannedCount, int? beamingPlayer = null)
     {
-        if (HasPatternEnhancers()) return true;
+        int who = beamingPlayer ?? (_activePlayer is 1 or 2 ? _activePlayer : 1);
+        if (HasPatternEnhancers(who)) return true;
         foreach (var e in EventsOn(mission))
         {
             // Glossary: Distortion Field — while face-up, prevents ALL beaming to/from this planet
@@ -22271,7 +22280,7 @@ _spacelineOrder.Remove(pod);
                     ShowPlayError("Atmospheric Ionization: only 1 personnel at a time (Glossary: to/from this planet).");
                     return false;
                 }
-                int ctrl = _activePlayer is >= 1 and <= 2 ? _activePlayer : 1;
+                int ctrl = who;
                 if (_ionizationBeamsThisTurnByPlayer[ctrl] >= 3)
                 {
                     ShowPlayError("Atmospheric Ionization: max 3 personnel this way per controller this turn.");
@@ -24290,7 +24299,7 @@ _spacelineOrder.Remove(pod);
             return true;
         }
 
-        if (!CanBeamAtMission(srcMission, plannedCount: Math.Max(1, _beamSelected.Count)))
+        if (!CanBeamAtMission(srcMission, plannedCount: Math.Max(1, _beamSelected.Count), beamingPlayer: _activePlayer))
             return true;
 
         var toMove = list.Where(b =>

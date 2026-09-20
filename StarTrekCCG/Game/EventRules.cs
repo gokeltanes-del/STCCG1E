@@ -365,7 +365,7 @@ public static class EventRules
             {
                 Place = Place.Table,
                 Persist = Persist.PatternEnhancers,
-                Message = "Ignore dilemma/event/mission effects that prevent beaming or that target your just-beamed personnel or equipment."
+                Message = "Plays on table. You may ignore any effect on a dilemma, event, or mission that prevents beaming or targets your just-beamed personnel or equipment."
             },
             "Red Alert!" => new PlayResult
             {
