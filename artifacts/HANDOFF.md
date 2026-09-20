@@ -1,3 +1,8 @@
+Local Josef tip 77a2c52 — TTP countdown InstanceId + status survives turn flip. Nicht gepusht.
+- EXE: 2026-09-20 16:09:25
+- _ttpCountdown Dictionary<int,int> by InstanceId; Detail never heals SoT to 2
+- _lastTtpCountdownMsg appended after CompleteTurnChange StatusText
+
 Local Josef tip 593b0dd — TTP countdown EOT tick + shipHere + visible skip log. Nicht gepusht.
 - EXE: 2026-09-20 16:06:12
 - TimeTravelPodHasShipPresent: GetDockables OR _dockableAtMission OR FindMissionForDockable

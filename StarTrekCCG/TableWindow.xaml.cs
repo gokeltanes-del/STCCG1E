@@ -2107,8 +2107,10 @@ public partial class TableWindow : Window
     private readonly Dictionary<int, Border> _ttpPodByOwner = new(); // owner → pod location border
     private readonly Dictionary<Border, Border> _ttpShipFormerLocation = new(); // ship → former mission
     private readonly HashSet<int> _ttpOwnRelocateUsed = new(); // owner already used own-ship relocate
-    /// <summary>Printed countdown [2]; keyed by Card so Detail/Process share one SoT (Border Find is ambiguous).</summary>
-    private readonly Dictionary<Card, int> _ttpCountdown = new();
+    /// <summary>Printed countdown [2]; keyed by Card.InstanceId (stable across UI/detail Card refs).</summary>
+    private readonly Dictionary<int, int> _ttpCountdown = new();
+    /// <summary>Survives CompleteTurnChange StatusText overwrite.</summary>
+    private string _lastTtpCountdownMsg = "";
     /// <summary>TTP placed; ask opp relocate after modal reveals close (not mid-acquire).</summary>
     private Border? _pendingTtpOppRelocatePod;
 
@@ -8268,7 +8270,8 @@ private List<Card> CollectCardsInPlay(bool opponent)
             StatusText.Text =
                 $"{_session.StatusLine()} " +
                 $"(Hand {(_activePlayer == 1 ? _handCards.Count : _oppHandCards.Count)}, " +
-                $"Draw {(_activePlayer == 1 ? _drawCards.Count : _oppDrawCards.Count)}).";
+                $"Draw {(_activePlayer == 1 ? _drawCards.Count : _oppDrawCards.Count)})." +
+                (string.IsNullOrEmpty(_lastTtpCountdownMsg) ? "" : " | " + _lastTtpCountdownMsg);
 
             try
             {
@@ -18714,7 +18717,9 @@ private bool ControllerHasToxOnTable(int controller)
         Panel.SetZIndex(border, 9);
         _spacelineOrder.Insert(0, border);
         _ttpPodByOwner[owner] = border;
-        _ttpCountdown[art] = 2; // printed icon [2]
+        if (art.InstanceId <= 0)
+            _session.Log.Add(_session.TurnNumber, $"P{owner}", "TTP warn: InstanceId unset at Place");
+        _ttpCountdown[art.InstanceId] = 2; // printed icon [2]
         RelayoutMissionsOnSpaceline();
         _session.Log.Add(_session.TurnNumber, $"P{owner}",
             "Time Travel Pod placed as space time location (left of spaceline); countdown init=2");
@@ -18850,63 +18855,72 @@ private bool ControllerHasToxOnTable(int controller)
         return false;
     }
 
+    private void NoteTtpCountdown(string msg, int actor)
+    {
+        _lastTtpCountdownMsg = msg;
+        _session.Log.Add(_session.TurnNumber, $"P{actor}", msg);
+        StatusText.Text = msg;
+    }
+
     private void ProcessTimeTravelPodCountdowns(int endingPlayer)
     {
         foreach (var kv in _ttpCountdown.ToList())
         {
-            var pc = kv.Key;
-            if (!ArtifactRules.IsTimeTravelPod(pc))
+            int id = kv.Key;
+            int from = kv.Value;
+            Card? pc = null;
+            Border? pod = null;
+            foreach (var ownKv in _ttpPodByOwner)
             {
-                _ttpCountdown.Remove(pc);
+                if (ownKv.Value.Tag is Card c && c.InstanceId == id)
+                {
+                    pc = c;
+                    pod = ownKv.Value;
+                    break;
+                }
+            }
+            if (pc == null || !ArtifactRules.IsTimeTravelPod(pc))
+            {
+                _ttpCountdown.Remove(id);
                 continue;
             }
-            var pod = ResolveTimeTravelPodBorder(pc);
+            if (pod == null)
+                pod = ResolveTimeTravelPodBorder(pc);
             if (pod == null)
             {
-                string msg = $"TTP countdown skip: no-border (ending P{endingPlayer}, cd={kv.Value})";
-                _session.Log.Add(_session.TurnNumber, $"P{endingPlayer}", msg);
-                StatusText.Text = msg;
+                NoteTtpCountdown($"TTP countdown skip: no-border (ending P{endingPlayer}, cd={from})", endingPlayer);
                 continue;
             }
             int podOwner = ResolveTimeTravelPodOwner(pod, pc);
             if (podOwner is not (1 or 2))
             {
-                string msg = $"TTP countdown skip: unresolved-owner (ending P{endingPlayer}, cd={kv.Value})";
-                _session.Log.Add(_session.TurnNumber, $"P{endingPlayer}", msg);
-                StatusText.Text = msg;
+                NoteTtpCountdown($"TTP countdown skip: unresolved-owner (ending P{endingPlayer}, cd={from})", endingPlayer);
                 continue;
             }
             if (podOwner != endingPlayer)
             {
-                string msg =
-                    $"TTP countdown skip: not-owner (pod P{podOwner}, ending P{endingPlayer}, cd={kv.Value})";
-                _session.Log.Add(_session.TurnNumber, $"P{endingPlayer}", msg);
-                StatusText.Text = msg;
+                NoteTtpCountdown(
+                    $"TTP countdown skip: not-owner (pod P{podOwner}, ending P{endingPlayer}, cd={from})",
+                    endingPlayer);
                 continue;
             }
             if (!TimeTravelPodHasShipPresent(pod))
             {
-                string msg =
-                    $"TTP countdown skip: no-ship (paused, owner P{podOwner} EOT, cd={kv.Value})";
-                _session.Log.Add(_session.TurnNumber, $"P{podOwner}", msg);
-                StatusText.Text = msg;
+                NoteTtpCountdown(
+                    $"TTP countdown skip: no-ship (paused, owner P{podOwner} EOT, cd={from})",
+                    podOwner);
                 continue;
             }
-            int from = kv.Value;
             int cd = from - 1;
-            _ttpCountdown[pc] = cd;
-            if (_detailCard != null && ReferenceEquals(_detailCard, pc))
+            _ttpCountdown[id] = cd;
+            if (_detailCard != null && _detailCard.InstanceId == id)
                 RefreshDetailStatusBlock(_detailCard);
-            string tickMsg = $"TTP countdown {from}→{cd} (ship present, owner P{podOwner} EOT)";
-            _session.Log.Add(_session.TurnNumber, $"P{podOwner}", tickMsg);
-            StatusText.Text = tickMsg;
+            NoteTtpCountdown($"TTP countdown {from}→{cd} (ship present, owner P{podOwner} EOT)", podOwner);
             if (cd > 0) continue;
-            _session.Log.Add(_session.TurnNumber, $"P{podOwner}",
-                "Time Travel Pod countdown expired - discard");
-            StatusText.Text = "Time Travel Pod countdown expired — discarded; ships returned.";
+            NoteTtpCountdown("TTP countdown expired — discarded; ships returned.", podOwner);
             ReturnShipsFromTimeTravelPod(pc);
             SendCardTo(pc, podOwner, TimingRules.Destination.Discard);
-            _ttpCountdown.Remove(pc);
+            _ttpCountdown.Remove(id);
         }
     }
 
@@ -18939,7 +18953,7 @@ private void ReturnShipsFromTimeTravelPod(Card podCard)
             }
             _ttpShipFormerLocation.Remove(ship);
         }
-                _ttpCountdown.Remove(podCard);
+                _ttpCountdown.Remove(podCard.InstanceId);
 _spacelineOrder.Remove(pod);
         if (TableCanvas.Children.Contains(pod))
             TableCanvas.Children.Remove(pod);
@@ -23101,36 +23115,40 @@ _spacelineOrder.Remove(pod);
         if (ArtifactRules.IsTimeTravelPod(card))
         {
             Border? pod = ResolveTimeTravelPodBorder(card);
-            if (!_ttpCountdown.TryGetValue(card, out int cd))
-            {
-                // Place always inits 2; heal orphan display rather than show [0].
-                cd = 2;
-                if (pod != null)
-                    _ttpCountdown[card] = 2;
-            }
+            string cdLine;
+            if (card.InstanceId > 0 && _ttpCountdown.TryGetValue(card.InstanceId, out int cd))
+                cdLine = $"Countdown [{cd}]";
+            else
+                cdLine = "Countdown unset"; // never heal SoT back to 2 from Detail
             if (pod != null)
             {
                 var shipNames = GetDockablesUnderMission(pod)
                     .Where(b => b.Tag is Card sc && IsShipCard(sc))
                     .Select(b => (b.Tag as Card)?.Name ?? "?")
                     .ToList();
+                // Also surface dock-map ships if GetDockables empty (same as tick helper)
                 if (shipNames.Count == 0)
                 {
-                    AddDetailStatusLine(
-                        $"Countdown [{cd}] (paused — no ship here)",
-                        DetailStatusTone.Timer);
+                    foreach (var kv in _dockableAtMission)
+                    {
+                        if (!ReferenceEquals(kv.Value, pod)) continue;
+                        if (kv.Key.Tag is Card sc && IsShipCard(sc))
+                            shipNames.Add(sc.Name ?? "?");
+                    }
                 }
+                if (shipNames.Count == 0)
+                    AddDetailStatusLine(cdLine + " (paused — no ship here)", DetailStatusTone.Timer);
                 else
                 {
-                    AddDetailStatusLine($"Countdown [{cd}]", DetailStatusTone.Timer);
+                    AddDetailStatusLine(cdLine, DetailStatusTone.Timer);
                     AddDetailStatusLine(
-                        "Ship present: " + string.Join(", ", shipNames),
+                        "Ship present: " + string.Join(", ", shipNames.Distinct()),
                         DetailStatusTone.Buff);
                 }
             }
             else
             {
-                AddDetailStatusLine($"Countdown [{cd}]", DetailStatusTone.Timer);
+                AddDetailStatusLine(cdLine, DetailStatusTone.Timer);
             }
         }
 
