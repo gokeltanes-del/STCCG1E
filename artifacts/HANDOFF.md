@@ -1,8 +1,8 @@
-Local Josef tip **PENDING_F3B** - F3 smoke list Captain-aligned. Nicht gepusht.
+Local Josef tip **8b7bd95** - F3 smoke list Captain-aligned. Nicht gepusht.
 
 ## Tip detail (Data, Josef, 2026-09-20) - F3 smoke list aligned Captain Go
 GROK_TEMP/SMOKE_PLAYSON_F3_2026-09-20.md — 5 Pflicht-Checks + extras.
-PENDING_F3B tip. Engine unchanged (F2 7719373).
+8b7bd95 tip. Engine unchanged (F2 7719373).
 
 Local Josef tip **6807bf5** - Plays-on F3 smoke matrix docs. Nicht gepusht.
 
