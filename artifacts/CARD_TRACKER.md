@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-20 (Data — Raise the Stakes + win 100/Dev 500)
+Last updated: 2026-09-20 (Jadzia — Pepsch green Q-Net/Rift/Treaties; Tetryon partial)
 Scope: **Premiere** (`PR`) + **Alternate Universe** catalogued. **Priority: finish all unfinished Premiere cards first.** AU is logged only; not prioritized unless already wired.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -29,13 +29,13 @@ Source tip: when Data/Spock/Seven/Captain report, update the row.
 
 | Status | Count | Role |
 | --- | ---: | --- |
-| `working` | 90 | Done (Pepsch green) |
+| `working` | 96 | Done (Pepsch green) |
 | `partial` | 7 | **Next smoke / rework** |
-| `unknown` | 266 | **Backlog — finish Premiere** |
+| `unknown` | 260 | **Backlog — finish Premiere** |
 | `blocked` | 0 | — |
 | **Total** | **363** | |
 
-**Premiere partials (queue):** Q (blocked Continuum) · Crystalline Entity · Iconian Computer Weapon · Alien Probe · Asteroid Sanctuary · Escape Pod · Raise the Stakes (tip 7f5ae62)
+**Premiere partials (queue):** Q (blocked Continuum) · Crystalline Entity · Iconian Computer Weapon · Alien Probe · Asteroid Sanctuary · Escape Pod · Raise the Stakes (tip 7f5ae62) · Tetryon Field (fly-by/Debuff)
 
 | Card Type | Count |
 | --- | ---: |
@@ -185,20 +185,20 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Nutational Shields (85 U) | working | Pepsch green (reconfirmed). | Pepsch 2026-09-19 |
 | Pattern Enhancers (86 C) | working | Pepsch green. tips Data/`1344864`/`b9888cd`. | Pepsch 2026-09-20; Data/`1344864`+`b9888cd` |
 | Plasma Fire (87 C) | working | Pepsch green (reconfirmed). | Pepsch 2026-09-19 |
-| Q-Net (88 C) | unknown |  |  |
+| Q-Net (88 C) | working | Pepsch green 2026-09-20. | Pepsch 2026-09-20 |
 | Raise the Stakes (89 U) | working | tip pending 7f5ae62: Win 100/Dev 500; concede→Winner; N keep-aside from loser draw. | Data 2026-09-20 |
 | Red Alert! (90 C) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Res-Q (91 C) | working | Pepsch green. | Pepsch 2026-09-19 |
 | Spacedock (92 C) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Static Warp Bubble (93 C) | working | Pepsch green (reconfirmed). | Pepsch 2026-09-19 |
-| Subspace Warp Rift (94 C) | unknown |  |  |
+| Subspace Warp Rift (94 C) | working | Pepsch green 2026-09-20. | Pepsch 2026-09-20 |
 | Supernova (95 R) | working | Pepsch green. tip Data/`b789fe5` + surface tip/`98e6984`: Planet→[S] surface discard + husk Opacity. Mit Tox Uthat (kein Dialog; Kevin nullify; Tox consumed at init). | Pepsch 2026-09-20; Data/`b789fe5`+`98e6984` |
 | Telepathic Alien Kidnappers (96 U) | working | Pepsch green. | Pepsch 2026-09-19 |
-| Tetryon Field (97 C) | unknown |  |  |
+| Tetryon Field (97 C) | partial | Pepsch: effect OK. Open: Data fixes fly-by ShowPlayError + Debuff tone with Rift. | Pepsch 2026-09-20; Data fix pending |
 | The Traveler: Transcendence (98 U) | working | Pepsch green. | Pepsch 2026-09-06 |
-| Treaty: Federation/Klingon (99 C) | unknown |  |  |
-| Treaty: Federation/Romulan (100 C) | unknown |  |  |
-| Treaty: Romulan/Klingon (101 C) | unknown |  |  |
+| Treaty: Federation/Klingon (99 C) | working | Pepsch green 2026-09-20 (Treaty family). | Pepsch 2026-09-20 |
+| Treaty: Federation/Romulan (100 C) | working | Pepsch green 2026-09-20 (Treaty family). | Pepsch 2026-09-20 |
+| Treaty: Romulan/Klingon (101 C) | working | Pepsch green 2026-09-20 (Treaty family). | Pepsch 2026-09-20 |
 | Warp Core Breach (102 R) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Where No One Has Gone Before (103 C) | working | Pepsch green. | Pepsch 2026-09-06 |
 
