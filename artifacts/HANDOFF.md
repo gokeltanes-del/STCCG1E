@@ -1,3 +1,7 @@
+Local Josef tip 9f4d741 — Thought Maker Plays as Interrupt anytime. Nicht gepusht.
+- EXE: 2026-09-20 16:29:51
+- IsPlaysAsInterruptFromHand; UsesNormalCardPlay false; drop/Place BeginPlayCardStack(controllerOverride); Amanda via TimingRules.IsInterrupt; PlayOn ArtifactAsInterrupt
+
 Local Josef tip bb72c97 — Thought Maker Plays as Event type-strip. Nicht gepusht.
 - EXE: 2026-09-20 16:22:38
 - Pepsch message; 10 types; MatchesNamedCardType (Facility←Outpost/Station); shuffle→bottom; discard

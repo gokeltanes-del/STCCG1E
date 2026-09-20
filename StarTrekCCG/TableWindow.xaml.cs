@@ -5390,6 +5390,18 @@ private List<Card> CollectCardsInPlay(bool opponent)
         {
             placedOk = true;
         }
+        else if (!_seedPhaseActive && zref.ZoneName == "Hand"
+                 && ArtifactRules.IsPlaysAsInterruptFromHand(card))
+        {
+            int owner = zref.Opponent ? 2 : 1;
+            if (DragLayer.Children.Contains(cardBorder))
+                DragLayer.Children.Remove(cardBorder);
+            if (TableCanvas.Children.Contains(cardBorder))
+                TableCanvas.Children.Remove(cardBorder);
+            RemoveOrphanTableCopies(card);
+            BeginPlayCardStack(card, isResponse: _stack.IsOpen, controllerOverride: owner);
+            placedOk = true;
+        }
         else if (!_seedPhaseActive && InterruptRules.IsInterrupt(card) && zref.ZoneName == "Hand")
         {
             int owner = zref.Opponent ? 2 : 1;
@@ -5833,6 +5845,17 @@ private List<Card> CollectCardsInPlay(bool opponent)
         }
 
         if (!_seedPhaseActive && _session.Match == GameSession.MatchPhase.Play
+            && ArtifactRules.IsPlaysAsInterruptFromHand(card))
+        {
+            // Anytime interrupt-as-artifact; controller = hand owner when known via ActivePlayer
+            // only if drop path did not already open the stack. Prefer ActivePlayer only as fallback
+            // (hand drop uses controllerOverride above).
+            int owner = _activePlayer;
+            BeginPlayCardStack(card, isResponse: _stack.IsOpen, controllerOverride: owner);
+            return;
+        }
+
+        if (!_seedPhaseActive && _session.Match == GameSession.MatchPhase.Play
             && ArtifactRules.IsPlaysAsEventFromHand(card))
         {
             // F2: Spec-legal snap host → TargetCard; effect remains in TryResolveArtifactHandPlay.
@@ -5894,7 +5917,8 @@ private List<Card> CollectCardsInPlay(bool opponent)
     /// </summary>
     private bool EventBelongsOnTableColumn(Card card)
     {
-        if (TimingRules.IsInterrupt(card) || InterruptRules.IsInterrupt(card))
+        if (TimingRules.IsInterrupt(card) || InterruptRules.IsInterrupt(card)
+            || ArtifactRules.IsPlaysAsInterruptFromHand(card))
             return false;
         if (EventRules.IsEvent(card))
             return EventRules.StaysOnTable(card);
@@ -10884,7 +10908,7 @@ private List<Card> CollectCardsInPlay(bool opponent)
         string st = (c.Type ?? "").ToLowerInvariant();
         if (st.Contains("artifact") && _seedPhaseActive)
             return false;
-        if (ArtifactRules.IsPlaysAsEventFromHand(c))
+        if (ArtifactRules.IsPlaysAsEventFromHand(c) || ArtifactRules.IsPlaysAsInterruptFromHand(c))
             return false;
         return st.Contains("personnel")
                || st.Contains("equipment")

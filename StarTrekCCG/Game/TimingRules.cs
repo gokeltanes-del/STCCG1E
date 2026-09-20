@@ -118,7 +118,8 @@ public static class TimingRules
         }
     }
 
-    public static bool IsInterrupt(Card c) => CardKinds.IsInterrupt(c);
+    public static bool IsInterrupt(Card c) =>
+        CardKinds.IsInterrupt(c) || ArtifactRules.IsPlaysAsInterruptFromHand(c);
 
     public static bool IsEvent(Card c) => CardKinds.IsEvent(c);
 

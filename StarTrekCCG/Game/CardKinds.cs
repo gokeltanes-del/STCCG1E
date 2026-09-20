@@ -80,6 +80,8 @@ public static class CardKinds
     /// <summary>Compendium 6.1: costs the one normal card play (unless played for free).</summary>
     public static bool UsesNormalCardPlay(Card card)
     {
+        if (ArtifactRules.IsPlaysAsInterruptFromHand(card))
+            return false;
         return Of(card) switch
         {
             CardKind.Interrupt or CardKind.QInterrupt => false,
@@ -93,6 +95,8 @@ public static class CardKinds
     /// <summary>Interrupt, Doorway, and some hybrids may play outside the Play segment.</summary>
     public static bool IsAnytimeType(Card card)
     {
+        if (ArtifactRules.IsPlaysAsInterruptFromHand(card))
+            return true;
         return Of(card) switch
         {
             CardKind.Interrupt or CardKind.QInterrupt or CardKind.Doorway

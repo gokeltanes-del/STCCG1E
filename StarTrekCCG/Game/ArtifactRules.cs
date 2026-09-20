@@ -81,7 +81,7 @@ public static class ArtifactRules
             {
                 Name = n,
                 Kind = AcquireKind.ToHand,
-                Message = "Place in hand. Plays as [Event]: Name a card type, then take all cards with that card type from opponent's draw deck, shuffle them, and place them on bottom of deck."
+                Message = "Place in hand. Plays as [Interrupt] at any time: Name a card type, then take all cards with that card type from opponent's draw deck, shuffle them, and place them on bottom of deck."
             },
             "Tox Uthat" => new AcquireResult
             {
@@ -199,10 +199,12 @@ public static class ArtifactRules
     /// Printed "Plays as [Event] …" from hand — must not stack inert as equipment on a host.
     /// Resolve via TryResolveArtifactHandPlay (Stone discard / Kurlan attach / etc.).
     /// </summary>
+    /// <summary>Printed Plays as [Interrupt] from hand (Thought Maker) — anytime; Amanda nullify.</summary>
+    public static bool IsPlaysAsInterruptFromHand(Card? c) => IsThoughtMaker(c);
+
     public static bool IsPlaysAsEventFromHand(Card? c) =>
         IsVulcanStoneOfGol(c)
         || IsKurlanNaiskos(c)
-        || IsThoughtMaker(c)
         || IsToxUthat(c)
         || IsIconianGateway(c)
         || IsReceptacleStones(c)

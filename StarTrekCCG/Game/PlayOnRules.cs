@@ -131,7 +131,12 @@ public static class PlayOnRules
             return BuildSpecFromClause(asOn.Groups["clause"].Value, role);
         }
 
-        // Plays as [Event] without on (Thought Maker) — Role only, no board host.
+        // Thought Maker (Pepsch): Plays as [Interrupt] anytime — force role even if printed text said Event.
+        if (ArtifactRules.IsThoughtMaker(card))
+            return new Spec(Host.None, Host.None, Ownership.Any, false, false, false, false, false,
+                CardPlayRole.ArtifactAsInterrupt);
+
+        // Plays as [Event|Interrupt] without on — Role only, no board host.
         var asOnly = Regex.Match(t,
             @"plays?\s+as\s+(?:an?\s+)?(?:\[(?<asType>[^\]]+)\]|(?<asType>event|interrupt))\b",
             RegexOptions.IgnoreCase);
