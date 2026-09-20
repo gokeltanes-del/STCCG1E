@@ -12474,11 +12474,15 @@ private List<Card> CollectCardsInPlay(bool opponent)
     {
         _selectedCard = cardBorder;
         UpdateSelectionFrame(cardBorder);
-        // Aktionsleiste nur bei frischer Auswahl, nicht während Beam-Zielwahl neu bauen
+        // Stuck BoardPickShip: cancel so TTP/host panel can appear (Beam/Fly still block rebuild).
+        if (_cardActionMode == CardActionMode.BoardPickShip)
+        {
+            ClearCardActionUi();
+            StatusText.Text = "Ship pick cancelled.";
+        }
         if (_cardActionMode == CardActionMode.None)
             RefreshCardActionPanel(cardBorder);
     }
-
 
     private void ClearSelectionAndDetail()
     {
@@ -12543,8 +12547,9 @@ private List<Card> CollectCardsInPlay(bool opponent)
         {
             if (_cardActionMode != CardActionMode.None)
             {
+                bool wasPick = _cardActionMode == CardActionMode.BoardPickShip;
                 ClearCardActionUi();
-                StatusText.Text = "Action cancelled.";
+                StatusText.Text = wasPick ? "Ship pick cancelled." : "Action cancelled.";
             }
             else
             {
@@ -12636,10 +12641,14 @@ private List<Card> CollectCardsInPlay(bool opponent)
 
     private void RefreshCardActionPanel(Border? cardBorder)
     {
-        // Never wipe an in-progress board ship pick (TTP relocate) by rebuilding the menu.
+        // Stuck BoardPickShip blocked all host menus (TTP Relocate gone). Cancel pick, then rebuild.
         if (_cardActionMode == CardActionMode.BoardPickShip)
-            return;
-        ClearCardActionUi();
+        {
+            ClearCardActionUi();
+            StatusText.Text = "Ship pick cancelled.";
+        }
+        else
+            ClearCardActionUi();
         if (cardBorder == null || cardBorder.Tag is not Card card) return;
         if (_seedPhaseActive) return;
         if (_session.Match != GameSession.MatchPhase.Play) return;
@@ -12848,15 +12857,15 @@ private List<Card> CollectCardsInPlay(bool opponent)
                 // Time Travel Pod: own relocate once at any time (incl. opponent turn), between actions only.
         if (isTtp)
         {
-            int podOwner = GetBorderOwner(cardBorder);
-            if (podOwner == 0) podOwner = _session.ActivePlayer; // last resort if owner unset
+            int podOwner = ResolveTimeTravelPodOwner(cardBorder, card);
             bool already = _actionPanel.Children.OfType<Button>()
                 .Any(b => (b.Content as string)?.StartsWith("Relocate own", StringComparison.Ordinal) == true);
             if (!already
+                && podOwner is 1 or 2
                 && !_ttpOwnRelocateUsed.Contains(podOwner)
                 && CanActivateTimeTravelPodAnytime(podOwner))
             {
-                AddBtn("Relocate own ship…", (_, _) => OfferTimeTravelPodOwnRelocate(cardBorder));
+                AddBtn("Relocate own ship.", (_, _) => OfferTimeTravelPodOwnRelocate(cardBorder));
             }
         }
 
@@ -18682,8 +18691,10 @@ private bool ControllerHasToxOnTable(int controller)
     {
         if (clicked.Tag is not Card c || !IsShipCard(c))
         {
-            StatusText.Text = "Click a highlighted ship (or empty table to cancel).";
-            return true;
+            // Cancel stuck pick (e.g. click TTP again) so host action panel can rebuild.
+            ClearCardActionUi();
+            StatusText.Text = "Ship pick cancelled.";
+            return false;
         }
         int o = GetBorderOwner(clicked);
         if (o == 0) o = c.Controller != 0 ? c.Controller : c.OwnerPlayer;
@@ -18795,8 +18806,7 @@ private bool ControllerHasToxOnTable(int controller)
     private void OfferTimeTravelPodOwnRelocate(Border pod)
     {
         if (pod.Tag is not Card art || !ArtifactRules.IsTimeTravelPod(art)) return;
-        int owner = GetBorderOwner(pod);
-        if (owner == 0) owner = _session.ActivePlayer;
+        int owner = ResolveTimeTravelPodOwner(pod, art);
         if (_ttpOwnRelocateUsed.Contains(owner))
         {
             ShowPlayError("Time Travel Pod: own-ship relocate already used.");

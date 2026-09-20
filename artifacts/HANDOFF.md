@@ -1,3 +1,8 @@
+Local Josef tip c9d0606 — TTP restore Relocate panel; cancel stuck BoardPick. Nicht gepusht.
+- EXE: 2026-09-20 16:14:19
+- BoardPickShip: cancel on Refresh/SetSelection/non-ship click/empty table
+- Relocate button owner via ResolveTimeTravelPodOwner (_ttpPodByOwner)
+
 Local Josef tip 77a2c52 — TTP countdown InstanceId + status survives turn flip. Nicht gepusht.
 - EXE: 2026-09-20 16:09:25
 - _ttpCountdown Dictionary<int,int> by InstanceId; Detail never heals SoT to 2
