@@ -1,3 +1,9 @@
+Local Josef tip **PENDING_AFFIL2** - Affil ignore non-affil brackets. Nicht gepusht.
+
+## Tip detail (Data, Josef, 2026-09-20) - Affil ignore [Event]/icons
+ParseAffiliationIcon: EVENT/INTERRUPT/EQUIPMENT/UNIV/S/Cmd/Stf/P → null.
+Regex already @\[(?<a>[^\]]+)\] + try/catch (03f3ef9). PENDING_AFFIL2
+
 Local Josef tip **03f3ef9** - Affil regex crash fix. Nicht gepusht.
 
 ## Tip detail (Data, Josef, 2026-09-20) - ParseAffiliationIcon crash fix

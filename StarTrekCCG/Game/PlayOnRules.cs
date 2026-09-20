@@ -233,7 +233,14 @@ public static class PlayOnRules
             var m = Regex.Match(clause, @"\[(?<a>[^\]]+)\]");
             if (!m.Success) return null;
             string raw = m.Groups["a"].Value.Trim();
-            return raw.ToUpperInvariant() switch
+            string key = raw.ToUpperInvariant();
+            // Non-affiliation bracket tokens (Stone "Plays as [Event]", icons, staffing).
+            if (key is "EVENT" or "INTERRUPT" or "EQUIPMENT" or "ARTIFACT"
+                or "DILEMMA" or "DOORWAY" or "OBJECTIVE" or "INCIDENT"
+                or "UNIV" or "UNIVERSAL" or "S" or "CMD" or "STF" or "P"
+                or "AU" or "HQ" or "DS9" or "ENT" or "VOY")
+                return null;
+            return key switch
             {
                 "FED" or "FEDERATION" => "FED",
                 "KLI" or "KLINGON" => "KLI",
@@ -244,8 +251,7 @@ public static class PlayOnRules
                 "DOM" or "DOMINION" => "DOM",
                 "BOR" or "BORG" => "BORG",
                 "NA" or "NON" or "NON-ALIGNED" => "NA",
-                "P" => null, // planet icon, not affiliation
-                _ => raw.ToUpperInvariant()
+                _ => null // unknown bracket → not affiliation (never invent)
             };
         }
         catch (ArgumentException)
