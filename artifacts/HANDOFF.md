@@ -1,3 +1,4 @@
+- tip HASH fix(premiere): Auto-Destruct splash ApplyRotationDamage Hit — EXE 2026-09-20 21:13:56 — Spock Lock
 - tip 96336de feat(premiere): Auto-Destruct Sequence countdown destroy + splash — EXE 2026-09-20 21:12:14 — GROK_TEMP/TIP_AUTO_DESTRUCT_2026-09-20.md
 - tip 9a0ac4f fix(premiere): Alien Groupie just-solve as LegalResponse window — EXE 2026-09-20 21:05:22 — GROK_TEMP/TIP_ALIEN_GROUPIE_JUST_RESPONSE_2026-09-20.md
 - tip 9980a89 feat(premiere): Alien Groupie just-solve stop male countdown — EXE 2026-09-20 20:52:21 — GROK_TEMP/TIP_ALIEN_GROUPIE_2026-09-20.md

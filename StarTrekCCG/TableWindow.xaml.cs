@@ -22034,11 +22034,12 @@ _spacelineOrder.Remove(pod);
         {
             // Still on table?
             if (!TableCanvas.Children.Contains(b)) continue;
-            int next = Math.Min(100, GetHullDamage(b) + 50);
-            ApplyHullDamage(b, c, next);
+            // Spock: one damage application = Tactic/rotation Hit (+50% HULL)
+            var dmg = BattleRules.ApplyRotationDamage(GetHullDamage(b), BattleRules.FireResult.Hit);
+            ApplyHullDamage(b, c, dmg.HullAfter);
             _session.Log.Add(_session.TurnNumber, "sys",
-                $"Auto-Destruct splash: {c.Name} damaged (SHIELDS<8 → HULL {next}%).");
-            if (next >= 100)
+                $"Auto-Destruct splash: {c.Name} — {dmg.Description}");
+            if (dmg.Destroyed)
                 DestroyShipOrFacility(b, c, GetBorderOwner(b) == 0 ? e.Owner : GetBorderOwner(b));
         }
 
