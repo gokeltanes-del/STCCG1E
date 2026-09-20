@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-20 (Jadzia — Pepsch green Tox Uthat + Supernova)
+Last updated: 2026-09-20 (Jadzia — Pepsch green Time Travel Pod)
 Scope: **Premiere** (`PR`) + **Alternate Universe** catalogued. **Priority: finish all unfinished Premiere cards first.** AU is logged only; not prioritized unless already wired.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -29,9 +29,9 @@ Source tip: when Data/Spock/Seven/Captain report, update the row.
 
 | Status | Count | Role |
 | --- | ---: | --- |
-| `working` | 86 | Done (Pepsch green) |
+| `working` | 87 | Done (Pepsch green) |
 | `partial` | 6 | **Next smoke / rework** |
-| `unknown` | 271 | **Backlog — finish Premiere** |
+| `unknown` | 270 | **Backlog — finish Premiere** |
 | `blocked` | 0 | — |
 | **Total** | **363** | |
 
@@ -87,7 +87,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Interphase Generator (3 R) | working | Pepsch green: nullify path vs [IPG] incl. Nausicaans; Rebel Encounter nullify also OK. IPG display cleanup done (Glyph only; tip with `5c08269` batch). | Pepsch 2026-09-18; Data/`5c08269` display |
 | Kurlan Naiskos (4 R) | working | Pepsch green (inkl. Kevin as Event). tip Data/`6d15780`: any ship incl. opp; RANGE/W/S x3 when staffed. | Pepsch 2026-09-20; Data/`6d15780` |
 | Thought Maker (5 R) | unknown |  |  |
-| Time Travel Pod (6 R) | unknown |  |  |
+| Time Travel Pod (6 R) | working | Pepsch green. Location links+Gap; Opp/Own BoardPick Relocate; Countdown [2] Owner-EOT while ship here; Discard+Return. tips Data/`d6226c0`/`db54b59`/`6351229`. | Pepsch 2026-09-20; Data/`d6226c0`+`db54b59`+`6351229` |
 | Tox Uthat (7 R) | working | Pepsch green. tip Data/`b789fe5`: kein Tox-Dialog; Kevin nullify Tox; dedupe Kevin-Targets; Tox consumed at init. | Pepsch 2026-09-20; Data/`b789fe5` |
 | Varon-T Disruptor (8 R) | working | Pepsch getestet: Looten OK, verdoppelt STRENGTH auf Planet; Beamen auf Schiff ohne Treaty repariert (`TreatyRules.CanOccupyHost`). | Pepsch 2026-09-12 |
 | Vulcan Stone of Gol (9 R) | working | Pepsch green. tip Data/`6d15780` (planet AT; Plays-as-Event kill+discard). Response Kevin Uxbridge tip Data/`8cc832f`: nullify OK, Mission bleibt auf Spaceline (kein Mission-Nullify-Regression). UX Ship-Detail Kevin-Targets+Scrollbar Pepsch OK. | Pepsch 2026-09-20; Data/`6d15780`+`8cc832f` |
