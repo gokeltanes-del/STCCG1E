@@ -1,9 +1,9 @@
-Local Josef tip **PENDING_EOT** - EOT EXECUTE stuck fix. Nicht gepusht.
+Local Josef tip **821dd53** - EOT EXECUTE stuck fix. Nicht gepusht.
 
 ## Tip detail (Data, Josef, 2026-09-20) - EOT draw stuck in EXECUTE
 Cause: DrawCard response stack (Schism / Horga extra draw) left Segment=Execute with End Turn disabled.
 Fix: End Turn stays enabled as Finish turn/Pass; immediate ShowActionAnnounce; Space completes turn.
-PENDING_EOT
+821dd53
 
 Local Josef tip **9770425** - Horga Play-phase timing. Nicht gepusht.
 

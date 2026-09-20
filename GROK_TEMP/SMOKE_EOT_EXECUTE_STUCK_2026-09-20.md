@@ -1,5 +1,5 @@
 ﻿# Smoke — EXECUTE stuck / Horga EOT draw (2026-09-20)
-Tip: PENDING
+Tip: 821dd53
 
 **Ursache:** End EXECUTE startet EOT-Draw (bzw. Horga'hn-Extra-Draw). Wenn Subspace Schism o.ä. einen DrawCard-Response-Stack öffnet, blieb Segment=EXECUTE und End Turn disabled → P1 „hängt in EXECUTE“.
 
