@@ -1,4 +1,4 @@
-Local Josef tip **PENDING_F0** - Plays-on F0 AwayTeam≠Crew. Nicht gepusht.
+Local Josef tip **5edbc6e** - Plays-on F0 AwayTeam≠Crew. Nicht gepusht.
 
 ## Tip detail (Data, Josef, 2026-09-20) - Plays-on F0 AwayTeam≠Crew
 Captain Go Big-Bang. Docs: PLAN/IST/NOTE_PLAYSON + SOLL_AWAYTEAM.
