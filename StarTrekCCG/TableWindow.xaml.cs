@@ -2108,6 +2108,8 @@ public partial class TableWindow : Window
     private readonly Dictionary<Border, Border> _ttpShipFormerLocation = new(); // ship → former mission
     private readonly HashSet<int> _ttpOwnRelocateUsed = new(); // owner already used own-ship relocate
     private readonly Dictionary<Border, int> _ttpCountdown = new(); // printed countdown 2 while ship here
+    /// <summary>TTP placed; ask opp relocate after modal reveals close (not mid-acquire).</summary>
+    private Border? _pendingTtpOppRelocatePod;
 
     /// <summary>Host chosen by dropping a crew/ship-targeted interrupt.</summary>
     private Border? _interruptTargetHost;
@@ -12630,6 +12632,9 @@ private List<Card> CollectCardsInPlay(bool opponent)
 
     private void RefreshCardActionPanel(Border? cardBorder)
     {
+        // Never wipe an in-progress board ship pick (TTP relocate) by rebuilding the menu.
+        if (_cardActionMode == CardActionMode.BoardPickShip)
+            return;
         ClearCardActionUi();
         if (cardBorder == null || cardBorder.Tag is not Card card) return;
         if (_seedPhaseActive) return;
@@ -13295,6 +13300,7 @@ private List<Card> CollectCardsInPlay(bool opponent)
         _attemptShip = null;
         _attemptDiscards.Clear();
         ClearCardActionUi();
+        OfferPendingTimeTravelPodOpponentRelocate();
     }
 
     /// <summary>Premiere-Interrupt-Effekte. true = erledigt (kein generisches Discard nötig).</summary>
@@ -16589,6 +16595,7 @@ private List<Card> CollectCardsInPlay(bool opponent)
                 if (ArtifactRules.IsTimeTravelPod(art))
         {
             PlaceTimeTravelPod(art, controller);
+            OfferPendingTimeTravelPodOpponentRelocate();
             return true;
         }
 
@@ -18712,16 +18719,34 @@ private bool ControllerHasToxOnTable(int controller)
             "Time Travel Pod placed as space time location (left of spaceline)");
         StatusText.Text = "Time Travel Pod on spaceline (time location).";
 
+        // Defer Yes/BoardPick until after acquire/mission Reveal overlays close
+        // (inline pick was blocked by overlay and then wiped by ClearCardActionUi).
+        _pendingTtpOppRelocatePod = border;
+    }
+
+    /// <summary>
+    /// After modal reveals: Yes/No opp relocate, then board pick (glow). Overlay must be closed.
+    /// </summary>
+    private void OfferPendingTimeTravelPodOpponentRelocate()
+    {
+        var pod = _pendingTtpOppRelocatePod;
+        _pendingTtpOppRelocatePod = null;
+        if (pod == null || pod.Tag is not Card art || !ArtifactRules.IsTimeTravelPod(art))
+            return;
+        if (CardRevealOverlay != null)
+            CardRevealOverlay.Visibility = Visibility.Collapsed;
+        int owner = GetBorderOwner(pod);
+        if (owner == 0) owner = _activePlayer;
         string pick = AskChoice(art, "Time Travel Pod",
             "Relocate an opponent's ship here now?",
-            "Yes — pick opponent ship",
-            "No — skip");
+            "Yes - pick opponent ship",
+            "No - skip");
         if (pick != null && pick.StartsWith("Yes", StringComparison.OrdinalIgnoreCase))
         {
             int opp = opponentOf(owner);
             BeginBoardPickShip(opp,
                 "Time Travel Pod: click an opponent ship to relocate here (yellow glow).",
-                ship => RelocateShipOntoTimeTravelPod(ship, border, owner, opponentInit: true));
+                ship => RelocateShipOntoTimeTravelPod(ship, pod, owner, opponentInit: true));
         }
     }
 
@@ -19022,15 +19047,20 @@ _spacelineOrder.Remove(pod);
     {
         if (_cardActionMode == CardActionMode.None)
             return false;
-        if (_cardActionMode != CardActionMode.HailMarkShips && _actionSourceHost == null)
+        // BoardPickShip / HailMarkShips do not set _actionSourceHost — handle before that gate.
+        if (_cardActionMode == CardActionMode.BoardPickShip)
+        {
+            if (clicked.Tag is not Card) return false;
+            return TryBoardPickShipClick(clicked);
+        }
+        if (_cardActionMode == CardActionMode.HailMarkShips)
+        {
+            if (clicked.Tag is not Card) return false;
+            return TryHailMarkShipClick(clicked);
+        }
+        if (_actionSourceHost == null)
             return false;
         if (clicked.Tag is not Card) return false;
-
-        if (_cardActionMode == CardActionMode.BoardPickShip)
-            return TryBoardPickShipClick(clicked);
-
-        if (_cardActionMode == CardActionMode.HailMarkShips)
-            return TryHailMarkShipClick(clicked);
 
         if (_cardActionMode == CardActionMode.TractorPickScow)
         {
