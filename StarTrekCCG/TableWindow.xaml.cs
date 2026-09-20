@@ -21941,10 +21941,16 @@ _spacelineOrder.Remove(pod);
     /// Printed + permanent enhancements (e.g. Kurlan); ignore hull/baryon/junior reductions.
     /// Active Transwarp Conduit still doubles while attached.
     /// </summary>
+    /// <summary>
+    /// Spock Lock: RangeLeft := effective full RANGE (Printed+Boni−HULL/Attrib-Reduktion).
+    /// Does not heal HULL; treats remaining RANGE as unused this turn.
+    /// Active Transwarp still doubles while attached.
+    /// </summary>
     private int DistortionFullRange(Border shipBorder, Card ship)
     {
         var aboard = GetAllStackedCardsOnHost(shipBorder);
-        int full = BattleRules.ApplyKurlan(MovementRules.GetShipRange(ship), aboard);
+        int hull = GetHullDamage(shipBorder);
+        int full = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), aboard);
         if (_attachedEvents.Any(e =>
                 e.Host == shipBorder && InterruptRules.IsTranswarpConduit(e.Card)))
             full *= 2;
