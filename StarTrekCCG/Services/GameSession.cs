@@ -168,7 +168,14 @@ public sealed class GameSession
 
     public void EndTurn()
     {
-        if (Match != MatchPhase.Play) return;
+        // Mid-play repair: Match!=Play would no-op and leave ActivePlayer unchanged
+        // (History: "EOT complete (was P1) → P1 PLAY"). Force Play so the flip always runs.
+        if (Match != MatchPhase.Play)
+        {
+            Log.Add(TurnNumber, "sys",
+                $"EndTurn: Match was {Match} — forcing Play for turn flip");
+            Match = MatchPhase.Play;
+        }
 
         Log.Add(TurnNumber, $"P{ActivePlayer}", "Turn ended");
 

@@ -345,6 +345,7 @@ public partial class TableWindow : Window
     private bool _endTurnAfterDrawStack;
     /// <summary>FinishExecuteAndEndTurn started; further Space must resume, not re-run full EOT.</summary>
     private bool _eotEndingInProgress;
+    private bool _completingTurnChange;
     private int _endTurnFinishingPlayer;
     private int _pendingExtraDraws;
     /// <summary>First Wormhole locked an exposed ship; second must drop on a location.</summary>
@@ -481,11 +482,13 @@ public partial class TableWindow : Window
             return;
         }
 
-        // EOT: Space flips turn immediately (CompleteTurnChange syncs UI first).
+        // EOT: while FinishExecute owns the flip, ignore Space (no double CompleteTurnChange).
+        // Stuck _endTurnAfterDrawStack only → single CompleteTurnChange.
         if (key == Key.Space && (_eotEndingInProgress || _endTurnAfterDrawStack))
         {
             if (_legalBlinkActive) StopLegalActionBlink();
-            CompleteTurnChange();
+            if (!_eotEndingInProgress)
+                CompleteTurnChange();
             e.Handled = true;
             return;
         }
@@ -4523,7 +4526,11 @@ public partial class TableWindow : Window
         ShowActivePlayerHand();
         UpdatePhaseControls();
         RefreshZoneCounts();
-        if ((_endTurnAfterDrawStack || _eotEndingInProgress) && !_stack.IsOpen)
+        // FinishExecute finally owns the single flip while _eotEndingInProgress.
+        // Calling CompleteTurnChange here caused P1→P2 then finally P2→P1 (stuck on P1).
+        if (_eotEndingInProgress)
+            return;
+        if (_endTurnAfterDrawStack && !_stack.IsOpen)
         {
             int who = _endTurnFinishingPlayer != 0 ? _endTurnFinishingPlayer : _session.ActivePlayer;
             FinishEndOfTurnDrawExtras(who);
@@ -8011,12 +8018,9 @@ private List<Card> CollectCardsInPlay(bool opponent)
     /// </summary>
     private void FinishExecuteAndEndTurn()
     {
-        // Already ending → just flip (no re-draw). Happy path never needs Resume.
-        if (_eotEndingInProgress)
-        {
-            CompleteTurnChange();
+        // Already ending → FinishExecute finally owns the single flip; do not flip again here.
+        if (_eotEndingInProgress || _completingTurnChange)
             return;
-        }
         _eotEndingInProgress = true;
         int p = _session.ActivePlayer;
         _endTurnFinishingPlayer = p;
@@ -8147,47 +8151,62 @@ private List<Card> CollectCardsInPlay(bool opponent)
 
     private void CompleteTurnChange()
     {
-        _eotEndingInProgress = false;
-        _endTurnAfterDrawStack = false;
-        _horgahnExtraPlayUsed = false;
-        _pendingExtraDraws = 0;
-        _energyVortexBlocked.Clear();
-        SyncSchismRound();
-        _wormholeShip = null;
-        ClearHailTurnState();
-
-        int prev = _session.ActivePlayer;
-        _session.EndTurn();
-        _session.Log.Add(_session.TurnNumber, "sys",
-            $"EOT complete (was P{prev}) → P{_session.ActivePlayer} PLAY");
-
-        // CRITICAL: show new player's PLAY before any SoT work that can modal/throw
-        SyncSessionToUi();
-        ApplyPerspective();
-        OnTurnContextChanged();
-        StatusText.Text =
-            $"{_session.StatusLine()} " +
-            $"(Hand {(_activePlayer == 1 ? _handCards.Count : _oppHandCards.Count)}, " +
-            $"Draw {(_activePlayer == 1 ? _drawCards.Count : _oppDrawCards.Count)}).";
-
+        if (_completingTurnChange)
+        {
+            _session.Log.Add(_session.TurnNumber, "sys", "CompleteTurnChange re-entrancy ignored");
+            return;
+        }
+        _completingTurnChange = true;
         try
         {
-            UpdateCounterAttackWindow();
-            UnstopAllCards();
-            ResetShipRangesForTurn();
-            RefreshRedAlertForTurn();
-            ProcessIncomingMessageMoves(_session.ActivePlayer);
-            ProcessStartOfTurnTimedEffects();
-            ProcessStartOfTurnDilemmas(_session.ActivePlayer);
+            _eotEndingInProgress = false;
+            _endTurnAfterDrawStack = false;
+            _horgahnExtraPlayUsed = false;
+            _pendingExtraDraws = 0;
+            _energyVortexBlocked.Clear();
+            SyncSchismRound();
+            _wormholeShip = null;
+            ClearHailTurnState();
+
+            int prev = _session.ActivePlayer;
+            var matchBefore = _session.Match;
+            _session.EndTurn();
+            _session.Log.Add(_session.TurnNumber, "sys",
+                $"EOT complete Match={matchBefore} (was P{prev}) → P{_session.ActivePlayer} PLAY");
+
+            // CRITICAL: show new player's PLAY before any SoT work that can modal/throw
             SyncSessionToUi();
             ApplyPerspective();
+            OnTurnContextChanged();
+            StatusText.Text =
+                $"{_session.StatusLine()} " +
+                $"(Hand {(_activePlayer == 1 ? _handCards.Count : _oppHandCards.Count)}, " +
+                $"Draw {(_activePlayer == 1 ? _drawCards.Count : _oppDrawCards.Count)}).";
+
+            try
+            {
+                UpdateCounterAttackWindow();
+                UnstopAllCards();
+                ResetShipRangesForTurn();
+                RefreshRedAlertForTurn();
+                ProcessIncomingMessageMoves(_session.ActivePlayer);
+                ProcessStartOfTurnTimedEffects();
+                ProcessStartOfTurnDilemmas(_session.ActivePlayer);
+                SyncSessionToUi();
+                ApplyPerspective();
+            }
+            catch (Exception ex)
+            {
+                _session.Log.Add(_session.TurnNumber, "sys", $"SoT after EOT error: {ex.Message}");
+                SyncSessionToUi();
+            }
         }
-        catch (Exception ex)
+        finally
         {
-            _session.Log.Add(_session.TurnNumber, "sys", $"SoT after EOT error: {ex.Message}");
-            SyncSessionToUi();
+            _completingTurnChange = false;
         }
     }
+
 
 
     /// <summary>Gestoppte Karten werden zu Beginn jedes Spielerzuges wieder freigegeben.</summary>
@@ -9669,6 +9688,7 @@ private List<Card> CollectCardsInPlay(bool opponent)
         ClearHailTurnState();
         _pendingExtraDraws = 0;
         _eotEndingInProgress = false;
+        _completingTurnChange = false;
         _endTurnAfterDrawStack = false;
         _attachedEvents.Clear();
         _ionizationBeamsThisTurnByPlayer[1] = 0; _ionizationBeamsThisTurnByPlayer[2] = 0;
