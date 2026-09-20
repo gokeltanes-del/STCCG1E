@@ -1,5 +1,5 @@
 ﻿# Smoke — Captain A–F EOT (2026-09-20)
-Tip: PENDING · EXE must match tip time
+Tip: f522875 · EXE must match tip time
 
 | # | Check | Soll | Smoke |
 |---|-------|------|-------|
