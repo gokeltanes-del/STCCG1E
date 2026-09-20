@@ -238,6 +238,16 @@ public static class TimingRules
             return CanKevinTargetEvent(top.Card);
         }
 
+        // Tox Uthat on table as Event: legal response vs Supernova on stack (Interrupt mode).
+        if (ArtifactRules.IsToxUthat(response))
+        {
+            if (top.Kind != ActionKind.PlayCard || top.Card == null)
+                return (false, "Tox Uthat: no Supernova on the stack.");
+            if (!EventRules.IsSupernova(top.Card))
+                return (false, "Tox Uthat as Interrupt nullifies only Supernova.");
+            return (true, "Nullify Supernova (discard Tox Uthat).");
+        }
+
         if (n.Equals("Q2", StringComparison.OrdinalIgnoreCase))
         {
             if (top.Kind != ActionKind.PlayCard || top.Card == null)

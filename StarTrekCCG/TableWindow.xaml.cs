@@ -340,6 +340,8 @@ public partial class TableWindow : Window
     private bool _toxPlayedAsEventThisTurnP1, _toxPlayedAsEventThisTurnP2;
     /// <summary>Missions after Supernova resolve: span husk (treat as space, unscoutable).</summary>
     private readonly HashSet<Border> _supernovaHuskMissions = new();
+    /// <summary>Tox discarded at Supernova initiation — resolve must not re-require Tox on table.</summary>
+    private bool _supernovaToxConsumedThisPlay;
     /// <summary>Cards Energy Vortex returned to hand this turn — not legal as the replacement play.</summary>
     private readonly HashSet<Card> _energyVortexBlocked = new();
     /// <summary>Subspace Schism: once every turn per player (resets with TurnNumber).</summary>
@@ -3694,6 +3696,7 @@ public partial class TableWindow : Window
                 return;
             }
             DiscardToxUthatFromTable(controller, "used to initiate Supernova");
+            _supernovaToxConsumedThisPlay = true;
         }
 
         string targetBit = target != null ? $" → {target.Name}" : "";
@@ -3841,6 +3844,12 @@ public partial class TableWindow : Window
 
         target.Cancelled = true;
         target.CancelledBy = response.Card.Name;
+        if (ArtifactRules.IsToxUthat(response.Card))
+        {
+            DiscardToxUthatFromTable(response.Controller, "Interrupt nullify Supernova");
+            _session.Log.Add(_session.TurnNumber, $"P{response.Controller}",
+                "Tox Uthat discarded (Interrupt vs Supernova)");
+        }
         if (InterruptRules.IsSubspaceSchism(response.Card))
             MarkSchismUsed(response.Controller);
         if (InterruptRules.IsEscapePod(response.Card) && target.Kind == TimingRules.ActionKind.ShipDestroyed)
@@ -4621,11 +4630,20 @@ public partial class TableWindow : Window
                     _session.Log.Add(_session.TurnNumber, $"P{a.Controller}",
                         $"{a.Card.Name} cancelled by {a.CancelledBy}");
                 }
+                if (EventRules.IsSupernova(a.Card))
+                    _supernovaToxConsumedThisPlay = false; // Tox already discarded at init (Glossary)
                 return;
             }
 
             if (a.IsResponse)
             {
+                if (ArtifactRules.IsToxUthat(a.Card))
+                {
+                    // Already discarded in ApplyResponseEffect when cancelling Supernova.
+                    if (ControllerHasToxOnTable(a.Controller))
+                        DiscardToxUthatFromTable(a.Controller, "Interrupt nullify Supernova");
+                    return;
+                }
                 bool attachStay = InterruptRules.IsAsteroidSanctuary(a.Card)
                                   || InterruptRules.IsDistortionContinuum(a.Card)
                                   || InterruptRules.IsTachyonDetectionGrid(a.Card);
@@ -8216,6 +8234,7 @@ private List<Card> CollectCardsInPlay(bool opponent)
             _pendingExtraDraws = 0;
             _toxPlayedAsEventThisTurnP1 = false;
             _toxPlayedAsEventThisTurnP2 = false;
+            _supernovaToxConsumedThisPlay = false;
             _energyVortexBlocked.Clear();
             SyncSchismRound();
             _wormholeShip = null;
@@ -11284,7 +11303,15 @@ private List<Card> CollectCardsInPlay(bool opponent)
             if (EventRules.IsEvent(c) && _spacelineOrder.Contains(b))
                 Add(c, c, null, TargetSiteKind.HostFace);
         }
-        return raw;
+        // Dedup by Card reference — attached + stackOnHost + face must not list the same Event twice.
+        var seen = new HashSet<Card>();
+        var dedup = new List<TargetQuery.InPlay>();
+        foreach (var row in raw)
+        {
+            if (row.Card == null || !seen.Add(row.Card)) continue;
+            dedup.Add(row);
+        }
+        return dedup;
     }
 
     private List<TargetSite> CollectSitesForDrag(Card drag)
@@ -13778,7 +13805,8 @@ private List<Card> CollectCardsInPlay(bool opponent)
     }
 
     private static bool IsNullifyBoardTarget(Card c) =>
-        EventRules.IsEvent(c) || TreatyRules.IsTreatyCard(c)
+        TimingRules.IsEventEquivalentForKevin(c)
+        || TreatyRules.IsTreatyCard(c)
         || ArtifactRules.IsHorgahn(c)
         || (c.Name ?? "").Equals("Wind Dancer", StringComparison.OrdinalIgnoreCase);
 
@@ -15170,21 +15198,25 @@ private List<Card> CollectCardsInPlay(bool opponent)
         if (r.NeedsToxUthat)
         {
             var hand = controller == 1 ? _handCards : _oppHandCards;
-            if (ToxPlayedAsEventThisTurn(controller))
+            if (ToxPlayedAsEventThisTurn(controller) && !_supernovaToxConsumedThisPlay)
             {
                 ShowPlayError("Tox Uthat played as Event this turn — cannot play Supernova.");
                 if (!hand.Contains(ev)) hand.Add(ev);
                 return true;
             }
-            if (!ControllerHasToxOnTable(controller))
+            // Tox already discarded at initiation (BeginPlayCardStack) — do not re-require on table.
+            if (!_supernovaToxConsumedThisPlay)
             {
-                ShowPlayError("Supernova requires Tox Uthat on table (not in hand).");
-                if (!hand.Contains(ev)) hand.Add(ev);
-                return true;
-            }
-            // Initiation already discarded Tox in BeginPlayCardStack; ensure discarded if resolve-only path.
-            if (ControllerHasToxOnTable(controller))
+                if (!ControllerHasToxOnTable(controller))
+                {
+                    ShowPlayError("Supernova requires Tox Uthat on table (not in hand).");
+                    if (!hand.Contains(ev)) hand.Add(ev);
+                    return true;
+                }
                 DiscardToxUthatFromTable(controller, "used to play Supernova");
+                _supernovaToxConsumedThisPlay = true;
+            }
+            // Flag cleared after ApplySupernova / cancelled Supernova — not here.
         }
 
         if (r.Place == EventRules.Place.Instant)
@@ -16349,6 +16381,7 @@ private List<Card> CollectCardsInPlay(bool opponent)
             $"Supernova at {(mission.Tag as Card)?.Name}: ships/facilities destroyed"
             + (wasPlanet ? "; planet surface discarded (now space husk)." : ".")
             + " Mission remains for span only.";
+                _supernovaToxConsumedThisPlay = false;
         SyncBoardFromTable(logDual: false);
     }
 
@@ -16501,71 +16534,12 @@ private List<Card> CollectCardsInPlay(bool opponent)
 
         if (ArtifactRules.IsToxUthat(art))
         {
-            string pick = AskChoice(art, "Tox Uthat",
-                "Play as Event on table (no Supernova this turn), or as Interrupt to nullify Supernova?",
-                "As Event on table",
-                "As Interrupt: nullify Supernova",
-                "Cancel");
-            if (pick == null || pick.StartsWith("Cancel", StringComparison.OrdinalIgnoreCase))
-            {
-                var handBack = controller == 1 ? _handCards : _oppHandCards;
-                if (!handBack.Contains(art)) handBack.Add(art);
-                RefreshHandStrips();
-                RefreshZoneCounts();
-                StatusText.Text = "Tox Uthat: cancelled.";
-                return true;
-            }
-            if (pick.StartsWith("As Event", StringComparison.OrdinalIgnoreCase))
-            {
-                CommitCardToTable(art, controller);
-                SetToxPlayedAsEventThisTurn(controller, true);
-                _session.Log.Add(_session.TurnNumber, $"P{controller}",
-                    "Tox Uthat plays as Event on table (no Supernova this turn)");
-                StatusText.Text = "Tox Uthat on table as Event — you may not play Supernova this turn.";
-                return true;
-            }
-            // As Interrupt: nullify Supernova on stack or in play, discard Tox
-            bool nulled = false;
-            if (_stack.IsOpen && _stack.Top?.Card != null && EventRules.IsSupernova(_stack.Top.Card))
-            {
-                _stack.Top.Cancelled = true;
-                _session.Log.Add(_session.TurnNumber, $"P{controller}",
-                    $"Tox Uthat (Interrupt) cancelled {_stack.Top.Card.Name} on stack");
-                nulled = true;
-            }
-            else
-            {
-                var sn = _attachedEvents.FirstOrDefault(e => e.Kind == EventRules.Persist.Supernova);
-                if (sn != null)
-                {
-                    NullifyEventInPlay(sn.Card, controller);
-                    nulled = true;
-                }
-                else
-                {
-                    // Table-permanent copy of Supernova if any
-                    Card? snCard = _tablePermanentCards.Concat(_oppTablePermanentCards)
-                        .FirstOrDefault(EventRules.IsSupernova);
-                    if (snCard != null)
-                    {
-                        NullifyEventInPlay(snCard, controller);
-                        nulled = true;
-                    }
-                }
-            }
-            SendCardTo(art, controller, TimingRules.Destination.Discard);
-            RemoveCardFromTableColumn(art);
-            if (!nulled)
-            {
-                _session.Log.Add(_session.TurnNumber, $"P{controller}",
-                    "Tox Uthat (Interrupt): no Supernova to nullify — discarded");
-                StatusText.Text = "Tox Uthat: no Supernova in play or on stack — discarded.";
-            }
-            else
-                StatusText.Text = "Tox Uthat nullified Supernova (Interrupt) — discarded.";
-            RefreshHandStrips();
-            RebuildTablePermanentsPanel();
-            RefreshZoneCounts();
+            // Pepsch: Hand-Play on table = always as Event. Interrupt only as response vs Stack Supernova.
+            CommitCardToTable(art, controller);
+            SetToxPlayedAsEventThisTurn(controller, true);
+            _session.Log.Add(_session.TurnNumber, $"P{controller}",
+                "Tox Uthat plays as Event on table (no Supernova this turn)");
+            StatusText.Text = "Tox Uthat on table as Event — you may not play Supernova this turn.";
             return true;
         }
 
