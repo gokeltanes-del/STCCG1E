@@ -90,7 +90,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Time Travel Pod (6 R) | unknown |  |  |
 | Tox Uthat (7 R) | unknown |  |  |
 | Varon-T Disruptor (8 R) | working | Pepsch getestet: Looten OK, verdoppelt STRENGTH auf Planet; Beamen auf Schiff ohne Treaty repariert (`TreatyRules.CanOccupyHost`). | Pepsch 2026-09-12 |
-| Vulcan Stone of Gol (9 R) | partial | Spock/Captain SOLL_STONE_OF_GOL: ToHand; play as Event on any planet Away Team (controller pick); kill !Youth && CUNNING<=7; discard. Crew not target. tip Data pending. | Data 2026-09-20 |
+| Vulcan Stone of Gol (9 R) | partial | tip Data/e954f03: Event on any planet Away Team; kill !Youth && CUNNING<=7; discard. Crew not target. Pending Pepsch green. | Data/e954f03 2026-09-20 |
 
 ### Dilemma
 
