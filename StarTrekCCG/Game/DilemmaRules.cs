@@ -581,8 +581,10 @@ public static class DilemmaRules
 
     public static bool IsFemale(Card p) =>
         (p.Characteristics ?? "").Contains("Female", StringComparison.OrdinalIgnoreCase);
+    /// <summary>Male token only — "Female" must not match Contains("Male") IgnoreCase.</summary>
     public static bool IsMale(Card p) =>
-        (p.Characteristics ?? "").Contains("Male", StringComparison.OrdinalIgnoreCase);
+        !IsFemale(p)
+        && (p.Characteristics ?? "").Contains("Male", StringComparison.OrdinalIgnoreCase);
     /// <summary>
     /// Glossary inorganic: Characteristics contain Inorganic and/or Android.
     /// Premiere holograms also print Inorganic; [Holo] is a separate icon gate

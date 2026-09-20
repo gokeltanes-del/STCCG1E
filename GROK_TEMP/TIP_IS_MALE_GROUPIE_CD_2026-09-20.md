@@ -1,7 +1,7 @@
 # Tip IsMale + Groupie owner countdown
 
 tip: 780c67f
-EXE: 2026-09-20 21:16:09
+EXE: 2026-09-20 21:16:39
 msg: fix(premiere): IsMale not Female; Groupie countdown owner turns
 
 1) DilemmaRules.IsMale: !IsFemale && Contains Male (Female no longer matches)

@@ -22106,9 +22106,10 @@ _spacelineOrder.Remove(pod);
             Host = attachHost,
             Countdown = cd,
             Extra = victim,
-            TurnScope = TimingRules.TurnScope.EveryTurn,
+            // Pepsch: countdown [2] = two of controller's turns, not every EOT
+            TurnScope = TimingRules.TurnScope.EachSubjectTurn,
             PhasePoint = TimingRules.TurnPhasePoint.EndOfTurn,
-            ScopePlayer = null
+            ScopePlayer = controller
         });
 
         ClearJustSolvedPlanet("Groupie played");
@@ -22117,7 +22118,7 @@ _spacelineOrder.Remove(pod);
             $"Alien Groupie stops {victim.Name} until countdown {cd} expires");
         UpdateHostBadge(attachHost);
         ShowCardReveal(card, "Alien Groupie",
-            $"Requires Female — OK.\nRandom male stopped: {victim.Name}\nCountdown {cd} (end of each turn).",
+            $"Requires Female — OK.\nRandom male stopped: {victim.Name}\nCountdown {cd} (end of your turns).",
             RevealButtons.Ok, card.Name);
     }
 
