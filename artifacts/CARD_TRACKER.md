@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-20 (Jadzia — Pepsch green Kevin Uxbridge Response tip 8cc832f)
+Last updated: 2026-09-20 (Jadzia — Pepsch green Tox Uthat + Supernova)
 Scope: **Premiere** (`PR`) + **Alternate Universe** catalogued. **Priority: finish all unfinished Premiere cards first.** AU is logged only; not prioritized unless already wired.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -29,9 +29,9 @@ Source tip: when Data/Spock/Seven/Captain report, update the row.
 
 | Status | Count | Role |
 | --- | ---: | --- |
-| `working` | 84 | Done (Pepsch green) |
+| `working` | 86 | Done (Pepsch green) |
 | `partial` | 6 | **Next smoke / rework** |
-| `unknown` | 273 | **Backlog — finish Premiere** |
+| `unknown` | 271 | **Backlog — finish Premiere** |
 | `blocked` | 0 | — |
 | **Total** | **363** | |
 
@@ -88,7 +88,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Kurlan Naiskos (4 R) | working | Pepsch green (inkl. Kevin as Event). tip Data/`6d15780`: any ship incl. opp; RANGE/W/S x3 when staffed. | Pepsch 2026-09-20; Data/`6d15780` |
 | Thought Maker (5 R) | unknown |  |  |
 | Time Travel Pod (6 R) | unknown |  |  |
-| Tox Uthat (7 R) | unknown |  |  |
+| Tox Uthat (7 R) | working | Pepsch green. tip Data/`b789fe5`: kein Tox-Dialog; Kevin nullify Tox; dedupe Kevin-Targets; Tox consumed at init. | Pepsch 2026-09-20; Data/`b789fe5` |
 | Varon-T Disruptor (8 R) | working | Pepsch getestet: Looten OK, verdoppelt STRENGTH auf Planet; Beamen auf Schiff ohne Treaty repariert (`TreatyRules.CanOccupyHost`). | Pepsch 2026-09-12 |
 | Vulcan Stone of Gol (9 R) | working | Pepsch green. tip Data/`6d15780` (planet AT; Plays-as-Event kill+discard). Response Kevin Uxbridge tip Data/`8cc832f`: nullify OK, Mission bleibt auf Spaceline (kein Mission-Nullify-Regression). UX Ship-Detail Kevin-Targets+Scrollbar Pepsch OK. | Pepsch 2026-09-20; Data/`6d15780`+`8cc832f` |
 
@@ -190,7 +190,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Spacedock (92 C) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Static Warp Bubble (93 C) | working | Pepsch green (reconfirmed). | Pepsch 2026-09-19 |
 | Subspace Warp Rift (94 C) | unknown |  |  |
-| Supernova (95 R) | unknown |  |  |
+| Supernova (95 R) | working | Pepsch green. tip Data/`b789fe5` + surface tip/`98e6984`: Planet→[S] surface discard + husk Opacity. Mit Tox Uthat (kein Dialog; Kevin nullify; Tox consumed at init). | Pepsch 2026-09-20; Data/`b789fe5`+`98e6984` |
 | Telepathic Alien Kidnappers (96 U) | working | Pepsch green. | Pepsch 2026-09-19 |
 | Tetryon Field (97 C) | unknown |  |  |
 | The Traveler: Transcendence (98 U) | working | Pepsch green. | Pepsch 2026-09-06 |
