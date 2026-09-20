@@ -1,4 +1,4 @@
-Local Josef tip **PENDING_F3** - Plays-on F3 smoke matrix docs. Nicht gepusht.
+Local Josef tip **6807bf5** - Plays-on F3 smoke matrix docs. Nicht gepusht.
 
 ## Tip detail (Data, Josef, 2026-09-20) - Plays-on F3 smoke matrix (docs)
 GROK_TEMP/SMOKE_PLAYSON_F3_2026-09-20.md — Premiere checklist for Pepsch.
