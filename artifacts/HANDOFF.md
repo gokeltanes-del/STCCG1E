@@ -1,3 +1,17 @@
+Local Josef tip **PENDING_F1** - Plays-on F1 Spec+Snap typ-agnostisch. Nicht gepusht.
+
+## Tip detail (Data, Josef, 2026-09-20) - Plays-on F1 Spec+Snap typ-agnostisch
+Captain Go Big-Bang. Docs PLAN/IST/NOTE_PLAYSON.
+### F1
+- CardPlayRole: NativeEvent|NativeInterrupt|ArtifactAsEvent|ArtifactAsInterrupt|ArtifactAsEquipment|ImmediateTable
+- ResolvePlayOn(card) zentral; Parse plays-as-[Event]-on (Stone/Kurlan)
+- Spec.NeedsBoardSnap; TargetingRules.UsesBoardSnap + TargetQuery.IsPlayOnDrag typ-agnostisch
+- CanPlayOn fallthrough uses ResolvePlayOn
+### Verify
+VerifyAwayTeamCrewSplit covers Stone AwayTeam+ArtifactAsEvent, Kurlan Ship, Groupie/ETA/Disruptor
+### Next F2
+Kevin CanKevinTargetEvent Role-Aequivalenz; TW Name-if Targeting raus; Artifact commit on Spec host
+
 Local Josef tip **5edbc6e** - Plays-on F0 AwayTeam≠Crew. Nicht gepusht.
 
 ## Tip detail (Data, Josef, 2026-09-20) - Plays-on F0 AwayTeam≠Crew

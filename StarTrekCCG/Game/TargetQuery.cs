@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using StarTrekCCG.Models;
 
@@ -116,6 +116,10 @@ public static class TargetQuery
     public static bool IsPlayOnDrag(Card? drag)
     {
         if (drag == null) return false;
+        // F1: any Role with a board Host (Stone AwayTeam, Kurlan Ship, Events, …).
+        var spec = PlayOnRules.ResolvePlayOn(drag);
+        if (spec.NeedsBoardSnap)
+            return true;
         if (EventRules.IsEvent(drag) && EventRules.PlaysOnHost(drag)) return true;
         if (InterruptRules.IsIncomingMessage(drag)
             && !(drag.Name ?? "").Contains("Attack Authorization", StringComparison.OrdinalIgnoreCase))
@@ -136,7 +140,7 @@ public static class TargetQuery
             if (!facts.IsShip)
                 return (false, "Incoming Message: plays on a matching-affiliation ship.");
             string? need = InterruptRules.IncomingMessageAffiliation(drag)
-                           ?? PlayOnRules.Parse(drag).Affiliation;
+                           ?? PlayOnRules.ResolvePlayOn(drag).Affiliation;
             if (!string.IsNullOrEmpty(need) && !AffiliationMatches(candidate, need))
                 return (false, $"Incoming Message: ship is not {need}.");
             return (true, "Incoming Message on that ship.");
@@ -209,7 +213,7 @@ public static class TargetQuery
             }
         }
 
-        var spec = PlayOnRules.Parse(drag);
+        var spec = PlayOnRules.ResolvePlayOn(drag);
         if (spec.Host != PlayOnRules.Host.None && spec.Host != PlayOnRules.Host.Table
             && spec.Host != PlayOnRules.Host.Gap && spec.Host != PlayOnRules.Host.Event)
             return MatchPlayOnSpec(spec, candidate, facts, player);
@@ -232,7 +236,7 @@ public static class TargetQuery
     private static (bool ok, string reason) ExtraPlayOnSpec(
         Card drag, Card candidate, HostFacts facts, int player, string okReason)
     {
-        var spec = PlayOnRules.Parse(drag);
+        var spec = PlayOnRules.ResolvePlayOn(drag);
         if (spec.Host == PlayOnRules.Host.None) return (true, okReason);
         var m = MatchPlayOnSpec(spec, candidate, facts, player);
         return m.ok ? (true, okReason) : m;

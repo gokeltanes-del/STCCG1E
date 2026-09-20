@@ -1,12 +1,12 @@
-﻿using System;
+using System;
 using System.Text.RegularExpressions;
 using StarTrekCCG.Models;
 
 namespace StarTrekCCG;
 
 /// <summary>
-/// Phrase parser for "Plays on …" / "plays as …" targeting (F0+).
-/// AwayTeam ≠ Crew (Compendium 7.0.1). Dual "crew or Away Team" → Host + Host2.
+/// Phrase parser for Plays on / Plays as targeting (F0+F1).
+/// Spec + Role are type-agnostic (Pepsch-Lock). AwayTeam != Crew.
 /// </summary>
 public static class PlayOnRules
 {
@@ -19,7 +19,7 @@ public static class PlayOnRules
         Facility,
         Mission,
         PlanetMission,
-        /// <summary>Personnel group on a planet surface — not ship/facility crew.</summary>
+        /// <summary>Personnel group on a planet surface - not ship/facility crew.</summary>
         AwayTeam,
         /// <summary>Personnel aboard a ship or facility.</summary>
         Crew,
@@ -27,12 +27,23 @@ public static class PlayOnRules
         Gap
     }
 
-    /// <summary>Ownership filter from printed your / opponent's / any.</summary>
     public enum Ownership
     {
         Any,
         Your,
         Opponent
+    }
+
+    /// <summary>Play-role while resolving (F1). Kevin/Amanda equivalence docks in F2.</summary>
+    public enum CardPlayRole
+    {
+        None,
+        NativeEvent,
+        NativeInterrupt,
+        ArtifactAsEvent,
+        ArtifactAsInterrupt,
+        ArtifactAsEquipment,
+        ImmediateTable
     }
 
     public readonly record struct Spec(
@@ -44,6 +55,7 @@ public static class PlayOnRules
         bool Empty,
         bool Cloaked,
         bool ExcludeFacility,
+        CardPlayRole Role = CardPlayRole.None,
         string? Affiliation = null)
     {
         public bool Own => Ownership == Ownership.Your;
@@ -55,11 +67,42 @@ public static class PlayOnRules
         public bool IsDualPersonnelHost =>
             (Host == Host.AwayTeam && Host2 == Host.Crew)
             || (Host == Host.Crew && Host2 == Host.AwayTeam);
+
+        public bool NeedsBoardSnap =>
+            Host is Host.Ship or Host.Outpost or Host.Facility or Host.Mission
+                or Host.PlanetMission or Host.AwayTeam or Host.Crew
+                or Host.Event or Host.Gap
+            || Host2 is Host.AwayTeam or Host.Crew;
     }
 
     public static bool IsShipHost(Host h) => h == Host.Ship;
     public static bool IsFacilityHost(Host h) => h is Host.Outpost or Host.Facility;
     public static bool IsPersonnelGroupHost(Host h) => h is Host.AwayTeam or Host.Crew;
+
+    /// <summary>Central F1 entry: typed Spec + Role from printed text (any card type).</summary>
+    public static Spec ResolvePlayOn(Card? card)
+    {
+        var spec = Parse(card);
+        if (spec.Host == Host.None && spec.Role == CardPlayRole.None)
+            return spec;
+        if (spec.Role != CardPlayRole.None)
+            return spec;
+        return spec with { Role = InferNativeRole(card) };
+    }
+
+    public static CardPlayRole InferNativeRole(Card? card)
+    {
+        if (card == null) return CardPlayRole.None;
+        string ty = (card.Type ?? "").Trim();
+        if (ty.Equals("Event", StringComparison.OrdinalIgnoreCase)
+            || ty.Equals("Q-Event", StringComparison.OrdinalIgnoreCase)
+            || ty.Equals("Q Event", StringComparison.OrdinalIgnoreCase))
+            return CardPlayRole.NativeEvent;
+        if (ty.Equals("Interrupt", StringComparison.OrdinalIgnoreCase)
+            || ty.Equals("Q-Interrupt", StringComparison.OrdinalIgnoreCase))
+            return CardPlayRole.NativeInterrupt;
+        return CardPlayRole.None;
+    }
 
     public static Spec Parse(Card? card)
     {
@@ -67,17 +110,64 @@ public static class PlayOnRules
         string t = card.Text ?? "";
         if (t.Length == 0) return default;
 
+        // Immediate table (Horga'hn-style) before generic plays-on.
+        if (Regex.IsMatch(t, @"immediately\s+plays?\s+on\s+(?:the\s+)?table", RegexOptions.IgnoreCase)
+            || Regex.IsMatch(t, @"plays?\s+immediately\s+on\s+(?:the\s+)?table", RegexOptions.IgnoreCase))
+        {
+            return new Spec(Host.Table, Host.None, Ownership.Any, false, false, false, false, false,
+                CardPlayRole.ImmediateTable);
+        }
+
+        // Plays as [Event|Interrupt] on ... (Artifact-as-*)
+        var asOn = Regex.Match(t,
+            @"plays?\s+as\s+(?:an?\s+)?(?:\[(?<asType>[^\]]+)\]|(?<asType>event|interrupt))\s+on\s+(?<clause>[^.;\n]{2,100})",
+            RegexOptions.IgnoreCase);
+        if (asOn.Success)
+        {
+            string asType = asOn.Groups["asType"].Value.Trim();
+            var role = asType.Contains("interrupt", StringComparison.OrdinalIgnoreCase)
+                ? CardPlayRole.ArtifactAsInterrupt
+                : CardPlayRole.ArtifactAsEvent;
+            return BuildSpecFromClause(asOn.Groups["clause"].Value, role);
+        }
+
+        // Plays as [Event] without on (Thought Maker) — Role only, no board host.
+        var asOnly = Regex.Match(t,
+            @"plays?\s+as\s+(?:an?\s+)?(?:\[(?<asType>[^\]]+)\]|(?<asType>event|interrupt))\b",
+            RegexOptions.IgnoreCase);
+        if (asOnly.Success && !Regex.IsMatch(t, @"plays?\s+on\s+", RegexOptions.IgnoreCase))
+        {
+            string asType = asOnly.Groups["asType"].Value.Trim();
+            var role = asType.Contains("interrupt", StringComparison.OrdinalIgnoreCase)
+                ? CardPlayRole.ArtifactAsInterrupt
+                : CardPlayRole.ArtifactAsEvent;
+            return new Spec(Host.None, Host.None, Ownership.Any, false, false, false, false, false, role);
+        }
+
+        // Use as equipment
+        if (Regex.IsMatch(t, @"use[sd]?\s+as\s+(?:\[)?equipment", RegexOptions.IgnoreCase)
+            || Regex.IsMatch(t, @"used\s+as\s+equipment", RegexOptions.IgnoreCase))
+        {
+            return new Spec(Host.None, Host.None, Ownership.Any, false, false, false, false, false,
+                CardPlayRole.ArtifactAsEquipment);
+        }
+
         var m = Regex.Match(t,
             @"plays?\s+on\s+(?<clause>[^.;\n]{2,100})",
             RegexOptions.IgnoreCase);
         if (!m.Success)
         {
             if (Regex.IsMatch(t, @"plays\s+between\s+two", RegexOptions.IgnoreCase))
-                return new Spec(Host.Gap, Host.None, Ownership.Any, false, false, false, false, false);
+                return new Spec(Host.Gap, Host.None, Ownership.Any, false, false, false, false, false,
+                    InferNativeRole(card));
             return default;
         }
 
-        string clause = m.Groups["clause"].Value;
+        return BuildSpecFromClause(m.Groups["clause"].Value, InferNativeRole(card));
+    }
+
+    private static Spec BuildSpecFromClause(string clause, CardPlayRole role)
+    {
         string c = clause.ToLowerInvariant();
 
         Ownership ownership = Ownership.Any;
@@ -88,13 +178,13 @@ public static class PlayOnRules
 
         bool exposed = c.Contains("exposed");
         bool occupied = c.Contains("occupied");
-        bool empty = Regex.IsMatch(c, @"\bempty\b");
+        bool empty = Regex.IsMatch(c, @"\\bempty\\b");
         bool cloaked = c.Contains("cloaked") && !c.Contains("uncloaked");
-        bool excludeFacility = Regex.IsMatch(c, @"not\s+(?:at\s+)?(?:a\s+)?facility")
-                               || Regex.IsMatch(c, @"except\s+(?:at\s+)?(?:a\s+)?facility");
+        bool excludeFacility = Regex.IsMatch(c, @"not\\s+(?:at\\s+)?(?:a\\s+)?facility")
+                               || Regex.IsMatch(c, @"except\\s+(?:at\\s+)?(?:a\\s+)?facility");
 
         bool hasAwayTeam = c.Contains("away team");
-        bool hasCrew = Regex.IsMatch(c, @"\bcrew\b");
+        bool hasCrew = Regex.IsMatch(c, @"\\bcrew\\b");
 
         Host host = Host.None;
         Host host2 = Host.None;
@@ -103,7 +193,6 @@ public static class PlayOnRules
             host = Host.Table;
         else if (hasAwayTeam && hasCrew)
         {
-            // Printed "crew or Away Team" / "Away Team or crew" — both legal hosts.
             host = Host.Crew;
             host2 = Host.AwayTeam;
         }
@@ -125,19 +214,20 @@ public static class PlayOnRules
         else if (c.Contains("event"))
             host = Host.Event;
 
-        if (host == Host.None) return default;
+        if (host == Host.None)
+            return new Spec(Host.None, Host.None, Ownership.Any, false, false, false, false, false, role);
+
         return new Spec(host, host2, ownership, exposed, occupied, empty, cloaked, excludeFacility,
-            ParseAffiliationIcon(clause));
+            role, ParseAffiliationIcon(clause));
     }
 
-    /// <summary>True if this Spec allows the concrete host kind (primary or dual).</summary>
     public static bool SpecAllowsHost(Spec spec, Host concrete) =>
         concrete != Host.None && spec.Allows(concrete);
 
     public static string? ParseAffiliationIcon(string? clause)
     {
         if (string.IsNullOrWhiteSpace(clause)) return null;
-        var m = Regex.Match(clause, @"\[(?<a>[^\]]+)\]");
+        var m = Regex.Match(clause, @"\\[(?<a>[^\\]]+)\\]");
         if (!m.Success) return null;
         string raw = m.Groups["a"].Value.Trim();
         return raw.ToUpperInvariant() switch
@@ -151,12 +241,11 @@ public static class PlayOnRules
             "DOM" or "DOMINION" => "DOM",
             "BOR" or "BORG" => "BORG",
             "NA" or "NON" or "NON-ALIGNED" => "NA",
-            "P" => null, // planet icon, not affiliation
+            "P" => null,
             _ => raw.ToUpperInvariant()
         };
     }
 
-    /// <summary>Map to interrupt drop-target enum (lossy for AwayTeam → crew buckets until F1 snap).</summary>
     public static InterruptRules.PlayTarget ToInterruptTarget(Spec spec)
     {
         if (spec.Allows(Host.Event))
@@ -172,17 +261,9 @@ public static class PlayOnRules
         return InterruptRules.PlayTarget.None;
     }
 
-    /// <summary>DE mini-test F0 AwayTeam ≠ Crew. Returns null if OK.</summary>
+    /// <summary>DE mini-test F0+F1. Returns null if OK.</summary>
     public static string? VerifyAwayTeamCrewSplit()
     {
-        var stone = new Card
-        {
-            Name = "Vulcan Stone of Gol",
-            Type = "Artifact",
-            Text = "Place in hand. Plays as [Event] on any Away Team: kills all."
-        };
-        // Stone has "plays as" not "plays on" as first phrase — Parse looks for plays on.
-        // Alien Groupie style:
         var groupie = new Card
         {
             Name = "Alien Groupie",
@@ -192,6 +273,32 @@ public static class PlayOnRules
         var g = Parse(groupie);
         if (g.Host != Host.AwayTeam || g.Host2 != Host.None)
             return $"Alien Groupie must be AwayTeam only, got {g.Host}/{g.Host2}";
+        if (g.Role != CardPlayRole.NativeInterrupt)
+            return $"Alien Groupie Role NativeInterrupt, got {g.Role}";
+
+        var stone = new Card
+        {
+            Name = "Vulcan Stone of Gol",
+            Type = "Artifact",
+            Text = "Place in hand. Plays as [Event] on any Away Team: kills all."
+        };
+        var st = ResolvePlayOn(stone);
+        if (st.Host != Host.AwayTeam || st.Host2 != Host.None)
+            return $"Stone must parse AwayTeam, got {st.Host}/{st.Host2}";
+        if (st.Role != CardPlayRole.ArtifactAsEvent)
+            return $"Stone Role ArtifactAsEvent, got {st.Role}";
+        if (!st.NeedsBoardSnap)
+            return "Stone must NeedsBoardSnap";
+
+        var kurlan = new Card
+        {
+            Name = "Kurlan Naiskos",
+            Type = "Artifact",
+            Text = "Place in hand. Plays as [Event] on a ship. Attributes x3 when fully staffed."
+        };
+        var k = ResolvePlayOn(kurlan);
+        if (k.Host != Host.Ship || k.Role != CardPlayRole.ArtifactAsEvent)
+            return $"Kurlan Ship+ArtifactAsEvent, got {k.Host}/{k.Role}";
 
         var eta = new Card
         {
@@ -223,11 +330,11 @@ public static class PlayOnRules
             Type = "Event",
             Text = "Plays on your ship. SHIELDS +2 per SCIENCE."
         };
-        var s = Parse(shields);
+        var s = ResolvePlayOn(shields);
         if (s.Host != Host.Ship || s.Host2 != Host.None)
             return $"Metaphasic must be Ship only, got {s.Host}/{s.Host2}";
-        if (s.Ownership != Ownership.Your)
-            return "Metaphasic must be Your";
+        if (s.Ownership != Ownership.Your || s.Role != CardPlayRole.NativeEvent)
+            return $"Metaphasic Your+NativeEvent, got {s.Ownership}/{s.Role}";
 
         var crewOnly = new Card
         {
