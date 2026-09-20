@@ -1,6 +1,6 @@
 ﻿# SMOKE Alien Groupie
 
-tip: HASH  EXE: 2026-09-20 20:52:21
+tip: 9980a89  EXE: 2026-09-20 20:52:21
 
 1. Solve planet with Female+Male AT → just window status.
 2. Play Alien Groupie → random male stopped; Groupie on mission; countdown 2.

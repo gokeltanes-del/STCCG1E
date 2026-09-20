@@ -214,7 +214,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 
 | Card | Status | Notes | Source |
 | --- | --- | --- | --- |
-| Alien Groupie (107 R) | working | Just-solve window; Female req; random male stop countdown 2. tip HASH. | Data 2026-09-20 |
+| Alien Groupie (107 R) | working | Just-solve window; Female req; random male stop countdown 2. tip 9980a89. | Data 2026-09-20 |
 | Amanda Rogers (108 R) | working | Pepsch green. | Pepsch 2026-09-20 |
 | Asteroid Sanctuary (109 C) | partial | Pepsch FAIL: wrongly offered as Response on Outpost/Facility battle. Data Go: CanRespond ship-only (Defender=ship, not Facility). Not working until Pepsch greens after tip. | Pepsch 2026-09-17; Data Go ship-only CanRespond |
 | Auto-Destruct Sequence (110 U) | unknown |  |  |
