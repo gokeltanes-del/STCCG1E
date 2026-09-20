@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-20 (Spock - Betazoid Gift Box Soll)
+Last updated: 2026-09-20 (Jadzia — Pepsch green Betazoid Gift Box tip adac172)
 Scope: **Premiere** (`PR`) + **Alternate Universe** catalogued. **Priority: finish all unfinished Premiere cards first.** AU is logged only; not prioritized unless already wired.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -29,13 +29,13 @@ Source tip: when Data/Spock/Seven/Captain report, update the row.
 
 | Status | Count | Role |
 | --- | ---: | --- |
-| `working` | 79 | Done (Pepsch green) |
-| `partial` | 6 | **Next smoke / rework** |
-| `unknown` | 278 | **Backlog — finish Premiere** |
+| `working` | 80 | Done (Pepsch green) |
+| `partial` | 8 | **Next smoke / rework** |
+| `unknown` | 275 | **Backlog — finish Premiere** |
 | `blocked` | 0 | — |
 | **Total** | **363** | |
 
-**Premiere partials (queue):** Q (blocked Continuum) · Crystalline Entity · Iconian Computer Weapon · Alien Probe · Asteroid Sanctuary · Escape Pod
+**Premiere partials (queue):** ** Q (blocked Continuum) · Crystalline Entity · Iconian Computer Weapon · Alien Probe · Asteroid Sanctuary · Escape Pod
 
 | Card Type | Count |
 | --- | ---: |
@@ -82,7 +82,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 
 | Card | Status | Notes | Source |
 | --- | --- | --- | --- |
-| Betazoid Gift Box (1 R) | partial | tip Data/adac172: real 0..3 draw search download + IgnoreOppPrevent; discard always. Pending Pepsch green. Soll GROK_TEMP\\SOLL_BETAZOID_GIFT_BOX_2026-09-20.md | Data/adac172 2026-09-20 |
+| Betazoid Gift Box (1 R) | working | Pepsch green. tip Data/`adac172`: real 0..3 draw search download + IgnoreOppPrevent; discard always. Soll GROK_TEMP\SOLL_BETAZOID_GIFT_BOX_2026-09-20.md. | Pepsch 2026-09-20; Data/`adac172` |
 | Horga'hn (2 R) | unknown |  |  |
 | Interphase Generator (3 R) | working | Pepsch green: nullify path vs [IPG] incl. Nausicaans; Rebel Encounter nullify also OK. IPG display cleanup done (Glyph only; tip with `5c08269` batch). | Pepsch 2026-09-18; Data/`5c08269` display |
 | Kurlan Naiskos (4 R) | partial | tip Data/c77d0d1: RANGE now x3 via ApplyKurlan (was W/S only). Pending Pepsch green. | Data/c77d0d1 2026-09-20 |
