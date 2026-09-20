@@ -214,7 +214,8 @@ public static class TimingRules
             || n.Equals("Subspace Interference", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Hail", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Alien Groupie", StringComparison.OrdinalIgnoreCase)
-            || n.Equals("Distortion of Space/Time Continuum", StringComparison.OrdinalIgnoreCase);
+            || n.Equals("Distortion of Space/Time Continuum", StringComparison.OrdinalIgnoreCase)
+            || n.Equals("Emergency Transporter Armbands", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -380,7 +381,21 @@ public static class TimingRules
             return (true, "Attach to your non-[AU] ship (Unique).");
         }
 
-return (false, $"\"{n}\" is not a valid response in this window.");
+
+        if (n.Equals("Emergency Transporter Armbands", StringComparison.OrdinalIgnoreCase))
+        {
+            if (top.Kind is ActionKind.InitiateShipBattle or ActionKind.InitiatePersonnelBattle)
+                return (true, "Beam your personnel away (not mid-combat).");
+            if (top.Kind == ActionKind.EncounterDilemma)
+            {
+                if (top.Card == null || !CardIcons.HasEtaDilemma(top.Card))
+                    return (false, "Armbands: only while facing an [ETA]/countdown dilemma.");
+                return (true, "Beam your personnel away while facing this dilemma.");
+            }
+            return (false, "Armbands: play during battle or while facing an [ETA] dilemma.");
+        }
+
+        return (false, $"\"{n}\" is not a valid response in this window.");
     }
 
     private static int GetOwnerGuess(PendingAction top) => top.DefenderOwner;

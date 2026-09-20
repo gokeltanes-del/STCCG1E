@@ -434,6 +434,12 @@ public partial class TableWindow : Window
     private bool _auPlayedThisTurnP2;
     private Card? _pendingAuJustPlayedCard;
     private int _pendingAuJustPlayedBy;
+    /// <summary>True while personnel/ship battle dice are resolving (Armbands forbidden).</summary>
+    private bool _adversariesInCombat;
+    private int _etaArmbandsWindowDoneForInstance;
+    private bool _resumeAttemptAfterEtaArmbands;
+    private Border? _etaResumeMissionBorder;
+    private Card? _etaResumeMission;
 
     private readonly Dictionary<Border, Border> _conundrumChase = new();
     private readonly Dictionary<Border, int> _edoContinuePenalty = new();
@@ -3860,6 +3866,16 @@ public partial class TableWindow : Window
                 if (!HasOwnNonAuShip(player))
                     return false;
             }
+            if (InterruptRules.IsEmergencyTransporterArmbands(item.Card)
+                && top.Kind is TimingRules.ActionKind.InitiateShipBattle
+                    or TimingRules.ActionKind.InitiatePersonnelBattle
+                    or TimingRules.ActionKind.EncounterDilemma)
+            {
+                if (_adversariesInCombat)
+                    return false;
+                if (!HasOwnCrewOrAwayTeamHost(player))
+                    return false;
+            }
             return true;
         }).ToList();
     }
@@ -3876,8 +3892,12 @@ public partial class TableWindow : Window
         var check = TimingRules.CanRespond(response.Card, target, response.Controller);
         if (!check.ok) return;
 
-        target.Cancelled = true;
-        target.CancelledBy = response.Card.Name;
+        // Armbands beams without nullifying/stopping the battle or dilemma on the stack.
+        if (!InterruptRules.IsEmergencyTransporterArmbands(response.Card))
+        {
+            target.Cancelled = true;
+            target.CancelledBy = response.Card.Name;
+        }
         if (ArtifactRules.IsToxUthat(response.Card))
         {
             DiscardToxUthatFromTable(response.Controller, "Interrupt nullify Supernova");
@@ -4779,6 +4799,26 @@ public partial class TableWindow : Window
             return;
         }
 
+        if (a.Kind == TimingRules.ActionKind.EncounterDilemma)
+        {
+            StatusText.Text = a.Cancelled
+                ? $"[ETA] dilemma window closed ({a.CancelledBy})."
+                : "[ETA] dilemma window passed — resolving…";
+            if (_resumeAttemptAfterEtaArmbands
+                && _etaResumeMissionBorder != null
+                && _etaResumeMission != null)
+            {
+                var mb = _etaResumeMissionBorder;
+                var m = _etaResumeMission;
+                _resumeAttemptAfterEtaArmbands = false;
+                _etaResumeMissionBorder = null;
+                _etaResumeMission = null;
+                // Re-enter attempt; _etaArmbandsWindowDoneForInstance skips a second Armbands window.
+                TryAttemptMission(mb, m, _attemptShip);
+            }
+            return;
+        }
+
         if (a.Kind == TimingRules.ActionKind.ShipDestroyed)
         {
             var shipB = a.AttackerHost as Border;
@@ -5006,6 +5046,9 @@ public partial class TableWindow : Window
 
     private void ResolvePendingPersonnelBattle(TimingRules.PendingAction a)
     {
+        _adversariesInCombat = true;
+        try
+        {
         if (a.AttackerTeam == null || a.DefenderTeam == null) return;
         var atkBorders = a.AttackerTeam.OfType<Border>().ToList();
         var defBorders = a.DefenderTeam.OfType<Border>().ToList();
@@ -5053,6 +5096,12 @@ public partial class TableWindow : Window
             ShowHostContents(src, sc);
         else if (a.DefenderHost is Border dst && dst.Tag is Card dc)
             ShowHostContents(dst, dc);
+    
+        }
+        finally
+        {
+            _adversariesInCombat = false;
+        }
     }
 
     private bool TryAllowHandPlay(Card card, string sourceZone, out string denyReason)
@@ -13254,6 +13303,33 @@ private List<Card> CollectCardsInPlay(bool opponent)
                     $"AT feed ({teamDiag.Count}): " + (teamDiag.Count > 0 ? string.Join(" | ", teamDiag) : "(empty)"));
             }
 
+            // [ETA]/countdown: LegalResponse for Emergency Transporter Armbands before resolve.
+            if (CardIcons.HasEtaDilemma(seedCard)
+                && seedCard.InstanceId != _etaArmbandsWindowDoneForInstance)
+            {
+                _etaArmbandsWindowDoneForInstance = seedCard.InstanceId > 0 ? seedCard.InstanceId : seedCard.GetHashCode();
+                _seedUnderMission[missionBorder] = seedStack;
+                UpdateSeedBadge(missionBorder);
+                _resumeAttemptAfterEtaArmbands = true;
+                _etaResumeMissionBorder = missionBorder;
+                _etaResumeMission = mission;
+                _stack.Push(new TimingRules.PendingAction
+                {
+                    Kind = TimingRules.ActionKind.EncounterDilemma,
+                    Controller = _activePlayer,
+                    Card = seedCard,
+                    AttackerHost = missionBorder,
+                    AttackerCard = mission,
+                    Summary = $"Facing [ETA] dilemma: {seedCard.Name}"
+                });
+                OpenResponseWindow(_activePlayer);
+                ScheduleActionAnnounce(400);
+                StatusText.Text = $"{seedCard.Name} ([ETA]) — Armbands responses…";
+                _session.Log.Add(_session.TurnNumber, "sys",
+                    $"[ETA] Armbands window for P{_activePlayer} ({seedCard.Name})");
+                return;
+            }
+
             var dilResult = DilemmaRules.Resolve(new DilemmaRules.Ctx
             {
                 Dilemma = seedCard,
@@ -15077,15 +15153,25 @@ private List<Card> CollectCardsInPlay(bool opponent)
                 break;
             case InterruptRules.Effect.EmergencyBeam:
                 {
-                    var host = _interruptTargetHost;
+                    if (_adversariesInCombat)
+                    {
+                        ShowPlayError("Emergency Transporter Armbands: may not be played while two adversaries are in combat.");
+                        var handEb = controller == 1 ? _handCards : _oppHandCards;
+                        if (!handEb.Contains(card)) handEb.Add(card);
+                        RefreshHandStrips();
+                        RefreshZoneCounts();
+                        break;
+                    }
+                    var host = _interruptTargetHost ?? PickArmbandsHost(controller);
                     if (host != null && host.Tag is Card)
                     {
+                        _interruptTargetHost = host;
                         ShowHostContents(host, (Card)host.Tag!, beamSelectMode: true);
-                        BeginBeamMode(host);
+                        BeginBeamMode(host, beamingPlayer: controller, emergency: true);
                         StatusText.Text = "Emergency Transporter Armbands: select personnel, then click a destination.";
                     }
                     else
-                        StatusText.Text = "Emergency Transporter Armbands: no team host.";
+                        StatusText.Text = "Emergency Transporter Armbands: no team host — snap your crew or Away Team.";
                     break;
                 }
             case InterruptRules.Effect.DisruptorOverload:
@@ -19179,21 +19265,30 @@ _spacelineOrder.Remove(pod);
 
 
 
-    private void BeginBeamMode(Border hostBorder)
+    private void BeginBeamMode(Border hostBorder, int? beamingPlayer = null, bool emergency = false)
     {
         if (hostBorder.Tag is not Card hostCard) return;
+        int beamPlayer = beamingPlayer ?? _activePlayer;
         if (IsShipCard(hostCard) && IsShipCloaked(hostBorder))
         {
             ShowPlayError("Cannot beam to or from a cloaked ship. Decloak first.");
             return;
         }
-        var beamAuth = AuthorizePlay(GameAction.Beam(_activePlayer, hostCard));
-        if (!beamAuth.Ok)
+        if (!emergency)
         {
-            ShowPlayError(beamAuth.Message);
+            var beamAuth = AuthorizePlay(GameAction.Beam(beamPlayer, hostCard));
+            if (!beamAuth.Ok)
+            {
+                ShowPlayError(beamAuth.Message);
+                return;
+            }
+        }
+        else if (_adversariesInCombat)
+        {
+            ShowPlayError("Emergency Transporter Armbands: may not be played while two adversaries are in combat.");
             return;
         }
-        if (PlanetBeamBlockedAt(hostBorder, beamingPlayer: _activePlayer))
+        if (PlanetBeamBlockedAt(hostBorder, beamingPlayer: beamPlayer))
         {
             ShowPlayError("Particle Scattering Field: no beaming to or from a planet here.");
             return;
@@ -19645,6 +19740,9 @@ _spacelineOrder.Remove(pod);
         Border defenderBorder, Card defenderCard,
         bool returnFire)
     {
+        _adversariesInCombat = true;
+        try
+        {
         int atkOwner = GetBorderOwner(attackerBorder);
         if (atkOwner == 0) atkOwner = 1;
         int defOwner = GetBorderOwner(defenderBorder);
@@ -19817,6 +19915,12 @@ _spacelineOrder.Remove(pod);
             DestroyShipOrFacility(defenderBorder, defenderCard, defOwner);
         if (atkDestroyed)
             DestroyShipOrFacility(attackerBorder, attackerShip, atkOwner);
+    
+        }
+        finally
+        {
+            _adversariesInCombat = false;
+        }
     }
 
     private void ApplyHullDamage(Border border, Card card, int hullPercent)
@@ -21511,6 +21615,59 @@ _spacelineOrder.Remove(pod);
             if (GetBorderOwner(b) != player && sc.Controller != player) continue;
             if (CardIcons.HasAlternateUniverse(sc)) continue;
             return true;
+        }
+        return false;
+    }
+
+    
+    private Border? PickArmbandsHost(int player)
+    {
+        var top = _stack.Items.LastOrDefault(a =>
+            a.Kind is TimingRules.ActionKind.InitiatePersonnelBattle
+                or TimingRules.ActionKind.InitiateShipBattle
+                or TimingRules.ActionKind.EncounterDilemma);
+        if (top != null)
+        {
+            if (top.Kind == TimingRules.ActionKind.InitiatePersonnelBattle)
+            {
+                if (top.Controller == player && top.AttackerHost is Border ah) return ah;
+                if (top.DefenderOwner == player && top.DefenderHost is Border dh) return dh;
+            }
+            if (top.Kind == TimingRules.ActionKind.InitiateShipBattle)
+            {
+                if (top.Controller == player && top.AttackerHost is Border ash) return ash;
+                if (top.DefenderOwner == player && top.DefenderHost is Border dsh) return dsh;
+            }
+            if (top.Kind == TimingRules.ActionKind.EncounterDilemma
+                && top.Controller == player
+                && top.AttackerHost is Border mh)
+                return mh;
+        }
+        foreach (var b in TableCanvas.Children.OfType<Border>())
+        {
+            if (b.Visibility != Visibility.Visible || b.Tag is not Card) continue;
+            int own = GetBorderOwner(b);
+            if (own != player) continue;
+            if (_stackOnHost.TryGetValue(b, out var stacked)
+                && stacked.Any(x => x.Tag is Card c && ModifierRules.IsPersonnelCard(c)))
+                return b;
+        }
+        return null;
+    }
+
+    private bool HasOwnCrewOrAwayTeamHost(int player)
+    {
+        foreach (var b in TableCanvas.Children.OfType<Border>())
+        {
+            if (b.Visibility != Visibility.Visible) continue;
+            if (b.Tag is not Card host) continue;
+            int own = GetBorderOwner(b);
+            if (own == 0) own = host.Controller != 0 ? host.Controller : host.OwnerPlayer;
+            if (own != player) continue;
+            // Ship/facility with crew stacked, or planet mission with Away Team.
+            if (_stackOnHost.TryGetValue(b, out var stacked) && stacked.Count > 0
+                && stacked.Any(x => x.Tag is Card c && ModifierRules.IsPersonnelCard(c)))
+                return true;
         }
         return false;
     }
