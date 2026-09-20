@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-19 (Jadzia — Pepsch green Alien Parasites tip 79a7612)
+Last updated: 2026-09-20 (Spock - Stone of Gol Soll)
 Scope: **Premiere** (`PR`) + **Alternate Universe** catalogued. **Priority: finish all unfinished Premiere cards first.** AU is logged only; not prioritized unless already wired.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -90,14 +90,14 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Time Travel Pod (6 R) | unknown |  |  |
 | Tox Uthat (7 R) | unknown |  |  |
 | Varon-T Disruptor (8 R) | working | Pepsch getestet: Looten OK, verdoppelt STRENGTH auf Planet; Beamen auf Schiff ohne Treaty repariert (`TreatyRules.CanOccupyHost`). | Pepsch 2026-09-12 |
-| Vulcan Stone of Gol (9 R) | unknown |  |  |
+| Vulcan Stone of Gol (9 R) | partial | Spock/Captain SOLL_STONE_OF_GOL: ToHand; play as Event on any planet Away Team (controller pick); kill !Youth && CUNNING<=7; discard. Crew not target. tip Data pending. | Data 2026-09-20 |
 
 ### Dilemma
 
 | Card | Status | Notes | Source |
 | --- | --- | --- | --- |
 | Alien Abduction (10 U) | working | Pepsch green (Cure OR + Stasis Beam-Block; zentrales Cure-System 7.2.2.3 via 3 Leadership oder Mission Completed; Fix: kein Stoppen des Teams, nahtlose Fortsetzung bei Cure oder Nicht-Cure lt. 7.2.2.3/7.2.6). | Pepsch 2026-09-13 |
-| Alien Parasites (11 U) | working | Pepsch green alle 3 Modi (Away-Team-only / Ship-only / AT+Ship). tip Data/`79a7612` Neg-Control Fix. | Pepsch 2026-09-19; Data/`79a7612` |
+| Alien Parasites (11 U) | working | Pepsch green tip Data/`79a7612` Neg-Control Fix2 (no BeamBack before chooser). | Pepsch 2026-09-19; Data/`79a7612` |
 | Anaphasic Organism (12 C) | working | Pepsch green: Fail resigns=discard, not Kill. tips Data/`502d8e0` + Fix/`3532748`. | Pepsch 2026-09-15; Data/`3532748` |
 | Ancient Computer (13 R) | working | Pepsch green: Wall 2 Computer Skill OR 3 SCIENCE OR 3 ENGINEER; Fail Stop+unter Mission. tip Data/`bb551f1`. | Pepsch 2026-09-15; Data/`bb551f1` |
 | Archer (14 C) | working | Pepsch green bestÃ¤tigt: Auswertung Attribute / Opponent-Choice bei Gleichstand und Stop-Verhalten funktionieren einwandfrei. | Pepsch 2026-09-13 |

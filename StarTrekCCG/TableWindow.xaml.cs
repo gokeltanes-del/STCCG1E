@@ -16018,52 +16018,79 @@ public partial class TableWindow : Window
 
         if (ArtifactRules.IsVulcanStoneOfGol(art))
         {
-            // Away Team an gewählter Planet-Mission: ohne Youth und CUNNING≤7 sterben
-            var planets = TableCanvas.Children.OfType<Border>()
-                .Where(b => b.Tag is Card c
-                            && CardKinds.IsMission(c)
-                            && MissionRules.IsPlanetMission(c))
-                .ToList();
-            if (planets.Count == 0)
+            // Printed: Plays as Event on any Away Team (planet). Kill !Youth && CUNNING<=7.
+            // Captain/Spock SOLL_STONE_OF_GOL: one Away Team (controller) — not mixed planet, not crew.
+            var awayChoices = new List<(Border Mission, int AwayOwner, List<Border> Members, string Label)>();
+            foreach (var missionB in TableCanvas.Children.OfType<Border>())
             {
-                StatusText.Text = "Stone of Gol: no planet mission in play.";
-                SendCardTo(art, controller, TimingRules.Destination.Discard);
-                return true;
-            }
-            Border target = PickBorderFromList(art, planets, "Stone of Gol: attack away team at which planet?")
-                            ?? planets[0];
-            int kills = 0;
-            if (_stackOnHost.TryGetValue(target, out var team))
-            {
-                var doomedCards = team
-                    .Where(b => b.Tag is Card p && ModifierRules.IsPersonnelCard(p))
-                    .Select(b => (b, p: (Card)b.Tag!))
-                    .Where(x =>
-                    {
-                        int own = GetBorderOwner(x.b); if (own == 0) own = 1;
-                        var ep = ModifierRules.ResolvePersonnel(x.p, team.Select(y => y.Tag).OfType<Card>(), own);
-                        return !ep.Skills.Keys.Any(k => k.Equals("Youth", StringComparison.OrdinalIgnoreCase)) && ep.Cunning <= 7;
-                    })
-                    .Select(x => x.p)
-                    .ToList();
+                if (missionB.Tag is not Card mc || !CardKinds.IsMission(mc) || !MissionRules.IsPlanetMission(mc))
+                    continue;
+                if (!_stackOnHost.TryGetValue(missionB, out var stacked) || stacked.Count == 0)
+                    continue;
 
-                foreach (var b in team.ToList())
+                foreach (int awayOwner in new[] { 1, 2 })
                 {
-                    if (b.Tag is not Card p || !ModifierRules.IsPersonnelCard(p)) continue;
-                    int own = GetBorderOwner(b); if (own == 0) own = 1;
-                    var ep = ModifierRules.ResolvePersonnel(p, team.Select(x => x.Tag).OfType<Card>(), own);
-                    bool youth = ep.Skills.Keys.Any(k =>
-                        k.Equals("Youth", StringComparison.OrdinalIgnoreCase));
-                    if (!youth && ep.Cunning <= 7)
-                    {
-                        DiscardPersonnelBorder(b, p, own, allowGenetronicSave: true, alsoTargetedToDie: doomedCards);
-                        kills++;
-                    }
+                    var members = stacked
+                        .Where(b =>
+                        {
+                            if (b.Tag is not Card p || !ModifierRules.IsPersonnelCard(p)) return false;
+                            int o = CardOwner(b);
+                            if (o == 0) o = GetBorderOwner(b);
+                            if (o == 0) o = p.Controller != 0 ? p.Controller : p.OwnerPlayer;
+                            return o == awayOwner;
+                        })
+                        .ToList();
+                    if (members.Count == 0) continue;
+                    string label = $"P{awayOwner} Away Team @ {mc.Name}";
+                    awayChoices.Add((missionB, awayOwner, members, label));
                 }
             }
+
+            if (awayChoices.Count == 0)
+            {
+                StatusText.Text = "Stone of Gol: no Away Team on a planet (crew not a target).";
+                var handKeep = controller == 1 ? _handCards : _oppHandCards;
+                if (!handKeep.Contains(art)) handKeep.Add(art);
+                RefreshHandStrips();
+                RefreshZoneCounts();
+                return true;
+            }
+
+            string pickLabel = AskChoice(art, "Stone of Gol",
+                "Plays as Event on any Away Team (planet). Crew aboard ships is not a target.",
+                awayChoices.Select(c => c.Label).ToArray());
+            var chosen = awayChoices.FirstOrDefault(c => c.Label == pickLabel);
+            if (chosen.Mission == null)
+                chosen = awayChoices[0];
+
+            var presentCards = chosen.Members.Select(b => (Card)b.Tag!).ToList();
+            var doomedCards = new List<Card>();
+            foreach (var b in chosen.Members)
+            {
+                var p = (Card)b.Tag!;
+                int own = GetBorderOwner(b);
+                if (own == 0) own = chosen.AwayOwner;
+                var ep = ModifierRules.ResolvePersonnel(p, presentCards, own);
+                bool youth = ep.Skills.Keys.Any(k => k.Equals("Youth", StringComparison.OrdinalIgnoreCase));
+                if (ArtifactRules.IsKilledByStoneOfGol(youth, ep.Cunning))
+                    doomedCards.Add(p);
+            }
+
+            int kills = 0;
+            foreach (var b in chosen.Members.ToList())
+            {
+                if (b.Tag is not Card p) continue;
+                if (!doomedCards.Any(d => ReferenceEquals(d, p))) continue;
+                int own = GetBorderOwner(b);
+                if (own == 0) own = chosen.AwayOwner;
+                DiscardPersonnelBorder(b, p, own, allowGenetronicSave: true, alsoTargetedToDie: doomedCards);
+                kills++;
+            }
+
             SendCardTo(art, controller, TimingRules.Destination.Discard);
-            StatusText.Text = $"Stone of Gol: {kills} personnel killed.";
-            _session.Log.Add(_session.TurnNumber, $"P{controller}", $"Stone of Gol kills {kills}");
+            StatusText.Text = $"Stone of Gol on {chosen.Label}: {kills} killed (survivors: Youth or CUNNING>7).";
+            _session.Log.Add(_session.TurnNumber, $"P{controller}",
+                $"Stone of Gol → {chosen.Label}: {kills} killed");
             return true;
         }
 

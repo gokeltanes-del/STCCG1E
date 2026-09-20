@@ -167,6 +167,35 @@ public static class ArtifactRules
     public static bool IsThoughtMaker(Card? c) => NameIs(c, "Thought Maker");
     public static bool IsToxUthat(Card? c) => NameIs(c, "Tox Uthat");
     public static bool IsVulcanStoneOfGol(Card? c) => NameIs(c, "Vulcan Stone of Gol");
+
+    /// <summary>
+    /// Printed: kills personnel without (Youth OR CUNNING>7).
+    /// Dies: !Youth AND CUNNING <= 7. Survives: Youth OR CUNNING > 7.
+    /// </summary>
+    public static bool IsKilledByStoneOfGol(bool hasYouth, int effectiveCunning) =>
+        !hasYouth && effectiveCunning <= 7;
+
+    public static bool SurvivesStoneOfGol(bool hasYouth, int effectiveCunning) =>
+        !IsKilledByStoneOfGol(hasYouth, effectiveCunning);
+
+    /// <summary>DE mini-test Stone of Gol kill filter. Returns null if OK.</summary>
+    public static string? VerifyVulcanStoneOfGol()
+    {
+        if (!IsKilledByStoneOfGol(hasYouth: false, effectiveCunning: 7))
+            return "CUNNING=7 without Youth must die";
+        if (!IsKilledByStoneOfGol(hasYouth: false, effectiveCunning: 5))
+            return "CUNNING=5 without Youth must die";
+        if (IsKilledByStoneOfGol(hasYouth: true, effectiveCunning: 5))
+            return "Youth must survive even with low CUNNING";
+        if (IsKilledByStoneOfGol(hasYouth: false, effectiveCunning: 8))
+            return "CUNNING>7 without Youth must survive";
+        if (IsKilledByStoneOfGol(hasYouth: true, effectiveCunning: 7))
+            return "Youth + CUNNING=7 must survive";
+        if (!SurvivesStoneOfGol(true, 1) || !SurvivesStoneOfGol(false, 8))
+            return "SurvivesStoneOfGol mismatch";
+        return null;
+    }
+
     public static bool IsTimeTravelPod(Card? c) => NameIs(c, "Time Travel Pod");
 
     // ----- Alternate Universe -----

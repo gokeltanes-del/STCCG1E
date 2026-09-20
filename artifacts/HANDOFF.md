@@ -9,12 +9,31 @@ Local VS: C:\\Dev\\StarTrekCCG\\
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test.
 
 ## Current tip
-Local Josef tip **79a7612** - Alien Parasites Neg-Control Fix2 (Pepsch smoke). Nicht gepusht.
+Local Josef tip **PENDING** - Vulcan Stone of Gol (Pepsch smoke). Nicht gepusht.
 Local Josef tip **bcf7f9d** - Holo existence gates (Pepsch Fix-Go; Spock precise Soll). Nicht gepusht. (Prior Holo-Projectors tip 3c50792; LF UI eaf0c24.)
 **Pepsch EXE (Default Debug):**
 `C:\Dev\StarTrekCCG\StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe`
 Nicht `_build_holo*` / Release / alte Side-Builds.
 
+
+## Tip detail (Data, Josef, 2026-09-20) - Vulcan Stone of Gol
+Captain Go / Spock `GROK_TEMP/SOLL_STONE_OF_GOL_2026-09-20.md`. Printed = truth.
+### Stone (9 R)
+- Acquire ToHand unchanged.
+- Hand-play as Event: pick **any** planet Away Team (P1/P2 @ mission); **not** ship crew.
+- Kill present with that AT: `!Youth && CUNNING<=7` via `ArtifactRules.IsKilledByStoneOfGol`.
+- Survivors: Youth OR CUNNING>7. Discard artifact after resolve.
+- Verify: `ArtifactRules.VerifyVulcanStoneOfGol`.
+- PARK: Kevin-as-Event-Nullify unless generic.
+### Also
+- Alien Parasites → **working** (Pepsch green 79a7612).
+Files: `Game/ArtifactRules.cs`, `TableWindow.xaml.cs`, CARD_TRACKER, HANDOFF.
+Exe: StarTrekCCG\\bin\\Debug\\net8.0-windows\\StarTrekCCG.exe
+### Pepsch smoke
+1. Solve → Stone in hand.
+2. Play on opp AT: Youth-free CUNNING=7 die; Youth or CUNNING>7 live; Stone discarded.
+3. No ship-crew target offered.
+4. Own AT selectable (any).
 
 ## Tip detail (Data, Josef, 2026-09-19) - Alien Parasites Neg-Control Fix2
 Captain Fix-Go after Pepsch smoke on e8cf505.
