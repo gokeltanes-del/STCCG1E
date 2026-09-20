@@ -13622,6 +13622,13 @@ private List<Card> CollectCardsInPlay(bool opponent)
 
         if (InterruptRules.IsAlienGroupie(card))
         {
+            if (_stack.IsOpen && _stack.Top != null
+                && TimingRules.CanRespond(card, _stack.Top, owner).ok)
+            {
+                BeginPlayCardStack(card, isResponse: true, controllerOverride: owner,
+                    target: _stack.Top.Card);
+                return true;
+            }
             if (_justSolvedPlanetMission == null || _justSolvedPlayer != owner
                 || _justSolvedTeamBorders.Count == 0)
             {
