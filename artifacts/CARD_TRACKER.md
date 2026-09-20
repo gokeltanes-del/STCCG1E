@@ -214,7 +214,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 
 | Card | Status | Notes | Source |
 | --- | --- | --- | --- |
-| Alien Groupie (107 R) | working | Just-solve LegalResponse window tip HASH; Female; male stop CD2. | Data 2026-09-20 |
+| Alien Groupie (107 R) | working | Just-solve LegalResponse window tip 9a0ac4f; Female; male stop CD2. | Data 2026-09-20 |
 | Amanda Rogers (108 R) | working | Pepsch green. | Pepsch 2026-09-20 |
 | Asteroid Sanctuary (109 C) | working | Pepsch green. | Pepsch 2026-09-20 |
 | Auto-Destruct Sequence (110 U) | unknown |  |  |

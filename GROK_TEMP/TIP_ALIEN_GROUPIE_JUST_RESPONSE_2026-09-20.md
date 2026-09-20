@@ -1,6 +1,6 @@
 ﻿# Tip Alien Groupie Just = LegalResponse (Josef)
 
-tip: HASH
+tip: 9a0ac4f
 EXE: 2026-09-20 21:05:22
 msg: fix(premiere): Alien Groupie just-solve as LegalResponse window
 
