@@ -1,6 +1,6 @@
 ﻿# Tip Auto-Destruct Sequence (Josef)
 
-tip: HASH
+tip: 96336de
 EXE: 2026-09-20 21:12:14
 msg: feat(premiere): Auto-Destruct Sequence countdown destroy + splash
 

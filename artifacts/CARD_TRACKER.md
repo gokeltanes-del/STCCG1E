@@ -217,7 +217,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Alien Groupie (107 R) | working | Pepsch green. tips Data/9980a89/9a0ac4f/7624ad5. | Pepsch 2026-09-20; Data |
 | Amanda Rogers (108 R) | working | Pepsch green. | Pepsch 2026-09-20 |
 | Asteroid Sanctuary (109 C) | working | Pepsch green. | Pepsch 2026-09-20 |
-| Auto-Destruct Sequence (110 U) | working | Countdown 1; destroy ship + splash SHIELDS<8. tip HASH. | Data 2026-09-20 |
+| Auto-Destruct Sequence (110 U) | working | Countdown 1; destroy ship + splash SHIELDS<8. tip 96336de. | Data 2026-09-20 |
 | Crosis (111 R) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Disruptor Overload (112 C) | unknown |  |  |
 | Distortion of Space/Time Continuum (113 U) | unknown |  |  |

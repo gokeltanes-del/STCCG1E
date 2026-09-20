@@ -1,6 +1,6 @@
 ﻿# SMOKE Auto-Destruct Sequence
 
-tip: HASH  EXE: 2026-09-20 21:12:14
+tip: 96336de  EXE: 2026-09-20 21:12:14
 
 1. Drop on own ship → attached countdown 1.
 2. EOT → ship destroyed; Auto-Destruct discarded.
