@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-20 (Jadzia — Pepsch green Thought Maker; Premiere Artifacts complete)
+Last updated: 2026-09-20 (Jadzia — Pepsch green Gaps; Pattern Enhancers in progress)
 Scope: **Premiere** (`PR`) + **Alternate Universe** catalogued. **Priority: finish all unfinished Premiere cards first.** AU is logged only; not prioritized unless already wired.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -29,13 +29,13 @@ Source tip: when Data/Spock/Seven/Captain report, update the row.
 
 | Status | Count | Role |
 | --- | ---: | --- |
-| `working` | 88 | Done (Pepsch green) |
-| `partial` | 6 | **Next smoke / rework** |
-| `unknown` | 269 | **Backlog — finish Premiere** |
+| `working` | 89 | Done (Pepsch green) |
+| `partial` | 7 | **Next smoke / rework** |
+| `unknown` | 267 | **Backlog — finish Premiere** |
 | `blocked` | 0 | — |
 | **Total** | **363** | |
 
-**Premiere partials (queue):** Q (blocked Continuum) · Crystalline Entity · Iconian Computer Weapon · Alien Probe · Asteroid Sanctuary · Escape Pod
+**Premiere partials (queue):** ** Q (blocked Continuum) · Crystalline Entity · Iconian Computer Weapon · Alien Probe · Asteroid Sanctuary · Escape Pod · Pattern Enhancers (in progress)
 
 | Card Type | Count |
 | --- | ---: |
@@ -172,7 +172,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Espionage: Klingon on Federation (72 C) | working | Pepsch green (Espionage-Familie). | Pepsch 2026-09-06 |
 | Espionage: Romulan on Federation (73 C) | working | Pepsch green (Espionage-Familie). | Pepsch 2026-09-06 |
 | Espionage: Romulan on Klingon (74 C) | working | Pepsch green (Espionage-Familie). | Pepsch 2026-09-06 |
-| Gaps in Normal Space (75 U) | unknown | UX only: Pepsch green Host-Sidebar panel-follow tip Data/`651a63f` (not card-status green). | Data/`651a63f` UX 2026-09-18 |
+| Gaps in Normal Space (75 U) | working | Pepsch green 2026-09-20. (Prior UX Host-Sidebar tip Data/`651a63f`.) | Pepsch 2026-09-20 |
 | Genetronic Replicator (76 U) | working | Pepsch green: Opfer & gleichzeitig Getoetete ausgeschlossen; Auswahl via PickBorder; Unit-Test in EventRules. | Pepsch 2026-09-15 |
 | Goddess of Empathy (77 R) | working | Pepsch mostly green tip Data/`23d1c17`: Amanda block OK. Pending later smoke: [Ref] and [Q] interrupts still allowed under Goddess. | Pepsch 2026-09-18; Data/`23d1c17` |
 | Holo-Projectors (78 U) | working | Pepsch green. tips Data/`3c50792` + existence gates/`bcf7f9d`. | Pepsch 2026-09-19; Data/`3c50792`+`bcf7f9d` |
@@ -183,7 +183,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Metaphasic Shields (83 U) | working | Pepsch green (reconfirmed). | Pepsch 2026-09-19 |
 | Neural Servo Device (84 U) | working | Pepsch green; Side-Sync OK (Data/55d96ef). | Pepsch 2026-09-06 |
 | Nutational Shields (85 U) | working | Pepsch green (reconfirmed). | Pepsch 2026-09-19 |
-| Pattern Enhancers (86 C) | unknown |  |  |
+| Pattern Enhancers (86 C) | partial | Data building (in progress). Pending Pepsch green. | Data 2026-09-20 |
 | Plasma Fire (87 C) | working | Pepsch green (reconfirmed). | Pepsch 2026-09-19 |
 | Q-Net (88 C) | unknown |  |  |
 | Raise the Stakes (89 U) | unknown |  |  |
