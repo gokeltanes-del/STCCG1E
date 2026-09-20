@@ -13435,20 +13435,23 @@ public partial class TableWindow : Window
         bool isMission = IsMissionCard(hc);
         string tn = ((hc.Type ?? "") + " " + (hc.Name ?? "")).ToLowerInvariant();
         bool isOutpost = isFac && tn.Contains("outpost");
+        bool hasPers = spec.Own ? HostHasPersonnelOf(host, owner) : HostHasPersonnelOf(host, 0);
 
-        bool hostOk = spec.Host switch
-        {
-            PlayOnRules.Host.Ship => isShip,
-            PlayOnRules.Host.Outpost => isOutpost,
-            PlayOnRules.Host.Facility => isFac,
-            PlayOnRules.Host.Mission => isMission,
-            PlayOnRules.Host.PlanetMission => isMission && MissionRules.IsPlanetMission(hc),
-            PlayOnRules.Host.Crew => spec.Own ? HostHasPersonnelOf(host, owner) : HostHasPersonnelOf(host, 0),
-            _ => false
-        };
+        // F0: AwayTeam = planet + personnel; Crew = ship/facility + personnel (ExcludeFacility → ship only).
+        bool matchAway = isMission && MissionRules.IsPlanetMission(hc) && hasPers;
+        bool matchCrew = hasPers && (isShip || (isFac && !spec.ExcludeFacility));
+
+        bool hostOk =
+            (PlayOnRules.SpecAllowsHost(spec, PlayOnRules.Host.Ship) && isShip)
+            || (PlayOnRules.SpecAllowsHost(spec, PlayOnRules.Host.Outpost) && isOutpost)
+            || (PlayOnRules.SpecAllowsHost(spec, PlayOnRules.Host.Facility) && isFac)
+            || (PlayOnRules.SpecAllowsHost(spec, PlayOnRules.Host.Mission) && isMission)
+            || (PlayOnRules.SpecAllowsHost(spec, PlayOnRules.Host.PlanetMission) && isMission && MissionRules.IsPlanetMission(hc))
+            || (PlayOnRules.SpecAllowsHost(spec, PlayOnRules.Host.AwayTeam) && matchAway)
+            || (PlayOnRules.SpecAllowsHost(spec, PlayOnRules.Host.Crew) && matchCrew);
         if (!hostOk) return false;
 
-        if (spec.Host is PlayOnRules.Host.Ship or PlayOnRules.Host.Outpost or PlayOnRules.Host.Facility)
+        if (spec.Allows(PlayOnRules.Host.Ship) || spec.Allows(PlayOnRules.Host.Outpost) || spec.Allows(PlayOnRules.Host.Facility))
         {
             if (spec.Own && !ownHost) return false;
             if (spec.Opponent && ownHost) return false;

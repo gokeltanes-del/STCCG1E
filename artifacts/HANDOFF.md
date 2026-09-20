@@ -1,3 +1,15 @@
+Local Josef tip **PENDING_F0** - Plays-on F0 AwayTeam≠Crew. Nicht gepusht.
+
+## Tip detail (Data, Josef, 2026-09-20) - Plays-on F0 AwayTeam≠Crew
+Captain Go Big-Bang. Docs: PLAN/IST/NOTE_PLAYSON + SOLL_AWAYTEAM.
+### F0
+- PlayOnRules.Host.AwayTeam split from Crew; Spec.Host2 for "crew or Away Team".
+- Ownership enum Any/Your/Opponent; ExcludeFacility gate (Disruptor).
+- HostMatchesPlayOn + TargetQuery.MatchPlayOnSpec updated.
+- VerifyAwayTeamCrewSplit (Groupie AT-only; ETA dual; Disruptor ExcludeFacility).
+### Next
+F1 ResolvePlayOn + typ-agnostic Snap/Sites.
+
 Local Josef tip **6d15780** - Stone + Kurlan Plays-on (Pepsch smoke). Nicht gepusht.
 
 ## Tip detail (Data, Josef, 2026-09-20) - Stone + Kurlan Plays-on

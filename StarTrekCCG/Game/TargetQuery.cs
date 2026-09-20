@@ -241,18 +241,20 @@ public static class TargetQuery
     private static (bool ok, string reason) MatchPlayOnSpec(
         PlayOnRules.Spec spec, Card candidate, HostFacts facts, int player)
     {
-        bool hostOk = spec.Host switch
-        {
-            PlayOnRules.Host.Ship => facts.IsShip,
-            PlayOnRules.Host.Outpost => facts.IsOutpost,
-            PlayOnRules.Host.Facility => facts.IsFacility,
-            PlayOnRules.Host.Mission => facts.IsMission,
-            PlayOnRules.Host.PlanetMission => facts.IsPlanetMission,
-            PlayOnRules.Host.Crew => spec.Own ? facts.Occupied && facts.Owner == player : facts.Occupied,
-            _ => false
-        };
+        bool persOk = spec.Own ? facts.Occupied && facts.Owner == player : facts.Occupied;
+        bool matchAway = facts.IsPlanetMission && persOk;
+        bool matchCrew = persOk && (facts.IsShip || (facts.IsFacility && !spec.ExcludeFacility));
+
+        bool hostOk =
+            (PlayOnRules.SpecAllowsHost(spec, PlayOnRules.Host.Ship) && facts.IsShip)
+            || (PlayOnRules.SpecAllowsHost(spec, PlayOnRules.Host.Outpost) && facts.IsOutpost)
+            || (PlayOnRules.SpecAllowsHost(spec, PlayOnRules.Host.Facility) && facts.IsFacility)
+            || (PlayOnRules.SpecAllowsHost(spec, PlayOnRules.Host.Mission) && facts.IsMission)
+            || (PlayOnRules.SpecAllowsHost(spec, PlayOnRules.Host.PlanetMission) && facts.IsPlanetMission)
+            || (PlayOnRules.SpecAllowsHost(spec, PlayOnRules.Host.AwayTeam) && matchAway)
+            || (PlayOnRules.SpecAllowsHost(spec, PlayOnRules.Host.Crew) && matchCrew);
         if (!hostOk) return (false, "Wrong host type.");
-        if (spec.Host is PlayOnRules.Host.Ship or PlayOnRules.Host.Outpost or PlayOnRules.Host.Facility)
+        if (spec.Allows(PlayOnRules.Host.Ship) || spec.Allows(PlayOnRules.Host.Outpost) || spec.Allows(PlayOnRules.Host.Facility))
         {
             if (spec.Own && facts.Owner != player) return (false, "Must be your card.");
             if (spec.Opponent && facts.Owner == player) return (false, "Must be opponent's card.");
