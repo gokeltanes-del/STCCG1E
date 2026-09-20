@@ -1,6 +1,6 @@
 # Tip Auto-Destruct Spock Lock splash
 
-tip: HASH
+tip: 2a5585f
 EXE: 2026-09-20 21:13:56
 msg: fix(premiere): Auto-Destruct splash ApplyRotationDamage Hit
 
