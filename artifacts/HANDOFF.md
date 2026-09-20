@@ -1,3 +1,10 @@
+Local Josef tip **PENDING_LOOP** - Horga EXECUTE draw loop. Nicht gepusht.
+
+## Tip detail (Data, Josef, 2026-09-20) - Horga EXECUTE draw loop
+Cause: Space re-entered full FinishExecuteAndEndTurn while still Execute → draw every press, P2 skipped.
+Fix: _eotEndingInProgress + ResumeEndOfTurnAfterDrawResponses; Space resumes only then CompleteTurnChange.
+PENDING_LOOP
+
 Local Josef tip **821dd53** - EOT EXECUTE stuck fix. Nicht gepusht.
 
 ## Tip detail (Data, Josef, 2026-09-20) - EOT draw stuck in EXECUTE

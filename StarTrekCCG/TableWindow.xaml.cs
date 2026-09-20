@@ -343,6 +343,8 @@ public partial class TableWindow : Window
     private int _schismRound;
     /// <summary>EOT draw opened a Schism window — finish the turn after the stack clears.</summary>
     private bool _endTurnAfterDrawStack;
+    /// <summary>FinishExecuteAndEndTurn started; further Space must resume, not re-run full EOT.</summary>
+    private bool _eotEndingInProgress;
     private int _endTurnFinishingPlayer;
     private int _pendingExtraDraws;
     /// <summary>First Wormhole locked an exposed ship; second must drop on a location.</summary>
@@ -557,6 +559,16 @@ public partial class TableWindow : Window
     /// <summary>Space (default): Next phase / End turn / Finish seed.</summary>
     private bool TryHotkeyNextPhase()
     {
+        // EOT/Horga draw: Space must resume CompleteTurnChange, not only Pass (stuck EXECUTE loop).
+        if (_endTurnAfterDrawStack || _eotEndingInProgress)
+        {
+            if (BtnEndTurn != null)
+                BtnEndTurn_Click(BtnEndTurn, new RoutedEventArgs());
+            else
+                ResumeEndOfTurnAfterDrawResponses();
+            return true;
+        }
+
         if (_stack.IsOpen)
         {
             if (_stack.Top?.IsMandatory == true)
@@ -7932,23 +7944,12 @@ private List<Card> CollectCardsInPlay(bool opponent)
         }
 
 
-        // EOT draw / Horga'hn extra draw opened a response stack — Space/End finishes it
-        // instead of leaving P1 stuck in EXECUTE with End Turn disabled.
-        if (_endTurnAfterDrawStack && _stack.IsOpen
-            && _stack.Top?.Kind == TimingRules.ActionKind.DrawCard)
+
+        // HARDEN: once EOT started (Horga/Schism draw stack), never re-enter full FinishExecute.
+        // Space/End only resumes extras then CompleteTurnChange → P2 Play.
+        if (_endTurnAfterDrawStack || _eotEndingInProgress)
         {
-            PassCurrentResponseWindow();
-            if (_endTurnAfterDrawStack && !_stack.IsOpen)
-            {
-                int who = _endTurnFinishingPlayer;
-                FinishEndOfTurnDrawExtras(who);
-                if (_stack.IsOpen && _stack.Top?.Kind == TimingRules.ActionKind.DrawCard)
-                {
-                    ShowActionAnnounce();
-                    return;
-                }
-                CompleteTurnChange();
-            }
+            ResumeEndOfTurnAfterDrawResponses();
             return;
         }
 
@@ -7957,7 +7958,7 @@ private List<Card> CollectCardsInPlay(bool opponent)
         {
             _session.AdvanceSegment();
             SyncSessionToUi();
-            OnTurnContextChanged(_session.StatusLine() + " – execute orders.");
+            OnTurnContextChanged(_session.StatusLine() + " — execute orders.");
             ProcessIncomingMessageMoves(_session.ActivePlayer);
             return;
         }
@@ -7974,12 +7975,69 @@ private List<Card> CollectCardsInPlay(bool opponent)
     }
 
     /// <summary>
+    /// After EOT/Horga DrawCard responses: drain extras then flip turn. Never re-runs full EOT.
+    /// </summary>
+    private void ResumeEndOfTurnAfterDrawResponses()
+    {
+        if (_stack.IsOpen)
+        {
+            if (_stack.Top?.IsMandatory == true)
+            {
+                StatusText.Text = "Mandatory response required — cannot pass.";
+                return;
+            }
+            if (_stack.Top?.Kind == TimingRules.ActionKind.DrawCard)
+            {
+                PassCurrentResponseWindow();
+                // Pass may have called ResolveEntireStack → CompleteTurnChange already.
+                if (!_eotEndingInProgress && !_endTurnAfterDrawStack)
+                    return;
+            }
+            else
+            {
+                StatusText.Text = "Resolve the open action stack first.";
+                return;
+            }
+        }
+
+        if (_stack.IsOpen)
+        {
+            ShowActionAnnounce();
+            UpdatePhaseControls();
+            return;
+        }
+
+        int who = _endTurnFinishingPlayer != 0 ? _endTurnFinishingPlayer : _session.ActivePlayer;
+        FinishEndOfTurnDrawExtras(who);
+        if (_stack.IsOpen && _stack.Top?.Kind == TimingRules.ActionKind.DrawCard)
+        {
+            _endTurnAfterDrawStack = true;
+            _endTurnFinishingPlayer = who;
+            StatusText.Text =
+                "Extra draw — response window (or Space / End Turn to pass and finish).";
+            ShowActionAnnounce();
+            UpdatePhaseControls();
+            return;
+        }
+
+        CompleteTurnChange();
+    }
+
+    /// <summary>
     /// Execute fertig: optional 1 Karte ziehen, dann Gegner (Play-Segment).
     /// SuppressEndOfTurnDraw für spätere Karteneffekte.
     /// </summary>
     private void FinishExecuteAndEndTurn()
     {
         int finishingPlayer = _session.ActivePlayer;
+
+        // Idempotent: second Space while still Execute must not re-draw / re-run EOT effects.
+        if (_eotEndingInProgress || _endTurnAfterDrawStack)
+        {
+            ResumeEndOfTurnAfterDrawResponses();
+            return;
+        }
+        _eotEndingInProgress = true;
 
         // Glossary: Temporal Causality Loop / End Transmission — end turn immediately,
         // skipping all end-of-turn actions (countdowns, probes, draws). Compendium 8 / _rb69.
@@ -8104,6 +8162,8 @@ private List<Card> CollectCardsInPlay(bool opponent)
 
     private void CompleteTurnChange()
     {
+        _eotEndingInProgress = false;
+        _eotEndingInProgress = false;
         _endTurnAfterDrawStack = false;
         _horgahnExtraPlayUsed = false;
         _pendingExtraDraws = 0;
@@ -9608,6 +9668,7 @@ private List<Card> CollectCardsInPlay(bool opponent)
         _wormholeShip = null;
         ClearHailTurnState();
         _pendingExtraDraws = 0;
+        _eotEndingInProgress = false;
         _endTurnAfterDrawStack = false;
         _attachedEvents.Clear();
         _ionizationBeamsThisTurnByPlayer[1] = 0; _ionizationBeamsThisTurnByPlayer[2] = 0;
