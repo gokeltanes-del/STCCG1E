@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-20 (Jadzia — Pepsch green Tetryon+Amanda; Alien Groupie in progress)
+Last updated: 2026-09-20 (Data — Alien Groupie tip; Amanda+Tetryon working)
 Scope: **Premiere** (`PR`) + **Alternate Universe** catalogued. **Priority: finish all unfinished Premiere cards first.** AU is logged only; not prioritized unless already wired.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -194,7 +194,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Subspace Warp Rift (94 C) | working | Pepsch green 2026-09-20. | Pepsch 2026-09-20 |
 | Supernova (95 R) | working | Pepsch green. tip Data/`b789fe5` + surface tip/`98e6984`: Planet→[S] surface discard + husk Opacity. Mit Tox Uthat (kein Dialog; Kevin nullify; Tox consumed at init). | Pepsch 2026-09-20; Data/`b789fe5`+`98e6984` |
 | Telepathic Alien Kidnappers (96 U) | working | Pepsch green. | Pepsch 2026-09-19 |
-| Tetryon Field (97 C) | working | Pepsch green. tip Data/`2d6ea3b` (fly-by ShowPlayError + Debuff tone with Rift). | Pepsch 2026-09-20; Data/`2d6ea3b` |
+| Tetryon Field (97 C) | working | Pepsch green; fly-by ShowPlayError + Debuff tip 2d6ea3b. | Pepsch 2026-09-20; Data/2d6ea3b |
 | The Traveler: Transcendence (98 U) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Treaty: Federation/Klingon (99 C) | working | Pepsch green 2026-09-20 (Treaty family). | Pepsch 2026-09-20 |
 | Treaty: Federation/Romulan (100 C) | working | Pepsch green 2026-09-20 (Treaty family). | Pepsch 2026-09-20 |
@@ -214,8 +214,8 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 
 | Card | Status | Notes | Source |
 | --- | --- | --- | --- |
-| Alien Groupie (107 R) | partial | Data building (in progress). Pending Pepsch green. | Data 2026-09-20 |
-| Amanda Rogers (108 U) | working | Pepsch green 2026-09-20. | Pepsch 2026-09-20 |
+| Alien Groupie (107 R) | working | Just-solve window; Female req; random male stop countdown 2. tip HASH. | Data 2026-09-20 |
+| Amanda Rogers (108 R) | working | Pepsch green. | Pepsch 2026-09-20 |
 | Asteroid Sanctuary (109 C) | partial | Pepsch FAIL: wrongly offered as Response on Outpost/Facility battle. Data Go: CanRespond ship-only (Defender=ship, not Facility). Not working until Pepsch greens after tip. | Pepsch 2026-09-17; Data Go ship-only CanRespond |
 | Auto-Destruct Sequence (110 U) | unknown |  |  |
 | Crosis (111 R) | working | Pepsch green. | Pepsch 2026-09-06 |

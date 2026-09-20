@@ -103,7 +103,10 @@ public static class InterruptRules
     public static bool IsInterferenceNullifyTarget(Card? c) =>
         IsIncomingMessage(c) || IsHail(c) || IsSubspaceSchism(c);
     public static bool IsSubspaceSchism(Card? c) => NameIs(c, "Subspace Schism");
-    public static bool IsEscapePod(Card? c) => NameIs(c, "Escape Pod");
+        public static bool IsAlienGroupie(Card c) =>
+        NameIs(c, "Alien Groupie");
+
+public static bool IsEscapePod(Card? c) => NameIs(c, "Escape Pod");
     public static bool IsWormhole(Card? c) => NameIs(c, "Wormhole");
 
     public static bool IsShipSeizure(Card? c) => NameIs(c, "Ship Seizure");

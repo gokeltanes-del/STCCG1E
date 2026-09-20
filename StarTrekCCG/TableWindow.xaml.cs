@@ -398,6 +398,8 @@ public partial class TableWindow : Window
         public int? ScopePlayer { get; set; }
         /// <summary>Owner/controller to restore after Neural Servo (etc.).</summary>
         public int SavedHostOwner { get; set; }
+        /// <summary>Alien Groupie: stopped male personnel.</summary>
+        public Card? Extra { get; set; }
     }
 
     private readonly List<AttachedEvent> _attachedEvents = new();
@@ -410,6 +412,11 @@ public partial class TableWindow : Window
     private readonly HashSet<Border> _movedThisTurnAfterArrival = new();
     /// <summary>Mission index this ship arrived at during the current turn (Rift / Tetryon “move again”).</summary>
     private readonly Dictionary<Border, int> _arrivedMissionThisTurn = new();
+    /// <summary>Glossary just: Away Team that just solved a planet — Alien Groupie window.</summary>
+    private Border? _justSolvedPlanetMission;
+    private readonly List<Border> _justSolvedTeamBorders = new();
+    private int _justSolvedPlayer;
+
     private readonly HashSet<Border> _cloakedShips = new();
     /// <summary>Ship → facility it is docked at (7.1.4).</summary>
     private readonly Dictionary<Border, Border> _dockedAt = new();
@@ -13379,6 +13386,9 @@ private List<Card> CollectCardsInPlay(bool opponent)
         MarkMissionSolved(missionBorder, mission, _activePlayer, result.Points);
         _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
             $"Solved {mission.Name} for {result.Points} points");
+        // Glossary just: Alien Groupie — Away Team that just solved a planet mission
+        if (MissionCountsAsPlanetCard(mission))
+            ArmJustSolvedPlanet(missionBorder, teamBorders, _activePlayer);
 
         // Rulebook 7.2.2.3: Mission completed may cure dilemmas attached here (e.g. Alien Abduction)
         TryCureAttachedDilemmas(missionBorder);
@@ -13595,6 +13605,16 @@ private List<Card> CollectCardsInPlay(bool opponent)
             }
             ShowPlayError("Escape Pod plays just after your ship is destroyed.");
             return false;
+        }
+
+        if (InterruptRules.IsAlienGroupie(card))
+        {
+            if (_justSolvedPlanetMission == null || _justSolvedPlayer != owner
+                || _justSolvedTeamBorders.Count == 0)
+            {
+                ShowPlayError("Alien Groupie plays just after your Away Team solves a planet mission.");
+                return false;
+            }
         }
 
         if (InterruptRules.IsHugh(card))
@@ -15164,6 +15184,9 @@ private List<Card> CollectCardsInPlay(bool opponent)
                     }
                     break;
                 }
+            case InterruptRules.Effect.AlienGroupie:
+                ApplyAlienGroupie(card, controller, r);
+                break;
             case InterruptRules.Effect.AutoDestruct:
                 {
                     Border? shipB = PickOwnShip(controller);
@@ -15205,6 +15228,7 @@ private List<Card> CollectCardsInPlay(bool opponent)
         if (r.Effect is not InterruptRules.Effect.RogueBorg
             and not InterruptRules.Effect.Crosis
             and not InterruptRules.Effect.IncomingMessage
+            and not InterruptRules.Effect.AlienGroupie
             && !hailMarkPending)
             RemoveOrphanTableCopies(card);
 
@@ -21849,6 +21873,132 @@ _spacelineOrder.Remove(pod);
         UpdateHostBadge(host);
     }
 
+﻿    private void ArmJustSolvedPlanet(Border mission, List<Border> teamBorders, int player)
+    {
+        _justSolvedPlanetMission = mission;
+        _justSolvedPlayer = player;
+        _justSolvedTeamBorders.Clear();
+        _justSolvedTeamBorders.AddRange(teamBorders.Where(b => b.Tag is Card c && ModifierRules.IsPersonnelCard(c)));
+        StatusText.Text = "Just: planet solved — Alien Groupie may play on that Away Team.";
+        _session.Log.Add(_session.TurnNumber, $"P{player}",
+            "Just window: planet mission solved (Alien Groupie)");
+    }
+
+    private void ClearJustSolvedPlanet(string reason)
+    {
+        if (_justSolvedPlanetMission == null && _justSolvedTeamBorders.Count == 0) return;
+        _justSolvedPlanetMission = null;
+        _justSolvedTeamBorders.Clear();
+        _justSolvedPlayer = 0;
+        _session.Log.AddDebug(_session.TurnNumber, "Just", $"Alien Groupie window cleared ({reason})");
+    }
+
+    private void ApplyAlienGroupie(Card card, int controller, InterruptRules.Result r)
+    {
+        if (_justSolvedPlanetMission == null || _justSolvedPlayer != controller)
+        {
+            ShowPlayError("Alien Groupie: no just-solved planet Away Team.");
+            ReturnInterruptToHand(card, controller);
+            return;
+        }
+
+        var teamBorders = _justSolvedTeamBorders
+            .Where(b => b.Tag is Card c && ModifierRules.IsPersonnelCard(c)
+                        && GetBorderOwner(b) == controller)
+            .ToList();
+        if (teamBorders.Count == 0)
+        {
+            ShowPlayError("Alien Groupie: Away Team no longer present.");
+            ReturnInterruptToHand(card, controller);
+            return;
+        }
+
+        var teamCards = teamBorders.Select(b => (Card)b.Tag!).ToList();
+        if (!teamCards.Any(DilemmaRules.IsFemale))
+        {
+            ShowPlayError("Alien Groupie requires a Female present.");
+            ReturnInterruptToHand(card, controller);
+            return;
+        }
+
+        var males = teamBorders.Where(b => b.Tag is Card c && DilemmaRules.IsMale(c)).ToList();
+        if (males.Count == 0)
+        {
+            ShowPlayError("Alien Groupie: no male present to stop.");
+            ReturnInterruptToHand(card, controller);
+            return;
+        }
+
+        var victimB = males[_autoSeedRng.Next(males.Count)];
+        var victim = (Card)victimB.Tag!;
+        MarkStopped(victimB);
+
+        Border attachHost = _justSolvedPlanetMission!;
+        var mini = CreateFloatingCard(card);
+        mini.Visibility = Visibility.Collapsed;
+        if (!TableCanvas.Children.Contains(mini))
+            TableCanvas.Children.Add(mini);
+        AddCardToHostStack(attachHost, mini);
+
+        int cd = r.Countdown > 0 ? r.Countdown : 2;
+        _attachedEvents.Add(new AttachedEvent
+        {
+            Card = card,
+            Kind = EventRules.Persist.None,
+            Owner = controller,
+            Host = attachHost,
+            Countdown = cd,
+            Extra = victim,
+            TurnScope = TimingRules.TurnScope.EveryTurn,
+            PhasePoint = TimingRules.TurnPhasePoint.EndOfTurn,
+            ScopePlayer = null
+        });
+
+        ClearJustSolvedPlanet("Groupie played");
+        StatusText.Text = $"Alien Groupie: {victim.Name} stopped (countdown {cd}).";
+        _session.Log.Add(_session.TurnNumber, $"P{controller}",
+            $"Alien Groupie stops {victim.Name} until countdown {cd} expires");
+        UpdateHostBadge(attachHost);
+        ShowCardReveal(card, "Alien Groupie",
+            $"Requires Female — OK.\nRandom male stopped: {victim.Name}\nCountdown {cd} (end of each turn).",
+            RevealButtons.Ok, card.Name);
+    }
+
+    private void ReturnInterruptToHand(Card card, int controller)
+    {
+        var hand = controller == 1 ? _handCards : _oppHandCards;
+        if (!hand.Contains(card)) hand.Add(card);
+        RefreshHandStrips();
+        RefreshZoneCounts();
+    }
+
+    private void ExpireAlienGroupie(AttachedEvent e)
+    {
+        if (e.Extra != null)
+        {
+            var vb = FindBorderForCard(e.Extra);
+            if (vb != null && _stoppedBorders.Contains(vb))
+                UnstopBorder(vb);
+        }
+        if (e.Host != null && _stackOnHost.TryGetValue(e.Host, out var stack))
+        {
+            foreach (var b in stack.Where(x => x.Tag is Card c && ReferenceEquals(c, e.Card)).ToList())
+            {
+                stack.Remove(b);
+                if (TableCanvas.Children.Contains(b))
+                    TableCanvas.Children.Remove(b);
+            }
+            UpdateHostBadge(e.Host);
+        }
+        _attachedEvents.Remove(e);
+        SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
+        string who = e.Extra?.Name ?? "?";
+        _session.Log.Add(_session.TurnNumber, "sys",
+            $"Alien Groupie expires — {who} unstopped; Groupie discarded.");
+        StatusText.Text = $"Alien Groupie expired — {who} unstopped.";
+    }
+
+
     private void UnstopBorder(Border border)
     {
         if (_stoppedBorders.Remove(border))
@@ -22549,6 +22699,7 @@ _spacelineOrder.Remove(pod);
 
     private void ProcessEndOfTurnEvents(int owner)
     {
+        ClearJustSolvedPlanet("end of turn");
         foreach (var e in _attachedEvents.ToList())
         {
             if (EndOfTurnEventRules.ShouldDiscardTranswarp(
@@ -22556,6 +22707,18 @@ _spacelineOrder.Remove(pod);
             {
                 _attachedEvents.Remove(e);
                 SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
+                continue;
+            }
+
+            if (InterruptRules.IsAlienGroupie(e.Card) && e.Countdown > 0)
+            {
+                int cd = e.Countdown;
+                bool expired = TimingRules.TickCountdown(
+                    ref cd, e.TurnScope, e.PhasePoint,
+                    TimingRules.TurnPhasePoint.EndOfTurn, owner, e.ScopePlayer);
+                e.Countdown = cd;
+                if (expired)
+                    ExpireAlienGroupie(e);
                 continue;
             }
 
