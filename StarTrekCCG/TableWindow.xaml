@@ -270,7 +270,7 @@
                                         <Border x:Name="DetailStackSection" Grid.Column="0" Grid.ColumnSpan="2" Grid.Row="1" Visibility="Collapsed" Margin="0,12,0,0" BorderBrush="#3A3A50" BorderThickness="0,1,0,0" Padding="0,10,0,0">
                                             <DockPanel>
                                                 <TextBlock DockPanel.Dock="Top" x:Name="DetailStackTitle" Text="Contents" Foreground="#FFE082" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                                                <ScrollViewer DockPanel.Dock="Bottom" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Height="118">
+                                                <ScrollViewer x:Name="DetailStackScroll" DockPanel.Dock="Bottom" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Height="118">
                                                     <StackPanel x:Name="DetailStackCards" Orientation="Horizontal"/>
                                                 </ScrollViewer>
                                                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" MaxHeight="140" Margin="0,0,0,8">

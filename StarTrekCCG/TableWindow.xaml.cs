@@ -3151,6 +3151,7 @@ public partial class TableWindow : Window
                 Canvas.SetTop(_dragCard, canvasPos.Y - _dragOffset.Y);
             }
             var winPos = e.GetPosition(this);
+            AutoScrollDetailStackAt(winPos);
             // Discard-Snap (rot + Karte verkleinern) hat Vorrang
             if (UpdateDiscardSnap(winPos))
             {
@@ -4967,13 +4968,23 @@ public partial class TableWindow : Window
             return false;
         }
 
-        // Alle Card Plays (auch for free) vor Execute
+        // Normal plays in Play. Horga'hn optional extra also allowed in Execute (never blocks End Turn).
         if (_session.Segment != GameSession.TurnSegment.Play)
         {
-            denyReason =
-                "Hand cards only in the Play segment (before Execute). "
-                + "Interrupts/Doorways weiterhin jederzeit.";
-            return false;
+            bool horgahnExtraInExecute =
+                _session.Segment == GameSession.TurnSegment.Execute
+                && GameSession.UsesNormalCardPlay(card)
+                && !forFree
+                && _session.NormalCardPlayUsed
+                && HasHorgahn(_activePlayer)
+                && !_horgahnExtraPlayUsed;
+            if (!horgahnExtraInExecute)
+            {
+                denyReason =
+                    "Hand cards only in the Play segment (before Execute). "
+                    + "Interrupts/Doorways jederzeit; Horga'hn: 1 extra card also in Execute.";
+                return false;
+            }
         }
 
         if (forFree)
@@ -5030,16 +5041,16 @@ public partial class TableWindow : Window
 
         if (_session.NormalCardPlayUsed && HasHorgahn(_activePlayer) && !_horgahnExtraPlayUsed)
         {
+            // Second card this turn via Horga'hn (Play or Execute).
             _horgahnExtraPlayUsed = true;
             _session.Log.Add(_session.TurnNumber, $"P{_session.ActivePlayer}",
                 $"Horga'hn extra play: {card.Name}");
             StatusText.Text = $"Horga'hn: extra card play {card.Name}.";
-            // Bleibt im Play-Segment bis manuell Execute – oder auto Execute
             if (_session.Segment == GameSession.TurnSegment.Play)
             {
                 _session.AdvanceSegment();
                 SyncSessionToUi();
-                OnTurnContextChanged($"Horga'hn-Play {card.Name} · → Execute.");
+                OnTurnContextChanged($"Horga'hn-Play {card.Name} -> Execute.");
             }
             UpdatePhaseControls();
             return;
@@ -5053,32 +5064,28 @@ public partial class TableWindow : Window
             else _uniquePersonnelPlayedP2 = true;
         }
         _session.MarkNormalCardPlay(card.Name ?? "?");
-        // Normale Card Play verbraucht → Play-Segment abgeschlossen → Execute
-        // Ausnahme: Horga'hn noch verfügbar → im Play bleiben
+        // First normal play always leaves Play -> Execute. Horga'hn extra is optional in Execute
+        // (or before End PLAY); never hold the turn waiting on P1.
         if (_session.Segment == GameSession.TurnSegment.Play
             && _session.NormalCardPlayUsed
-            && !_session.NormalCardPlayForfeited
-            && !(HasHorgahn(_activePlayer) && !_horgahnExtraPlayUsed))
+            && !_session.NormalCardPlayForfeited)
         {
             _session.AdvanceSegment();
             SyncSessionToUi();
-            OnTurnContextChanged($"{card.Name} played · auto → Execute (orders).");
-            UpdatePhaseControls();
-            return;
-        }
-        if (HasHorgahn(_activePlayer) && !_horgahnExtraPlayUsed)
-        {
-            StatusText.Text =
-                $"{card.Name} played. Horga'hn: 1 extra card play still available.";
+            string extraHint = HasHorgahn(_activePlayer) && !_horgahnExtraPlayUsed
+                ? " Horga'hn: 1 extra card still possible in Execute (or draw at EOT)."
+                : "";
+            OnTurnContextChanged($"{card.Name} played -> Execute (orders).{extraHint}");
+            if (HasHorgahn(_activePlayer) && !_horgahnExtraPlayUsed)
+                StatusText.Text =
+                    $"{card.Name} played -> Execute. Horga'hn: play 1 more card now, or take extra draw at end of turn.";
             UpdatePhaseControls();
             return;
         }
         UpdatePhaseControls();
     }
 
-
-    /// <summary>Alle Karten "im Spiel" f├╝r Unique-Checks (Hosts, Dockables, Tisch, ÔÇª).</summary>
-    private List<Card> CollectCardsInPlay(bool opponent)
+private List<Card> CollectCardsInPlay(bool opponent)
     {
         var list = new List<Card>();
         void Add(Card? c)
@@ -9928,6 +9935,37 @@ public partial class TableWindow : Window
         e.Handled = true;
     }
 
+
+    /// <summary>
+    /// While dragging (e.g. Kevin) over Detail stack strip: edge-scroll horizontal viewport slowly.
+    /// </summary>
+    private void AutoScrollDetailStackAt(Point windowPos)
+    {
+        if (DetailStackScroll == null || DetailStackSection == null) return;
+        if (DetailStackSection.Visibility != Visibility.Visible) return;
+        if (DetailStackScroll.ExtentWidth <= DetailStackScroll.ViewportWidth + 1) return;
+        try
+        {
+            var tl = DetailStackScroll.TransformToAncestor(this).Transform(new Point(0, 0));
+            double w = DetailStackScroll.ActualWidth > 1 ? DetailStackScroll.ActualWidth : DetailStackScroll.RenderSize.Width;
+            double h = DetailStackScroll.ActualHeight > 1 ? DetailStackScroll.ActualHeight : DetailStackScroll.RenderSize.Height;
+            if (w < 8 || h < 8) return;
+            var rect = new Rect(tl, new Size(w, h));
+            rect.Inflate(0, 12);
+            if (!rect.Contains(windowPos)) return;
+
+            const double edge = 36;
+            const double step = 14;
+            double localX = windowPos.X - tl.X;
+            if (localX <= edge)
+                DetailStackScroll.ScrollToHorizontalOffset(Math.Max(0, DetailStackScroll.HorizontalOffset - step));
+            else if (localX >= w - edge)
+                DetailStackScroll.ScrollToHorizontalOffset(
+                    Math.Min(DetailStackScroll.ScrollableWidth, DetailStackScroll.HorizontalOffset + step));
+        }
+        catch { }
+    }
+
     private void Card_MouseMove(object sender, MouseEventArgs e)
     {
         if (_dragCard == null || e.LeftButton != MouseButtonState.Pressed)
@@ -9955,6 +9993,7 @@ public partial class TableWindow : Window
         Canvas.SetLeft(_dragCard, pos.X - _dragOffset.X);
         Canvas.SetTop(_dragCard, pos.Y - _dragOffset.Y);
         UpdateSnapPreview(_dragCard);
+        AutoScrollDetailStackAt(e.GetPosition(this));
     }
 
     private void Card_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
