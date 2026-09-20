@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-20 (Jadzia — Pepsch green Stone of Gol + Kurlan Naiskos)
+Last updated: 2026-09-20 (Jadzia — Pepsch green Horga'hn tip 5b92210)
 Scope: **Premiere** (`PR`) + **Alternate Universe** catalogued. **Priority: finish all unfinished Premiere cards first.** AU is logged only; not prioritized unless already wired.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -29,13 +29,13 @@ Source tip: when Data/Spock/Seven/Captain report, update the row.
 
 | Status | Count | Role |
 | --- | ---: | --- |
-| `working` | 82 | Done (Pepsch green) |
+| `working` | 83 | Done (Pepsch green) |
 | `partial` | 6 | **Next smoke / rework** |
-| `unknown` | 275 | **Backlog — finish Premiere** |
+| `unknown` | 274 | **Backlog — finish Premiere** |
 | `blocked` | 0 | — |
 | **Total** | **363** | |
 
-**Premiere partials (queue):** Q (blocked Continuum) · Crystalline Entity · Iconian Computer Weapon · Alien Probe · Asteroid Sanctuary · Escape Pod
+**Premiere partials (queue):** ** Q (blocked Continuum) · Crystalline Entity · Iconian Computer Weapon · Alien Probe · Asteroid Sanctuary · Escape Pod
 
 | Card Type | Count |
 | --- | ---: |
@@ -83,7 +83,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Card | Status | Notes | Source |
 | --- | --- | --- | --- |
 | Betazoid Gift Box (1 R) | working | Pepsch green tip Data/adac172 (search download 0..3 + IgnoreOppPrevent; discard always). | Pepsch 2026-09-20; Data/adac172 |
-| Horga'hn (2 R) | unknown |  |  |
+| Horga'hn (2 R) | working | Pepsch green. tip Data/`5b92210` / engine 2nd play + prior EOT/turn-flip fixes (turn switch + EOT +2 cards). | Pepsch 2026-09-20; Data/`5b92210` |
 | Interphase Generator (3 R) | working | Pepsch green: nullify path vs [IPG] incl. Nausicaans; Rebel Encounter nullify also OK. IPG display cleanup done (Glyph only; tip with `5c08269` batch). | Pepsch 2026-09-18; Data/`5c08269` display |
 | Kurlan Naiskos (4 R) | working | Pepsch green (inkl. Kevin as Event). tip Data/`6d15780`: any ship incl. opp; RANGE/W/S x3 when staffed. | Pepsch 2026-09-20; Data/`6d15780` |
 | Thought Maker (5 R) | unknown |  |  |
