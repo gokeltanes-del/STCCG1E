@@ -4504,7 +4504,11 @@ public partial class TableWindow : Window
             int who = _endTurnFinishingPlayer;
             FinishEndOfTurnDrawExtras(who);
             if (_stack.IsOpen && _stack.Top?.Kind == TimingRules.ActionKind.DrawCard)
+            {
+                ShowActionAnnounce();
+                UpdatePhaseControls();
                 return;
+            }
             CompleteTurnChange();
         }
     }
@@ -7754,7 +7758,18 @@ private List<Card> CollectCardsInPlay(bool opponent)
         if (_stack.IsOpen)
         {
             BtnPhaseNext.IsEnabled = false;
-            if (BtnEndTurn != null) BtnEndTurn.IsEnabled = false;
+            // EOT / Horga'hn draw responses: keep End Turn so Pepsch is never stuck in EXECUTE.
+            if (BtnEndTurn != null)
+            {
+                bool eotDraw = _endTurnAfterDrawStack
+                    && _stack.Top?.Kind == TimingRules.ActionKind.DrawCard;
+                BtnEndTurn.IsEnabled = eotDraw;
+                if (eotDraw)
+                {
+                    BtnEndTurn.Visibility = Visibility.Visible;
+                    BtnEndTurn.Content = "Finish turn / Pass (Space)";
+                }
+            }
             if (ActivePlayerText != null && ResponseIndicatorBadge?.Visibility != Visibility.Visible)
             {
                 string respInfo = _stack.Top?.IsMandatory == true ? " · MANDATORY RESPONSE REQUIRED" : "";
@@ -7916,6 +7931,27 @@ private List<Card> CollectCardsInPlay(bool opponent)
             return;
         }
 
+
+        // EOT draw / Horga'hn extra draw opened a response stack — Space/End finishes it
+        // instead of leaving P1 stuck in EXECUTE with End Turn disabled.
+        if (_endTurnAfterDrawStack && _stack.IsOpen
+            && _stack.Top?.Kind == TimingRules.ActionKind.DrawCard)
+        {
+            PassCurrentResponseWindow();
+            if (_endTurnAfterDrawStack && !_stack.IsOpen)
+            {
+                int who = _endTurnFinishingPlayer;
+                FinishEndOfTurnDrawExtras(who);
+                if (_stack.IsOpen && _stack.Top?.Kind == TimingRules.ActionKind.DrawCard)
+                {
+                    ShowActionAnnounce();
+                    return;
+                }
+                CompleteTurnChange();
+            }
+            return;
+        }
+
         // Play → Execute
         if (_session.Segment == GameSession.TurnSegment.Play)
         {
@@ -7996,10 +8032,24 @@ private List<Card> CollectCardsInPlay(bool opponent)
         {
             _endTurnAfterDrawStack = true;
             _endTurnFinishingPlayer = finishingPlayer;
+            StatusText.Text =
+                "End-of-turn draw — response window (or Space / End Turn to pass and finish).";
+            ShowActionAnnounce();
+            UpdatePhaseControls();
             return;
         }
 
         FinishEndOfTurnDrawExtras(finishingPlayer);
+        if (_stack.IsOpen && _stack.Top?.Kind == TimingRules.ActionKind.DrawCard)
+        {
+            _endTurnAfterDrawStack = true;
+            _endTurnFinishingPlayer = finishingPlayer;
+            StatusText.Text =
+                "Horga'hn extra draw — response window (or Space / End Turn to pass and finish).";
+            ShowActionAnnounce();
+            UpdatePhaseControls();
+            return;
+        }
         CompleteTurnChange();
     }
 
