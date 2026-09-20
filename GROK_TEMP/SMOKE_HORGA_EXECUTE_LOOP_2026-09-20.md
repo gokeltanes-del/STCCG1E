@@ -1,5 +1,5 @@
 ﻿# Smoke — Horga EXECUTE loop (2026-09-20)
-Tip: PENDING · EXE Debug must be AFTER tip (check LastWriteTime)
+Tip: c328826 · EXE Debug must be AFTER tip (check LastWriteTime)
 
 **Ursache:** Space bei offenem/geschlossenem EOT-Draw-Stack rief erneut volles FinishExecuteAndEndTurn auf → jede Runde Draw, Segment blieb EXECUTE, P2 nie.
 
