@@ -1,6 +1,6 @@
 ﻿# SMOKE Tetryon / Rift detail UX
 
-tip: HASH  EXE: EXE_TIME
+tip: 2d6ea3b  EXE: 2026-09-20 20:08:20
 
 1. Planet with Tetryon: detail Negative/Debuff group shows Tetryon Field.
 2. Planet with Subspace Warp Rift: same Debuff/Negative (not Info/Positive).

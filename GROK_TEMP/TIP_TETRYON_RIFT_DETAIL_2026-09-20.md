@@ -1,7 +1,7 @@
 ﻿# Tip Tetryon / Rift UX (Josef)
 
-tip: HASH
-EXE: EXE_TIME
+tip: 2d6ea3b
+EXE: 2026-09-20 20:08:20
 msg: fix(ui): Tetryon fly-by ShowPlayError; Rift+Tetryon Debuff tone
 
 ## Changes
