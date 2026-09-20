@@ -18655,7 +18655,8 @@ private bool ControllerHasToxOnTable(int controller)
         _boardPickShipHandler = onPick;
         _cardActionMode = CardActionMode.BoardPickShip;
         ClearTargetHighlights();
-        foreach (var b in TableCanvas.Children.OfType<Border>())
+        // Materialize first: AddTargetHighlight adds to Children and would invalidate the enumerator.
+        foreach (var b in TableCanvas.Children.OfType<Border>().ToList())
         {
             if (b.Tag is not Card c || !IsShipCard(c)) continue;
             int o = GetBorderOwner(b);
