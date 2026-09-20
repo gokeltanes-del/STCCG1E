@@ -1210,7 +1210,7 @@ public partial class TableWindow : Window
             SeedPileP2 = CurrentSeedPileCards(2),
             CryoPersonnelSeededP1 = CountCryoPersonnelSeeded(1),
             CryoPersonnelSeededP2 = CountCryoPersonnelSeeded(2),
-            NormalCardPlayAvailable = _session.NormalCardPlayAvailable,
+            NormalCardPlayAvailable = _session.NormalCardPlayAvailable || HorgaSecondPlayAvailable,
             NormalCardPlayUsed = _session.NormalCardPlayUsed,
             StackOpen = _stack.IsOpen,
             ResponsePlayer = _stack.ResponsePlayer,
@@ -16594,6 +16594,18 @@ private List<Card> CollectCardsInPlay(bool opponent)
         var table = player == 2 ? _oppTablePermanentCards : _tablePermanentCards;
         return table.Any(ArtifactRules.IsHorgahn);
     }
+
+    /// <summary>
+    /// Horga'hn optional 2nd normal play still open in Play — engine seed must OR this into
+    /// NormalCardPlayAvailable or EffectRegistry denies Events before UI TryAllowHandPlay.
+    /// </summary>
+    private bool HorgaSecondPlayAvailable =>
+        _session.Match == GameSession.MatchPhase.Play
+        && _session.Segment == GameSession.TurnSegment.Play
+        && _session.NormalCardPlayUsed
+        && !_session.NormalCardPlayForfeited
+        && HasHorgahn(_session.ActivePlayer)
+        && !_horgahnExtraPlayUsed;
 
     /// <summary>Leaving play ends continuous effects (Horga'hn extra play/draw, …).</summary>
     private void OnCardLeftPlay(Card card)
