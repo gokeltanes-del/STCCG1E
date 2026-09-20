@@ -432,6 +432,9 @@ public partial class TableWindow : Window
     private readonly HashSet<Border> _cloakLocked = new();
     private bool _auPlayedThisTurnP1;
     private bool _auPlayedThisTurnP2;
+    private Card? _pendingAuJustPlayedCard;
+    private int _pendingAuJustPlayedBy;
+
     private readonly Dictionary<Border, Border> _conundrumChase = new();
     private readonly Dictionary<Border, int> _edoContinuePenalty = new();
     private bool _seniorStaffArmed;
@@ -3848,6 +3851,15 @@ public partial class TableWindow : Window
             if (InterruptRules.IsHail(item.Card) && top.Kind == TimingRules.ActionKind.ShipFlyBy
                 && player != top.DefenderOwner)
                 return false;
+            // Distortion: Unique global + need own non-[AU] ship.
+            if (InterruptRules.IsDistortionContinuum(item.Card)
+                && top.Kind == TimingRules.ActionKind.OpponentJustPlayedAu)
+            {
+                if (_attachedEvents.Any(e => InterruptRules.IsDistortionContinuum(e.Card)))
+                    return false;
+                if (!HasOwnNonAuShip(player))
+                    return false;
+            }
             return true;
         }).ToList();
     }
@@ -4588,6 +4600,7 @@ public partial class TableWindow : Window
         HideActionAnnounce();
         while (_stack.IsOpen)
             ResolveTopOfStack();
+        FlushPendingAuJustPlayed();
         RefreshResponseUi();
         ShowActivePlayerHand();
         UpdatePhaseControls();
@@ -4755,6 +4768,14 @@ public partial class TableWindow : Window
             StatusText.Text = a.Cancelled
                 ? $"Just-solve window closed ({a.CancelledBy})."
                 : "Just-solve window passed.";
+            return;
+        }
+
+        if (a.Kind == TimingRules.ActionKind.OpponentJustPlayedAu)
+        {
+            StatusText.Text = a.Cancelled
+                ? $"[AU] just-play window closed ({a.CancelledBy})."
+                : "[AU] just-play window passed.";
             return;
         }
 
@@ -21443,10 +21464,56 @@ _spacelineOrder.Remove(pod);
             return;
         if (player == 1) _auPlayedThisTurnP1 = true;
         else _auPlayedThisTurnP2 = true;
+        // Queue just-AU LegalResponse for the opponent (flush when stack is idle).
+        _pendingAuJustPlayedCard = card;
+        _pendingAuJustPlayedBy = player;
+        if (!_stack.IsOpen)
+            FlushPendingAuJustPlayed();
+    }
+
+    private void FlushPendingAuJustPlayed()
+    {
+        if (_pendingAuJustPlayedCard == null || _pendingAuJustPlayedBy is not (1 or 2))
+            return;
+        if (_stack.IsOpen) return;
+        var au = _pendingAuJustPlayedCard;
+        int auPlayer = _pendingAuJustPlayedBy;
+        _pendingAuJustPlayedCard = null;
+        _pendingAuJustPlayedBy = 0;
+        OpenOpponentJustPlayedAuResponse(au, auPlayer);
+    }
+
+    private void OpenOpponentJustPlayedAuResponse(Card auCard, int auPlayer)
+    {
+        int responder = auPlayer == 1 ? 2 : 1;
+        _stack.Push(new TimingRules.PendingAction
+        {
+            Kind = TimingRules.ActionKind.OpponentJustPlayedAu,
+            Controller = auPlayer,
+            Card = auCard,
+            Summary = $"P{auPlayer} just played [AU]: {auCard.Name}"
+        });
+        OpenResponseWindow(responder);
+        ScheduleActionAnnounce(400);
+        StatusText.Text = $"{auCard.Name} ([AU]) — Distortion responses…";
+        _session.Log.Add(_session.TurnNumber, "sys",
+            $"[AU] just-play window for P{responder} ({auCard.Name})");
     }
 
     private bool OpponentPlayedAuThisTurn(int me) =>
         me == 1 ? _auPlayedThisTurnP2 : _auPlayedThisTurnP1;
+
+    private bool HasOwnNonAuShip(int player)
+    {
+        foreach (var b in CollectAllShipBorders())
+        {
+            if (b.Tag is not Card sc || !IsShipCard(sc)) continue;
+            if (GetBorderOwner(b) != player && sc.Controller != player) continue;
+            if (CardIcons.HasAlternateUniverse(sc)) continue;
+            return true;
+        }
+        return false;
+    }
 
     private static bool IsNonAlignedShip(Card c)
     {
@@ -21787,13 +21854,17 @@ _spacelineOrder.Remove(pod);
             }
             return;
         }
-        if (!OpponentPlayedAuThisTurn(controller)
-            && ShowCardReveal(card, "Distortion of Space/Time Continuum",
-                "Printed timing: play just after opponent plays an AU card. Continue anyway?",
-                RevealButtons.YesNo) != RevealAnswer.Yes)
+        // SOLL 2026-09-20: just-AU LegalResponse only — no soft AskPlayer bypass.
+        bool justAuWindow = _stack.Items.Any(a =>
+            a.Kind == TimingRules.ActionKind.OpponentJustPlayedAu
+            && a.Controller != controller);
+        if (!justAuWindow)
         {
+            ShowPlayError("Distortion: play just after opponent plays an [AU] card.");
             var hand = controller == 1 ? _handCards : _oppHandCards;
             if (!hand.Contains(card)) hand.Add(card);
+            RefreshHandStrips();
+            RefreshZoneCounts();
             return;
         }
         bool alreadyInPlay = _attachedEvents.Any(e =>
@@ -21825,21 +21896,27 @@ _spacelineOrder.Remove(pod);
             && InterruptRules.IsDistortionContinuum(e.Card));
         if (ae == null) return;
         var shipName = (host.Tag as Card)?.Name ?? "ship";
-        if (ShowCardReveal(ae.Card, "Distortion",
-                $"Unstop {shipName} and crew?", RevealButtons.YesNo) == RevealAnswer.Yes)
+        string choice = AskChoice(ae.Card, "Distortion",
+            $"Discard Distortion for one effect on {shipName}:",
+            "Unstop ship and crew",
+            "Restore full RANGE",
+            "Unstop Away Team here");
+        if (string.IsNullOrWhiteSpace(choice))
+            return;
+        if (choice.StartsWith("Unstop ship", StringComparison.OrdinalIgnoreCase))
         {
             UnstopBorder(host);
             if (_stackOnHost.TryGetValue(host, out var crew))
                 foreach (var b in crew) UnstopBorder(b);
+            StatusText.Text = $"Distortion: {shipName} and crew unstopped.";
         }
-        else if (ShowCardReveal(ae.Card, "Distortion",
-                     $"Restore full RANGE on {shipName}?", RevealButtons.YesNo) == RevealAnswer.Yes)
+        else if (choice.StartsWith("Restore full", StringComparison.OrdinalIgnoreCase))
         {
             if (host.Tag is Card sc)
             {
-                int hull = GetHullDamage(host);
-                SetShipRangeLeft(host, sc, BattleRules.EffectiveRange(sc, hull));
-                StatusText.Text = $"Distortion: {shipName} RANGE restored.";
+                int full = DistortionFullRange(host, sc);
+                SetShipRangeLeft(host, sc, full);
+                StatusText.Text = $"Distortion: {shipName} full RANGE restored ({full}).";
             }
         }
         else
@@ -21858,6 +21935,20 @@ _spacelineOrder.Remove(pod);
         _session.Log.Add(_session.TurnNumber, $"P{ae.Owner}", "Distortion discarded after use.");
         UpdateHostBadge(host);
         ClearCardActionUi();
+    }
+
+    /// <summary>
+    /// Printed + permanent enhancements (e.g. Kurlan); ignore hull/baryon/junior reductions.
+    /// Active Transwarp Conduit still doubles while attached.
+    /// </summary>
+    private int DistortionFullRange(Border shipBorder, Card ship)
+    {
+        var aboard = GetAllStackedCardsOnHost(shipBorder);
+        int full = BattleRules.ApplyKurlan(MovementRules.GetShipRange(ship), aboard);
+        if (_attachedEvents.Any(e =>
+                e.Host == shipBorder && InterruptRules.IsTranswarpConduit(e.Card)))
+            full *= 2;
+        return Math.Max(0, full);
     }
 
     private void ApplyTachyonGrid(Card card, int controller)

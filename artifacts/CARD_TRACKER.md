@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-20 (Jadzia — Pepsch green Disruptor Overload; Distortion in progress)
+Last updated: 2026-09-20 (Jadzia — Distortion LegalResponse tip pending Pepsch green)
 Scope: **Premiere** (`PR`) + **Alternate Universe** catalogued. **Priority: finish all unfinished Premiere cards first.** AU is logged only; not prioritized unless already wired.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -220,7 +220,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Auto-Destruct Sequence (110 U) | working | Countdown 1; destroy ship + splash SHIELDS<8. tip 96336de. | Data 2026-09-20 |
 | Crosis (111 R) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Disruptor Overload (112 C) | working | Pepsch green 2026-09-20. | Pepsch 2026-09-20 |
-| Distortion of Space/Time Continuum (113 U) | partial | Data building LegalResponse after opp [AU]. Pending Pepsch green. | Data 2026-09-20 |
+| Distortion of Space/Time Continuum (113 U) | partial | tip pending LegalResponse just-AU + full RANGE AskChoice. Pending Pepsch green. | Data 2026-09-20 |
 | Emergency Transporter Armbands (114 C) | unknown |  |  |
 | Energy Vortex (115 U) | unknown |  |  |
 | Escape Pod (116 C) | partial | tips Data/`5e55eef` + `7917a30`/`a3481a1` + `acc1426` + Z/`c1b622e` (Josef, no push): Response/Think Tray Z over CardDetail while open. Prior: ShipDestroyed window during battle stack; crew/personnel only; crew aboard + Pod in hand; excludes captives. Stays partial until Pepsch greens Borg-destroy -> pick Pod â€” not working. | Data/`c1b622e` 2026-09-15 |

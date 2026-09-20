@@ -23,7 +23,9 @@ public static class TimingRules
         /// <summary>Ship span-flying past a location (Hail response window).</summary>
         ShipFlyBy,
         /// <summary>Planet mission just solved (Alien Groupie / other just responses).</summary>
-        MissionJustSolved
+        MissionJustSolved,
+        /// <summary>Opponent just successfully played an [AU] card (Distortion Continuum).</summary>
+        OpponentJustPlayedAu
     }
 
     public enum Destination
@@ -211,7 +213,8 @@ public static class TimingRules
             || n.Equals("Escape Pod", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Subspace Interference", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Hail", StringComparison.OrdinalIgnoreCase)
-            || n.Equals("Alien Groupie", StringComparison.OrdinalIgnoreCase);
+            || n.Equals("Alien Groupie", StringComparison.OrdinalIgnoreCase)
+            || n.Equals("Distortion of Space/Time Continuum", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -365,6 +368,16 @@ public static class TimingRules
             if (!present.Any(DilemmaRules.IsMale))
                 return (false, "Alien Groupie: no male present to stop.");
             return (true, "Stop one male present until countdown 2 expires.");
+        }
+
+
+        if (n.Equals("Distortion of Space/Time Continuum", StringComparison.OrdinalIgnoreCase))
+        {
+            if (top.Kind != ActionKind.OpponentJustPlayedAu)
+                return (false, "Distortion: plays just after opponent plays an [AU] card.");
+            if (top.Controller == responseOwner)
+                return (false, "Distortion: that was your own [AU] play.");
+            return (true, "Attach to your non-[AU] ship (Unique).");
         }
 
 return (false, $"\"{n}\" is not a valid response in this window.");
