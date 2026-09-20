@@ -221,7 +221,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Crosis (111 R) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Disruptor Overload (112 C) | working | Pepsch green 2026-09-20. | Pepsch 2026-09-20 |
 | Distortion of Space/Time Continuum (113 U) | working | Pepsch green 2026-09-20 (rest OK; unstop untested). | Pepsch 2026-09-20 |
-| Emergency Transporter Armbands (114 C) | partial | tip 809e27c battle/[ETA] LegalResponse + mid-combat deny. Pending Pepsch green. | Data 2026-09-20 |
+| Emergency Transporter Armbands (114 C) | partial | tip 13583d0 Spock Lock ETA icon + Distortion/PE. Pending Pepsch green. | Data 2026-09-20 |
 | Energy Vortex (115 U) | working | Pepsch green 2026-09-20. | Pepsch 2026-09-20 |
 | Escape Pod (116 C) | partial | tips Data/`5e55eef` + `7917a30`/`a3481a1` + `acc1426` + Z/`c1b622e` (Josef, no push): Response/Think Tray Z over CardDetail while open. Prior: ShipDestroyed window during battle stack; crew/personnel only; crew aboard + Pod in hand; excludes captives. Stays partial until Pepsch greens Borg-destroy -> pick Pod â€” not working. | Data/`c1b622e` 2026-09-15 |
 | Full Planet Scan (117 U) | unknown |  |  |

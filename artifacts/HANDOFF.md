@@ -1,3 +1,4 @@
+- tip 13583d0 fix(premiere): Armbands Spock Lock ETA icon + Distortion/PE beam — EXE 2026-09-20 22:23:06 — GROK_TEMP/TIP_EMERGENCY_ARMBANDS_SPOCK_2026-09-20.md
 - tip 809e27c feat(premiere): Emergency Transporter Armbands beam during battle/ETA — EXE 2026-09-20 22:21:19 — GROK_TEMP/TIP_EMERGENCY_ARMBANDS_2026-09-20.md
 - tip f378f10 fix(premiere): Distortion full RANGE includes HULL attrib (Spock Lock) — EXE 2026-09-20 21:40:35 — GROK_TEMP/TIP_DISTORTION_SPOCK_RANGE_2026-09-20.md
 - tip 5f3319c feat(premiere): Distortion Continuum just-AU LegalResponse — EXE 2026-09-20 21:38:55 — GROK_TEMP/TIP_DISTORTION_CONTINUUM_2026-09-20.md
@@ -262,6 +263,8 @@ Local VS: C:\\Dev\\StarTrekCCG\\
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test.
 
 ## Current tip
+Local Josef tip **13583d0** - Armbands Spock Lock (Pepsch smoke). Nicht gepusht.
+
 Local Josef tip **809e27c** - Emergency Transporter Armbands battle/[ETA] (Pepsch smoke). Nicht gepusht.
 
 Local Josef tip **f378f10** - Distortion RANGE Spock Lock (Pepsch smoke). Nicht gepusht.
