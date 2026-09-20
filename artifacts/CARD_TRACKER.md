@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-20 (Jadzia — Pepsch green Time Travel Pod)
+Last updated: 2026-09-20 (Jadzia — Pepsch green Thought Maker; Premiere Artifacts complete)
 Scope: **Premiere** (`PR`) + **Alternate Universe** catalogued. **Priority: finish all unfinished Premiere cards first.** AU is logged only; not prioritized unless already wired.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -29,9 +29,9 @@ Source tip: when Data/Spock/Seven/Captain report, update the row.
 
 | Status | Count | Role |
 | --- | ---: | --- |
-| `working` | 87 | Done (Pepsch green) |
+| `working` | 88 | Done (Pepsch green) |
 | `partial` | 6 | **Next smoke / rework** |
-| `unknown` | 270 | **Backlog — finish Premiere** |
+| `unknown` | 269 | **Backlog — finish Premiere** |
 | `blocked` | 0 | — |
 | **Total** | **363** | |
 
@@ -79,6 +79,8 @@ Source tip: when Data/Spock/Seven/Captain report, update the row.
 Source JSON: `artifacts/sample_data/PR/cards.json`
 
 ### Artifact
+**Premiere Artifacts: complete** (all 9 working as of 2026-09-20 Thought Maker green).
+
 
 | Card | Status | Notes | Source |
 | --- | --- | --- | --- |
@@ -86,7 +88,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Horga'hn (2 R) | working | Pepsch green. tip Data/`5b92210` / engine 2nd play + prior EOT/turn-flip fixes (turn switch + EOT +2 cards). | Pepsch 2026-09-20; Data/`5b92210` |
 | Interphase Generator (3 R) | working | Pepsch green: nullify path vs [IPG] incl. Nausicaans; Rebel Encounter nullify also OK. IPG display cleanup done (Glyph only; tip with `5c08269` batch). | Pepsch 2026-09-18; Data/`5c08269` display |
 | Kurlan Naiskos (4 R) | working | Pepsch green (inkl. Kevin as Event). tip Data/`6d15780`: any ship incl. opp; RANGE/W/S x3 when staffed. | Pepsch 2026-09-20; Data/`6d15780` |
-| Thought Maker (5 R) | unknown |  |  |
+| Thought Maker (5 R) | working | Pepsch green. tips Data/`dfac2fe`/`e00f660` (Interrupt anytime). Premiere Artifacts complete. | Pepsch 2026-09-20; Data/`dfac2fe`+`e00f660` |
 | Time Travel Pod (6 R) | working | Pepsch green. Location links+Gap; Opp/Own BoardPick Relocate; Countdown [2] Owner-EOT while ship here; Discard+Return. tips Data/`d6226c0`/`db54b59`/`6351229`. | Pepsch 2026-09-20; Data/`d6226c0`+`db54b59`+`6351229` |
 | Tox Uthat (7 R) | working | Pepsch green. tip Data/`b789fe5`: kein Tox-Dialog; Kevin nullify Tox; dedupe Kevin-Targets; Tox consumed at init. | Pepsch 2026-09-20; Data/`b789fe5` |
 | Varon-T Disruptor (8 R) | working | Pepsch getestet: Looten OK, verdoppelt STRENGTH auf Planet; Beamen auf Schiff ohne Treaty repariert (`TreatyRules.CanOccupyHost`). | Pepsch 2026-09-12 |
