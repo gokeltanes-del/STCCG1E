@@ -85,12 +85,12 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Betazoid Gift Box (1 R) | working | Pepsch green tip Data/adac172 (search download 0..3 + IgnoreOppPrevent; discard always). | Pepsch 2026-09-20; Data/adac172 |
 | Horga'hn (2 R) | unknown |  |  |
 | Interphase Generator (3 R) | working | Pepsch green: nullify path vs [IPG] incl. Nausicaans; Rebel Encounter nullify also OK. IPG display cleanup done (Glyph only; tip with `5c08269` batch). | Pepsch 2026-09-18; Data/`5c08269` display |
-| Kurlan Naiskos (4 R) | partial | tip Data/PENDING_SK: any ship incl. opp; RANGE/W/S x3 when staffed. Pending Pepsch green. | Data/PENDING_SK 2026-09-20 |
+| Kurlan Naiskos (4 R) | partial | tip Data/6d15780: any ship incl. opp; RANGE/W/S x3 when staffed. Pending Pepsch green. | Data/6d15780 2026-09-20 |
 | Thought Maker (5 R) | unknown |  |  |
 | Time Travel Pod (6 R) | unknown |  |  |
 | Tox Uthat (7 R) | unknown |  |  |
 | Varon-T Disruptor (8 R) | working | Pepsch getestet: Looten OK, verdoppelt STRENGTH auf Planet; Beamen auf Schiff ohne Treaty repariert (`TreatyRules.CanOccupyHost`). | Pepsch 2026-09-12 |
-| Vulcan Stone of Gol (9 R) | partial | tip Data/PENDING_SK: planet AT only; Plays-as-Event kill+discard (no inert host). Pending Pepsch green. | Data/PENDING_SK 2026-09-20 |
+| Vulcan Stone of Gol (9 R) | partial | tip Data/6d15780: planet AT only; Plays-as-Event kill+discard (no inert host). Pending Pepsch green. | Data/6d15780 2026-09-20 |
 
 ### Dilemma
 

@@ -1,4 +1,4 @@
-Local Josef tip **PENDING_SK** - Stone + Kurlan Plays-on (Pepsch smoke). Nicht gepusht.
+Local Josef tip **6d15780** - Stone + Kurlan Plays-on (Pepsch smoke). Nicht gepusht.
 
 ## Tip detail (Data, Josef, 2026-09-20) - Stone + Kurlan Plays-on
 Captain Go / Spock \GROK_TEMP/SOLL_AWAYTEAM_PLAYSON_2026-09-20.md\.
