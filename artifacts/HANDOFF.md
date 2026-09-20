@@ -1,5 +1,19 @@
 Local Josef tip docs: Gift Box Pepsch green → working (adac172). Kein Code.
 
+Local Josef tip **PENDING_NAME3** - Detail Name x3 fix (Pepsch smoke). Nicht gepusht.
+
+## Tip detail (Data, Josef, 2026-09-20) - Detail Name x3 fix
+Captain Go (separater Tip; Stone/Kurlan still waiting Spock).
+### Fix
+- FormatHostEffectSummary (Event + Dilemma): effect-only, no Event:/Dilemma: + Name prefix.
+- FormatAttachedHostEffectLine fallback: kind/COUNTER only, no card.Name.
+- ShowCardDetail Event/Dilemma: DetailIcons empty (glyph strip only); effects only in DetailStatusBlock.
+- Red Alert status moved into RefreshDetailStatusBlock (same single channel).
+### Smoke
+1. Open attached Event/Dilemma detail: white Name once; effect line once in status; no Name under type.
+2. Open host with attached Event: status shows effect text without repeating event title.
+3. Red Alert detail: status lines still present; Name only in white header.
+
 ## Note (Data, 2026-09-20) - Detail Name x3 (Ursache, kein Fix-Tip)
 Pepsch smoke: weisser Name + Typ OK, Name 3x darunter (auch andere Typen); aehnlich IPG-Ueberkill.
 ### Ursache (Event/Dilemma-Pfad)

@@ -3871,11 +3871,13 @@ public static class DilemmaRules
             PersistKind.BorgShip => "Borg Ship dilemma remains",
             _ => ""
         };
-        string line = "Dilemma: " + card.Name;
-        if (!string.IsNullOrEmpty(effect))
-            line += " — " + effect;
+        // Name only in DetailName (white). Effect-only summary — one channel (IPG-style).
+        _ = card;
+        string line = effect ?? "";
         if (countdown > 0)
-            line += $"  ·  COUNTER {countdown}";
+            line = string.IsNullOrEmpty(line)
+                ? $"COUNTER {countdown}"
+                : line + $"  ·  COUNTER {countdown}";
         return line;
     }
     // ---- Extract Slice 6: ApplyDilemmaResult decide gates (no WPF) ----

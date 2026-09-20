@@ -695,11 +695,13 @@ public static class EventRules
             _ => ""
         };
 
-        string line = "Event: " + card.Name;
-        if (!string.IsNullOrEmpty(effect))
-            line += " — " + effect;
+        // Name only in DetailName (white). Effect-only summary — one channel (IPG-style).
+        _ = card;
+        string line = effect ?? "";
         if (countdown > 0)
-            line += $"  ·  COUNTER {countdown}";
+            line = string.IsNullOrEmpty(line)
+                ? $"COUNTER {countdown}"
+                : line + $"  ·  COUNTER {countdown}";
         return line;
     }
 

@@ -22383,6 +22383,9 @@ public partial class TableWindow : Window
         // Dilemma / Event card itself: show tone for live attachments
         if (EventRules.IsEvent(card) || CardKinds.IsDilemma(card))
         {
+            if (EventRules.IsRedAlert(card))
+                AddDetailStatusLine(FormatRedAlertStatusLine(card), DetailStatusTone.Buff);
+
             foreach (var ae in _attachedEvents.Where(e => ReferenceEquals(e.Card, card)))
             {
                 var tone = DetailStatusRules.ToneForEvent(ae.Kind, ae.Countdown);
@@ -24099,7 +24102,9 @@ public partial class TableWindow : Window
             && dk != DilemmaRules.PersistKind.None)
             return DilemmaRules.FormatHostEffectSummary(dk, card, countdown);
 
-        string line = $"{kind}: {card.Name}";
+        // No card.Name here — DetailName is the only name channel.
+        _ = card;
+        string line = kind;
         if (countdown > 0)
             line += $"  ·  COUNTER {countdown}";
         return line;
@@ -24173,26 +24178,9 @@ public partial class TableWindow : Window
             DetailAttributes.Text = string.Join("  •  ", attrs);
             DetailClass.Text = "";
             DetailStaff.Text = "";
-            var counterLines = new List<string>();
-            foreach (var ae in _attachedEvents.Where(e => ReferenceEquals(e.Card, card)))
-            {
-                string hostName = (ae.Host?.Tag as Card)?.Name ?? "(no host)";
-                IEnumerable<Card>? aboard = ae.Host == null
-                    ? null
-                    : GetAllCardsOnHost(ae.Host, GetBorderOwner(ae.Host) == 0 ? 1 : GetBorderOwner(ae.Host));
-                counterLines.Add(FormatAttachedHostEffectLine("Event", card, ae.Countdown, ae.Kind.ToString(), aboard)
-                                 + $"  ·  on {hostName}");
-            }
-            foreach (var ad in _attachedDilemmas.Where(d => ReferenceEquals(d.Card, card)))
-            {
-                string hostName = (ad.Host?.Tag as Card)?.Name ?? "(no host)";
-                counterLines.Add(FormatAttachedHostEffectLine("Dilemma", card, ad.Countdown, ad.Kind.ToString(), null)
-                                 + $"  ·  on {hostName}");
-            }
-            if (EventRules.IsRedAlert(card))
-                counterLines.Add(FormatRedAlertStatusLine(card));
-            // IPG Detail-Overkill: no purple "Icons: [IPG]" fallback — glyph strip is enough.
-            DetailIcons.Text = string.Join("\n", counterLines);
+            // Name×3 / IPG-style: effect lines live only in DetailStatusBlock (RefreshDetailStatusBlock).
+            // DetailIcons stays empty — glyph strip via IconCatalog.Fill only.
+            DetailIcons.Text = "";
         }
         else if (CardKinds.IsPersonnel(card))
         {
