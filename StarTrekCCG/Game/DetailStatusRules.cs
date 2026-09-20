@@ -50,6 +50,9 @@ public static class DetailStatusRules
                 // Glossary: Distortion Field — beaming lock (not Interrupt Distortion of S/T Continuum)
                 or EventRules.Persist.Fingernail
                 or EventRules.Persist.Distortion
+                // Pepsch UX: planet detail Negative — Tetryon Field + Subspace Warp Rift
+                or EventRules.Persist.Tetryon
+                or EventRules.Persist.Rift
                 => DetailStatusTone.Debuff,
             _ => DetailStatusTone.Info
         };

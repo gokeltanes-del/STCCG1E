@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-20 (Jadzia — Pepsch green Q-Net/Rift/Treaties; Tetryon partial)
+Last updated: 2026-09-20 (Data — Tetryon/Rift Debuff + fly-by ShowPlayError; Pepsch GREEN treaties/Q-Net/Rift)
 Scope: **Premiere** (`PR`) + **Alternate Universe** catalogued. **Priority: finish all unfinished Premiere cards first.** AU is logged only; not prioritized unless already wired.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 

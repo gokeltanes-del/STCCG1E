@@ -10920,7 +10920,8 @@ private List<Card> CollectCardsInPlay(bool opponent)
             indexOfHost: h => BoardIndexOf(boardLine, h));
         if (block != null)
         {
-            StatusText.Text = block;
+            // Pepsch UX: Tetryon/Q-Net/Rift deny must be a visible error, not StatusText-only
+            ShowPlayError(block);
             return false;
         }
 
