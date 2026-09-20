@@ -2107,7 +2107,8 @@ public partial class TableWindow : Window
     private readonly Dictionary<int, Border> _ttpPodByOwner = new(); // owner → pod location border
     private readonly Dictionary<Border, Border> _ttpShipFormerLocation = new(); // ship → former mission
     private readonly HashSet<int> _ttpOwnRelocateUsed = new(); // owner already used own-ship relocate
-    private readonly Dictionary<Border, int> _ttpCountdown = new(); // printed countdown 2 while ship here
+    /// <summary>Printed countdown [2]; keyed by Card so Detail/Process share one SoT (Border Find is ambiguous).</summary>
+    private readonly Dictionary<Card, int> _ttpCountdown = new();
     /// <summary>TTP placed; ask opp relocate after modal reveals close (not mid-acquire).</summary>
     private Border? _pendingTtpOppRelocatePod;
 
@@ -18713,10 +18714,10 @@ private bool ControllerHasToxOnTable(int controller)
         Panel.SetZIndex(border, 9);
         _spacelineOrder.Insert(0, border);
         _ttpPodByOwner[owner] = border;
-        _ttpCountdown[border] = 2;
+        _ttpCountdown[art] = 2; // printed icon [2]
         RelayoutMissionsOnSpaceline();
         _session.Log.Add(_session.TurnNumber, $"P{owner}",
-            "Time Travel Pod placed as space time location (left of spaceline)");
+            "Time Travel Pod placed as space time location (left of spaceline); countdown init=2");
         StatusText.Text = "Time Travel Pod on spaceline (time location).";
 
         // Defer Yes/BoardPick until after acquire/mission Reveal overlays close
@@ -18800,12 +18801,7 @@ private bool ControllerHasToxOnTable(int controller)
             ship => RelocateShipOntoTimeTravelPod(ship, pod, owner, opponentInit: false));
     }
     
-        /// <summary>
-    /// Spock: countdown icon [2]; tick only at end of pod-owner's turn while a ship is present
-    /// (pause with no ship); at 0 discard + return ships.
-    /// Owner comes from <see cref="_ttpPodByOwner"/> — spaceline GetBorderOwner is often 0.
-    /// </summary>
-    private int ResolveTimeTravelPodOwner(Border pod, Card pc)
+            private int ResolveTimeTravelPodOwner(Border pod, Card pc)
     {
         foreach (var kv in _ttpPodByOwner)
         {
@@ -18817,14 +18813,32 @@ private bool ControllerHasToxOnTable(int controller)
         return o;
     }
 
+    /// <summary>Canonical spaceline pod border for a TTP card (not FindBorderForCard — duplicates possible).</summary>
+    private Border? ResolveTimeTravelPodBorder(Card pc)
+    {
+        foreach (var kv in _ttpPodByOwner)
+        {
+            if (kv.Value.Tag is Card c && ReferenceEquals(c, pc))
+                return kv.Value;
+        }
+        return null;
+    }
+
     private void ProcessTimeTravelPodCountdowns(int endingPlayer)
     {
         foreach (var kv in _ttpCountdown.ToList())
         {
-            var pod = kv.Key;
-            if (pod.Tag is not Card pc || !ArtifactRules.IsTimeTravelPod(pc))
+            var pc = kv.Key;
+            if (!ArtifactRules.IsTimeTravelPod(pc))
             {
-                _ttpCountdown.Remove(pod);
+                _ttpCountdown.Remove(pc);
+                continue;
+            }
+            var pod = ResolveTimeTravelPodBorder(pc);
+            if (pod == null)
+            {
+                DebugLog.Engine(_session.TurnNumber, endingPlayer,
+                    "TTP countdown skip: no _ttpPodByOwner border for card");
                 continue;
             }
             int podOwner = ResolveTimeTravelPodOwner(pod, pc);
@@ -18844,9 +18858,8 @@ private bool ControllerHasToxOnTable(int controller)
             if (!shipHere)
                 continue; // pause while no ship here
             int cd = kv.Value - 1;
-            _ttpCountdown[pod] = cd;
-            if (_detailCard != null && ArtifactRules.IsTimeTravelPod(_detailCard)
-                && pod.Tag is Card dpc && ReferenceEquals(dpc, _detailCard))
+            _ttpCountdown[pc] = cd;
+            if (_detailCard != null && ReferenceEquals(_detailCard, pc))
                 RefreshDetailStatusBlock(_detailCard);
             _session.Log.Add(_session.TurnNumber, $"P{podOwner}",
                 $"Time Travel Pod countdown → {cd} (ship present, owner EOT)");
@@ -18855,7 +18868,7 @@ private bool ControllerHasToxOnTable(int controller)
                 "Time Travel Pod countdown expired - discard");
             ReturnShipsFromTimeTravelPod(pc);
             SendCardTo(pc, podOwner, TimingRules.Destination.Discard);
-            _ttpCountdown.Remove(pod);
+            _ttpCountdown.Remove(pc);
         }
     }
 
@@ -18888,7 +18901,7 @@ private void ReturnShipsFromTimeTravelPod(Card podCard)
             }
             _ttpShipFormerLocation.Remove(ship);
         }
-                _ttpCountdown.Remove(pod);
+                _ttpCountdown.Remove(podCard);
 _spacelineOrder.Remove(pod);
         if (TableCanvas.Children.Contains(pod))
             TableCanvas.Children.Remove(pod);
@@ -23049,21 +23062,16 @@ _spacelineOrder.Remove(pod);
         // Time Travel Pod: countdown + ships docked (paused while no ship here).
         if (ArtifactRules.IsTimeTravelPod(card))
         {
-            Border? pod = FindBorderForCard(card);
-            if (pod == null)
+            Border? pod = ResolveTimeTravelPodBorder(card);
+            if (!_ttpCountdown.TryGetValue(card, out int cd))
             {
-                foreach (var kv in _ttpPodByOwner)
-                {
-                    if (kv.Value.Tag is Card pc && ReferenceEquals(pc, card))
-                    {
-                        pod = kv.Value;
-                        break;
-                    }
-                }
+                // Place always inits 2; heal orphan display rather than show [0].
+                cd = 2;
+                if (pod != null)
+                    _ttpCountdown[card] = 2;
             }
             if (pod != null)
             {
-                int cd = _ttpCountdown.GetValueOrDefault(pod, 0);
                 var shipNames = GetDockablesUnderMission(pod)
                     .Where(b => b.Tag is Card sc && IsShipCard(sc))
                     .Select(b => (b.Tag as Card)?.Name ?? "?")
@@ -23081,6 +23089,10 @@ _spacelineOrder.Remove(pod);
                         "Ship present: " + string.Join(", ", shipNames),
                         DetailStatusTone.Buff);
                 }
+            }
+            else
+            {
+                AddDetailStatusLine($"Countdown [{cd}]", DetailStatusTone.Timer);
             }
         }
 
