@@ -18754,10 +18754,17 @@ private bool ControllerHasToxOnTable(int controller)
     private void RelocateShipOntoTimeTravelPod(Border ship, Border pod, int podOwner, bool opponentInit)
     {
         if (ship.Tag is not Card sc) return;
+        // Prefer canonical pod from owner map (same SoT as countdown).
+        if (pod.Tag is Card podCard)
+        {
+            var canon = ResolveTimeTravelPodBorder(podCard);
+            if (canon != null) pod = canon;
+        }
         var from = FindMissionForDockable(ship);
         if (from != null)
             _ttpShipFormerLocation[ship] = from;
         RelocateShipToLocation(ship, pod);
+        _dockableAtMission[ship] = pod; // assert pin even if Relayout re-guessed
         _session.Log.Add(_session.TurnNumber, $"P{podOwner}",
             opponentInit
                 ? $"Time Travel Pod: relocated opponent ship {sc.Name} here"
@@ -18824,6 +18831,25 @@ private bool ControllerHasToxOnTable(int controller)
         return null;
     }
 
+    private bool TimeTravelPodHasShipPresent(Border pod)
+    {
+        if (GetDockablesUnderMission(pod).Any(b => b.Tag is Card c && IsShipCard(c)))
+            return true;
+        foreach (var kv in _dockableAtMission)
+        {
+            if (!ReferenceEquals(kv.Value, pod)) continue;
+            if (kv.Key.Tag is Card sc && IsShipCard(sc) && TableCanvas.Children.Contains(kv.Key))
+                return true;
+        }
+        foreach (var b in TableCanvas.Children.OfType<Border>().ToList())
+        {
+            if (b.Tag is not Card c || !IsShipCard(c)) continue;
+            if (ReferenceEquals(FindMissionForDockable(b), pod))
+                return true;
+        }
+        return false;
+    }
+
     private void ProcessTimeTravelPodCountdowns(int endingPlayer)
     {
         foreach (var kv in _ttpCountdown.ToList())
@@ -18837,35 +18863,47 @@ private bool ControllerHasToxOnTable(int controller)
             var pod = ResolveTimeTravelPodBorder(pc);
             if (pod == null)
             {
-                DebugLog.Engine(_session.TurnNumber, endingPlayer,
-                    "TTP countdown skip: no _ttpPodByOwner border for card");
+                string msg = $"TTP countdown skip: no-border (ending P{endingPlayer}, cd={kv.Value})";
+                _session.Log.Add(_session.TurnNumber, $"P{endingPlayer}", msg);
+                StatusText.Text = msg;
                 continue;
             }
             int podOwner = ResolveTimeTravelPodOwner(pod, pc);
             if (podOwner is not (1 or 2))
             {
-                DebugLog.Engine(_session.TurnNumber, endingPlayer,
-                    $"TTP countdown skip: unresolved owner (ending P{endingPlayer})");
+                string msg = $"TTP countdown skip: unresolved-owner (ending P{endingPlayer}, cd={kv.Value})";
+                _session.Log.Add(_session.TurnNumber, $"P{endingPlayer}", msg);
+                StatusText.Text = msg;
                 continue;
             }
             if (podOwner != endingPlayer)
             {
-                DebugLog.Engine(_session.TurnNumber, endingPlayer,
-                    $"TTP countdown skip: owner P{podOwner} != ending P{endingPlayer}");
+                string msg =
+                    $"TTP countdown skip: not-owner (pod P{podOwner}, ending P{endingPlayer}, cd={kv.Value})";
+                _session.Log.Add(_session.TurnNumber, $"P{endingPlayer}", msg);
+                StatusText.Text = msg;
                 continue;
             }
-            bool shipHere = GetDockablesUnderMission(pod).Any(b => b.Tag is Card c && IsShipCard(c));
-            if (!shipHere)
-                continue; // pause while no ship here
-            int cd = kv.Value - 1;
+            if (!TimeTravelPodHasShipPresent(pod))
+            {
+                string msg =
+                    $"TTP countdown skip: no-ship (paused, owner P{podOwner} EOT, cd={kv.Value})";
+                _session.Log.Add(_session.TurnNumber, $"P{podOwner}", msg);
+                StatusText.Text = msg;
+                continue;
+            }
+            int from = kv.Value;
+            int cd = from - 1;
             _ttpCountdown[pc] = cd;
             if (_detailCard != null && ReferenceEquals(_detailCard, pc))
                 RefreshDetailStatusBlock(_detailCard);
-            _session.Log.Add(_session.TurnNumber, $"P{podOwner}",
-                $"Time Travel Pod countdown → {cd} (ship present, owner EOT)");
+            string tickMsg = $"TTP countdown {from}→{cd} (ship present, owner P{podOwner} EOT)";
+            _session.Log.Add(_session.TurnNumber, $"P{podOwner}", tickMsg);
+            StatusText.Text = tickMsg;
             if (cd > 0) continue;
             _session.Log.Add(_session.TurnNumber, $"P{podOwner}",
                 "Time Travel Pod countdown expired - discard");
+            StatusText.Text = "Time Travel Pod countdown expired — discarded; ships returned.";
             ReturnShipsFromTimeTravelPod(pc);
             SendCardTo(pc, podOwner, TimingRules.Destination.Discard);
             _ttpCountdown.Remove(pc);

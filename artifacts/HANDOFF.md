@@ -1,3 +1,9 @@
+Local Josef tip 593b0dd — TTP countdown EOT tick + shipHere + visible skip log. Nicht gepusht.
+- EXE: 2026-09-20 16:06:12
+- TimeTravelPodHasShipPresent: GetDockables OR _dockableAtMission OR FindMissionForDockable
+- Relocate asserts _dockableAtMission[ship]=canonical pod
+- Every EOT pass: session Log + StatusText (tick N→N-1 / not-owner / no-ship / no-border)
+
 # HANDOFF (Josef local) — recent tips (truncated after HANDOFF bloat)
 
 Local Josef tip d656751 — TTP countdown Card-keyed init 2. Nicht gepusht.
