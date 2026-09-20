@@ -8421,17 +8421,41 @@ private List<Card> CollectCardsInPlay(bool opponent)
     private void UnstopAllCards()
     {
         if (_stoppedBorders.Count == 0) return;
+        int kept = 0;
         foreach (var b in _stoppedBorders.ToList())
         {
+            // Pepsch: Alien Groupie stop lasts until countdown expires (ExpireAlienGroupie).
+            if (IsHeldByActiveAlienGroupie(b))
+            {
+                kept++;
+                continue;
+            }
+            _stoppedBorders.Remove(b);
             ApplyStoppedVisual(b, stopped: false);
             if (b.Tag is Card c && c.InstanceId > 0
                 && BoardStore.Current.ById.TryGetValue(c.InstanceId, out var inst))
                 inst.Stopped = false;
         }
-        _stoppedBorders.Clear();
-        _session.Log.Add(_session.TurnNumber, "Pystem", "All stopped cards are active again.");
+        if (kept == 0)
+            _session.Log.Add(_session.TurnNumber, "System", "All stopped cards are active again.");
+        else
+            _session.Log.Add(_session.TurnNumber, "System",
+                $"Unstop: {kept} held by Alien Groupie countdown.");
 
         TryCureAttachedDilemmas();
+    }
+
+    /// <summary>True while an Alien Groupie with remaining countdown still stops this personnel.</summary>
+    private bool IsHeldByActiveAlienGroupie(Border border)
+    {
+        if (border.Tag is not Card card) return false;
+        return _attachedEvents.Any(e =>
+            InterruptRules.IsAlienGroupie(e.Card)
+            && e.Countdown > 0
+            && e.Extra != null
+            && (ReferenceEquals(e.Extra, card)
+                || (e.Extra.InstanceId > 0 && e.Extra.InstanceId == card.InstanceId)
+                || ReferenceEquals(FindBorderForCard(e.Extra), border)));
     }
 
     private void SyncSessionToUi()
