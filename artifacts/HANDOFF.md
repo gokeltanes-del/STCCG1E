@@ -1,4 +1,4 @@
-Local Josef tip **PENDING_F2** - Plays-on F2 Kevin + Spec-Host. Nicht gepusht.
+Local Josef tip **7719373** - Plays-on F2 Kevin + Spec-Host. Nicht gepusht.
 
 ## Tip detail (Data, Josef, 2026-09-20) - Plays-on F2 Kevin + Spec-Host
 ### F2
