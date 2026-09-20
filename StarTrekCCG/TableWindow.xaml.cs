@@ -16151,6 +16151,85 @@ public partial class TableWindow : Window
         return false;
     }
 
+
+    /// <summary>
+    /// Printed Betazoid Gift Box: player picks 0..N cards from own draw to hand
+    /// (real search download, not top-N), shuffle draw, ignore opp prevent-download.
+    /// Returns count taken. Caller discards the artifact.
+    /// </summary>
+    private int RunBetazoidGiftBoxDownload(Card art, ArtifactRules.AcquireResult acq)
+    {
+        int player = _activePlayer;
+        var draw = player == 1 ? _drawCards : _oppDrawCards;
+        var hand = player == 1 ? _handCards : _oppHandCards;
+        var req = DownloadRules.GiftBoxAcquireRequest(player, art);
+        bool oppPrevent = OpponentDownloadPreventionActive(player);
+        if (!DownloadRules.MayDownloadDespiteOpponentPrevention(req, oppPrevent))
+        {
+            StatusText.Text = "Betazoid Gift Box: download blocked (unexpected).";
+            return 0;
+        }
+
+        int maxWanted = acq.DownloadFromDraw > 0 ? acq.DownloadFromDraw : req.MaxCount;
+        int max = DownloadRules.ClampDownloadCount(
+            new DownloadRules.Request
+            {
+                Player = player,
+                Source = DownloadRules.Source.DrawDeck,
+                Dest = DownloadRules.Dest.Hand,
+                MaxCount = maxWanted,
+                IgnoreOpponentDownloadPrevention =
+                    acq.IgnoreOpponentDownloadPrevention || req.IgnoreOpponentDownloadPrevention
+            },
+            draw.Count);
+
+        int taken = 0;
+        while (taken < max && draw.Count > 0)
+        {
+            string choice = AskChoice(art, "Betazoid Gift Box",
+                $"Immediately download to hand (up to {acq.DownloadFromDraw}). Chosen so far: {taken}. Ignoring opponent cards that prevent downloading.",
+                "Download a card", "Done");
+            if (string.IsNullOrEmpty(choice)
+                || !choice.StartsWith("Download", StringComparison.OrdinalIgnoreCase))
+                break;
+
+            Card? pick = PickCardFromList(
+                "Click a card from your draw deck to download to hand.",
+                draw.ToList(),
+                "Betazoid Gift Box",
+                art);
+            if (pick == null)
+                break;
+
+            draw.Remove(pick);
+            pick.FaceUp = true;
+            if (!hand.Contains(pick))
+                hand.Add(pick);
+            taken++;
+            ShowCardReveal(pick, "Betazoid Gift Box",
+                $"{pick.Name} downloaded to P{player}'s hand ({taken}/{acq.DownloadFromDraw}).",
+                RevealButtons.Ok, pick.Name);
+            _session.Log.Add(_session.TurnNumber, $"P{player}",
+                $"Gift Box download: {pick.Name}");
+        }
+
+        ShuffleList(draw);
+        ShowActivePlayerHand();
+        RefreshZoneCounts();
+        return taken;
+    }
+
+    /// <summary>
+    /// True when an opponent effect currently prevents this player's downloads.
+    /// Premiere has few such cards; stub returns false until those are wired.
+    /// Gift Box ignores this via DownloadRules.MayDownloadDespiteOpponentPrevention.
+    /// </summary>
+    private bool OpponentDownloadPreventionActive(int downloadingPlayer)
+    {
+        _ = downloadingPlayer;
+        return false;
+    }
+
     private void ApplyArtifactAcquire(Card art, Border missionBorder, Card mission)
     {
         var acq = ArtifactRules.ResolveAcquire(art);
@@ -16164,19 +16243,11 @@ public partial class TableWindow : Window
             case ArtifactRules.AcquirePlacement.ImmediateDiscard:
                 if (ArtifactRules.ShouldDownloadOnAcquire(acq))
                 {
-                    var draw = _activePlayer == 1 ? _drawCards : _oppDrawCards;
-                    var hand = _activePlayer == 1 ? _handCards : _oppHandCards;
-                    int n = Math.Min(acq.DownloadFromDraw, draw.Count);
-                    for (int i = 0; i < n; i++)
-                    {
-                        hand.Add(draw[0]);
-                        draw.RemoveAt(0);
-                    }
-                    ShowActivePlayerHand();
-                    RefreshZoneCounts();
-                    StatusText.Text = $"Betazoid Gift Box: {n} card(s) from Draw → Hand.";
+                    int downloaded = RunBetazoidGiftBoxDownload(art, acq);
+                    StatusText.Text =
+                        $"Betazoid Gift Box: downloaded {downloaded} to hand (search draw); artifact discarded.";
                 }
-                // Artifact discarded (nicht ins Spiel)
+// Artifact discarded (nicht ins Spiel)
                 {
                     var disc = _activePlayer == 2 ? _oppDiscardCards : _discardCards;
                     if (!disc.Contains(art)) disc.Add(art);

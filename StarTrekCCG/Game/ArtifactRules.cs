@@ -29,6 +29,8 @@ public static class ArtifactRules
         public string Message { get; init; } = "";
         /// <summary>Betazoid Gift Box: Karten vom Draw Deck.</summary>
         public int DownloadFromDraw { get; init; }
+        /// <summary>Printed Gift Box: ignore opponent cards that prevent downloading.</summary>
+        public bool IgnoreOpponentDownloadPrevention { get; init; }
         /// <summary>Horga'hn: Extra-Normal-Play ODER Extra-Draw am Zugende.</summary>
         public bool GrantsHorgahn { get; init; }
     }
@@ -47,6 +49,7 @@ public static class ArtifactRules
                 Name = n,
                 Kind = AcquireKind.ImmediateDiscard,
                 DownloadFromDraw = 3,
+                IgnoreOpponentDownloadPrevention = true,
                 Message = "Immediately download to hand up to three cards from your draw deck (ignore opponent cards that prevent downloading). Discard artifact."
             },
             "Horga'hn" => new AcquireResult
@@ -267,4 +270,22 @@ public static class ArtifactRules
 
     public static bool ShouldDownloadOnAcquire(AcquireResult acq) =>
         acq.Kind == AcquireKind.ImmediateDiscard && acq.DownloadFromDraw > 0;
+
+    /// <summary>DE mini-test Gift Box acquire flags. Returns null if OK.</summary>
+    public static string? VerifyBetazoidGiftBox()
+    {
+        var c = new Card { Name = "Betazoid Gift Box", Type = "Artifact" };
+        var acq = ResolveAcquire(c);
+        if (acq.Kind != AcquireKind.ImmediateDiscard)
+            return "Gift Box must ImmediateDiscard";
+        if (acq.DownloadFromDraw != 3)
+            return "Gift Box DownloadFromDraw must be 3";
+        if (!acq.IgnoreOpponentDownloadPrevention)
+            return "Gift Box must IgnoreOpponentDownloadPrevention";
+        if (!ShouldDownloadOnAcquire(acq))
+            return "ShouldDownloadOnAcquire false for Gift Box";
+        if (DecideAcquirePlacement(acq.Kind, isPlanetMission: true) != AcquirePlacement.ImmediateDiscard)
+            return "Placement must ImmediateDiscard";
+        return null;
+    }
 }

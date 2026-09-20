@@ -37,6 +37,10 @@ public static class DownloadRules
         public CardKind? Kind { get; init; }
         public bool SpecialDownload { get; init; }
         public Card? SourceCard { get; init; }
+        /// <summary>Max cards this download may take (Gift Box = 3).</summary>
+        public int MaxCount { get; init; } = 1;
+        /// <summary>Printed Gift Box / similar: opponent prevent-download does not apply.</summary>
+        public bool IgnoreOpponentDownloadPrevention { get; init; }
     }
 
     public static string SpecialDownloadKey(Card sourceCard) =>
@@ -110,4 +114,52 @@ public static class DownloadRules
         }
         return list;
     }
+
+    /// <summary>Betazoid Gift Box acquire: up to 3 from own draw to hand; ignore opp prevent.</summary>
+    public static Request GiftBoxAcquireRequest(int player, Card? sourceArtifact = null) =>
+        new Request
+        {
+            Player = player,
+            Source = Source.DrawDeck,
+            Dest = Dest.Hand,
+            MaxCount = 3,
+            IgnoreOpponentDownloadPrevention = true,
+            SourceCard = sourceArtifact
+        };
+
+    /// <summary>
+    /// When opponent has an active prevent-downloading effect, normal downloads fail
+    /// unless the request ignores opponent prevention (Gift Box).
+    /// </summary>
+    public static bool MayDownloadDespiteOpponentPrevention(Request req, bool opponentPreventActive) =>
+        !opponentPreventActive || req.IgnoreOpponentDownloadPrevention;
+
+    public static int ClampDownloadCount(Request req, int availableInSource) =>
+        System.Math.Max(0, System.Math.Min(req.MaxCount <= 0 ? 1 : req.MaxCount, availableInSource));
+
+    /// <summary>DE mini-test Gift Box download request. Returns null if OK.</summary>
+    public static string? VerifyBetazoidGiftBoxDownload()
+    {
+        var req = GiftBoxAcquireRequest(1);
+        if (req.Source != Source.DrawDeck || req.Dest != Dest.Hand)
+            return "Gift Box source/dest wrong";
+        if (req.MaxCount != 3)
+            return "Gift Box MaxCount must be 3";
+        if (!req.IgnoreOpponentDownloadPrevention)
+            return "Gift Box must ignore opp prevent";
+        if (!MayDownloadDespiteOpponentPrevention(req, opponentPreventActive: true))
+            return "IgnoreOppPrevent must allow download when opp prevent active";
+        if (MayDownloadDespiteOpponentPrevention(
+                new Request { Player = 1, Source = Source.DrawDeck },
+                opponentPreventActive: true))
+            return "Normal download must be blocked when opp prevent active";
+        if (ClampDownloadCount(req, 10) != 3)
+            return "Clamp max 3";
+        if (ClampDownloadCount(req, 2) != 2)
+            return "Clamp to available";
+        if (ClampDownloadCount(req, 0) != 0)
+            return "Clamp empty deck";
+        return null;
+    }
+
 }

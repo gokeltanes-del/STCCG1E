@@ -9,12 +9,30 @@ Local VS: C:\\Dev\\StarTrekCCG\\
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test.
 
 ## Current tip
+Local Josef tip **PENDING_GIFT** - Betazoid Gift Box (Pepsch smoke). Nicht gepusht.
+
 Local Josef tip **e954f03** - Vulcan Stone of Gol (Pepsch smoke). Nicht gepusht.
 Local Josef tip **bcf7f9d** - Holo existence gates (Pepsch Fix-Go; Spock precise Soll). Nicht gepusht. (Prior Holo-Projectors tip 3c50792; LF UI eaf0c24.)
 **Pepsch EXE (Default Debug):**
 `C:\Dev\StarTrekCCG\StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe`
 Nicht `_build_holo*` / Release / alte Side-Builds.
 
+
+
+## Tip detail (Data, Josef, 2026-09-20) - Betazoid Gift Box
+Captain Go / Spock \GROK_TEMP/SOLL_BETAZOID_GIFT_BOX_2026-09-20.md\. Printed = truth.
+### Gift Box (1 R)
+- Acquire ImmediateDiscard + DownloadFromDraw=3 + IgnoreOpponentDownloadPrevention.
+- UI: real search picker 0..3 from own draw (AskChoice Download/Done + PickCardFromList); not top-N.
+- Shuffle draw after; discard artifact even at 0 picks / empty deck.
+- DownloadRules.GiftBoxAcquireRequest + MayDownloadDespiteOpponentPrevention + ClampDownloadCount.
+- Opp prevent stub OpponentDownloadPreventionActive=false; Ignore flag wired for later cards.
+- Verify: ArtifactRules.VerifyBetazoidGiftBox / DownloadRules.VerifyBetazoidGiftBoxDownload.
+### Smoke
+1. Solve with Gift Box → picker; choose up to 3 → hand; artifact discarded; draw shuffled.
+2. Fewer than 3 in draw → only that many choosable.
+3. Done at 0 → artifact still discarded.
+4. (If prevent spoofable) opp prevent does not block this download.
 
 ## Tip detail (Data, Josef, 2026-09-20) - Vulcan Stone of Gol
 Captain Go / Spock `GROK_TEMP/SOLL_STONE_OF_GOL_2026-09-20.md`. Printed = truth.
