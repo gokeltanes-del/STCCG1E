@@ -18815,6 +18815,9 @@ private bool ControllerHasToxOnTable(int controller)
                 continue; // pause while no ship here
             int cd = kv.Value - 1;
             _ttpCountdown[pod] = cd;
+            if (_detailCard != null && ArtifactRules.IsTimeTravelPod(_detailCard)
+                && pod.Tag is Card dpc && ReferenceEquals(dpc, _detailCard))
+                RefreshDetailStatusBlock(_detailCard);
             _session.Log.Add(_session.TurnNumber, "sys",
                 $"Time Travel Pod countdown → {cd} (ship present)");
             if (cd > 0) continue;
@@ -23012,6 +23015,45 @@ _spacelineOrder.Remove(pod);
                 // Glossary: Lore's Fingernail — live Non; Standing Practice name which rule.
         if (EventRules.FingernailMakesNon(card))
             AddDetailStatusLine(DetailStatusRules.FormatFingernailLine(), DetailStatusTone.Debuff);
+
+
+        // Time Travel Pod: countdown + ships docked (paused while no ship here).
+        if (ArtifactRules.IsTimeTravelPod(card))
+        {
+            Border? pod = FindBorderForCard(card);
+            if (pod == null)
+            {
+                foreach (var kv in _ttpPodByOwner)
+                {
+                    if (kv.Value.Tag is Card pc && ReferenceEquals(pc, card))
+                    {
+                        pod = kv.Value;
+                        break;
+                    }
+                }
+            }
+            if (pod != null)
+            {
+                int cd = _ttpCountdown.GetValueOrDefault(pod, 0);
+                var shipNames = GetDockablesUnderMission(pod)
+                    .Where(b => b.Tag is Card sc && IsShipCard(sc))
+                    .Select(b => (b.Tag as Card)?.Name ?? "?")
+                    .ToList();
+                if (shipNames.Count == 0)
+                {
+                    AddDetailStatusLine(
+                        $"Countdown: {cd} (paused — no ship here)",
+                        DetailStatusTone.Timer);
+                }
+                else
+                {
+                    AddDetailStatusLine($"Countdown: {cd}", DetailStatusTone.Timer);
+                    AddDetailStatusLine(
+                        "Ship present: " + string.Join(", ", shipNames),
+                        DetailStatusTone.Buff);
+                }
+            }
+        }
 
 // Personnel: In stasis / quarantine line
         if (CardKinds.IsPersonnel(card))
