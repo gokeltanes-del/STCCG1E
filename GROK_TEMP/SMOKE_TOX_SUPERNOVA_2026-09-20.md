@@ -1,6 +1,7 @@
-# Smoke — Tox Uthat + Supernova (SOLL_TOX_SUPERNOVA)
+# Smoke — Tox + Supernova (Spock SOLL, no AT wipe)
 
-1. Earn/Tox in Hand → play **As Event on table** → log Tox as Event; same turn Supernova → **denied**.
-2. Next turn: Tox still on table → Supernova on mission → Tox **discarded at initiation**; ships+facilities (+AT on planet) destroyed; mission stays (span husk, unattemptable). Even if Kevin nullifies Supernova on stack, Tox stays discarded.
-3. Tox **As Interrupt** with Supernova on stack or in play → Supernova cancelled/nullified; Tox discarded.
-4. Kevin on Tox-as-Event / on Supernova in play still OK (mission not wiped).
+1. Tox as Event → same turn Supernova denied.
+2. Next turn Supernova → Tox discarded at init; ships+facilities gone; **planet AT survives**; mission husk.
+3. Nullify Supernova on stack after init → Tox stays discarded; no destruction.
+4. Tox as Interrupt nullifies Supernova; Tox discarded.
+5. Kevin after resolve → husk + destruction remain (no restore).

@@ -16291,10 +16291,11 @@ private List<Card> CollectCardsInPlay(bool opponent)
 
     private void ApplySupernova(Border mission)
     {
-        // Destroy all ships and facilities at this location (docked + at mission).
+        // Pepsch/modern + Spock SOLL: destroy ONLY ships + facilities here (docked + at location).
+        // Aboard → with DestroyShipOrFacility. Planet Away Teams / surface equipment: NOT destroyed.
         foreach (var dock in GetDockablesUnderMission(mission).ToList())
         {
-            if (dock.Tag is Card c)
+            if (dock.Tag is Card c && (CardKinds.IsShip(c) || CardKinds.IsFacility(c)))
             {
                 int own = GetBorderOwner(dock);
                 if (own == 0) own = 1;
@@ -16302,29 +16303,27 @@ private List<Card> CollectCardsInPlay(bool opponent)
             }
         }
 
-        // Away Teams / cards stacked on the mission (planet surface).
+        // Ships/facilities stacked directly on the mission (rare); never wipe AT/personnel/equipment.
         if (_stackOnHost.TryGetValue(mission, out var onMission))
         {
             foreach (var b in onMission.ToList())
             {
                 if (b.Tag is not Card c) continue;
-                // Supernova event card itself may be on host — skip Persist attach face if still resolving
                 if (EventRules.IsSupernova(c)) continue;
+                if (!(CardKinds.IsShip(c) || CardKinds.IsFacility(c))) continue;
                 int o = GetBorderOwner(b);
                 if (o == 0) o = c.Controller != 0 ? c.Controller : (c.OwnerPlayer != 0 ? c.OwnerPlayer : _session.ActivePlayer);
-                if (CardKinds.IsShip(c) || CardKinds.IsFacility(c))
-                    DestroyShipOrFacility(b, c, o);
-                else
-                    DiscardPersonnelBorder(b, c, o, allowGenetronicSave: false);
+                DestroyShipOrFacility(b, c, o);
             }
         }
 
+        // Rest of game husk — survives Kevin nullify after resolve (Glossary: no effect).
         _solvedMissions.Add(mission); // unattemptable
-        _supernovaHuskMissions.Add(mission); // treat as space; unscoutable; lose icons/text/points (UI)
+        _supernovaHuskMissions.Add(mission); // unscoutable; treat [P] as [S]; lose text/points/icons
         _session.Log.Add(_session.TurnNumber, "sys",
-            $"Supernova resolved at {(mission.Tag as Card)?.Name} — ships/facilities/AT destroyed; mission husk (span only)");
+            $"Supernova resolved at {(mission.Tag as Card)?.Name} — ships/facilities destroyed; AT/surface survive; mission husk (span only)");
         StatusText.Text =
-            $"Supernova at {(mission.Tag as Card)?.Name}: ships/facilities destroyed. Mission remains for span only (unattemptable space).";
+            $"Supernova at {(mission.Tag as Card)?.Name}: ships/facilities destroyed. Away Teams survive. Mission remains for span only.";
         SyncBoardFromTable(logDual: false);
     }
 
