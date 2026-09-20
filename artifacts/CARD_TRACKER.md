@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-20 (Data — Tetryon/Rift Debuff + fly-by ShowPlayError; Pepsch GREEN treaties/Q-Net/Rift)
+Last updated: 2026-09-20 (Jadzia — Pepsch green Tetryon+Amanda; Alien Groupie in progress)
 Scope: **Premiere** (`PR`) + **Alternate Universe** catalogued. **Priority: finish all unfinished Premiere cards first.** AU is logged only; not prioritized unless already wired.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -29,13 +29,13 @@ Source tip: when Data/Spock/Seven/Captain report, update the row.
 
 | Status | Count | Role |
 | --- | ---: | --- |
-| `working` | 96 | Done (Pepsch green) |
+| `working` | 98 | Done (Pepsch green) |
 | `partial` | 7 | **Next smoke / rework** |
-| `unknown` | 260 | **Backlog — finish Premiere** |
+| `unknown` | 258 | **Backlog — finish Premiere** |
 | `blocked` | 0 | — |
 | **Total** | **363** | |
 
-**Premiere partials (queue):** Q (blocked Continuum) · Crystalline Entity · Iconian Computer Weapon · Alien Probe · Asteroid Sanctuary · Escape Pod · Raise the Stakes (tip 7f5ae62) · Tetryon Field (fly-by/Debuff)
+**Premiere partials (queue):** Q (blocked Continuum) · Crystalline Entity · Iconian Computer Weapon · Alien Probe · Asteroid Sanctuary · Escape Pod · Raise the Stakes (tip 7f5ae62) · Alien Groupie (in progress)
 
 | Card Type | Count |
 | --- | ---: |
@@ -194,7 +194,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Subspace Warp Rift (94 C) | working | Pepsch green 2026-09-20. | Pepsch 2026-09-20 |
 | Supernova (95 R) | working | Pepsch green. tip Data/`b789fe5` + surface tip/`98e6984`: Planet→[S] surface discard + husk Opacity. Mit Tox Uthat (kein Dialog; Kevin nullify; Tox consumed at init). | Pepsch 2026-09-20; Data/`b789fe5`+`98e6984` |
 | Telepathic Alien Kidnappers (96 U) | working | Pepsch green. | Pepsch 2026-09-19 |
-| Tetryon Field (97 C) | partial | Pepsch: effect OK. Open: Data fixes fly-by ShowPlayError + Debuff tone with Rift. | Pepsch 2026-09-20; Data fix pending |
+| Tetryon Field (97 C) | working | Pepsch green. tip Data/`2d6ea3b` (fly-by ShowPlayError + Debuff tone with Rift). | Pepsch 2026-09-20; Data/`2d6ea3b` |
 | The Traveler: Transcendence (98 U) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Treaty: Federation/Klingon (99 C) | working | Pepsch green 2026-09-20 (Treaty family). | Pepsch 2026-09-20 |
 | Treaty: Federation/Romulan (100 C) | working | Pepsch green 2026-09-20 (Treaty family). | Pepsch 2026-09-20 |
@@ -214,8 +214,8 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 
 | Card | Status | Notes | Source |
 | --- | --- | --- | --- |
-| Alien Groupie (107 R) | unknown |  |  |
-| Amanda Rogers (108 U) | unknown |  |  |
+| Alien Groupie (107 R) | partial | Data building (in progress). Pending Pepsch green. | Data 2026-09-20 |
+| Amanda Rogers (108 U) | working | Pepsch green 2026-09-20. | Pepsch 2026-09-20 |
 | Asteroid Sanctuary (109 C) | partial | Pepsch FAIL: wrongly offered as Response on Outpost/Facility battle. Data Go: CanRespond ship-only (Defender=ship, not Facility). Not working until Pepsch greens after tip. | Pepsch 2026-09-17; Data Go ship-only CanRespond |
 | Auto-Destruct Sequence (110 U) | unknown |  |  |
 | Crosis (111 R) | working | Pepsch green. | Pepsch 2026-09-06 |
