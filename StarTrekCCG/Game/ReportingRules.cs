@@ -113,8 +113,9 @@ public static class ReportingRules
                 NormalizeAffil(card.CurrentAffiliation)
             };
         var set = ParseAffiliationTokens(card.Affiliation);
-        if (set.Count > 0) return set;
-        return ParseAffiliationTokens(card.Name);
+        // Never fall back to card.Name — Artifacts/Events without affiliation were showing
+        // e.g. "Artifact • TIME TRAVEL POD [TIME TRAVEL POD]" (3× name in Detail).
+        return set;
     }
 
     /// <summary>
