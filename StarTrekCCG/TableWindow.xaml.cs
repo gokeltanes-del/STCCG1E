@@ -16549,21 +16549,26 @@ private List<Card> CollectCardsInPlay(bool opponent)
 
         if (ArtifactRules.IsThoughtMaker(art))
         {
-            var types = new[] { "Personnel", "Ship", "Event", "Interrupt", "Equipment", "Dilemma", "Doorway" };
-            var typeCards = types.Select(t => new Card { Name = t, Type = "Card type" }).ToList();
+            // Pepsch: Plays as [Event] — name a type; strip matching cards from opp draw → shuffle → bottom.
+            var types = new[]
+            {
+                "Personnel", "Ship", "Facility", "Event", "Interrupt",
+                "Doorway", "Equipment", "Artifact", "Dilemma", "Mission"
+            };
+            var typeCards = types.Select(tn => new Card { Name = tn, Type = "Card type" }).ToList();
             string chosen = PickCardFromList(
-                "Click the card type to send to the bottom of opponent's draw deck.",
+                "Name a card type. All matching cards leave opponent's draw, shuffle, go to bottom.",
                 typeCards, "Thought Maker", art)?.Name ?? types[0];
             var oppDraw = controller == 1 ? _oppDrawCards : _drawCards;
-            var moved = oppDraw
-                .Where(c => (c.Type ?? "").Contains(chosen, StringComparison.OrdinalIgnoreCase))
-                .ToList();
+            var moved = oppDraw.Where(c => ArtifactRules.MatchesNamedCardType(c, chosen)).ToList();
             foreach (var c in moved)
                 oppDraw.Remove(c);
             foreach (var c in moved.OrderBy(_ => Guid.NewGuid()))
                 oppDraw.Add(c);
             SendCardTo(art, controller, TimingRules.Destination.Discard);
-            StatusText.Text = $"Thought Maker: {moved.Count}x {chosen} moved to bottom of opponent's draw deck.";
+            string msg = $"Thought Maker: {moved.Count}× {chosen} → bottom opp draw";
+            StatusText.Text = msg;
+            _session.Log.Add(_session.TurnNumber, $"P{controller}", msg);
             RefreshZoneCounts();
             return true;
         }

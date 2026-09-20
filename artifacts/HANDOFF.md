@@ -1,3 +1,8 @@
+Local Josef tip bb72c97 — Thought Maker Plays as Event type-strip. Nicht gepusht.
+- EXE: 2026-09-20 16:22:38
+- Pepsch message; 10 types; MatchesNamedCardType (Facility←Outpost/Station); shuffle→bottom; discard
+- Smoke: GROK_TEMP/SMOKE_THOUGHT_MAKER_2026-09-20.md
+
 Local Josef tip c9d0606 — TTP restore Relocate panel; cancel stuck BoardPick. Nicht gepusht.
 - EXE: 2026-09-20 16:14:19
 - BoardPickShip: cancel on Refresh/SetSelection/non-ship click/empty table

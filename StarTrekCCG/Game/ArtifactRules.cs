@@ -81,7 +81,7 @@ public static class ArtifactRules
             {
                 Name = n,
                 Kind = AcquireKind.ToHand,
-                Message = "Place in hand. Name a card type; take all cards of that type from opponent's draw deck, shuffle them, place on bottom of that deck."
+                Message = "Place in hand. Plays as [Event]: Name a card type, then take all cards with that card type from opponent's draw deck, shuffle them, and place them on bottom of deck."
             },
             "Tox Uthat" => new AcquireResult
             {
@@ -168,6 +168,32 @@ public static class ArtifactRules
     public static bool IsVaronT(Card? c) => NameIs(c, "Varon-T Disruptor");
     public static bool IsKurlanNaiskos(Card? c) => NameIs(c, "Kurlan Naiskos");
     public static bool IsThoughtMaker(Card? c) => NameIs(c, "Thought Maker");
+
+    /// <summary>
+    /// Thought Maker type-name match: CardKinds + Facility covers Outpost/Station/HQ.
+    /// </summary>
+    public static bool MatchesNamedCardType(Card? c, string namedType)
+    {
+        if (c == null || string.IsNullOrWhiteSpace(namedType)) return false;
+        string want = namedType.Trim();
+        var kind = CardKinds.Of(c);
+        return want.ToLowerInvariant() switch
+        {
+            "personnel" => CardKinds.IsPersonnel(c),
+            "ship" => CardKinds.IsShip(c),
+            "facility" => CardKinds.IsFacility(c),
+            "event" => CardKinds.IsEvent(c),
+            "interrupt" => CardKinds.IsInterrupt(c),
+            "doorway" => CardKinds.IsDoorway(c),
+            "equipment" => CardKinds.IsEquipment(c),
+            "artifact" => CardKinds.IsArtifact(c),
+            "dilemma" => CardKinds.IsDilemma(c),
+            "mission" => CardKinds.IsMission(c),
+            _ => kind.ToString().Equals(want, StringComparison.OrdinalIgnoreCase)
+                 || (c.Type ?? "").Contains(want, StringComparison.OrdinalIgnoreCase)
+        };
+    }
+
     public static bool IsToxUthat(Card? c) => NameIs(c, "Tox Uthat");
     /// <summary>
     /// Printed "Plays as [Event] …" from hand — must not stack inert as equipment on a host.
