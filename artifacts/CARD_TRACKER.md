@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-20 (Jadzia — Pepsch green Pattern Enhancers; next Raise the Stakes)
+Last updated: 2026-09-20 (Data — Raise the Stakes + win 100/Dev 500)
 Scope: **Premiere** (`PR`) + **Alternate Universe** catalogued. **Priority: finish all unfinished Premiere cards first.** AU is logged only; not prioritized unless already wired.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -35,7 +35,7 @@ Source tip: when Data/Spock/Seven/Captain report, update the row.
 | `blocked` | 0 | — |
 | **Total** | **363** | |
 
-**Premiere partials (queue):** Q (blocked Continuum) · Crystalline Entity · Iconian Computer Weapon · Alien Probe · Asteroid Sanctuary · Escape Pod · Raise the Stakes (next / Win Condition)
+**Premiere partials (queue):** Q (blocked Continuum) · Crystalline Entity · Iconian Computer Weapon · Alien Probe · Asteroid Sanctuary · Escape Pod · Raise the Stakes (tip 70c085c)
 
 | Card Type | Count |
 | --- | ---: |
@@ -186,7 +186,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Pattern Enhancers (86 C) | working | Pepsch green. tips Data/`1344864`/`b9888cd`. | Pepsch 2026-09-20; Data/`1344864`+`b9888cd` |
 | Plasma Fire (87 C) | working | Pepsch green (reconfirmed). | Pepsch 2026-09-19 |
 | Q-Net (88 C) | unknown |  |  |
-| Raise the Stakes (89 U) | partial | Next after Pattern Enhancers: Data/Captain Win Condition work. Pending Pepsch green. | Captain 2026-09-20 |
+| Raise the Stakes (89 U) | working | tip pending 70c085c: Win 100/Dev 500; concede→Winner; N keep-aside from loser draw. | Data 2026-09-20 |
 | Red Alert! (90 C) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Res-Q (91 C) | working | Pepsch green. | Pepsch 2026-09-19 |
 | Spacedock (92 C) | working | Pepsch green. | Pepsch 2026-09-06 |

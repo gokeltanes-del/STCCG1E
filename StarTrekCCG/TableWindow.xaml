@@ -68,6 +68,7 @@
                 <MenuItem Header="Open debug log file…" Click="DevOpenLogFile_Click"/>
                 <MenuItem Header="Open Logs folder…" Click="DevOpenLogFolder_Click"/>
                 <MenuItem x:Name="DevPlaySeedFromHandItem" Header="Play seed cards from hand" IsCheckable="True" Click="DevPlaySeedFromHand_Click"/>
+                <MenuItem x:Name="DevLongGameItem" Header="Long game (500 points to win)" IsCheckable="True" Click="DevLongGame_Click"/>
                 <Separator/>
                 <MenuItem Header="Inspect opponent hand (gallery)…" Click="DevInspectOppHand_Click"/>
                 <MenuItem Header="Inspect opponent discard (gallery)…" Click="DevInspectOppDiscard_Click"/>

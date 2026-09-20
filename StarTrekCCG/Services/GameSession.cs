@@ -93,6 +93,24 @@ public sealed class GameSession
         return OncePerTurn.Add(k);
     }
 
+    /// <summary>Immediate win (Raise the Stakes concede, concession, etc.).</summary>
+    public void DeclareWinner(int player, string? reason = null)
+    {
+        if (player is not (1 or 2)) return;
+        if (Winner is > 0) return;
+        Winner = player;
+        Match = MatchPhase.Ended;
+        string why = string.IsNullOrWhiteSpace(reason) ? "declared" : reason;
+        Log.Add(TurnNumber, "System", $"P{Winner} wins ({why}).");
+    }
+
+    public void RestoreWinner(int? winner)
+    {
+        Winner = winner is 1 or 2 ? winner : null;
+        if (Winner is > 0)
+            Match = MatchPhase.Ended;
+    }
+
     public int? CheckVictory(int scoreP1, int scoreP2)
     {
         if (Winner is > 0) return Winner;

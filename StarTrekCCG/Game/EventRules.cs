@@ -379,8 +379,9 @@ public static class EventRules
             {
                 Place = Place.Table,
                 Persist = Persist.RaiseStakes,
-                Message = "Opponent chooses: you win the game immediately, OR this stays on table "
-                          + "(winner may keep one random card from opponent's deck). Cumulative."
+                Message = "Opponent chooses: you win immediately, OR this stays on table. "
+                          + "If still in play at game end, winner keeps 1 card per copy from loser's draw "
+                          + "(aside / out of play). Cumulative."
             },
             "Genetronic Replicator" => new PlayResult
             {

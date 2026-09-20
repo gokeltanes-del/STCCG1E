@@ -1,26 +1,27 @@
+- tip 70c085c feat(premiere): Raise the Stakes + win 100 / Dev 500 — EXE 2026-09-20 19:31:33 — GROK_TEMP/TIP_RAISE_THE_STAKES_2026-09-20.md
 - tip 03c44eb fix(premiere): Pattern Enhancers Distortion only not Ionization — EXE 2026-09-20 19:13:02 — GROK_TEMP/TIP_PATTERN_ENHANCERS_2026-09-20.md
 - tip 500c94e feat(premiere): Pattern Enhancers owner-scoped beam ignore — EXE 2026-09-20 19:12:12 — details GROK_TEMP/TIP_PATTERN_ENHANCERS_2026-09-20.md
 Local Josef tip 9f4d741 — Thought Maker Plays as Interrupt anytime. Nicht gepusht.
-- EXE: 2026-09-20 16:29:51
+- EXE: 2026-09-20 19:31:33
 - IsPlaysAsInterruptFromHand; UsesNormalCardPlay false; drop/Place BeginPlayCardStack(controllerOverride); Amanda via TimingRules.IsInterrupt; PlayOn ArtifactAsInterrupt
 
 Local Josef tip bb72c97 — Thought Maker Plays as Event type-strip. Nicht gepusht.
-- EXE: 2026-09-20 16:22:38
+- EXE: 2026-09-20 19:31:33
 - Pepsch message; 10 types; MatchesNamedCardType (Facility←Outpost/Station); shuffle→bottom; discard
 - Smoke: GROK_TEMP/SMOKE_THOUGHT_MAKER_2026-09-20.md
 
 Local Josef tip c9d0606 — TTP restore Relocate panel; cancel stuck BoardPick. Nicht gepusht.
-- EXE: 2026-09-20 16:14:19
+- EXE: 2026-09-20 19:31:33
 - BoardPickShip: cancel on Refresh/SetSelection/non-ship click/empty table
 - Relocate button owner via ResolveTimeTravelPodOwner (_ttpPodByOwner)
 
 Local Josef tip 77a2c52 — TTP countdown InstanceId + status survives turn flip. Nicht gepusht.
-- EXE: 2026-09-20 16:09:25
+- EXE: 2026-09-20 19:31:33
 - _ttpCountdown Dictionary<int,int> by InstanceId; Detail never heals SoT to 2
 - _lastTtpCountdownMsg appended after CompleteTurnChange StatusText
 
 Local Josef tip 593b0dd — TTP countdown EOT tick + shipHere + visible skip log. Nicht gepusht.
-- EXE: 2026-09-20 16:06:12
+- EXE: 2026-09-20 19:31:33
 - TimeTravelPodHasShipPresent: GetDockables OR _dockableAtMission OR FindMissionForDockable
 - Relocate asserts _dockableAtMission[ship]=canonical pod
 - Every EOT pass: session Log + StatusText (tick N→N-1 / not-owner / no-ship / no-border)
@@ -28,7 +29,7 @@ Local Josef tip 593b0dd — TTP countdown EOT tick + shipHere + visible skip log
 # HANDOFF (Josef local) — recent tips (truncated after HANDOFF bloat)
 
 Local Josef tip d656751 — TTP countdown Card-keyed init 2. Nicht gepusht.
-- EXE: 2026-09-20 16:00:27
+- EXE: 2026-09-20 19:31:33
 - _ttpCountdown = Dictionary<Card,int>; Place init=2; Detail/Process via ResolveTimeTravelPodBorder (_ttpPodByOwner).
 
 Local Josef tip 836faa — countdown owner from _ttpPodByOwner. EXE 15:56:45.

@@ -275,6 +275,8 @@ public partial class TableWindow : Window
     private readonly TimingRules.ActionStack _stack = new();
     private readonly List<Card> _outOfPlayP1 = new();
     private readonly List<Card> _outOfPlayP2 = new();
+    /// <summary>Raise the Stakes keep-aside resolved once per match end.</summary>
+    private bool _raiseKeepsResolved;
     private sealed class AttachedDilemma
     {
         public required Card Card { get; init; }
@@ -7822,13 +7824,87 @@ private List<Card> CollectCardsInPlay(bool opponent)
             ShowStackContents(zone, opponent: _activePlayer == 2);
     }
 
+
+    private void DevLongGame_Click(object sender, RoutedEventArgs e)
+    {
+        bool longGame = DevLongGameItem?.IsChecked == true;
+        _session.PointsToWin = longGame ? 500 : 100;
+        UpdateScoreDisplay();
+        StatusText.Text = longGame
+            ? "Dev: Long game — 500 points to win."
+            : "Dev: Standard — 100 points to win.";
+        _session.Log.Add(_session.TurnNumber, "System",
+            $"PointsToWin set to {_session.PointsToWin} (Developer).");
+    }
+
+    /// <summary>End match UI + Raise the Stakes keep-aside (1 pick per copy still in play).</summary>
+    private void FinishMatch(int winner, string reason)
+    {
+        if (winner is not (1 or 2)) return;
+        if (_session.Winner is null or 0)
+            _session.DeclareWinner(winner, reason);
+        ResolveRaiseStakesKeeps(winner);
+        string msg = $"Match ended — Player {winner} wins ({reason}).";
+        StatusText.Text = msg;
+        try
+        {
+            MessageBox.Show(msg, "Match Ended", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch { /* designer / headless */ }
+        RefreshActionHistory();
+    }
+
+    /// <summary>Spock: 1 Keep per Raise copy from loser's draw → winner Out of Play (not hand).</summary>
+    private void ResolveRaiseStakesKeeps(int winner)
+    {
+        if (_raiseKeepsResolved) return;
+        _raiseKeepsResolved = true;
+        int n = _attachedEvents.Count(e => e.Kind == EventRules.Persist.RaiseStakes);
+        if (n <= 0) return;
+        int loser = 3 - winner;
+        var draw = loser == 1 ? _drawCards : _oppDrawCards;
+        for (int i = 0; i < n; i++)
+        {
+            if (draw.Count == 0)
+            {
+                StatusText.Text = $"Raise the Stakes keep {i + 1}/{n}: loser's draw empty — skipped.";
+                _session.Log.Add(_session.TurnNumber, $"P{winner}",
+                    $"Raise the Stakes keep {i + 1}/{n}: draw empty — skipped");
+                continue;
+            }
+            Card? pick = draw.Count == 1
+                ? draw[0]
+                : PickCardFromList(
+                    $"Raise the Stakes ({i + 1}/{n}): pick 1 card from P{loser} draw to keep aside (out of play).",
+                    draw.ToList(),
+                    "Raise the Stakes — Keep");
+            if (pick == null)
+            {
+                _session.Log.Add(_session.TurnNumber, $"P{winner}",
+                    $"Raise the Stakes keep {i + 1}/{n}: no pick — skipped");
+                continue;
+            }
+            draw.Remove(pick);
+            SendCardTo(pick, winner, TimingRules.Destination.OutOfPlay);
+            _session.Log.Add(_session.TurnNumber, $"P{winner}",
+                $"Raise the Stakes keep {i + 1}/{n}: {pick.Name} → out of play (aside)");
+            StatusText.Text = $"Kept aside: {pick.Name} ({i + 1}/{n}).";
+        }
+        RefreshZoneCounts();
+    }
+
     private void UpdateScoreDisplay()
     {
         if (ScoreText == null) return;
-        ScoreText.Text = $"P1: {_scoreP1}   ·   P2: {_scoreP2}";
+        ScoreText.Text = $"P1: {_scoreP1}   ·   P2: {_scoreP2}   ·   win {_session.PointsToWin}";
+        if (_session.Winner is > 0)
+        {
+            StatusText.Text = $"Match ended — P{_session.Winner} wins (target {_session.PointsToWin}).";
+            return;
+        }
         var winner = _session.CheckVictory(_scoreP1, _scoreP2);
         if (winner is > 0)
-            StatusText.Text = $"P{winner} wins at {_session.PointsToWin} points.";
+            FinishMatch(winner.Value, $"reached {_session.PointsToWin} points");
     }
 
     private void MarkMissionSolved(Border missionBorder, Card mission, int player, int points)
@@ -9198,6 +9274,7 @@ private List<Card> CollectCardsInPlay(bool opponent)
         _oppSideCards.Clear(); _oppDoorwayCards.Clear(); _oppMissionSeedCards.Clear();
         _oppDilemmaSeedCards.Clear(); _oppFacilitySeedCards.Clear();
         _outOfPlayP1.Clear(); _outOfPlayP2.Clear();
+        _raiseKeepsResolved = false;
         _tablePermanentCards.Clear(); _oppTablePermanentCards.Clear();
         _stackOnHost.Clear(); _seedUnderMission.Clear();
         _revealedArtifactsUnderMission.Clear(); _revealedUnderMission.Clear();
@@ -9440,6 +9517,11 @@ private List<Card> CollectCardsInPlay(bool opponent)
             _ionizationBeamsThisTurnByPlayer[_activePlayer is >= 1 and <= 2 ? _activePlayer : 1] = s.IonizationBeamsThisTurn;
         _redAlertPlaysLeft = s.RedAlertPlaysLeft;
         if (s.PointsToWin > 0) _session.PointsToWin = s.PointsToWin;
+        if (DevLongGameItem != null)
+            DevLongGameItem.IsChecked = _session.PointsToWin >= 500;
+        if (s.Winner is 1 or 2)
+            _session.RestoreWinner(s.Winner);
+        _raiseKeepsResolved = _session.Winner is > 0;
         _session.OncePerGame.Clear();
         if (save.OncePerGame != null)
             foreach (var k in save.OncePerGame)
@@ -15456,13 +15538,22 @@ private List<Card> CollectCardsInPlay(bool opponent)
             }
             if (r.Persist == EventRules.Persist.RaiseStakes)
             {
+                // Opp chooses: controller wins NOW, OR event stays on table (cumulative).
                 if (ShowCardReveal(ev, "Raise the Stakes",
-                        $"P{3 - controller}: Opponent wins immediately? (No = event stays)",
+                        $"P{3 - controller}: Concede — opponent (P{controller}) wins now?\n(No = Raise the Stakes stays on table.)",
                         RevealButtons.YesNo) == RevealAnswer.Yes)
                 {
-                    StatusText.Text = $"Raise the Stakes: Player {controller} wins (sandbox).";
-                    _session.Log.Add(_session.TurnNumber, $"P{controller}", "Raise the Stakes: claimed win");
+                    // Does not stay on table — remove committed table copy, then win.
+                    _tablePermanentCards.Remove(ev);
+                    _oppTablePermanentCards.Remove(ev);
+                    RemoveCardFromTableColumn(ev);
+                    RebuildTablePermanentsPanel();
+                    SendCardTo(ev, controller, TimingRules.Destination.Discard);
+                    _session.DeclareWinner(controller, "Raise the Stakes — opponent conceded");
+                    FinishMatch(controller, "Raise the Stakes — opponent conceded");
+                    return true;
                 }
+                // No: stays on table; fall through to attach.
             }
             _attachedEvents.Add(ae);
             if (r.Persist == EventRules.Persist.YellowAlert)
