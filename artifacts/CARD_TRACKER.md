@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-20 (Jadzia — Pepsch green Gaps; Pattern Enhancers in progress)
+Last updated: 2026-09-20 (Jadzia — Pepsch green Pattern Enhancers; next Raise the Stakes)
 Scope: **Premiere** (`PR`) + **Alternate Universe** catalogued. **Priority: finish all unfinished Premiere cards first.** AU is logged only; not prioritized unless already wired.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -29,13 +29,13 @@ Source tip: when Data/Spock/Seven/Captain report, update the row.
 
 | Status | Count | Role |
 | --- | ---: | --- |
-| `working` | 89 | Done (Pepsch green) |
+| `working` | 90 | Done (Pepsch green) |
 | `partial` | 7 | **Next smoke / rework** |
-| `unknown` | 267 | **Backlog — finish Premiere** |
+| `unknown` | 266 | **Backlog — finish Premiere** |
 | `blocked` | 0 | — |
 | **Total** | **363** | |
 
-**Premiere partials (queue):** Q (blocked Continuum) · Crystalline Entity · Iconian Computer Weapon · Alien Probe · Asteroid Sanctuary · Escape Pod · Pattern Enhancers (in progress)
+**Premiere partials (queue):** Q (blocked Continuum) · Crystalline Entity · Iconian Computer Weapon · Alien Probe · Asteroid Sanctuary · Escape Pod · Raise the Stakes (next / Win Condition)
 
 | Card Type | Count |
 | --- | ---: |
@@ -183,10 +183,10 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Metaphasic Shields (83 U) | working | Pepsch green (reconfirmed). | Pepsch 2026-09-19 |
 | Neural Servo Device (84 U) | working | Pepsch green; Side-Sync OK (Data/55d96ef). | Pepsch 2026-09-06 |
 | Nutational Shields (85 U) | working | Pepsch green (reconfirmed). | Pepsch 2026-09-19 |
-| Pattern Enhancers (86 C) | partial | Data building (in progress). Pending Pepsch green. | Data 2026-09-20 |
+| Pattern Enhancers (86 C) | working | Pepsch green. tips Data/`1344864`/`b9888cd`. | Pepsch 2026-09-20; Data/`1344864`+`b9888cd` |
 | Plasma Fire (87 C) | working | Pepsch green (reconfirmed). | Pepsch 2026-09-19 |
 | Q-Net (88 C) | unknown |  |  |
-| Raise the Stakes (89 U) | unknown |  |  |
+| Raise the Stakes (89 U) | partial | Next after Pattern Enhancers: Data/Captain Win Condition work. Pending Pepsch green. | Captain 2026-09-20 |
 | Red Alert! (90 C) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Res-Q (91 C) | working | Pepsch green. | Pepsch 2026-09-19 |
 | Spacedock (92 C) | working | Pepsch green. | Pepsch 2026-09-06 |
