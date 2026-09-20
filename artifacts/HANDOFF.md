@@ -1,3 +1,18 @@
+Local Josef tip **PENDING_SK** - Stone + Kurlan Plays-on (Pepsch smoke). Nicht gepusht.
+
+## Tip detail (Data, Josef, 2026-09-20) - Stone + Kurlan Plays-on
+Captain Go / Spock \GROK_TEMP/SOLL_AWAYTEAM_PLAYSON_2026-09-20.md\.
+### Stone
+- Target: planet Away Teams only (no ship/outpost/facility crew).
+- Plays-as-Event: not IsStackable (no inert host attach); BeginPlayCardStack → kill → Discard.
+### Kurlan
+- Play on any ship incl. opponent; x3 RANGE/W/S kept (GetAllStackedCardsOnHost for foreign artifact).
+### Pipeline
+- ArtifactRules.IsPlaysAsEventFromHand only — no Extract big-bang.
+### Smoke
+1. Stone: cannot stick on ship/outpost; only planet AT chooser; kills then discard.
+2. Kurlan: chooser includes opp ships; x3 when 7 classes aboard that ship.
+
 Local Josef tip docs: Gift Box Pepsch green → working (adac172). Kein Code.
 
 Local Josef tip **389f950** - Detail Name x3 fix (Pepsch smoke). Nicht gepusht.

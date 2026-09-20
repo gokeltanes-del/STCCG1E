@@ -897,7 +897,10 @@ public partial class TableWindow : Window
         Border? border = TableCanvas.Children.OfType<Border>()
             .FirstOrDefault(b => b.Tag is Card c && ReferenceEquals(c, ship));
         int owner = border == null ? _activePlayer : (GetBorderOwner(border) == 0 ? 1 : GetBorderOwner(border));
-        var aboard = border == null ? new List<Card>() : GetAllCardsOnHost(border, owner);
+        // Stack includes foreign-owned Plays-as-Event artifacts (e.g. your Kurlan on opp ship).
+        var aboard = border == null
+            ? new List<Card>()
+            : GetAllStackedCardsOnHost(border);
         var evs = border == null
             ? Enumerable.Empty<(EventRules.Persist, Card)>()
             : EventsOn(border).Select(e => (e.Kind, e.Card));
@@ -4795,7 +4798,7 @@ public partial class TableWindow : Window
         int defOwnerForCrew = GetBorderOwner(defenderBorder);
         if (defOwnerForCrew == 0) defOwnerForCrew = defOwner;
         var defEv = EventsOn(defenderBorder).Select(e => (e.Kind, e.Card));
-        int defMult = BattleRules.KurlanMultiplier(GetAllCardsOnHost(defenderBorder, defOwnerForCrew));
+        int defMult = BattleRules.KurlanMultiplier(GetAllStackedCardsOnHost(defenderBorder));
         int defShieldBonus = BattleRules.GetShields(defenderCard) * (defMult - 1)
                              + EventRules.ShieldsBonusFromEvents(defEv, GetAllCardsOnHost(defenderBorder, defOwnerForCrew));
         int facShields = 0;
@@ -4810,7 +4813,7 @@ public partial class TableWindow : Window
         {
             int atkOwner = GetBorderOwner(attackerBorder);
             if (atkOwner == 0) atkOwner = 1;
-            int atkMult = BattleRules.KurlanMultiplier(GetAllCardsOnHost(attackerBorder, atkOwner));
+            int atkMult = BattleRules.KurlanMultiplier(GetAllStackedCardsOnHost(attackerBorder));
             var atkEv = EventsOn(attackerBorder).Select(e => (e.Kind, e.Card));
             atkBonus = printedAtkW * (atkMult - 1) + EventRules.WeaponsBonusFromEvents(atkEv);
         }
@@ -5696,6 +5699,14 @@ public partial class TableWindow : Window
             // Missed target must not eat the card (TABLE-column drop path).
             if (!TryPlayInterruptFromHand(card, floating, new Point(-999, -999), owner))
                 ReturnCardToHand(card, owner);
+            return;
+        }
+
+        if (!_seedPhaseActive && _session.Match == GameSession.MatchPhase.Play
+            && ArtifactRules.IsPlaysAsEventFromHand(card))
+        {
+            // Stone / Kurlan / Thought Maker / … — Event-equivalent hand play (not TABLE column inert).
+            BeginPlayCardStack(card, isResponse: false);
             return;
         }
 
@@ -10102,9 +10113,7 @@ public partial class TableWindow : Window
         int hull = GetHullDamage(shipBorder);
         int baryon = EventsOn(shipBorder).Count(e => e.Kind == EventRules.Persist.Baryon) * 2;
         int junior = GetJuniorRangePenalty(shipBorder);
-        int owner = GetBorderOwner(shipBorder);
-        if (owner == 0) owner = _activePlayer;
-        var aboard = GetAllCardsOnHost(shipBorder, owner);
+        var aboard = GetAllStackedCardsOnHost(shipBorder);
         int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), aboard);
         return MovementRules.ComputeShipTurnRange(baseRange, baryon, junior);
     }
@@ -10580,10 +10589,12 @@ public partial class TableWindow : Window
 
     private bool IsStackableCard(Card c)
     {
-        // Karten, die "auf" einem Host liegen und digital im Stapel verschwinden.
-        // Artifacts in der Seed-Phase → unter Mission (IsSeedableUnderMission), nicht Host-Crew-Stapel.
+        // Stack = Personnel/Equipment (+ Use-as-Equipment artifacts). Plays-as-Event artifacts
+        // (Stone, Kurlan, …) must NOT attach inert — they go through hand-play resolve.
         string st = (c.Type ?? "").ToLowerInvariant();
         if (st.Contains("artifact") && _seedPhaseActive)
+            return false;
+        if (ArtifactRules.IsPlaysAsEventFromHand(c))
             return false;
         return st.Contains("personnel")
                || st.Contains("equipment")
@@ -16062,7 +16073,7 @@ public partial class TableWindow : Window
             }
 
             string pickLabel = AskChoice(art, "Stone of Gol",
-                "Plays as Event on any Away Team (planet). Crew aboard ships is not a target.",
+                "Plays as Event on any Away Team (planet personnel only). Ship/Outpost/Facility crew is not a target.",
                 awayChoices.Select(c => c.Label).ToArray());
             var chosen = awayChoices.FirstOrDefault(c => c.Label == pickLabel);
             if (chosen.Mission == null)
@@ -16122,10 +16133,11 @@ public partial class TableWindow : Window
 
         if (ArtifactRules.IsKurlanNaiskos(art))
         {
-            var ownShips = TableCanvas.Children.OfType<Border>()
-                .Where(b => b.Tag is Card sc && IsShipCard(sc) && GetBorderOwner(b) == controller)
+            // Printed "on a ship" = any ship (incl. opponent). Own-only filter removed.
+            var anyShips = TableCanvas.Children.OfType<Border>()
+                .Where(b => b.Tag is Card sc && IsShipCard(sc))
                 .ToList();
-            Border? shipB = PickBorderFromList(art, ownShips, "Kurlan Naiskos: play on which ship?");
+            Border? shipB = PickBorderFromList(art, anyShips, "Kurlan Naiskos: play on which ship? (any)");
             if (shipB == null)
             {
                 StatusText.Text = "Kurlan: no ship chosen → kept in hand.";
@@ -16134,7 +16146,7 @@ public partial class TableWindow : Window
                 return true;
             }
             AttachCardToHost(art, shipB, controller);
-            StatusText.Text = "Kurlan Naiskos on ship (attributes x3 if all classifications present).";
+            StatusText.Text = "Kurlan Naiskos on ship (any ship; attributes x3 if all 7 classifications aboard).";
             return true;
         }
 
@@ -18584,8 +18596,8 @@ public partial class TableWindow : Window
         var logLines = new List<string>();
         logLines.Add($"SHIP BATTLE: {attackerShip.Name} (S{atkOwner}) → {defenderCard.Name} (S{defOwner})");
 
-        int atkMult = BattleRules.KurlanMultiplier(GetAllCardsOnHost(attackerBorder, atkOwner));
-        int defMult = BattleRules.KurlanMultiplier(GetAllCardsOnHost(defenderBorder, defOwner));
+        int atkMult = BattleRules.KurlanMultiplier(GetAllStackedCardsOnHost(attackerBorder));
+        int defMult = BattleRules.KurlanMultiplier(GetAllStackedCardsOnHost(defenderBorder));
         var atkEv = EventsOn(attackerBorder).Select(e => (e.Kind, e.Card));
         var defEv = EventsOn(defenderBorder).Select(e => (e.Kind, e.Card));
         bool borgAtk = TimingRules.IsBorgShipDilemma(attackerShip);
@@ -23016,7 +23028,20 @@ public partial class TableWindow : Window
     }
 
     /// <summary>Alle Karten eines Owners auf dem Host (Personnel + Equipment) für Modifier.</summary>
-    private List<Card> GetAllCardsOnHost(Border host, int owner)
+    /// <summary>All cards on host stack (any owner). Needed for opp-hosted Kurlan / foreign attachments.</summary>
+    private List<Card> GetAllStackedCardsOnHost(Border host)
+    {
+        var cards = new List<Card>();
+        if (!_stackOnHost.TryGetValue(host, out var list)) return cards;
+        foreach (var b in list)
+        {
+            if (b.Tag is Card c)
+                cards.Add(c);
+        }
+        return cards;
+    }
+
+        private List<Card> GetAllCardsOnHost(Border host, int owner)
     {
         var cards = new List<Card>();
         if (!_stackOnHost.TryGetValue(host, out var list)) return cards;

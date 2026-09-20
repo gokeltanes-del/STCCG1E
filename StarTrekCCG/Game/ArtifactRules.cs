@@ -169,7 +169,21 @@ public static class ArtifactRules
     public static bool IsKurlanNaiskos(Card? c) => NameIs(c, "Kurlan Naiskos");
     public static bool IsThoughtMaker(Card? c) => NameIs(c, "Thought Maker");
     public static bool IsToxUthat(Card? c) => NameIs(c, "Tox Uthat");
-    public static bool IsVulcanStoneOfGol(Card? c) => NameIs(c, "Vulcan Stone of Gol");
+    /// <summary>
+    /// Printed "Plays as [Event] …" from hand — must not stack inert as equipment on a host.
+    /// Resolve via TryResolveArtifactHandPlay (Stone discard / Kurlan attach / etc.).
+    /// </summary>
+    public static bool IsPlaysAsEventFromHand(Card? c) =>
+        IsVulcanStoneOfGol(c)
+        || IsKurlanNaiskos(c)
+        || IsThoughtMaker(c)
+        || IsToxUthat(c)
+        || IsIconianGateway(c)
+        || IsReceptacleStones(c)
+        || IsOphidianCane(c)
+        || IsSamuelClemensPocketwatch(c);
+
+        public static bool IsVulcanStoneOfGol(Card? c) => NameIs(c, "Vulcan Stone of Gol");
 
     /// <summary>
     /// Printed: kills personnel without (Youth OR CUNNING>7).
