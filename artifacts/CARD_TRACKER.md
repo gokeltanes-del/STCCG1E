@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-20 (Jadzia — Pepsch green Distortion Continuum; ETA in progress)
+Last updated: 2026-09-20 (Jadzia — Pepsch green Energy Vortex + Incoming Messages)
 Scope: **Premiere** (`PR`) + **Alternate Universe** catalogued. **Priority: finish all unfinished Premiere cards first.** AU is logged only; not prioritized unless already wired.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -29,9 +29,9 @@ Source tip: when Data/Spock/Seven/Captain report, update the row.
 
 | Status | Count | Role |
 | --- | ---: | --- |
-| `working` | 103 | Done (Pepsch green) |
+| `working` | 107 | Done (Pepsch green) |
 | `partial` | 6 | **Next smoke / rework** |
-| `unknown` | 254 | **Backlog — finish Premiere** |
+| `unknown` | 250 | **Backlog — finish Premiere** |
 | `blocked` | 0 | — |
 | **Total** | **363** | |
 
@@ -221,15 +221,15 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Crosis (111 R) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Disruptor Overload (112 C) | working | Pepsch green 2026-09-20. | Pepsch 2026-09-20 |
 | Distortion of Space/Time Continuum (113 U) | working | Pepsch green 2026-09-20 (rest OK; unstop untested). | Pepsch 2026-09-20 |
-| Emergency Transporter Armbands (114 C) | partial | Data building (in progress). Pending Pepsch green. | Data 2026-09-20 |
-| Energy Vortex (115 U) | unknown |  |  |
+| Emergency Transporter Armbands (114 C) | partial | Data building; bleibt partial bis Tip/Smoke. | Data 2026-09-20 |
+| Energy Vortex (115 U) | working | Pepsch green 2026-09-20. | Pepsch 2026-09-20 |
 | Escape Pod (116 C) | partial | tips Data/`5e55eef` + `7917a30`/`a3481a1` + `acc1426` + Z/`c1b622e` (Josef, no push): Response/Think Tray Z over CardDetail while open. Prior: ShipDestroyed window during battle stack; crew/personnel only; crew aboard + Pod in hand; excludes captives. Stays partial until Pepsch greens Borg-destroy -> pick Pod â€” not working. | Data/`c1b622e` 2026-09-15 |
 | Full Planet Scan (117 U) | unknown |  |  |
 | Honor Challenge (118 R) | unknown |  |  |
 | Hugh (119 R) | working | Pepsch green: works on Borg Ship dilemma attack (valid response). | Pepsch 2026-09-15 |
-| Incoming Message: Federation (120 U) | unknown |  |  |
-| Incoming Message: Klingon (121 U) | unknown |  |  |
-| Incoming Message: Romulan (122 U) | unknown |  |  |
+| Incoming Message: Federation (120 U) | working | Pepsch green 2026-09-20 (Incoming Message family). | Pepsch 2026-09-20 |
+| Incoming Message: Klingon (121 U) | working | Pepsch green 2026-09-20 (Incoming Message family). | Pepsch 2026-09-20 |
+| Incoming Message: Romulan (122 U) | working | Pepsch green 2026-09-20 (Incoming Message family). | Pepsch 2026-09-20 |
 | Jaglom Shrek: Information Broker (123 R) | unknown |  |  |
 | Kevin Uxbridge (124 U) | working | Pepsch green Response auf Vulcan Stone of Gol (Play-on Away Team): Event nullify OK; Mission bleibt auf Spaceline. tip Data/`8cc832f`. UX Ship-Detail Kevin-Targets+Scrollbar OK. | Pepsch 2026-09-20; Data/`8cc832f` |
 | Klingon Death Yell (125 R) | unknown |  |  |
