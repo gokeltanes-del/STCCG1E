@@ -1,4 +1,4 @@
-- tip HASH fix(premiere): IsMale not Female; Groupie countdown owner turns — EXE 2026-09-20 21:16:39 — GROK_TEMP/TIP_IS_MALE_GROUPIE_CD_2026-09-20.md
+- tip 9d09019 fix(premiere): IsMale not Female; Groupie countdown owner turns — EXE 2026-09-20 21:16:39 — GROK_TEMP/TIP_IS_MALE_GROUPIE_CD_2026-09-20.md
 - tip 2a5585f fix(premiere): Auto-Destruct splash ApplyRotationDamage Hit — EXE 2026-09-20 21:13:56 — Spock Lock
 - tip 96336de feat(premiere): Auto-Destruct Sequence countdown destroy + splash — EXE 2026-09-20 21:12:14 — GROK_TEMP/TIP_AUTO_DESTRUCT_2026-09-20.md
 - tip 9a0ac4f fix(premiere): Alien Groupie just-solve as LegalResponse window — EXE 2026-09-20 21:05:22 — GROK_TEMP/TIP_ALIEN_GROUPIE_JUST_RESPONSE_2026-09-20.md

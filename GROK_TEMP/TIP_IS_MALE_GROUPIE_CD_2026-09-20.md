@@ -1,6 +1,6 @@
 # Tip IsMale + Groupie owner countdown
 
-tip: 780c67f
+tip: 9d09019
 EXE: 2026-09-20 21:16:39
 msg: fix(premiere): IsMale not Female; Groupie countdown owner turns
 
