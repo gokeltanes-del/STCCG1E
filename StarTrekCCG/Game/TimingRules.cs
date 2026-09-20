@@ -389,10 +389,10 @@ public static class TimingRules
             if (top.Kind == ActionKind.EncounterDilemma)
             {
                 if (top.Card == null || !CardIcons.HasEtaDilemma(top.Card))
-                    return (false, "Armbands: only while facing an [ETA]/countdown dilemma.");
+                    return (false, "Armbands: only while facing an [ETA] dilemma.");
                 return (true, "Beam your personnel away while facing this dilemma.");
             }
-            return (false, "Armbands: play during battle or while facing an [ETA] dilemma.");
+            return (false, "Armbands: play during battle or while facing an [ETA] dilemma (icon).");
         }
 
         return (false, $"\"{n}\" is not a valid response in this window.");

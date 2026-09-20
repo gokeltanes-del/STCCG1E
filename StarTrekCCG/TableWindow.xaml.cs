@@ -436,6 +436,8 @@ public partial class TableWindow : Window
     private int _pendingAuJustPlayedBy;
     /// <summary>True while personnel/ship battle dice are resolving (Armbands forbidden).</summary>
     private bool _adversariesInCombat;
+    /// <summary>Player performing current beam mode (Armbands may be non-active).</summary>
+    private int _beamModePlayer;
     private int _etaArmbandsWindowDoneForInstance;
     private bool _resumeAttemptAfterEtaArmbands;
     private Border? _etaResumeMissionBorder;
@@ -19269,6 +19271,7 @@ _spacelineOrder.Remove(pod);
     {
         if (hostBorder.Tag is not Card hostCard) return;
         int beamPlayer = beamingPlayer ?? _activePlayer;
+        _beamModePlayer = beamPlayer;
         if (IsShipCard(hostCard) && IsShipCloaked(hostBorder))
         {
             ShowPlayError("Cannot beam to or from a cloaked ship. Decloak first.");
@@ -19293,6 +19296,12 @@ _spacelineOrder.Remove(pod);
             ShowPlayError("Particle Scattering Field: no beaming to or from a planet here.");
             return;
         }
+        // Distortion Field alone blocks; Pattern Enhancers (owner) overcomes (Spock Lock Armbands).
+        var srcMissionForDist = FindMissionForDockable(hostBorder)
+            ?? (CardKinds.IsMission(hostCard) ? hostBorder : null);
+        if (srcMissionForDist != null
+            && !CanBeamAtMission(srcMissionForDist, plannedCount: 1, beamingPlayer: beamPlayer))
+            return;
         if (ShipHasRequiredMove(hostBorder))
         {
             ShowPlayError("Incoming Message: crew may not leave the ship (7.10). Reporting aboard is allowed.");
@@ -25002,7 +25011,8 @@ _spacelineOrder.Remove(pod);
             return true;
         }
 
-        if (!CanBeamAtMission(srcMission, plannedCount: Math.Max(1, _beamSelected.Count), beamingPlayer: _activePlayer))
+        int beamWho = _beamModePlayer is 1 or 2 ? _beamModePlayer : _activePlayer;
+        if (!CanBeamAtMission(srcMission, plannedCount: Math.Max(1, _beamSelected.Count), beamingPlayer: beamWho))
             return true;
 
         var toMove = list.Where(b =>
@@ -25019,7 +25029,7 @@ _spacelineOrder.Remove(pod);
 
         if (targetHost.Tag is Card destHostCard)
         {
-            var treaties = GetActiveTreaties(_activePlayer);
+            var treaties = GetActiveTreaties(beamWho);
             var blocked = toMove
                 .Select(b => b.Tag as Card)
                 .Where(c => c != null && !TreatyRules.CanOccupyHost(c!, destHostCard, treaties))

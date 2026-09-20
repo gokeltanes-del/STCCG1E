@@ -107,14 +107,9 @@ public static class CardIcons
     /// <summary>Dilemma (or other card) printed with [IPG] — nullified where Interphase Generator is present.</summary>
     public static bool HasIpg(Card? card) => card != null && Parse(card).InterphaseGenerator;
 
-    /// <summary>[ETA] token or printed countdown numeral ([1]…[9]) — Armbands / countdown dilemmas.</summary>
-    public static bool HasEtaDilemma(Card? card)
-    {
-        if (card == null) return false;
-        var p = Parse(card);
-        if (p.PrintedCountdown is >= 1 and <= 9) return true;
-        return p.Has("ETA");
-    }
+    /// <summary>Spock Lock: [ETA] icon only (Premiere: Firestorm) — not countdown numerals / whitelist.</summary>
+    public static bool HasEtaDilemma(Card? card) =>
+        card != null && Parse(card).Has("ETA");
 
     /// <summary>Same as HasIpg; name mirrors rules wording "[IPG] dilemmas".</summary>
     public static bool IsIpgDilemma(Card? card) =>
