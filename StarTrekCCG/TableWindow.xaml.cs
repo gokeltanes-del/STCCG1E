@@ -7993,49 +7993,46 @@ private List<Card> CollectCardsInPlay(bool opponent)
     /// </summary>
     private void ResumeEndOfTurnAfterDrawResponses()
     {
+        int who = _endTurnFinishingPlayer != 0 ? _endTurnFinishingPlayer : _session.ActivePlayer;
+
         if (_stack.IsOpen)
         {
-            if (_stack.Top?.IsMandatory == true)
-            {
-                StatusText.Text = "Mandatory response required — cannot pass.";
-                return;
-            }
-            if (_stack.Top?.Kind == TimingRules.ActionKind.DrawCard)
+            if (_stack.Top?.Kind == TimingRules.ActionKind.DrawCard
+                && _stack.Top?.IsMandatory != true)
             {
                 PassCurrentResponseWindow();
-                // Pass may have called ResolveEntireStack → CompleteTurnChange already.
                 if (!_eotEndingInProgress && !_endTurnAfterDrawStack)
-                    return;
+                    return; // CompleteTurnChange already ran
             }
             else
             {
-                StatusText.Text = "Resolve the open action stack first.";
-                return;
+                // During EOT never leave Pepsch on "resolve stack first".
+                _session.Log.Add(_session.TurnNumber, $"P{who}",
+                    $"EOT resume: clear non-Draw stack ({_stack.Top?.Kind})");
+                _stack.Clear();
+                CloseResponseWindowUi();
+                HideActionAnnounce();
             }
         }
 
         if (_stack.IsOpen)
         {
-            ShowActionAnnounce();
-            UpdatePhaseControls();
-            return;
+            _session.Log.Add(_session.TurnNumber, $"P{who}", "EOT resume: force-clear leftover stack");
+            _stack.Clear();
+            CloseResponseWindowUi();
+            HideActionAnnounce();
         }
 
-        int who = _endTurnFinishingPlayer != 0 ? _endTurnFinishingPlayer : _session.ActivePlayer;
         FinishEndOfTurnDrawExtras(who);
-        if (_stack.IsOpen && _stack.Top?.Kind == TimingRules.ActionKind.DrawCard)
+        if (_stack.IsOpen)
         {
-            _endTurnAfterDrawStack = true;
-            _endTurnFinishingPlayer = who;
-            StatusText.Text =
-                "Extra draw — response window (or Space / End Turn to pass and finish).";
-            ShowActionAnnounce();
-            UpdatePhaseControls();
-            return;
+            _stack.Clear();
+            CloseResponseWindowUi();
+            HideActionAnnounce();
         }
-
         CompleteTurnChange();
     }
+
 
     /// <summary>
     /// Execute fertig: optional 1 Karte ziehen, dann Gegner (Play-Segment).
@@ -8056,8 +8053,17 @@ private List<Card> CollectCardsInPlay(bool opponent)
 
         try
         {
-            // Glossary: Temporal Causality Loop / End Transmission — end turn immediately,
-            // skipping all end-of-turn actions (countdowns, probes, draws). Compendium 8 / _rb69.
+            // Abandon stale stack so EOT cannot stick / skip Horga extras.
+            if (_stack.IsOpen)
+            {
+                _session.Log.Add(_session.TurnNumber, $"P{finishingPlayer}",
+                    $"EOT: abandon stale stack ({_stack.Top?.Kind})");
+                _stack.Clear();
+                CloseResponseWindowUi();
+                HideActionAnnounce();
+            }
+
+            // Glossary: Temporal Causality Loop / End Transmission — end turn immediately.
             if (_skipNormalEndOfTurn || DilemmaRules.ShouldSkipNormalEndOfTurn(_skipNormalEndOfTurn))
             {
                 _skipNormalEndOfTurn = false;
@@ -8097,40 +8103,31 @@ private List<Card> CollectCardsInPlay(bool opponent)
             _uniquePersonnelPlayedP1 = false;
             _uniquePersonnelPlayedP2 = false;
 
-            // D) EOT draws skip Schism so Pepsch smoke never hangs on response.
+            // Normal EOT draw (skipSchism) — never early-return before Horga extras.
             if (!_session.SuppressEndOfTurnDraw && !_session.HasDrawnThisTurn)
                 DrawOneToHandFor(finishingPlayer, endOfTurn: true, skipSchism: true);
             else if (_session.SuppressEndOfTurnDraw)
                 StatusText.Text = "No draw at end of turn (card effect).";
 
-            if (_stack.IsOpen && _stack.Top?.Kind == TimingRules.ActionKind.DrawCard)
-            {
-                _endTurnAfterDrawStack = true;
-                _endTurnFinishingPlayer = finishingPlayer;
-                StatusText.Text =
-                    "End-of-turn draw — response window (or Space / End Turn to pass and finish).";
-                ShowActionAnnounce();
-                UpdatePhaseControls();
-                return;
-            }
-
+            // Always run Horga extra draw if unused 2nd play (skipSchism).
             FinishEndOfTurnDrawExtras(finishingPlayer);
-            if (_stack.IsOpen && _stack.Top?.Kind == TimingRules.ActionKind.DrawCard)
-            {
-                _endTurnAfterDrawStack = true;
-                _endTurnFinishingPlayer = finishingPlayer;
-                StatusText.Text =
-                    "Horga'hn extra draw — response window (or Space / End Turn to pass and finish).";
-                ShowActionAnnounce();
-                UpdatePhaseControls();
-                return;
-            }
-            // CompleteTurnChange via finally when stack empty
         }
         finally
         {
-            if (_eotEndingInProgress && !_stack.IsOpen)
+            if (_eotEndingInProgress)
+            {
+                if (_stack.IsOpen)
+                {
+                    _session.Log.Add(_session.TurnNumber, $"P{finishingPlayer}",
+                        "EOT finally: clear leftover stack");
+                    _stack.Clear();
+                    CloseResponseWindowUi();
+                    HideActionAnnounce();
+                }
+                int who = _endTurnFinishingPlayer != 0 ? _endTurnFinishingPlayer : finishingPlayer;
+                FinishEndOfTurnDrawExtras(who); // no-op if Horga already granted / pending 0
                 CompleteTurnChange();
+            }
         }
     }
 
@@ -8148,14 +8145,18 @@ private List<Card> CollectCardsInPlay(bool opponent)
             _pendingExtraDraws--;
             // Skip Schism during EOT/Horga extras (Pepsch: no response hang).
             DrawOneToHandFor(finishingPlayer, endOfTurn: true, skipSchism: true);
-            if (_stack.IsOpen && _stack.Top?.Kind == TimingRules.ActionKind.DrawCard)
+            // Stale/unexpected stack must not abort remaining extras.
+            if (_stack.IsOpen)
             {
-                _endTurnAfterDrawStack = true;
-                _endTurnFinishingPlayer = finishingPlayer;
-                return;
+                _session.Log.Add(_session.TurnNumber, $"P{finishingPlayer}",
+                    $"EOT extras: clear unexpected stack ({_stack.Top?.Kind})");
+                _stack.Clear();
+                CloseResponseWindowUi();
+                HideActionAnnounce();
             }
         }
     }
+
 
     private int FirstLegalResponder(TimingRules.PendingAction top, int preferred)
     {
