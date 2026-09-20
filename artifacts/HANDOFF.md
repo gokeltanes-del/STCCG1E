@@ -9,7 +9,7 @@ Local VS: C:\\Dev\\StarTrekCCG\\
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test.
 
 ## Current tip
-Local Josef tip **PENDING_GIFT** - Betazoid Gift Box (Pepsch smoke). Nicht gepusht.
+Local Josef tip **adac172** - Betazoid Gift Box (Pepsch smoke). Nicht gepusht.
 
 Local Josef tip **e954f03** - Vulcan Stone of Gol (Pepsch smoke). Nicht gepusht.
 Local Josef tip **bcf7f9d** - Holo existence gates (Pepsch Fix-Go; Spock precise Soll). Nicht gepusht. (Prior Holo-Projectors tip 3c50792; LF UI eaf0c24.)
