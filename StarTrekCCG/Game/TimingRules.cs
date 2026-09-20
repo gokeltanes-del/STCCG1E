@@ -21,7 +21,9 @@ public static class TimingRules
         DrawCard,
         ShipDestroyed,
         /// <summary>Ship span-flying past a location (Hail response window).</summary>
-        ShipFlyBy
+        ShipFlyBy,
+        /// <summary>Planet mission just solved (Alien Groupie / other just responses).</summary>
+        MissionJustSolved
     }
 
     public enum Destination
@@ -208,7 +210,8 @@ public static class TimingRules
             || n.Equals("Subspace Schism", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Escape Pod", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Subspace Interference", StringComparison.OrdinalIgnoreCase)
-            || n.Equals("Hail", StringComparison.OrdinalIgnoreCase);
+            || n.Equals("Hail", StringComparison.OrdinalIgnoreCase)
+            || n.Equals("Alien Groupie", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -346,6 +349,22 @@ public static class TimingRules
             if (top.AttackerHost == null || top.AttackerCard == null)
                 return (false, "Hail: flying-by ship missing.");
             return (true, "Stop the flying-by ship at your location (may not move further this turn).");
+        }
+
+        if (n.Equals("Alien Groupie", StringComparison.OrdinalIgnoreCase))
+        {
+            if (top.Kind != ActionKind.MissionJustSolved)
+                return (false, "Alien Groupie: plays just after a planet mission is solved.");
+            if (top.Controller != responseOwner)
+                return (false, "Alien Groupie: that was not your Away Team's solve.");
+            var present = top.AttackerPresent;
+            if (present == null || present.Count == 0)
+                return (false, "Alien Groupie: Away Team missing.");
+            if (!present.Any(DilemmaRules.IsFemale))
+                return (false, "Alien Groupie requires a Female present.");
+            if (!present.Any(DilemmaRules.IsMale))
+                return (false, "Alien Groupie: no male present to stop.");
+            return (true, "Stop one male present until countdown 2 expires.");
         }
 
 return (false, $"\"{n}\" is not a valid response in this window.");

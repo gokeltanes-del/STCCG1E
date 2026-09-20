@@ -4668,7 +4668,8 @@ public partial class TableWindow : Window
                 }
                 bool attachStay = InterruptRules.IsAsteroidSanctuary(a.Card)
                                   || InterruptRules.IsDistortionContinuum(a.Card)
-                                  || InterruptRules.IsTachyonDetectionGrid(a.Card);
+                                  || InterruptRules.IsTachyonDetectionGrid(a.Card)
+                                  || InterruptRules.IsAlienGroupie(a.Card);
                 // Kevin (etc.) may still need TargetCard nullify when used as a response
                 if ((TimingRules.IsInterrupt(a.Card) || InterruptRules.IsInterrupt(a.Card))
                     && (a.TargetCard != null || attachStay))
@@ -4744,6 +4745,15 @@ public partial class TableWindow : Window
                 return;
             }
             CompletePendingHailFly();
+            return;
+        }
+
+        if (a.Kind == TimingRules.ActionKind.MissionJustSolved)
+        {
+            ClearJustSolvedPlanet(a.Cancelled ? $"responded ({a.CancelledBy})" : "passed");
+            StatusText.Text = a.Cancelled
+                ? $"Just-solve window closed ({a.CancelledBy})."
+                : "Just-solve window passed.";
             return;
         }
 
@@ -13388,7 +13398,10 @@ private List<Card> CollectCardsInPlay(bool opponent)
             $"Solved {mission.Name} for {result.Points} points");
         // Glossary just: Alien Groupie — Away Team that just solved a planet mission
         if (MissionCountsAsPlanetCard(mission))
+        {
             ArmJustSolvedPlanet(missionBorder, teamBorders, _activePlayer);
+            OpenMissionJustSolvedResponse(missionBorder, mission, teamBorders, _activePlayer);
+        }
 
         // Rulebook 7.2.2.3: Mission completed may cure dilemmas attached here (e.g. Alien Abduction)
         TryCureAttachedDilemmas(missionBorder);
@@ -21873,7 +21886,31 @@ _spacelineOrder.Remove(pod);
         UpdateHostBadge(host);
     }
 
-﻿    private void ArmJustSolvedPlanet(Border mission, List<Border> teamBorders, int player)
+
+    private void OpenMissionJustSolvedResponse(Border missionBorder, Card mission, List<Border> teamBorders, int player)
+    {
+        var present = teamBorders
+            .Where(b => b.Tag is Card c && ModifierRules.IsPersonnelCard(c))
+            .Select(b => (Card)b.Tag!)
+            .ToList();
+        _stack.Push(new TimingRules.PendingAction
+        {
+            Kind = TimingRules.ActionKind.MissionJustSolved,
+            Controller = player,
+            Card = mission,
+            AttackerHost = missionBorder,
+            AttackerTeam = teamBorders.Cast<object>().ToList(),
+            AttackerPresent = present,
+            Summary = $"P{player} just solved planet: {mission.Name}"
+        });
+        OpenResponseWindow(player);
+        ScheduleActionAnnounce(400);
+        StatusText.Text = $"{mission.Name} solved — just responses (Alien Groupie)…";
+        _session.Log.Add(_session.TurnNumber, $"P{player}",
+            $"MissionJustSolved response window ({mission.Name})");
+    }
+
+    private void ArmJustSolvedPlanet(Border mission, List<Border> teamBorders, int player)
     {
         _justSolvedPlanetMission = mission;
         _justSolvedPlayer = player;

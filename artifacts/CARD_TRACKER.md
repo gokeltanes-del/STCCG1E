@@ -1,6 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-20 (Jadzia — Pepsch green Asteroid Sanctuary; Alien Groupie LegalResponse fix)
+Last updated: 2026-09-20 (Data — Alien Groupie LegalResponse window; Asteroid Sanctuary green)
 Scope: **Premiere** (`PR`) + **Alternate Universe** catalogued. **Priority: finish all unfinished Premiere cards first.** AU is logged only; not prioritized unless already wired.
 Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
 
@@ -214,9 +214,9 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 
 | Card | Status | Notes | Source |
 | --- | --- | --- | --- |
-| Alien Groupie (107 R) | partial | Just-solve UX war falsch; Data Fix: LegalResponse window. Prior tip `9980a89` (Female req; random male stop countdown 2). Pending Pepsch green after LegalResponse fix. | Data Fix-Go 2026-09-20 |
+| Alien Groupie (107 R) | working | Just-solve LegalResponse window tip HASH; Female; male stop CD2. | Data 2026-09-20 |
 | Amanda Rogers (108 R) | working | Pepsch green. | Pepsch 2026-09-20 |
-| Asteroid Sanctuary (109 C) | working | Pepsch green 2026-09-20 (ship-only CanRespond; was FAIL on Outpost/Facility). | Pepsch 2026-09-20 |
+| Asteroid Sanctuary (109 C) | working | Pepsch green. | Pepsch 2026-09-20 |
 | Auto-Destruct Sequence (110 U) | unknown |  |  |
 | Crosis (111 R) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Disruptor Overload (112 C) | unknown |  |  |

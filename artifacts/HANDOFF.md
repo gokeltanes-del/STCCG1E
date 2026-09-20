@@ -1,3 +1,4 @@
+- tip HASH fix(premiere): Alien Groupie just-solve as LegalResponse window — EXE 2026-09-20 21:05:22 — GROK_TEMP/TIP_ALIEN_GROUPIE_JUST_RESPONSE_2026-09-20.md
 - tip 9980a89 feat(premiere): Alien Groupie just-solve stop male countdown — EXE 2026-09-20 20:52:21 — GROK_TEMP/TIP_ALIEN_GROUPIE_2026-09-20.md
 - tip 2d6ea3b fix(ui): Tetryon fly-by ShowPlayError; Rift+Tetryon Debuff tone — EXE 2026-09-20 20:08:20 — GROK_TEMP/TIP_TETRYON_RIFT_DETAIL_2026-09-20.md
 - tip 7f5ae62 feat(premiere): Raise the Stakes + win 100 / Dev 500 — EXE 2026-09-20 19:31:33 — GROK_TEMP/TIP_RAISE_THE_STAKES_2026-09-20.md
