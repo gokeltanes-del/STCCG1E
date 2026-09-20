@@ -4968,23 +4968,13 @@ public partial class TableWindow : Window
             return false;
         }
 
-        // Normal plays in Play. Horga'hn optional extra also allowed in Execute (never blocks End Turn).
+        // Normal card plays (incl. Horga'hn 2nd play) only in Play. End PLAY always free — never block P2.
         if (_session.Segment != GameSession.TurnSegment.Play)
         {
-            bool horgahnExtraInExecute =
-                _session.Segment == GameSession.TurnSegment.Execute
-                && GameSession.UsesNormalCardPlay(card)
-                && !forFree
-                && _session.NormalCardPlayUsed
-                && HasHorgahn(_activePlayer)
-                && !_horgahnExtraPlayUsed;
-            if (!horgahnExtraInExecute)
-            {
-                denyReason =
-                    "Hand cards only in the Play segment (before Execute). "
-                    + "Interrupts/Doorways jederzeit; Horga'hn: 1 extra card also in Execute.";
-                return false;
-            }
+            denyReason =
+                "Hand cards only in the Play segment (before Execute). "
+                + "Interrupts/Doorways jederzeit. Horga'hn: 2nd normal play also only in Play (or EOT draw).";
+            return false;
         }
 
         if (forFree)
@@ -5041,7 +5031,7 @@ public partial class TableWindow : Window
 
         if (_session.NormalCardPlayUsed && HasHorgahn(_activePlayer) && !_horgahnExtraPlayUsed)
         {
-            // Second card this turn via Horga'hn (Play or Execute).
+            // 2nd normal card play this turn (Play segment only) via Horga'hn.
             _horgahnExtraPlayUsed = true;
             _session.Log.Add(_session.TurnNumber, $"P{_session.ActivePlayer}",
                 $"Horga'hn extra play: {card.Name}");
@@ -5050,7 +5040,7 @@ public partial class TableWindow : Window
             {
                 _session.AdvanceSegment();
                 SyncSessionToUi();
-                OnTurnContextChanged($"Horga'hn-Play {card.Name} -> Execute.");
+                OnTurnContextChanged($"Horga'hn 2nd play {card.Name} -> Execute.");
             }
             UpdatePhaseControls();
             return;
@@ -5064,21 +5054,22 @@ public partial class TableWindow : Window
             else _uniquePersonnelPlayedP2 = true;
         }
         _session.MarkNormalCardPlay(card.Name ?? "?");
-        // First normal play always leaves Play -> Execute. Horga'hn extra is optional in Execute
-        // (or before End PLAY); never hold the turn waiting on P1.
+        // Printed Horga'hn: optional 2nd normal play in Play, OR EOT draw — not both.
+        // Stay in Play for the optional 2nd; End PLAY (Space) always works — never skip P2.
         if (_session.Segment == GameSession.TurnSegment.Play
             && _session.NormalCardPlayUsed
             && !_session.NormalCardPlayForfeited)
         {
+            if (HasHorgahn(_activePlayer) && !_horgahnExtraPlayUsed)
+            {
+                StatusText.Text =
+                    $"{card.Name} played. Horga'hn: play 1 more card now (Play), or End PLAY and take extra draw at EOT.";
+                UpdatePhaseControls();
+                return;
+            }
             _session.AdvanceSegment();
             SyncSessionToUi();
-            string extraHint = HasHorgahn(_activePlayer) && !_horgahnExtraPlayUsed
-                ? " Horga'hn: 1 extra card still possible in Execute (or draw at EOT)."
-                : "";
-            OnTurnContextChanged($"{card.Name} played -> Execute (orders).{extraHint}");
-            if (HasHorgahn(_activePlayer) && !_horgahnExtraPlayUsed)
-                StatusText.Text =
-                    $"{card.Name} played -> Execute. Horga'hn: play 1 more card now, or take extra draw at end of turn.";
+            OnTurnContextChanged($"{card.Name} played -> Execute (orders).");
             UpdatePhaseControls();
             return;
         }
@@ -7848,10 +7839,15 @@ private List<Card> CollectCardsInPlay(bool opponent)
             {
                 if (_redAlertPlaysLeft > 0)
                     actions = $"Red Alert: up to {_redAlertPlaysLeft} personnel/equipment";
+                else if (_session.NormalCardPlayUsed
+                         && HasHorgahn(_activePlayer) && !_horgahnExtraPlayUsed)
+                    actions = "Horga'hn: 2nd Play available (or End PLAY -> EOT draw)";
                 else if (_session.NormalCardPlayUsed)
                     actions = "Normal card play used";
+                else if (HasHorgahn(_activePlayer))
+                    actions = "1-2 card plays (Horga'hn)";
                 else
-                    actions = "1× card play possible";
+                    actions = "1 card play possible";
             }
             else if (_session.Segment == GameSession.TurnSegment.Execute)
                 actions = "Orders (move / battle / attempt)";
