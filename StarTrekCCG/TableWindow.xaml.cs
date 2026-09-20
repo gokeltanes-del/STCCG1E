@@ -2107,6 +2107,7 @@ public partial class TableWindow : Window
     private readonly Dictionary<int, Border> _ttpPodByOwner = new(); // owner → pod location border
     private readonly Dictionary<Border, Border> _ttpShipFormerLocation = new(); // ship → former mission
     private readonly HashSet<int> _ttpOwnRelocateUsed = new(); // owner already used own-ship relocate
+    private readonly Dictionary<Border, int> _ttpCountdown = new(); // printed countdown 2 while ship here
 
     /// <summary>Host chosen by dropping a crew/ship-targeted interrupt.</summary>
     private Border? _interruptTargetHost;
@@ -8134,6 +8135,7 @@ private List<Card> CollectCardsInPlay(bool opponent)
                 ProcessScowTowEndOfTurn(p);
                 ProcessEndOfTurnDilemmas(p);
                 ProcessEndOfTurnEvents(p);
+                ProcessTimeTravelPodCountdowns();
                 ProcessUntilEndOfTurnBag(p);
                 RestoreAlienParasitesControlsIfDue(p);
                 ProcessRogueBorgEndOfTurn(p);
@@ -12796,9 +12798,13 @@ private List<Card> CollectCardsInPlay(bool opponent)
                     }
                 }
             }
-            else if (isFac)
+                        else if (isFac)
             {
                 AddBtn("Beam personnel…", (_, _) => BeginBeamMode(cardBorder));
+                int facOwner = GetBorderOwner(cardBorder);
+                if (facOwner == 0) facOwner = _activePlayer;
+                AddBtn("Solvable missions?", (_, _) => HighlightSolvableMissions(
+                    GetAllCardsOnHost(cardBorder, facOwner)));
             }
             else if (isMission && missionHasMyAway)
             {
@@ -12818,10 +12824,7 @@ private List<Card> CollectCardsInPlay(bool opponent)
                 if (!_solvedMissions.Contains(cardBorder))
                     AddBtn("Attempt mission", (_, _) => TryAttemptMission(cardBorder, card));
             }
-            else if (isTtp)
-            {
-                AddBtn("Relocate own ship…", (_, _) => OfferTimeTravelPodOwnRelocate(cardBorder));
-            }
+            
         }
         else if (_session.Segment == GameSession.TurnSegment.Play && isShip)
         {
@@ -12833,13 +12836,16 @@ private List<Card> CollectCardsInPlay(bool opponent)
             }
         }
 
-        // Time Travel Pod: own-ship relocate once (Pepsch anytime UX; Spock may refine vs opponent turn).
+                // Time Travel Pod: own relocate once at any time (incl. opponent turn), between actions only.
         if (isTtp)
         {
             int podOwner = GetBorderOwner(cardBorder);
-            if (podOwner == 0) podOwner = _session.ActivePlayer;
-            if (podOwner == _activePlayer && !_ttpOwnRelocateUsed.Contains(podOwner)
-                && !_actionPanel.Children.OfType<Button>().Any(b => (b.Content as string)?.StartsWith("Relocate own") == true))
+            if (podOwner == 0) podOwner = _session.ActivePlayer; // last resort if owner unset
+            bool already = _actionPanel.Children.OfType<Button>()
+                .Any(b => (b.Content as string)?.StartsWith("Relocate own", StringComparison.Ordinal) == true);
+            if (!already
+                && !_ttpOwnRelocateUsed.Contains(podOwner)
+                && CanActivateTimeTravelPodAnytime(podOwner))
             {
                 AddBtn("Relocate own ship…", (_, _) => OfferTimeTravelPodOwnRelocate(cardBorder));
             }
@@ -18699,6 +18705,7 @@ private bool ControllerHasToxOnTable(int controller)
         Panel.SetZIndex(border, 9);
         _spacelineOrder.Insert(0, border);
         _ttpPodByOwner[owner] = border;
+        _ttpCountdown[border] = 2;
         RelayoutMissionsOnSpaceline();
         _session.Log.Add(_session.TurnNumber, $"P{owner}",
             "Time Travel Pod placed as space time location (left of spaceline)");
@@ -18733,6 +18740,19 @@ private bool ControllerHasToxOnTable(int controller)
             _ttpOwnRelocateUsed.Add(podOwner);
     }
 
+    /// <summary>
+    /// Spock: at any time incl. opponent turn, between actions — not mid-stack / mid card-action
+    /// (TTP does not suspend play).
+    /// </summary>
+    private bool CanActivateTimeTravelPodAnytime(int podOwner)
+    {
+        if (_seedPhaseActive) return false;
+        if (_session.Match != GameSession.MatchPhase.Play) return false;
+        if (_stack.IsOpen) return false;
+        if (_cardActionMode != CardActionMode.None) return false;
+        return podOwner is 1 or 2;
+    }
+
     private void OfferTimeTravelPodOwnRelocate(Border pod)
     {
         if (pod.Tag is not Card art || !ArtifactRules.IsTimeTravelPod(art)) return;
@@ -18743,12 +18763,45 @@ private bool ControllerHasToxOnTable(int controller)
             ShowPlayError("Time Travel Pod: own-ship relocate already used.");
             return;
         }
-        // Pepsch UX: board pick own ships. Spock may clarify anytime vs own turn only.
+        if (!CanActivateTimeTravelPodAnytime(owner))
+        {
+            ShowPlayError("Time Travel Pod: wait until no action is in progress (at any time between actions).");
+            return;
+        }
+        // Pepsch UX: board pick own ships — also during opponent turn (Spock anytime).
         BeginBoardPickShip(owner,
             "Time Travel Pod: click your ship to relocate here.",
             ship => RelocateShipOntoTimeTravelPod(ship, pod, owner, opponentInit: false));
     }
-    private void ReturnShipsFromTimeTravelPod(Card podCard)
+    
+    private void ProcessTimeTravelPodCountdowns()
+    {
+        foreach (var kv in _ttpCountdown.ToList())
+        {
+            var pod = kv.Key;
+            if (pod.Tag is not Card pc || !ArtifactRules.IsTimeTravelPod(pc))
+            {
+                _ttpCountdown.Remove(pod);
+                continue;
+            }
+            bool shipHere = GetDockablesUnderMission(pod).Any(b => b.Tag is Card c && IsShipCard(c));
+            if (!shipHere)
+                continue; // pause while no ship here
+            int cd = kv.Value - 1;
+            _ttpCountdown[pod] = cd;
+            _session.Log.Add(_session.TurnNumber, "sys",
+                $"Time Travel Pod countdown → {cd} (ship present)");
+            if (cd > 0) continue;
+            int owner = GetBorderOwner(pod);
+            if (owner == 0) owner = 1;
+            _session.Log.Add(_session.TurnNumber, "sys", "Time Travel Pod countdown expired — discard");
+            ReturnShipsFromTimeTravelPod(pc);
+            SendCardTo(pc, owner, TimingRules.Destination.Discard);
+            _ttpCountdown.Remove(pod);
+        }
+    }
+
+private void ReturnShipsFromTimeTravelPod(Card podCard)
     {
         Border? pod = null;
         foreach (var kv in _ttpPodByOwner.ToList())
@@ -18777,7 +18830,8 @@ private bool ControllerHasToxOnTable(int controller)
             }
             _ttpShipFormerLocation.Remove(ship);
         }
-        _spacelineOrder.Remove(pod);
+                _ttpCountdown.Remove(pod);
+_spacelineOrder.Remove(pod);
         if (TableCanvas.Children.Contains(pod))
             TableCanvas.Children.Remove(pod);
         RelayoutMissionsOnSpaceline();
