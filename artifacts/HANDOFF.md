@@ -1,3 +1,9 @@
+Local Josef tip **9770425** - Horga Play-phase timing. Nicht gepusht.
+
+## Tip detail (Data, Josef, 2026-09-20) - Horga Play-phase timing
+Printed: 2nd normal play in Play OR EOT draw. End PLAY always free (no P2 skip).
+Execute-extra from 5c1388d removed. Tip 9770425.
+
 Local Josef tip **5c1388d** - Horga turn + Detail scroll. Nicht gepusht.
 
 ## Tip detail (Data, Josef, 2026-09-20) - Horga turn + Detail scroll
