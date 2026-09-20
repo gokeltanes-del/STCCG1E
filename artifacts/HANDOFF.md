@@ -1,4 +1,4 @@
-Local Josef tip **PENDING_F1** - Plays-on F1 Spec+Snap typ-agnostisch. Nicht gepusht.
+Local Josef tip **548e573** - Plays-on F1 Spec+Snap typ-agnostisch. Nicht gepusht.
 
 ## Tip detail (Data, Josef, 2026-09-20) - Plays-on F1 Spec+Snap typ-agnostisch
 Captain Go Big-Bang. Docs PLAN/IST/NOTE_PLAYSON.
