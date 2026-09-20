@@ -1,8 +1,8 @@
-Local Josef tip **PENDING_AFFIL** - Affil regex crash fix. Nicht gepusht.
+Local Josef tip **03f3ef9** - Affil regex crash fix. Nicht gepusht.
 
 ## Tip detail (Data, Josef, 2026-09-20) - ParseAffiliationIcon crash fix
 Regex was over-escaped (\\[...) → RegexParseException on Stone click.
-Fixed to @\[(?<a>[^\]]+)\] + try/catch → null. PENDING_AFFIL
+Fixed to @\[(?<a>[^\]]+)\] + try/catch → null. 03f3ef9
 
 Local Josef tip **8b7bd95** - F3 smoke list Captain-aligned. Nicht gepusht.
 
