@@ -1,6 +1,13 @@
-Local Josef tip **16faa2a** — EOT stale-stack harden. Nicht gepusht.
+Local Josef tip **14153e4** â€” EOT nuclear simplify. Nicht gepusht.
 
-## Tip detail (Data, Josef, 2026-09-20) — EOT stale-stack harden
+## Tip detail (Data, Josef, 2026-09-20) â€” EOT nuclear simplify
+- **tip:** `14153e4`
+- **EXE:** Debug LastWriteTime **2026-09-20 13:07:57**
+- **Fix:** CompleteTurnChange syncs UI immediately after EndTurn (before SoT); FinishExecute linear draws then finally ALWAYS CompleteTurnChange; Space during EOT flips directly; Horga stay-in-Play kept (9770425).
+- **Smoke:** `GROK_TEMP\SMOKE_EOT_NUCLEAR_2026-09-20.md`
+Local Josef tip **16faa2a** â€” EOT stale-stack harden. Nicht gepusht.
+
+## Tip detail (Data, Josef, 2026-09-20) â€” EOT stale-stack harden
 - **tip:** `16faa2a`
 - **EXE:** Debug `StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe` LastWriteTime **2026-09-20 13:02:46**
 - **Fix:** EOT start abandons stale `_stack`; no DrawCard early-return before Horga extras; `finally` clears leftovers + FinishExtras + CompleteTurnChange; Resume never blocks on non-Draw during EOT.
@@ -9,14 +16,14 @@ Local Josef tip **16faa2a** — EOT stale-stack harden. Nicht gepusht.
 Local Josef tip **f522875** - Captain A-F EOT hang. Nicht gepusht.
 
 ## Tip detail (Data, Josef, 2026-09-20) - Captain A-F EOT hang
-A PreviewKeyDown EOT Spaceâ†’Resume first. B ResolveEntireStack also _eotEndingInProgress.
+A PreviewKeyDown EOT SpaceÃ¢â€ â€™Resume first. B ResolveEntireStack also _eotEndingInProgress.
 C FinishExecute try/finally CompleteTurnChange. D EOT skipSchism. E OpenResponse no force-disable EndTurn.
-F Log EOT complete â†’ P{n} PLAY. f522875
+F Log EOT complete Ã¢â€ â€™ P{n} PLAY. f522875
 
 Local Josef tip **c328826** - Horga EXECUTE draw loop. Nicht gepusht.
 
 ## Tip detail (Data, Josef, 2026-09-20) - Horga EXECUTE draw loop
-Cause: Space re-entered full FinishExecuteAndEndTurn while still Execute â†’ draw every press, P2 skipped.
+Cause: Space re-entered full FinishExecuteAndEndTurn while still Execute Ã¢â€ â€™ draw every press, P2 skipped.
 Fix: _eotEndingInProgress + ResumeEndOfTurnAfterDrawResponses; Space resumes only then CompleteTurnChange.
 c328826
 
@@ -43,26 +50,26 @@ Stone/Kurlan Pepsch GREEN. 5c1388d
 Local Josef tip **71b6552** - Affil ignore non-affil brackets. Nicht gepusht.
 
 ## Tip detail (Data, Josef, 2026-09-20) - Affil ignore [Event]/icons
-ParseAffiliationIcon: EVENT/INTERRUPT/EQUIPMENT/UNIV/S/Cmd/Stf/P â†’ null.
+ParseAffiliationIcon: EVENT/INTERRUPT/EQUIPMENT/UNIV/S/Cmd/Stf/P Ã¢â€ â€™ null.
 Regex already @\[(?<a>[^\]]+)\] + try/catch (03f3ef9). 71b6552
 
 Local Josef tip **03f3ef9** - Affil regex crash fix. Nicht gepusht.
 
 ## Tip detail (Data, Josef, 2026-09-20) - ParseAffiliationIcon crash fix
-Regex was over-escaped (\\[...) â†’ RegexParseException on Stone click.
-Fixed to @\[(?<a>[^\]]+)\] + try/catch â†’ null. 03f3ef9
+Regex was over-escaped (\\[...) Ã¢â€ â€™ RegexParseException on Stone click.
+Fixed to @\[(?<a>[^\]]+)\] + try/catch Ã¢â€ â€™ null. 03f3ef9
 
 Local Josef tip **8b7bd95** - F3 smoke list Captain-aligned. Nicht gepusht.
 
 ## Tip detail (Data, Josef, 2026-09-20) - F3 smoke list aligned Captain Go
-GROK_TEMP/SMOKE_PLAYSON_F3_2026-09-20.md â€” 5 Pflicht-Checks + extras.
+GROK_TEMP/SMOKE_PLAYSON_F3_2026-09-20.md Ã¢â‚¬â€ 5 Pflicht-Checks + extras.
 8b7bd95 tip. Engine unchanged (F2 7719373).
 
 Local Josef tip **6807bf5** - Plays-on F3 smoke matrix docs. Nicht gepusht.
 
 ## Tip detail (Data, Josef, 2026-09-20) - Plays-on F3 smoke matrix (docs)
-GROK_TEMP/SMOKE_PLAYSON_F3_2026-09-20.md â€” Premiere checklist for Pepsch.
-Code F0â€“F2 already tipped; F3 = human smoke, no engine change this tip.
+GROK_TEMP/SMOKE_PLAYSON_F3_2026-09-20.md Ã¢â‚¬â€ Premiere checklist for Pepsch.
+Code F0Ã¢â‚¬â€œF2 already tipped; F3 = human smoke, no engine change this tip.
 
 Local Josef tip **7719373** - Plays-on F2 Kevin + Spec-Host. Nicht gepusht.
 
@@ -70,7 +77,7 @@ Local Josef tip **7719373** - Plays-on F2 Kevin + Spec-Host. Nicht gepusht.
 ### F2
 - TimingRules.IsEventEquivalentForKevin + CanKevinTargetEvent (ArtifactAsEvent / IsPlaysAsEventFromHand)
 - CollectLegalSnapHosts: IsPlayOnDrag Spec path (Stone planet / Kurlan ship)
-- Drop sets _snapSite for Artifact-as-Event; PlaceOnTablePermanents â†’ BeginPlayCardStack(target)
+- Drop sets _snapSite for Artifact-as-Event; PlaceOnTablePermanents Ã¢â€ â€™ BeginPlayCardStack(target)
 - TryResolveArtifactHandPlay(preferredHost): Stone filter AT to planet; Kurlan use ship
 ### Deferred F3
 Premiere smoke matrix (Stone snap, Kurlan+Kevin, IG/Varon Use-as, Horga'hn Immediate)
@@ -89,9 +96,9 @@ VerifyAwayTeamCrewSplit covers Stone AwayTeam+ArtifactAsEvent, Kurlan Ship, Grou
 ### Next F2
 Kevin CanKevinTargetEvent Role-Aequivalenz; TW Name-if Targeting raus; Artifact commit on Spec host
 
-Local Josef tip **5edbc6e** - Plays-on F0 AwayTeamâ‰ Crew. Nicht gepusht.
+Local Josef tip **5edbc6e** - Plays-on F0 AwayTeamÃ¢â€°Â Crew. Nicht gepusht.
 
-## Tip detail (Data, Josef, 2026-09-20) - Plays-on F0 AwayTeamâ‰ Crew
+## Tip detail (Data, Josef, 2026-09-20) - Plays-on F0 AwayTeamÃ¢â€°Â Crew
 Captain Go Big-Bang. Docs: PLAN/IST/NOTE_PLAYSON + SOLL_AWAYTEAM.
 ### F0
 - PlayOnRules.Host.AwayTeam split from Crew; Spec.Host2 for "crew or Away Team".
@@ -107,16 +114,16 @@ Local Josef tip **6d15780** - Stone + Kurlan Plays-on (Pepsch smoke). Nicht gepu
 Captain Go / Spock \GROK_TEMP/SOLL_AWAYTEAM_PLAYSON_2026-09-20.md\.
 ### Stone
 - Target: planet Away Teams only (no ship/outpost/facility crew).
-- Plays-as-Event: not IsStackable (no inert host attach); BeginPlayCardStack â†’ kill â†’ Discard.
+- Plays-as-Event: not IsStackable (no inert host attach); BeginPlayCardStack Ã¢â€ â€™ kill Ã¢â€ â€™ Discard.
 ### Kurlan
 - Play on any ship incl. opponent; x3 RANGE/W/S kept (GetAllStackedCardsOnHost for foreign artifact).
 ### Pipeline
-- ArtifactRules.IsPlaysAsEventFromHand only â€” no Extract big-bang.
+- ArtifactRules.IsPlaysAsEventFromHand only Ã¢â‚¬â€ no Extract big-bang.
 ### Smoke
 1. Stone: cannot stick on ship/outpost; only planet AT chooser; kills then discard.
 2. Kurlan: chooser includes opp ships; x3 when 7 classes aboard that ship.
 
-Local Josef tip docs: Gift Box Pepsch green â†’ working (adac172). Kein Code.
+Local Josef tip docs: Gift Box Pepsch green Ã¢â€ â€™ working (adac172). Kein Code.
 
 Local Josef tip **389f950** - Detail Name x3 fix (Pepsch smoke). Nicht gepusht.
 
@@ -136,12 +143,12 @@ Captain Go (separater Tip; Stone/Kurlan still waiting Spock).
 Pepsch smoke: weisser Name + Typ OK, Name 3x darunter (auch andere Typen); aehnlich IPG-Ueberkill.
 ### Ursache (Event/Dilemma-Pfad)
 1. \DetailName\ = card.Name (weiss, OK)
-2. \ShowCardDetail\ Event/Dilemma-Zweig: \DetailIcons\ = \FormatAttachedHostEffectLine\ / \FormatHostEffectSummary\ â†’ immer Prefix \Event: {Name}\ / \Dilemma: {Name}3. \RefreshDetailStatusBlock\: dieselbe Summary-Zeile nochmals in \DetailStatusBlock= Name 3x (Header + Icons + Status). IPG-Analog: gleiche Info in mehreren Detail-Kanaelen.
+2. \ShowCardDetail\ Event/Dilemma-Zweig: \DetailIcons\ = \FormatAttachedHostEffectLine\ / \FormatHostEffectSummary\ Ã¢â€ â€™ immer Prefix \Event: {Name}\ / \Dilemma: {Name}3. \RefreshDetailStatusBlock\: dieselbe Summary-Zeile nochmals in \DetailStatusBlock= Name 3x (Header + Icons + Status). IPG-Analog: gleiche Info in mehreren Detail-Kanaelen.
 ### Nicht die Ursache
 - cards.json Text/Icons fuer Stone/Gift/Kurlan (kein Name-Tripel in Daten)
 - IconCatalog.Fill Glyph-Strip (wie bei IPG behalten)
 ### Fix-Richtung (warten Captain Go / kein Big-Bang)
-- Summary-Zeilen effect-only (ohne Name-Prefix), ODER nur StatusBlock (Icons-Kanal leer) â€” analog IPG: einen Kanal behalten.
+- Summary-Zeilen effect-only (ohne Name-Prefix), ODER nur StatusBlock (Icons-Kanal leer) Ã¢â‚¬â€ analog IPG: einen Kanal behalten.
 - Artifact else-Zweig hat diesen Doppel-Pfad nicht; wenn Artifact-only auch 3x: Smoke welcher View (Karte vs Host-Contents).
 - Plays-as / Stone/Kurlan Fixes: warte Spock Away-Team + Plays-on Soll.
 
@@ -177,9 +184,9 @@ Captain queue after Gift Box. Gap: WEAPONS/SHIELDS used KurlanMultiplier; RANGE 
 - \FormatShipEffectiveLine\: RANGE full also * Kurlan (same order as W/S).
 - Repair / move status use ComputeShipTurnRange.
 ### Smoke
-1. Play Kurlan on ship with all 7 classifications aboard â†’ RANGE display x3; turn pool x3; W/S still x3.
-2. Missing a classification â†’ RANGE stays printed (mult 1).
-3. Remove classification mid-game â†’ next turn reset drops to printed (RangeLeft from ResetShipRangesForTurn).
+1. Play Kurlan on ship with all 7 classifications aboard Ã¢â€ â€™ RANGE display x3; turn pool x3; W/S still x3.
+2. Missing a classification Ã¢â€ â€™ RANGE stays printed (mult 1).
+3. Remove classification mid-game Ã¢â€ â€™ next turn reset drops to printed (RangeLeft from ResetShipRangesForTurn).
 
 ## Tip detail (Data, Josef, 2026-09-20) - Betazoid Gift Box
 Captain Go / Spock \GROK_TEMP/SOLL_BETAZOID_GIFT_BOX_2026-09-20.md\. Printed = truth.
@@ -191,9 +198,9 @@ Captain Go / Spock \GROK_TEMP/SOLL_BETAZOID_GIFT_BOX_2026-09-20.md\. Printed = t
 - Opp prevent stub OpponentDownloadPreventionActive=false; Ignore flag wired for later cards.
 - Verify: ArtifactRules.VerifyBetazoidGiftBox / DownloadRules.VerifyBetazoidGiftBoxDownload.
 ### Smoke
-1. Solve with Gift Box â†’ picker; choose up to 3 â†’ hand; artifact discarded; draw shuffled.
-2. Fewer than 3 in draw â†’ only that many choosable.
-3. Done at 0 â†’ artifact still discarded.
+1. Solve with Gift Box Ã¢â€ â€™ picker; choose up to 3 Ã¢â€ â€™ hand; artifact discarded; draw shuffled.
+2. Fewer than 3 in draw Ã¢â€ â€™ only that many choosable.
+3. Done at 0 Ã¢â€ â€™ artifact still discarded.
 4. (If prevent spoofable) opp prevent does not block this download.
 
 ## Tip detail (Data, Josef, 2026-09-20) - Vulcan Stone of Gol
@@ -206,11 +213,11 @@ Captain Go / Spock `GROK_TEMP/SOLL_STONE_OF_GOL_2026-09-20.md`. Printed = truth.
 - Verify: `ArtifactRules.VerifyVulcanStoneOfGol`.
 - PARK: Kevin-as-Event-Nullify unless generic.
 ### Also
-- Alien Parasites â†’ **working** (Pepsch green 79a7612).
+- Alien Parasites Ã¢â€ â€™ **working** (Pepsch green 79a7612).
 Files: `Game/ArtifactRules.cs`, `TableWindow.xaml.cs`, CARD_TRACKER, HANDOFF.
 Exe: StarTrekCCG\\bin\\Debug\\net8.0-windows\\StarTrekCCG.exe
 ### Pepsch smoke
-1. Solve â†’ Stone in hand.
+1. Solve Ã¢â€ â€™ Stone in hand.
 2. Play on opp AT: Youth-free CUNNING=7 die; Youth or CUNNING>7 live; Stone discarded.
 3. No ship-crew target offered.
 4. Own AT selectable (any).
@@ -224,13 +231,13 @@ Captain Fix-Go after Pepsch smoke on e8cf505.
 - `DecideAlienParasites` fail: **BeamBackTeam=false** when GrantOpponentControl (chooser owns placement).
 - Dual still uses `MoveAlienParasitesAwayTeamOntoShip` onto chosen ship only.
 ### Also
-- REM Fatigue â†’ CARD_TRACKER **working** (Pepsch green Dock+Planet/3 MED; no code).
+- REM Fatigue Ã¢â€ â€™ CARD_TRACKER **working** (Pepsch green Dock+Planet/3 MED; no code).
 Files: `Game/DilemmaRules.cs`, CARD_TRACKER, HANDOFF.
 Exe: StarTrekCCG\\bin\\Debug\\net8.0-windows\\StarTrekCCG.exe
 ### Pepsch smoke
-1. Away Team only â†’ AT stays on **planet**, Opp Neg-Control; no beam.
-2. Ship + crew only â†’ only ship+crew controlled; planet AT unmoved/uncontrolled.
-3. Away Team + ship&crew â†’ AT on **chosen** ship under Opp control (still OK from e8cf505).
+1. Away Team only Ã¢â€ â€™ AT stays on **planet**, Opp Neg-Control; no beam.
+2. Ship + crew only Ã¢â€ â€™ only ship+crew controlled; planet AT unmoved/uncontrolled.
+3. Away Team + ship&crew Ã¢â€ â€™ AT on **chosen** ship under Opp control (still OK from e8cf505).
 
 ## Tip detail (Data, Josef, 2026-09-19) - Alien Parasites Neg-Control Fix
 Captain Fix-Go. Pepsch: Away Team+Ship&Crew beamed AT onto wrong opp ship.
@@ -239,14 +246,14 @@ Captain Fix-Go. Pepsch: Away Team+Ship&Crew beamed AT onto wrong opp ship.
 - No relocate onto any other ship at the location.
 - Away-Team-only: controller in place (no foreign-ship beam).
 ### Also
-- Armus â†’ CARD_TRACKER **working** (Pepsch green; no code).
+- Armus Ã¢â€ â€™ CARD_TRACKER **working** (Pepsch green; no code).
 - Q-Flash full verb remains PARK (smoke after Continuum expansion).
 Files: `TableWindow.xaml.cs`, `DilemmaRules.cs` (verify note), `CARD_TRACKER`, `HANDOFF`.
 Exe: StarTrekCCG\\bin\\Debug\\net8.0-windows\\StarTrekCCG.exe
 ### Pepsch smoke
-1. Parasites fail planet: Opp picks Away Team AND one ship+crew â†’ pick ship â†’ AT ends **aboard that ship** under Opp control (not another opp ship).
-2. Opp picks Away Team only â†’ AT stays (planet/prior host); controller Opp; no beam to foreign ship.
-3. Opp picks ship only â†’ ship+crew control OK.
+1. Parasites fail planet: Opp picks Away Team AND one ship+crew Ã¢â€ â€™ pick ship Ã¢â€ â€™ AT ends **aboard that ship** under Opp control (not another opp ship).
+2. Opp picks Away Team only Ã¢â€ â€™ AT stays (planet/prior host); controller Opp; no beam to foreign ship.
+3. Opp picks ship only Ã¢â€ â€™ ship+crew control OK.
 4. Armus: already green / tracker working.
 
 ## Tip detail (Data, Josef, 2026-09-19) - Q Printed rework
@@ -254,7 +261,7 @@ Pepsch: cards.json/Compendium text = truth. Spock `GROK_TEMP/SOLL_Q_PRINTED_2026
 Supersedes Glossary Rearrange/Purge for Q from tip 638fde8.
 ### Q (44 R) Printed
 - Pass: 2 Leadership + INTEGRITY>60 -> Overcome; no seed-purge; no rearrange; attempt continues.
-- Fail: Opp may download 0..2 [Q] from draw/Q's Tent atop Continuum; Q-Flash of 4 **pending** (flag+reveal); team stopped; discard Q.
+- Fail: Opp may download 0..2 [Q] from draw/Q's Tent atop Continuum; Q-Flash of 4 **14153e4** (flag+reveal); team stopped; discard Q.
 - Verify: `DilemmaRules.VerifyQDilemma` (Printed).
 - PARK: full Q-Flash Continuum resolve verb.
 ### REM Fatigue
@@ -263,7 +270,7 @@ Files: DilemmaRules.cs, TableWindow.xaml.cs, CARD_TRACKER, HANDOFF.
 Exe: StarTrekCCG\\bin\\Debug\\net8.0-windows\\StarTrekCCG.exe
 ### Pepsch smoke
 1. Q pass: seeds under mission remain; no spaceline rearrange.
-2. Q fail: optional Continuum download; Q-Flash pending message; team stopped; no rearrange.
+2. Q fail: optional Continuum download; Q-Flash 14153e4 message; team stopped; no rearrange.
 3. REM smoke unchanged.
 
 ## Tip detail (Data, Josef, 2026-09-19) - Q + REM Fatigue
@@ -292,20 +299,20 @@ Prior tip **3c50792** helpers/nullify; this tip wires report/beam gates + kill=d
 1. Activated: Holodeck ship/fac OR planet+Projectors OR MHE
 2. Deactivated: any ship/fac OR planet+Projectors OR MHE
 3. Illegal even deact: planet without Projectors/MHE
-4. Illegal attempt â†’ deactivate, do NOT complete relocate
-5. Erase if illegally present; Projectors nullify dependents (MHE protects); ship destroyâ†’discard; killâ†’deactivate
+4. Illegal attempt Ã¢â€ â€™ deactivate, do NOT complete relocate
+5. Erase if illegally present; Projectors nullify dependents (MHE protects); ship destroyÃ¢â€ â€™discard; killÃ¢â€ â€™deactivate
 6. Holodeck=activate aboard; Projectors=planet only; MHE=exist+activate where allowed
 7. Same-turn: no reactivate after deactivate this turn
 
 ### Core helpers (EventRules)
-- HoloMayExistOnPlanet / HoloMayExistAboard(activated,â€¦) / HoloMayExistHere / HoloMayActivateHere
+- HoloMayExistOnPlanet / HoloMayExistAboard(activated,Ã¢â‚¬Â¦) / HoloMayExistHere / HoloMayActivateHere
 - CanVoluntaryRelocateHolo / IllegalRelocateShouldDeactivate / MayReactivateHologram
 - DependsOnThisHoloProjectorsForExistence / DeactivateHologram / ShouldEraseWhenStuckWithoutEnabler
 - VerifyHoloProjectors expanded (act/deact/planet beam/same-turn)
 
 ### TW wire
-- CompleteBeamTo â†’ FilterHoloBeamAllowed (bare planet block; illegal actâ†’deact stay)
-- DiscardPersonnelBorder â†’ [Holo] kill = MarkHologramDeactivated (ship destroy still discards)
+- CompleteBeamTo Ã¢â€ â€™ FilterHoloBeamAllowed (bare planet block; illegal actÃ¢â€ â€™deact stay)
+- DiscardPersonnelBorder Ã¢â€ â€™ [Holo] kill = MarkHologramDeactivated (ship destroy still discards)
 - EraseStrandedHologramsOnHost after beam; report auto-deact without activate enabler
 - PersonnelInstance.HologramDeactivated + _holoDeactivatedThisTurn (EOT clear)
 - IsCardDisabled ORs hologram deactivated (does not wipe via Ktarian sync)
@@ -319,11 +326,11 @@ Prior tip **3c50792** helpers/nullify; this tip wires report/beam gates + kill=d
 No push; no Door/captive/battle safety; no activate UI chrome.
 
 ### Pepsch smoke
-1. Cannot beam [Holo] to bare planet (no Projectors/MHE) â€” blocked; stays put.
-2. Holo-Projectors on planet â†’ [Holo] may beam there (act or deact).
-3. MHE with/aboard â†’ [Holo] may exist/activate where allowed.
-4. Kill [Holo] â†’ deactivated (not discard); ship destroy â†’ discard crew incl. [Holo].
-5. Nullify Projectors â†’ dependents erased; MHE-protected survives.
+1. Cannot beam [Holo] to bare planet (no Projectors/MHE) Ã¢â‚¬â€ blocked; stays put.
+2. Holo-Projectors on planet Ã¢â€ â€™ [Holo] may beam there (act or deact).
+3. MHE with/aboard Ã¢â€ â€™ [Holo] may exist/activate where allowed.
+4. Kill [Holo] Ã¢â€ â€™ deactivated (not discard); ship destroy Ã¢â€ â€™ discard crew incl. [Holo].
+5. Nullify Projectors Ã¢â€ â€™ dependents erased; MHE-protected survives.
 
 ### Files
 Game/EventRules.cs, Game/Board/CardInstance.cs, TableWindow.xaml.cs, artifacts/CARD_TRACKER.md, artifacts/HANDOFF.md, _VerifyHolo/*
@@ -362,8 +369,8 @@ Captain Go / Spock Soll-OK (fold all). Standing Practice Glossary cites. CODE_PL
 - Classic: Soong-type + Exocomps; [Holo] excepted. Modern: all Inorganic except [Holo].
 
 ### Core helpers
-- `DilemmaRules.IsInorganic` â€” Characteristics Inorganic and/or Android (central; whitelist verify-only).
-- `EventRules.FingernailMakesNon` â€” IsInorganic && !CardIcons.IsHologram while FingernailInPlay.
+- `DilemmaRules.IsInorganic` Ã¢â‚¬â€ Characteristics Inorganic and/or Android (central; whitelist verify-only).
+- `EventRules.FingernailMakesNon` Ã¢â‚¬â€ IsInorganic && !CardIcons.IsHologram while FingernailInPlay.
 - `EventRules.SetFingernailInPlay` / ambient refreshed in `RefreshTableBuffs` + CommitCardToTable.
 - `ReportingRules.GetAffiliations` early NA override; DualAffiliationRules.TrySetMode/ProfileFor gated.
 - `VerifyLoresFingernail` Premiere smoke.
@@ -417,7 +424,7 @@ No push; no Holodeck Door/captive deep; battle safety not wired this tip.
 
 ### Pepsch smoke
 1. Play Holo-Projectors on planet -> [Holo] may exist there (act or deact).
-2. Nullify Projectors with [Holo] only depending on it -> that [Holo] erased (out of play); MHE-protected survives; other planet untouched.
+2. Nullify Projectors with [Holo] only de14153e4 on it -> that [Holo] erased (out of play); MHE-protected survives; other planet untouched.
 3. Ship Holodeck: [Holo] aboard OK; Holodeck alone does not enable planet surface.
 Files: Game/EventRules.cs, TableWindow.xaml.cs, artifacts/CARD_TRACKER.md, artifacts/HANDOFF.md, _VerifyHolo/*
 Exe: StarTrekCCG\\bin\\Debug\\net8.0-windows\\StarTrekCCG.exe (side-build _build_holo green while Pepsch EXE locked)
@@ -490,16 +497,16 @@ Exe: StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe
 ## Tip detail (Data, Josef, 2026-09-18) - Alien Probe + Atmospheric Ionization + IPG UX
 Captain/Spock Soll-OK. Standing Practice Glossary cites folded in. CODE_PLACEMENT: Events in Rules; UI wire.
 ### IPG Detail-Overkill (UX only)
-Armus detail showed 3Ãƒâ€” IPG: green Icons:[IPG] (DetailAttributes), glyph (IconCatalog.Fill), purple Icons:[IPG] (DetailIcons fallback).
+Armus detail showed 3ÃƒÆ’Ã¢â‚¬â€ IPG: green Icons:[IPG] (DetailAttributes), glyph (IconCatalog.Fill), purple Icons:[IPG] (DetailIcons fallback).
 **Removed 2:** green Attributes Icons-line + purple DetailIcons Icons-fallback. **Kept:** glyph strip. Cmd/Staffing untouched (FillStaffing).
 ### Alien Probe (PR 66 U)
-- Plays on table (Persist.Probe); continuous both hands revealed (HasAlienProbeInPlay Ã¢â€ â€™ hand strip).
+- Plays on table (Persist.Probe); continuous both hands revealed (HasAlienProbeInPlay ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ hand strip).
 - Hand cards not nullifiable until played (CanNullifyTargetCard in NullifyEventInPlay).
 - Battle Bridge / used tactics NOT affected (faceDownAlways stays).
 - Verify: EventRules.VerifyAlienProbe.
-### Atmospheric Ionization (PR 68 C) Ã¢â‚¬â€ EN Ionization
+### Atmospheric Ionization (PR 68 C) ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â EN Ionization
 - Unique (IsPrintedUniqueEvent); Plays on Planet; beam 1 at a time; max 3 personnel this way per controller per turn.
-- Glossary-Add: to/from this planet includes planet-vicinity beams (landed ship Ã¢â€ â€ planet facility); same-mission gate covers.
+- Glossary-Add: to/from this planet includes planet-vicinity beams (landed ship ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬Â planet facility); same-mission gate covers.
 - Count increments only after successful beam (NoteIonizationBeam); per-player save fields.
 - Verify: EventRules.VerifyAtmosphericIonization.
 Files: Game/EventRules.cs, Game/DetailStatusRules.cs, Game/EffectRegistry.cs, Services/GameSave.cs, TableWindow.xaml.cs, artifacts/CARD_TRACKER.md, artifacts/HANDOFF.md.
@@ -507,22 +514,22 @@ Exe: StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe
 
 ## Tip detail (Data, Josef, 2026-09-18) - Temporal Causality Loop (Glossary-treu)
 Captain/Pepsch Implement-Go. Lock: Glossary-true (NOT Seeds-only). Standing Practice rule cites folded in.
-- Decide (`DilemmaRules.Loop`): SCIENCE + CUNNING>35 Ã¢â€ â€™ Overcome +5; else EffectAndEnd + EndTurn + StopTeam (no +5).
+- Decide (`DilemmaRules.Loop`): SCIENCE + CUNNING>35 ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Overcome +5; else EffectAndEnd + EndTurn + StopTeam (no +5).
 - Apply (TW): `_attemptDiscards` log (order+origin+seedOrderHint) from attempt start; holes closed (RemoveEquipmentFromHost, DestroyShipOrFacility, SeniorStaff, IpgNullify, DevilNullify, OvercomeSeed Zone-truth A via discard).
 - Fail restore: seeds face-down Encounter-Order (`ReseedInsertIndex`); non-seeds re-play host / legal report / stay discarded; TCL not re-seeded; Attach*/WallFailed untouched.
 - EndTurn: `_skipNormalEndOfTurn` skips normal EOT (Compendium 8 / _rb69).
-- Verify: `_VerifyTemporal` Ã¢â€ â€™ `DilemmaRules.VerifyTemporalCausalityLoop`.
+- Verify: `_VerifyTemporal` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `DilemmaRules.VerifyTemporalCausalityLoop`.
 - Docs: CODE_PLACEMENT + ENGINE Standing Practice (rule cites); CARD_TRACKER partial until Pepsch green.
 Files: `Game/DilemmaRules.cs`, `TableWindow.xaml.cs`, `_VerifyTemporal/*`, `artifacts/CODE_PLACEMENT.md`, `artifacts/ENGINE.md`, `artifacts/CARD_TRACKER.md`, `artifacts/HANDOFF.md`.
 Exe: StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe
 
 ## Tip detail (Data, Josef, 2026-09-18) - Foundation first-listed skill (Classification skip)
-Captain Foundation-Fix-Go / Spock Rules-OK: first-listed skill Ã¢â€°Â  classification box.
-- Root cause: `FirstListedSkill` treated Lackey leading class token in `text` as first skill (Data OFFICERÃ¢â€ â€™wrong).
-- Fix shared parse: skip leading `Card.Class` echo(s); next skill (multi-word/xN) = first-listed. Assimilation: Class mismatch Ã¢â€ â€™ former class token is first-listed.
+Captain Foundation-Fix-Go / Spock Rules-OK: first-listed skill ÃƒÂ¢Ã¢â‚¬Â°Ã‚Â  classification box.
+- Root cause: `FirstListedSkill` treated Lackey leading class token in `text` as first skill (Data OFFICERÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢wrong).
+- Fix shared parse: skip leading `Card.Class` echo(s); next skill (multi-word/xN) = first-listed. Assimilation: Class mismatch ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ former class token is first-listed.
 - Apply: strip that skill (multipliers together); restore printed classification if same-named (Bashir MEDICAL x2). Second skill does not slide up.
 - ALL first-listed consumers already use `MissionRules.FirstListedSkill` / `ApplyFirstListedSkillLoss` (Tsiolkovsky Apply+Summary).
-- Verify: DataÃ¢â€ â€™ENGINEER gone / OFFICER stays; Seskal SCIENCE; Bashir MEDICAL class remains; Sci Physics; cure 3 MEDICAL; not-cumulative.
+- Verify: DataÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ENGINEER gone / OFFICER stays; Seskal SCIENCE; Bashir MEDICAL class remains; Sci Physics; cure 3 MEDICAL; not-cumulative.
 - KEEP ship Events Positive-only from 948cf0f (untouched).
 Files: `Game/MissionRules.cs`, `Game/ModifierRules.cs`, `Game/DilemmaRules.cs`. Not pushed.
 Exe: StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe
@@ -530,7 +537,7 @@ Exe: StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe
 ## Tip detail (Data, Josef, 2026-09-18) - Tsiolkovsky Infection Apply + Summary + Events UX
 Captain Fix-Go / Spock: AttachContinue + Cure 3 MEDICAL + no StopTeam already OK.
 - Bug Summary: `FormatHostEffectSummary` showed attributes -3 (wrong).
-- Apply-Gap: `DisabledSkillsOnHost` only TwoDim Empathy Ã¢â‚¬â€ no first-listed strip for Tsiolkovsky.
+- Apply-Gap: `DisabledSkillsOnHost` only TwoDim Empathy ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â no first-listed strip for Tsiolkovsky.
 - Fix Apply: `MissionRules.FirstListedSkill` + `ModifierRules.ApplyFirstListedSkillLoss` (not cumulative); TW `HostHasTsiolkovsky` / `LoseFirstListedOnHost` wired into Resolve/Summarize/CanSolve/Ctx.
 - Fix Summary: host effect = personnel lose first-listed skill (cure: 3 MEDICAL).
 - VerifyTsiolkovskyInfection: apply + summary + not-cumulative OK.
@@ -566,8 +573,8 @@ Pepsch meinte VERTIKALE Linie, nicht horizontal. 4a61fa1 (X-Stagger, Y-Baseline)
 - **Dock vertikal** tip: Ships+Outposts gleiche X-Spalte, Y-Slots; Load+live Relayout gleich
 
 ### Strang A -- Premiere-Dilemmas (ACTIVE, Pause)
-**Q + REM Fatigue** Data tip landed (partial) â€” Pepsch smoke. Continuum/Q-Flash still PARK.
-Next unknown: Q, Radioactive Garbage Scow, Rebel Encounter, (REM Fatigue skip), Sarjenka, Shaka (TCL tip landed Ã¢â‚¬â€ Pepsch smoke). Reminder: Tsiolkovsky/Two-Dim/Wind Dancer already green.
+**Q + REM Fatigue** Data tip landed (partial) Ã¢â‚¬â€ Pepsch smoke. Continuum/Q-Flash still PARK.
+Next unknown: Q, Radioactive Garbage Scow, Rebel Encounter, (REM Fatigue skip), Sarjenka, Shaka (TCL tip landed ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Pepsch smoke). Reminder: Tsiolkovsky/Two-Dim/Wind Dancer already green.
 Done prior: **Tarellian Plague Ship** Pepsch green; **Tsiolkovsky** Foundation tip; **Temporal Causality Loop** Data Implement-Go (partial, tip e88860e).
 
 ### Strang B -- Welle 2 Extract (artifacts/EXTRACT_REST.md)
@@ -595,7 +602,7 @@ Hugh Borg Ship; IM FindMission; dump@Gaps; Parasites Hotseat-UI; REM Fatigue; Cu
 | CHANGELOG.md | Data (playable lines) |
 
 Wahrheit: HANDOFF + PROJECT (PROJECT_STATUS entfernt).
-Pepsch EXE: Default Debug `StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe` â€” **nicht** `_build_*`.
+Pepsch EXE: Default Debug `StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe` Ã¢â‚¬â€ **nicht** `_build_*`.
 
 
 ## Tip detail (Data, Josef, 2026-09-18) - dock vertical correction
@@ -603,7 +610,7 @@ Root: 4a61fa1 X-cascade war falsch (Pepsch misspoke "horizontal").
 Fix:
 - `DockSlotOffsetY(slot)` wieder: Y-Stufen; `DockSlotOffsetX` = 0 (mission-centered)
 - Relayout / Relocate / Snap-Preview / RelayoutAll: Top = missionTop + DockSlotOffsetY(i); Left = missionLeft
-- Column-Tolerance 45; Z steigt mit Slot; PinÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¹ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂªPixel Membership; CountDockablesForOwner
+- Column-Tolerance 45; Z steigt mit Slot; PinÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂªPixel Membership; CountDockablesForOwner
 - KEEP Load-Pfad 8c88b2d/056f6b0: X-Pin, Relayout after settle, Top nie Save-Y+offset, Pins clear, SpacelineYDefault
 File: StarTrekCCG/TableWindow.xaml.cs. Not pushed.
 Exe: StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe

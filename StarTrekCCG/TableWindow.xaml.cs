@@ -481,11 +481,11 @@ public partial class TableWindow : Window
             return;
         }
 
-        // EOT/Horga: Space must Resume (Pass+CompleteTurnChange), never bare Pass-only.
+        // EOT: Space flips turn immediately (CompleteTurnChange syncs UI first).
         if (key == Key.Space && (_eotEndingInProgress || _endTurnAfterDrawStack))
         {
             if (_legalBlinkActive) StopLegalActionBlink();
-            ResumeEndOfTurnAfterDrawResponses();
+            CompleteTurnChange();
             e.Handled = true;
             return;
         }
@@ -7993,37 +7993,7 @@ private List<Card> CollectCardsInPlay(bool opponent)
     /// </summary>
     private void ResumeEndOfTurnAfterDrawResponses()
     {
-        int who = _endTurnFinishingPlayer != 0 ? _endTurnFinishingPlayer : _session.ActivePlayer;
-
-        if (_stack.IsOpen)
-        {
-            if (_stack.Top?.Kind == TimingRules.ActionKind.DrawCard
-                && _stack.Top?.IsMandatory != true)
-            {
-                PassCurrentResponseWindow();
-                if (!_eotEndingInProgress && !_endTurnAfterDrawStack)
-                    return; // CompleteTurnChange already ran
-            }
-            else
-            {
-                // During EOT never leave Pepsch on "resolve stack first".
-                _session.Log.Add(_session.TurnNumber, $"P{who}",
-                    $"EOT resume: clear non-Draw stack ({_stack.Top?.Kind})");
-                _stack.Clear();
-                CloseResponseWindowUi();
-                HideActionAnnounce();
-            }
-        }
-
-        if (_stack.IsOpen)
-        {
-            _session.Log.Add(_session.TurnNumber, $"P{who}", "EOT resume: force-clear leftover stack");
-            _stack.Clear();
-            CloseResponseWindowUi();
-            HideActionAnnounce();
-        }
-
-        FinishEndOfTurnDrawExtras(who);
+        // Nuclear path: Space during EOT just flips. Clear any leftover stack first.
         if (_stack.IsOpen)
         {
             _stack.Clear();
@@ -8034,36 +8004,30 @@ private List<Card> CollectCardsInPlay(bool opponent)
     }
 
 
+
     /// <summary>
     /// Execute fertig: optional 1 Karte ziehen, dann Gegner (Play-Segment).
     /// SuppressEndOfTurnDraw für spätere Karteneffekte.
     /// </summary>
     private void FinishExecuteAndEndTurn()
     {
-        int finishingPlayer = _session.ActivePlayer;
-
-        // Idempotent: second Space while still Execute must not re-draw / re-run EOT effects.
-        if (_eotEndingInProgress || _endTurnAfterDrawStack)
+        // Already ending → just flip (no re-draw). Happy path never needs Resume.
+        if (_eotEndingInProgress)
         {
-            ResumeEndOfTurnAfterDrawResponses();
+            CompleteTurnChange();
             return;
         }
         _eotEndingInProgress = true;
-        _endTurnFinishingPlayer = finishingPlayer;
+        int p = _session.ActivePlayer;
+        _endTurnFinishingPlayer = p;
 
         try
         {
-            // Abandon stale stack so EOT cannot stick / skip Horga extras.
-            if (_stack.IsOpen)
-            {
-                _session.Log.Add(_session.TurnNumber, $"P{finishingPlayer}",
-                    $"EOT: abandon stale stack ({_stack.Top?.Kind})");
-                _stack.Clear();
-                CloseResponseWindowUi();
-                HideActionAnnounce();
-            }
+            _stack.Clear();
+            CloseResponseWindowUi();
+            HideActionAnnounce();
 
-            // Glossary: Temporal Causality Loop / End Transmission — end turn immediately.
+            // Glossary: Temporal Causality Loop / End Transmission — skip normal EOT actions.
             if (_skipNormalEndOfTurn || DilemmaRules.ShouldSkipNormalEndOfTurn(_skipNormalEndOfTurn))
             {
                 _skipNormalEndOfTurn = false;
@@ -8076,86 +8040,83 @@ private List<Card> CollectCardsInPlay(bool opponent)
                 _uniquePersonnelPlayedP1 = false;
                 _uniquePersonnelPlayedP2 = false;
                 _session.SuppressEndOfTurnDraw = true;
-                _session.Log.Add(_session.TurnNumber, $"P{finishingPlayer}",
+                _session.Log.Add(_session.TurnNumber, $"P{p}",
                     "Glossary: card ends turn — skip normal EOT actions (no countdown/probe/draw)");
                 StatusText.Text = "Glossary: turn ended by card effect — normal end-of-turn actions skipped.";
-                CompleteTurnChange();
-                return;
             }
+            else
+            {
+                // Compendium 8: "at end of turn" effects first, THEN the end-of-turn draw.
+                ProcessEndOfTurnRepairs(p);
+                ProcessScowTowEndOfTurn(p);
+                ProcessEndOfTurnDilemmas(p);
+                ProcessEndOfTurnEvents(p);
+                ProcessUntilEndOfTurnBag(p);
+                RestoreAlienParasitesControlsIfDue(p);
+                ProcessRogueBorgEndOfTurn(p);
+                ApplyEdoEndOfTurnPenalties(p);
+                if (KlimBlocksDraw(p))
+                    _session.SuppressEndOfTurnDraw = true;
+                _ionizationBeamsThisTurnByPlayer[1] = 0; _ionizationBeamsThisTurnByPlayer[2] = 0;
+                _holoDeactivatedThisTurn.Clear();
+                _movedThisTurnAfterArrival.Clear();
+                _arrivedMissionThisTurn.Clear();
+                _auPlayedThisTurnP1 = false;
+                _auPlayedThisTurnP2 = false;
+                _uniquePersonnelPlayedP1 = false;
+                _uniquePersonnelPlayedP2 = false;
 
-            // Compendium 8: "at end of turn" effects first, THEN the end-of-turn draw.
-            ProcessEndOfTurnRepairs(finishingPlayer);
-            ProcessScowTowEndOfTurn(finishingPlayer);
-            ProcessEndOfTurnDilemmas(finishingPlayer);
-            ProcessEndOfTurnEvents(finishingPlayer);
-            ProcessUntilEndOfTurnBag(finishingPlayer);
-            RestoreAlienParasitesControlsIfDue(finishingPlayer);
-            ProcessRogueBorgEndOfTurn(finishingPlayer);
-            ApplyEdoEndOfTurnPenalties(finishingPlayer);
-            if (KlimBlocksDraw(finishingPlayer))
-                _session.SuppressEndOfTurnDraw = true;
-            _ionizationBeamsThisTurnByPlayer[1] = 0; _ionizationBeamsThisTurnByPlayer[2] = 0;
-            _holoDeactivatedThisTurn.Clear();
-            _movedThisTurnAfterArrival.Clear();
-            _arrivedMissionThisTurn.Clear();
-            _auPlayedThisTurnP1 = false;
-            _auPlayedThisTurnP2 = false;
-            _uniquePersonnelPlayedP1 = false;
-            _uniquePersonnelPlayedP2 = false;
+                if (!_session.SuppressEndOfTurnDraw && !_session.HasDrawnThisTurn)
+                    DrawOneToHandFor(p, endOfTurn: true, skipSchism: true);
+                else if (_session.SuppressEndOfTurnDraw)
+                    StatusText.Text = "No draw at end of turn (card effect).";
 
-            // Normal EOT draw (skipSchism) — never early-return before Horga extras.
-            if (!_session.SuppressEndOfTurnDraw && !_session.HasDrawnThisTurn)
-                DrawOneToHandFor(finishingPlayer, endOfTurn: true, skipSchism: true);
-            else if (_session.SuppressEndOfTurnDraw)
-                StatusText.Text = "No draw at end of turn (card effect).";
+                // Horga'hn: exactly one extra card if 2nd play unused (printed: play OR draw, not both).
+                if (HasHorgahn(p) && !_horgahnExtraPlayUsed)
+                {
+                    _horgahnExtraPlayUsed = true;
+                    _session.Log.Add(_session.TurnNumber, $"P{p}", "Horga'hn extra draw");
+                    DrawOneToHandFor(p, endOfTurn: true, skipSchism: true);
+                }
 
-            // Always run Horga extra draw if unused 2nd play (skipSchism).
-            FinishEndOfTurnDrawExtras(finishingPlayer);
+                // Drain Traveler / other pending extras if any.
+                while (_pendingExtraDraws > 0)
+                {
+                    _pendingExtraDraws--;
+                    DrawOneToHandFor(p, endOfTurn: true, skipSchism: true);
+                }
+            }
         }
         finally
         {
-            if (_eotEndingInProgress)
-            {
-                if (_stack.IsOpen)
-                {
-                    _session.Log.Add(_session.TurnNumber, $"P{finishingPlayer}",
-                        "EOT finally: clear leftover stack");
-                    _stack.Clear();
-                    CloseResponseWindowUi();
-                    HideActionAnnounce();
-                }
-                int who = _endTurnFinishingPlayer != 0 ? _endTurnFinishingPlayer : finishingPlayer;
-                FinishEndOfTurnDrawExtras(who); // no-op if Horga already granted / pending 0
-                CompleteTurnChange();
-            }
+            // ALWAYS flip — even if draws/effects threw. UI sync happens inside CompleteTurnChange first.
+            CompleteTurnChange();
         }
     }
 
+
     private void FinishEndOfTurnDrawExtras(int finishingPlayer)
     {
+        // Prefer inline path in FinishExecuteAndEndTurn. This remains for any legacy Resume call.
         if (HasHorgahn(finishingPlayer) && !_horgahnExtraPlayUsed)
         {
             _pendingExtraDraws++;
             _horgahnExtraPlayUsed = true;
             _session.Log.Add(_session.TurnNumber, $"P{finishingPlayer}", "Horga'hn extra draw");
         }
-
         while (_pendingExtraDraws > 0)
         {
             _pendingExtraDraws--;
-            // Skip Schism during EOT/Horga extras (Pepsch: no response hang).
             DrawOneToHandFor(finishingPlayer, endOfTurn: true, skipSchism: true);
-            // Stale/unexpected stack must not abort remaining extras.
             if (_stack.IsOpen)
             {
-                _session.Log.Add(_session.TurnNumber, $"P{finishingPlayer}",
-                    $"EOT extras: clear unexpected stack ({_stack.Top?.Kind})");
                 _stack.Clear();
                 CloseResponseWindowUi();
                 HideActionAnnounce();
             }
         }
     }
+
 
 
     private int FirstLegalResponder(TimingRules.PendingAction top, int preferred)
@@ -8200,21 +8161,34 @@ private List<Card> CollectCardsInPlay(bool opponent)
         _session.Log.Add(_session.TurnNumber, "sys",
             $"EOT complete (was P{prev}) → P{_session.ActivePlayer} PLAY");
 
-        UpdateCounterAttackWindow();
-        UnstopAllCards(); // Compendium: Stopped endet zu Beginn des naechsten Zugs (hier Zugwechsel)
-        ResetShipRangesForTurn();
-        RefreshRedAlertForTurn();
-        ProcessIncomingMessageMoves(_session.ActivePlayer);
-        ProcessStartOfTurnTimedEffects();
-        ProcessStartOfTurnDilemmas(_session.ActivePlayer);
+        // CRITICAL: show new player's PLAY before any SoT work that can modal/throw
         SyncSessionToUi();
         ApplyPerspective();
-        OnTurnContextChanged(); // Deselektieren + Hand des neuen Spielers
+        OnTurnContextChanged();
         StatusText.Text =
             $"{_session.StatusLine()} " +
             $"(Hand {(_activePlayer == 1 ? _handCards.Count : _oppHandCards.Count)}, " +
             $"Draw {(_activePlayer == 1 ? _drawCards.Count : _oppDrawCards.Count)}).";
+
+        try
+        {
+            UpdateCounterAttackWindow();
+            UnstopAllCards();
+            ResetShipRangesForTurn();
+            RefreshRedAlertForTurn();
+            ProcessIncomingMessageMoves(_session.ActivePlayer);
+            ProcessStartOfTurnTimedEffects();
+            ProcessStartOfTurnDilemmas(_session.ActivePlayer);
+            SyncSessionToUi();
+            ApplyPerspective();
+        }
+        catch (Exception ex)
+        {
+            _session.Log.Add(_session.TurnNumber, "sys", $"SoT after EOT error: {ex.Message}");
+            SyncSessionToUi();
+        }
     }
+
 
     /// <summary>Gestoppte Karten werden zu Beginn jedes Spielerzuges wieder freigegeben.</summary>
     private void UnstopAllCards()
