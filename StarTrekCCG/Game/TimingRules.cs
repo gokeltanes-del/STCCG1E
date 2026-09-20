@@ -137,6 +137,8 @@ public static class TimingRules
     public static bool IsEventEquivalentForKevin(Card? ev)
     {
         if (ev == null) return false;
+        // Missions/locations are never Kevin targets (play-on host must not count as Event).
+        if (CardKinds.IsMission(ev)) return false;
         if (IsEvent(ev)) return true;
         var role = PlayOnRules.ResolvePlayOn(ev).Role;
         if (role == PlayOnRules.CardPlayRole.ArtifactAsEvent)
@@ -148,6 +150,8 @@ public static class TimingRules
 
     public static (bool ok, string reason) CanKevinTargetEvent(Card ev)
     {
+        if (CardKinds.IsMission(ev))
+            return (false, "Kevin Uxbridge cannot nullify a mission.");
         if (!IsEventEquivalentForKevin(ev))
             return (false, "Kevin Uxbridge nullifies only an Event (incl. Artifact that plays as Event).");
         if (HasShieldIcon(ev))

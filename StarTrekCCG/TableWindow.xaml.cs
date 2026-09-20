@@ -4353,7 +4353,12 @@ public partial class TableWindow : Window
             RefreshZoneCounts();
         }
 
-        Card? target = _stack.Top?.TargetCard ?? _stack.Top?.Card;
+        // Kevin/Devil response: cancel the played card on the stack — never the play-on host (mission).
+        Card? target;
+        if (InterruptRules.IsKevinNullify(card) || InterruptRules.IsDevil(card))
+            target = _stack.Top?.Card;
+        else
+            target = _stack.Top?.TargetCard ?? _stack.Top?.Card;
         BeginPlayCardStack(card, isResponse: true, target: target);
     }
 
@@ -14319,6 +14324,14 @@ private List<Card> CollectCardsInPlay(bool opponent)
 
     private void NullifyEventInPlay(Card ev, int byPlayer)
     {
+        // Never discard a spaceline mission/location (Kevin response used to pass play-on host).
+        if (CardKinds.IsMission(ev) || CardKinds.IsTimeLocation(ev))
+        {
+            _session.Log.Add(_session.TurnNumber, $"P{byPlayer}",
+                $"NullifyEventInPlay refused mission/location: {ev.Name}");
+            ShowPlayError("Cannot nullify a mission or location.");
+            return;
+        }
         // Glossary Alien Probe: cards still in hand are not nullifiable until played.
         if (!CanNullifyTargetCard(ev, out string denyHand))
         {
@@ -14637,8 +14650,12 @@ private List<Card> CollectCardsInPlay(bool opponent)
         var r = auth.Interrupt ?? InterruptRules.Resolve(card);
         if (r.Kind == InterruptRules.Kind.TimingOnly)
         {
-            // Catalog + registry own the card list; UI only applies nullify when a target event is present.
-            if ((InterruptRules.IsKevinNullify(card) || InterruptRules.IsDevil(card)) && target != null)
+            // Kevin/Devil as stack response: ApplyResponseEffect already cancels the PlayCard on stack.
+            // Never NullifyEventInPlay here — Event/Artifact-as-Event was never in play; target used to be
+            // the play-on host (mission) and wiped the spaceline.
+            if ((InterruptRules.IsKevinNullify(card) || InterruptRules.IsDevil(card))
+                && target != null
+                && !isResponse)
             {
                 NullifyEventInPlay(target, controller);
             }
