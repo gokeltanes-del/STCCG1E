@@ -1,3 +1,4 @@
+- tip f378f10 fix(premiere): Distortion full RANGE includes HULL attrib (Spock Lock) — EXE 2026-09-20 21:40:35 — GROK_TEMP/TIP_DISTORTION_SPOCK_RANGE_2026-09-20.md
 - tip 5f3319c feat(premiere): Distortion Continuum just-AU LegalResponse — EXE 2026-09-20 21:38:55 — GROK_TEMP/TIP_DISTORTION_CONTINUUM_2026-09-20.md
 - tip e9bc134 fix(premiere): Groupie stop survives UnstopAllCards until countdown — EXE 2026-09-20 21:17:35 — GROK_TEMP/TIP_GROUPIE_STOP_SURVIVE_2026-09-20.md
 - tip 9d09019 fix(premiere): IsMale not Female; Groupie countdown owner turns — EXE 2026-09-20 21:16:39 — GROK_TEMP/TIP_IS_MALE_GROUPIE_CD_2026-09-20.md
@@ -260,6 +261,8 @@ Local VS: C:\\Dev\\StarTrekCCG\\
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test.
 
 ## Current tip
+Local Josef tip **f378f10** - Distortion RANGE Spock Lock (Pepsch smoke). Nicht gepusht.
+
 Local Josef tip **5f3319c** - Distortion Continuum just-AU LegalResponse (Pepsch smoke). Nicht gepusht.
 
 Local Josef tip **c77d0d1** - Kurlan RANGE x3 (Pepsch smoke). Nicht gepusht.
