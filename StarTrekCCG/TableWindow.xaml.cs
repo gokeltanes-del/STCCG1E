@@ -10237,7 +10237,7 @@ private List<Card> CollectCardsInPlay(bool opponent)
                     && host.Tag is Card hostCard
                     && !TreatyRules.CanOccupyHost(rider, hostCard, GetActiveTreaties(_activePlayer)))
                 {
-                    string why = CardKinds.IsMission(hostCard) && !MissionRules.IsPlanetMission(hostCard)
+                    string why = CardKinds.IsMission(hostCard) && !MissionCountsAsPlanetCard(hostCard)
                         ? $"{rider.Name} cannot beam into space at {hostCard.Name} (7.1.1.0.1)."
                         : $"{rider.Name} cannot board {hostCard.Name} without a matching Treaty.";
                     ShowPlayError(why);
@@ -11411,7 +11411,7 @@ private List<Card> CollectCardsInPlay(bool opponent)
             IsFacility: fac,
             IsOutpost: fac && tn.Contains("outpost"),
             IsMission: mission,
-            IsPlanetMission: mission && MissionRules.IsPlanetMission(c),
+            IsPlanetMission: mission && MissionCountsAsPlanetCard(c),
             IsNonAlignedShip: ship && IsNonAlignedShip(c),
             IsBorgShip: ship && IsBorgAffiliation(c));
     }
@@ -11439,7 +11439,7 @@ private List<Card> CollectCardsInPlay(bool opponent)
             IsFacility: fac,
             IsOutpost: fac && tn.Contains("outpost"),
             IsMission: c != null && IsMissionCard(c),
-            IsPlanetMission: c != null && IsMissionCard(c) && MissionRules.IsPlanetMission(c),
+            IsPlanetMission: c != null && IsMissionCard(c) && MissionCountsAsPlanetCard(c),
             IsNonAlignedShip: ship && c != null && IsNonAlignedShip(c),
             IsBorgShip: ship && c != null && IsBorgAffiliation(c));
     }
@@ -12059,7 +12059,7 @@ private List<Card> CollectCardsInPlay(bool opponent)
         // Planet mission -> "Away Team"; Ship/Outpost/Station (facility) -> "Crew".
         // No Equipment/Artifact/Event/Dilemma badges. Empty = no badge. Dual = side by side.
         bool isMission = string.Equals(hostCard.Type, "Mission", StringComparison.OrdinalIgnoreCase);
-        bool isPlanet = isMission && MissionRules.IsPlanetMission(hostCard);
+        bool isPlanet = isMission && MissionCountsAsPlanetCard(hostCard);
         bool isCrewHost = IsShipCard(hostCard) || IsFacilityCard(hostCard);
 
         int crew1 = 0, crew2 = 0;
@@ -12828,7 +12828,7 @@ private List<Card> CollectCardsInPlay(bool opponent)
 
         // Space: Rulebook Mission Attempt — select ONE Attempting-Ship; only that ship's crew
         // counts for dilemmas + solve (other own ships at location do not).
-        if (!MissionRules.IsPlanetMission(mission))
+        if (!MissionCountsAsPlanetCard(mission))
         {
             if (attemptingShipBorder == null
                 || attemptingShipBorder.Tag is not Card shipCard
@@ -12901,7 +12901,7 @@ private List<Card> CollectCardsInPlay(bool opponent)
             }
 
             if (_seniorStaffArmed
-                && !MissionRules.IsPlanetMission(mission)
+                && !MissionCountsAsPlanetCard(mission)
                 && MissionRules.IsDilemma(seedCard))
             {
                 _seniorStaffArmed = false;
@@ -13019,7 +13019,7 @@ private List<Card> CollectCardsInPlay(bool opponent)
                         || (fc.Type ?? "").Contains("outpost", StringComparison.OrdinalIgnoreCase)
                         || (fc.Type ?? "").Contains("facility", StringComparison.OrdinalIgnoreCase))),
                 TravelerAffecting = HasTableCard(EventRules.IsTravelerTranscendence),
-                CanBeamOffPlanet = !MissionRules.IsPlanetMission(mission) || (
+                CanBeamOffPlanet = !MissionCountsAsPlanetCard(mission) || (
                     !team.Any(p => IsCardLeaveBlocked(p))
                     && GetDockablesUnderMission(missionBorder).Any(b =>
                         b.Tag is Card dc
@@ -13686,7 +13686,7 @@ private List<Card> CollectCardsInPlay(bool opponent)
         bool hasPers = spec.Own ? HostHasPersonnelOf(host, owner) : HostHasPersonnelOf(host, 0);
 
         // F0: AwayTeam = planet + personnel; Crew = ship/facility + personnel (ExcludeFacility → ship only).
-        bool matchAway = isMission && MissionRules.IsPlanetMission(hc) && hasPers;
+        bool matchAway = isMission && MissionCountsAsPlanetCard(hc) && hasPers;
         bool matchCrew = hasPers && (isShip || (isFac && !spec.ExcludeFacility));
 
         bool hostOk =
@@ -13694,7 +13694,7 @@ private List<Card> CollectCardsInPlay(bool opponent)
             || (PlayOnRules.SpecAllowsHost(spec, PlayOnRules.Host.Outpost) && isOutpost)
             || (PlayOnRules.SpecAllowsHost(spec, PlayOnRules.Host.Facility) && isFac)
             || (PlayOnRules.SpecAllowsHost(spec, PlayOnRules.Host.Mission) && isMission)
-            || (PlayOnRules.SpecAllowsHost(spec, PlayOnRules.Host.PlanetMission) && isMission && MissionRules.IsPlanetMission(hc))
+            || (PlayOnRules.SpecAllowsHost(spec, PlayOnRules.Host.PlanetMission) && isMission && MissionCountsAsPlanetCard(hc))
             || (PlayOnRules.SpecAllowsHost(spec, PlayOnRules.Host.AwayTeam) && matchAway)
             || (PlayOnRules.SpecAllowsHost(spec, PlayOnRules.Host.Crew) && matchCrew);
         if (!hostOk) return false;
@@ -14177,7 +14177,7 @@ private List<Card> CollectCardsInPlay(bool opponent)
             return true;
 
         var missionCard = MissionPrintedFor(missionBorder, _activePlayer);
-        Border? host = MissionRules.IsPlanetMission(missionCard) ? missionBorder : _attemptShip;
+        Border? host = MissionCountsAsPlanetCard(missionCard) ? missionBorder : _attemptShip;
         if (host == null || !_stackOnHost.TryGetValue(host, out var stacked))
             return false;
         foreach (var sb in stacked)
@@ -14527,7 +14527,7 @@ private List<Card> CollectCardsInPlay(bool opponent)
     {
         bool isPlanet = host.Tag is Card hc
             && CardKinds.IsMission(hc)
-            && MissionRules.IsPlanetMission(hc);
+            && MissionCountsAsPlanetCard(hc);
         bool holodeck = host.Tag is Card shipFac
             && (CardKinds.IsShip(shipFac) || CardKinds.IsFacility(shipFac))
             && EventRules.HasHolodeck(shipFac);
@@ -14875,7 +14875,7 @@ private List<Card> CollectCardsInPlay(bool opponent)
                     foreach (var m in _spacelineOrder)
                     {
                         if (m.Tag is not Card mc) continue;
-                        if (planet && !MissionRules.IsPlanetMission(mc)) continue;
+                        if (planet && !MissionCountsAsPlanetCard(mc)) continue;
                         if (!planet && !MissionRules.IsSpaceMission(mc)) continue;
                         if (!_seedUnderMission.TryGetValue(m, out var stack) || stack.Count == 0) continue;
                         if (stack[^1].Tag is Card bottom)
@@ -16291,8 +16291,9 @@ private List<Card> CollectCardsInPlay(bool opponent)
 
     private void ApplySupernova(Border mission)
     {
-        // Pepsch/modern + Spock SOLL: destroy ONLY ships + facilities here (docked + at location).
-        // Aboard → with DestroyShipOrFacility. Planet Away Teams / surface equipment: NOT destroyed.
+        bool wasPlanet = mission.Tag is Card mc0 && MissionRules.IsPlanetMission(mc0);
+
+        // Destroy all ships and facilities here (docked + at location). Aboard → with Destroy.
         foreach (var dock in GetDockablesUnderMission(mission).ToList())
         {
             if (dock.Tag is Card c && (CardKinds.IsShip(c) || CardKinds.IsFacility(c)))
@@ -16303,27 +16304,51 @@ private List<Card> CollectCardsInPlay(bool opponent)
             }
         }
 
-        // Ships/facilities stacked directly on the mission (rare); never wipe AT/personnel/equipment.
         if (_stackOnHost.TryGetValue(mission, out var onMission))
         {
             foreach (var b in onMission.ToList())
             {
                 if (b.Tag is not Card c) continue;
                 if (EventRules.IsSupernova(c)) continue;
-                if (!(CardKinds.IsShip(c) || CardKinds.IsFacility(c))) continue;
+
                 int o = GetBorderOwner(b);
                 if (o == 0) o = c.Controller != 0 ? c.Controller : (c.OwnerPlayer != 0 ? c.OwnerPlayer : _session.ActivePlayer);
-                DestroyShipOrFacility(b, c, o);
+
+                if (CardKinds.IsShip(c) || CardKinds.IsFacility(c))
+                {
+                    DestroyShipOrFacility(b, c, o);
+                    continue;
+                }
+
+                // Pepsch OVERRIDE: Planet → [S] (Rulebook 11.2) ⇒ surface AT/personnel/equipment discard.
+                if (wasPlanet)
+                {
+                    if (ModifierRules.IsPersonnelCard(c) || CardKinds.IsPersonnel(c))
+                        DiscardPersonnelBorder(b, c, o, allowGenetronicSave: false);
+                    else
+                    {
+                        RemoveCardFromHostStack(mission, b);
+                        if (TableCanvas.Children.Contains(b))
+                            TableCanvas.Children.Remove(b);
+                        SendCardTo(c, o, TimingRules.Destination.Discard);
+                        _session.Log.Add(_session.TurnNumber, $"P{o}",
+                            $"Supernova surface discard: {c.Name}");
+                    }
+                }
             }
         }
 
         // Rest of game husk — survives Kevin nullify after resolve (Glossary: no effect).
-        _solvedMissions.Add(mission); // unattemptable
-        _supernovaHuskMissions.Add(mission); // unscoutable; treat [P] as [S]; lose text/points/icons
+        _solvedMissions.Add(mission);
+        _supernovaHuskMissions.Add(mission);
+        ApplySupernovaHuskVisual(mission);
+        string surfaceBit = wasPlanet ? "; planet surface discarded ([S] convert)" : "";
         _session.Log.Add(_session.TurnNumber, "sys",
-            $"Supernova resolved at {(mission.Tag as Card)?.Name} — ships/facilities destroyed; AT/surface survive; mission husk (span only)");
+            $"Supernova resolved at {(mission.Tag as Card)?.Name} — ships/facilities destroyed{surfaceBit}; mission husk (span only)");
         StatusText.Text =
-            $"Supernova at {(mission.Tag as Card)?.Name}: ships/facilities destroyed. Away Teams survive. Mission remains for span only.";
+            $"Supernova at {(mission.Tag as Card)?.Name}: ships/facilities destroyed"
+            + (wasPlanet ? "; planet surface discarded (now space husk)." : ".")
+            + " Mission remains for span only.";
         SyncBoardFromTable(logDual: false);
     }
 
@@ -16349,7 +16374,7 @@ private List<Card> CollectCardsInPlay(bool opponent)
             var awayChoices = new List<(Border Mission, int AwayOwner, List<Border> Members, string Label)>();
             foreach (var missionB in TableCanvas.Children.OfType<Border>())
             {
-                if (missionB.Tag is not Card mc || !CardKinds.IsMission(mc) || !MissionRules.IsPlanetMission(mc))
+                if (missionB.Tag is not Card mc || !CardKinds.IsMission(mc) || !MissionCountsAsPlanetCard(mc))
                     continue;
                 if (!_stackOnHost.TryGetValue(missionB, out var stacked) || stacked.Count == 0)
                     continue;
@@ -16640,7 +16665,7 @@ private List<Card> CollectCardsInPlay(bool opponent)
         // ShowCardReveal removed here as requested: "Artifact acquired" is shown per-card on mission solve.
 
         var place = ArtifactRules.DecideAcquirePlacement(
-            acq.Kind, MissionRules.IsPlanetMission(mission));
+            acq.Kind, MissionCountsAsPlanetCard(mission));
 
         switch (place)
         {
@@ -16769,6 +16794,30 @@ private List<Card> CollectCardsInPlay(bool opponent)
 
     private bool MissionCountsAsPlanet(Border mission, Card mc) =>
         !IsSupernovaHuskMission(mission) && MissionRules.IsPlanetMission(mc);
+
+    /// <summary>Husk missions count as space ([S]) — no planet Away Team / surface play.</summary>
+    private bool MissionCountsAsPlanetCard(Card? mc)
+    {
+        if (mc == null || !MissionRules.IsPlanetMission(mc)) return false;
+        var b = FindBorderForCard(mc);
+        return b == null || !IsSupernovaHuskMission(b);
+    }
+
+    private void ApplySupernovaHuskVisual(Border mission)
+    {
+        // Clearer span-only / space husk indicator
+        mission.Opacity = 0.45;
+        if (mission.Effect is not System.Windows.Media.Effects.DropShadowEffect)
+        {
+            mission.Effect = new System.Windows.Media.Effects.DropShadowEffect
+            {
+                Color = System.Windows.Media.Colors.Black,
+                BlurRadius = 12,
+                ShadowDepth = 0,
+                Opacity = 0.85
+            };
+        }
+    }
 
 private bool ControllerHasToxOnTable(int controller)
     {
@@ -17160,7 +17209,7 @@ private bool ControllerHasToxOnTable(int controller)
     {
         Card? hc = host.Tag as Card;
         Border? mission = hc != null && CardKinds.IsMission(hc) ? host : FindMissionForDockable(host);
-        if (mission?.Tag is not Card mc || !MissionRules.IsPlanetMission(mc))
+        if (mission?.Tag is not Card mc || !MissionCountsAsPlanetCard(mc))
             return false;
         return _attachedEvents.Any(e =>
             e.Kind == EventRules.Persist.ParticleScatter
@@ -17916,7 +17965,7 @@ private bool ControllerHasToxOnTable(int controller)
     {
         var missions = TableCanvas.Children.OfType<Border>()
             .Where(b => b.Tag is Card c && string.Equals(c.Type, "Mission", StringComparison.OrdinalIgnoreCase)
-                        && MissionRules.IsPlanetMission(c) && !ReferenceEquals(b, from))
+                        && MissionCountsAsPlanetCard(c) && !ReferenceEquals(b, from))
             .ToList();
         if (missions.Count == 0) return null;
         double fx = Canvas.GetLeft(from);
@@ -17945,7 +17994,7 @@ private bool ControllerHasToxOnTable(int controller)
     /// </summary>
     private bool BeamBackAwayTeamToShipOrOutpost(Border missionBorder, List<Border> teamBorders)
     {
-        if (missionBorder.Tag is not Card missionCard || !MissionRules.IsPlanetMission(missionCard))
+        if (missionBorder.Tag is not Card missionCard || !MissionCountsAsPlanetCard(missionCard))
             return false;
 
         // Check if ANY personnel in the Away Team is blocked from leaving (e.g. Quarantined by Hyper-Aging, or in Stasis)
@@ -18265,7 +18314,7 @@ private bool ControllerHasToxOnTable(int controller)
         foreach (var b in teamBorders)
             MarkStopped(b);
 
-        if (!MissionRules.IsPlanetMission(mission))
+        if (!MissionCountsAsPlanetCard(mission))
         {
             // Space: Schiffe mit beteiligter Crew stoppen (Crew boarding stopped ship → stopped)
             foreach (var dock in GetDockablesUnderMission(missionBorder))
@@ -18287,7 +18336,7 @@ private bool ControllerHasToxOnTable(int controller)
         ShowCardReveal(mission, "Dilemma — team stopped",
             "Mission attempt failed.\n\n"
             + "The involved away team / crew is stopped"
-            + (MissionRules.IsPlanetMission(mission) ? "." : " (and the ship, on space missions).")
+            + (MissionCountsAsPlanetCard(mission) ? "." : " (and the ship, on space missions).")
             + "\nStopped ends automatically at the start of that player's next turn.",
             RevealButtons.Ok, mission.Name);
     }
@@ -18299,7 +18348,7 @@ private bool ControllerHasToxOnTable(int controller)
     private List<Border> CollectTeamBordersAtMission(Border missionBorder, Card mission, Border? attemptingShip = null)
     {
         var borders = new List<Border>();
-        bool planet = MissionRules.IsPlanetMission(mission);
+        bool planet = MissionCountsAsPlanetCard(mission);
         if (planet)
         {
             // Planet AT: only unstopped own personnel stacked on the mission (not ship crew).
@@ -18351,7 +18400,7 @@ private bool ControllerHasToxOnTable(int controller)
     private List<Card> CollectPresentAtMission(Border missionBorder, Card mission, Border? attemptingShip = null)
     {
         var cards = new List<Card>();
-        bool planet = MissionRules.IsPlanetMission(mission);
+        bool planet = MissionCountsAsPlanetCard(mission);
         void AddFromHost(Border host)
         {
             if (!_stackOnHost.TryGetValue(host, out var stacked)) return;
@@ -18395,7 +18444,7 @@ private bool ControllerHasToxOnTable(int controller)
     {
         var cards = new List<Card>();
         var missionCard = missionBorder.Tag as Card;
-        bool planet = missionCard != null && MissionRules.IsPlanetMission(missionCard);
+        bool planet = missionCard != null && MissionCountsAsPlanetCard(missionCard);
 
         void AddFromHost(Border host)
         {
@@ -18627,7 +18676,7 @@ private bool ControllerHasToxOnTable(int controller)
                 targets.Add(dock);
             }
             // Planet surface only — 7.1.1.0.1 no beaming into space
-            if (!sourceIsMission && mission.Tag is Card mc && MissionRules.IsPlanetMission(mc))
+            if (!sourceIsMission && mission.Tag is Card mc && MissionCountsAsPlanetCard(mc))
                 targets.Add(mission);
         }
 
@@ -23576,7 +23625,7 @@ private bool ControllerHasToxOnTable(int controller)
             return true;
         // Oder Away Team des Gegners auf Planet derselben Mission
         var mission = FindMissionForDockable(shipBorder);
-        if (mission?.Tag is Card mc && MissionRules.IsPlanetMission(mc))
+        if (mission?.Tag is Card mc && MissionCountsAsPlanetCard(mc))
             return GetPersonnelBordersAtHost(mission, opponentOf: _activePlayer).Count > 0;
         return false;
     }
@@ -23800,7 +23849,7 @@ private bool ControllerHasToxOnTable(int controller)
 
         if (targetHost.Tag is Card destAsMission
             && CardKinds.IsMission(destAsMission)
-            && !MissionRules.IsPlanetMission(destAsMission))
+            && !MissionCountsAsPlanetCard(destAsMission))
         {
             ShowPlayError("You may not beam cards into space (7.1.1.0.1).");
             return true;

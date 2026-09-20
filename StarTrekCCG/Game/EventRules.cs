@@ -325,7 +325,7 @@ public static class EventRules
                 Place = Place.OnMission,
                 Persist = Persist.Supernova,
                 NeedsToxUthat = true,
-                Message = "Requires Tox Uthat on table. Destroys all ships and facilities here (aboard with them); planet AT/surface survive. Mission husk: span only, unattemptable/unscoutable space, lose gametext/points/icons."
+                Message = "Requires Tox Uthat on table. Destroys all ships and facilities here. Planet mission: surface AT/equipment discarded ([S] convert). Mission husk: span only, unattemptable/unscoutable space, lose gametext/points/icons."
             },
             // Glossary: Goddess of Empathy — interrupts may not be played (except [Ref]/[Q]/Kevin Uxbridge/Q2),
             // including response/nullify window (Amanda Rogers is NOT excepted).

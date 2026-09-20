@@ -1,7 +1,5 @@
-# Smoke — Tox + Supernova (Spock SOLL, no AT wipe)
+# Smoke — Pepsch OVERRIDE surface discard + husk visual
 
-1. Tox as Event → same turn Supernova denied.
-2. Next turn Supernova → Tox discarded at init; ships+facilities gone; **planet AT survives**; mission husk.
-3. Nullify Supernova on stack after init → Tox stays discarded; no destruction.
-4. Tox as Interrupt nullifies Supernova; Tox discarded.
-5. Kevin after resolve → husk + destruction remain (no restore).
+1. Supernova on **planet** with AT on surface → ships/fac destroyed; **AT/equipment on mission discarded**; mission darker/opacity husk; counts as space (no planet AT play).
+2. Supernova on **space** → ships/fac destroyed; no surface wipe.
+3. Tox init discard + Kevin after resolve husk stays (unchanged).
