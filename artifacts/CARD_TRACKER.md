@@ -224,7 +224,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Emergency Transporter Armbands (114 C) | partial | tip 13583d0 Spock Lock ETA icon + Distortion/PE. Pending Pepsch green. | Data 2026-09-20 |
 | Energy Vortex (115 U) | working | Pepsch green 2026-09-20. | Pepsch 2026-09-20 |
 | Escape Pod (116 C) | partial | tips Data/`5e55eef` + `7917a30`/`a3481a1` + `acc1426` + Z/`c1b622e` (Josef, no push): Response/Think Tray Z over CardDetail while open. Prior: ShipDestroyed window during battle stack; crew/personnel only; crew aboard + Pod in hand; excludes captives. Stays partial until Pepsch greens Borg-destroy -> pick Pod â€” not working. | Data/`c1b622e` 2026-09-15 |
-| Full Planet Scan (117 U) | partial | tip pending SoT ship staff≥2 stop Comp+Geology bottom seed. Pending Pepsch green. | Data 2026-09-21 |
+| Full Planet Scan (117 U) | partial | tip 673f598 SoT ship staff≥2 stop Comp+Geology bottom seed. Pending Pepsch green. | Data 2026-09-21 |
 | Honor Challenge (118 R) | unknown |  |  |
 | Hugh (119 R) | working | Pepsch green: works on Borg Ship dilemma attack (valid response). | Pepsch 2026-09-15 |
 | Incoming Message: Federation (120 U) | working | Pepsch green 2026-09-20 (Incoming Message family). | Pepsch 2026-09-20 |

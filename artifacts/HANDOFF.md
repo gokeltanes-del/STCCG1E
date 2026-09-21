@@ -1,3 +1,4 @@
+- tip 673f598 feat(premiere): Full Planet Scan SoT examine bottom seed — EXE 2026-09-21 05:57:45 — GROK_TEMP/TIP_FULL_PLANET_SCAN_2026-09-21.md
 - tip 13583d0 fix(premiere): Armbands Spock Lock ETA icon + Distortion/PE beam — EXE 2026-09-20 22:23:06 — GROK_TEMP/TIP_EMERGENCY_ARMBANDS_SPOCK_2026-09-20.md
 - tip 809e27c feat(premiere): Emergency Transporter Armbands beam during battle/ETA — EXE 2026-09-20 22:21:19 — GROK_TEMP/TIP_EMERGENCY_ARMBANDS_2026-09-20.md
 - tip f378f10 fix(premiere): Distortion full RANGE includes HULL attrib (Spock Lock) — EXE 2026-09-20 21:40:35 — GROK_TEMP/TIP_DISTORTION_SPOCK_RANGE_2026-09-20.md
@@ -263,6 +264,8 @@ Local VS: C:\\Dev\\StarTrekCCG\\
 **Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Gruen-Test.
 
 ## Current tip
+Local Josef tip **673f598** - Full Planet Scan SoT (Pepsch smoke). Nicht gepusht.
+
 Local Josef tip **13583d0** - Armbands Spock Lock (Pepsch smoke). Nicht gepusht.
 
 Local Josef tip **809e27c** - Emergency Transporter Armbands battle/[ETA] (Pepsch smoke). Nicht gepusht.
