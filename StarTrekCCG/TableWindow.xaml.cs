@@ -4704,8 +4704,13 @@ public partial class TableWindow : Window
                                   || InterruptRules.IsAlienGroupie(a.Card)
                                   || InterruptRules.IsAutoDestruct(a.Card);
                 // Kevin (etc.) may still need TargetCard nullify when used as a response
+                // Rule: 7.1.1 · 7.1.1.0.2 · 7.4.2 · 10.2.1
+                // Glossary: Emergency Transporter Armbands · equipment · battle
+                // Verb: BeginBeamMode · Beam · CanRespond; AppA: ETA
+                // ETA response must enter EmergencyBeam → BeginBeamMode even without TargetCard.
                 if ((TimingRules.IsInterrupt(a.Card) || InterruptRules.IsInterrupt(a.Card))
-                    && (a.TargetCard != null || attachStay))
+                    && (a.TargetCard != null || attachStay
+                        || InterruptRules.IsEmergencyTransporterArmbands(a.Card)))
                 {
                     TryResolveInterruptPlay(a.Card, a.Controller, isResponse: true, a.TargetCard);
                 }
@@ -15179,6 +15184,9 @@ int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), 
             case InterruptRules.Effect.Hail:
                 ApplyHail(card, controller, target);
                 break;
+            // Rule: 7.1.1 · 7.1.1.0.2 · 7.4.2 · 10.2.1
+            // Glossary: Emergency Transporter Armbands · equipment · battle
+            // Verb: BeginBeamMode · Beam · CanRespond; AppA: ETA
             case InterruptRules.Effect.EmergencyBeam:
                 {
                     if (_adversariesInCombat)
@@ -19356,7 +19364,9 @@ _spacelineOrder.Remove(pod);
         _cardActionMode = CardActionMode.BeamPickTarget;
         UpdateCardDetailCloseButton();
         var mission = sourceIsMission ? hostBorder : FindMissionForDockable(hostBorder);
-        int owner = _activePlayer;
+        // Rule: 7.1.1 · 7.1.1.0.2 — destination filter = beaming player (ETA may be non-active).
+        // Verb: BeginBeamMode · Beam
+        int owner = beamPlayer;
         var targets = new List<Border>();
         if (mission != null)
         {

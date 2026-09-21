@@ -1,3 +1,10 @@
+## 2026-09-21 — ETA Armbands Beam-Destination (response → BeginBeamMode)
+
+- Response resolve: Emergency Transporter Armbands enters `TryResolveInterruptPlay` / EmergencyBeam even without TargetCard (was SendCardTo-only → no picker).
+- `BeginBeamMode` destination filter uses `beamPlayer` (not `_activePlayer`) so ETA as non-active still lists own same-location targets.
+- Search comments Rule 7.1.1 / 7.1.1.0.2 / 7.4.2 / 10.2.1; Glossary ETA · equipment · battle; Verb BeginBeamMode · Beam · CanRespond.
+- Smoke: `GROK_TEMP/SMOKE_ETA_ARMBANDS_BEAM_DEST_2026-09-21.md`. Partial-escape stop-status parked. Kurlan/FPS untouched. No push.
+
 ## 2026-09-21 — Kurlan ×3 S.A.M. (printed+Adds)×3
 
 - `BattleRules.AttributeAfterSam` / `AttributeBonusOverPrinted`: Rulebook §12.11 S.A.M. — (printed + adds) × Kurlan, not printed×k + adds.
