@@ -180,3 +180,7 @@ Gedruckte `Card` = JSON. Instanz = Identität + Status. Beamen wechselt die Forc
 ## 2026-09-21 — PersonnelTypePresent
 - `Game/MissionRules.PersonnelTypePresent`: shared Class vs Skill Decide (classification word → Class box only; else Class|Skill|Equipment via `EventRules.HasSkill`).
 - First consumer: `ArtifactRules.KurlanFullyStaffed` → `BattleRules.KurlanMultiplier` / `ApplyKurlan` (TableWindow RANGE/W/S).
+
+## 2026-09-21 — Kurlan AttributeAfterSam
+- `BattleRules.AttributeAfterSam` / `AttributeBonusOverPrinted`: S.A.M. (printed+adds)×Kurlan for RANGE/W/S.
+- Consumers: TableWindow FormatShipEffectiveLine + ship battle fire bonuses.

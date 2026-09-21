@@ -1,3 +1,9 @@
+## 2026-09-21 — Kurlan ×3 S.A.M. (printed+Adds)×3
+
+- `BattleRules.AttributeAfterSam` / `AttributeBonusOverPrinted`: Rulebook §12.11 S.A.M. — (printed + adds) × Kurlan, not printed×k + adds.
+- Ship battle Open Fire / Return Fire / predict bonuses use same Decide helper as UI `FormatShipEffectiveLine`.
+- Verify asserts (8+3)×3=33. Types route bfe0de9 untouched. Smoke: `GROK_TEMP/SMOKE_KURLAN_SAM_2026-09-21.md`. No push.
+
 ## 2026-09-21 — Classification vs Skill Route (Kurlan Naiskos)
 
 - Shared Decide helper `MissionRules.PersonnelTypePresent` / `RequiresClassificationOnly`: without the word classification → Class box OR effective skill (incl. equipment grants via `EventRules.HasSkill`); with classification → Class box only.

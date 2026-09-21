@@ -955,17 +955,14 @@ public partial class TableWindow : Window
             ? Enumerable.Empty<(EventRules.Persist, Card)>()
             : EventsOn(border).Select(e => (e.Kind, e.Card));
 
-        int w = printedW + EventRules.WeaponsBonusFromEvents(evs);
-        int s = printedS + EventRules.ShieldsBonusFromEvents(evs, aboard);
+        // Rule: 12.11 · S.A.M. / AppA Kurlan — (printed + Adds) × Kurlan
         bool captainsLog = border != null && HasMatchingCommander(border, ship)
             && _attachedEvents.Any(e => e.Kind == EventRules.Persist.CaptainsLog && e.Owner == owner);
-        if (captainsLog)
-        {
-            w += 3; s += 3;
-        }
+        int wAdds = EventRules.WeaponsBonusFromEvents(evs) + (captainsLog ? 3 : 0);
+        int sAdds = EventRules.ShieldsBonusFromEvents(evs, aboard) + (captainsLog ? 3 : 0);
         int k = BattleRules.KurlanMultiplier(aboard);
-        w *= k;
-        s *= k;
+        int w = BattleRules.AttributeAfterSam(printedW, wAdds, aboard);
+        int s = BattleRules.AttributeAfterSam(printedS, sAdds, aboard);
 
         bool transwarp = _attachedEvents.Any(e =>
             InterruptRules.IsTranswarpConduit(e.Card)
@@ -4985,9 +4982,16 @@ public partial class TableWindow : Window
         int defOwnerForCrew = GetBorderOwner(defenderBorder);
         if (defOwnerForCrew == 0) defOwnerForCrew = defOwner;
         var defEv = EventsOn(defenderBorder).Select(e => (e.Kind, e.Card));
-        int defMult = BattleRules.KurlanMultiplier(GetAllStackedCardsOnHost(defenderBorder));
-        int defShieldBonus = BattleRules.GetShields(defenderCard) * (defMult - 1)
-                             + EventRules.ShieldsBonusFromEvents(defEv, GetAllCardsOnHost(defenderBorder, defOwnerForCrew));
+        // Rule: 12.11 · S.A.M. — battle bonus = AttributeAfterSam − printed (same as UI)
+        var defAboard = GetAllStackedCardsOnHost(defenderBorder);
+        int defPrintedS = BattleRules.GetShields(defenderCard);
+        int defOwnerCap = GetBorderOwner(defenderBorder);
+        if (defOwnerCap == 0) defOwnerCap = defOwner;
+        int defLog = HasMatchingCommander(defenderBorder, defenderCard)
+            && _attachedEvents.Any(e => e.Kind == EventRules.Persist.CaptainsLog && e.Owner == defOwnerCap)
+            ? 3 : 0;
+        int defShieldAdds = EventRules.ShieldsBonusFromEvents(defEv, GetAllCardsOnHost(defenderBorder, defOwnerForCrew)) + defLog;
+        int defShieldBonus = BattleRules.AttributeBonusOverPrinted(defPrintedS, defShieldAdds, defAboard);
         int facShields = 0;
         if (IsShipDocked(defenderBorder) && _dockedAt.TryGetValue(defenderBorder, out var fac)
             && fac?.Tag is Card fc)
@@ -5000,9 +5004,13 @@ public partial class TableWindow : Window
         {
             int atkOwner = GetBorderOwner(attackerBorder);
             if (atkOwner == 0) atkOwner = 1;
-            int atkMult = BattleRules.KurlanMultiplier(GetAllStackedCardsOnHost(attackerBorder));
+            var atkAboard = GetAllStackedCardsOnHost(attackerBorder);
             var atkEv = EventsOn(attackerBorder).Select(e => (e.Kind, e.Card));
-            atkBonus = printedAtkW * (atkMult - 1) + EventRules.WeaponsBonusFromEvents(atkEv);
+            int atkLog = HasMatchingCommander(attackerBorder, attackerShip)
+                && _attachedEvents.Any(e => e.Kind == EventRules.Persist.CaptainsLog && e.Owner == atkOwner)
+                ? 3 : 0;
+            int atkAdds = EventRules.WeaponsBonusFromEvents(atkEv) + atkLog;
+            atkBonus = BattleRules.AttributeBonusOverPrinted(printedAtkW, atkAdds, atkAboard);
         }
         var predicted = BattleRules.ResolveFire(
             new[] { (attackerShip, atkBonus) },
@@ -19780,20 +19788,37 @@ _spacelineOrder.Remove(pod);
         var logLines = new List<string>();
         logLines.Add($"SHIP BATTLE: {attackerShip.Name} (S{atkOwner}) → {defenderCard.Name} (S{defOwner})");
 
-        int atkMult = BattleRules.KurlanMultiplier(GetAllStackedCardsOnHost(attackerBorder));
-        int defMult = BattleRules.KurlanMultiplier(GetAllStackedCardsOnHost(defenderBorder));
+        var atkAboard = GetAllStackedCardsOnHost(attackerBorder);
+        var defAboard = GetAllStackedCardsOnHost(defenderBorder);
+        int atkMult = BattleRules.KurlanMultiplier(atkAboard);
+        int defMult = BattleRules.KurlanMultiplier(defAboard);
         var atkEv = EventsOn(attackerBorder).Select(e => (e.Kind, e.Card));
         var defEv = EventsOn(defenderBorder).Select(e => (e.Kind, e.Card));
         bool borgAtk = TimingRules.IsBorgShipDilemma(attackerShip);
         const int borgWeapons = 24;
         int printedAtkW = BattleRules.GetWeapons(attackerShip);
+        int atkLog = !borgAtk && HasMatchingCommander(attackerBorder, attackerShip)
+            && _attachedEvents.Any(e => e.Kind == EventRules.Persist.CaptainsLog && e.Owner == atkOwner)
+            ? 3 : 0;
         int atkBonus = borgAtk
             ? Math.Max(0, borgWeapons - printedAtkW)
-            : printedAtkW * (atkMult - 1) + EventRules.WeaponsBonusFromEvents(atkEv);
-        int defShieldBonus = BattleRules.GetShields(defenderCard) * (defMult - 1)
-                             + EventRules.ShieldsBonusFromEvents(defEv, GetAllCardsOnHost(defenderBorder, defOwner));
-        int defWeaponsBonus = BattleRules.GetWeapons(defenderCard) * (defMult - 1)
-                              + EventRules.WeaponsBonusFromEvents(defEv);
+            : BattleRules.AttributeBonusOverPrinted(
+                printedAtkW,
+                EventRules.WeaponsBonusFromEvents(atkEv) + atkLog,
+                atkAboard);
+        int defPrintedS = BattleRules.GetShields(defenderCard);
+        int defPrintedW = BattleRules.GetWeapons(defenderCard);
+        int defLog = HasMatchingCommander(defenderBorder, defenderCard)
+            && _attachedEvents.Any(e => e.Kind == EventRules.Persist.CaptainsLog && e.Owner == defOwner)
+            ? 3 : 0;
+        int defShieldBonus = BattleRules.AttributeBonusOverPrinted(
+            defPrintedS,
+            EventRules.ShieldsBonusFromEvents(defEv, GetAllCardsOnHost(defenderBorder, defOwner)) + defLog,
+            defAboard);
+        int defWeaponsBonus = BattleRules.AttributeBonusOverPrinted(
+            defPrintedW,
+            EventRules.WeaponsBonusFromEvents(defEv) + defLog,
+            defAboard);
         int facShields = 0;
         if (IsShipDocked(defenderBorder) && _dockedAt.TryGetValue(defenderBorder, out var fac)
             && fac?.Tag is Card fc)
@@ -19851,9 +19876,22 @@ _spacelineOrder.Remove(pod);
         if (returnFire && !defDmg.Destroyed)
         {
             // Verteidiger schießt zurück auf den Angreifer (1 Ziel)
-            int borgShieldBonus = borgAtk
-                ? Math.Max(0, 24 - BattleRules.GetShields(attackerShip))
-                : BattleRules.GetShields(attackerShip) * (atkMult - 1);
+            // S.A.M.: attacker shields bonus over printed (events + Captain's Log) × Kurlan
+            int borgShieldBonus;
+            if (borgAtk)
+            {
+                borgShieldBonus = Math.Max(0, 24 - BattleRules.GetShields(attackerShip));
+            }
+            else
+            {
+                int atkPrintedS = BattleRules.GetShields(attackerShip);
+                int atkShieldLog = HasMatchingCommander(attackerBorder, attackerShip)
+                    && _attachedEvents.Any(e => e.Kind == EventRules.Persist.CaptainsLog && e.Owner == atkOwner)
+                    ? 3 : 0;
+                int atkShieldAdds = EventRules.ShieldsBonusFromEvents(atkEv, GetAllCardsOnHost(attackerBorder, atkOwner))
+                    + atkShieldLog;
+                borgShieldBonus = BattleRules.AttributeBonusOverPrinted(atkPrintedS, atkShieldAdds, atkAboard);
+            }
             returnCalc = BattleRules.ResolveFire(
                 new[] { (defenderCard, defWeaponsBonus) },
                 attackerShip,

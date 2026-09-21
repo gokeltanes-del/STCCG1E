@@ -1,4 +1,16 @@
 ---
+## Aktiv (Data tip 2026-09-21 Kurlan S.A.M.)
+- **Thema:** Kurlan ×3 = (printed+Adds)×3 via `AttributeAfterSam`; Battle an UI angeglichen.
+- **Smoke:** `GROK_TEMP/SMOKE_KURLAN_SAM_2026-09-21.md` — Pepsch Retest Gesamt-Naiskos. Jadzia partial bis Grün.
+- **Park:** Continuum/Q; Plays on/as F3. Kein Push. Typen-Route bfe0de9 steht.
+
+---
+## Aktiv (Captain 2026-09-21 21:43)
+- **Kurlan:** Typen ok (bfe0de9); ×3 S.A.M. Soll (printed+Adds)×3; UI ok. Battle-Pfad Go an Data.
+- **Pepsch:** Gesamtbewertung erst nach Battle-Tip. Tracker partial.
+- **Park:** Continuum/Q; Plays on/as F3 Smoke wartend.
+
+---
 ## Aktiv (Data tip 2026-09-21 Classification|Skill)
 - **Thema:** `PersonnelTypePresent` live; Kurlan Naiskos erster Consumer (Class|Skill|Equipment; dual Class+Skill = zwei Typen).
 - **Smoke:** `GROK_TEMP/SMOKE_KURLAN_CLASS_SKILL_2026-09-21.md` — Pepsch Retest. Jadzia: Naiskos bleibt partial bis Grün.

@@ -63,6 +63,25 @@ public static class BattleRules
     public static int ApplyKurlan(int attribute, IEnumerable<Card>? aboard) =>
         Math.Max(0, attribute) * KurlanMultiplier(aboard);
 
+
+    // Rule: 12.11 · S.A.M.
+    // Glossary: modifier order · attribute · attribute enhancements
+    // AppA: Kurlan
+    // Verb: triples · multiply · ApplyKurlan · KurlanMultiplier
+    /// <summary>
+    /// S.A.M. order for Kurlan: Set → Add/Subtract → Multiply/Divide.
+    /// (printed + adds) × Kurlan — not printed×k then +adds.
+    /// </summary>
+    public static int AttributeAfterSam(int printed, int adds, IEnumerable<Card>? aboard) =>
+        ApplyKurlan(printed + adds, aboard);
+
+    /// <summary>
+    /// Bonus over printed so ResolveFire(GetX + bonus) equals <see cref="AttributeAfterSam"/>.
+    /// </summary>
+    public static int AttributeBonusOverPrinted(int printed, int adds, IEnumerable<Card>? aboard) =>
+        AttributeAfterSam(printed, adds, aboard) - Math.Max(0, printed);
+
+
     // Rule: 10.1.0.1 · 10.1 · 10.3.0.5 · 2.7 · 2.8
     // Glossary: personnel type · classification · skills · use (skills) · use (equipment)
     // Verb: ApplyKurlan VerifyKurlanMultiplier KurlanMultiplier HasSkill
@@ -131,6 +150,25 @@ public static class BattleRules
         };
         if (KurlanMultiplier(withKit) != 3)
             return "equipment MEDICAL grant must help staff Kurlan";
+
+        // S.A.M.: (printed + adds) × 3, not printed×3 + adds
+        var samAboard = new List<Card>
+        {
+            new Card { Name = "Kurlan Naiskos", Type = "Artifact" },
+            new Card { Name = "O1", Type = "Personnel", Class = "OFFICER" },
+            new Card { Name = "E1", Type = "Personnel", Class = "ENGINEER" },
+            new Card { Name = "M1", Type = "Personnel", Class = "MEDICAL" },
+            new Card { Name = "S1", Type = "Personnel", Class = "SCIENCE" },
+            new Card { Name = "Sec", Type = "Personnel", Class = "SECURITY" },
+            new Card { Name = "V1", Type = "Personnel", Class = "V.I.P." },
+            new Card { Name = "C1", Type = "Personnel", Class = "CIVILIAN" },
+        };
+        if (AttributeAfterSam(printed: 8, adds: 3, samAboard) != 33)
+            return "S.A.M. (8+3)×3 must be 33";
+        if (AttributeBonusOverPrinted(8, 3, samAboard) != 25)
+            return "S.A.M. bonus over printed 8 with +3 adds must be 25";
+        if (AttributeAfterSam(8, 3, samAboard) == 8 * 3 + 3)
+            return "must not be printed×3 + adds";
 
         return null;
     }
