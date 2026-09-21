@@ -15241,19 +15241,21 @@ private List<Card> CollectCardsInPlay(bool opponent)
                     break;
                 }
             case InterruptRules.Effect.PlanetScan:
+                ApplyFullPlanetScan(card, controller);
+                break;
             case InterruptRules.Effect.SpaceScan:
                 {
-                    bool planet = r.Effect == InterruptRules.Effect.PlanetScan;
+                    // Legacy stub until Full Space Scan Go — first space mission with seeds.
                     foreach (var m in _spacelineOrder)
                     {
                         if (m.Tag is not Card mc) continue;
-                        if (planet && !MissionCountsAsPlanetCard(mc)) continue;
-                        if (!planet && !MissionRules.IsSpaceMission(mc)) continue;
+                        if (!MissionRules.IsSpaceMission(mc)) continue;
                         if (!_seedUnderMission.TryGetValue(m, out var stack) || stack.Count == 0) continue;
                         if (stack[^1].Tag is Card bottom)
-                            ShowCardReveal(bottom, "Scan",
-                                $"Bottom seed card under {mc.Name}:\n{bottom.Name}\n{bottom.Text}",
-                                RevealButtons.Ok);
+                        {
+                            string msg = "Bottom seed card under " + mc.Name + ":\n" + bottom.Name + "\n" + (bottom.Text ?? "");
+                            ShowCardReveal(bottom, "Scan", msg, RevealButtons.Ok);
+                        }
                         break;
                     }
                     break;
@@ -21998,6 +22000,119 @@ _spacelineOrder.Remove(pod);
         _session.Log.Add(_session.TurnNumber, $"P{controller}",
             $"Asteroid Sanctuary on {shipCard.Name}");
         UpdateHostBadge(hostBorder);
+    }
+
+    
+    /// <summary>
+    /// Full Planet Scan (117 U): SoT, own ship with ≥2 staffing icons at planet mission;
+    /// stop Computer Skill + Geology aboard; examine bottom seed (first encounter) here.
+    /// </summary>
+    private void ApplyFullPlanetScan(Card card, int controller)
+    {
+        void Bounce()
+        {
+            var hand = controller == 1 ? _handCards : _oppHandCards;
+            if (!hand.Contains(card)) hand.Add(card);
+            RefreshHandStrips();
+            RefreshZoneCounts();
+        }
+
+        if (_session.Segment != GameSession.TurnSegment.Play
+            || _session.NormalCardPlayUsed
+            || _session.ActivePlayer != controller)
+        {
+            ShowPlayError("Full Planet Scan: play at the start of your turn (before your normal card play).");
+            Bounce();
+            return;
+        }
+
+        var host = _interruptTargetHost;
+        if (host == null || host.Tag is not Card ship || !IsShipCard(ship))
+        {
+            ShowPlayError("Full Planet Scan: play on your ship at a planet mission.");
+            Bounce();
+            return;
+        }
+        int own = GetBorderOwner(host);
+        if (own == 0) own = ship.Controller != 0 ? ship.Controller : ship.OwnerPlayer;
+        if (own != controller)
+        {
+            ShowPlayError("Full Planet Scan: must be your ship.");
+            Bounce();
+            return;
+        }
+
+        var mission = FindMissionForDockable(host);
+        if (mission?.Tag is not Card mc || !MissionCountsAsPlanetCard(mc))
+        {
+            ShowPlayError("Full Planet Scan: ship must be at a planet mission.");
+            Bounce();
+            return;
+        }
+
+        var (cmd, stf) = MovementRules.ParseStaffingRequirement(ship);
+        if (cmd + stf < 2)
+        {
+            ShowPlayError("Full Planet Scan: ship needs at least two staffing icons (printed [Cmd]/[Stf]).");
+            Bounce();
+            return;
+        }
+
+        if (!_seedUnderMission.TryGetValue(mission, out var stack) || stack.Count == 0)
+        {
+            ShowPlayError("Full Planet Scan: no seed cards under this mission.");
+            Bounce();
+            return;
+        }
+
+        List<Border> crewBorders;
+        if (_stackOnHost.TryGetValue(host, out var stacked))
+        {
+            crewBorders = stacked
+                .Where(b => b.Tag is Card c && ModifierRules.IsPersonnelCard(c))
+                .ToList();
+        }
+        else
+            crewBorders = new List<Border>();
+
+        Border? FindSkill(string skill)
+        {
+            foreach (var b in crewBorders)
+            {
+                if (b.Tag is not Card c) continue;
+                if (IsBorderStopped(b)) continue;
+                if (QuietHasSkill(new[] { c }, skill))
+                    return b;
+            }
+            return null;
+        }
+
+        var computer = FindSkill("Computer Skill");
+        var geology = FindSkill("Geology");
+        if (computer == null || geology == null)
+        {
+            ShowPlayError("Full Planet Scan: need Computer Skill and Geology aboard (unstopped).");
+            Bounce();
+            return;
+        }
+
+        MarkStopped(computer);
+        if (!ReferenceEquals(computer, geology))
+            MarkStopped(geology);
+
+        if (stack[^1].Tag is not Card bottom)
+        {
+            ShowPlayError("Full Planet Scan: bottom seed card missing.");
+            Bounce();
+            return;
+        }
+
+        ShowCardReveal(bottom, "Full Planet Scan",
+            $"Bottom seed under {mc.Name} (first encounter):\n{bottom.Name}\n{bottom.Type}\n{bottom.Text}",
+            RevealButtons.Ok);
+        StatusText.Text = $"Full Planet Scan: examined {bottom.Name} under {mc.Name}. Computer Skill + Geology stopped.";
+        _session.Log.Add(_session.TurnNumber, $"P{controller}",
+            $"Full Planet Scan on {ship.Name} @ {mc.Name} → {bottom.Name}");
     }
 
     private void ApplyDistortionContinuum(Card card, int controller)
