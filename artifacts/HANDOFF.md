@@ -1,3 +1,12 @@
+
+---
+## Aktiv (Captain 2026-09-21 20:35)
+- **Thema:** Kern-Timing Phrase „plays at / at the start of your turn“ (gemeinsames SoT-Fenster).
+- **Spock-Soll:** Glossary turn p.216 Segmente 1 SoT → 2 normal card play → …; §6.1 Exception p.25 before normal card play; nach Segment 2 sofort illegal, kein Stack/Responses.
+- **Pepsch-Fail FPS:** Play nach Normal Card Play öffnet Response-Window (Amanda); Illegal erst danach.
+- **Captain Go:** Data baut SoT-Gate (LegalMoves/EngineAuthority vor BeginPlay); FPS erster Consumer. Tip ausstehend.
+- **Tracker:** Full Planet Scan (117 U) partial — Retest nach Tip.
+- **Park:** Continuum/Q; Plays on/as F3 Smoke unverändert wartend.
 - tip 673f598 feat(premiere): Full Planet Scan SoT examine bottom seed — EXE 2026-09-21 05:57:45 — GROK_TEMP/TIP_FULL_PLANET_SCAN_2026-09-21.md
 - tip 13583d0 fix(premiere): Armbands Spock Lock ETA icon + Distortion/PE beam — EXE 2026-09-20 22:23:06 — GROK_TEMP/TIP_EMERGENCY_ARMBANDS_SPOCK_2026-09-20.md
 - tip 809e27c feat(premiere): Emergency Transporter Armbands beam during battle/ETA — EXE 2026-09-20 22:21:19 — GROK_TEMP/TIP_EMERGENCY_ARMBANDS_2026-09-20.md
@@ -702,13 +711,14 @@ Hugh Borg Ship; IM FindMission; dump@Gaps; Parasites Hotseat-UI; REM Fatigue; Cu
 |------|--------|
 | HANDOFF.md | Captain + Data (tips) |
 | PROJECT.md | Captain + Data |
+| IMPLEMENT.md | Captain + Data |
 | ENGINE.md | Data |
-| CODE_PLACEMENT.md | Data |
 | TABLEWINDOW_INVENTORY.md | Data |
 | FEATURES.md | Seven |
 | CARD_TRACKER.md | Jadzia |
-| RULES.md / RULES_CHECKLIST.md | Spock (+ Seven coverage) |
-| GLOSSARY_COVERAGE.md / GLOSSARY_WELLE1.md | Seven / Spock |
+| RULES_CHECKLIST.md | Seven (+ Spock liest) |
+| GLOSSARY_COVERAGE.md | Seven / Spock |
+| APPENDIX_A_COVERAGE.md | Seven / Spock |
 | EXTRACT_REST.md | Data / Captain |
 | CHANGELOG.md | Data (playable lines) |
 
@@ -728,3 +738,16 @@ Exe: StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe
 
 ## Prior tip (056f6b0) load settle
 PinDockablesToSpacelineByColumn + Relayout after UpdateLayout + ScheduleRelayoutAfterLoadSettle; Top immer missionTop+DockSlotOffsetY, nie Save-Y.
+
+
+## Aktiv (Data 2026-09-21 20:31)
+- Full Planet Scan: Pepsch-Fail (nach Card Play noch spielbar) → PARK. Phrase start-of-turn als System; warte Spock-Soll + Captain Go. Kein Tip.
+
+
+- FPS-Fail Praezisierung: nach Card Play startet noch Response-Window; Illegal erst danach. Phrase-Gate muss vor Stack/Responses sitzen (sofort block + Feedback, kein Amanda). Weiter PARK.
+
+## Aktiv (Data 2026-09-21 20:39)
+- Tip StartOfTurnWindow (Phrase) + FPS Gate vor Stack. EXE-Copy ggf. noch gesperrt wenn App läuft — Pepsch neu starten nach Build.
+- Smoke: `GROK_TEMP\SMOKE_FULL_PLANET_SCAN_2026-09-21.md` Retest: nach Normal-Play sofort Deny, kein Amanda.
+- CARD_TRACKER FPS bleibt partial bis Pepsch green.
+- Plays-on/as F3 unverändert; Continuum/Q Pause.

@@ -5136,9 +5136,24 @@ public partial class TableWindow : Window
             return true;
         }
 
-        // Interrupt / Doorway: at any time
+        // Interrupt / Doorway: at any time — except StartOfTurnWindow (gate BEFORE stack).
         if (!GameSession.UsesNormalCardPlay(card))
         {
+            // Verb: BeginPlay Gate · StartOfTurnWindow (Pepsch: no Amanda window after normal card play)
+            int sotPlayer = card.Controller != 0 ? card.Controller : card.OwnerPlayer;
+            if (sotPlayer == 0) sotPlayer = _session.ActivePlayer;
+            var sot = TimingRules.CanPlayStartOfTurnCard(
+                card,
+                sotPlayer,
+                _session.ActivePlayer,
+                _session.Segment,
+                _session.NormalCardPlayUsed,
+                _session.NormalCardPlayForfeited);
+            if (!sot.ok)
+            {
+                denyReason = sot.reason;
+                return false;
+            }
             if (InterruptRules.IsSubspaceSchism(card)
                 && !(_stack.IsOpen && _stack.Top?.Kind == TimingRules.ActionKind.DrawCard))
             {
@@ -22017,11 +22032,13 @@ _spacelineOrder.Remove(pod);
             RefreshZoneCounts();
         }
 
-        if (_session.Segment != GameSession.TurnSegment.Play
-            || _session.NormalCardPlayUsed
-            || _session.ActivePlayer != controller)
+        // Safety net — primary gate is TimingRules.StartOfTurnWindow before BeginPlay/stack.
+        var sotGate = TimingRules.CanPlayStartOfTurnCard(
+            card, controller, _session.ActivePlayer, _session.Segment,
+            _session.NormalCardPlayUsed, _session.NormalCardPlayForfeited);
+        if (!sotGate.ok)
         {
-            ShowPlayError("Full Planet Scan: play at the start of your turn (before your normal card play).");
+            ShowPlayError(sotGate.reason);
             Bounce();
             return;
         }

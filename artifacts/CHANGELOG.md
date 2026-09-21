@@ -1,3 +1,8 @@
+## 2026-09-21 — Docs: IMPLEMENT statt RULES/CODE_PLACEMENT
+
+- Neue Canon-Trennung: `IMPLEMENT.md` (Ablauf), `ENGINE.md` + `TABLEWINDOW_INVENTORY.md` (Ist-Landkarte), Status nur in Seven/Jadzia/Extract, Log in Changelog, Brücke in Handoff.
+- `RULES.md` und `CODE_PLACEMENT.md` entfernt. Klasse A/B/C entfällt.
+
 ## 2026-09-17 — Hail (AU) + table UI chrome
 
 ## 2026-09-18 — TwoDim: full Disabled for Empathy aboard (Spock)
@@ -1128,3 +1133,9 @@ Phase-2-Tisch: Seed-Phasen, Hotseat feste Spaceline, Report/Staff/RANGE/Beam, Mi
 
 Phase 0 Modelle + JSON-Loader Â· Phase 1 Deck Builder `.stdeck` Â· Lackey-Split in Set-Ordner.
 
+
+## 2026-09-21 — StartOfTurnWindow (Phrase) + Full Planet Scan Gate
+- Neu: `TimingRules.RequiresStartOfTurnWindow` / `IsStartOfTurnWindowOpen` / `CanPlayStartOfTurnCard` (Compendium 6.1 Exception; Segmente SoT→NormalPlay→Execute→EoT→Draw).
+- Gate vor Stack/Responses: `LegalMoves.AddHandPlays`, `EngineAuthority.EvaluatePlay`, `TableWindow.TryAllowHandPlay`.
+- Full Planet Scan = erster Phrase-Consumer (Gametext + Katalog); Apply-Pfad nur Safety-Net.
+- Pepsch-Fail: FPS nach Normal-Play öffnete Amanda-Fenster; Illegal kam zu spät → jetzt sofort Deny.

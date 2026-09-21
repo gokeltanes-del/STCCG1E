@@ -518,6 +518,11 @@ public static class EngineAuthority
         if (card == null)
             return ApplyResult.Deny("No card.", "generic", action.Player);
 
+        // Rule: 6.1 Exception Start of turn — gate BEFORE stack/responses (Pepsch FPS fail).
+        var sot = TimingRules.CanPlayStartOfTurnCard(state, card, action.Player);
+        if (!sot.ok)
+            return ApplyResult.Deny(sot.reason, "start-of-turn", action.Player, card);
+
         // Glossary: Goddess of Empathy — interrupts blocked except [Ref]/[Q]/Kevin/Q2 (Amanda NOT excepted; incl. Respond).
         if (InterruptRules.IsInterrupt(card)
             && state.HasGoddess

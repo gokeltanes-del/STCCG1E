@@ -501,6 +501,92 @@ public static class TimingRules
         return string.Join("\n", lines);
     }
 
+
+    // ------------------------------------------------------------------
+    // Start-of-turn play window (Compendium 6.1 Exception / Glossary "turn")
+    // Rule: turn · 6.1 · 6.1 Exception Start of turn · 6.5.1 · at any time · 7
+    // Glossary: turn · start of turn · at any time · normal card play
+    // Verb: StartOfTurn / StartOfTurnWindow · NormalCardPlay · BeginPlay Gate · TurnSegment · IsAnytimeType
+    // Segments: 1 SoT → 2 normal card play → 3 execute orders → 4 EoT → 5 draw.
+    // SoT-restricted cards stay bound to segment 1 even if type is Interrupt (no normal-card-play cost).
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Printed play timing "plays at / at the start of your turn" (phrase system).
+    /// Full Planet Scan is the first consumer; prefer gametext phrase over name-only apply paths.
+    /// </summary>
+    public static bool RequiresStartOfTurnWindow(Card? card)
+    {
+        if (card == null) return false;
+        if (HasStartOfTurnPlayPhrase(card)) return true;
+        // First consumer (Premiere) until more phrase cards share the window.
+        return InterruptRules.IsFullPlanetScan(card);
+    }
+
+    /// <summary>Gametext / text contains start-of-turn play wording.</summary>
+    public static bool HasStartOfTurnPlayPhrase(Card card)
+    {
+        string text = card.Text ?? "";
+        if (text.Length == 0) return false;
+        if (text.IndexOf("at the start of your turn", StringComparison.OrdinalIgnoreCase) >= 0)
+            return true;
+        if (text.IndexOf("plays at the start of your turn", StringComparison.OrdinalIgnoreCase) >= 0)
+            return true;
+        if (text.IndexOf("play at the start of your turn", StringComparison.OrdinalIgnoreCase) >= 0)
+            return true;
+        return false;
+    }
+
+    /// <summary>
+    /// Segment-1 window still open: Play segment and normal card play neither used nor forfeited.
+    /// </summary>
+    public static bool IsStartOfTurnWindowOpen(
+        GameSession.TurnSegment segment,
+        bool normalCardPlayUsed,
+        bool normalCardPlayForfeited = false)
+    {
+        return segment == GameSession.TurnSegment.Play
+            && !normalCardPlayUsed
+            && !normalCardPlayForfeited;
+    }
+
+    public static bool IsStartOfTurnWindowOpen(GameState state) =>
+        IsStartOfTurnWindowOpen(state.Segment, state.NormalCardPlayUsed, normalCardPlayForfeited: false);
+
+    /// <summary>
+    /// Gate before BeginPlay / stack / responses. Immediate deny — no Amanda window.
+    /// </summary>
+    public static (bool ok, string reason) CanPlayStartOfTurnCard(
+        Card card,
+        int player,
+        int activePlayer,
+        GameSession.TurnSegment segment,
+        bool normalCardPlayUsed,
+        bool normalCardPlayForfeited = false)
+    {
+        if (!RequiresStartOfTurnWindow(card))
+            return (true, "");
+
+        if (player != activePlayer)
+            return (false, "Start of turn: only on your turn (before your normal card play).");
+
+        if (!IsStartOfTurnWindowOpen(segment, normalCardPlayUsed, normalCardPlayForfeited))
+            return (false,
+                "Start of turn: only before your normal card play "
+                + "(Compendium 6.1 Exception). No stack or response window.");
+
+        return (true, "");
+    }
+
+    public static (bool ok, string reason) CanPlayStartOfTurnCard(GameState state, Card card, int player) =>
+        CanPlayStartOfTurnCard(
+            card,
+            player,
+            state.ActivePlayer,
+            state.Segment,
+            state.NormalCardPlayUsed,
+            normalCardPlayForfeited: false);
+
     // ------------------------------------------------------------------
     // Turn phrasing (Compendium glossary / §5, §12.2)
     // ------------------------------------------------------------------

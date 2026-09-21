@@ -204,6 +204,10 @@ public static class LegalMoves
 
     private static void AddHandPlays(GameState state, int player, Card card, List<GameAction> list)
     {
+        // Verb: StartOfTurnWindow — before anytime/normal-play gates (no stack entry when closed).
+        var sot = TimingRules.CanPlayStartOfTurnCard(state, card, player);
+        if (!sot.ok) return;
+
         bool anytime = TimingRules.IsAnytimeType(card);
         bool free = PlayRules.PlaysForFree(card);
         bool playOk = anytime || free || state.NormalCardPlayAvailable;
