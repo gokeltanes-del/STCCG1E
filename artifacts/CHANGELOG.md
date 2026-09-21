@@ -1,3 +1,11 @@
+## 2026-09-21 — Classification vs Skill Route (Kurlan Naiskos)
+
+- Shared Decide helper `MissionRules.PersonnelTypePresent` / `RequiresClassificationOnly`: without the word classification → Class box OR effective skill (incl. equipment grants via `EventRules.HasSkill`); with classification → Class box only.
+- `ArtifactRules.KurlanFullyStaffed` uses that route (seven personnel types); one personnel may cover two types (Class+Skill).
+- `BattleRules.VerifyKurlanMultiplier` covers dual Class+Skill and Medical Kit MEDICAL grant.
+- Search comments Rule 10.1.0.1 / 10.1 / 10.3.0.5 / 2.7 / 2.8; Glossary personnel type · classification · skills · use (skills|equipment).
+- Smoke: `GROK_TEMP/SMOKE_KURLAN_CLASS_SKILL_2026-09-21.md`. No push. FPS untouched. Continuum/Q parked. Plays on/as F3 unchanged.
+
 ## 2026-09-21 — Docs: IMPLEMENT statt RULES/CODE_PLACEMENT
 
 - Neue Canon-Trennung: `IMPLEMENT.md` (Ablauf), `ENGINE.md` + `TABLEWINDOW_INVENTORY.md` (Ist-Landkarte), Status nur in Seven/Jadzia/Extract, Log in Changelog, Brücke in Handoff.

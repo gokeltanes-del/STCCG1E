@@ -1,12 +1,15 @@
+---
+## Aktiv (Data tip 2026-09-21 Classification|Skill)
+- **Thema:** `PersonnelTypePresent` live; Kurlan Naiskos erster Consumer (Class|Skill|Equipment; dual Class+Skill = zwei Typen).
+- **Smoke:** `GROK_TEMP/SMOKE_KURLAN_CLASS_SKILL_2026-09-21.md` — Pepsch Retest. Jadzia: Naiskos bleibt partial bis Grün.
+- **Park:** Continuum/Q; Plays on/as F3 Smoke wartend. FPS working nicht anfassen. Kein Push.
 
 ---
-## Aktiv (Captain 2026-09-21 20:35)
-- **Thema:** Kern-Timing Phrase „plays at / at the start of your turn“ (gemeinsames SoT-Fenster).
-- **Spock-Soll:** Glossary turn p.216 Segmente 1 SoT → 2 normal card play → …; §6.1 Exception p.25 before normal card play; nach Segment 2 sofort illegal, kein Stack/Responses.
-- **Pepsch-Fail FPS:** Play nach Normal Card Play öffnet Response-Window (Amanda); Illegal erst danach.
-- **Captain Go:** Data baut SoT-Gate (LegalMoves/EngineAuthority vor BeginPlay); FPS erster Consumer. Tip ausstehend.
-- **Tracker:** Full Planet Scan (117 U) partial — Retest nach Tip.
-- **Park:** Continuum/Q; Plays on/as F3 Smoke unverändert wartend.
+## Aktiv (Captain 2026-09-21 21:22)
+- **Thema:** Classification vs Skill — gemeinsame Route. Spock-Soll 10.1.0.1. Kurlan Naiskos erster Consumer. Data tippt.
+- **Pepsch:** Eine Person Class+Skill darf für Naiskos zwei Typen decken (Go).
+- **Park:** Continuum/Q; Plays on/as F3 Smoke wartend.
+
 - tip 673f598 feat(premiere): Full Planet Scan SoT examine bottom seed — EXE 2026-09-21 05:57:45 — GROK_TEMP/TIP_FULL_PLANET_SCAN_2026-09-21.md
 - tip 13583d0 fix(premiere): Armbands Spock Lock ETA icon + Distortion/PE beam — EXE 2026-09-20 22:23:06 — GROK_TEMP/TIP_EMERGENCY_ARMBANDS_SPOCK_2026-09-20.md
 - tip 809e27c feat(premiere): Emergency Transporter Armbands beam during battle/ETA — EXE 2026-09-20 22:21:19 — GROK_TEMP/TIP_EMERGENCY_ARMBANDS_2026-09-20.md

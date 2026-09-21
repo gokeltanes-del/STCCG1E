@@ -176,3 +176,7 @@ Gedruckte `Card` = JSON. Instanz = Identität + Status. Beamen wechselt die Forc
 - Gates: `LegalMoves` + `EngineAuthority` + `TryAllowHandPlay` **before** BeginPlay/stack/responses.
 - First consumer: Full Planet Scan. Not name-if in Apply; Apply is safety net only.
 - Distinct from `TurnPhasePoint.StartOfTurn` (delayed/countdown ticks only).
+
+## 2026-09-21 — PersonnelTypePresent
+- `Game/MissionRules.PersonnelTypePresent`: shared Class vs Skill Decide (classification word → Class box only; else Class|Skill|Equipment via `EventRules.HasSkill`).
+- First consumer: `ArtifactRules.KurlanFullyStaffed` → `BattleRules.KurlanMultiplier` / `ApplyKurlan` (TableWindow RANGE/W/S).

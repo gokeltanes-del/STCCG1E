@@ -10634,7 +10634,10 @@ private List<Card> CollectCardsInPlay(bool opponent)
         int baryon = EventsOn(shipBorder).Count(e => e.Kind == EventRules.Persist.Baryon) * 2;
         int junior = GetJuniorRangePenalty(shipBorder);
         var aboard = GetAllStackedCardsOnHost(shipBorder);
-        int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), aboard);
+                    // Rule: 10.1.0.1 · 10.1 · 10.3.0.5 · 2.7 · 2.8
+            // Glossary: personnel type · classification · skills · use (skills) · use (equipment)
+            // Verb: ApplyKurlan KurlanMultiplier ComputeShipTurnRange HasSkill
+int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), aboard);
         return MovementRules.ComputeShipTurnRange(baseRange, baryon, junior);
     }
 
@@ -16899,7 +16902,7 @@ private List<Card> CollectCardsInPlay(bool opponent)
                 return true;
             }
             AttachCardToHost(art, shipB, controller);
-            StatusText.Text = "Kurlan Naiskos on ship (any ship; attributes x3 if all 7 classifications aboard).";
+            StatusText.Text = "Kurlan Naiskos on ship (any ship; attributes x3 if OFFICER, ENGINEER, MEDICAL, SCIENCE, SECURITY, V.I.P., CIVILIAN aboard as Class or Skill).";
             return true;
         }
 

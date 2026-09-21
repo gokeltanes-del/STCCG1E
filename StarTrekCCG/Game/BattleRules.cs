@@ -49,7 +49,7 @@ public static class BattleRules
         return ParseAttr(card.StrengthOrShields);
     }
 
-    /// <summary>Kurlan Naiskos: Attribute ×3 wenn alle Classifications an Bord.</summary>
+    /// <summary>Kurlan Naiskos: Attribute ×3 when all seven personnel types aboard (Class|Skill|Equipment).</summary>
     public static int KurlanMultiplier(IEnumerable<Card>? aboard)
     {
         if (aboard == null) return 1;
@@ -63,7 +63,13 @@ public static class BattleRules
     public static int ApplyKurlan(int attribute, IEnumerable<Card>? aboard) =>
         Math.Max(0, attribute) * KurlanMultiplier(aboard);
 
-    /// <summary>DE mini-test: Kurlan multiplies only when artifact + all 7 classifications aboard.</summary>
+    // Rule: 10.1.0.1 · 10.1 · 10.3.0.5 · 2.7 · 2.8
+    // Glossary: personnel type · classification · skills · use (skills) · use (equipment)
+    // Verb: ApplyKurlan VerifyKurlanMultiplier KurlanMultiplier HasSkill
+    /// <summary>
+    /// DE mini-test: Kurlan ×3 when artifact + seven types (Class|Skill|Equipment).
+    /// Includes dual Class+Skill on one body and equipment skill grant.
+    /// </summary>
     public static string? VerifyKurlanMultiplier()
     {
         var shipOnly = new List<Card> { new Card { Name = "Galaxy", Type = "Ship" } };
@@ -75,9 +81,10 @@ public static class BattleRules
             new Card { Name = "Galaxy", Type = "Ship" }
         };
         if (KurlanMultiplier(withArt) != 1)
-            return "Kurlan without classifications => 1";
+            return "Kurlan without staff => 1";
         if (ApplyKurlan(9, withArt) != 9)
             return "ApplyKurlan without staff should be printed";
+
         var staffed = new List<Card>
         {
             new Card { Name = "Kurlan Naiskos", Type = "Artifact" },
@@ -95,6 +102,36 @@ public static class BattleRules
             return "RANGE 9 x3 must be 27";
         if (ApplyKurlan(8, staffed) != 24)
             return "WEAPONS 8 x3 must be 24";
+
+        // Pepsch: one person Class OFFICER + Skill ENGINEER covers two types.
+        var dual = new List<Card>
+        {
+            new Card { Name = "Kurlan Naiskos", Type = "Artifact" },
+            new Card { Name = "Dual", Type = "Personnel", Class = "OFFICER", Text = "ENGINEER" },
+            new Card { Name = "M1", Type = "Personnel", Class = "MEDICAL" },
+            new Card { Name = "S1", Type = "Personnel", Class = "SCIENCE" },
+            new Card { Name = "Sec", Type = "Personnel", Class = "SECURITY" },
+            new Card { Name = "V1", Type = "Personnel", Class = "V.I.P." },
+            new Card { Name = "C1", Type = "Personnel", Class = "CIVILIAN" },
+        };
+        if (KurlanMultiplier(dual) != 3)
+            return "dual Class+Skill on one body must staff (OFFICER+ENGINEER)";
+
+        // Equipment grant: Medical Kit gives MEDICAL to OFFICER (SkillEquipment catalog).
+        var withKit = new List<Card>
+        {
+            new Card { Name = "Kurlan Naiskos", Type = "Artifact" },
+            new Card { Name = "O1", Type = "Personnel", Class = "OFFICER" },
+            new Card { Name = "E1", Type = "Personnel", Class = "ENGINEER" },
+            new Card { Name = "Medical Kit", Type = "Equipment" },
+            new Card { Name = "S1", Type = "Personnel", Class = "SCIENCE" },
+            new Card { Name = "Sec", Type = "Personnel", Class = "SECURITY" },
+            new Card { Name = "V1", Type = "Personnel", Class = "V.I.P." },
+            new Card { Name = "C1", Type = "Personnel", Class = "CIVILIAN" },
+        };
+        if (KurlanMultiplier(withKit) != 3)
+            return "equipment MEDICAL grant must help staff Kurlan";
+
         return null;
     }
 

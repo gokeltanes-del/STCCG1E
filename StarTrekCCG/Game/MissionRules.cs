@@ -331,6 +331,71 @@ public static (int integ, int cunn, int str) ParseAttributes(Card p)
         return Regex.IsMatch(alt, @"classification", RegexOptions.IgnoreCase);
     }
 
+
+    // Rule: 10.1.0.1 · 10.1 · 10.3.0.5 · 2.7 · 2.8
+    // Glossary: personnel type · classification · skills · use (skills) · use (equipment)
+    // Verb: HasSkill ApplyKurlan VerifyKurlanMultiplier KurlanMultiplier ComputeShipTurnRange
+    /// <summary>
+    /// Shared personnel-type presence (Mission/Dilemma/Artifact/…).
+    /// classificationOnly true: Class box only (text said "classification").
+    /// false: Class box OR effective skill incl. equipment grants (no "classification" word).
+    /// One personnel may contribute multiple types (Class OFFICER + Skill ENGINEER = two).
+    /// Characteristic is not a skill (10.3.0.5) — callers must not pass characteristics here.
+    /// </summary>
+    public static bool PersonnelTypePresent(
+        IEnumerable<Card> present,
+        string typeName,
+        bool classificationOnly = false)
+    {
+        if (string.IsNullOrWhiteSpace(typeName)) return false;
+        var cards = present?.ToList() ?? new List<Card>();
+        foreach (var name in PersonnelTypeAliases(typeName))
+        {
+            if (classificationOnly)
+            {
+                if (EventRules.CountClass(cards, name) > 0) return true;
+                if (HasPrintedClassificationName(cards, name)) return true;
+            }
+            else
+            {
+                // Effective skills: printed + classification-as-skill + equipment (ResolvePersonnel).
+                if (EventRules.HasSkill(cards, name)) return true;
+                // Class-box fallback (compound Class "A/B" via PrintedClassificationParts).
+                if (HasPrintedClassificationName(cards, name)) return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>True when requirement/gametext uses the word classification (Class box only).</summary>
+    public static bool RequiresClassificationOnly(string text) =>
+        IsClassificationRequirement(text ?? "");
+
+    static IEnumerable<string> PersonnelTypeAliases(string typeName)
+    {
+        yield return typeName.Trim();
+        string t = typeName.Trim();
+        if (t.Equals("V.I.P.", StringComparison.OrdinalIgnoreCase)
+            || t.Equals("VIP", StringComparison.OrdinalIgnoreCase))
+        {
+            yield return "V.I.P.";
+            yield return "VIP";
+        }
+    }
+
+    static bool HasPrintedClassificationName(IEnumerable<Card> present, string typeName)
+    {
+        foreach (var p in present.Where(ModifierRules.IsPersonnelCard))
+        {
+            foreach (var part in PrintedClassificationParts(p))
+            {
+                if (part.Equals(typeName, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+        }
+        return false;
+    }
+
     /// <summary>
     /// "ENGINEER-classification" / "ENGINEER classification" — Kit skill grants do not count.
     /// </summary>

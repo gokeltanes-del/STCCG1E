@@ -256,37 +256,24 @@ public static class ArtifactRules
     public static bool GrantsTablePermanent(Card? c) =>
         IsHorgahn(c) || IsTimeTravelPod(c) || IsCryosatellite(c) || IsRessikanFlute(c);
 
-    /// <summary>Kurlan: alle 7 Classifications an Bord?</summary>
+    // Rule: 10.1.0.1 · 10.1 · 10.3.0.5 · 2.7 · 2.8
+    // Glossary: personnel type · classification · skills · use (skills) · use (equipment)
+    // Verb: ApplyKurlan VerifyKurlanMultiplier KurlanMultiplier ComputeShipTurnRange HasSkill
+    /// <summary>
+    /// Kurlan Naiskos: all seven personnel types aboard (Class or Skill incl. equipment).
+    /// Printed text has no "classification" word — shared PersonnelTypePresent route.
+    /// One personnel may cover two types (e.g. Class OFFICER + Skill ENGINEER).
+    /// </summary>
     public static bool KurlanFullyStaffed(IEnumerable<Card> aboard)
     {
-        var need = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        string[] need =
         {
             "OFFICER", "ENGINEER", "MEDICAL", "SCIENCE", "SECURITY", "V.I.P.", "CIVILIAN"
         };
-        var have = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var p in aboard.Where(ModifierRules.IsPersonnelCard))
-        {
-            string cls = (p.Class ?? "").Trim();
-            if (!string.IsNullOrEmpty(cls))
-                have.Add(cls);
-            // auch aus Text / Skills
-            foreach (var kv in MissionRules.ParsePersonnelSkills(p))
-            {
-                if (need.Contains(kv.Key))
-                    have.Add(kv.Key);
-            }
-        }
-        // VIP / CIVILIAN oft als Classification
-        foreach (var p in aboard)
-        {
-            string t = ((p.Class ?? "") + " " + (p.Text ?? "")).ToUpperInvariant();
-            if (t.Contains("V.I.P") || t.Contains("VIP")) have.Add("V.I.P.");
-            if (t.Contains("CIVILIAN")) have.Add("CIVILIAN");
-        }
-        return need.All(n => have.Any(h =>
-            h.Equals(n, StringComparison.OrdinalIgnoreCase)
-            || (n == "V.I.P." && h.Contains("VIP", StringComparison.OrdinalIgnoreCase))));
+        var list = aboard?.ToList() ?? new List<Card>();
+        return need.All(n => MissionRules.PersonnelTypePresent(list, n, classificationOnly: false));
     }
+
 // ---- Extract Slice 6: ApplyArtifactAcquire placement gates (no WPF) ----
 
     public enum AcquirePlacement
