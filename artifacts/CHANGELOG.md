@@ -1,3 +1,9 @@
+## 2026-09-22 — Pegasus Search OR + {Interphase Generator}
+
+- MissionRules: OR-first requirement groups (7.2.5.0.3); AlternativeMet accepts {CardName} present.
+- Pegasus Search solvable with earned IG aboard attempting crew without skill path.
+- Smoke: `GROK_TEMP/SMOKE_PEGASUS_SEARCH_IG_2026-09-22.md`. Tracker partial until Pepsch green. No push.
+
 ## 2026-09-22 — Atmospheric Ionization scope (planet/vicinity)
 
 - Ionization limit only when origin or dest is planet surface (or landed-ship vicinity).

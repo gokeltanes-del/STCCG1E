@@ -314,6 +314,47 @@ public static (int integ, int cunn, int str) ParseAttributes(Card p)
         return parts;
     }
 
+    /// <summary>
+    /// Rulebook 7.2.5.0.3: top-level OR alternatives first, then + within each side.
+    /// Pegasus Search = (skills + INTEGRITY>40) OR {Interphase Generator}.
+    /// </summary>
+    public static List<List<string>> ParseRequirementOrGroups(Card mission, bool forOwner = true)
+    {
+        var (ownerSide, oppSide) = SplitOwnerOpponentSides(mission.Text);
+        string use = forOwner ? ownerSide : oppSide;
+        var groups = ParseRequirementOrGroupsFromText(use);
+        if (!forOwner && groups.Count == 0)
+            groups = ParseRequirementOrGroupsFromText(ownerSide);
+        return groups;
+    }
+
+    public static List<List<string>> ParseRequirementOrGroupsFromText(string text)
+    {
+        var groups = new List<List<string>>();
+        text = (text ?? "").Trim();
+        if (text.Length == 0) return groups;
+
+        text = Regex.Replace(text, @"\bSpan\s*:\s*\d+\b", "", RegexOptions.IgnoreCase).Trim();
+        if (Regex.IsMatch(text, @"^No\s+gametext", RegexOptions.IgnoreCase))
+            return groups;
+
+        foreach (var orAlt in Regex.Split(text, @"\s+OR\s+", RegexOptions.IgnoreCase))
+        {
+            var andParts = ParseRequirementPartsFromText(orAlt);
+            if (andParts.Count > 0)
+            {
+                groups.Add(andParts);
+                continue;
+            }
+            string t = orAlt.Trim();
+            int cut = t.IndexOf('.');
+            if (cut > 0 && cut < 40) t = t[..cut].Trim();
+            if (t.Length > 0 && t.Length <= 80 && !Regex.IsMatch(t, @"^\[.+\]$"))
+                groups.Add(new List<string> { t });
+        }
+        return groups;
+    }
+
     public static List<string> SplitOrAlternatives(string req)
     {
         var bits = Regex.Split(req ?? "", @"\s+OR\s+", RegexOptions.IgnoreCase)
@@ -440,9 +481,20 @@ public static (int integ, int cunn, int str) ParseAttributes(Card p)
         string alt,
         Dictionary<string, int> pool,
         int integ, int cunn, int str,
-        out string detail)
+        out string detail,
+        IEnumerable<Card>? present = null)
     {
         alt = Regex.Replace(alt ?? "", @"^\[[^\]]+\]\s*", "").Trim();
+        var mCard = Regex.Match(alt, @"^\{([^{}]+)\}$");
+        if (mCard.Success)
+        {
+            string want = mCard.Groups[1].Value.Trim();
+            bool ok = present != null && present.Any(c =>
+                !string.IsNullOrWhiteSpace(c.Name)
+                && c.Name.Equals(want, StringComparison.OrdinalIgnoreCase));
+            detail = ok ? $"{{{want}}} present" : $"{{{want}}} present (missing)";
+            return ok;
+        }
         var mAttr = Regex.Match(alt, @"^(INTEGRITY|CUNNING|STRENGTH)\s*(>|>=|<|<=)\s*(\d+)",
             RegexOptions.IgnoreCase);
         if (mAttr.Success)
@@ -635,11 +687,11 @@ public static (int integ, int cunn, int str) ParseAttributes(Card p)
             + string.Join(", ", pool.OrderBy(k => k.Key).Select(kv => kv.Value > 1 ? $"{kv.Key}×{kv.Value}" : kv.Key))
             + $"  | INT {integ} CUN {cunn} STR {str}");
 
-        var reqs = ParseRequirementParts(mission, forOwner);
-        if (reqs.Count == 0)
+        var orGroups = ParseRequirementOrGroups(mission, forOwner);
+        if (orGroups.Count == 0)
         {
             int pts = ParsePoints(mission);
-            return new AttemptResult(true, "No skill requirements detected – present team suffices (sandbox).", true, pts);
+            return new AttemptResult(true, "No skill requirements detected - present team suffices (sandbox).", true, pts);
         }
 
         // Printed Class counts for "X-classification" only (Kit skill grants do not).
@@ -652,39 +704,45 @@ public static (int integ, int cunn, int str) ParseAttributes(Card p)
             classPool[cls] = classPool.GetValueOrDefault(cls) + 1;
         }
 
-        var missing = new List<string>();
-        foreach (var req in reqs)
+        // 7.2.5.0.3: any one OR-group fully met (AND within group).
+        var groupFailMsgs = new List<string>();
+        foreach (var andParts in orGroups)
         {
-            var alts = SplitOrAlternatives(req);
-            bool anyOk = false;
-            var altFail = new List<string>();
-            foreach (var alt in alts)
+            var missing = new List<string>();
+            foreach (var req in andParts)
             {
-                if (ClassificationRequirementMet(alt, classPool, out string classDetail))
+                var alts = SplitOrAlternatives(req);
+                bool anyOk = false;
+                var altFail = new List<string>();
+                foreach (var alt in alts)
                 {
-                    anyOk = true;
-                    continue;
+                    if (ClassificationRequirementMet(alt, classPool, out string classDetail))
+                    {
+                        anyOk = true;
+                        continue;
+                    }
+                    if (IsClassificationRequirement(alt))
+                    {
+                        altFail.Add(classDetail);
+                        continue;
+                    }
+                    if (AlternativeMet(alt, pool, integ, cunn, str, out string detail, present: teamList))
+                        anyOk = true;
+                    else
+                        altFail.Add(detail);
                 }
-                if (IsClassificationRequirement(alt))
-                {
-                    altFail.Add(classDetail);
-                    continue;
-                }
-                if (AlternativeMet(alt, pool, integ, cunn, str, out string detail))
-                    anyOk = true;
-                else
-                    altFail.Add(detail);
+                if (!anyOk)
+                    missing.Add(alts.Count > 1
+                        ? "(" + string.Join(" OR ", altFail) + ")"
+                        : altFail.FirstOrDefault() ?? req);
             }
-            if (!anyOk)
-                missing.Add(alts.Count > 1
-                    ? "(" + string.Join(" OR ", altFail) + ")"
-                    : altFail.FirstOrDefault() ?? req);
+            if (missing.Count == 0)
+                return new AttemptResult(true, "Mission requirements met.", true, ParsePoints(mission));
+            groupFailMsgs.Add(string.Join("; ", missing));
         }
 
-        if (missing.Count > 0)
-            return new AttemptResult(false, "Requirements not met: " + string.Join("; ", missing), false, 0);
-
-        return new AttemptResult(true, "Mission requirements met.", true, ParsePoints(mission));
+        return new AttemptResult(false,
+            "Requirements not met: " + string.Join(" | OR | ", groupFailMsgs), false, 0);
     }
 
     public static int ParsePoints(Card mission)
@@ -715,6 +773,30 @@ public static (int integ, int cunn, int str) ParseAttributes(Card p)
     /// DE mini-test: two ships same location; attempt with weak ship must not use strong ship's crew.
     /// Returns null if OK, else failure reason.
     /// </summary>
+    /// <summary>Pegasus Search: OR-first groups + {Interphase Generator} present (7.2.5.0.3).</summary>
+    public static string? VerifyPegasusSearchOrGroups()
+    {
+        string gametext = "Navigation + Diplomacy + Leadership + Treachery + INTEGRITY>40 OR {Interphase Generator}";
+        var groups = ParseRequirementOrGroupsFromText(gametext);
+        if (groups.Count != 2)
+            return $"Pegasus Search: expected 2 OR groups, got {groups.Count}";
+        if (groups[0].Count != 5)
+            return $"Pegasus Search: skill group should have 5 AND parts, got {groups[0].Count}";
+        if (groups[1].Count != 1 || groups[1][0] != "{Interphase Generator}")
+            return "Pegasus Search: second group must be {Interphase Generator}";
+        var ig = new Card { Name = "Interphase Generator", Type = "Artifact" };
+        var crew = new List<Card> { ig };
+        if (!AlternativeMet("{Interphase Generator}", new Dictionary<string, int>(), 0, 0, 0, out _, present: crew))
+            return "Pegasus Search: {Interphase Generator} present should pass";
+        if (AlternativeMet("{Interphase Generator}", new Dictionary<string, int>(), 0, 0, 0, out _, present: new List<Card>()))
+            return "Pegasus Search: missing IG should fail";
+        var mission = new Card { Name = "Pegasus Search", Type = "Mission", Text = gametext, Points = "35" };
+        var onlyIg = CanSolve(mission, crew, dilemmasRemaining: 0, attemptingPlayer: 1, missionOwner: 1);
+        if (!onlyIg.Ok)
+            return "Pegasus Search: IG-only crew should solve: " + onlyIg.Reason;
+        return null;
+    }
+
     public static string? VerifySpaceAttemptCrewScope()
     {
         static Card P(string name, string cls, string text, string aff = "Federation") => new()

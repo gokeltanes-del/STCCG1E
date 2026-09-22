@@ -1,4 +1,14 @@
 ---
+## Aktiv (Data tip 2026-09-22 Pegasus Search + IG)
+- **Soll:** Spock 7.2.5.0.3 — (skills+INT) OR {Interphase Generator} present.
+- **Smoke:** `GROK_TEMP/SMOKE_PEGASUS_SEARCH_IG_2026-09-22.md`.
+- **Tracker:** partial bis Pepsch Grün. Kein Push.
+
+---
+## Aktiv (Captain 2026-09-22 20:34)
+- **Pegasus Search:** Spock (Skills+INT) OR {Interphase Generator} present. Data Inventur: kein {name}-Parse + OR falsch. Captain Go.
+- **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52 Retest.
+---
 ## Park / Inventur (Data 2026-09-22 Pegasus Search + IG)
 - **Fail:** Pepsch — nicht lösbar mit earned Interphase Generator.
 - **Inventur:** `GROK_TEMP/INVENTUR_PEGASUS_SEARCH_IG_2026-09-22.md`
