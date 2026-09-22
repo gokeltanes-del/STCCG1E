@@ -1,3 +1,9 @@
+﻿---
+## Park / Inventur (Data 2026-09-22 Multi-Artifact Earn)
+- **Fail:** Cultural Observation - TM + IG revealed; nur TM ToHand; IG nie earned; blockiert Pegasus-Retest.
+- **Inventur:** `GROK_TEMP/INVENTUR_MULTI_ARTIFACT_EARN_2026-09-22.md`
+- **Kern:** Schleife multi-OK; IG=UseAsEquipment -> EquipmentOnPlanetMission (nicht ToHand). Soll-Placement Spock.
+- **Tip:** geparkt bis Spock+Go.
 ---
 ## Aktiv (Captain 2026-09-22 20:57)
 - **Neu:** Multi-Artifact Earn — Cultural Observation: Thought Maker + IG revealed; nur Thought Maker ToHand; IG nicht verdient (Pepsch-Log). Spock+Data.
@@ -873,4 +879,5 @@ PinDockablesToSpacelineByColumn + Relayout after UpdateLayout + ScheduleRelayout
 - Smoke: `GROK_TEMP\SMOKE_FULL_PLANET_SCAN_2026-09-21.md` Retest: nach Normal-Play sofort Deny, kein Amanda.
 - CARD_TRACKER FPS bleibt partial bis Pepsch green.
 - Plays-on/as F3 unverÃ¤ndert; Continuum/Q Pause.
+
 
