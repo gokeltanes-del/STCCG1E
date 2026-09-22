@@ -1,4 +1,14 @@
-﻿---
+---
+## Aktiv (Data tip 2026-09-22 Atmospheric Ionization Scope)
+- **Soll:** Spock App A — Limit nur Planet-Surface/Vicinity; Ship↔Ship + Outpost↔Ship frei.
+- **Smoke:** `GROK_TEMP/SMOKE_ATMOSPHERIC_IONIZATION_SCOPE_2026-09-22.md`.
+- **Tracker:** partial bis Pepsch Grün. Distortion/PE nicht regressen. Kein Push.
+
+---
+## Aktiv (Captain 2026-09-22 20:25)
+- **Atmospheric Ionization:** Spock App A — Limit nur to/from planet (Vicinity). Ship↔Ship + Outpost↔Ship frei. Captain Go Data.
+- **Park:** Continuum/Q; Plays on/as F3; ETA 21b2d52 Retest unbestätigt; Personnel partial-escape.
+---
 ## Park / Inventur (Data 2026-09-22 Atmospheric Ionization)
 - **Thema:** AI gated Ship↔Ship fälschlich (Pepsch Fail). Outpost↔Ship Spock offen.
 - **Inventur:** `GROK_TEMP/INVENTUR_ATMOSPHERIC_IONIZATION_BEAM_2026-09-22.md` — Gate = `CanBeamAtMission` mission-weit, kein Host-Art-Check.

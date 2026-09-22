@@ -1,3 +1,10 @@
+## 2026-09-22 — Atmospheric Ionization scope (planet/vicinity)
+
+- Ionization limit only when origin or dest is planet surface (or landed-ship vicinity).
+- Free: Ship↔Ship (orbit), Outpost↔Ship, Space-Facility↔Ship.
+- Distortion / Pattern Enhancers unchanged.
+- Smoke: `GROK_TEMP/SMOKE_ATMOSPHERIC_IONIZATION_SCOPE_2026-09-22.md`. Tracker stays partial until Pepsch green. No push.
+
 ## 2026-09-22 — ETA escapees owner + no battle-stop
 
 - `CompleteBeamTo`: `SetBorderOwner(beamWho)`; track `_etaEscapeeBorders`.

@@ -19380,7 +19380,7 @@ _spacelineOrder.Remove(pod);
         var srcMissionForDist = FindMissionForDockable(hostBorder)
             ?? (CardKinds.IsMission(hostCard) ? hostBorder : null);
         if (srcMissionForDist != null
-            && !CanBeamAtMission(srcMissionForDist, plannedCount: 1, beamingPlayer: beamPlayer))
+            && !CanBeamAtMission(srcMissionForDist, plannedCount: 1, beamingPlayer: beamPlayer, sourceHost: hostBorder))
             return;
         if (ShipHasRequiredMove(hostBorder))
         {
@@ -23250,11 +23250,12 @@ _spacelineOrder.Remove(pod);
         return true;
     }
 
-    /// <summary>Count successful Ionization-limited beams for the active controller.</summary>
-    private void NoteIonizationBeam(Border? mission, int personnelCount)
+    /// <summary>Count successful Ionization-limited beams (to/from planet or vicinity only).</summary>
+    private void NoteIonizationBeam(Border? mission, int personnelCount, Border? sourceHost = null, Border? destHost = null)
     {
         if (mission == null || personnelCount <= 0) return;
         if (!EventsOn(mission).Any(e => e.Kind == EventRules.Persist.Ionization)) return;
+        if (!IonizationTouchesPlanetOrVicinity(sourceHost, destHost)) return;
         int ctrl = _activePlayer is >= 1 and <= 2 ? _activePlayer : 1;
         _ionizationBeamsThisTurnByPlayer[ctrl] += personnelCount;
         _session.Log.Add(_session.TurnNumber, $"P{ctrl}",
@@ -23262,7 +23263,46 @@ _spacelineOrder.Remove(pod);
             + $"({_ionizationBeamsThisTurnByPlayer[ctrl]}/3 this turn). Glossary: to/from this planet.");
     }
 
-    private bool CanBeamAtMission(Border mission, int plannedCount, int? beamingPlayer = null)
+    /// <summary>
+    /// Spock App A / Captain Go: Ionization limits only beams that touch planet surface or vicinity
+    /// (mission-as-planet host, or landed ship &lt;-&gt; planet facility). Free: Ship&lt;-&gt;Ship (orbit),
+    /// Outpost&lt;-&gt;Ship, Space-Facility&lt;-&gt;Ship.
+    /// </summary>
+    private bool IonizationTouchesPlanetOrVicinity(Border? sourceHost, Border? destHost)
+    {
+        if (IsPlanetSurfaceHost(sourceHost) || IsPlanetSurfaceHost(destHost))
+            return true;
+        // Vicinity: landed ship <-> planet facility (Landed flag reserved; rare until wired).
+        if (IsLandedShipHost(sourceHost) && IsPlanetFacilityHost(destHost)) return true;
+        if (IsLandedShipHost(destHost) && IsPlanetFacilityHost(sourceHost)) return true;
+        return false;
+    }
+
+    private bool IsPlanetSurfaceHost(Border? host)
+    {
+        if (host?.Tag is not Card c) return false;
+        return CardKinds.IsMission(c) && MissionCountsAsPlanetCard(c);
+    }
+
+    private bool IsPlanetFacilityHost(Border? host)
+    {
+        if (host?.Tag is not Card c || !IsFacilityCard(c)) return false;
+        var mission = FindMissionForDockable(host);
+        return mission?.Tag is Card mc && MissionCountsAsPlanetCard(mc);
+    }
+
+    private static bool IsLandedShipHost(Border? host)
+    {
+        // CardLifecycle.Landed exists but is not yet applied to ships in play.
+        return false;
+    }
+
+    private bool CanBeamAtMission(
+        Border mission,
+        int plannedCount,
+        int? beamingPlayer = null,
+        Border? sourceHost = null,
+        Border? destHost = null)
     {
         int who = beamingPlayer ?? (_activePlayer is 1 or 2 ? _activePlayer : 1);
         bool pe = HasPatternEnhancers(who);
@@ -23270,6 +23310,7 @@ _spacelineOrder.Remove(pod);
         {
             // Glossary: Distortion Field — while face-up, prevents ALL beaming (true prevent — PE may ignore).
             // (incl. planet-vicinity beams: landed ship <-> facility). Same-mission gate covers hosts here.
+            // Distortion scope unchanged (Captain: do not regress Distortion/PE).
             if (e.Kind == EventRules.Persist.Distortion && e.FaceUp)
             {
                 if (pe) continue; // Spock: PE ignores prevent-beaming only
@@ -23277,9 +23318,11 @@ _spacelineOrder.Remove(pod);
                 return false;
             }
             // Glossary: Atmospheric Ionization — LIMIT only (not prevent). Spock: PE must NOT bypass.
-            // "to/from this planet" includes planet-vicinity beams (landed ship <-> facility). Same-mission gate covers all hosts here.
+            // Scope (Spock App A): only when origin or dest is planet surface / vicinity.
             if (e.Kind == EventRules.Persist.Ionization)
             {
+                if (!IonizationTouchesPlanetOrVicinity(sourceHost, destHost))
+                    continue;
                 if (plannedCount > 1)
                 {
                     ShowPlayError("Atmospheric Ionization: only 1 personnel at a time (Glossary: to/from this planet).");
@@ -25344,7 +25387,7 @@ _spacelineOrder.Remove(pod);
             return true;
         }
 
-        if (!CanBeamAtMission(srcMission, plannedCount: Math.Max(1, _beamSelected.Count), beamingPlayer: beamWho))
+        if (!CanBeamAtMission(srcMission, plannedCount: Math.Max(1, _beamSelected.Count), beamingPlayer: beamWho, sourceHost: source, destHost: targetHost))
             return true;
 
         // Keep marked selection until destination commit (T96). Filter with beamWho, not _activePlayer.
@@ -25431,7 +25474,7 @@ _spacelineOrder.Remove(pod);
                 ApplyDisabledVisual(b, IsCardDisabled(c));
         }
 
-                NoteIonizationBeam(srcMission, toMove.Count(b => b.Tag is Card bc && CardKinds.IsPersonnel(bc)));
+                NoteIonizationBeam(srcMission, toMove.Count(b => b.Tag is Card bc && CardKinds.IsPersonnel(bc)), sourceHost: source, destHost: targetHost);
 
         UpdateHostBadge(source);
         UpdateHostBadge(targetHost);
