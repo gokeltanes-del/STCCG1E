@@ -1,3 +1,10 @@
+## 2026-09-22 - Quick Game: Artifacts stay under missions (no spaceline orphans)
+
+- Root: after `be7d6a7`, `AddSeedUnderMission` limit-fail left the card Visible at mission X/SpacelineY → looked like a spaceline node (Thought Maker / Interphase Generator).
+- `AutoSeedDilemma` filters with artifact seed limits; sets owner before seed; on fail removes border and leftovers the card.
+- `AddSeedUnderMission` returns bool; helpers `CollectSeededUnderMission` / `MissionAllowsArtifactSeed`.
+- Smoke: `GROK_TEMP/SMOKE_QUICKGAME_ARTIFACT_SPACELINE.md` (Quick Game x3). No push.
+
 ## 2026-09-22 — Multi-artifact earn (AT equipment + mis-seed)
 
 - Solver earns all legal artifacts after planet/space solve; chooses order when several.

@@ -8843,6 +8843,7 @@ private List<Card> CollectCardsInPlay(bool opponent)
     {
         var legal = AllMissionBorders()
             .Where(m => m.Tag is Card mc && CanSeedCardUnderMission(card, mc).ok)
+            .Where(m => MissionAllowsArtifactSeed(card, player, m))
             .ToList();
         if (legal.Count == 0)
         {
@@ -8916,8 +8917,14 @@ private List<Card> CollectCardsInPlay(bool opponent)
 
         var mission = WeightedPick(legal, Weight);
         var border = AddCardToTable(card, Canvas.GetLeft(mission), Canvas.GetTop(mission), TableCardWidth);
-        AddSeedUnderMission(mission, border);
         SetBorderOwner(border, player);
+        // SEARCH: quick-game artifact seed under mission / no spaceline orphan
+        if (!AddSeedUnderMission(mission, border))
+        {
+            TableCanvas.Children.Remove(border);
+            (player == 1 ? _seedCards : _oppSeedCards).Add(card);
+            return;
+        }
 
         if (SeedRules.IsCryosatellite(card))
             AutoAttachCryosatellitePersonnel(mission, player);
@@ -12484,7 +12491,33 @@ int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), 
         Panel.SetZIndex(badge, Panel.GetZIndex(host) + 5 + playerSide);
     }
 
-    private void AddSeedUnderMission(Border mission, Border cardBorder)
+    /// <summary>Cards already seeded under a mission (for artifact seed limits).</summary>
+    private List<(Card card, int owner)> CollectSeededUnderMission(Border mission)
+    {
+        var already = new List<(Card card, int owner)>();
+        if (_seedUnderMission.TryGetValue(mission, out var existing))
+        {
+            foreach (var b in existing)
+            {
+                if (b.Tag is not Card ec) continue;
+                int o = GetBorderOwner(b);
+                if (o is not (1 or 2)) o = 0;
+                already.Add((ec, o));
+            }
+        }
+        return already;
+    }
+
+    /// <summary>True if non-artifact, or artifact seed limits allow this seeder under the mission.</summary>
+    private bool MissionAllowsArtifactSeed(Card seedCard, int seeder, Border mission)
+    {
+        if (!ArtifactRules.IsArtifact(seedCard)
+            && !(seedCard.Type ?? "").Contains("artifact", StringComparison.OrdinalIgnoreCase))
+            return true;
+        return SeedRules.CheckArtifactSeedLimits(seedCard, seeder, CollectSeededUnderMission(mission)).ok;
+    }
+
+    private bool AddSeedUnderMission(Border mission, Border cardBorder)
     {
         if (mission.Tag is Card mc && cardBorder.Tag is Card sc)
         {
@@ -12493,29 +12526,18 @@ int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), 
             {
                 StatusText.Text = reason;
                 cardBorder.Visibility = Visibility.Visible;
-                return;
+                return false;
             }
             if (ArtifactRules.IsArtifact(sc) || (sc.Type ?? "").Contains("artifact", StringComparison.OrdinalIgnoreCase))
             {
                 int seeder = GetBorderOwner(cardBorder);
                 if (seeder is not (1 or 2)) seeder = _activePlayer;
-                var already = new List<(Card card, int owner)>();
-                if (_seedUnderMission.TryGetValue(mission, out var existing))
-                {
-                    foreach (var b in existing)
-                    {
-                        if (b.Tag is not Card ec) continue;
-                        int o = GetBorderOwner(b);
-                        if (o is not (1 or 2)) o = 0;
-                        already.Add((ec, o));
-                    }
-                }
-                var lim = SeedRules.CheckArtifactSeedLimits(sc, seeder, already);
+                var lim = SeedRules.CheckArtifactSeedLimits(sc, seeder, CollectSeededUnderMission(mission));
                 if (!lim.ok)
                 {
                     StatusText.Text = lim.reason;
                     cardBorder.Visibility = Visibility.Visible;
-                    return;
+                    return false;
                 }
             }
         }
@@ -12531,6 +12553,7 @@ int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), 
         UpdateSeedBadge(mission);
         if (mission.Tag is Card m2 && cardBorder.Tag is Card s2)
             StatusText.Text = $"Seeded {s2.Name} under {m2.Name}.";
+        return true;
     }
 
     private void UpdateSeedBadge(Border mission)

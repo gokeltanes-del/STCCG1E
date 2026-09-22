@@ -1,4 +1,16 @@
 ---
+## Aktiv (Data tip 2026-09-22 Quick Game Artifact Spaceline)
+- **Soll:** Spock — Artifacts nie Spaceline-Knoten; nur under planet missions.
+- **Fix:** be7d6a7-Regression — Limit-Fail orphaned Visible at SpacelineY; AutoSeed filter + orphan remove.
+- **Smoke:** `GROK_TEMP/SMOKE_QUICKGAME_ARTIFACT_SPACELINE.md` (Quick Game x3). Tracker partial bis Pepsch Grün. Kein Push.
+
+---
+## Aktiv (Captain 2026-09-22 21:13)
+- **URGENT:** Quick Game — Artifacts (Thought Maker, Interphase Generator) erscheinen als Spaceline-Locations. Pepsch mehrfach. Captain Go Data; Spock Confirm.
+- **Offen:** Multi-Earn `be7d6a7` / Pegasus Retest (blockiert durch Seed-Bug?).
+- **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report.
+
+---
 ## Aktiv (Data tip 2026-09-22 Multi-Artifact Earn)
 - **Soll:** Spock 7.2.3/7.2.5 — alle legalen Artifacts; Use-as-Equipment → solving AT/Crew; Mis-seed Duplikat-Titel.
 - **Smoke:** `GROK_TEMP/SMOKE_MULTI_ARTIFACT_EARN_2026-09-22.md`.
