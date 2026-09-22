@@ -1,4 +1,10 @@
 ---
+## Aktiv (Captain 2026-09-22 20:57)
+- **Neu:** Multi-Artifact Earn — Cultural Observation: Thought Maker + IG revealed; nur Thought Maker ToHand; IG nicht verdient (Pepsch-Log). Spock+Data.
+- **Pegasus `5b552d7`:** Retest blockiert bis IG-Earn geht.
+- **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report.
+
+---
 ## Aktiv (Data tip 2026-09-22 Pegasus Search + IG)
 - **Soll:** Spock 7.2.5.0.3 — (skills+INT) OR {Interphase Generator} present.
 - **Smoke:** `GROK_TEMP/SMOKE_PEGASUS_SEARCH_IG_2026-09-22.md`.
