@@ -1,3 +1,10 @@
+## 2026-09-22 — ETA T94 Force-Host / beamPlayer
+
+- `IsBeamableFromHost`: ownership vs ETA controller / `_beamModePlayer` (not only `_activePlayer`) — fixes defender ETA in opponent turn.
+- `HostHasBeamablePersonnel` / `BeginBeamMode`: `GetCrewOnShip` for facility/ship BoardStore crew.
+- `ResolveArmbandsBeamHost`: controller force Ship|Facility; never opponent (T94 Khazara).
+- Smoke: `GROK_TEMP/SMOKE_ETA_T94_FORCE_HOST_2026-09-22.md`. No stop bypass. No push.
+
 ## 2026-09-22 — ETA Armbands Host/Crew (Facility + Load)
 
 - `ResolveArmbandsBeamHost`: Facility/Outpost-Battle ohne Crew-Stack → Spieler-Schiff an derselben Mission mit beambarer Crew.

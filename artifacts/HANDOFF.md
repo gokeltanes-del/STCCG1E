@@ -1,4 +1,15 @@
 ---
+## Aktiv (Data tip 2026-09-22 ETA T94)
+- **Thema:** ETA beamPlayer-Ownership + Force-Host Facility/Ship (Spock 7.0.1). Tip nach 8630dc1.
+- **Smoke:** `GROK_TEMP/SMOKE_ETA_T94_FORCE_HOST_2026-09-22.md` — Verteidiger-Outpost + Angreifer-Schiff.
+- **Park:** Stop-Bypass. Kein Push.
+
+---
+## Aktiv (Captain 2026-09-22 06:04)
+- **Tip `8630dc1`:** ResolveArmbandsBeamHost — Host mit Crew; leerer Outpost → Schiff an Mission. EXE 2026-09-22 06:03:37. Smoke GROK_TEMP/SMOKE_ETA_NO_CREW_HOST_2026-09-22.md.
+- **Pepsch-Retest offen:** Angreifer-Schiff-Crew + Verteidiger-Outpost-Crew. Stop-Bypass verworfen.
+- **Park:** Continuum/Q; Plays on/as F3.
+---
 ## Aktiv (Data tip 2026-09-22 ETA Host/Crew)
 - **Thema:** ETA ResolveArmbandsBeamHost + StackOnHost; Facility-Battle/Load „keine Crew“.
 - **Smoke:** `GROK_TEMP/SMOKE_ETA_NO_CREW_HOST_2026-09-22.md` — Pepsch Retest Ship-vs-Outpost + Load.

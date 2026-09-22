@@ -11163,15 +11163,17 @@ int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), 
         return false;
     }
 
-    private bool IsBeamableFromHost(Card c, Border host, Border cardBorder)
+    private bool IsBeamableFromHost(Card c, Border host, Border cardBorder, int? forPlayer = null)
     {
+        // ETA may be played as response while opponent is active — ownership vs beam controller.
+        int who = forPlayer ?? (_beamModePlayer is 1 or 2 ? _beamModePlayer : _activePlayer);
         if (IsRogueBorgCard(c))
         {
             var unit = _rogueBorg.FirstOrDefault(r => ReferenceEquals(r.Visual, cardBorder)
                                                       || ReferenceEquals(r.Card, c) && SameHostShip(r.Host, host));
             int o = unit is { Controller: 1 or 2 } ? unit.Controller
                 : (GetBorderOwner(cardBorder) is 1 or 2 ? GetBorderOwner(cardBorder) : CardOwner(cardBorder));
-            if (o != _activePlayer) return false;
+            if (o != who) return false;
             if (host.Tag is Card hc && IsShipCard(hc) && ShipHasLoreReturns(host))
                 return true;
             // Planet → commandeered ship at this location (Lore: "beam your Rogue Borg")
@@ -11181,7 +11183,7 @@ int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), 
             {
                 if (dock.Tag is Card ds && IsShipCard(ds)
                     && ShipHasLoreReturns(dock)
-                    && GetBorderOwner(dock) == _activePlayer)
+                    && GetBorderOwner(dock) == who)
                     return true;
             }
             return false;
@@ -11190,7 +11192,7 @@ int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), 
         // Glossary Disabled: may beam like equipment (TwoDim Empathy / Ktarian). Do not block.
         if (IsBorderStopped(cardBorder)) return false; // Spock: Stopped cannot beam
         if (!IsBeamableCard(c)) return false;
-        return CardOwner(cardBorder) == _activePlayer || GetBorderOwner(cardBorder) == _activePlayer;
+        return CardOwner(cardBorder) == who || GetBorderOwner(cardBorder) == who;
     }
 
     // ---------- Snap-Vorschau + Host-Umrandung ----------
@@ -19349,15 +19351,22 @@ _spacelineOrder.Remove(pod);
 
                 bool sourceIsMission = CardKinds.IsMission(hostCard);
         // Load-safe crew lookup (SameHostShip) — do not use _stackOnHost.TryGetValue alone.
-        var crew = StackOnHost(hostBorder);
-        if (crew == null || crew.Count == 0)
+        var crew = StackOnHost(hostBorder)?.ToList() ?? new List<Border>();
+        // BoardStore crew (facility/ship) may exist without UI stack entry after load / facility report.
+        foreach (var c in GetCrewOnShip(hostBorder))
+        {
+            var vb = FindBorderForCard(c);
+            if (vb != null && !crew.Contains(vb))
+                crew.Add(vb);
+        }
+        if (crew.Count == 0)
         {
             ShowPlayError("No personnel on this host to beam.");
             return;
         }
 
-        // Bei Mission: nur eigenes Away Team zählen
-        int myBeamable = crew.Count(b => b.Tag is Card c && IsBeamableFromHost(c, hostBorder, b));
+        // Bei Mission: nur eigenes Away Team zählen — ownership vs beamPlayer (ETA response).
+        int myBeamable = crew.Count(b => b.Tag is Card c && IsBeamableFromHost(c, hostBorder, b, beamPlayer));
 
         if (myBeamable == 0)
         {
@@ -19403,7 +19412,7 @@ _spacelineOrder.Remove(pod);
         // Only beamable (unstopped, not stasis) — stopped stay behind
         foreach (var b in crew)
         {
-            if (b.Tag is Card bc && IsBeamableFromHost(bc, hostBorder, b))
+            if (b.Tag is Card bc && IsBeamableFromHost(bc, hostBorder, b, beamPlayer))
                 _beamSelected.Add(b);
         }
         StatusText.Text =
@@ -21707,9 +21716,21 @@ _spacelineOrder.Remove(pod);
     /// <summary>True when host has beamable (unstopped) personnel for player — uses StackOnHost (Load-safe).</summary>
     private bool HostHasBeamablePersonnel(Border host, int player)
     {
-        var crew = StackOnHost(host);
-        if (crew == null || crew.Count == 0) return false;
-        return crew.Any(b => b.Tag is Card c && IsBeamableFromHost(c, host, b));
+        // BoardStore crew (ship/facility) + UI stack; ownership vs ETA controller (not _activePlayer).
+        foreach (var c in GetCrewOnShip(host))
+        {
+            var b = FindBorderForCard(c);
+            if (b != null)
+            {
+                if (IsBeamableFromHost(c, host, b, player)) return true;
+            }
+            else if (IsBeamableCard(c) && !IsCardLeaveBlocked(c)
+                     && (c.Controller == player || c.OwnerPlayer == player))
+                return true;
+        }
+        var stacked = StackOnHost(host);
+        if (stacked == null) return false;
+        return stacked.Any(b => b.Tag is Card c && IsBeamableFromHost(c, host, b, player));
     }
 
     /// <summary>
@@ -21718,15 +21739,16 @@ _spacelineOrder.Remove(pod);
     /// </summary>
     private Border? ResolveArmbandsBeamHost(int player, Border? preferred)
     {
+        // Rule: 7.0.1 · 7.1.1 · 7.1.1.0.2 — "your crew" = controller ship OR space facility in battle force.
+        // Glossary: Emergency Transporter Armbands · equipment · battle
+        // Verb: BeginBeamMode · Beam · CanRespond; AppA: ETA
+        // Never opponent force (T94: P1 ETA must not use Khazara). Keep facility host when it has your crew.
         if (preferred != null && HostHasBeamablePersonnel(preferred, player))
             return preferred;
 
         Border? mission = null;
         if (preferred?.Tag is Card pc)
-        {
-            if (IsMissionCard(pc)) mission = preferred;
-            else mission = FindMissionForDockable(preferred);
-        }
+            mission = IsMissionCard(pc) ? preferred : FindMissionForDockable(preferred);
 
         var candidates = new List<Border>();
         if (mission != null)
@@ -21734,42 +21756,29 @@ _spacelineOrder.Remove(pod);
             foreach (var dock in GetDockablesUnderMission(mission))
                 candidates.Add(dock);
         }
-        else
-        {
-            foreach (var b in TableCanvas.Children.OfType<Border>())
-            {
-                if (b.Visibility == Visibility.Visible && b.Tag is Card)
-                    candidates.Add(b);
-            }
-        }
-
-        // Prefer ships with crew, then any host with crew (same location first).
-        Border? bestShip = null;
-        Border? bestAny = null;
-        foreach (var b in candidates)
-        {
-            if (b.Tag is not Card hc) continue;
-            int own = GetBorderOwner(b);
-            if (own != player) continue;
-            if (!HostHasBeamablePersonnel(b, player)) continue;
-            if (IsShipCard(hc))
-            {
-                bestShip = b;
-                break;
-            }
-            bestAny ??= b;
-        }
-        if (bestShip != null) return bestShip;
-        if (bestAny != null) return bestAny;
-
-        // Global fallback (same as former PickArmbandsHost scan).
         foreach (var b in TableCanvas.Children.OfType<Border>())
         {
-            if (b.Visibility != Visibility.Visible || b.Tag is not Card) continue;
-            if (GetBorderOwner(b) != player) continue;
-            if (HostHasBeamablePersonnel(b, player))
-                return b;
+            if (b.Visibility == Visibility.Visible && b.Tag is Card && !candidates.Contains(b))
+                candidates.Add(b);
         }
+
+        // Same-location controller hosts with crew (facility or ship — no Opp).
+        Border? atLoc = null;
+        Border? anywhere = null;
+        foreach (var b in candidates)
+        {
+            if (b.Tag is not Card) continue;
+            if (GetBorderOwner(b) != player) continue;
+            if (!HostHasBeamablePersonnel(b, player)) continue;
+            bool sameLoc = mission != null && (
+                ReferenceEquals(FindMissionForDockable(b), mission)
+                || ReferenceEquals(b, mission));
+            if (sameLoc) { atLoc = b; break; }
+            anywhere ??= b;
+        }
+        if (atLoc != null) return atLoc;
+        if (anywhere != null) return anywhere;
+        // Keep battle-force host even if crew lookup failed (BeginBeamMode may still sync).
         return preferred;
     }
 
