@@ -12495,6 +12495,29 @@ int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), 
                 cardBorder.Visibility = Visibility.Visible;
                 return;
             }
+            if (ArtifactRules.IsArtifact(sc) || (sc.Type ?? "").Contains("artifact", StringComparison.OrdinalIgnoreCase))
+            {
+                int seeder = GetBorderOwner(cardBorder);
+                if (seeder is not (1 or 2)) seeder = _activePlayer;
+                var already = new List<(Card card, int owner)>();
+                if (_seedUnderMission.TryGetValue(mission, out var existing))
+                {
+                    foreach (var b in existing)
+                    {
+                        if (b.Tag is not Card ec) continue;
+                        int o = GetBorderOwner(b);
+                        if (o is not (1 or 2)) o = 0;
+                        already.Add((ec, o));
+                    }
+                }
+                var lim = SeedRules.CheckArtifactSeedLimits(sc, seeder, already);
+                if (!lim.ok)
+                {
+                    StatusText.Text = lim.reason;
+                    cardBorder.Visibility = Visibility.Visible;
+                    return;
+                }
+            }
         }
 
         if (!_seedUnderMission.TryGetValue(mission, out var list))
@@ -13599,7 +13622,8 @@ int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), 
         // Rulebook 7.2.2.3: Mission completed may cure dilemmas attached here (e.g. Alien Abduction)
         TryCureAttachedDilemmas(missionBorder);
 
-        // Acquire revealed artifacts + any still under the mission (only after solve)
+        // Acquire revealed artifacts + any still under the mission (only after solve).
+        // Spock 7.2.3/7.2.5: solver earns all legal artifacts; chooses order; Use-as-Equipment joins AT/crew.
         var toAcquire = new List<Card>();
         if (_revealedArtifactsUnderMission.TryGetValue(missionBorder, out var foundArts))
         {
@@ -13618,9 +13642,24 @@ int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), 
             _seedUnderMission[missionBorder] = remaining;
             UpdateSeedBadge(missionBorder);
         }
-        foreach (var ac in toAcquire)
+
+        ArtifactRules.PartitionEarnVsMisSeed(toAcquire, out var legalEarn, out var misSeedArts);
+        foreach (var bad in misSeedArts)
         {
-            ApplyArtifactAcquire(ac, missionBorder, mission);
+            int o = _activePlayer;
+            SendCardTo(bad, o, TimingRules.Destination.OutOfPlay);
+            ShowCardReveal(bad, "Mis-seeded artifact",
+                $"{bad.Name}: duplicate title under this mission — out of play (Glossary artifact).",
+                RevealButtons.Ok, bad.Name);
+            _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
+                $"Mis-seed artifact out-of-play: {bad.Name}");
+        }
+
+        var earnOrder = OrderArtifactsForEarn(legalEarn);
+        Border? crewHost = ResolveEquipmentEarnHost(missionBorder, mission);
+        foreach (var ac in earnOrder)
+        {
+            ApplyArtifactAcquire(ac, missionBorder, mission, crewHost);
             ShowCardReveal(ac, "Artifact acquired",
                 $"After solving {mission.Name}, you acquire {ac.Name}.",
                 RevealButtons.Ok, ac.Name);
@@ -17069,7 +17108,52 @@ int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), 
         return false;
     }
 
-    private void ApplyArtifactAcquire(Card art, Border missionBorder, Card mission)
+
+    /// <summary>Spock: Use-as-Equipment earn host = planet Away Team (mission) or attempting/own ship crew.</summary>
+    private Border ResolveEquipmentEarnHost(Border missionBorder, Card mission)
+    {
+        if (MissionCountsAsPlanetCard(mission))
+            return missionBorder;
+        if (_attemptShip != null
+            && _attemptShip.Tag is Card sc
+            && IsShipCard(sc)
+            && GetBorderOwner(_attemptShip) == _activePlayer)
+            return _attemptShip;
+        foreach (var dock in GetDockablesUnderMission(missionBorder))
+        {
+            if (dock.Tag is Card dc && IsShipCard(dc) && GetBorderOwner(dock) == _activePlayer)
+                return dock;
+        }
+        return missionBorder;
+    }
+
+    /// <summary>Solver chooses earn order when multiple legal artifacts (7.2.3).</summary>
+    private List<Card> OrderArtifactsForEarn(List<Card> legal)
+    {
+        if (legal.Count <= 1) return legal.ToList();
+        var remaining = legal.ToList();
+        var ordered = new List<Card>();
+        while (remaining.Count > 1)
+        {
+            var pick = PickCardFromList(
+                "Choose next artifact to earn",
+                remaining,
+                "Artifact earn order",
+                source: null);
+            if (pick == null)
+            {
+                ordered.AddRange(remaining);
+                remaining.Clear();
+                break;
+            }
+            ordered.Add(pick);
+            remaining.Remove(pick);
+        }
+        ordered.AddRange(remaining);
+        return ordered;
+    }
+
+    private void ApplyArtifactAcquire(Card art, Border missionBorder, Card mission, Border? crewHost = null)
     {
         var acq = ArtifactRules.ResolveAcquire(art);
         // ShowCardReveal removed here as requested: "Artifact acquired" is shown per-card on mission solve.
@@ -17109,23 +17193,12 @@ int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), 
                 break;
 
             case ArtifactRules.AcquirePlacement.EquipmentOnPlanetMission:
-                AttachCardToHost(art, missionBorder, _activePlayer);
-                StatusText.Text = acq.Message;
-                break;
-
             case ArtifactRules.AcquirePlacement.EquipmentPreferOwnShip:
                 {
-                    Border host = missionBorder;
-                    foreach (var dock in GetDockablesUnderMission(missionBorder))
-                    {
-                        if (dock.Tag is Card dc && IsShipCard(dc) && GetBorderOwner(dock) == _activePlayer)
-                        {
-                            host = dock;
-                            break;
-                        }
-                    }
+                    // Spock: Use as Equipment joins the solving Away Team / crew (not orphaned on bare mission alone).
+                    Border host = crewHost ?? ResolveEquipmentEarnHost(missionBorder, mission);
                     AttachCardToHost(art, host, _activePlayer);
-                    StatusText.Text = acq.Message;
+                    StatusText.Text = acq.Message + $" (with solving team on {(host.Tag as Card)?.Name ?? "host"}).";
                     break;
                 }
 

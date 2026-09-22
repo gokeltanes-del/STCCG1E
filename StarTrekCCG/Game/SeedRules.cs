@@ -218,6 +218,21 @@ public static class SeedRules
     // ----- Core legality -----
 
     /// <summary>May seedCard be placed under this mission (dilemma/artifact/personnel under cryo, …)?</summary>
+    /// <summary>Glossary artifact: only one of each title may seed under a mission; duplicates are mis-seeds.</summary>
+    public static (bool ok, string reason) CheckArtifactSeedLimits(
+        Card seedCard,
+        int seeder,
+        IReadOnlyList<(Card card, int owner)> alreadyUnder)
+    {
+        if (!CardKinds.IsArtifact(seedCard) && !(seedCard.Type ?? "").Contains("artifact", StringComparison.OrdinalIgnoreCase))
+            return (true, "");
+        if (ArtifactRules.SameTitleAlreadySeeded(seedCard, alreadyUnder.Select(x => x.card)))
+            return (false, $"Mis-seed: {seedCard.Name} is already under this mission (duplicate title — both would be out-of-play).");
+        if (ArtifactRules.PlayerAlreadySeededArtifact(seeder, seedCard, alreadyUnder))
+            return (false, "Only one artifact per player per mission (Rulebook / Glossary artifact).");
+        return (true, "");
+    }
+
     public static (bool ok, string reason) CanSeedUnderMission(Card seedCard, Card mission)
     {
         var (mPlanet, mSpace) = GetMissionLocation(mission);

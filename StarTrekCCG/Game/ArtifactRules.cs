@@ -291,6 +291,7 @@ public static class ArtifactRules
         {
             AcquireKind.ImmediateDiscard => AcquirePlacement.ImmediateDiscard,
             AcquireKind.PlaceOnTable => AcquirePlacement.PlaceOnTable,
+            // Spock: Use as Equipment joins the solving Away Team (planet) or crew (space).
             AcquireKind.UseAsEquipment => isPlanetMission
                 ? AcquirePlacement.EquipmentOnPlanetMission
                 : AcquirePlacement.EquipmentPreferOwnShip,
@@ -301,6 +302,64 @@ public static class ArtifactRules
         acq.Kind == AcquireKind.ImmediateDiscard && acq.DownloadFromDraw > 0;
 
     /// <summary>DE mini-test Gift Box acquire flags. Returns null if OK.</summary>
+
+    /// <summary>
+    /// Spock 7.2.3 / Glossary artifact: duplicate copies of the same artifact under one mission
+    /// are mis-seeds — all copies of that title leave play (no earn). Distinct titles remain legal.
+    /// </summary>
+    public static void PartitionEarnVsMisSeed(
+        IReadOnlyList<Card> candidates,
+        out List<Card> legal,
+        out List<Card> misSeed)
+    {
+        legal = new List<Card>();
+        misSeed = new List<Card>();
+        var byName = candidates
+            .Where(c => c != null && !string.IsNullOrWhiteSpace(c.Name))
+            .GroupBy(c => c.Name!.Trim(), StringComparer.OrdinalIgnoreCase);
+        foreach (var g in byName)
+        {
+            var list = g.ToList();
+            if (list.Count >= 2)
+                misSeed.AddRange(list);
+            else
+                legal.AddRange(list);
+        }
+        // Preserve encounter order (no lambda over out params).
+        var legalSet = new HashSet<Card>(legal);
+        var misSet = new HashSet<Card>(misSeed);
+        legal = candidates.Where(c => legalSet.Contains(c)).ToList();
+        misSeed = candidates.Where(c => misSet.Contains(c)).ToList();
+    }
+
+    /// <summary>True when seeder already has another artifact under this mission (1 per player per mission).</summary>
+    public static bool PlayerAlreadySeededArtifact(
+        int seeder,
+        Card candidate,
+        IEnumerable<(Card card, int owner)> alreadyUnder)
+    {
+        if (!IsArtifact(candidate)) return false;
+        foreach (var (card, owner) in alreadyUnder)
+        {
+            if (owner != seeder) continue;
+            if (!IsArtifact(card)) continue;
+            if (ReferenceEquals(card, candidate)) continue;
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>Same title already under mission — seeding another copy would mis-seed both.</summary>
+    public static bool SameTitleAlreadySeeded(Card candidate, IEnumerable<Card> alreadyUnder)
+    {
+        if (candidate?.Name == null) return false;
+        string want = candidate.Name.Trim();
+        return alreadyUnder.Any(c =>
+            c?.Name != null
+            && c.Name.Trim().Equals(want, StringComparison.OrdinalIgnoreCase)
+            && !ReferenceEquals(c, candidate));
+    }
+
     public static string? VerifyBetazoidGiftBox()
     {
         var c = new Card { Name = "Betazoid Gift Box", Type = "Artifact" };

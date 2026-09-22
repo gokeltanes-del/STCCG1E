@@ -1,3 +1,10 @@
+## 2026-09-22 — Multi-artifact earn (AT equipment + mis-seed)
+
+- Solver earns all legal artifacts after planet/space solve; chooses order when several.
+- Use-as-Equipment (e.g. Interphase Generator) joins solving Away Team/crew host (not orphaned).
+- Duplicate titles under one mission → mis-seed out-of-play; seed limit 1 artifact/player/mission.
+- Smoke: `GROK_TEMP/SMOKE_MULTI_ARTIFACT_EARN_2026-09-22.md`. Partial until Pepsch green. No push.
+
 ## 2026-09-22 — Pegasus Search OR + {Interphase Generator}
 
 - MissionRules: OR-first requirement groups (7.2.5.0.3); AlternativeMet accepts {CardName} present.

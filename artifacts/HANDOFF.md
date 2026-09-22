@@ -1,4 +1,16 @@
-﻿---
+---
+## Aktiv (Data tip 2026-09-22 Multi-Artifact Earn)
+- **Soll:** Spock 7.2.3/7.2.5 — alle legalen Artifacts; Use-as-Equipment → solving AT/Crew; Mis-seed Duplikat-Titel.
+- **Smoke:** `GROK_TEMP/SMOKE_MULTI_ARTIFACT_EARN_2026-09-22.md`.
+- **Tracker:** partial bis Pepsch Grün. Pegasus-Retest danach. Kein Push.
+
+---
+## Aktiv (Captain 2026-09-22 20:59)
+- **Multi-Artifact Earn:** IG wird acquired, aber Placement EquipmentOnPlanetMission — Soll joins solving AT. Data tippt Placement.
+- **Pegasus:** Retest nach Fix.
+- **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report.
+
+---
 ## Park / Inventur (Data 2026-09-22 Multi-Artifact Earn)
 - **Fail:** Cultural Observation - TM + IG revealed; nur TM ToHand; IG nie earned; blockiert Pegasus-Retest.
 - **Inventur:** `GROK_TEMP/INVENTUR_MULTI_ARTIFACT_EARN_2026-09-22.md`
