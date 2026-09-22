@@ -1,3 +1,9 @@
+## 2026-09-22 — ETA T96 selection hold + battle defer
+
+- `CompleteBeamTo`: keep checkbox selection; filter with `_beamModePlayer` / StackOnHost+GetCrewOnShip; Card-match fallback after detail refresh.
+- Ship battle `AskReturnFireAndResolve` deferred while `_etaBeamHoldsBattle` / BeamPickTarget; resume after beam complete/cancel.
+- Smoke: `GROK_TEMP/SMOKE_ETA_T96_SELECTION_2026-09-22.md`. No stop bypass. No push.
+
 ## 2026-09-22 — ETA T94 Force-Host / beamPlayer
 
 - `IsBeamableFromHost`: ownership vs ETA controller / `_beamModePlayer` (not only `_activePlayer`) — fixes defender ETA in opponent turn.

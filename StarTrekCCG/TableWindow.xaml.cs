@@ -438,6 +438,8 @@ public partial class TableWindow : Window
     private bool _adversariesInCombat;
     /// <summary>Player performing current beam mode (Armbands may be non-active).</summary>
     private int _beamModePlayer;
+    private bool _etaBeamHoldsBattle;
+    private TimingRules.PendingAction? _shipBattleDeferredForEta;
     private int _etaArmbandsWindowDoneForInstance;
     private bool _resumeAttemptAfterEtaArmbands;
     private Border? _etaResumeMissionBorder;
@@ -4859,6 +4861,14 @@ public partial class TableWindow : Window
                 return;
             }
 
+            if (_etaBeamHoldsBattle || _cardActionMode == CardActionMode.BeamPickTarget)
+            {
+                _shipBattleDeferredForEta = a;
+                StatusText.Text = "ETA beam in progress — ship battle waits for destination or cancel.";
+                _session.Log.Add(_session.TurnNumber, "sys",
+                    "Ship battle deferred for ETA beam");
+                return;
+            }
             AskReturnFireAndResolve(atkB, a.AttackerCard, defB, a.DefenderCard);
             if (_borgEotActive != null)
                 BeginNextBorgEotAttack();
@@ -4972,7 +4982,22 @@ public partial class TableWindow : Window
         }
     }
 
-    private void AskReturnFireAndResolve(
+    
+    // Rule: 7.1.1 · 10.2.1 — ETA beam must finish before ship battle Open Fire.
+    // Verb: BeginBeamMode · Beam · CanRespond; AppA: ETA
+    private void ResumeShipBattleAfterEtaBeam()
+    {
+        var a = _shipBattleDeferredForEta;
+        _shipBattleDeferredForEta = null;
+        if (a == null) return;
+        if (a.Kind != TimingRules.ActionKind.InitiateShipBattle) return;
+        if (a.AttackerHost is not Border atkB || a.DefenderHost is not Border defB) return;
+        if (a.AttackerCard == null || a.DefenderCard == null) return;
+        if (a.Cancelled) return;
+        AskReturnFireAndResolve(atkB, a.AttackerCard, defB, a.DefenderCard);
+    }
+
+private void AskReturnFireAndResolve(
     Border attackerBorder, Card attackerShip,
     Border defenderBorder, Card defenderCard)
     {
@@ -12866,11 +12891,14 @@ int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), 
         if (_cardActionMode == CardActionMode.HailMarkShips && _hailMarkCard != null)
             CancelHailMarkMode(discard: true);
         bool wasBeam = _cardActionMode == CardActionMode.BeamPickTarget;
+        bool releaseEtaHold = _etaBeamHoldsBattle;
         _cardActionMode = CardActionMode.None;
         _actionSourceHost = null;
         _boardPickShipHandler = null;
         _boardPickShipOwnerFilter = 0;
         _beamSelected.Clear();
+        _beamModePlayer = 0;
+        _etaBeamHoldsBattle = false;
         ClearTargetHighlights();
         UpdateCardDetailCloseButton();
         if (_actionPanel != null)
@@ -12884,7 +12912,10 @@ int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), 
             if (_hostStripHost?.Tag is Card hc)
                 ShowHostContents(_hostStripHost, hc);
         }
-    }
+    
+        if (releaseEtaHold)
+            ResumeShipBattleAfterEtaBeam();
+}
 
     private void ClearTargetHighlights()
     {
@@ -19311,6 +19342,8 @@ _spacelineOrder.Remove(pod);
         if (hostBorder.Tag is not Card hostCard) return;
         int beamPlayer = beamingPlayer ?? _activePlayer;
         _beamModePlayer = beamPlayer;
+        if (emergency)
+            _etaBeamHoldsBattle = true;
         if (IsShipCard(hostCard) && IsShipCloaked(hostBorder))
         {
             ShowPlayError("Cannot beam to or from a cloaked ship. Decloak first.");
@@ -25253,10 +25286,19 @@ _spacelineOrder.Remove(pod);
     private bool CompleteBeamTo(Border targetHost)
     {
         var source = _actionSourceHost!;
-        if (!_stackOnHost.TryGetValue(source, out var list) || list.Count == 0)
+        int beamWho = _beamModePlayer is 1 or 2 ? _beamModePlayer : _activePlayer;
+        // Rule: 7.1.1 — keep checkbox selection; ownership vs beam controller (ETA response).
+        var list = StackOnHost(source)?.ToList() ?? new List<Border>();
+        foreach (var c in GetCrewOnShip(source))
+        {
+            var vb = FindBorderForCard(c);
+            if (vb != null && !list.Contains(vb))
+                list.Add(vb);
+        }
+        if (list.Count == 0)
         {
             ShowPlayError("No crew left on the source host.");
-            ClearCardActionUi();
+            // Do not clear selection UI yet on empty-stack race — keep BeamPickTarget.
             return true;
         }
 
@@ -25279,16 +25321,27 @@ _spacelineOrder.Remove(pod);
             return true;
         }
 
-        int beamWho = _beamModePlayer is 1 or 2 ? _beamModePlayer : _activePlayer;
         if (!CanBeamAtMission(srcMission, plannedCount: Math.Max(1, _beamSelected.Count), beamingPlayer: beamWho))
             return true;
 
+        // Keep marked selection until destination commit (T96). Filter with beamWho, not _activePlayer.
         var toMove = list.Where(b =>
         {
             if (b.Tag is not Card c) return false;
             if (_beamSelected.Count > 0 && !_beamSelected.Contains(b)) return false;
-            return IsBeamableFromHost(c, source, b);
+            return IsBeamableFromHost(c, source, b, beamWho);
         }).ToList();
+        if (toMove.Count == 0 && _beamSelected.Count > 0)
+        {
+            // Border identity may differ after detail refresh — match selected by Card.
+            var selectedCards = new HashSet<Card>(_beamSelected.Select(b => b.Tag).OfType<Card>());
+            toMove = list.Where(b =>
+            {
+                if (b.Tag is not Card c) return false;
+                if (!selectedCards.Contains(c)) return false;
+                return IsBeamableFromHost(c, source, b, beamWho);
+            }).ToList();
+        }
         if (toMove.Count == 0)
         {
             ShowPlayError("No cards selected to beam (stopped/stasis excluded; use checkboxes in the detail window).");
@@ -26672,8 +26725,9 @@ _spacelineOrder.Remove(pod);
     {
         var host = _detailHost ?? _hostStripHost;
         if (host == null || !_stackOnHost.TryGetValue(host, out var crewList)) return;
+        int markWho = _beamModePlayer is 1 or 2 ? _beamModePlayer : _activePlayer;
         var beamable = crewList
-            .Where(b => b.Tag is Card c && IsBeamableFromHost(c, host, b))
+            .Where(b => b.Tag is Card c && IsBeamableFromHost(c, host, b, markWho))
             .ToList();
         bool allOn = beamable.Count > 0 && beamable.All(b => _beamSelected.Contains(b));
         if (allOn)
