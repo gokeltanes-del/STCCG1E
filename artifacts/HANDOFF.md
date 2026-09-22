@@ -1,4 +1,16 @@
 ---
+## Park / Inventur (Data 2026-09-22 Pegasus Search + IG)
+- **Fail:** Pepsch — nicht lösbar mit earned Interphase Generator.
+- **Inventur:** `GROK_TEMP/INVENTUR_PEGASUS_SEARCH_IG_2026-09-22.md`
+- **Kern:** `{Interphase Generator}` in `AlternativeMet` unparsed; OR-Bindung nach `+`-Split wahrscheinlich falsch (Soll Spock). Present-Pool enthält IG bereits.
+- **Tip:** geparkt bis Spock+Go. AI Scope 4014657 working (kein Rework).
+
+---
+## Aktiv (Captain 2026-09-22 20:32)
+- **Thema:** Pegasus Search — Pepsch Fail: nicht lösbar mit earned Interphase Generator. Spock Soll; Data geparkt.
+- **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52 Retest unbestätigt.
+
+---
 ## Aktiv (Data tip 2026-09-22 Atmospheric Ionization Scope)
 - **Soll:** Spock App A — Limit nur Planet-Surface/Vicinity; Ship↔Ship + Outpost↔Ship frei.
 - **Smoke:** `GROK_TEMP/SMOKE_ATMOSPHERIC_IONIZATION_SCOPE_2026-09-22.md`.
