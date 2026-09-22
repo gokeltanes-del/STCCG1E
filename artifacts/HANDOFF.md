@@ -1,4 +1,16 @@
 ---
+## Aktiv (Data tip 2026-09-22 ETA Host/Crew)
+- **Thema:** ETA ResolveArmbandsBeamHost + StackOnHost; Facility-Battle/Load „keine Crew“.
+- **Smoke:** `GROK_TEMP/SMOKE_ETA_NO_CREW_HOST_2026-09-22.md` — Pepsch Retest Ship-vs-Outpost + Load.
+- **Park:** Stop-Bypass; Partial-Escape Stop. Kurlan/FPS nicht anfassen. Kein Push.
+
+---
+## Aktiv (Captain 2026-09-22 06:03)
+- **ETA Host Spock:** your crew = Controller Ship ODER Space Facility (7.0.1). Angreifer: Force-Ship. Verteidiger T94: Outpost-Crew, nicht Opp-Khazara.
+- **Data tippt** Host-Lookup. Pepsch-Frage Outpost-Crew ggf. noch offen.
+- **Park:** Stop-Bypass verworfen; Continuum/Q; Plays on/as F3.
+
+---
 ## Aktiv (Data tip 2026-09-21 ETA Armbands Beam-Dest)
 - **Thema:** ETA Response → EmergencyBeam → BeginBeamMode; Destination-Filter = beamPlayer.
 - **Smoke:** `GROK_TEMP/SMOKE_ETA_ARMBANDS_BEAM_DEST_2026-09-21.md` — Pepsch Retest. Jadzia: Armbands partial bis Grün.

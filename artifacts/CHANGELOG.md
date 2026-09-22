@@ -1,3 +1,9 @@
+## 2026-09-22 — ETA Armbands Host/Crew (Facility + Load)
+
+- `ResolveArmbandsBeamHost`: Facility/Outpost-Battle ohne Crew-Stack → Spieler-Schiff an derselben Mission mit beambarer Crew.
+- `BeginBeamMode`: Crew über `StackOnHost` (Load/SameHostShip), nicht nur Dictionary-Key.
+- Kein Stop-Bypass (Spock). Smoke: `GROK_TEMP/SMOKE_ETA_NO_CREW_HOST_2026-09-22.md`. Kein Push.
+
 ## 2026-09-21 — ETA Armbands Beam-Destination (response → BeginBeamMode)
 
 - Response resolve: Emergency Transporter Armbands enters `TryResolveInterruptPlay` / EmergencyBeam even without TargetCard (was SendCardTo-only → no picker).

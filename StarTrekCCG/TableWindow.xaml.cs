@@ -15198,7 +15198,8 @@ int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), 
                         RefreshZoneCounts();
                         break;
                     }
-                    var host = _interruptTargetHost ?? PickArmbandsHost(controller);
+                    var host = ResolveArmbandsBeamHost(
+                        controller, _interruptTargetHost ?? PickArmbandsHost(controller));
                     if (host != null && host.Tag is Card)
                     {
                         _interruptTargetHost = host;
@@ -19346,8 +19347,10 @@ _spacelineOrder.Remove(pod);
         _actionSourceHost = hostBorder;
         ClearTargetHighlights();
 
-        bool sourceIsMission = CardKinds.IsMission(hostCard);
-        if (!_stackOnHost.TryGetValue(hostBorder, out var crew) || crew.Count == 0)
+                bool sourceIsMission = CardKinds.IsMission(hostCard);
+        // Load-safe crew lookup (SameHostShip) — do not use _stackOnHost.TryGetValue alone.
+        var crew = StackOnHost(hostBorder);
+        if (crew == null || crew.Count == 0)
         {
             ShowPlayError("No personnel on this host to beam.");
             return;
@@ -19355,6 +19358,7 @@ _spacelineOrder.Remove(pod);
 
         // Bei Mission: nur eigenes Away Team zählen
         int myBeamable = crew.Count(b => b.Tag is Card c && IsBeamableFromHost(c, hostBorder, b));
+
         if (myBeamable == 0)
         {
             ShowPlayError("No unstopped personnel to beam (stopped / stasis stay behind).");
@@ -21697,6 +21701,78 @@ _spacelineOrder.Remove(pod);
     }
 
     
+    // Rule: 7.1.1 · 7.1.1.0.2 · 7.4.2 · 10.2.1
+    // Glossary: Emergency Transporter Armbands · equipment · battle
+    // Verb: BeginBeamMode · Beam · CanRespond; AppA: ETA
+    /// <summary>True when host has beamable (unstopped) personnel for player — uses StackOnHost (Load-safe).</summary>
+    private bool HostHasBeamablePersonnel(Border host, int player)
+    {
+        var crew = StackOnHost(host);
+        if (crew == null || crew.Count == 0) return false;
+        return crew.Any(b => b.Tag is Card c && IsBeamableFromHost(c, host, b));
+    }
+
+    /// <summary>
+    /// ETA beam origin: prefer battle host if it has crew; if facility/outpost is empty,
+    /// use player's ship (or other host) at the same mission with beamable crew.
+    /// </summary>
+    private Border? ResolveArmbandsBeamHost(int player, Border? preferred)
+    {
+        if (preferred != null && HostHasBeamablePersonnel(preferred, player))
+            return preferred;
+
+        Border? mission = null;
+        if (preferred?.Tag is Card pc)
+        {
+            if (IsMissionCard(pc)) mission = preferred;
+            else mission = FindMissionForDockable(preferred);
+        }
+
+        var candidates = new List<Border>();
+        if (mission != null)
+        {
+            foreach (var dock in GetDockablesUnderMission(mission))
+                candidates.Add(dock);
+        }
+        else
+        {
+            foreach (var b in TableCanvas.Children.OfType<Border>())
+            {
+                if (b.Visibility == Visibility.Visible && b.Tag is Card)
+                    candidates.Add(b);
+            }
+        }
+
+        // Prefer ships with crew, then any host with crew (same location first).
+        Border? bestShip = null;
+        Border? bestAny = null;
+        foreach (var b in candidates)
+        {
+            if (b.Tag is not Card hc) continue;
+            int own = GetBorderOwner(b);
+            if (own != player) continue;
+            if (!HostHasBeamablePersonnel(b, player)) continue;
+            if (IsShipCard(hc))
+            {
+                bestShip = b;
+                break;
+            }
+            bestAny ??= b;
+        }
+        if (bestShip != null) return bestShip;
+        if (bestAny != null) return bestAny;
+
+        // Global fallback (same as former PickArmbandsHost scan).
+        foreach (var b in TableCanvas.Children.OfType<Border>())
+        {
+            if (b.Visibility != Visibility.Visible || b.Tag is not Card) continue;
+            if (GetBorderOwner(b) != player) continue;
+            if (HostHasBeamablePersonnel(b, player))
+                return b;
+        }
+        return preferred;
+    }
+
     private Border? PickArmbandsHost(int player)
     {
         var top = _stack.Items.LastOrDefault(a =>
