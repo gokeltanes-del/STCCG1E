@@ -1,3 +1,10 @@
+## 2026-09-22 — ETA escapees owner + no battle-stop
+
+- `CompleteBeamTo`: `SetBorderOwner(beamWho)`; track `_etaEscapeeBorders`.
+- `StopCrewOnHost`: skip ETA escapees; StackOnHost only remaining aboard (7.4.3 / 10.2.1).
+- `BeginBeamMode` error text distinguishes empty/owner/stopped.
+- Smoke: `GROK_TEMP/SMOKE_ETA_ESCAPEE_UNSTOPPED_2026-09-22.md`. No push.
+
 ## 2026-09-22 — ETA T96 selection hold + battle defer
 
 - `CompleteBeamTo`: keep checkbox selection; filter with `_beamModePlayer` / StackOnHost+GetCrewOnShip; Card-match fallback after detail refresh.

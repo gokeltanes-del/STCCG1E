@@ -1,4 +1,15 @@
 ---
+## Aktiv (Data tip 2026-09-22 ETA Escapees)
+- **Thema:** Escapees Owner=beamWho; Battle-Stop nur Remaining; klarerer Beam-Fehlertext.
+- **Smoke:** `GROK_TEMP/SMOKE_ETA_ESCAPEE_UNSTOPPED_2026-09-22.md`.
+- **Park:** Partial-Escape-Stop-Bypass. Kein Push.
+
+---
+## Aktiv (Captain 2026-09-22 20:13)
+- **ETA working.** Post-ETA: Spock-Soll Escapees unstopped + Owner=beamWho; Stop nur Remaining aboard Force. Captain Go Data.
+- **Park:** Continuum/Q; Plays on/as F3; Personnel partial-escape Stop unsicher.
+
+---
 ## Aktiv (Data tip 2026-09-22 ETA T96)
 - **Thema:** Selection bis Destination-Commit; Battle wartet auf ETA-Beam.
 - **Smoke:** `GROK_TEMP/SMOKE_ETA_T96_SELECTION_2026-09-22.md`.

@@ -439,6 +439,8 @@ public partial class TableWindow : Window
     /// <summary>Player performing current beam mode (Armbands may be non-active).</summary>
     private int _beamModePlayer;
     private bool _etaBeamHoldsBattle;
+    /// <summary>Borders beamed away during ETA emergency — never battle-stopped as escapees (7.4.3).</summary>
+    private HashSet<Border>? _etaEscapeeBorders;
     private TimingRules.PendingAction? _shipBattleDeferredForEta;
     private int _etaArmbandsWindowDoneForInstance;
     private bool _resumeAttemptAfterEtaArmbands;
@@ -12913,8 +12915,11 @@ int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), 
                 ShowHostContents(_hostStripHost, hc);
         }
     
-        if (releaseEtaHold)
+                if (releaseEtaHold)
+        {
             ResumeShipBattleAfterEtaBeam();
+            _etaEscapeeBorders = null;
+        }
 }
 
     private void ClearTargetHighlights()
@@ -19343,7 +19348,10 @@ _spacelineOrder.Remove(pod);
         int beamPlayer = beamingPlayer ?? _activePlayer;
         _beamModePlayer = beamPlayer;
         if (emergency)
+        {
             _etaBeamHoldsBattle = true;
+            _etaEscapeeBorders = new HashSet<Border>();
+        }
         if (IsShipCard(hostCard) && IsShipCloaked(hostBorder))
         {
             ShowPlayError("Cannot beam to or from a cloaked ship. Decloak first.");
@@ -19403,7 +19411,16 @@ _spacelineOrder.Remove(pod);
 
         if (myBeamable == 0)
         {
-            ShowPlayError("No unstopped personnel to beam (stopped / stasis stay behind).");
+            // UX: do not label every IsBeamable fail as stopped/stasis (owner mismatch, leave-block, empty).
+            bool anyCrew = crew.Any(b => b.Tag is Card);
+            bool anyOwn = crew.Any(b => b.Tag is Card &&
+                (CardOwner(b) == beamPlayer || GetBorderOwner(b) == beamPlayer));
+            bool anyStopped = crew.Any(b => IsBorderStopped(b));
+            string why = !anyCrew ? "no personnel on this host"
+                : !anyOwn ? "no personnel you control on this host"
+                : anyStopped ? "personnel are stopped or in stasis (they stay behind)"
+                : "no legally beamable personnel on this host";
+            ShowPlayError($"Cannot beam: {why}.");
             return;
         }
 
@@ -24495,11 +24512,17 @@ _spacelineOrder.Remove(pod);
             border.Opacity = 1.0;
     }
 
+    // Rule: 7.4.3 · 10.2.1 — stop only remaining aboard force host; ETA escapees stay unstopped.
     private void StopCrewOnHost(Border host)
     {
-        if (!_stackOnHost.TryGetValue(host, out var list)) return;
+        var list = StackOnHost(host);
+        if (list == null) return;
         foreach (var b in list)
+        {
+            if (_etaEscapeeBorders != null && _etaEscapeeBorders.Contains(b))
+                continue;
             MarkStopped(b);
+        }
     }
 
     /// <summary>
@@ -25379,15 +25402,17 @@ _spacelineOrder.Remove(pod);
                 ShowPlayError(LeaveBlockedMessage(bc));
                 continue;
             }
+            // Rule: 7.4.3 · 10.2.1 — escapee owner = beamWho (ETA controller), not _activePlayer.
             RemoveCardFromHostStack(source, b);
-            SetBorderOwner(b, _activePlayer);
+            SetBorderOwner(b, beamWho);
             AddCardToHostStack(targetHost, b);
+            _etaEscapeeBorders?.Add(b);
             TryJoinQuarantineOnHost(targetHost, b);
             // Keep Rogue Borg unit host in sync so strength/battles track the new ship
             foreach (var rb in _rogueBorg.Where(r => ReferenceEquals(r.Visual, b)))
             {
                 rb.Host = targetHost;
-                rb.Controller = _activePlayer;
+                rb.Controller = beamWho;
             }
         }
 
