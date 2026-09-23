@@ -436,6 +436,9 @@ public partial class TableWindow : Window
     private int _pendingAuJustPlayedBy;
     /// <summary>True while personnel/ship battle dice are resolving (Armbands forbidden).</summary>
     private bool _adversariesInCombat;
+    // SEARCH: Glossary: actions - "just" / just after; AppA: Klingon Death Yell; Verb: JustAfter(KlingonWithHonorDied)
+    private int _deferJustAfterDeathFlush;
+    private readonly Queue<(Card Dead, int Owner)> _pendingHonorKlingonDeaths = new();
     /// <summary>Player performing current beam mode (Armbands may be non-active).</summary>
     private int _beamModePlayer;
     private bool _etaBeamHoldsBattle;
@@ -4737,7 +4740,8 @@ public partial class TableWindow : Window
                 if ((TimingRules.IsInterrupt(a.Card) || InterruptRules.IsInterrupt(a.Card))
                     && (a.TargetCard != null || attachStay
                         || InterruptRules.IsEmergencyTransporterArmbands(a.Card)
-                        || InterruptRules.IsHonorChallenge(a.Card)))
+                        || InterruptRules.IsHonorChallenge(a.Card)
+                        || InterruptRules.IsDeathYell(a.Card)))
                 {
                     TryResolveInterruptPlay(a.Card, a.Controller, isResponse: true, a.TargetCard);
                 }
@@ -4827,6 +4831,16 @@ public partial class TableWindow : Window
             StatusText.Text = a.Cancelled
                 ? $"[AU] just-play window closed ({a.CancelledBy})."
                 : "[AU] just-play window passed.";
+            return;
+        }
+
+        // SEARCH: Glossary: actions - "just" / just after; Verb: JustAfter(trigger); AppA: Klingon Death Yell
+        if (a.Kind == TimingRules.ActionKind.JustAfter)
+        {
+            StatusText.Text = a.Cancelled
+                ? $"Just-after window closed ({a.CancelledBy})."
+                : $"Just-after ({a.JustTrigger}) passed.";
+            TryFlushJustAfterDeathWindows();
             return;
         }
 
@@ -5144,8 +5158,18 @@ private void AskReturnFireAndResolve(
                 DiscardPersonnelBorder(b, c, owner, allowGenetronicSave: true, alsoTargetedToDie: killedCards);
             }
         }
-        KillFrom(atkBorders, atkOwner);
-        KillFrom(defBorders, defOwner);
+        // Just-After-Death only after battle Results batch (not mid-kill).
+        _deferJustAfterDeathFlush++;
+        try
+        {
+            KillFrom(atkBorders, atkOwner);
+            KillFrom(defBorders, defOwner);
+        }
+        finally
+        {
+            _deferJustAfterDeathFlush--;
+            TryFlushJustAfterDeathWindows();
+        }
         foreach (var b in atkBorders) MarkStopped(b);
         foreach (var b in defBorders)
         {
@@ -15447,9 +15471,21 @@ int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), 
             case InterruptRules.Effect.ParticleFountain:
                 AwardDilemmaPoints(r.Points > 0 ? r.Points : 5);
                 break;
+            // SEARCH: Glossary: actions - "just"; AppA: Klingon Death Yell; Verb: JustAfter(KlingonWithHonorDied)
             case InterruptRules.Effect.DeathYell:
-                AwardDilemmaPoints(5);
-                break;
+                {
+                    // Results only — JustAfter already consumed via ApplyResponseEffect cancel.
+                    if (controller is 1 or 2)
+                    {
+                        if (controller == 1) _scoreP1 += 5;
+                        else _scoreP2 += 5;
+                        UpdateScoreDisplay();
+                    }
+                    StatusText.Text = $"Klingon Death Yell: P{controller} scores 5.";
+                    _session.Log.Add(_session.TurnNumber, $"P{controller}",
+                        "Klingon Death Yell +5 (just after Honor Klingon died)");
+                    break;
+                }
             case InterruptRules.Effect.ShipSeizure:
                 ApplyShipSeizure(card, controller, target);
                 break;
@@ -23068,16 +23104,25 @@ _spacelineOrder.Remove(pod);
                 .Select(b => (Card)b.Tag!)
                 .ToList();
 
-            foreach (var b in defenders.ToList())
+            _deferJustAfterDeathFlush++;
+            try
             {
-                if (b.Tag is not Card c) continue;
-                int victimOwner = GetBorderOwner(b);
-                if (victimOwner == 0) victimOwner = CardOwner(b);
-                if (victimOwner == 0) victimOwner = finishingPlayer;
-                if (killed.Contains(c.Name ?? ""))
-                    DiscardPersonnelBorder(b, c, victimOwner, allowGenetronicSave: true, alsoTargetedToDie: killedCards);
-                else
-                    MarkStopped(b);
+                foreach (var b in defenders.ToList())
+                {
+                    if (b.Tag is not Card c) continue;
+                    int victimOwner = GetBorderOwner(b);
+                    if (victimOwner == 0) victimOwner = CardOwner(b);
+                    if (victimOwner == 0) victimOwner = finishingPlayer;
+                    if (killed.Contains(c.Name ?? ""))
+                        DiscardPersonnelBorder(b, c, victimOwner, allowGenetronicSave: true, alsoTargetedToDie: killedCards);
+                    else
+                        MarkStopped(b);
+                }
+            }
+            finally
+            {
+                _deferJustAfterDeathFlush--;
+                TryFlushJustAfterDeathWindows();
             }
 
             // Rogue Borg that were mortally wounded → discard (no longer active)
@@ -25442,6 +25487,55 @@ _spacelineOrder.Remove(pod);
         return blob.Contains("Klingon", StringComparison.OrdinalIgnoreCase);
     }
 
+    // SEARCH: Glossary: actions - "just" / just after; AppA: Klingon Death Yell; Verb: JustAfter(KlingonWithHonorDied)
+    private static bool IsKlingonWithHonor(Card c) =>
+        IsKlingonPersonnel(c) && CardHasSkill(c, "Honor");
+
+    private void NoteHonorKlingonDeathForJustAfter(Card card, int owner)
+    {
+        if (!IsKlingonWithHonor(card)) return;
+        _pendingHonorKlingonDeaths.Enqueue((card, owner));
+        TryFlushJustAfterDeathWindows();
+    }
+
+    private void TryFlushJustAfterDeathWindows()
+    {
+        if (_deferJustAfterDeathFlush > 0) return;
+        // One JustAfter on stack at a time; further deaths wait until current window resolves.
+        if (_stack.IsOpen && _stack.Items.Any(a => a.Kind == TimingRules.ActionKind.JustAfter))
+            return;
+        if (_pendingHonorKlingonDeaths.Count == 0) return;
+        var (dead, owner) = _pendingHonorKlingonDeaths.Dequeue();
+        OpenJustAfterWindow(
+            TimingRules.JustAfterTrigger.KlingonWithHonorDied,
+            dead,
+            owner,
+            $"Just after: {dead.Name} (Klingon with Honor) died");
+    }
+
+    private void OpenJustAfterWindow(
+        TimingRules.JustAfterTrigger trigger,
+        Card? subject,
+        int subjectOwner,
+        string summary)
+    {
+        _stack.Push(new TimingRules.PendingAction
+        {
+            Kind = TimingRules.ActionKind.JustAfter,
+            JustTrigger = trigger,
+            Controller = subjectOwner is 1 or 2 ? subjectOwner : _activePlayer,
+            Card = subject,
+            Summary = summary
+        });
+        // Either player may respond — start with active player; Pass rotates.
+        int first = _activePlayer is 1 or 2 ? _activePlayer : 1;
+        OpenResponseWindow(first);
+        ScheduleActionAnnounce(400);
+        StatusText.Text = summary + " — just responses (Death Yell)…";
+        _session.Log.Add(_session.TurnNumber, "sys",
+            $"JustAfter({trigger}) window ({subject?.Name ?? "?"})");
+    }
+
     private bool HonorChallengeHasLegalPair(int player, TimingRules.PendingAction top)
     {
         var (mine, opp) = HonorChallengeSides(player, top);
@@ -25471,26 +25565,36 @@ _spacelineOrder.Remove(pod);
 
         var killed = new List<Card>();
         // Cumulative: each Klingon with Honor may kill one opposing Treachery present.
-        foreach (var k in klingons)
+        // Just-After-Death opens ONLY after HC Results (batch), never mid-kill / Stage-2 init.
+        _deferJustAfterDeathFlush++;
+        try
         {
-            var remaining = treacheryPool.Where(t => !killed.Contains(t)).ToList();
-            if (remaining.Count == 0) break;
-            Card? victim = remaining.Count == 1
-                ? remaining[0]
-                : PickCardFromList(
-                    $"Honor Challenge — {k.Name} (Honor) may kill opposing Treachery:",
-                    remaining, "Honor Challenge");
-            if (victim == null) continue;
-            killed.Add(victim);
-            var border = FindBorderForCard(victim);
-            if (border != null)
+            foreach (var k in klingons)
             {
-                int vo = GetBorderOwner(border);
-                if (vo is not (1 or 2)) vo = controller == 1 ? 2 : 1;
-                DiscardPersonnelBorder(border, victim, vo, allowGenetronicSave: true, alsoTargetedToDie: killed);
+                var remaining = treacheryPool.Where(t => !killed.Contains(t)).ToList();
+                if (remaining.Count == 0) break;
+                Card? victim = remaining.Count == 1
+                    ? remaining[0]
+                    : PickCardFromList(
+                        $"Honor Challenge — {k.Name} (Honor) may kill opposing Treachery:",
+                        remaining, "Honor Challenge");
+                if (victim == null) continue;
+                killed.Add(victim);
+                var border = FindBorderForCard(victim);
+                if (border != null)
+                {
+                    int vo = GetBorderOwner(border);
+                    if (vo is not (1 or 2)) vo = controller == 1 ? 2 : 1;
+                    DiscardPersonnelBorder(border, victim, vo, allowGenetronicSave: true, alsoTargetedToDie: killed);
+                }
+                battle.AttackerPresent?.Remove(victim);
+                battle.DefenderPresent?.Remove(victim);
             }
-            battle.AttackerPresent?.Remove(victim);
-            battle.DefenderPresent?.Remove(victim);
+        }
+        finally
+        {
+            _deferJustAfterDeathFlush--;
+            TryFlushJustAfterDeathWindows();
         }
 
         string names = killed.Count == 0 ? "(no kills)" : string.Join(", ", killed.Select(c => c.Name));
@@ -25527,6 +25631,9 @@ _spacelineOrder.Remove(pod);
         }
         // Glossary: Temporal Causality Loop — only cards discarded from the attempted location
         TrackAttemptDiscard(card, owner, returnHost, wasSeed: false, seedOrderHint: -1, origin: "DiscardPersonnelBorder");
+
+        // JustAfter(KlingonWithHonorDied): only after actual death/Results (Genetronic/hologram already returned).
+        NoteHonorKlingonDeathForJustAfter(card, owner);
 
         bool opp = owner == 2;
         var discardList = opp ? _oppDiscardCards : _discardCards;

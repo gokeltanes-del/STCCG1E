@@ -1,4 +1,41 @@
+---
+## Aktiv (Data tip - JustAfter + Klingon Death Yell)
+- **Soll:** Shared JustAfter(trigger); Death Yell = JustAfter(KlingonWithHonorDied); either; 1/Tod; +5; after Results only.
+- **Ist:** ActionKind.JustAfter + Trigger enum; CanRespond/IsResponseCard; enqueue from DiscardPersonnelBorder; HC/battle batch defer.
+- **Smoke:** GROK_TEMP/SMOKE_KLINGON_DEATH_YELL_JUST_AFTER.md
+- **Tracker:** Death Yell → partial. No push.
+- **Retest offen:** HC ec905ab; Death Yell tip.
+
 ﻿---
+## Aktiv (Captain 2026-09-23 19:44)
+- **Geschlossen:** Honor Challenge working (Pepsch; Tips b082421 + ec905ab).
+- **Läuft:** Shared JustAfter-Gate + Klingon Death Yell (Data tippt).
+- **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52; Artifact-Y Load.
+---
+---
+## Aktiv (Captain 2026-09-23 19:41)
+- **Go Data:** Shared JustAfter(trigger)-Gate (Spock) + Klingon Death Yell als Consumer JustAfter(KlingonWithHonorDied); either; 1/Tod; +5; Amanda vor Results = kein Trigger.
+- **Retest offen:** HC `ec905ab`.
+- **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52; Artifact-Y Load.
+---
+---
+## Aktiv (Captain 2026-09-23 19:40)
+- **Go Data:** Klingon Death Yell — just after killed Honor-Klingon; either player; 1 Yell pro solchem Tod; Scorer +5; shared Just-Gate reuse; Amanda Nullify = kein Tod = kein Yell.
+- **Retest offen:** Honor Challenge `ec905ab`.
+- **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52; Artifact-Y Load.
+---
+---
+## Aktiv (Captain 2026-09-23 19:39)
+- **Neu:** Klingon Death Yell — Spock Soll (just after Klingon Honor dies; either player; limit one each; +5). Dann Go Data.
+- **Offen Retest:** Honor Challenge Tip `ec905ab` (Amanda vor Kill).
+- **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52; Artifact-Y Load intermittent.
+---
+---
+## Aktiv (Captain 2026-09-23 19:31)
+- **Tip `ec905ab`:** Stage-2 Interrupt Initiation→Responses→Results (Amanda vor HC Kill). Smoke GROK_TEMP/SMOKE_HONOR_CHALLENGE_AT_START_OF_BATTLE.md. Pepsch-Retest offen. Tracker partial.
+- **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52; Artifact-Y Load intermittent.
+---
+---
 ## Aktiv (Data tip - Interrupt Responses before Results)
 - **Soll:** Stage-2 Interrupt-Play = Initiation → Responses (Amanda) → Results. HC kills only after nullify window.
 - **Ist:** `BeginPlayCardStack` no longer Applies on play; Results on `ResolveTopOfStack`; HC gated like Armbands into `TryResolveInterruptPlay`.

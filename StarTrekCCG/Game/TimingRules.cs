@@ -25,7 +25,16 @@ public static class TimingRules
         /// <summary>Planet mission just solved (Alien Groupie / other just responses).</summary>
         MissionJustSolved,
         /// <summary>Opponent just successfully played an [AU] card (Distortion Continuum).</summary>
-        OpponentJustPlayedAu
+        OpponentJustPlayedAu,
+        /// <summary>Shared just-after window (trigger on PendingAction.JustTrigger).</summary>
+        JustAfter
+    }
+
+    /// <summary>Shared JustAfter(trigger) — first consumer: KlingonWithHonorDied (Death Yell).</summary>
+    public enum JustAfterTrigger
+    {
+        None = 0,
+        KlingonWithHonorDied = 1,
     }
 
     public enum Destination
@@ -88,6 +97,9 @@ public static class TimingRules
 
         /// <summary>In-play card this action is targeting (e.g. Kevin on an Event already in play).</summary>
         public Card? TargetCard { get; set; }
+
+        /// <summary>When Kind==JustAfter: which just-after trigger opened this window.</summary>
+        public JustAfterTrigger JustTrigger { get; init; }
     }
 
     public sealed class ActionStack
@@ -212,6 +224,13 @@ public static class TimingRules
     /// <summary>Alias for Stage 2 responses window (same as <see cref="IsAtStartOfBattle"/>).</summary>
     public static bool IsBattleStageResponses(PendingAction top) => IsAtStartOfBattle(top);
 
+    // SEARCH: Glossary: actions - "just" / just after; Verb: JustAfter(trigger); AppA: Klingon Death Yell
+    public static bool IsJustAfter(PendingAction top) =>
+        top.Kind == ActionKind.JustAfter;
+
+    public static bool IsJustAfter(PendingAction top, JustAfterTrigger trigger) =>
+        top.Kind == ActionKind.JustAfter && top.JustTrigger == trigger;
+
     public static bool IsCatalogResponse(Card c)
     {
         string n = (c.Name ?? "").Trim();
@@ -229,7 +248,8 @@ public static class TimingRules
             || n.Equals("Alien Groupie", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Distortion of Space/Time Continuum", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Emergency Transporter Armbands", StringComparison.OrdinalIgnoreCase)
-            || n.Equals("Honor Challenge", StringComparison.OrdinalIgnoreCase);
+            || n.Equals("Honor Challenge", StringComparison.OrdinalIgnoreCase)
+            || n.Equals("Klingon Death Yell", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -417,6 +437,16 @@ public static class TimingRules
                 return (false, "Honor Challenge: plays at start of a personnel battle only.");
             // Presence pair checked in TW CollectAllLegalResponses (needs Attacker/DefenderPresent).
             return (true, "Each of your Klingons with Honor may kill an opposing personnel present with Treachery.");
+        }
+
+
+        // SEARCH: Glossary: actions - "just" / just after; AppA: Klingon Death Yell; Verb: JustAfter(KlingonWithHonorDied)
+        if (n.Equals("Klingon Death Yell", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!IsJustAfter(top, JustAfterTrigger.KlingonWithHonorDied))
+                return (false, "Klingon Death Yell: plays just after a Klingon with Honor dies.");
+            // Either player; limit one each = one JustAfter window per such death.
+            return (true, "Score 5 points (just after that Klingon with Honor died).");
         }
 
         return (false, $"\"{n}\" is not a valid response in this window.");

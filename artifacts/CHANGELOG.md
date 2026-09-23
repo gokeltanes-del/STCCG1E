@@ -1,3 +1,9 @@
+## 2026-09-23 — Klingon Death Yell / shared JustAfter
+- Shared `TimingRules.ActionKind.JustAfter` + `JustAfterTrigger` + `IsJustAfter` (SoT/AtStartOfBattle-style gate).
+- First consumer: Klingon Death Yell = `JustAfter(KlingonWithHonorDied)`; either player; one Yell per such death; +5 to Yell controller.
+- Opens only after actual death/Results (HC/battle batch deferred); Amanda nullify before Results → no trigger.
+- No Death-Yell ad-hoc; no Battle Stage-2 misuse.
+
 ﻿## 2026-09-23 — Interrupt-Play Responses before Results (HC / Stage 2)
 
 - Root: `BeginPlayCardStack` called `ApplyResponseEffect` (HC kills) before `OpenResponseWindow` — Amanda saw Results already done.

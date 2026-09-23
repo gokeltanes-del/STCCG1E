@@ -1,4 +1,4 @@
-﻿# STCCG 1E — Card Expansion Tracker
+# STCCG 1E — Card Expansion Tracker
 
 Last updated: 2026-09-20 (Jadzia — Pepsch green Energy Vortex + Incoming Messages) Scope: **Premiere** (`PR`) + **Alternate Universe** catalogued. **Priority: finish all unfinished Premiere cards first.** AU is logged only; not prioritized unless already wired. Owner: Jadzia Dax.
 
@@ -219,14 +219,14 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Energy Vortex (115 U) | working | Pepsch green 2026-09-20. | Pepsch 2026-09-20 |
 | Escape Pod (116 C) | partial | tips Data/`5e55eef` + `7917a30`/`a3481a1` + `acc1426` + Z/`c1b622e` (Josef, no push): Response/Think Tray Z over CardDetail while open. Prior: ShipDestroyed window during battle stack; crew/personnel only; crew aboard + Pod in hand; excludes captives. Stays partial until Pepsch greens Borg-destroy -&gt; pick Pod â€” not working. | Data/`c1b622e` 2026-09-15 |
 | Full Planet Scan (117 U) | working | tip 4f0ccce StartOfTurnWindow-Gate + tip 673f598 SoT-Effekt. Pepsch 2026-09-21 Retest grün (nur vor Normal Card Play; danach Deny ohne Amanda). | Pepsch green |
-| Honor Challenge (118 R) | partial | tip Responses-before-Results (shared Stage-2 Interrupt-Play). Smoke Amanda-before-kill. | Pepsch retest |
+| Honor Challenge (118 R) | working | tip ec905ab Responses vor Results; tip b082421 Effekt. Pepsch: funktioniert jetzt komplett. | Pepsch green |
 | Hugh (119 R) | working | Pepsch green: works on Borg Ship dilemma attack (valid response). | Pepsch 2026-09-15 |
 | Incoming Message: Federation (120 U) | working | Pepsch green 2026-09-20 (Incoming Message family). | Pepsch 2026-09-20 |
 | Incoming Message: Klingon (121 U) | working | Pepsch green 2026-09-20 (Incoming Message family). | Pepsch 2026-09-20 |
 | Incoming Message: Romulan (122 U) | working | Pepsch green 2026-09-20 (Incoming Message family). | Pepsch 2026-09-20 |
 | Jaglom Shrek: Information Broker (123 R) | working | Pepsch 2026-09-23 funktioniert. | Pepsch green |
 | Kevin Uxbridge (124 U) | working | Pepsch green Response auf Vulcan Stone of Gol (Play-on Away Team): Event nullify OK; Mission bleibt auf Spaceline. tip Data/`8cc832f`. UX Ship-Detail Kevin-Targets+Scrollbar OK. | Pepsch 2026-09-20; Data/`8cc832f` |
-| Klingon Death Yell (125 R) | unknown |  |  |
+| Klingon Death Yell (125 R) | partial | tip local: shared JustAfter(KlingonWithHonorDied) + Yell consumer (either; 1/Tod; +5). Smoke GROK_TEMP/SMOKE_KLINGON_DEATH_YELL_JUST_AFTER.md. Pepsch-Retest offen. | Data tip |
 | Klingon Right of Vengeance (126 C) | unknown |  |  |
 | Life-form Scan (127 U) | unknown |  |  |
 | Long-Range Scan (128 C) | unknown |  |  |
