@@ -1,3 +1,9 @@
+## 2026-09-23 — Death Yell after Escape Pod Pass (ResolveEntireStack drain)
+
+- Root: Plasma/WCB Destroy → Escape Pod ShipDestroyed Pass → ResolveEntireStack while-loop re-entered Destroy Results, TryFlushJustAfterDeathWindows opened JustAfter mid-loop, same loop immediately popped JustAfter as passed (~4838) → Yell UI never stayed open. Without Pod, Destroy runs inline (not under drain) → Yell OK.
+- Fix: ResolveEntireStack breaks when a new ActionKind.JustAfter is on top after ResolveTopOfStack (Escape Pod must not eat Yell; sequential 1 Yell/Klingon still works via TryFlush-after-Pass). Order: Destroy → Pod window → unresected die → Death-Yell window; rescue = no death = no Yell.
+- Smoke: GROK_TEMP/SMOKE_KLINGON_DEATH_YELL_ESCAPE_POD.md. Tracker stays partial. No push.
+
 ## 2026-09-23 — Death Yell: ship/facility destroy→crew (WCB gap)
 
 - Root: `3e140a1` enqueued JustAfter only from `DiscardPersonnelBorder`; `DestroyShipOrFacility` crew wipe discarded without Note → WCB/battle/Plasma/etc. Honor-Klingon deaths missed Death Yell.

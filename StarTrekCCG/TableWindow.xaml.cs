@@ -4643,7 +4643,15 @@ public partial class TableWindow : Window
     {
         HideActionAnnounce();
         while (_stack.IsOpen)
+        {
             ResolveTopOfStack();
+            // SEARCH: Glossary: actions - "just" / just after; AppA: Escape Pod / Klingon Death Yell
+            // ShipDestroyed Results under this drain (Escape Pod Pass) open JustAfter via
+            // TryFlushJustAfterDeathWindows mid-loop. Break so the Yell UI can stay open —
+            // do not immediately pop JustAfter as passed in the same while (~4838).
+            if (_stack.IsOpen && _stack.Top?.Kind == TimingRules.ActionKind.JustAfter)
+                break;
+        }
         FlushPendingAuJustPlayed();
         RefreshResponseUi();
         ShowActivePlayerHand();

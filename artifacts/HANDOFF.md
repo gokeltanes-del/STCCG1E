@@ -1,4 +1,31 @@
 ---
+## Aktiv (Data tip - Escape Pod Pass must not eat Death Yell)
+- **Soll:** JustAfter(ShipDestroyed)=Escape Pod; JustAfter(Honor-Klingon died)=Death Yell; order Destroy→Pod→unresected die→Yell; rescue=no Yell; Pod must not auto-pass Yell.
+- **Ist:** ResolveEntireStack breaks when JustAfter opened mid-drain (ShipDestroyed Results / TryFlush). Inline Destroy (no Pod) unchanged.
+- **Smoke:** GROK_TEMP/SMOKE_KLINGON_DEATH_YELL_ESCAPE_POD.md (Plasma+Pod Pass→Yell; Pod save→no Yell; WCB same).
+- **Tracker:** Death Yell → partial until Pepsch green. No push.
+- **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52; Artifact-Y Load.
+---
+## Aktiv (Captain 2026-09-23 20:26)
+- **Go Data:** Escape Pod = JustAfter(ShipDestroyed); Death Yell = JustAfter(Death) nach remaining crew kill; Rescue kein Yell. Fail Plasma Fire e1d3cf4.
+- **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52; Artifact-Y Load.
+---
+﻿---
+## Aktiv (Captain 2026-09-23 20:26)
+- **Go Data:** Escape Pod = JustAfter(ShipDestroyed); Death Yell = JustAfter(Death) nach remaining crew kill; Rescue kein Yell. Fail Plasma Fire e1d3cf4.
+- **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52; Artifact-Y Load.
+---
+---
+## Aktiv (Captain 2026-09-23 20:26)
+- **Fail Death Yell `e1d3cf4`:** Plasma Fire Destroy → Escape Pod ja, Yell nein. Spock Soll Escape-Pod vs Just-Death; Data Inventur.
+- **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52; Artifact-Y Load.
+---
+---
+## Aktiv (Captain 2026-09-23 20:21)
+- **Tip `e1d3cf4`:** Death Yell JustAfter nach DestroyShipOrFacility + Seizure (WCB-Fail Fix). Smoke GROK_TEMP/SMOKE_KLINGON_DEATH_YELL_WCB.md. Pepsch-Retest offen. Tracker partial.
+- **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52; Artifact-Y Load.
+---
+---
 ## Aktiv (Data tip - Death Yell WCB / ship-destroy crew)
 - **Soll:** Todesquelle egal; Destroy Results → JustAfter all just-killed Honor Klingons; 1 Yell/Klingon; ShipDestroyed (Escape Pod) separate.
 - **Ist:** `DestroyShipOrFacility` + `DiscardShipSeizureVictim` note Honor-Klingon deaths (batch defer); DPB paths unchanged.
