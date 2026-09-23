@@ -1,4 +1,25 @@
 ---
+## Aktiv (Data tip - Death Yell WCB / ship-destroy crew)
+- **Soll:** Todesquelle egal; Destroy Results → JustAfter all just-killed Honor Klingons; 1 Yell/Klingon; ShipDestroyed (Escape Pod) separate.
+- **Ist:** `DestroyShipOrFacility` + `DiscardShipSeizureVictim` note Honor-Klingon deaths (batch defer); DPB paths unchanged.
+- **Smoke:** `GROK_TEMP/SMOKE_KLINGON_DEATH_YELL_WCB.md` (extends JUST_AFTER smoke). Inventur: `INVENTUR_DEATH_YELL_WCB_GAP.md`.
+- **Tracker:** Death Yell → partial until Pepsch green. No push.
+- **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52; Artifact-Y Load.
+
+---
+## Aktiv (Captain 2026-09-23 20:16)
+- **Go Data:** Death Yell — Tod Ursache egal; Ship destroy→crew JustAfter; Batch multi Honor-Klingon; 1 Yell/Klingon. Fail WCB 3e140a1.
+- **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52; Artifact-Y Load.
+---
+## Aktiv (Captain 2026-09-23 20:16)
+- **Fail Death Yell `3e140a1`:** Warp Core Breach Ship-Destroy Honor-Klingons → kein Yell. Spock Soll Todesquelle; Data Inventur. Pepsch: Ursache egal.
+- **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52; Artifact-Y Load.
+---
+## Aktiv (Captain 2026-09-23 19:48)
+- **Tip `3e140a1`:** Shared JustAfter + Klingon Death Yell. Smoke GROK_TEMP/SMOKE_KLINGON_DEATH_YELL_JUST_AFTER.md. Tracker partial. Pepsch-Retest offen.
+- **Geschlossen:** Honor Challenge working.
+- **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52; Artifact-Y Load.
+---
 ## Aktiv (Data tip - JustAfter + Klingon Death Yell)
 - **Soll:** Shared JustAfter(trigger); Death Yell = JustAfter(KlingonWithHonorDied); either; 1/Tod; +5; after Results only.
 - **Ist:** ActionKind.JustAfter + Trigger enum; CanRespond/IsResponseCard; enqueue from DiscardPersonnelBorder; HC/battle batch defer.
@@ -6,35 +27,30 @@
 - **Tracker:** Death Yell → partial. No push.
 - **Retest offen:** HC ec905ab; Death Yell tip.
 
-﻿---
+---
 ## Aktiv (Captain 2026-09-23 19:44)
 - **Geschlossen:** Honor Challenge working (Pepsch; Tips b082421 + ec905ab).
 - **Läuft:** Shared JustAfter-Gate + Klingon Death Yell (Data tippt).
 - **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52; Artifact-Y Load.
----
 ---
 ## Aktiv (Captain 2026-09-23 19:41)
 - **Go Data:** Shared JustAfter(trigger)-Gate (Spock) + Klingon Death Yell als Consumer JustAfter(KlingonWithHonorDied); either; 1/Tod; +5; Amanda vor Results = kein Trigger.
 - **Retest offen:** HC `ec905ab`.
 - **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52; Artifact-Y Load.
 ---
----
 ## Aktiv (Captain 2026-09-23 19:40)
 - **Go Data:** Klingon Death Yell — just after killed Honor-Klingon; either player; 1 Yell pro solchem Tod; Scorer +5; shared Just-Gate reuse; Amanda Nullify = kein Tod = kein Yell.
 - **Retest offen:** Honor Challenge `ec905ab`.
 - **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52; Artifact-Y Load.
----
 ---
 ## Aktiv (Captain 2026-09-23 19:39)
 - **Neu:** Klingon Death Yell — Spock Soll (just after Klingon Honor dies; either player; limit one each; +5). Dann Go Data.
 - **Offen Retest:** Honor Challenge Tip `ec905ab` (Amanda vor Kill).
 - **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52; Artifact-Y Load intermittent.
 ---
----
 ## Aktiv (Captain 2026-09-23 19:31)
 - **Tip `ec905ab`:** Stage-2 Interrupt Initiation→Responses→Results (Amanda vor HC Kill). Smoke GROK_TEMP/SMOKE_HONOR_CHALLENGE_AT_START_OF_BATTLE.md. Pepsch-Retest offen. Tracker partial.
 - **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52; Artifact-Y Load intermittent.
----
 ---
 ## Aktiv (Data tip - Interrupt Responses before Results)
 - **Soll:** Stage-2 Interrupt-Play = Initiation → Responses (Amanda) → Results. HC kills only after nullify window.
@@ -54,12 +70,10 @@
 - **Grafik Load:** Stretch OK Absicht. Bug = 3 Artefakte unten, intermittent, kein Repro → geparkt.
 - **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52; Artifact-Load-Gfx.
 ---
----
 ## Aktiv (Captain 2026-09-23 19:27)
 - **Honor Challenge Tip `b082421`:** Pepsch partial — Effekt OK, Amanda Nullify erst nach Kill. Spock-Soll: Initiation→Responses→Results (wie Armbands/Hugh). Captain Go Data.
 - **Grafik Load-Stretch:** Spaceline vertikal gestreckt nach Spiel laden (Screenshot). Data Inventur/Hypothese; kein Tip.
 - **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52.
----
 ---
 ## Aktiv (Captain 2026-09-23 06:06)
 - **Tip `b082421`:** AtStartOfBattle-Gate + Honor Challenge (Personnel; Klingon Honor → Opp Treachery). Smoke GROK_TEMP/SMOKE_HONOR_CHALLENGE_AT_START_OF_BATTLE.md. Tracker partial.

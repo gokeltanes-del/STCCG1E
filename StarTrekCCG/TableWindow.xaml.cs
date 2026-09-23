@@ -24989,27 +24989,44 @@ _spacelineOrder.Remove(pod);
         if (IsTowingScow(border))
             ReleaseScowTowAtMission(mission, reason: "Ship Seizure discard");
 
-        if (_stackOnHost.TryGetValue(border, out var stacked))
+        // SEARCH: Glossary: actions - "just" / just after; AppA: Klingon Death Yell; Verb: JustAfter(KlingonWithHonorDied)
+        _deferJustAfterDeathFlush++;
+        try
         {
-            foreach (var sb in stacked.ToList())
+            if (_stackOnHost.TryGetValue(border, out var stacked))
             {
-                if (sb.Tag is Card sc)
-                    SendCardTo(sc, owner, TimingRules.Destination.Discard);
-                if (TableCanvas.Children.Contains(sb))
-                    TableCanvas.Children.Remove(sb);
-                _hullDamagePercent.Remove(sb);
-                _stoppedBorders.Remove(sb);
-                if (_damageBadges.TryGetValue(sb, out var db))
+                foreach (var sb in stacked.ToList())
                 {
-                    if (TableCanvas.Children.Contains(db))
-                        TableCanvas.Children.Remove(db);
-                    _damageBadges.Remove(sb);
+                    if (sb.Tag is Card sc)
+                    {
+                        int co = CardOwner(sb);
+                        if (co == 0) co = GetBorderOwner(sb);
+                        if (co == 0) co = owner;
+                        SendCardTo(sc, owner, TimingRules.Destination.Discard);
+                        if (ModifierRules.IsPersonnelCard(sc) || IsCrewType(sc) || CardKinds.IsPersonnel(sc))
+                            NoteHonorKlingonDeathForJustAfter(sc, co);
+                    }
+                    if (TableCanvas.Children.Contains(sb))
+                        TableCanvas.Children.Remove(sb);
+                    _hullDamagePercent.Remove(sb);
+                    _stoppedBorders.Remove(sb);
+                    if (_damageBadges.TryGetValue(sb, out var db))
+                    {
+                        if (TableCanvas.Children.Contains(db))
+                            TableCanvas.Children.Remove(db);
+                        _damageBadges.Remove(sb);
+                    }
                 }
+                _stackOnHost.Remove(border);
             }
-            _stackOnHost.Remove(border);
-        }
 
-        SendCardTo(card, owner, TimingRules.Destination.Discard);
+            SendCardTo(card, owner, TimingRules.Destination.Discard);
+        }
+        finally
+        {
+            _deferJustAfterDeathFlush--;
+            TryFlushJustAfterDeathWindows();
+        }
 
         if (_damageBadges.TryGetValue(border, out var dmgB))
         {
@@ -25096,45 +25113,59 @@ _spacelineOrder.Remove(pod);
             || ReferenceEquals(border, _attemptShip)
             || (_attemptShip != null && ReferenceEquals(border, _attemptShip)));
 
-        // Crew / Equipment an Bord mit in den Discard
-        if (_stackOnHost.TryGetValue(border, out var stacked))
+        // SEARCH: Glossary: actions - "just" / just after; AppA: Klingon Death Yell; Verb: JustAfter(KlingonWithHonorDied)
+        // Ship/facility Destroy Results: crew die here (not via DiscardPersonnelBorder). Batch-note Honor Klingons, then JustAfter after Results.
+        _deferJustAfterDeathFlush++;
+        try
         {
-            foreach (var sb in stacked.ToList())
+            // Crew / Equipment an Bord mit in den Discard
+            if (_stackOnHost.TryGetValue(border, out var stacked))
             {
-                if (sb.Tag is Card sc)
+                foreach (var sb in stacked.ToList())
                 {
-                    if (destroyFromAttempt)
+                    if (sb.Tag is Card sc)
                     {
                         int co = CardOwner(sb);
                         if (co == 0) co = GetBorderOwner(sb);
                         if (co == 0) co = owner;
-                        TrackAttemptDiscard(sc, co, border, wasSeed: false, seedOrderHint: -1,
-                            origin: "DestroyShipOrFacility");
+                        if (destroyFromAttempt)
+                        {
+                            TrackAttemptDiscard(sc, co, border, wasSeed: false, seedOrderHint: -1,
+                                origin: "DestroyShipOrFacility");
+                        }
+                        if (!discardList.Contains(sc))
+                            discardList.Add(sc);
+                        // Real death (Escape Pod already relocated survivors before this path).
+                        if (ModifierRules.IsPersonnelCard(sc) || IsCrewType(sc) || CardKinds.IsPersonnel(sc))
+                            NoteHonorKlingonDeathForJustAfter(sc, co);
                     }
-                    if (!discardList.Contains(sc))
-                        discardList.Add(sc);
+                    if (TableCanvas.Children.Contains(sb))
+                        TableCanvas.Children.Remove(sb);
+                    _hullDamagePercent.Remove(sb);
+                    if (_stoppedBorders.Remove(sb) && sb.Tag is Card stopCard && stopCard.InstanceId > 0
+                        && BoardStore.Current.ById.TryGetValue(stopCard.InstanceId, out var stopInst))
+                        stopInst.Stopped = false;
+                    if (_damageBadges.TryGetValue(sb, out var db))
+                    {
+                        if (TableCanvas.Children.Contains(db))
+                            TableCanvas.Children.Remove(db);
+                        _damageBadges.Remove(sb);
+                    }
                 }
-                if (TableCanvas.Children.Contains(sb))
-                    TableCanvas.Children.Remove(sb);
-                _hullDamagePercent.Remove(sb);
-                if (_stoppedBorders.Remove(sb) && sb.Tag is Card stopCard && stopCard.InstanceId > 0
-                    && BoardStore.Current.ById.TryGetValue(stopCard.InstanceId, out var stopInst))
-                    stopInst.Stopped = false;
-                if (_damageBadges.TryGetValue(sb, out var db))
-                {
-                    if (TableCanvas.Children.Contains(db))
-                        TableCanvas.Children.Remove(db);
-                    _damageBadges.Remove(sb);
-                }
+                _stackOnHost.Remove(border);
             }
-            _stackOnHost.Remove(border);
-        }
 
-        if (destroyFromAttempt)
-            TrackAttemptDiscard(card, owner, border, wasSeed: false, seedOrderHint: -1,
-                origin: "DestroyShipOrFacility");
-        if (!discardList.Contains(card))
-            discardList.Add(card);
+            if (destroyFromAttempt)
+                TrackAttemptDiscard(card, owner, border, wasSeed: false, seedOrderHint: -1,
+                    origin: "DestroyShipOrFacility");
+            if (!discardList.Contains(card))
+                discardList.Add(card);
+        }
+        finally
+        {
+            _deferJustAfterDeathFlush--;
+            TryFlushJustAfterDeathWindows();
+        }
 
         // Badges
         if (_damageBadges.TryGetValue(border, out var dmgB))

@@ -1,3 +1,9 @@
+## 2026-09-23 — Death Yell: ship/facility destroy→crew (WCB gap)
+
+- Root: `3e140a1` enqueued JustAfter only from `DiscardPersonnelBorder`; `DestroyShipOrFacility` crew wipe discarded without Note → WCB/battle/Plasma/etc. Honor-Klingon deaths missed Death Yell.
+- Fix: after Destroy Results, note each dying personnel via `NoteHonorKlingonDeathForJustAfter` (batch `_deferJustAfterDeathFlush`); same for `DiscardShipSeizureVictim`. 1 Yell per Honor Klingon; Escape Pod survivors reloc’d before wipe → no note. `ActionKind.ShipDestroyed` stays Escape-Pod-only.
+- Smoke: `GROK_TEMP/SMOKE_KLINGON_DEATH_YELL_WCB.md` (+ inventur `INVENTUR_DEATH_YELL_WCB_GAP.md`). Tracker partial until Pepsch green. No push.
+
 ## 2026-09-23 — Klingon Death Yell / shared JustAfter
 - Shared `TimingRules.ActionKind.JustAfter` + `JustAfterTrigger` + `IsJustAfter` (SoT/AtStartOfBattle-style gate).
 - First consumer: Klingon Death Yell = `JustAfter(KlingonWithHonorDied)`; either player; one Yell per such death; +5 to Yell controller.
