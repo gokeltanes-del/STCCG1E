@@ -3749,8 +3749,10 @@ public partial class TableWindow : Window
         _session.Log.Add(_session.TurnNumber, $"P{controller}",
             (isResponse ? "Response: " : "Play: ") + card.Name);
 
-        if (isResponse)
-            ApplyResponseEffect(action);
+        // SEARCH: Rule: 7.4.3.0.2; Glossary: responses / just; Verb: interrupt-play stack response nullify
+        // Stage-2 (and all) Interrupt-Play: Initiation = Push only; Responses open next;
+        // Results (ApplyResponseEffect / kills / beam) wait until ResolveTopOfStack — Armbands/Hugh pattern.
+        // Do NOT Apply here or Amanda/Nullify sees Results already done.
 
         int next = opponentOf(controller);
         OpenResponseWindow(next);
@@ -3896,14 +3898,20 @@ public partial class TableWindow : Window
         return CollectAllLegalResponses(owner, top).Select(x => x.Card).ToList();
     }
 
-    private void ApplyResponseEffect(TimingRules.PendingAction response)
+    /// <summary>
+    /// Results of a response Interrupt — call only from ResolveTopOfStack after the
+    /// nullify window on that Interrupt-Play has closed (Initiation → Responses → Results).
+    /// Target is the action under the response (stack Top after the response was Popped).
+    /// </summary>
+    // SEARCH: Rule: 7.4.3.0.2; Glossary: responses / just; Verb: interrupt-play stack response nullify
+    private void ApplyResponseEffect(TimingRules.PendingAction response, TimingRules.PendingAction? target)
     {
-        if (_stack.Items.Count < 2 || response.Card == null) return;
-        var target = _stack.Items[^2];
+        if (response.Card == null || target == null) return;
         var check = TimingRules.CanRespond(response.Card, target, response.Controller);
         if (!check.ok) return;
 
         // Armbands / Honor Challenge modify without nullifying/stopping the battle on the stack.
+        // Their own Results (beam / kills) run in TryResolveInterruptPlay on this same resolve pass.
         if (!InterruptRules.IsEmergencyTransporterArmbands(response.Card)
             && !InterruptRules.IsHonorChallenge(response.Card))
         {
@@ -3922,9 +3930,7 @@ public partial class TableWindow : Window
             ApplyEscapePodFromResponse(response.Controller, target);
         if (InterruptRules.IsHail(response.Card) && target.Kind == TimingRules.ActionKind.ShipFlyBy)
             ApplyHailFlyByFromResponse(response.Controller, target);
-        if (InterruptRules.IsHonorChallenge(response.Card)
-            && target.Kind == TimingRules.ActionKind.InitiatePersonnelBattle)
-            ApplyHonorChallengeFromResponse(response.Controller, target);
+        // Honor Challenge kills: NOT here — Effect.HonorChallenge via TryResolveInterruptPlay (Results).
         StatusText.Text = $"Response {response.Card.Name}: {check.reason}";
     }
 
@@ -4707,6 +4713,10 @@ public partial class TableWindow : Window
 
             if (a.IsResponse)
             {
+                // SEARCH: Rule: 7.4.3.0.2; Glossary: responses / just; Verb: interrupt-play stack response nullify
+                // Results after Responses: apply cancel/side-effects now that Amanda/Q2 window closed.
+                ApplyResponseEffect(a, _stack.Top);
+
                 if (ArtifactRules.IsToxUthat(a.Card))
                 {
                     // Already discarded in ApplyResponseEffect when cancelling Supernova.
@@ -4720,13 +4730,14 @@ public partial class TableWindow : Window
                                   || InterruptRules.IsAlienGroupie(a.Card)
                                   || InterruptRules.IsAutoDestruct(a.Card);
                 // Kevin (etc.) may still need TargetCard nullify when used as a response
-                // Rule: 7.1.1 · 7.1.1.0.2 · 7.4.2 · 10.2.1
-                // Glossary: Emergency Transporter Armbands · equipment · battle
-                // Verb: BeginBeamMode · Beam · CanRespond; AppA: ETA
-                // ETA response must enter EmergencyBeam → BeginBeamMode even without TargetCard.
+                // Rule: 7.1.1 / 7.1.1.0.2 / 7.4.2 / 10.2.1
+                // Glossary: Emergency Transporter Armbands / Honor Challenge / battle
+                // Verb: BeginBeamMode / Beam / CanRespond; AppA: ETA / Honor Challenge
+                // Armbands + Honor Challenge: own Results on resolve (no TargetCard) — same gate.
                 if ((TimingRules.IsInterrupt(a.Card) || InterruptRules.IsInterrupt(a.Card))
                     && (a.TargetCard != null || attachStay
-                        || InterruptRules.IsEmergencyTransporterArmbands(a.Card)))
+                        || InterruptRules.IsEmergencyTransporterArmbands(a.Card)
+                        || InterruptRules.IsHonorChallenge(a.Card)))
                 {
                     TryResolveInterruptPlay(a.Card, a.Controller, isResponse: true, a.TargetCard);
                 }
@@ -15301,6 +15312,7 @@ int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), 
             // Verb: BeginBeamMode · Beam · CanRespond; AppA: ETA
 
             // SEARCH: Rule: 7.4 · 7.4.2; Glossary: battle · cumulative; AppA: Honor Challenge; Verb: AtStartOfBattle / BattleStage.Responses
+            // SEARCH: Rule: 7.4.3.0.2; Glossary: responses / just; AppA: Honor Challenge; Verb: stack response nullify — Results after Responses
             case InterruptRules.Effect.HonorChallenge:
                 {
                     var top = _stack.Top;

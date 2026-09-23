@@ -1,3 +1,33 @@
+﻿---
+## Aktiv (Data tip - Interrupt Responses before Results)
+- **Soll:** Stage-2 Interrupt-Play = Initiation → Responses (Amanda) → Results. HC kills only after nullify window.
+- **Ist:** `BeginPlayCardStack` no longer Applies on play; Results on `ResolveTopOfStack`; HC gated like Armbands into `TryResolveInterruptPlay`.
+- **Smoke:** `GROK_TEMP/SMOKE_HONOR_CHALLENGE_AT_START_OF_BATTLE.md` — retest Amanda-before-kill.
+- **Tracker:** Honor Challenge → partial until Pepsch green. No push.
+- **Park (gfx):** Artifact Y wrong after Load (3 cards too far down) — intermittent, no repro; vertical ship spacing intentional. No tip.
+
+---
+## Aktiv (Captain 2026-09-23 19:30)
+- **HC Timing tip:** committed (Responses vor Results). Pepsch Smoke Retest.
+- **Park gfx:** Artifact placement Y after Load (intermittent). Stretch = Absicht.
+- **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52.
+---
+## Aktiv (Captain 2026-09-23 19:28)
+- **HC Timing:** Go Data (Responses vor Results). Tip in Flug.
+- **Grafik Load:** Stretch OK Absicht. Bug = 3 Artefakte unten, intermittent, kein Repro → geparkt.
+- **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52; Artifact-Load-Gfx.
+---
+---
+## Aktiv (Captain 2026-09-23 19:27)
+- **Honor Challenge Tip `b082421`:** Pepsch partial — Effekt OK, Amanda Nullify erst nach Kill. Spock-Soll: Initiation→Responses→Results (wie Armbands/Hugh). Captain Go Data.
+- **Grafik Load-Stretch:** Spaceline vertikal gestreckt nach Spiel laden (Screenshot). Data Inventur/Hypothese; kein Tip.
+- **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52.
+---
+---
+## Aktiv (Captain 2026-09-23 06:06)
+- **Tip `b082421`:** AtStartOfBattle-Gate + Honor Challenge (Personnel; Klingon Honor → Opp Treachery). Smoke GROK_TEMP/SMOKE_HONOR_CHALLENGE_AT_START_OF_BATTLE.md. Tracker partial.
+- **Pepsch-Retest offen.**
+- **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52.
 ---
 ## Aktiv (Data tip — Honor Challenge AtStartOfBattle)
 - **Soll:** Spock — at start of battle = Stage 2 Responses per battle; HC personnel-only; cumulative Klingon Honor → kill opp Treachery; no battle cancel.
@@ -916,5 +946,6 @@ PinDockablesToSpacelineByColumn + Relayout after UpdateLayout + ScheduleRelayout
 - Smoke: `GROK_TEMP\SMOKE_FULL_PLANET_SCAN_2026-09-21.md` Retest: nach Normal-Play sofort Deny, kein Amanda.
 - CARD_TRACKER FPS bleibt partial bis Pepsch green.
 - Plays-on/as F3 unverÃ¤ndert; Continuum/Q Pause.
+
 
 

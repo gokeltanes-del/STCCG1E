@@ -1,3 +1,8 @@
+﻿## 2026-09-23 — Interrupt-Play Responses before Results (HC / Stage 2)
+
+- Root: `BeginPlayCardStack` called `ApplyResponseEffect` (HC kills) before `OpenResponseWindow` — Amanda saw Results already done.
+- Fix (shared, not HC-only): Initiation = Push; Responses open; Results in `ResolveTopOfStack` (`ApplyResponseEffect` + `TryResolveInterruptPlay`). Armbands/Hugh pattern; HC kills only via `Effect.HonorChallenge` after nullify window.
+- Smoke: `GROK_TEMP/SMOKE_HONOR_CHALLENGE_AT_START_OF_BATTLE.md` (Amanda-before-kill step). Tracker stays partial. No push.
 ## 2026-09-23 — Honor Challenge (personnel Stage 2)
 
 - Shared gate `TimingRules.IsAtStartOfBattle` / `IsBattleStageResponses` (per battle Stage 2; not SoT/EoT; ETA stays broader).
@@ -1220,3 +1225,4 @@ Phase 0 Modelle + JSON-Loader Â· Phase 1 Deck Builder `.stdeck` Â· Lackey-Sp
 - Gate vor Stack/Responses: `LegalMoves.AddHandPlays`, `EngineAuthority.EvaluatePlay`, `TableWindow.TryAllowHandPlay`.
 - Full Planet Scan = erster Phrase-Consumer (Gametext + Katalog); Apply-Pfad nur Safety-Net.
 - Pepsch-Fail: FPS nach Normal-Play öffnete Amanda-Fenster; Illegal kam zu spät → jetzt sofort Deny.
+
