@@ -1,4 +1,17 @@
 ---
+## Aktiv (Data tip — Honor Challenge AtStartOfBattle)
+- **Soll:** Spock — at start of battle = Stage 2 Responses per battle; HC personnel-only; cumulative Klingon Honor → kill opp Treachery; no battle cancel.
+- **Ist:** shared `IsAtStartOfBattle` gate + HC `CanRespond`/Apply.
+- **Smoke:** `GROK_TEMP/SMOKE_HONOR_CHALLENGE_AT_START_OF_BATTLE.md`
+- **Tracker:** Honor Challenge → partial. No push.
+
+---
+## Aktiv (Captain 2026-09-23 06:01)
+- **Geschlossen:** Jaglom Shrek: Information Broker (123 R) working — Pepsch Grün.
+- **Läuft:** AtStartOfBattle + Honor Challenge (Data tippt).
+- **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52.
+
+---
 ## Aktiv (Data tip 2026-09-22 Quick Game Artifact Spaceline)
 - **Soll:** Spock — Artifacts nie Spaceline-Knoten; nur under planet missions.
 - **Fix:** be7d6a7-Regression — Limit-Fail orphaned Visible at SpacelineY; AutoSeed filter + orphan remove.

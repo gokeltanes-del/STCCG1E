@@ -199,6 +199,19 @@ public static class TimingRules
 
     public static bool HasShieldIcon(Card c) => CardIcons.Parse(c).Shield;
 
+
+    // SEARCH: Rule: 7.4 · 7.4.2; Glossary: battle · cumulative; Verb: AtStartOfBattle / BattleStage.Responses
+    /// <summary>
+    /// Battle Stage 2 — responses at initiation ("at start of battle" / just initiated).
+    /// Per battle, not SoT/EoT. Ship + personnel; cards may narrow (Honor Challenge = personnel only).
+    /// ETA is a broader window — do not treat this gate as ETA.
+    /// </summary>
+    public static bool IsAtStartOfBattle(PendingAction top) =>
+        top.Kind is ActionKind.InitiateShipBattle or ActionKind.InitiatePersonnelBattle;
+
+    /// <summary>Alias for Stage 2 responses window (same as <see cref="IsAtStartOfBattle"/>).</summary>
+    public static bool IsBattleStageResponses(PendingAction top) => IsAtStartOfBattle(top);
+
     public static bool IsCatalogResponse(Card c)
     {
         string n = (c.Name ?? "").Trim();
@@ -215,7 +228,8 @@ public static class TimingRules
             || n.Equals("Hail", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Alien Groupie", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Distortion of Space/Time Continuum", StringComparison.OrdinalIgnoreCase)
-            || n.Equals("Emergency Transporter Armbands", StringComparison.OrdinalIgnoreCase);
+            || n.Equals("Emergency Transporter Armbands", StringComparison.OrdinalIgnoreCase)
+            || n.Equals("Honor Challenge", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -393,6 +407,16 @@ public static class TimingRules
                 return (true, "Beam your personnel away while facing this dilemma.");
             }
             return (false, "Armbands: play during battle or while facing an [ETA] dilemma (icon).");
+        }
+
+
+        // SEARCH: Rule: 7.4 · 7.4.2; Glossary: battle · cumulative; AppA: Honor Challenge; Verb: AtStartOfBattle / BattleStage.Responses
+        if (n.Equals("Honor Challenge", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!IsBattleStageResponses(top) || top.Kind != ActionKind.InitiatePersonnelBattle)
+                return (false, "Honor Challenge: plays at start of a personnel battle only.");
+            // Presence pair checked in TW CollectAllLegalResponses (needs Attacker/DefenderPresent).
+            return (true, "Each of your Klingons with Honor may kill an opposing personnel present with Treachery.");
         }
 
         return (false, $"\"{n}\" is not a valid response in this window.");

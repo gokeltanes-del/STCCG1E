@@ -94,6 +94,7 @@ public static class InterruptRules
     public static bool IsAsteroidSanctuary(Card? c) => NameIs(c, "Asteroid Sanctuary");
     public static bool IsDistortionContinuum(Card? c) => NameIs(c, "Distortion of Space/Time Continuum");
     public static bool IsEmergencyTransporterArmbands(Card? c) => NameIs(c, "Emergency Transporter Armbands");
+    public static bool IsHonorChallenge(Card? c) => NameIs(c, "Honor Challenge");
     public static bool IsFullPlanetScan(Card? c) => NameIs(c, "Full Planet Scan");
     public static bool IsTachyonDetectionGrid(Card? c) => NameIs(c, "Tachyon Detection Grid");
 

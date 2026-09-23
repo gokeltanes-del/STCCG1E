@@ -1,8 +1,6 @@
 # STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-20 (Jadzia — Pepsch green Energy Vortex + Incoming Messages)
-Scope: **Premiere** (`PR`) + **Alternate Universe** catalogued. **Priority: finish all unfinished Premiere cards first.** AU is logged only; not prioritized unless already wired.
-Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No Engine C# without Captain Go.
+Last updated: 2026-09-20 (Jadzia — Pepsch green Energy Vortex + Incoming Messages) Scope: **Premiere** (`PR`) + **Alternate Universe** catalogued. **Priority: finish all unfinished Premiere cards first.** AU is logged only; not prioritized unless already wired. Owner: Jadzia Dax.
 
 ## Priority (Captain / Pepsch 2026-09-19)
 
@@ -20,25 +18,22 @@ Owner: Jadzia Dax (checklists). Seven keeps Glossary/Compendium/`FEATURES`. No E
 | `working` | Playable / green tip confirmed |
 | `blocked` | Waiting on rules, extract, or Captain Go |
 
-Columns: **Status** · **Notes** · **Source** (who / tip / date).
-Source tip: when Data/Spock/Seven/Captain report, update the row.
+Columns: **Status** · **Notes** · **Source** (who / tip / date). Source tip: when Data/Spock/Seven/Captain report, update the row.
 
 ## Summary counts
 
 ### Premiere — focus (363 cards)
 
 | Status | Count | Role |
-| --- | ---: | --- |
+| --- | --- | --- |
 | `working` | 107 | Done (Pepsch green) |
 | `partial` | 6 | **Next smoke / rework** |
 | `unknown` | 250 | **Backlog — finish Premiere** |
 | `blocked` | 0 | — |
-| **Total** | **363** | |
-
-**Premiere partials (queue):** Q (blocked Continuum) · Crystalline Entity · Iconian Computer Weapon · Alien Probe · Escape Pod · Raise the Stakes (tip 7f5ae62) · Emergency Transporter Armbands (in progress)
+| **Total** | **363** |  |
 
 | Card Type | Count |
-| --- | ---: |
+| --- | --- |
 | Artifact | 9 |
 | Dilemma | 45 |
 | Equipment | 11 |
@@ -54,13 +49,13 @@ Source tip: when Data/Spock/Seven/Captain report, update the row.
 ### Alternate Universe — deprioritized (122 cards)
 
 | Status | Count | Role |
-| --- | ---: | --- |
+| --- | --- | --- |
 | `working` | 1 | Hail only (already wired) |
 | `unknown` | 121 | Logged; not prioritized |
-| **Total** | **122** | |
+| **Total** | **122** |  |
 
 | Card Type | Count |
-| --- | ---: |
+| --- | --- |
 | Artifact | 7 |
 | Dilemma | 24 |
 | Doorway | 2 |
@@ -74,22 +69,21 @@ Source tip: when Data/Spock/Seven/Captain report, update the row.
 | **Total** | **122** |
 
 ---
+
 ## Premiere
 
 Source JSON: `artifacts/sample_data/PR/cards.json`
 
 ### Artifact
-**Premiere Artifacts: complete** (all 9 working as of 2026-09-20 Thought Maker green).
-
 
 | Card | Status | Notes | Source |
 | --- | --- | --- | --- |
 | Betazoid Gift Box (1 R) | working | Pepsch green tip Data/adac172 (search download 0..3 + IgnoreOppPrevent; discard always). | Pepsch 2026-09-20; Data/adac172 |
 | Horga'hn (2 R) | working | Pepsch green. tip Data/`5b92210` / engine 2nd play + prior EOT/turn-flip fixes (turn switch + EOT +2 cards). | Pepsch 2026-09-20; Data/`5b92210` |
-| Interphase Generator (3 R) | working | Pepsch green: nullify path vs [IPG] incl. Nausicaans; Rebel Encounter nullify also OK. IPG display cleanup done (Glyph only; tip with `5c08269` batch). | Pepsch 2026-09-18; Data/`5c08269` display |
-| Kurlan Naiskos (4 R) | working | Pepsch green (inkl. Kevin as Event). tip Data/`6d15780`: any ship incl. opp; RANGE/W/S x3 when staffed. | Pepsch 2026-09-20; Data/`6d15780` |
+| Interphase Generator (3 R) | working | Pepsch green: nullify path vs \[IPG\] incl. Nausicaans; Rebel Encounter nullify also OK. IPG display cleanup done (Glyph only; tip with `5c08269` batch). | Pepsch 2026-09-18; Data/`5c08269` display |
+| Kurlan Naiskos (4 R) | working | tip bfe0de9 PersonnelTypePresent Class|Skill|Equipment; tip 70e03f1 S.A.M. (printed+Adds)x3 Battle=UI. Pepsch 2026-09-21 Gesamt grün (Typen, Anzeige, Kampf). | Pepsch green |
 | Thought Maker (5 R) | working | Pepsch green. tips Data/`dfac2fe`/`e00f660` (Interrupt anytime). Premiere Artifacts complete. | Pepsch 2026-09-20; Data/`dfac2fe`+`e00f660` |
-| Time Travel Pod (6 R) | working | Pepsch green. Location links+Gap; Opp/Own BoardPick Relocate; Countdown [2] Owner-EOT while ship here; Discard+Return. tips Data/`d6226c0`/`db54b59`/`6351229`. | Pepsch 2026-09-20; Data/`d6226c0`+`db54b59`+`6351229` |
+| Time Travel Pod (6 R) | working | Pepsch green. Location links+Gap; Opp/Own BoardPick Relocate; Countdown \[2\] Owner-EOT while ship here; Discard+Return. tips Data/`d6226c0`/`db54b59`/`6351229`. | Pepsch 2026-09-20; Data/`d6226c0`+`db54b59`+`6351229` |
 | Tox Uthat (7 R) | working | Pepsch green. tip Data/`b789fe5`: kein Tox-Dialog; Kevin nullify Tox; dedupe Kevin-Targets; Tox consumed at init. | Pepsch 2026-09-20; Data/`b789fe5` |
 | Varon-T Disruptor (8 R) | working | Pepsch getestet: Looten OK, verdoppelt STRENGTH auf Planet; Beamen auf Schiff ohne Treaty repariert (`TreatyRules.CanOccupyHost`). | Pepsch 2026-09-12 |
 | Vulcan Stone of Gol (9 R) | working | Pepsch green. tip Data/`6d15780` (planet AT; Plays-as-Event kill+discard). Response Kevin Uxbridge tip Data/`8cc832f`: nullify OK, Mission bleibt auf Spaceline (kein Mission-Nullify-Regression). UX Ship-Detail Kevin-Targets+Scrollbar Pepsch OK. | Pepsch 2026-09-20; Data/`6d15780`+`8cc832f` |
@@ -107,35 +101,35 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Barclay's Protomorphosis Disease (16 R) | working | Pepsch getestet OK (Metamorphosis/Transformation). | Pepsch 2026-09-06 |
 | Birth of "Junior" (17 U) | working | Pepsch green: Place+Continue; cumulative RANGE Countdown tip Data/`755242c`; destroy at 0; Cure 3 ENG nullify. | Pepsch 2026-09-14; Data/`755242c` |
 | Borg Ship (18 R) | working | Pepsch green: no stop on reveal (`ed19e08`); load duplicate UI fixed (`51cd333`); Hugh vs dilemma attack OK. | Pepsch 2026-09-15; Data/`ed19e08`+`51cd333` |
-| Chalnoth (19 U) | working | Pepsch green: Pass 3 SEC OR STR>40 â†’ +5 + Continue; Fail Opp 1 Kill, AT stopped. tip Data/`b01d6dc`. | Pepsch 2026-09-13 |
-| Cosmic String Fragment (20 U) | working | Pepsch green: Pass Astrophysics OR ENG OR Navigation -> +5 + Continue; Fail Ship destroy. tip Data/`85ca39a`. | Pepsch 2026-09-15; Data/`85ca39a` |
+| Chalnoth (19 U) | working | Pepsch green: Pass 3 SEC OR STR&gt;40 â†’ +5 + Continue; Fail Opp 1 Kill, AT stopped. tip Data/`b01d6dc`. | Pepsch 2026-09-13 |
+| Cosmic String Fragment (20 U) | working | Pepsch green: Pass Astrophysics OR ENG OR Navigation -&gt; +5 + Continue; Fail Ship destroy. tip Data/`85ca39a`. | Pepsch 2026-09-15; Data/`85ca39a` |
 | Crystalline Entity (21 R) | partial | tip Data/`6f11978`. Space/Planet +5; Fail kill-all life (nicht Stasis). Lore-Double geparkt. Ungetestet. | Data/`6f11978` 2026-09-06 |
 | Cytherians (22 R) | working | Pepsch green: Place+Attempt-end; far-end +15. tip Data/`baa9fd5`. | Pepsch 2026-09-15; Data/`baa9fd5` |
-| El-Adrel Creature (23 U) | working | Pepsch green: 2 staerkste (Tie=Owner); STR>16 Continue (9+9 planet AT Overcome OK); Fail random Kill + AT stop. tip Data/`4b3467b` + live-feed/`ea1ff6d` (owner fallback, refresh Team/Present, ignore Kill on Overcome). | Pepsch 2026-09-13; Data/`ea1ff6d` |
+| El-Adrel Creature (23 U) | working | Pepsch green: 2 staerkste (Tie=Owner); STR&gt;16 Continue (9+9 planet AT Overcome OK); Fail random Kill + AT stop. tip Data/`4b3467b` + live-feed/`ea1ff6d` (owner fallback, refresh Team/Present, ignore Kill on Overcome). | Pepsch 2026-09-13; Data/`ea1ff6d` |
 | Female's Love Interest (24 C) | working | Pepsch getestet OK (Continue after Relocate). | Pepsch 2026-09-06 |
-| Firestorm (25 U) | working | Pepsch green: INT<5 Kills OK, Versuch-Fortsetzung OK, Overlay EFFECT-Header OK. PARK: ETA-Escape. | Pepsch 2026-09-12 |
+| Firestorm (25 U) | working | Pepsch green: INT&lt;5 Kills OK, Versuch-Fortsetzung OK, Overlay EFFECT-Header OK. PARK: ETA-Escape. | Pepsch 2026-09-12 |
 | Gravitic Mine (26 U) | working | Pepsch green: Pass SCIENCE+Navigation Continue; Fail Damage + Ship/Crew stop. tip Data/`5c4f563`. | Pepsch 2026-09-15; Data/`5c4f563` |
 | Hologram Ruse (27 U) | working | Pepsch green (reconfirmed). | Pepsch 2026-09-15 |
 | Hyper-Aging (28 U) | working | Pepsch green QuarantÃ¤ne+Beam-Block `46eab15`; Detailansicht Debuff-Gruppierung OK. RemFatigue PARK. | Pepsch 2026-09-12 |
 | Iconian Computer Weapon (29 C) | partial | tip Data/`47984b5`. Pass SCIENCE Continue; Fail Stop + Non-Pers Hand discard+draw. Ungetestet. | Data/`47984b5` 2026-09-06 |
 | Impassable Door (30 C) | working | Pepsch green (komplett); tip Data/`be5062b`. | Pepsch + Data/`be5062b` 2026-09-07 |
-| Ktarian Game (31 R) | working | Pepsch green (reconfirmed): Now + start-of-turn disable; Cure CUNNING>30 or Android (ship-hosted cure present = host crew only, tip Data/`3c7ee2d`). Unit tests `VerifyKtarianGame` / `VerifyDilemmaCureRules`. | Pepsch 2026-09-15; Data/`3c7ee2d` |
+| Ktarian Game (31 R) | working | Pepsch green (reconfirmed): Now + start-of-turn disable; Cure CUNNING&gt;30 or Android (ship-hosted cure present = host crew only, tip Data/`3c7ee2d`). Unit tests `VerifyKtarianGame` / `VerifyDilemmaCureRules`. | Pepsch 2026-09-15; Data/`3c7ee2d` |
 | Male's Love Interest (32 C) | working | Pepsch getestet OK (Continue after Relocate). | Pepsch 2026-09-06 |
-| Matriarchal Society (33 U) | working | Pepsch green: Wall >=2 Female Continue; Fail Stop+unter Mission. tip Data/`d68f511`. | Pepsch 2026-09-15; Data/`d68f511` |
+| Matriarchal Society (33 U) | working | Pepsch green: Wall &gt;=2 Female Continue; Fail Stop+unter Mission. tip Data/`d68f511`. | Pepsch 2026-09-15; Data/`d68f511` |
 | Menthar Booby Trap (34 C) | working | Pepsch green: Place immer; MED Continue else Kill+Stop; Cure 2 ENG. tip Data/`01e5bb8`. | Pepsch 2026-09-15; Data/`01e5bb8` |
 | Microbiotic Colony (35 C) | working | Pepsch green: SCI+ENG+OFF Continue; Fail Damage+Stop; immer discard. tip Data/`f8c14d5`. | Pepsch 2026-09-15; Data/`f8c14d5` |
 | Microvirus (36 C) | working | Pos+neg Choose OK. PARK: UI Dilemma-groÃŸ + 2-Fenster Chooser/Beobachter. | Pepsch 2026-09-07 |
-| Nagilum (37 R) | working | Pepsch green: 3 Diplomacy OR STR>40 -> +5 Continue; Fail half-kill (abrunden)+Stop. tip Data/`b16e2b8`. | Pepsch 2026-09-15; Data/`b16e2b8` |
-| Nanites (38 U) | working | Pepsch green: 2 SCIENCE OR Diplomacy -> +5 Continue; Fail Damage+Stop. tip Data/`df0e3fa`. | Pepsch 2026-09-15; Data/`df0e3fa` |
-| Nausicaans (39 U) | working | Pepsch green: STR>44 Continue; Fail random Kill+Stop. tip Data/`485814c`. | Pepsch 2026-09-15; Data/`485814c` |
+| Nagilum (37 R) | working | Pepsch green: 3 Diplomacy OR STR&gt;40 -&gt; +5 Continue; Fail half-kill (abrunden)+Stop. tip Data/`b16e2b8`. | Pepsch 2026-09-15; Data/`b16e2b8` |
+| Nanites (38 U) | working | Pepsch green: 2 SCIENCE OR Diplomacy -&gt; +5 Continue; Fail Damage+Stop. tip Data/`df0e3fa`. | Pepsch 2026-09-15; Data/`df0e3fa` |
+| Nausicaans (39 U) | working | Pepsch green: STR&gt;44 Continue; Fail random Kill+Stop. tip Data/`485814c`. | Pepsch 2026-09-15; Data/`485814c` |
 | Nitrium Metal Parasites (40 U) | working | Pepsch green (AttachAndContinue). | Pepsch 2026-09-06 |
-| Null Space (41 U) | working | Pepsch green: 2 Navigation -> +5 Continue; Fail Damage+Stop. tip Data/`04f4bd6`. | Pepsch 2026-09-15; Data/`04f4bd6` |
+| Null Space (41 U) | working | Pepsch green: 2 Navigation -&gt; +5 Continue; Fail Damage+Stop. tip Data/`04f4bd6`. | Pepsch 2026-09-15; Data/`04f4bd6` |
 | Phased Matter (42 C) | working | Pepsch green: AT-Split, Stasis der grÃ¶ÃŸeren Gruppe, WeiterfÃ¼hrung der kleineren Gruppe und Cure (ENG+SCI unphased) via zentrales Cure-System bestÃ¤tigt. | Pepsch 2026-09-13 |
-| Portal Guard (43 U) | working | CUNN>7/Honor Continue; Fail: BeamBack+Stop wenn Beamen mÃ¶glich (Schiff/Facility vorhanden, kein Stasis/QuarantÃ¤ne); Kill wenn Beamen unmÃ¶glich (z.B. Hyper-Aging QuarantÃ¤ne oder kein Schiff/Facility) + unter Mission. Unit-Test `VerifyPortalGuard`. | Captain 2026-09-13 |
+| Portal Guard (43 U) | working | CUNN&gt;7/Honor Continue; Fail: BeamBack+Stop wenn Beamen mÃ¶glich (Schiff/Facility vorhanden, kein Stasis/QuarantÃ¤ne); Kill wenn Beamen unmÃ¶glich (z.B. Hyper-Aging QuarantÃ¤ne oder kein Schiff/Facility) + unter Mission. Unit-Test `VerifyPortalGuard`. | Captain 2026-09-13 |
 | Q (44 R) | partial | Pepsch: Smoke blockiert bis Q-Continuum Expansion. Needs Continuum foundation; tip `59b51e6` bleibt bis Continuum+Smoke. Printed LOCK; Q-Flash full verb PARK. Not working. | Pepsch 2026-09-19; Data/`59b51e6` |
-| Radioactive Garbage Scow (45 U) | working | Pepsch green: Tractor Beam attach -> offset hang -> Fly follow -> EOT drop. tips Data through `9cd104f` (a4e4e5d/bf7a394/558fc4e/2c6a3f9/9cd104f). Spock Tractor Soll. | Pepsch 2026-09-14; Data/`9cd104f` |
+| Radioactive Garbage Scow (45 U) | working | Pepsch green: Tractor Beam attach -&gt; offset hang -&gt; Fly follow -&gt; EOT drop. tips Data through `9cd104f` (a4e4e5d/bf7a394/558fc4e/2c6a3f9/9cd104f). Spock Tractor Soll. | Pepsch 2026-09-14; Data/`9cd104f` |
 | Rebel Encounter (46 U) | working | Pepsch green: destroy Equipment path OK. tip Data/`7d649f7`. Interphase Generator nullify also OK. | Pepsch 2026-09-18; Data/`7d649f7` |
-| REM Fatigue (47 U) | working | Pepsch green: Dock + Planet/3 MEDICAL. tip Data/`638fde8` quarantine CD[4]/Outpost dock/OriginalEncounter. | Pepsch 2026-09-19; Data/`638fde8` |
+| REM Fatigue (47 U) | working | Pepsch green: Dock + Planet/3 MEDICAL. tip Data/`638fde8` quarantine CD\[4\]/Outpost dock/OriginalEncounter. | Pepsch 2026-09-19; Data/`638fde8` |
 | Sarjenka (48 R) | working | Pepsch green. | Pepsch 2026-09-18 |
 | Shaka, When the Walls Fell (49 U) | working | Pepsch green. | Pepsch 2026-09-18 |
 | Tarellian Plague Ship (50 U) | working | Pepsch green: Hybrid Opfer+5; Overcome UX A Medical Personnel / B Equipment+matching; Step0 Dilemma-Karte UI tip `003f811`. Tips Data `a97e8eb`…`003f811`. | Pepsch 2026-09-18; Data/`003f811` |
@@ -165,7 +159,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Card | Status | Notes | Source |
 | --- | --- | --- | --- |
 | Alien Probe (66 U) | partial | tip Data/`5c08269`. No Pepsch green yet (only Atmospheric Ionization confirmed). Stays partial — not working. | Data/`5c08269` 2026-09-18 |
-| Atmospheric Ionization (68 C) | working | Pepsch green tip Data/`5c08269`. | Pepsch 2026-09-18; Data/`5c08269` |
+| Atmospheric Ionization (68 C) | working | tip 4014657 Scope to/from planet only; Pepsch 2026-09-22 Scope grün (Ship-Ship/Outpost frei). Offen/geparkt: Freundes-Report „selected one, beamed everything exceeding limit“ — Pepsch nicht nachvollziehbar, kein Tip. | Pepsch green (Scope) |
 | Bynars Weapon Enhancement (69 R) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Distortion Field (70 U) | working | Pepsch green: Face-up on play; EOT flip; vicinity beam block. tip Data/`a866bbe`. | Pepsch 2026-09-18; Data/`a866bbe` |
 | Espionage: Federation on Klingon (71 C) | working | Pepsch green (Espionage-Familie). | Pepsch 2026-09-06 |
@@ -174,11 +168,11 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Espionage: Romulan on Klingon (74 C) | working | Pepsch green (Espionage-Familie). | Pepsch 2026-09-06 |
 | Gaps in Normal Space (75 U) | working | Pepsch green 2026-09-20. (Prior UX Host-Sidebar tip Data/`651a63f`.) | Pepsch 2026-09-20 |
 | Genetronic Replicator (76 U) | working | Pepsch green: Opfer & gleichzeitig Getoetete ausgeschlossen; Auswahl via PickBorder; Unit-Test in EventRules. | Pepsch 2026-09-15 |
-| Goddess of Empathy (77 R) | working | Pepsch mostly green tip Data/`23d1c17`: Amanda block OK. Pending later smoke: [Ref] and [Q] interrupts still allowed under Goddess. | Pepsch 2026-09-18; Data/`23d1c17` |
+| Goddess of Empathy (77 R) | working | Pepsch mostly green tip Data/`23d1c17`: Amanda block OK. Pending later smoke: \[Ref\] and \[Q\] interrupts still allowed under Goddess. | Pepsch 2026-09-18; Data/`23d1c17` |
 | Holo-Projectors (78 U) | working | Pepsch green. tips Data/`3c50792` + existence gates/`bcf7f9d`. | Pepsch 2026-09-19; Data/`3c50792`+`bcf7f9d` |
 | Kivas Fajo: Collector (79 U) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Lore Returns (80 R) | working | Pepsch green. | Pepsch 2026-09-06 |
-| Lore's Fingernail (81 R) | working | Pepsch green: Inorganic(!Holo)->Non live; restore on leave. tips Data/`980317a` + UI/`eaf0c24`. | Pepsch 2026-09-19; Data/`980317a`+`eaf0c24` |
+| Lore's Fingernail (81 R) | working | Pepsch green: Inorganic(!Holo)-&gt;Non live; restore on leave. tips Data/`980317a` + UI/`eaf0c24`. | Pepsch 2026-09-19; Data/`980317a`+`eaf0c24` |
 | Masaka Transformations (82 U) | working | Pepsch green. | Pepsch 2026-09-19 |
 | Metaphasic Shields (83 U) | working | Pepsch green (reconfirmed). | Pepsch 2026-09-19 |
 | Neural Servo Device (84 U) | working | Pepsch green; Side-Sync OK (Data/55d96ef). | Pepsch 2026-09-06 |
@@ -192,7 +186,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Spacedock (92 C) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Static Warp Bubble (93 C) | working | Pepsch green (reconfirmed). | Pepsch 2026-09-19 |
 | Subspace Warp Rift (94 C) | working | Pepsch green 2026-09-20. | Pepsch 2026-09-20 |
-| Supernova (95 R) | working | Pepsch green. tip Data/`b789fe5` + surface tip/`98e6984`: Planet→[S] surface discard + husk Opacity. Mit Tox Uthat (kein Dialog; Kevin nullify; Tox consumed at init). | Pepsch 2026-09-20; Data/`b789fe5`+`98e6984` |
+| Supernova (95 R) | working | Pepsch green. tip Data/`b789fe5` + surface tip/`98e6984`: Planet→\[S\] surface discard + husk Opacity. Mit Tox Uthat (kein Dialog; Kevin nullify; Tox consumed at init). | Pepsch 2026-09-20; Data/`b789fe5`+`98e6984` |
 | Telepathic Alien Kidnappers (96 U) | working | Pepsch green. | Pepsch 2026-09-19 |
 | Tetryon Field (97 C) | working | Pepsch green; fly-by ShowPlayError + Debuff tip 2d6ea3b. | Pepsch 2026-09-20; Data/2d6ea3b |
 | The Traveler: Transcendence (98 U) | working | Pepsch green. | Pepsch 2026-09-06 |
@@ -217,20 +211,20 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Alien Groupie (107 R) | working | Pepsch green. tips Data/9980a89/9a0ac4f/7624ad5. | Pepsch 2026-09-20; Data |
 | Amanda Rogers (108 R) | working | Pepsch green. | Pepsch 2026-09-20 |
 | Asteroid Sanctuary (109 C) | working | Pepsch green. | Pepsch 2026-09-20 |
-| Auto-Destruct Sequence (110 U) | working | Countdown 1; destroy ship + splash SHIELDS<8. tip 96336de. | Data 2026-09-20 |
+| Auto-Destruct Sequence (110 U) | working | Countdown 1; destroy ship + splash SHIELDS&lt;8. tip 96336de. | Data 2026-09-20 |
 | Crosis (111 R) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Disruptor Overload (112 C) | working | Pepsch green 2026-09-20. | Pepsch 2026-09-20 |
 | Distortion of Space/Time Continuum (113 U) | working | Pepsch green 2026-09-20 (rest OK; unstop untested). | Pepsch 2026-09-20 |
-| Emergency Transporter Armbands (114 C) | partial | tip 13583d0 Spock Lock ETA icon + Distortion/PE. Pending Pepsch green. | Data 2026-09-20 |
+| Emergency Transporter Armbands (114 C) | working | tips e29dec4 BeginBeamMode; 8630dc1/de0b0dd Force-Host; 8c5aaa8 Selection+Battle deferred. Pepsch 2026-09-22 ETA funktioniert (Outpost-Crew nach Destination, Kampf wartet). Stop-Bypass bewusst nicht. Folge: normal Beamen nach ETA zeigt stopped — Spock+Data Inventur, Code geparkt bis Spock+Go. | Pepsch green |
 | Energy Vortex (115 U) | working | Pepsch green 2026-09-20. | Pepsch 2026-09-20 |
-| Escape Pod (116 C) | partial | tips Data/`5e55eef` + `7917a30`/`a3481a1` + `acc1426` + Z/`c1b622e` (Josef, no push): Response/Think Tray Z over CardDetail while open. Prior: ShipDestroyed window during battle stack; crew/personnel only; crew aboard + Pod in hand; excludes captives. Stays partial until Pepsch greens Borg-destroy -> pick Pod â€” not working. | Data/`c1b622e` 2026-09-15 |
-| Full Planet Scan (117 U) | partial | tip 673f598 SoT ship staff≥2 stop Comp+Geology bottom seed. Pending Pepsch green. | Data 2026-09-21 |
-| Honor Challenge (118 R) | unknown |  |  |
+| Escape Pod (116 C) | partial | tips Data/`5e55eef` + `7917a30`/`a3481a1` + `acc1426` + Z/`c1b622e` (Josef, no push): Response/Think Tray Z over CardDetail while open. Prior: ShipDestroyed window during battle stack; crew/personnel only; crew aboard + Pod in hand; excludes captives. Stays partial until Pepsch greens Borg-destroy -&gt; pick Pod â€” not working. | Data/`c1b622e` 2026-09-15 |
+| Full Planet Scan (117 U) | working | tip 4f0ccce StartOfTurnWindow-Gate + tip 673f598 SoT-Effekt. Pepsch 2026-09-21 Retest grün (nur vor Normal Card Play; danach Deny ohne Amanda). | Pepsch green |
+| Honor Challenge (118 R) | not-started | Captain Go AtStartOfBattle + HC. Arbeit startet: Spock Soll + Timing At start of battle. Nach Tip dann partial. | Captain |
 | Hugh (119 R) | working | Pepsch green: works on Borg Ship dilemma attack (valid response). | Pepsch 2026-09-15 |
 | Incoming Message: Federation (120 U) | working | Pepsch green 2026-09-20 (Incoming Message family). | Pepsch 2026-09-20 |
 | Incoming Message: Klingon (121 U) | working | Pepsch green 2026-09-20 (Incoming Message family). | Pepsch 2026-09-20 |
 | Incoming Message: Romulan (122 U) | working | Pepsch green 2026-09-20 (Incoming Message family). | Pepsch 2026-09-20 |
-| Jaglom Shrek: Information Broker (123 R) | unknown |  |  |
+| Jaglom Shrek: Information Broker (123 R) | working | Pepsch 2026-09-23 funktioniert. | Pepsch green |
 | Kevin Uxbridge (124 U) | working | Pepsch green Response auf Vulcan Stone of Gol (Play-on Away Team): Event nullify OK; Mission bleibt auf Spaceline. tip Data/`8cc832f`. UX Ship-Detail Kevin-Targets+Scrollbar OK. | Pepsch 2026-09-20; Data/`8cc832f` |
 | Klingon Death Yell (125 R) | unknown |  |  |
 | Klingon Right of Vengeance (126 C) | unknown |  |  |
@@ -290,7 +284,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Krios Suppression (175 U) | unknown |  |  |
 | Medical Relief (176 R) | unknown |  |  |
 | New Contact (177 R) | unknown |  |  |
-| Pegasus Search (178 R) | unknown |  |  |
+| Pegasus Search (178 R) | working | tip 5b552d7 OR+{IG} present; tip be7d6a7 Multi-Earn IG zu AT. Pepsch 2026-09-22 IPG Mission lösen Pegasus Search funktioniert. | Pepsch green |
 | Plunder Site (179 U) | unknown |  |  |
 | Relief Mission (180 C) | unknown |  |  |
 | Repair Mission (181 C) | unknown |  |  |
@@ -668,4 +662,3 @@ Source JSON: `artifacts/sample_data/Alternate_Universe/cards.json`
 | I.K.C. K'Ratak (C) | unknown |  |  |
 | Tama (U) | unknown |  |  |
 | U.S.S. Enterprise-C (R) | unknown |  |  |
-

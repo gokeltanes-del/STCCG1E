@@ -3879,6 +3879,14 @@ public partial class TableWindow : Window
                 if (!HasOwnCrewOrAwayTeamHost(player))
                     return false;
             }
+
+            // SEARCH: Rule: 7.4 · 7.4.2; Glossary: battle · cumulative; AppA: Honor Challenge; Verb: AtStartOfBattle / BattleStage.Responses
+            if (InterruptRules.IsHonorChallenge(item.Card)
+                && top.Kind == TimingRules.ActionKind.InitiatePersonnelBattle)
+            {
+                if (!HonorChallengeHasLegalPair(player, top))
+                    return false;
+            }
             return true;
         }).ToList();
     }
@@ -3895,8 +3903,9 @@ public partial class TableWindow : Window
         var check = TimingRules.CanRespond(response.Card, target, response.Controller);
         if (!check.ok) return;
 
-        // Armbands beams without nullifying/stopping the battle or dilemma on the stack.
-        if (!InterruptRules.IsEmergencyTransporterArmbands(response.Card))
+        // Armbands / Honor Challenge modify without nullifying/stopping the battle on the stack.
+        if (!InterruptRules.IsEmergencyTransporterArmbands(response.Card)
+            && !InterruptRules.IsHonorChallenge(response.Card))
         {
             target.Cancelled = true;
             target.CancelledBy = response.Card.Name;
@@ -3913,6 +3922,9 @@ public partial class TableWindow : Window
             ApplyEscapePodFromResponse(response.Controller, target);
         if (InterruptRules.IsHail(response.Card) && target.Kind == TimingRules.ActionKind.ShipFlyBy)
             ApplyHailFlyByFromResponse(response.Controller, target);
+        if (InterruptRules.IsHonorChallenge(response.Card)
+            && target.Kind == TimingRules.ActionKind.InitiatePersonnelBattle)
+            ApplyHonorChallengeFromResponse(response.Controller, target);
         StatusText.Text = $"Response {response.Card.Name}: {check.reason}";
     }
 
@@ -15287,6 +15299,19 @@ int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), 
             // Rule: 7.1.1 · 7.1.1.0.2 · 7.4.2 · 10.2.1
             // Glossary: Emergency Transporter Armbands · equipment · battle
             // Verb: BeginBeamMode · Beam · CanRespond; AppA: ETA
+
+            // SEARCH: Rule: 7.4 · 7.4.2; Glossary: battle · cumulative; AppA: Honor Challenge; Verb: AtStartOfBattle / BattleStage.Responses
+            case InterruptRules.Effect.HonorChallenge:
+                {
+                    var top = _stack.Top;
+                    if (top == null || top.Kind != TimingRules.ActionKind.InitiatePersonnelBattle)
+                    {
+                        ShowPlayError("Honor Challenge: only at start of a personnel battle.");
+                        break;
+                    }
+                    ApplyHonorChallengeFromResponse(controller, top);
+                    break;
+                }
             case InterruptRules.Effect.EmergencyBeam:
                 {
                     if (_adversariesInCombat)
@@ -25389,6 +25414,77 @@ _spacelineOrder.Remove(pod);
             atkPresent, defPresent, atkOwner, defOwner);
         ClearCardActionUi();
         return true;
+    }
+
+
+    // SEARCH: Rule: 7.4 · 7.4.2; Glossary: battle · cumulative; AppA: Honor Challenge; Verb: AtStartOfBattle / BattleStage.Responses
+    private static bool CardHasSkill(Card c, string skill) =>
+        EventRules.HasSkill(new[] { c }, skill);
+
+    private static bool IsKlingonPersonnel(Card c)
+    {
+        if (!ModifierRules.IsPersonnelCard(c)) return false;
+        var tokens = ReportingRules.ParseAffiliationTokens(c.Affiliation);
+        if (tokens.Contains("KLI")) return true;
+        string blob = ((c.Affiliation ?? "") + " " + (c.Text ?? ""));
+        return blob.Contains("Klingon", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool HonorChallengeHasLegalPair(int player, TimingRules.PendingAction top)
+    {
+        var (mine, opp) = HonorChallengeSides(player, top);
+        bool hasKlingonHonor = mine.Any(c => IsKlingonPersonnel(c) && CardHasSkill(c, "Honor"));
+        bool hasOppTreachery = opp.Any(c => ModifierRules.IsPersonnelCard(c) && CardHasSkill(c, "Treachery"));
+        return hasKlingonHonor && hasOppTreachery;
+    }
+
+    private static (List<Card> mine, List<Card> opp) HonorChallengeSides(int player, TimingRules.PendingAction top)
+    {
+        var atk = top.AttackerPresent ?? new List<Card>();
+        var def = top.DefenderPresent ?? new List<Card>();
+        if (player == top.Controller) return (atk.ToList(), def.ToList());
+        return (def.ToList(), atk.ToList());
+    }
+
+    private void ApplyHonorChallengeFromResponse(int controller, TimingRules.PendingAction battle)
+    {
+        var (mine, opp) = HonorChallengeSides(controller, battle);
+        var klingons = mine.Where(c => IsKlingonPersonnel(c) && CardHasSkill(c, "Honor")).ToList();
+        var treacheryPool = opp.Where(c => ModifierRules.IsPersonnelCard(c) && CardHasSkill(c, "Treachery")).ToList();
+        if (klingons.Count == 0 || treacheryPool.Count == 0)
+        {
+            StatusText.Text = "Honor Challenge: no legal Klingon Honor / opposing Treachery pair.";
+            return;
+        }
+
+        var killed = new List<Card>();
+        // Cumulative: each Klingon with Honor may kill one opposing Treachery present.
+        foreach (var k in klingons)
+        {
+            var remaining = treacheryPool.Where(t => !killed.Contains(t)).ToList();
+            if (remaining.Count == 0) break;
+            Card? victim = remaining.Count == 1
+                ? remaining[0]
+                : PickCardFromList(
+                    $"Honor Challenge — {k.Name} (Honor) may kill opposing Treachery:",
+                    remaining, "Honor Challenge");
+            if (victim == null) continue;
+            killed.Add(victim);
+            var border = FindBorderForCard(victim);
+            if (border != null)
+            {
+                int vo = GetBorderOwner(border);
+                if (vo is not (1 or 2)) vo = controller == 1 ? 2 : 1;
+                DiscardPersonnelBorder(border, victim, vo, allowGenetronicSave: true, alsoTargetedToDie: killed);
+            }
+            battle.AttackerPresent?.Remove(victim);
+            battle.DefenderPresent?.Remove(victim);
+        }
+
+        string names = killed.Count == 0 ? "(no kills)" : string.Join(", ", killed.Select(c => c.Name));
+        StatusText.Text = $"Honor Challenge: {names}.";
+        _session.Log.Add(_session.TurnNumber, $"P{controller}",
+            $"Honor Challenge kills: {names}");
     }
 
     private void DiscardPersonnelBorder(

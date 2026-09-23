@@ -1,3 +1,10 @@
+## 2026-09-23 — Honor Challenge (personnel Stage 2)
+
+- Shared gate `TimingRules.IsAtStartOfBattle` / `IsBattleStageResponses` (per battle Stage 2; not SoT/EoT; ETA stays broader).
+- Honor Challenge: `CanRespond` only `InitiatePersonnelBattle`; TW apply kills without cancelling battle.
+- LegalMoves/EngineAuthority: Respond already via `CanRespond`.
+- Smoke: `GROK_TEMP/SMOKE_HONOR_CHALLENGE_AT_START_OF_BATTLE.md`
+
 ## 2026-09-22 - Quick Game: Artifacts stay under missions (no spaceline orphans)
 
 - Root: after `be7d6a7`, `AddSeedUnderMission` limit-fail left the card Visible at mission X/SpacelineY → looked like a spaceline node (Thought Maker / Interphase Generator).
