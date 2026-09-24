@@ -11854,6 +11854,12 @@ public partial class TableWindow : Window
         if (occ != null)
             sec = EventRules.CountSkill(occ.Crew.Personnel.Select(p => p.Printed), "SECURITY");
         string tn = ((c.Type ?? "") + " " + (c.Name ?? "")).ToLowerInvariant();
+        bool isOrbiting = false;
+        if (ship && occ != null)
+        {
+            var loc = BoardStore.Current.Spaceline.Locations.FirstOrDefault(l => l.Occupants.Contains(occ));
+            isOrbiting = loc?.Printed != null && MissionCountsAsPlanetCard(loc.Printed);
+        }
         return new TargetQuery.HostFacts(
             Owner: owner,
             Exposed: false,
@@ -11868,7 +11874,8 @@ public partial class TableWindow : Window
             IsMission: mission,
             IsPlanetMission: mission && MissionCountsAsPlanetCard(c),
             IsNonAlignedShip: ship && IsNonAlignedShip(c),
-            IsBorgShip: ship && IsBorgAffiliation(c));
+            IsBorgShip: ship && IsBorgAffiliation(c),
+            IsOrbitingPlanet: isOrbiting);
     }
 
     private TargetQuery.HostFacts FactsFor(Border host)
@@ -11882,6 +11889,7 @@ public partial class TableWindow : Window
         int sec = 0;
         if (ship)
             sec = EventRules.CountSkill(GetCrewOnShip(host), "SECURITY");
+        bool isOrbiting = ship && c != null && IsShipOrbitingPlanet(host, c);
         return new TargetQuery.HostFacts(
             Owner: owner,
             Exposed: ship && IsShipExposed(host),
@@ -11896,7 +11904,8 @@ public partial class TableWindow : Window
             IsMission: c != null && IsMissionCard(c),
             IsPlanetMission: c != null && IsMissionCard(c) && MissionCountsAsPlanetCard(c),
             IsNonAlignedShip: ship && c != null && IsNonAlignedShip(c),
-            IsBorgShip: ship && c != null && IsBorgAffiliation(c));
+            IsBorgShip: ship && c != null && IsBorgAffiliation(c),
+            IsOrbitingPlanet: isOrbiting);
     }
 
     private void BeginTargetSession(Card drag)
@@ -14247,6 +14256,8 @@ public partial class TableWindow : Window
             return host.Tag is Card tw && IsShipCard(tw);
         if (InterruptRules.IsTachyonDetectionGrid(interrupt))
             return host.Tag is Card th && IsShipCard(th) && IsShipCloaked(host);
+        if (InterruptRules.IsLossOfOrbitalStability(interrupt))
+            return host.Tag is Card ls && IsShipCard(ls) && IsShipOrbitingPlanet(host, ls);
         var spec = PlayOnRules.Parse(interrupt);
         if (spec.Host != PlayOnRules.Host.None)
             return HostMatchesPlayOn(host, owner, spec);
@@ -15572,6 +15583,9 @@ public partial class TableWindow : Window
             case InterruptRules.Effect.ShipSeizure:
                 ApplyShipSeizure(card, controller, target);
                 break;
+            case InterruptRules.Effect.LossOfOrbit:
+                ApplyLossOfOrbitalStability(card, controller, target);
+                break;
             case InterruptRules.Effect.Wormhole:
                 // Pair is resolved on drop (exposed ship, then location). Stack only announces.
                 break;
@@ -15659,12 +15673,13 @@ public partial class TableWindow : Window
             SendCardTo(card, controller, TimingRules.Destination.Discard);
 
         // Instant interrupts must never remain as free-floating board cards
-        // (skip Rogue Borg / Crosis / Incoming Message / Hail-in-mark-mode)
+        // (skip Rogue Borg / Crosis / Incoming Message / Hail-in-mark-mode / Loss of Orbital Stability)
         if (r.Effect is not InterruptRules.Effect.RogueBorg
             and not InterruptRules.Effect.Crosis
             and not InterruptRules.Effect.IncomingMessage
             and not InterruptRules.Effect.AlienGroupie
             and not InterruptRules.Effect.AutoDestruct
+            and not InterruptRules.Effect.LossOfOrbit
             && !hailMarkPending)
             RemoveOrphanTableCopies(card);
 
@@ -16352,6 +16367,16 @@ public partial class TableWindow : Window
             {
                 if (b.Tag is not Card hc || !IsShipCard(hc)) continue;
                 if (IsShipCloaked(b)) Add(b);
+            }
+            return list;
+        }
+
+        if (InterruptRules.IsLossOfOrbitalStability(card))
+        {
+            foreach (var b in TableCanvas.Children.OfType<Border>())
+            {
+                if (b.Tag is not Card hc || !IsShipCard(hc)) continue;
+                if (IsShipOrbitingPlanet(b, hc)) Add(b);
             }
             return list;
         }
@@ -23891,6 +23916,40 @@ public partial class TableWindow : Window
                 }
             }
 
+            // Rule: 10.1.0.7; Glossary: in orbit; Verb: end-of-turn ship destroy
+            if (InterruptRules.IsLossOfOrbitalStability(e.Card) && e.Host != null)
+            {
+                int shipOwner = GetBorderOwner(e.Host);
+                if (shipOwner == 0) shipOwner = e.Owner;
+                e.ScopePlayer ??= shipOwner;
+                e.TurnScope = TimingRules.TurnScope.SpecificPlayerNextTurn;
+                e.PhasePoint = TimingRules.TurnPhasePoint.EndOfTurn;
+                bool timingOk = TimingRules.ShouldProcessOnTurn(
+                    e.TurnScope, e.PhasePoint,
+                    TimingRules.TurnPhasePoint.EndOfTurn, owner, e.ScopePlayer);
+                if (!timingOk)
+                    continue;
+
+                int cd = e.Countdown;
+                bool explode = TimingRules.TickCountdown(
+                    ref cd, e.TurnScope, e.PhasePoint,
+                    TimingRules.TurnPhasePoint.EndOfTurn, owner, e.ScopePlayer);
+                e.Countdown = cd;
+
+                if (explode && e.Host.Tag is Card ls)
+                {
+                    ShowCardReveal(e.Card, "Loss of Orbital Stability",
+                        $"{ls.Name} is destroyed (Loss of Orbital Stability at end of owner's next turn).",
+                        RevealButtons.Ok, ls.Name, autoCloseMs: 4000);
+                    DestroyShipOrFacility(e.Host, ls, shipOwner);
+                    _attachedEvents.Remove(e);
+                    if (!_discardCards.Contains(e.Card) && !_oppDiscardCards.Contains(e.Card))
+                        SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
+                    _session.Log.Add(_session.TurnNumber, "sys",
+                        $"Loss of Orbital Stability destroys {ls.Name} (end of owner P{shipOwner}'s next turn).");
+                }
+            }
+
             if (e.Kind == EventRules.Persist.StaticWarp)
             {
                 var hand = owner == 1 ? _handCards : _oppHandCards;
@@ -25064,6 +25123,100 @@ public partial class TableWindow : Window
     /// <summary>Exposed for Ship Seizure: undocked, uncloaked (phased/landed/carried N/A yet).</summary>
     private bool IsShipSeizureExposed(Border ship) =>
         !IsShipCloaked(ship) && !IsShipDocked(ship);
+
+    // Rule: 10.1.0.7 Undefined and Variable Attributes
+    // Glossary: in orbit
+    // Verb: plays-on interrupt ship
+    /// <summary>
+    /// Glossary "in orbit": A ship is in orbit or orbiting a planet when it is in space,
+    /// undocked, at a planet location. A docked ship is not considered to be in orbit even if the facility is orbiting a planet.
+    /// </summary>
+    private bool IsShipOrbitingPlanet(Border shipBorder, Card ship)
+    {
+        if (!IsShipCard(ship)) return false;
+        if (IsShipDocked(shipBorder)) return false;
+        var mission = FindMissionForDockable(shipBorder);
+        if (mission?.Tag is not Card mc) return false;
+        return MissionCountsAsPlanetCard(mc);
+    }
+
+    private void ApplyLossOfOrbitalStability(Card card, int controller, Card? target)
+    {
+        Border? shipB = _interruptTargetHost;
+        if ((shipB == null || shipB.Tag is not Card) && target != null)
+            shipB = FindBorderForCard(target);
+
+        Card? sc = shipB?.Tag as Card;
+        bool hostIsShip = shipB != null && sc != null && IsShipCard(sc);
+        bool docked = shipB != null && IsShipDocked(shipB);
+        bool atPlanet = shipB != null && sc != null && IsShipOrbitingPlanet(shipB, sc);
+
+        var deny = InterruptShipEffectRules.LossOfOrbitalStabilityDeny(hostIsShip, docked, atPlanet);
+        if (deny != null)
+        {
+            ShowPlayError(deny);
+            var hand = controller == 1 ? _handCards : _oppHandCards;
+            if (!hand.Contains(card)) hand.Add(card);
+            RefreshHandStrips();
+            RefreshZoneCounts();
+            return;
+        }
+
+        // Host is verified orbiting planet ship
+        int shipOwner = GetBorderOwner(shipB!);
+        if (shipOwner is not (1 or 2)) shipOwner = controller;
+
+        // Effect 1: Ship has NO RANGE until end of turn.
+        SetShipRangeLeft(shipB!, sc!, 0);
+
+        // Effect 2: If SHIELDS > 4, discard interrupt. Otherwise, ship destroyed at end of its owner's next turn. (Cumulative.)
+        int effShields = GetEffectiveShipShields(shipB!, sc!);
+
+        if (effShields > 4)
+        {
+            // Discard interrupt immediately after removing range this turn
+            SendCardTo(card, controller, TimingRules.Destination.Discard);
+            StatusText.Text = $"Loss of Orbital Stability: {sc!.Name} has NO RANGE this turn. SHIELDS > 4 ({effShields}) — interrupt discarded.";
+            _session.Log.Add(_session.TurnNumber, $"P{controller}",
+                $"Loss of Orbital Stability on {sc.Name}: NO RANGE; SHIELDS {effShields} > 4 → discarded");
+            ShowCardReveal(card, "Loss of Orbital Stability",
+                $"Plays on {sc.Name} orbiting a planet.\n\n"
+                + $"{sc.Name} has NO RANGE until end of turn.\n\n"
+                + $"SHIELDS > 4 ({effShields}) → Loss of Orbital Stability is discarded.",
+                RevealButtons.Ok, card.Name);
+        }
+        else
+        {
+            // Attach to ship: destroyed at end of owner's next turn
+            _attachedEvents.Add(new AttachedEvent
+            {
+                Card = card,
+                Kind = EventRules.Persist.None,
+                Countdown = 1,
+                Host = shipB,
+                Owner = controller,
+                ScopePlayer = shipOwner,
+                TurnScope = TimingRules.TurnScope.SpecificPlayerNextTurn,
+                PhasePoint = TimingRules.TurnPhasePoint.EndOfTurn
+            });
+
+            var mini = CreateFloatingCard(card);
+            mini.Visibility = Visibility.Collapsed;
+            if (!TableCanvas.Children.Contains(mini))
+                TableCanvas.Children.Add(mini);
+            AddCardToHostStack(shipB!, mini);
+            UpdateHostBadge(shipB!);
+
+            StatusText.Text = $"Loss of Orbital Stability attached to {sc!.Name} (SHIELDS {effShields} <= 4): NO RANGE this turn, destroyed at end of P{shipOwner}'s next turn.";
+            _session.Log.Add(_session.TurnNumber, $"P{controller}",
+                $"Loss of Orbital Stability attached to {sc.Name} (SHIELDS {effShields} <= 4, owner P{shipOwner})");
+            ShowCardReveal(card, "Loss of Orbital Stability",
+                $"Plays on {sc.Name} orbiting a planet.\n\n"
+                + $"{sc.Name} has NO RANGE until end of turn.\n\n"
+                + $"SHIELDS {effShields} <= 4 → {sc.Name} will be destroyed at end of owner's next turn (P{shipOwner}).",
+                RevealButtons.Ok, card.Name);
+        }
+    }
 
     /// <summary>Discard victim ship only (no Escape Pod response window).</summary>
     private void DiscardShipSeizureVictim(Border border, Card card, int owner)

@@ -205,6 +205,8 @@ public static class PlayOnRules
             host = Host.AwayTeam;
         else if (hasCrew)
             host = Host.Crew;
+        else if (c.Contains("ship"))
+            host = Host.Ship;
         else if (c.Contains("planet") || c.Contains("[p]"))
             host = Host.PlanetMission;
         else if (c.Contains("mission") || c.Contains("homeworld") || c.Contains("spaceline location"))
@@ -214,8 +216,6 @@ public static class PlayOnRules
         else if (c.Contains("facility") || c.Contains("headquarters") || c.Contains("nor")
                  || c.Contains("station"))
             host = Host.Facility;
-        else if (c.Contains("ship"))
-            host = Host.Ship;
         else if (c.Contains("event"))
             host = Host.Event;
 
@@ -364,6 +364,18 @@ public static class PlayOnRules
         var co = Parse(crewOnly);
         if (co.Host != Host.Crew || co.Host2 != Host.None)
             return $"crew-only must be Crew, got {co.Host}/{co.Host2}";
+
+        var loss = new Card
+        {
+            Name = "Loss of Orbital Stability",
+            Type = "Interrupt",
+            Text = "Plays on a ship orbiting a [P]. Ship has NO RANGE until end of turn. If SHIELDS>4, discard interrupt. Otherwise, ship destroyed at end of its owner's next turn. (Cumulative.)"
+        };
+        var l = Parse(loss);
+        if (l.Host != Host.Ship || l.Host2 != Host.None)
+            return $"Loss of Orbital Stability must be Ship, got {l.Host}/{l.Host2}";
+        if (l.Role != CardPlayRole.NativeInterrupt)
+            return $"Loss of Orbital Stability Role NativeInterrupt, got {l.Role}";
 
         if (SpecAllowsHost(g, Host.Crew))
             return "AwayTeam-only must not allow Crew";

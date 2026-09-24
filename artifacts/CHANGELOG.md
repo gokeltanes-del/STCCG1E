@@ -1,3 +1,28 @@
+## 2026-09-24 — Loss of Orbital Stability (129 C) Target-Fix
+
+- Bugfix (Targeting): *Loss of Orbital Stability* gab fälschlicherweise eine Planeten-Mission als Snap/Target an anstatt ein Schiff.
+- Root Cause: In `PlayOnRules.BuildSpecFromClause` wurde `planet`/`[p]` vor `ship` geprüft, wodurch Clauses wie `"a ship orbiting a [p]"` zu `Host.PlanetMission` statt `Host.Ship` evaluierten.
+- Fix:
+  - `PlayOnRules.cs`: `c.Contains("ship")` vor `c.Contains("planet") || c.Contains("[p]")` priorisiert, sodass Schiffe mit Ortsangaben als `Host.Ship` geparst werden.
+  - `InterruptRules.cs`: `GetPlayTarget` liefert für *Loss of Orbital Stability* `PlayTarget.AnyShip`.
+  - `TargetQuery.cs`: `CanPlayOn` verifiziert für *Loss of Orbital Stability* `facts.IsShip` und `facts.IsOrbitingPlanet`. `HostFacts` um `IsOrbitingPlanet` erweitert.
+  - `TableWindow.xaml.cs`: `FactsFor` und `FactsForPrinted` berechnen `IsOrbitingPlanet`. `HostMatchesInterruptTargetForCard` und `CollectLegalSnapHosts` prüfen `IsShipOrbitingPlanet`.
+- Smoke: `GROK_TEMP/SMOKE_LOSS_OF_ORBITAL_STABILITY.md` aktualisiert. Tracker `partial`.
+
+## 2026-09-24 — Loss of Orbital Stability (129 C)
+
+- Feature: Premiere-Interrupt *Loss of Orbital Stability* (129 C) implementiert.
+- Bedingung: Spielt auf ein Schiff im Orbit eines Planeten [P] (Glossary "in orbit": im Weltall, ungedockt, an einer Planeten-Mission; `InterruptShipEffectRules.LossOfOrbitalStabilityDeny`).
+- Soforteffekt: Zielschiff hat für den restlichen Zug keine Reichweite (`SetShipRangeLeft = 0`).
+- Schilde-Prüfung:
+  - Falls effektive SHIELDS > 4: Interrupt wird sofort nach Reichweitenverlust auf den Discard gelegt.
+  - Falls effektive SHIELDS <= 4: Interrupt wird an das Schiff angehängt (`_attachedEvents`), und das Schiff wird am Ende des nächsten Zuges seines Eigners zerstört (`TimingRules.TurnScope.SpecificPlayerNextTurn` / `TurnPhasePoint.EndOfTurn` via `ProcessEndOfTurnEvents` / `DestroyShipOrFacility`).
+- Smoke: `GROK_TEMP/SMOKE_LOSS_OF_ORBITAL_STABILITY.md`. Tracker `partial`. Kein Push.
+
+## 2026-09-24 — Klingon Right of Vengeance & Life-form Scan working (Pepsch green)
+
+- *Klingon Right of Vengeance* (126 C) und *Life-form Scan* (127 U) im Probespiel verifiziert und grün gemeldet. Tracker auf working gesetzt.
+
 ## 2026-09-23 — Klingon Right of Vengeance (§ 7.4.2, § 7.4.4, Klasse B/A)
 
 - Feature: Premiere-Interrupt *Klingon Right of Vengeance* (126 C) implementiert als `JustAfter(PersonnelBattleKlingonDied)`-Response.

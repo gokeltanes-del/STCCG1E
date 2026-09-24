@@ -55,4 +55,19 @@ public static class InterruptShipEffectRules
     /// </summary>
     public static string? TranswarpDeny(bool hostIsShip) =>
         hostIsShip ? null : "Transwarp Conduit: play on a ship.";
+
+    // Rule: 10.1.0.7 Undefined and Variable Attributes
+    // Glossary: in orbit
+    // Verb: plays-on interrupt ship
+    /// <summary>
+    /// Loss of Orbital Stability: plays on a ship orbiting a [P].
+    /// In orbit: in space, undocked, at a planet location (Glossary: in orbit).
+    /// </summary>
+    public static string? LossOfOrbitalStabilityDeny(bool hostIsShip, bool isDocked, bool atPlanet)
+    {
+        if (!hostIsShip) return "Loss of Orbital Stability: plays on a ship.";
+        if (isDocked) return "Loss of Orbital Stability: ship is docked (not in orbit).";
+        if (!atPlanet) return "Loss of Orbital Stability: ship must be orbiting a planet mission.";
+        return null;
+    }
 }

@@ -118,6 +118,7 @@ public static class InterruptRules
     public static bool IsWormhole(Card? c) => NameIs(c, "Wormhole");
 
     public static bool IsShipSeizure(Card? c) => NameIs(c, "Ship Seizure");
+    public static bool IsLossOfOrbitalStability(Card? c) => NameIs(c, "Loss of Orbital Stability");
 
     /// <summary>Extract Slice 2: pair gate â€” need two Wormholes in hand to start the first.</summary>
     public static bool CanStartWormholePair(int wormholesInHand) => wormholesInHand >= 2;
@@ -220,6 +221,9 @@ public static class InterruptRules
             return PlayTarget.AnyShip;
 
         if (IsTachyonDetectionGrid(card))
+            return PlayTarget.AnyShip;
+
+        if (IsLossOfOrbitalStability(card))
             return PlayTarget.AnyShip;
 
         return PlayTarget.None;

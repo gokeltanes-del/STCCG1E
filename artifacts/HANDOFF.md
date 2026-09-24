@@ -1,9 +1,18 @@
 ---
-## Aktiv (Data tip - Klingon Right of Vengeance)
-- **Soll:** JustAfter(PersonnelBattleKlingonDied) nach Personnel Battle mit Klingonen-Tod; eigene Klingonen dürfen sofort "same opponents" angreifen; Leader-Bypass; STRENGTH verdoppelt.
-- **Ist:** `TimingRules.JustAfterTrigger.PersonnelBattleKlingonDied` + Response-Validierung; `BattleRules.ResolvePersonnelBattle` verdoppelt STRENGTH (`klingonStrengthDoubled`); Leader-Bypass in `CanInitiatePersonnelAttack` und `ApplyRightOfVengeanceFromResponse`; `UnstopBorder` der Klingonen; Hand-Play-Deny außerhalb des Fensters.
-- **Smoke:** `GROK_TEMP/SMOKE_KLINGON_RIGHT_OF_VENGEANCE.md`.
-- **Tracker:** Klingon Right of Vengeance → partial until Pepsch green. No push.
+## Aktiv (Data tip - Loss of Orbital Stability Target-Fix)
+- **Soll:** Ein Schiff im Orbit einer Planeten-Mission muss das Target sein (nicht der Planet).
+- **Ist:**
+  - `PlayOnRules.cs`: `ship` vor `planet`/`[p]` priorisiert, sodass `"a ship orbiting a [p]"` zu `Host.Ship` evaluiert.
+  - `InterruptRules.cs`: `GetPlayTarget` liefert `PlayTarget.AnyShip`.
+  - `TargetQuery.cs`: `CanPlayOn` verlangt `facts.IsShip` und `facts.IsOrbitingPlanet`. `HostFacts` um `IsOrbitingPlanet` erweitert.
+  - `TableWindow.xaml.cs`: `CollectLegalSnapHosts` und `HostMatchesInterruptTargetForCard` prüfen `IsShipOrbitingPlanet`. Snap und Halos heben nur Schiffe im Orbit hervor.
+- **Smoke:** `GROK_TEMP/SMOKE_LOSS_OF_ORBITAL_STABILITY.md`.
+- **Tracker:** *Loss of Orbital Stability* auf `partial`. Kein Push.
+- **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52; Artifact-Y Load.
+---
+## Aktiv (Pepsch green - Klingon Right of Vengeance & Life-form Scan)
+- **Status:** *Klingon Right of Vengeance* (126 C) und *Life-form Scan* (127 U) durch Pepsch erfolgreich getestet und grün gemeldet.
+- **Tracker:** Beide Karten auf `working`.
 - **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52; Artifact-Y Load.
 ---
 ## Aktiv (Data tip - Escape Pod Pass must not eat Death Yell)

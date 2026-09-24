@@ -104,7 +104,8 @@ public static class TargetQuery
         bool IsMission,
         bool IsPlanetMission,
         bool IsNonAlignedShip,
-        bool IsBorgShip);
+        bool IsBorgShip,
+        bool IsOrbitingPlanet = false);
 
     public static bool IsGapPlay(Card? drag)
     {
@@ -144,6 +145,15 @@ public static class TargetQuery
             if (!string.IsNullOrEmpty(need) && !AffiliationMatches(candidate, need))
                 return (false, $"Incoming Message: ship is not {need}.");
             return (true, "Incoming Message on that ship.");
+        }
+
+        if (InterruptRules.IsLossOfOrbitalStability(drag))
+        {
+            if (!facts.IsShip)
+                return (false, "Loss of Orbital Stability: plays on a ship.");
+            if (!facts.IsOrbitingPlanet)
+                return (false, "Loss of Orbital Stability: ship must be orbiting a planet mission.");
+            return (true, "Loss of Orbital Stability on orbiting ship.");
         }
 
         if (EventRules.IsEvent(drag) && EventRules.PlaysOnHost(drag))
