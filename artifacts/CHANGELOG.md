@@ -1,3 +1,10 @@
+## 2026-09-23 — Klingon Right of Vengeance (§ 7.4.2, § 7.4.4, Klasse B/A)
+
+- Feature: Premiere-Interrupt *Klingon Right of Vengeance* (126 C) implementiert als `JustAfter(PersonnelBattleKlingonDied)`-Response.
+- Timing & Trigger: Öffnet sich unmittelbar nach einer Personnel Battle, in der mindestens ein Klingone gestorben und im Discard gelandet ist (Genetronic Save schließt Trigger aus; sequentiell nach ggf. anstehendem Death Yell).
+- Effekt: Entstoppt eigene Klingonen am Host (`UnstopBorder`), initiiert unmittelbaren Gegenangriff gegen die überlebenden Kombatanten der Gegenseite ("same opponents"). Bypasst Leader-Pflicht (§ 7.4.1 / `HasLeader`). Verdoppelt STRENGTH aller angreifenden Klingonen für diese Schlacht (`sa *= 2` bei Pairings und Live-STRENGTH).
+- Smoke: `GROK_TEMP/SMOKE_KLINGON_RIGHT_OF_VENGEANCE.md`. Tracker partial. Kein Push.
+
 ## 2026-09-23 — Death Yell after Escape Pod Pass (ResolveEntireStack drain)
 
 - Root: Plasma/WCB Destroy → Escape Pod ShipDestroyed Pass → ResolveEntireStack while-loop re-entered Destroy Results, TryFlushJustAfterDeathWindows opened JustAfter mid-loop, same loop immediately popped JustAfter as passed (~4838) → Yell UI never stayed open. Without Pod, Destroy runs inline (not under drain) → Yell OK.

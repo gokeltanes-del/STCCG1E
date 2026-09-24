@@ -1,6 +1,6 @@
 # Compendium 2.7.4 — Checkliste
 
-Quelle: `rules/Compendium_Rulebook.pdf` (2.7.4, August 2026, 322 Seiten). Prozess: `RULES.md`.
+Quelle: `rules/Compendium_Rulebook.pdf` (2.7.4, August 2026, 322 Seiten). Ablauf: `IMPLEMENT.md`.
 Stand: 2026-09-19 (TOC-Rebuild). Scope: Premiere; ➖ = nicht jetzt / Format / Referenz.
 
 ✅ spielbar · 🟡 Lücken · ❌ fehlt · ➖ später
@@ -53,7 +53,7 @@ PDF hat **kein §12.17** (HTML 2.6.2 `NEXT STEPS`); Sprung 12.16 → 12.18 ist b
 | 2.3 | ARTIFACTS | 🟡 | Acquire + Hand-Play PR; Horga'hn Extra-Play/Draw 2026-08-28 · PDF p.6 |
 | 2.3.0.1 | Clarifications: Earning & Using Artifacts | 🟡 | Acquire bei Solve; Horga'hn auch Hand→TABLE · PDF p.6 |
 | 2.4 | EVENTS, INCIDENTS, & OBJECTIVES | 🟡 | Events PR+AU Teil; Incidents/Objectives ➖; WCB/Plasma Skill-Nullify 2026-08-28 · PDF p.6 |
-| 2.4.0.2 | Borg Rule: Objectives, Not Missions | ➖ | Borg-only / Infiltrate — Premiere-Scope laut RULES.md · PDF p.7 |
+| 2.4.0.2 | Borg Rule: Objectives, Not Missions | ➖ | Borg-only / Infiltrate — Premiere-Scope laut PROJECT.md · PDF p.7 |
 | 2.4.0.1 | Tip: What's the Difference? | ➖ | Tip-Sidebar (Referenz) · PDF p.7 |
 | 2.5 | DOORWAYS | 🟡 | Seed + Side-Deck-Cover · PDF p.7 |
 | 2.6 | INTERRUPTS | 🟡 | Katalog + Stack + off-turn; Devil vs Encounter-Wind-Dancer · PDF p.7 |
@@ -84,7 +84,7 @@ PDF hat **kein §12.17** (HTML 2.6.2 `NEXT STEPS`); Sprung 12.16 → 12.18 ist b
 
 | § | Thema | Status | Code / Hinweis |
 |---|--------|--------|----------------|
-| 3.0.1 | Borg Rule: Non-Borg Borg Cards in Your Deck | ➖ | Borg-only / Infiltrate — Premiere-Scope laut RULES.md · PDF p.14 |
+| 3.0.1 | Borg Rule: Non-Borg Borg Cards in Your Deck | ➖ | Borg-only / Infiltrate — Premiere-Scope laut PROJECT.md · PDF p.14 |
 | 3.1 | SEED DECK | 🟡 | `.stdeck` v2; 30/30/30 nicht erzwungen · PDF p.14 |
 | 3.1.0.2 | Tip: A Typical Seed Deck | ➖ | Tip-Sidebar (Referenz) · PDF p.14 |
 | 3.1.0.1 | Clarifications: Unique Seed Cards | 🟡 | wie §3.1 (nicht feiner auditiert) · PDF p.14 |
@@ -148,7 +148,7 @@ Im PDF **keine** `(5.x)`-Nummern — Kapitel 5 ist der Turn-Rahmen; Valid-Respon
 | 6.2 | ENTERING PLAY | 🟡 | PDF p.25 |
 | 6.2.0.2 | Clarifications: Not Yet Played | 🟡 | wie §6.2 (nicht feiner auditiert) · PDF p.25 |
 | 6.2.0.1 | Clarifications: Cards Played as Costs | 🟡 | wie §6.2 (nicht feiner auditiert) · PDF p.26 |
-| 6.2.0.3 | Borg Rule: Counterpart Limit | ➖ | Borg-only / Infiltrate — Premiere-Scope laut RULES.md · PDF p.26 |
+| 6.2.0.3 | Borg Rule: Counterpart Limit | ➖ | Borg-only / Infiltrate — Premiere-Scope laut PROJECT.md · PDF p.26 |
 | 6.2.0.4 | Clarifications: Showing your Hidden Agenda cards | 🟡 | wie §6.2 (nicht feiner auditiert) · PDF p.26 |
 | 6.3 | REPORTING FOR DUTY | 🟡 | Facility + Treaty-Mix + NA · PDF p.26 |
 | 6.3.0.1 | Tip: Headquarters Aren't Restricted | ➖ | Tip-Sidebar (Referenz) · PDF p.27 |
@@ -173,7 +173,7 @@ Im PDF **keine** `(5.x)`-Nummern — Kapitel 5 ist der Turn-Rahmen; Valid-Respon
 | 6.3.5 | MIRROR OPPOSITES AND IMPERSONATORS | ➖ | Mirror Universe — Premiere-Scope · PDF p.32 |
 | 6.4 | LEAVING PLAY | 🟡 | Discard / OOP; nicht alle Fälle · PDF p.33 |
 | 6.4.0.1 | Open Rules: Discard Dilemmas | ➖ | Open / Traditional / OP-Format · PDF p.34 |
-| 6.4.0.2 | Borg Rule: Borg Points | ➖ | Borg-only / Infiltrate — Premiere-Scope laut RULES.md · PDF p.34 |
+| 6.4.0.2 | Borg Rule: Borg Points | ➖ | Borg-only / Infiltrate — Premiere-Scope laut PROJECT.md · PDF p.34 |
 | 6.4.0.3 | Clarifications: Other bonus points | 🟡 | wie §6.4 (nicht feiner auditiert) · PDF p.34 |
 | 6.5 | OTHER WAYS TO PLAY A CARD | 🟡 | PDF p.34 |
 | 6.5.1 | PLAYING "AT ANY TIME" | 🟡 | Interrupts; `CollectOffTurn` seit 2026-08-28 · PDF p.34 |
@@ -204,7 +204,7 @@ Report an Schiffe (nicht nur Special) noch ❌.
 | 7.1 | MOVE | 🟡 | PDF p.39 |
 | 7.0.1 | Clarifications: Crews, Away Teams, and Movement | ❌ | TOC-Zeile neu; Status unbekannt (nicht grün markiert) · PDF p.39 |
 | 7.0.2 | Tip: Separate Crews and Away Teams | ➖ | Tip-Sidebar (Referenz) · PDF p.39 |
-| 7.0.3 | Borg Rule: Extraneous Factors are Irrelevant | ➖ | Borg-only / Infiltrate — Premiere-Scope laut RULES.md · PDF p.40 |
+| 7.0.3 | Borg Rule: Extraneous Factors are Irrelevant | ➖ | Borg-only / Infiltrate — Premiere-Scope laut PROJECT.md · PDF p.40 |
 | 7.1.1 | BEAM | 🟡 | gleiche Location; Host-Affiliation/Treaty (Equipment & Artifacts frei); Planet-AT frei; **kein Beam auf Space-Mission** (7.1.1.0.1, 2026-08-31) · PDF p.40 |
 | 7.1.1.0.4 | Clarifications: Compatibility | 🟡 | wie §7.1.1 (nicht feiner auditiert) · PDF p.40 |
 | 7.1.1.0.3 | Clarifications: "Unshielded" | 🟡 | wie §7.1.1 (nicht feiner auditiert) · PDF p.40 |
@@ -240,7 +240,7 @@ Report an Schiffe (nicht nur Special) noch ❌.
 | 7.2.2 | ENCOUNTERING DILEMMAS | 🟡 | Katalog ersetzt Heuristik; 7.2.2.3 Zentrales Cure-System (`DilemmaCureRules`, Bedingungen zuerst, dann Cure auf Attachment/Refresh/Solve); Curable Dilemmas ohne Condition stoppen Team nicht (AttachContinue); Pepsch green: Archer, Alien Abduction, Phased Matter (2026-09-13) · PDF p.46 |
 | 7.2.2.0.4 | Clarification: Dilemma Triggers | 🟡 | wie §7.2.2 (nicht feiner auditiert) · PDF p.47 |
 | 7.2.2.0.3 | Clarification: Dilemma Targets | 🟡 | wie §7.2.2 (nicht feiner auditiert) · PDF p.47 |
-| 7.2.2.0.2 | Borg Rule: Some Dilemmas are Irrelevant | ➖ | Borg-only / Infiltrate — Premiere-Scope laut RULES.md · PDF p.47 |
+| 7.2.2.0.2 | Borg Rule: Some Dilemmas are Irrelevant | ➖ | Borg-only / Infiltrate — Premiere-Scope laut PROJECT.md · PDF p.47 |
 | 7.2.2.0.1 | Clarifications: Reading and Responding to Dilemmas | 🟡 | wie §7.2.2 (nicht feiner auditiert) · PDF p.48 |
 | 7.2.2.0.7 | Clarifications: "Combo" Dilemmas | 🟡 | wie §7.2.2 (nicht feiner auditiert) · PDF p.48 |
 | 7.2.2.0.6 | Dilemmas | 🟡 | wie §7.2.2 (nicht feiner auditiert) · PDF p.49 |
@@ -263,20 +263,20 @@ Report an Schiffe (nicht nur Special) noch ❌.
 | 7.2.6.0.3 | Clarification: Failing aDual-Icon Mission | 🟡 | wie §7.2.6 (nicht feiner auditiert) · PDF p.53 |
 | 7.2.6.0.2 | Tip: Mission Failures Don't Stop the Team | ➖ | Tip-Sidebar (Referenz) · PDF p.53 |
 | 7.2.6.0.1 | Clarification: Reseed After Escapes | 🟡 | wie §7.2.6 (nicht feiner auditiert) · PDF p.54 |
-| 7.3 | COMPLETE BORG OBJECTIVES | ➖ | Borg-only / Infiltrate — Premiere-Scope laut RULES.md · PDF p.55 |
-| 7.3.1 | IN GENERAL | ➖ | Borg-only / Infiltrate — Premiere-Scope laut RULES.md · PDF p.55 |
-| 7.3.2 | SCOUTING | ➖ | Borg-only / Infiltrate — Premiere-Scope laut RULES.md · PDF p.55 |
-| 7.3.2.1 | Missions Are Irrelevant: Scouting Locations | ➖ | Borg-only / Infiltrate — Premiere-Scope laut RULES.md · PDF p.55 |
-| 7.3.2.1.1 | Planetary Assimilation | ➖ | Borg-only / Infiltrate — Premiere-Scope laut RULES.md · PDF p.56 |
-| 7.3.2.2 | Scouting Ships | ➖ | Borg-only / Infiltrate — Premiere-Scope laut RULES.md · PDF p.56 |
-| 7.3.2.2.1 | Ship Assimilation | ➖ | Borg-only / Infiltrate — Premiere-Scope laut RULES.md · PDF p.56 |
+| 7.3 | COMPLETE BORG OBJECTIVES | ➖ | Borg-only / Infiltrate — Premiere-Scope laut PROJECT.md · PDF p.55 |
+| 7.3.1 | IN GENERAL | ➖ | Borg-only / Infiltrate — Premiere-Scope laut PROJECT.md · PDF p.55 |
+| 7.3.2 | SCOUTING | ➖ | Borg-only / Infiltrate — Premiere-Scope laut PROJECT.md · PDF p.55 |
+| 7.3.2.1 | Missions Are Irrelevant: Scouting Locations | ➖ | Borg-only / Infiltrate — Premiere-Scope laut PROJECT.md · PDF p.55 |
+| 7.3.2.1.1 | Planetary Assimilation | ➖ | Borg-only / Infiltrate — Premiere-Scope laut PROJECT.md · PDF p.56 |
+| 7.3.2.2 | Scouting Ships | ➖ | Borg-only / Infiltrate — Premiere-Scope laut PROJECT.md · PDF p.56 |
+| 7.3.2.2.1 | Ship Assimilation | ➖ | Borg-only / Infiltrate — Premiere-Scope laut PROJECT.md · PDF p.56 |
 | 7.4 | BATTLE | 🟡 | PDF p.56 |
 | 7.4.1 | INITIATING A BATTLE | 🟡 | Leader; **Fed nur vs Borg** (2026-08-28); Wartime-Ausnahme · PDF p.57 |
-| 7.4.1.0.4 | Borg Rule: Combat is Irrelevant | ➖ | Borg-only / Infiltrate — Premiere-Scope laut RULES.md · PDF p.57 |
+| 7.4.1.0.4 | Borg Rule: Combat is Irrelevant | ➖ | Borg-only / Infiltrate — Premiere-Scope laut PROJECT.md · PDF p.57 |
 | 7.4.1.0.3 | Clarification: Battle "Opponent" | 🟡 | wie §7.4.1 (nicht feiner auditiert) · PDF p.57 |
 | 7.4.1.0.2 | Clarification: Cancelled Battles | 🟡 | wie §7.4.1 (nicht feiner auditiert) · PDF p.57 |
 | 7.4.1.0.1 | Reminder:Actions and Valid Responses | 🟡 | wie §7.4.1 (nicht feiner auditiert) · PDF p.57 |
-| 7.4.1.0.5 | Borg Rule: Leaders are Irrelevant | ➖ | Borg-only / Infiltrate — Premiere-Scope laut RULES.md · PDF p.57 |
+| 7.4.1.0.5 | Borg Rule: Leaders are Irrelevant | ➖ | Borg-only / Infiltrate — Premiere-Scope laut PROJECT.md · PDF p.57 |
 | 7.4.1.0.6 | Clarifications: Affiliation Attack Restrictions | 🟡 | wie §7.4.1 (nicht feiner auditiert) · PDF p.58 |
 | 7.4.2 | PERSONNEL BATTLE | 🟡 | Stun/Mortal auto; UX grob · PDF p.58 |
 | 7.4.2.0.3 | Reminder:Holographic Safety Protocols | 🟡 | wie §7.4.2 (nicht feiner auditiert) · PDF p.58 |
@@ -289,7 +289,7 @@ Report an Schiffe (nicht nur Special) noch ❌.
 | 7.4.3.0.4 | Clarifications: Downloading Tactics | ➖ | Tactics / Battle Bridge — Premiere-Scope (Rotation-Damage ist 7.5.1.2) · PDF p.60 |
 | 7.4.3.0.5 | Clarifications: Opponent Always Applies Damage To You | 🟡 | wie §7.4.3 (nicht feiner auditiert) · PDF p.61 |
 | 7.4.4 | AFTER THE BATTLE | 🟡 | Survivors stopped · PDF p.61 |
-| 7.4.4.0.1 | Borg Rule: Borg Counter-Attacks | ➖ | Borg-only / Infiltrate — Premiere-Scope laut RULES.md · PDF p.61 |
+| 7.4.4.0.1 | Borg Rule: Borg Counter-Attacks | ➖ | Borg-only / Infiltrate — Premiere-Scope laut PROJECT.md · PDF p.61 |
 | 7.5 | DAMAGE AND REPAIRS | 🟡 | PDF p.61 |
 | 7.5.1 | DAMAGE | 🟡 | Rotation 50/100; Tactics ➖ · PDF p.62 |
 | 7.5.1.1 | TACTICS DAMAGE | ➖ | Tactics / Battle Bridge — Premiere-Scope (Rotation-Damage ist 7.5.1.2) · PDF p.62 |
@@ -300,17 +300,17 @@ Report an Schiffe (nicht nur Special) noch ❌.
 | 7.6 | CLOAK | 🟡 | Toggle + Tachyon-Lock; Fog of War ❌ · PDF p.63 |
 | 7.6.0.1 | Clarifications: Cloaking and Phasing are Distinct | 🟡 | wie §7.6 (nicht feiner auditiert) · PDF p.63 |
 | 7.7 | CAPTURE | ❌ | PDF p.64 |
-| 7.7.0.3 | Borg Rule: Abduction | ➖ | Borg-only / Infiltrate — Premiere-Scope laut RULES.md · PDF p.64 |
-| 7.7.0.2 | Borg Rule: Personnel Assimilation | ➖ | Borg-only / Infiltrate — Premiere-Scope laut RULES.md · PDF p.65 |
+| 7.7.0.3 | Borg Rule: Abduction | ➖ | Borg-only / Infiltrate — Premiere-Scope laut PROJECT.md · PDF p.64 |
+| 7.7.0.2 | Borg Rule: Personnel Assimilation | ➖ | Borg-only / Infiltrate — Premiere-Scope laut PROJECT.md · PDF p.65 |
 | 7.7.0.1 | Clarifications: Capture | ❌ | wie §7.7 — Feinregel unbekannt · PDF p.66 |
 | 7.8 | COMMANDEER | 🟡 | Lore Returns: Fly/Battle ohne Leader; Kevin gibt Owner die Kontrolle zurück · PDF p.66 |
-| 7.8.0.3 | Borg Rule: Commandeering is Irrelevant | ➖ | Borg-only / Infiltrate — Premiere-Scope laut RULES.md · PDF p.66 |
+| 7.8.0.3 | Borg Rule: Commandeering is Irrelevant | ➖ | Borg-only / Infiltrate — Premiere-Scope laut PROJECT.md · PDF p.66 |
 | 7.8.0.2 | Clarifications: Affiliation After Commandeering | 🟡 | wie §7.8 (nicht feiner auditiert) · PDF p.66 |
 | 7.8.0.1 | Clarifications: Can't Commandeer Your Cards | 🟡 | wie §7.8 (nicht feiner auditiert) · PDF p.66 |
-| 7.9 | INFILTRATE | ➖ | Borg-only / Infiltrate — Premiere-Scope laut RULES.md · PDF p.66 |
+| 7.9 | INFILTRATE | ➖ | Borg-only / Infiltrate — Premiere-Scope laut PROJECT.md · PDF p.66 |
 | 7.9.0.1 | Tip: Opponent*Must*Play Affiliation | ➖ | Tip-Sidebar (Referenz) · PDF p.67 |
-| 7.9.1 | EXPOSURE | ➖ | Borg-only / Infiltrate — Premiere-Scope laut RULES.md · PDF p.67 |
-| 7.9.1.0.1 | Clarification: Infiltrators and House Arrest | ➖ | Borg-only / Infiltrate — Premiere-Scope laut RULES.md · PDF p.67 |
+| 7.9.1 | EXPOSURE | ➖ | Borg-only / Infiltrate — Premiere-Scope laut PROJECT.md · PDF p.67 |
+| 7.9.1.0.1 | Clarification: Infiltrators and House Arrest | ➖ | Borg-only / Infiltrate — Premiere-Scope laut PROJECT.md · PDF p.67 |
 | 7.10 | REQUIRED ACTIONS | 🟡 | IM Auto-Zug in Execute (volle RANGE + **visueller Hop**); Cytherians/Conundrum; WNOHGB nur eigene TABLE. Snare/Clock ❌ · PDF p.67 |
 | 7.10.0.1 | Clarification: Hazards and Shortcuts in Required Moves | 🟡 | wie §7.10 (nicht feiner auditiert) · PDF p.68 |
 
@@ -346,7 +346,7 @@ Until-EOT: `TurnExpiry` 🟡 nur finishing player.
 | 10.1.0.5 | Clarifications: Ships with Skills | 🟡 | wie §10.1 (nicht feiner auditiert) · PDF p.72 |
 | 10.1.0.4 | Clarifications: "First-Listed Skill" | 🟡 | First-listed skill ≠ Classification (Foundation tip `98aec60`, Pepsch green Tsiolkovsky); Parser-Kantenfälle möglich · PDF p.73 |
 | 10.1.0.3 | Clarifications: Skill Multipliers | 🟡 | wie §10.1 (nicht feiner auditiert) · PDF p.73 |
-| 10.1.0.2 | Borg Rule: Sharing Skills | ➖ | Borg-only / Infiltrate — Premiere-Scope laut RULES.md · PDF p.74 |
+| 10.1.0.2 | Borg Rule: Sharing Skills | ➖ | Borg-only / Infiltrate — Premiere-Scope laut PROJECT.md · PDF p.74 |
 | 10.1.0.1 | Clarifications: Classifications vs. Skills | 🟡 | wie §10.1 (nicht feiner auditiert) · PDF p.75 |
 | 10.1.1 | LOADED SKILLS | 🟡 | PDF p.75 |
 | 10.1.1.1 | OFFICER AND LEADERSHIP: "LEADER" | 🟡 | wie §10.1.1 (nicht feiner auditiert) · PDF p.75 |
@@ -383,7 +383,7 @@ Until-EOT: `TurnExpiry` 🟡 nur finishing player.
 | 10.3.0.9 | Automatic Characteristic: Species | 🟡 | wie §10.3 (nicht feiner auditiert) · PDF p.81 |
 | 10.3.0.9.1 | Exceptions: Species | 🟡 | wie §10.3 (nicht feiner auditiert) · PDF p.82 |
 | 10.3.0.8 | Automatic Characteristic: Gender | 🟡 | wie §10.3 (nicht feiner auditiert) · PDF p.83 |
-| 10.3.0.8.1 | Borg Rule: Gender is Irrelevant | ➖ | Borg-only / Infiltrate — Premiere-Scope laut RULES.md · PDF p.83 |
+| 10.3.0.8.1 | Borg Rule: Gender is Irrelevant | ➖ | Borg-only / Infiltrate — Premiere-Scope laut PROJECT.md · PDF p.83 |
 | 10.3.0.7 | Clarifications: Ignore Card Image | 🟡 | wie §10.3 (nicht feiner auditiert) · PDF p.83 |
 | 10.3.0.6 | Clarifications: Ignore Information Outside the Card | 🟡 | wie §10.3 (nicht feiner auditiert) · PDF p.83 |
 | 10.3.0.5 | Clarifications: Characteristics Aren't Skills | 🟡 | wie §10.3 (nicht feiner auditiert) · PDF p.83 |
@@ -486,7 +486,7 @@ PDF p. 96–98. Keine `(13.x)`-Nummern.
 
 | § | Thema | Status | Code / Hinweis |
 |---|--------|--------|----------------|
-| TR | Temporary Rulings (p. 225) | 🟡 | Nur zwei Verweise: leaves play ohne entering play; Borg Outpost auf assimiliertem Homeworld. Lookup laut RULES.md vor jedem Fix. |
+| TR | Temporary Rulings (p. 225) | 🟡 | Nur zwei Verweise: leaves play ohne entering play; Borg Outpost auf assimiliertem Homeworld. Lookup laut IMPLEMENT.md vor jedem Fix. |
 | B | Appendix B: Change Log (p. 322) | ➖ | Verweist auf Recent Rulings Document / Starship Excelsior Archive — keine Engine-Regel |
 
 ## UI / Infra (kein Compendium)
@@ -509,7 +509,7 @@ PDF p. 96–98. Keine `(13.x)`-Nummern.
 
 1. 7.4.1 / 7.4.2 Initiate vollständig (Karten, die Fed explizit erlauben)
 2. 6.5.1 at-any-time vs. gültige Response (Glossary *actions*) — Response Window smoke
-3. 12.4 present / here an Hosts festziehen (Welle 2 ACTIVE)
+3. 12.4 present / here an Hosts festziehen (ACTIVE; Tracker `GLOSSARY_COVERAGE.md`)
 4. 6.3.4 Dual-Personnel erst wenn eine PR-Karte es braucht
 5. Events auf `PlayOnRules` nur als Fallback, Katalog bleibt Override
 

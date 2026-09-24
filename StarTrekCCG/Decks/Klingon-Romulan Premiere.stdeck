@@ -1,0 +1,785 @@
+{
+  "format": "STCCG1E-Deck-v2",
+  "name": "Klingon-Romulan Premiere",
+  "notes": null,
+  "created": "2026-08-30T12:42:33.4136769+02:00",
+  "modified": "2026-09-19T21:50:17.2265644+02:00",
+  "seed": [
+    {
+      "name": "Time Travel Pod",
+      "set": "PR",
+      "type": "Artifact",
+      "quantity": 1
+    },
+    {
+      "name": "Tox Uthat",
+      "set": "PR",
+      "type": "Artifact",
+      "quantity": 1
+    },
+    {
+      "name": "Varon-T Disruptor",
+      "set": "PR",
+      "type": "Artifact",
+      "quantity": 1
+    },
+    {
+      "name": "Vulcan Stone of Gol",
+      "set": "PR",
+      "type": "Artifact",
+      "quantity": 1
+    },
+    {
+      "name": "Alien Parasites",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1
+    },
+    {
+      "name": "Archer",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1
+    },
+    {
+      "name": "Armus: Skin Of Evil",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1
+    },
+    {
+      "name": "Chalnoth",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1
+    },
+    {
+      "name": "Crystalline Entity",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1
+    },
+    {
+      "name": "Iconian Computer Weapon",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1
+    },
+    {
+      "name": "Impassable Door",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1
+    },
+    {
+      "name": "Nausicaans",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1
+    },
+    {
+      "name": "Q",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1
+    },
+    {
+      "name": "Rebel Encounter",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1
+    },
+    {
+      "name": "REM Fatigue",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1
+    },
+    {
+      "name": "Sarjenka",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1
+    },
+    {
+      "name": "Shaka, When the Walls Fell",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1
+    },
+    {
+      "name": "Tarellian Plague Ship",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1
+    },
+    {
+      "name": "Temporal Causality Loop",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1
+    },
+    {
+      "name": "Tsiolkovsky Infection",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1
+    },
+    {
+      "name": "Two-Dimensional Creatures",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1
+    },
+    {
+      "name": "Wind Dancer",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1
+    },
+    {
+      "name": "Klingon Outpost",
+      "set": "PR",
+      "type": "Facility",
+      "quantity": 1
+    },
+    {
+      "name": "Romulan Outpost",
+      "set": "PR",
+      "type": "Facility",
+      "quantity": 1
+    },
+    {
+      "name": "Investigate \u0022Shattered Space\u0022",
+      "set": "PR",
+      "type": "Mission",
+      "quantity": 1
+    },
+    {
+      "name": "Investigate Alien Probe",
+      "set": "PR",
+      "type": "Mission",
+      "quantity": 1
+    },
+    {
+      "name": "Khitomer Research",
+      "set": "PR",
+      "type": "Mission",
+      "quantity": 1
+    },
+    {
+      "name": "New Contact",
+      "set": "PR",
+      "type": "Mission",
+      "quantity": 1
+    },
+    {
+      "name": "Seek Life-form",
+      "set": "PR",
+      "type": "Mission",
+      "quantity": 1
+    },
+    {
+      "name": "Study Lonka Pulsar",
+      "set": "PR",
+      "type": "Mission",
+      "quantity": 1
+    }
+  ],
+  "draw": [
+    {
+      "name": "Engineering Kit",
+      "set": "PR",
+      "type": "Equipment",
+      "quantity": 1
+    },
+    {
+      "name": "Engineering PADD",
+      "set": "PR",
+      "type": "Equipment",
+      "quantity": 1
+    },
+    {
+      "name": "Klingon Disruptor",
+      "set": "PR",
+      "type": "Equipment",
+      "quantity": 1
+    },
+    {
+      "name": "Klingon PADD",
+      "set": "PR",
+      "type": "Equipment",
+      "quantity": 1
+    },
+    {
+      "name": "Medical Kit",
+      "set": "PR",
+      "type": "Equipment",
+      "quantity": 1
+    },
+    {
+      "name": "Medical Tricorder",
+      "set": "PR",
+      "type": "Equipment",
+      "quantity": 1
+    },
+    {
+      "name": "Romulan Disruptor",
+      "set": "PR",
+      "type": "Equipment",
+      "quantity": 1
+    },
+    {
+      "name": "Romulan PADD",
+      "set": "PR",
+      "type": "Equipment",
+      "quantity": 1
+    },
+    {
+      "name": "Tricorder",
+      "set": "PR",
+      "type": "Equipment",
+      "quantity": 1
+    },
+    {
+      "name": "Alien Probe",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1
+    },
+    {
+      "name": "Atmospheric Ionization",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1
+    },
+    {
+      "name": "Bynars Weapon Enhancement",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1
+    },
+    {
+      "name": "Distortion Field",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1
+    },
+    {
+      "name": "Espionage: Klingon on Federation",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1
+    },
+    {
+      "name": "Espionage: Romulan on Federation",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1
+    },
+    {
+      "name": "Espionage: Romulan on Klingon",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1
+    },
+    {
+      "name": "Gaps in Normal Space",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1
+    },
+    {
+      "name": "Genetronic Replicator",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1
+    },
+    {
+      "name": "Goddess of Empathy",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1
+    },
+    {
+      "name": "Holo-Projectors",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1
+    },
+    {
+      "name": "Kivas Fajo: Collector",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1
+    },
+    {
+      "name": "Lore Returns",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1
+    },
+    {
+      "name": "Lore\u0027s Fingernail",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1
+    },
+    {
+      "name": "Masaka Transformations",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1
+    },
+    {
+      "name": "Metaphasic Shields",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1
+    },
+    {
+      "name": "Neural Servo Device",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1
+    },
+    {
+      "name": "Nutational Shields",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1
+    },
+    {
+      "name": "Plasma Fire",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1
+    },
+    {
+      "name": "Q-Net",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1
+    },
+    {
+      "name": "Red Alert!",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1
+    },
+    {
+      "name": "Res-Q",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1
+    },
+    {
+      "name": "Spacedock",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1
+    },
+    {
+      "name": "Static Warp Bubble",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1
+    },
+    {
+      "name": "Subspace Warp Rift",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1
+    },
+    {
+      "name": "Supernova",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1
+    },
+    {
+      "name": "Telepathic Alien Kidnappers",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1
+    },
+    {
+      "name": "Tetryon Field",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1
+    },
+    {
+      "name": "The Traveler: Transcendence",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1
+    },
+    {
+      "name": "Treaty: Romulan/Klingon",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1
+    },
+    {
+      "name": "Warp Core Breach",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1
+    },
+    {
+      "name": "Where No One Has Gone Before",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1
+    },
+    {
+      "name": "Yellow Alert",
+      "set": "Alternate_Universe",
+      "type": "Event",
+      "quantity": 1
+    },
+    {
+      "name": "Alien Groupie",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1
+    },
+    {
+      "name": "Amanda Rogers",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1
+    },
+    {
+      "name": "Asteroid Sanctuary",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1
+    },
+    {
+      "name": "Auto-Destruct Sequence",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1
+    },
+    {
+      "name": "Crosis",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1
+    },
+    {
+      "name": "Disruptor Overload",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1
+    },
+    {
+      "name": "Distortion of Space/Time Continuum",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1
+    },
+    {
+      "name": "Emergency Transporter Armbands",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1
+    },
+    {
+      "name": "Escape Pod",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1
+    },
+    {
+      "name": "Full Planet Scan",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1
+    },
+    {
+      "name": "Honor Challenge",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1
+    },
+    {
+      "name": "Incoming Message: Federation",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1
+    },
+    {
+      "name": "Jaglom Shrek: Information Broker",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1
+    },
+    {
+      "name": "Kevin Uxbridge",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1
+    },
+    {
+      "name": "Klingon Death Yell",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1
+    },
+    {
+      "name": "Klingon Right of Vengeance",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1
+    },
+    {
+      "name": "Life-form Scan",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1
+    },
+    {
+      "name": "Long-Range Scan",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1
+    },
+    {
+      "name": "Loss of Orbital Stability",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1
+    },
+    {
+      "name": "Near-Warp Transport",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1
+    },
+    {
+      "name": "Palor Toff: Alien Trader",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1
+    },
+    {
+      "name": "Particle Fountain",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1
+    },
+    {
+      "name": "Q2",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1
+    },
+    {
+      "name": "Rogue Borg",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 5
+    },
+    {
+      "name": "Ship Seizure",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1
+    },
+    {
+      "name": "Subspace Interference",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1
+    },
+    {
+      "name": "Tachyon Detection Grid",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1
+    },
+    {
+      "name": "Temporal Rift",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1
+    },
+    {
+      "name": "The Devil",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1
+    },
+    {
+      "name": "The Juggler",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1
+    },
+    {
+      "name": "Transwarp Conduit",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1
+    },
+    {
+      "name": "Wormhole",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 2
+    },
+    {
+      "name": "B\u0027Etor",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1
+    },
+    {
+      "name": "Duras",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1
+    },
+    {
+      "name": "Galathon",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1
+    },
+    {
+      "name": "Gowron",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1
+    },
+    {
+      "name": "J\u0027Dan",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1
+    },
+    {
+      "name": "Koroth",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1
+    },
+    {
+      "name": "Kurak",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1
+    },
+    {
+      "name": "Kurn",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1
+    },
+    {
+      "name": "Lursa",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1
+    },
+    {
+      "name": "Mirok",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1
+    },
+    {
+      "name": "N\u0027Vek",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1
+    },
+    {
+      "name": "Nu\u0027Daq",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1
+    },
+    {
+      "name": "Sela",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1
+    },
+    {
+      "name": "Taibak",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1
+    },
+    {
+      "name": "Tebok",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1
+    },
+    {
+      "name": "Toq",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1
+    },
+    {
+      "name": "Toreth",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1
+    },
+    {
+      "name": "Varel",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1
+    },
+    {
+      "name": "Devoras",
+      "set": "PR",
+      "type": "Ship",
+      "quantity": 1
+    },
+    {
+      "name": "Haakona",
+      "set": "PR",
+      "type": "Ship",
+      "quantity": 1
+    },
+    {
+      "name": "I.K.S. Bortas",
+      "set": "PR",
+      "type": "Ship",
+      "quantity": 1
+    },
+    {
+      "name": "I.K.S. Buruk",
+      "set": "PR",
+      "type": "Ship",
+      "quantity": 1
+    },
+    {
+      "name": "I.K.S. Qu\u0027Vat",
+      "set": "PR",
+      "type": "Ship",
+      "quantity": 1
+    },
+    {
+      "name": "Khazara",
+      "set": "PR",
+      "type": "Ship",
+      "quantity": 1
+    }
+  ],
+  "qs_tent": [],
+  "battle_bridge": [],
+  "q_continuum": [],
+  "site_pile": [],
+  "tribble": [],
+  "side": []
+}

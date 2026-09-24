@@ -439,6 +439,20 @@ public partial class TableWindow : Window
     // SEARCH: Glossary: actions - "just" / just after; AppA: Klingon Death Yell; Verb: JustAfter(KlingonWithHonorDied)
     private int _deferJustAfterDeathFlush;
     private readonly Queue<(Card Dead, int Owner)> _pendingHonorKlingonDeaths = new();
+    // SEARCH: Rule: 7.4.2 · 7.4.4; Glossary: actions - "just" / just after; AppA: Klingon Right of Vengeance; Verb: JustAfter(PersonnelBattleKlingonDied)
+    private sealed class PendingPersonnelBattleJustAfter
+    {
+        public object? AttackerHost { get; init; }
+        public object? DefenderHost { get; init; }
+        public List<Border> SurvivingAtk { get; init; } = new();
+        public List<Border> SurvivingDef { get; init; } = new();
+        public List<Card>? AttackerPresent { get; init; }
+        public List<Card>? DefenderPresent { get; init; }
+        public int AtkOwner { get; init; }
+        public int DefOwner { get; init; }
+        public string KilledKlingonName { get; init; } = "";
+    }
+    private readonly Queue<PendingPersonnelBattleJustAfter> _pendingPersonnelBattleDeaths = new();
     /// <summary>Player performing current beam mode (Armbands may be non-active).</summary>
     private int _beamModePlayer;
     private bool _etaBeamHoldsBattle;
@@ -3804,7 +3818,8 @@ public partial class TableWindow : Window
         Border sourceHost, Border targetHost,
         List<Border> atkBorders, List<Border> defBorders,
         List<Card> atkPresent, List<Card> defPresent,
-        int atkOwner, int defOwner)
+        int atkOwner, int defOwner,
+        bool klingonStrengthDoubled = false)
     {
         var action = new TimingRules.PendingAction
         {
@@ -3817,10 +3832,16 @@ public partial class TableWindow : Window
             AttackerPresent = atkPresent,
             DefenderPresent = defPresent,
             DefenderOwner = defOwner,
-            Summary = $"P{atkOwner} Personnel Battle"
+            KlingonStrengthDoubled = klingonStrengthDoubled,
+            Summary = klingonStrengthDoubled
+                ? $"P{atkOwner} Klingon Right of Vengeance (STRENGTH doubled)"
+                : $"P{atkOwner} Personnel Battle"
         };
         _stack.Push(action);
-        _session.Log.Add(_session.TurnNumber, $"P{atkOwner}", "Personnel battle initiated");
+        _session.Log.Add(_session.TurnNumber, $"P{atkOwner}",
+            klingonStrengthDoubled
+                ? "Personnel battle initiated via Klingon Right of Vengeance (STRENGTH doubled)"
+                : "Personnel battle initiated");
         OpenResponseWindow(defOwner);
         ScheduleActionAnnounce(600);
     }
@@ -3890,6 +3911,15 @@ public partial class TableWindow : Window
                 && top.Kind == TimingRules.ActionKind.InitiatePersonnelBattle)
             {
                 if (!HonorChallengeHasLegalPair(player, top))
+                    return false;
+            }
+
+            // SEARCH: Rule: 7.4.2 · 7.4.4; Glossary: actions - "just" / just after; AppA: Klingon Right of Vengeance; Verb: JustAfter(PersonnelBattleKlingonDied)
+            if (InterruptRules.IsRightOfVengeance(item.Card)
+                && top.Kind == TimingRules.ActionKind.JustAfter
+                && top.JustTrigger == TimingRules.JustAfterTrigger.PersonnelBattleKlingonDied)
+            {
+                if (!CanPlayerExecuteRightOfVengeance(player, top))
                     return false;
             }
             return true;
@@ -4645,11 +4675,14 @@ public partial class TableWindow : Window
         while (_stack.IsOpen)
         {
             ResolveTopOfStack();
-            // SEARCH: Glossary: actions - "just" / just after; AppA: Escape Pod / Klingon Death Yell
+            // SEARCH: Glossary: actions - "just" / just after; AppA: Escape Pod / Klingon Death Yell / Right of Vengeance
             // ShipDestroyed Results under this drain (Escape Pod Pass) open JustAfter via
-            // TryFlushJustAfterDeathWindows mid-loop. Break so the Yell UI can stay open —
+            // TryFlushJustAfterDeathWindows mid-loop. Break so the Yell / Vengeance UI can stay open —
             // do not immediately pop JustAfter as passed in the same while (~4838).
-            if (_stack.IsOpen && _stack.Top?.Kind == TimingRules.ActionKind.JustAfter)
+            // Also break if a new response window (InitiatePersonnelBattle or think tray) opened mid-drain.
+            if (_stack.IsOpen && (_stack.Top?.Kind == TimingRules.ActionKind.JustAfter
+                || _stack.Top?.Kind == TimingRules.ActionKind.InitiatePersonnelBattle
+                || _stack.State != TimingRules.ResponseWindowState.Closed))
                 break;
         }
         FlushPendingAuJustPlayed();
@@ -4749,7 +4782,8 @@ public partial class TableWindow : Window
                     && (a.TargetCard != null || attachStay
                         || InterruptRules.IsEmergencyTransporterArmbands(a.Card)
                         || InterruptRules.IsHonorChallenge(a.Card)
-                        || InterruptRules.IsDeathYell(a.Card)))
+                        || InterruptRules.IsDeathYell(a.Card)
+                        || InterruptRules.IsRightOfVengeance(a.Card)))
                 {
                     TryResolveInterruptPlay(a.Card, a.Controller, isResponse: true, a.TargetCard);
                 }
@@ -5029,7 +5063,7 @@ public partial class TableWindow : Window
         }
     }
 
-    
+
     // Rule: 7.1.1 · 10.2.1 — ETA beam must finish before ship battle Open Fire.
     // Verb: BeginBeamMode · Beam · CanRespond; AppA: ETA
     private void ResumeShipBattleAfterEtaBeam()
@@ -5044,9 +5078,9 @@ public partial class TableWindow : Window
         AskReturnFireAndResolve(atkB, a.AttackerCard, defB, a.DefenderCard);
     }
 
-private void AskReturnFireAndResolve(
-    Border attackerBorder, Card attackerShip,
-    Border defenderBorder, Card defenderCard)
+    private void AskReturnFireAndResolve(
+        Border attackerBorder, Card attackerShip,
+        Border defenderBorder, Card defenderCard)
     {
         int defOwner = GetBorderOwner(defenderBorder);
         if (defOwner == 0) defOwner = 2;
@@ -5136,64 +5170,85 @@ private void AskReturnFireAndResolve(
         _adversariesInCombat = true;
         try
         {
-        if (a.AttackerTeam == null || a.DefenderTeam == null) return;
-        var atkBorders = a.AttackerTeam.OfType<Border>().ToList();
-        var defBorders = a.DefenderTeam.OfType<Border>().ToList();
-        var atkCards = atkBorders.Where(b => b.Tag is Card).Select(b => (Card)b.Tag!).ToList();
-        var defCards = defBorders.Where(b => b.Tag is Card).Select(b => (Card)b.Tag!).ToList();
-        int atkOwner = a.Controller;
-        int defOwner = a.DefenderOwner;
-        var result = BattleRules.ResolvePersonnelBattle(
-            atkCards, defCards, null,
-            a.AttackerPresent, a.DefenderPresent, atkOwner, defOwner);
-        if (!result.Ok)
-        {
-            ShowPlayError(result.Reason);
-            return;
-        }
-
-        var killedSet = new HashSet<string>(result.KilledNames, StringComparer.OrdinalIgnoreCase);
-        var killedCards = atkBorders.Concat(defBorders)
-            .Where(b => b.Tag is Card c && killedSet.Contains(c.Name ?? ""))
-            .Select(b => (Card)b.Tag!)
-            .ToList();
-        void KillFrom(List<Border> borders, int owner)
-        {
-            foreach (var b in borders.ToList())
+            if (a.AttackerTeam == null || a.DefenderTeam == null) return;
+            var atkBorders = a.AttackerTeam.OfType<Border>().ToList();
+            var defBorders = a.DefenderTeam.OfType<Border>().ToList();
+            var atkCards = atkBorders.Where(b => b.Tag is Card).Select(b => (Card)b.Tag!).ToList();
+            var defCards = defBorders.Where(b => b.Tag is Card).Select(b => (Card)b.Tag!).ToList();
+            int atkOwner = a.Controller;
+            int defOwner = a.DefenderOwner;
+            var result = BattleRules.ResolvePersonnelBattle(
+                atkCards, defCards, null,
+                a.AttackerPresent, a.DefenderPresent, atkOwner, defOwner,
+                klingonStrengthDoubled: a.KlingonStrengthDoubled);
+            if (!result.Ok)
             {
-                if (b.Tag is not Card c) continue;
-                if (!killedSet.Contains(c.Name ?? "")) continue;
-                DiscardPersonnelBorder(b, c, owner, allowGenetronicSave: true, alsoTargetedToDie: killedCards);
+                ShowPlayError(result.Reason);
+                return;
             }
-        }
-        // Just-After-Death only after battle Results batch (not mid-kill).
-        _deferJustAfterDeathFlush++;
-        try
-        {
-            KillFrom(atkBorders, atkOwner);
-            KillFrom(defBorders, defOwner);
-        }
-        finally
-        {
-            _deferJustAfterDeathFlush--;
-            TryFlushJustAfterDeathWindows();
-        }
-        foreach (var b in atkBorders) MarkStopped(b);
-        foreach (var b in defBorders)
-        {
-            if (b.Tag is Card c && killedSet.Contains(c.Name ?? "")) continue;
-            MarkStopped(b);
-        }
 
-        _session.Log.Add(_session.TurnNumber, $"P{atkOwner}", result.LogSummary);
-        ShowCardReveal(atkCards.FirstOrDefault() ?? defCards.FirstOrDefault(),
-            "Personnel Battle", result.LogSummary, RevealButtons.Ok);
-        StatusText.Text = result.LogSummary.Replace('\n', ' ');
-        if (a.AttackerHost is Border src && src.Tag is Card sc)
-            ShowHostContents(src, sc);
-        else if (a.DefenderHost is Border dst && dst.Tag is Card dc)
-            ShowHostContents(dst, dc);
-    
+            var killedSet = new HashSet<string>(result.KilledNames, StringComparer.OrdinalIgnoreCase);
+            var killedCards = atkBorders.Concat(defBorders)
+                .Where(b => b.Tag is Card c && killedSet.Contains(c.Name ?? ""))
+                .Select(b => (Card)b.Tag!)
+                .ToList();
+            bool klingonDiedInBattle = false;
+            string? killedKlingonName = null;
+            void KillFrom(List<Border> borders, int owner)
+            {
+                foreach (var b in borders.ToList())
+                {
+                    if (b.Tag is not Card c) continue;
+                    if (!killedSet.Contains(c.Name ?? "")) continue;
+                    int countBefore = _oppDiscardCards.Count + _discardCards.Count;
+                    DiscardPersonnelBorder(b, c, owner, allowGenetronicSave: true, alsoTargetedToDie: killedCards);
+                    int countAfter = _oppDiscardCards.Count + _discardCards.Count;
+                    if (countAfter > countBefore && BattleRules.IsKlingonPersonnel(c))
+                    {
+                        klingonDiedInBattle = true;
+                        killedKlingonName ??= c.Name;
+                    }
+                }
+            }
+            // Just-After-Death only after battle Results batch (not mid-kill).
+            _deferJustAfterDeathFlush++;
+            try
+            {
+                KillFrom(atkBorders, atkOwner);
+                KillFrom(defBorders, defOwner);
+            }
+            finally
+            {
+                _deferJustAfterDeathFlush--;
+                TryFlushJustAfterDeathWindows();
+            }
+            foreach (var b in atkBorders) MarkStopped(b);
+            foreach (var b in defBorders)
+            {
+                if (b.Tag is Card c && killedSet.Contains(c.Name ?? "")) continue;
+                MarkStopped(b);
+            }
+            if (klingonDiedInBattle)
+            {
+                var survivingAtk = atkBorders.Where(b => b.Tag is Card c && !killedSet.Contains(c.Name ?? "")).ToList();
+                var survivingDef = defBorders.Where(b => b.Tag is Card c && !killedSet.Contains(c.Name ?? "")).ToList();
+                NotePersonnelBattleKlingonDeathForJustAfter(
+                    a.AttackerHost, a.DefenderHost,
+                    survivingAtk, survivingDef,
+                    a.AttackerPresent, a.DefenderPresent,
+                    atkOwner, defOwner,
+                    killedKlingonName ?? "Klingon");
+            }
+
+            _session.Log.Add(_session.TurnNumber, $"P{atkOwner}", result.LogSummary);
+            ShowCardReveal(atkCards.FirstOrDefault() ?? defCards.FirstOrDefault(),
+                "Personnel Battle", result.LogSummary, RevealButtons.Ok);
+            StatusText.Text = result.LogSummary.Replace('\n', ' ');
+            if (a.AttackerHost is Border src && src.Tag is Card sc)
+                ShowHostContents(src, sc);
+            else if (a.DefenderHost is Border dst && dst.Tag is Card dc)
+                ShowHostContents(dst, dc);
+
         }
         finally
         {
@@ -5253,6 +5308,13 @@ private void AskReturnFireAndResolve(
                 && !(_stack.IsOpen && _stack.Top?.Kind == TimingRules.ActionKind.DrawCard))
             {
                 denyReason = "Subspace Schism plays when a player would draw a card.";
+                return false;
+            }
+            if (InterruptRules.IsRightOfVengeance(card)
+                && !(_stack.IsOpen && _stack.Top?.Kind == TimingRules.ActionKind.JustAfter
+                     && _stack.Top?.JustTrigger == TimingRules.JustAfterTrigger.PersonnelBattleKlingonDied))
+            {
+                denyReason = "Klingon Right of Vengeance: plays just after a personnel battle where a Klingon died.";
                 return false;
             }
             if (TimingRules.IsInterrupt(card) && GoddessBlocksInterrupt(card))
@@ -5397,7 +5459,7 @@ private void AskReturnFireAndResolve(
         UpdatePhaseControls();
     }
 
-private List<Card> CollectCardsInPlay(bool opponent)
+    private List<Card> CollectCardsInPlay(bool opponent)
     {
         var list = new List<Card>();
         void Add(Card? c)
@@ -10736,10 +10798,10 @@ private List<Card> CollectCardsInPlay(bool opponent)
         int baryon = EventsOn(shipBorder).Count(e => e.Kind == EventRules.Persist.Baryon) * 2;
         int junior = GetJuniorRangePenalty(shipBorder);
         var aboard = GetAllStackedCardsOnHost(shipBorder);
-                    // Rule: 10.1.0.1 · 10.1 · 10.3.0.5 · 2.7 · 2.8
-            // Glossary: personnel type · classification · skills · use (skills) · use (equipment)
-            // Verb: ApplyKurlan KurlanMultiplier ComputeShipTurnRange HasSkill
-int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), aboard);
+        // Rule: 10.1.0.1 · 10.1 · 10.3.0.5 · 2.7 · 2.8
+        // Glossary: personnel type · classification · skills · use (skills) · use (equipment)
+        // Verb: ApplyKurlan KurlanMultiplier ComputeShipTurnRange HasSkill
+        int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), aboard);
         return MovementRules.ComputeShipTurnRange(baseRange, baryon, junior);
     }
 
@@ -13015,13 +13077,13 @@ int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), 
             if (_hostStripHost?.Tag is Card hc)
                 ShowHostContents(_hostStripHost, hc);
         }
-    
-                if (releaseEtaHold)
+
+        if (releaseEtaHold)
         {
             ResumeShipBattleAfterEtaBeam();
             _etaEscapeeBorders = null;
         }
-}
+    }
 
     private void ClearTargetHighlights()
     {
@@ -13044,7 +13106,7 @@ int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), 
         if (_seedPhaseActive) return;
         if (_session.Match != GameSession.MatchPhase.Play) return;
 
-                bool isShip = IsShipCard(card);
+        bool isShip = IsShipCard(card);
         bool isFac = ReportingRules.IsFacilityHost(card);
         bool isTtp = ArtifactRules.IsTimeTravelPod(card);
         bool isMission = string.Equals(card.Type, "Mission", StringComparison.OrdinalIgnoreCase)
@@ -13207,7 +13269,7 @@ int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), 
                     }
                 }
             }
-                        else if (isFac)
+            else if (isFac)
             {
                 AddBtn("Beam personnel…", (_, _) => BeginBeamMode(cardBorder));
                 int facOwner = GetBorderOwner(cardBorder);
@@ -13233,7 +13295,7 @@ int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), 
                 if (!_solvedMissions.Contains(cardBorder))
                     AddBtn("Attempt mission", (_, _) => TryAttemptMission(cardBorder, card));
             }
-            
+
         }
         else if (_session.Segment == GameSession.TurnSegment.Play && isShip)
         {
@@ -13245,7 +13307,7 @@ int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), 
             }
         }
 
-                // Time Travel Pod: own relocate once at any time (incl. opponent turn), between actions only.
+        // Time Travel Pod: own relocate once at any time (incl. opponent turn), between actions only.
         if (isTtp)
         {
             int podOwner = ResolveTimeTravelPodOwner(cardBorder, card);
@@ -15494,6 +15556,19 @@ int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), 
                         "Klingon Death Yell +5 (just after Honor Klingon died)");
                     break;
                 }
+            // SEARCH: Rule: 7.4.2 · 7.4.4; Glossary: actions - "just"; AppA: Klingon Right of Vengeance; Verb: JustAfter(PersonnelBattleKlingonDied)
+            case InterruptRules.Effect.RightOfVengeance:
+                {
+                    var top = _stack.Top;
+                    if (top == null || top.Kind != TimingRules.ActionKind.JustAfter
+                        || top.JustTrigger != TimingRules.JustAfterTrigger.PersonnelBattleKlingonDied)
+                    {
+                        ShowPlayError("Klingon Right of Vengeance: only just after a personnel battle where a Klingon died.");
+                        break;
+                    }
+                    ApplyRightOfVengeanceFromResponse(controller, top);
+                    break;
+                }
             case InterruptRules.Effect.ShipSeizure:
                 ApplyShipSeizure(card, controller, target);
                 break;
@@ -16948,7 +17023,7 @@ int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), 
             $"Supernova at {(mission.Tag as Card)?.Name}: ships/facilities destroyed"
             + (wasPlanet ? "; planet surface discarded (now space husk)." : ".")
             + " Mission remains for span only.";
-                _supernovaToxConsumedThisPlay = false;
+        _supernovaToxConsumedThisPlay = false;
         SyncBoardFromTable(logDual: false);
     }
 
@@ -17115,7 +17190,7 @@ int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), 
             return true;
         }
 
-                if (ArtifactRules.IsTimeTravelPod(art))
+        if (ArtifactRules.IsTimeTravelPod(art))
         {
             PlaceTimeTravelPod(art, controller);
             OfferPendingTimeTravelPodOpponentRelocate();
@@ -17274,7 +17349,7 @@ int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), 
                     StatusText.Text =
                         $"Betazoid Gift Box: downloaded {downloaded} to hand (search draw); artifact discarded.";
                 }
-// Artifact discarded (nicht ins Spiel)
+                // Artifact discarded (nicht ins Spiel)
                 {
                     var disc = _activePlayer == 2 ? _oppDiscardCards : _discardCards;
                     if (!disc.Contains(art)) disc.Add(art);
@@ -17381,8 +17456,8 @@ int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), 
         else _toxPlayedAsEventThisTurnP2 = on;
     }
 
-        private bool IsSupernovaHuskMission(Border? mission) =>
-        mission != null && _supernovaHuskMissions.Contains(mission);
+    private bool IsSupernovaHuskMission(Border? mission) =>
+    mission != null && _supernovaHuskMissions.Contains(mission);
 
     private bool MissionCountsAsPlanet(Border mission, Card mc) =>
         !IsSupernovaHuskMission(mission) && MissionRules.IsPlanetMission(mc);
@@ -17411,7 +17486,7 @@ int baseRange = BattleRules.ApplyKurlan(BattleRules.EffectiveRange(ship, hull), 
         }
     }
 
-private bool ControllerHasToxOnTable(int controller)
+    private bool ControllerHasToxOnTable(int controller)
     {
         var table = controller == 1 ? _tablePermanentCards : _oppTablePermanentCards;
         return table.Any(ArtifactRules.IsToxUthat);
@@ -19369,8 +19444,8 @@ private bool ControllerHasToxOnTable(int controller)
             "Time Travel Pod: click your ship to relocate here.",
             ship => RelocateShipOntoTimeTravelPod(ship, pod, owner, opponentInit: false));
     }
-    
-            private int ResolveTimeTravelPodOwner(Border pod, Card pc)
+
+    private int ResolveTimeTravelPodOwner(Border pod, Card pc)
     {
         foreach (var kv in _ttpPodByOwner)
         {
@@ -19481,7 +19556,7 @@ private bool ControllerHasToxOnTable(int controller)
         }
     }
 
-private void ReturnShipsFromTimeTravelPod(Card podCard)
+    private void ReturnShipsFromTimeTravelPod(Card podCard)
     {
         Border? pod = null;
         foreach (var kv in _ttpPodByOwner.ToList())
@@ -19510,8 +19585,8 @@ private void ReturnShipsFromTimeTravelPod(Card podCard)
             }
             _ttpShipFormerLocation.Remove(ship);
         }
-                _ttpCountdown.Remove(podCard.InstanceId);
-_spacelineOrder.Remove(pod);
+        _ttpCountdown.Remove(podCard.InstanceId);
+        _spacelineOrder.Remove(pod);
         if (TableCanvas.Children.Contains(pod))
             TableCanvas.Children.Remove(pod);
         RelayoutMissionsOnSpaceline();
@@ -19567,7 +19642,7 @@ _spacelineOrder.Remove(pod);
         _actionSourceHost = hostBorder;
         ClearTargetHighlights();
 
-                bool sourceIsMission = CardKinds.IsMission(hostCard);
+        bool sourceIsMission = CardKinds.IsMission(hostCard);
         // Load-safe crew lookup (SameHostShip) — do not use _stackOnHost.TryGetValue alone.
         var crew = StackOnHost(hostBorder)?.ToList() ?? new List<Border>();
         // BoardStore crew (facility/ship) may exist without UI stack entry after load / facility report.
@@ -20030,209 +20105,209 @@ _spacelineOrder.Remove(pod);
         _adversariesInCombat = true;
         try
         {
-        int atkOwner = GetBorderOwner(attackerBorder);
-        if (atkOwner == 0) atkOwner = 1;
-        int defOwner = GetBorderOwner(defenderBorder);
-        if (defOwner == 0) defOwner = atkOwner == 1 ? 2 : 1;
+            int atkOwner = GetBorderOwner(attackerBorder);
+            if (atkOwner == 0) atkOwner = 1;
+            int defOwner = GetBorderOwner(defenderBorder);
+            if (defOwner == 0) defOwner = atkOwner == 1 ? 2 : 1;
 
-        var logLines = new List<string>();
-        logLines.Add($"SHIP BATTLE: {attackerShip.Name} (S{atkOwner}) → {defenderCard.Name} (S{defOwner})");
+            var logLines = new List<string>();
+            logLines.Add($"SHIP BATTLE: {attackerShip.Name} (S{atkOwner}) → {defenderCard.Name} (S{defOwner})");
 
-        var atkAboard = GetAllStackedCardsOnHost(attackerBorder);
-        var defAboard = GetAllStackedCardsOnHost(defenderBorder);
-        int atkMult = BattleRules.KurlanMultiplier(atkAboard);
-        int defMult = BattleRules.KurlanMultiplier(defAboard);
-        var atkEv = EventsOn(attackerBorder).Select(e => (e.Kind, e.Card));
-        var defEv = EventsOn(defenderBorder).Select(e => (e.Kind, e.Card));
-        bool borgAtk = TimingRules.IsBorgShipDilemma(attackerShip);
-        const int borgWeapons = 24;
-        int printedAtkW = BattleRules.GetWeapons(attackerShip);
-        int atkLog = !borgAtk && HasMatchingCommander(attackerBorder, attackerShip)
-            && _attachedEvents.Any(e => e.Kind == EventRules.Persist.CaptainsLog && e.Owner == atkOwner)
-            ? 3 : 0;
-        int atkBonus = borgAtk
-            ? Math.Max(0, borgWeapons - printedAtkW)
-            : BattleRules.AttributeBonusOverPrinted(
-                printedAtkW,
-                EventRules.WeaponsBonusFromEvents(atkEv) + atkLog,
-                atkAboard);
-        int defPrintedS = BattleRules.GetShields(defenderCard);
-        int defPrintedW = BattleRules.GetWeapons(defenderCard);
-        int defLog = HasMatchingCommander(defenderBorder, defenderCard)
-            && _attachedEvents.Any(e => e.Kind == EventRules.Persist.CaptainsLog && e.Owner == defOwner)
-            ? 3 : 0;
-        int defShieldBonus = BattleRules.AttributeBonusOverPrinted(
-            defPrintedS,
-            EventRules.ShieldsBonusFromEvents(defEv, GetAllCardsOnHost(defenderBorder, defOwner)) + defLog,
-            defAboard);
-        int defWeaponsBonus = BattleRules.AttributeBonusOverPrinted(
-            defPrintedW,
-            EventRules.WeaponsBonusFromEvents(defEv) + defLog,
-            defAboard);
-        int facShields = 0;
-        if (IsShipDocked(defenderBorder) && _dockedAt.TryGetValue(defenderBorder, out var fac)
-            && fac?.Tag is Card fc)
-            facShields = BattleRules.GetShields(fc);
+            var atkAboard = GetAllStackedCardsOnHost(attackerBorder);
+            var defAboard = GetAllStackedCardsOnHost(defenderBorder);
+            int atkMult = BattleRules.KurlanMultiplier(atkAboard);
+            int defMult = BattleRules.KurlanMultiplier(defAboard);
+            var atkEv = EventsOn(attackerBorder).Select(e => (e.Kind, e.Card));
+            var defEv = EventsOn(defenderBorder).Select(e => (e.Kind, e.Card));
+            bool borgAtk = TimingRules.IsBorgShipDilemma(attackerShip);
+            const int borgWeapons = 24;
+            int printedAtkW = BattleRules.GetWeapons(attackerShip);
+            int atkLog = !borgAtk && HasMatchingCommander(attackerBorder, attackerShip)
+                && _attachedEvents.Any(e => e.Kind == EventRules.Persist.CaptainsLog && e.Owner == atkOwner)
+                ? 3 : 0;
+            int atkBonus = borgAtk
+                ? Math.Max(0, borgWeapons - printedAtkW)
+                : BattleRules.AttributeBonusOverPrinted(
+                    printedAtkW,
+                    EventRules.WeaponsBonusFromEvents(atkEv) + atkLog,
+                    atkAboard);
+            int defPrintedS = BattleRules.GetShields(defenderCard);
+            int defPrintedW = BattleRules.GetWeapons(defenderCard);
+            int defLog = HasMatchingCommander(defenderBorder, defenderCard)
+                && _attachedEvents.Any(e => e.Kind == EventRules.Persist.CaptainsLog && e.Owner == defOwner)
+                ? 3 : 0;
+            int defShieldBonus = BattleRules.AttributeBonusOverPrinted(
+                defPrintedS,
+                EventRules.ShieldsBonusFromEvents(defEv, GetAllCardsOnHost(defenderBorder, defOwner)) + defLog,
+                defAboard);
+            int defWeaponsBonus = BattleRules.AttributeBonusOverPrinted(
+                defPrintedW,
+                EventRules.WeaponsBonusFromEvents(defEv) + defLog,
+                defAboard);
+            int facShields = 0;
+            if (IsShipDocked(defenderBorder) && _dockedAt.TryGetValue(defenderBorder, out var fac)
+                && fac?.Tag is Card fc)
+                facShields = BattleRules.GetShields(fc);
 
-        // --- Open Fire ---
-        var openFire = BattleRules.ResolveFire(
-            new[] { (attackerShip, atkBonus) },
-            defenderCard,
-            targetShieldsBonus: defShieldBonus,
-            facilityShieldsIfDocked: facShields);
-        logLines.Add($"Open Fire: {openFire.Summary}" + (atkMult > 1 ? $" (Kurlan ×{atkMult})" : ""));
+            // --- Open Fire ---
+            var openFire = BattleRules.ResolveFire(
+                new[] { (attackerShip, atkBonus) },
+                defenderCard,
+                targetShieldsBonus: defShieldBonus,
+                facilityShieldsIfDocked: facShields);
+            logLines.Add($"Open Fire: {openFire.Summary}" + (atkMult > 1 ? $" (Kurlan ×{atkMult})" : ""));
 
-        int defHullBefore = GetHullDamage(defenderBorder);
-        var defDmg = BattleRules.ApplyRotationDamage(defHullBefore, openFire.Result);
-        int atkHullTaken = 0;
-        int defHullTaken = Math.Max(0, defDmg.HullAfter - defDmg.HullBefore);
+            int defHullBefore = GetHullDamage(defenderBorder);
+            var defDmg = BattleRules.ApplyRotationDamage(defHullBefore, openFire.Result);
+            int atkHullTaken = 0;
+            int defHullTaken = Math.Max(0, defDmg.HullAfter - defDmg.HullBefore);
 
-        if (defDmg.NewlyDamaged)
-        {
-            ApplyHullDamage(defenderBorder, defenderCard, defDmg.HullAfter);
-            logLines.Add($"  Defender: {defDmg.Description}");
-        }
-
-        // --- Return Fire ---
-        FireCalc? returnCalc = null;
-        DamageOutcome? atkDmg = null;
-        // G6 Spock Soll: re-check Matching HARD + undocked/uncloaked on defender before RF.
-        if (returnFire && !defDmg.Destroyed)
-        {
-            if (IsShipDocked(defenderBorder))
+            if (defDmg.NewlyDamaged)
             {
-                logLines.Add("Return Fire denied: defender is docked.");
-                returnFire = false;
+                ApplyHullDamage(defenderBorder, defenderCard, defDmg.HullAfter);
+                logLines.Add($"  Defender: {defDmg.Description}");
             }
-            else if (IsShipCloaked(defenderBorder))
+
+            // --- Return Fire ---
+            FireCalc? returnCalc = null;
+            DamageOutcome? atkDmg = null;
+            // G6 Spock Soll: re-check Matching HARD + undocked/uncloaked on defender before RF.
+            if (returnFire && !defDmg.Destroyed)
             {
-                logLines.Add("Return Fire denied: defender is cloaked.");
-                ShowPlayError($"{defenderCard.Name} is cloaked - cannot return fire.");
-                returnFire = false;
-            }
-            else
-            {
-                var rfCrew = GetCrewOnShip(defenderBorder);
-                var rfCheck = BattleRules.CanReturnFire(
-                    defenderCard, rfCrew, loreStaffed: ShipStaffedByRogueBorg(defenderBorder));
-                if (!rfCheck.Ok)
+                if (IsShipDocked(defenderBorder))
                 {
-                    logLines.Add($"Return Fire denied: {rfCheck.Reason}");
-                    ShowPlayError(rfCheck.Reason);
+                    logLines.Add("Return Fire denied: defender is docked.");
                     returnFire = false;
                 }
+                else if (IsShipCloaked(defenderBorder))
+                {
+                    logLines.Add("Return Fire denied: defender is cloaked.");
+                    ShowPlayError($"{defenderCard.Name} is cloaked - cannot return fire.");
+                    returnFire = false;
+                }
+                else
+                {
+                    var rfCrew = GetCrewOnShip(defenderBorder);
+                    var rfCheck = BattleRules.CanReturnFire(
+                        defenderCard, rfCrew, loreStaffed: ShipStaffedByRogueBorg(defenderBorder));
+                    if (!rfCheck.Ok)
+                    {
+                        logLines.Add($"Return Fire denied: {rfCheck.Reason}");
+                        ShowPlayError(rfCheck.Reason);
+                        returnFire = false;
+                    }
+                }
             }
-        }
-        if (returnFire && !defDmg.Destroyed)
-        {
-            // Verteidiger schießt zurück auf den Angreifer (1 Ziel)
-            // S.A.M.: attacker shields bonus over printed (events + Captain's Log) × Kurlan
-            int borgShieldBonus;
-            if (borgAtk)
+            if (returnFire && !defDmg.Destroyed)
             {
-                borgShieldBonus = Math.Max(0, 24 - BattleRules.GetShields(attackerShip));
+                // Verteidiger schießt zurück auf den Angreifer (1 Ziel)
+                // S.A.M.: attacker shields bonus over printed (events + Captain's Log) × Kurlan
+                int borgShieldBonus;
+                if (borgAtk)
+                {
+                    borgShieldBonus = Math.Max(0, 24 - BattleRules.GetShields(attackerShip));
+                }
+                else
+                {
+                    int atkPrintedS = BattleRules.GetShields(attackerShip);
+                    int atkShieldLog = HasMatchingCommander(attackerBorder, attackerShip)
+                        && _attachedEvents.Any(e => e.Kind == EventRules.Persist.CaptainsLog && e.Owner == atkOwner)
+                        ? 3 : 0;
+                    int atkShieldAdds = EventRules.ShieldsBonusFromEvents(atkEv, GetAllCardsOnHost(attackerBorder, atkOwner))
+                        + atkShieldLog;
+                    borgShieldBonus = BattleRules.AttributeBonusOverPrinted(atkPrintedS, atkShieldAdds, atkAboard);
+                }
+                returnCalc = BattleRules.ResolveFire(
+                    new[] { (defenderCard, defWeaponsBonus) },
+                    attackerShip,
+                    targetShieldsBonus: borgShieldBonus);
+                logLines.Add($"Return Fire: {returnCalc.Value.Summary}" + (defMult > 1 ? $" (Kurlan ×{defMult})" : ""));
+
+                int atkHullBefore = GetHullDamage(attackerBorder);
+                atkDmg = BattleRules.ApplyRotationDamage(atkHullBefore, returnCalc.Value.Result);
+                atkHullTaken = Math.Max(0, atkDmg.Value.HullAfter - atkDmg.Value.HullBefore);
+                if (atkDmg.Value.NewlyDamaged)
+                {
+                    ApplyHullDamage(attackerBorder, attackerShip, atkDmg.Value.HullAfter);
+                    logLines.Add($"  Attacker: {atkDmg.Value.Description}");
+                }
             }
-            else
+            else if (returnFire && defDmg.Destroyed)
             {
-                int atkPrintedS = BattleRules.GetShields(attackerShip);
-                int atkShieldLog = HasMatchingCommander(attackerBorder, attackerShip)
-                    && _attachedEvents.Any(e => e.Kind == EventRules.Persist.CaptainsLog && e.Owner == atkOwner)
-                    ? 3 : 0;
-                int atkShieldAdds = EventRules.ShieldsBonusFromEvents(atkEv, GetAllCardsOnHost(attackerBorder, atkOwner))
-                    + atkShieldLog;
-                borgShieldBonus = BattleRules.AttributeBonusOverPrinted(atkPrintedS, atkShieldAdds, atkAboard);
+                logLines.Add("Return Fire skipped (defender already destroyed).");
             }
-            returnCalc = BattleRules.ResolveFire(
-                new[] { (defenderCard, defWeaponsBonus) },
-                attackerShip,
-                targetShieldsBonus: borgShieldBonus);
-            logLines.Add($"Return Fire: {returnCalc.Value.Summary}" + (defMult > 1 ? $" (Kurlan ×{defMult})" : ""));
 
-            int atkHullBefore = GetHullDamage(attackerBorder);
-            atkDmg = BattleRules.ApplyRotationDamage(atkHullBefore, returnCalc.Value.Result);
-            atkHullTaken = Math.Max(0, atkDmg.Value.HullAfter - atkDmg.Value.HullBefore);
-            if (atkDmg.Value.NewlyDamaged)
+            string winner = BattleRules.DetermineWinner(atkHullTaken, defHullTaken);
+            logLines.Add($"Winner (HULL damage): {winner}");
+
+            // --- Resolution: Destroyed → Discard ---
+            bool defDestroyed = defDmg.Destroyed || GetHullDamage(defenderBorder) >= 100;
+            bool atkDestroyed = (atkDmg?.Destroyed ?? false) || GetHullDamage(attackerBorder) >= 100;
+
+            if (defDestroyed)
+                logLines.Add($"DESTROYED: {defenderCard.Name} (P{defOwner}) — Escape Pod may respond.");
+            if (atkDestroyed)
+                logLines.Add($"DESTROYED: {attackerShip.Name} (P{atkOwner}) — Escape Pod may respond.");
+
+            // Survivors stop (Borg Ship dilemma token is not a player ship).
+            if (!borgAtk && !atkDestroyed && attackerBorder.Parent != null)
+                MarkStopped(attackerBorder);
+            if (!defDestroyed && defenderBorder.Parent != null)
+                MarkStopped(defenderBorder);
+
+            if (!borgAtk)
+                StopCrewOnHost(attackerBorder);
+            StopCrewOnHost(defenderBorder);
+
+            if (_borgEotActive != null)
             {
-                ApplyHullDamage(attackerBorder, attackerShip, atkDmg.Value.HullAfter);
-                logLines.Add($"  Attacker: {atkDmg.Value.Description}");
+                string hit = defDestroyed
+                    ? $"{defenderCard.Name} DESTROYED ({openFire.Result})"
+                    : $"{defenderCard.Name} {openFire.Result} HULL {GetHullDamage(defenderBorder)}%";
+                _borgEotHitLog.Add(hit);
             }
-        }
-        else if (returnFire && defDmg.Destroyed)
-        {
-            logLines.Add("Return Fire skipped (defender already destroyed).");
-        }
 
-        string winner = BattleRules.DetermineWinner(atkHullTaken, defHullTaken);
-        logLines.Add($"Winner (HULL damage): {winner}");
+            if (borgAtk && atkDestroyed)
+            {
+                var borg = _attachedDilemmas.FirstOrDefault(d => d.Kind == DilemmaRules.PersistKind.BorgShip);
+                if (borg != null) _attachedDilemmas.Remove(borg);
+                RemoveBorgShipToken();
+                _borgEotActive = null;
+                _borgEotAttackQueue = null;
+                AwardDilemmaPoints(15);
+                logLines.Add("Borg Ship dilemma destroyed by return fire (+15).");
+            }
 
-        // --- Resolution: Destroyed → Discard ---
-        bool defDestroyed = defDmg.Destroyed || GetHullDamage(defenderBorder) >= 100;
-        bool atkDestroyed = (atkDmg?.Destroyed ?? false) || GetHullDamage(attackerBorder) >= 100;
+            string summary = string.Join("\n", logLines);
+            _session.Log.Add(_session.TurnNumber, $"P{atkOwner}",
+                $"Battle {attackerShip.Name} vs {defenderCard.Name}: OF={openFire.Result}" +
+                (returnCalc.HasValue ? $" RF={returnCalc.Value.Result}" : "") +
+                $", Winner={winner}");
 
-        if (defDestroyed)
-            logLines.Add($"DESTROYED: {defenderCard.Name} (P{defOwner}) — Escape Pod may respond.");
-        if (atkDestroyed)
-            logLines.Add($"DESTROYED: {attackerShip.Name} (P{atkOwner}) — Escape Pod may respond.");
+            StatusText.Text =
+                $"Battle: {attackerShip.Name} → {defenderCard.Name} · " +
+                $"OF {openFire.Result}" +
+                (returnCalc.HasValue ? $" · RF {returnCalc.Value.Result}" : "") +
+                (defDestroyed ? " · defender DESTROYED" : "") +
+                (atkDestroyed ? " · attacker DESTROYED" : "") +
+                " · survivors stopped.";
 
-        // Survivors stop (Borg Ship dilemma token is not a player ship).
-        if (!borgAtk && !atkDestroyed && attackerBorder.Parent != null)
-            MarkStopped(attackerBorder);
-        if (!defDestroyed && defenderBorder.Parent != null)
-            MarkStopped(defenderBorder);
+            ShowCardReveal(defenderCard, "Ship Battle", summary, RevealButtons.Ok, attackerShip.Name);
 
-        if (!borgAtk)
-            StopCrewOnHost(attackerBorder);
-        StopCrewOnHost(defenderBorder);
+            // G7: defender may Counter-Attack on their next turn at this location vs involved attackers still there.
+            // Return Fire in this battle is not Counter-Attack.
+            var battleMission = FindMissionForDockable(defenderBorder) ?? FindMissionForDockable(attackerBorder);
+            if (battleMission != null && !atkDestroyed)
+                RegisterCounterAttackOpportunity(defOwner, battleMission, attackerShip);
+            else if (battleMission != null && atkDestroyed)
+                DebugLog.Engine(_session.TurnNumber, defOwner,
+                    "counter-attack: skipped (attacker destroyed)");
 
-        if (_borgEotActive != null)
-        {
-            string hit = defDestroyed
-                ? $"{defenderCard.Name} DESTROYED ({openFire.Result})"
-                : $"{defenderCard.Name} {openFire.Result} HULL {GetHullDamage(defenderBorder)}%";
-            _borgEotHitLog.Add(hit);
-        }
+            if (defDestroyed)
+                DestroyShipOrFacility(defenderBorder, defenderCard, defOwner);
+            if (atkDestroyed)
+                DestroyShipOrFacility(attackerBorder, attackerShip, atkOwner);
 
-        if (borgAtk && atkDestroyed)
-        {
-            var borg = _attachedDilemmas.FirstOrDefault(d => d.Kind == DilemmaRules.PersistKind.BorgShip);
-            if (borg != null) _attachedDilemmas.Remove(borg);
-            RemoveBorgShipToken();
-            _borgEotActive = null;
-            _borgEotAttackQueue = null;
-            AwardDilemmaPoints(15);
-            logLines.Add("Borg Ship dilemma destroyed by return fire (+15).");
-        }
-
-        string summary = string.Join("\n", logLines);
-        _session.Log.Add(_session.TurnNumber, $"P{atkOwner}",
-            $"Battle {attackerShip.Name} vs {defenderCard.Name}: OF={openFire.Result}" +
-            (returnCalc.HasValue ? $" RF={returnCalc.Value.Result}" : "") +
-            $", Winner={winner}");
-
-        StatusText.Text =
-            $"Battle: {attackerShip.Name} → {defenderCard.Name} · " +
-            $"OF {openFire.Result}" +
-            (returnCalc.HasValue ? $" · RF {returnCalc.Value.Result}" : "") +
-            (defDestroyed ? " · defender DESTROYED" : "") +
-            (atkDestroyed ? " · attacker DESTROYED" : "") +
-            " · survivors stopped.";
-
-        ShowCardReveal(defenderCard, "Ship Battle", summary, RevealButtons.Ok, attackerShip.Name);
-
-        // G7: defender may Counter-Attack on their next turn at this location vs involved attackers still there.
-        // Return Fire in this battle is not Counter-Attack.
-        var battleMission = FindMissionForDockable(defenderBorder) ?? FindMissionForDockable(attackerBorder);
-        if (battleMission != null && !atkDestroyed)
-            RegisterCounterAttackOpportunity(defOwner, battleMission, attackerShip);
-        else if (battleMission != null && atkDestroyed)
-            DebugLog.Engine(_session.TurnNumber, defOwner,
-                "counter-attack: skipped (attacker destroyed)");
-
-        if (defDestroyed)
-            DestroyShipOrFacility(defenderBorder, defenderCard, defOwner);
-        if (atkDestroyed)
-            DestroyShipOrFacility(attackerBorder, attackerShip, atkOwner);
-    
         }
         finally
         {
@@ -21936,7 +22011,7 @@ _spacelineOrder.Remove(pod);
         return false;
     }
 
-    
+
     // Rule: 7.1.1 · 7.1.1.0.2 · 7.4.2 · 10.2.1
     // Glossary: Emergency Transporter Armbands · equipment · battle
     // Verb: BeginBeamMode · Beam · CanRespond; AppA: ETA
@@ -22380,7 +22455,7 @@ _spacelineOrder.Remove(pod);
         UpdateHostBadge(hostBorder);
     }
 
-    
+
     /// <summary>
     /// Full Planet Scan (117 U): SoT, own ship with ≥2 staffing icons at planet mission;
     /// stop Computer Skill + Geology aboard; examine bottom seed (first encounter) here.
@@ -24413,7 +24488,7 @@ _spacelineOrder.Remove(pod);
         if (stoppedBorder != null && IsBorderStopped(stoppedBorder))
             AddDetailStatusLine("Stopped", DetailStatusTone.Debuff);
 
-                // Glossary: Lore's Fingernail — live Non; Standing Practice name which rule.
+        // Glossary: Lore's Fingernail — live Non; Standing Practice name which rule.
         if (EventRules.FingernailMakesNon(card))
             AddDetailStatusLine(DetailStatusRules.FormatFingernailLine(), DetailStatusTone.Debuff);
 
@@ -24459,7 +24534,7 @@ _spacelineOrder.Remove(pod);
             }
         }
 
-// Personnel: In stasis / quarantine line
+        // Personnel: In stasis / quarantine line
         if (CardKinds.IsPersonnel(card))
         {
             var disDil = FindDisableDilemmaForCard(card);
@@ -25267,7 +25342,7 @@ _spacelineOrder.Remove(pod);
         return cards;
     }
 
-        private List<Card> GetAllCardsOnHost(Border host, int owner)
+    private List<Card> GetAllCardsOnHost(Border host, int owner)
     {
         var cards = new List<Card>();
         if (!_stackOnHost.TryGetValue(host, out var list)) return cards;
@@ -25517,14 +25592,8 @@ _spacelineOrder.Remove(pod);
     private static bool CardHasSkill(Card c, string skill) =>
         EventRules.HasSkill(new[] { c }, skill);
 
-    private static bool IsKlingonPersonnel(Card c)
-    {
-        if (!ModifierRules.IsPersonnelCard(c)) return false;
-        var tokens = ReportingRules.ParseAffiliationTokens(c.Affiliation);
-        if (tokens.Contains("KLI")) return true;
-        string blob = ((c.Affiliation ?? "") + " " + (c.Text ?? ""));
-        return blob.Contains("Klingon", StringComparison.OrdinalIgnoreCase);
-    }
+    private static bool IsKlingonPersonnel(Card c) =>
+        BattleRules.IsKlingonPersonnel(c);
 
     // SEARCH: Glossary: actions - "just" / just after; AppA: Klingon Death Yell; Verb: JustAfter(KlingonWithHonorDied)
     private static bool IsKlingonWithHonor(Card c) =>
@@ -25537,19 +25606,167 @@ _spacelineOrder.Remove(pod);
         TryFlushJustAfterDeathWindows();
     }
 
+    // SEARCH: Rule: 7.4.2 · 7.4.4; Glossary: actions - "just" / just after; AppA: Klingon Right of Vengeance; Verb: JustAfter(PersonnelBattleKlingonDied)
+    private void NotePersonnelBattleKlingonDeathForJustAfter(
+        object? attackerHost,
+        object? defenderHost,
+        List<Border> survivingAtk,
+        List<Border> survivingDef,
+        List<Card>? atkPresent,
+        List<Card>? defPresent,
+        int atkOwner,
+        int defOwner,
+        string killedKlingonName)
+    {
+        _pendingPersonnelBattleDeaths.Enqueue(new PendingPersonnelBattleJustAfter
+        {
+            AttackerHost = attackerHost,
+            DefenderHost = defenderHost,
+            SurvivingAtk = survivingAtk,
+            SurvivingDef = survivingDef,
+            AttackerPresent = atkPresent,
+            DefenderPresent = defPresent,
+            AtkOwner = atkOwner,
+            DefOwner = defOwner,
+            KilledKlingonName = killedKlingonName
+        });
+        TryFlushJustAfterDeathWindows();
+    }
+
     private void TryFlushJustAfterDeathWindows()
     {
         if (_deferJustAfterDeathFlush > 0) return;
         // One JustAfter on stack at a time; further deaths wait until current window resolves.
         if (_stack.IsOpen && _stack.Items.Any(a => a.Kind == TimingRules.ActionKind.JustAfter))
             return;
-        if (_pendingHonorKlingonDeaths.Count == 0) return;
-        var (dead, owner) = _pendingHonorKlingonDeaths.Dequeue();
-        OpenJustAfterWindow(
-            TimingRules.JustAfterTrigger.KlingonWithHonorDied,
-            dead,
-            owner,
-            $"Just after: {dead.Name} (Klingon with Honor) died");
+        if (_pendingHonorKlingonDeaths.Count > 0)
+        {
+            var (dead, owner) = _pendingHonorKlingonDeaths.Dequeue();
+            OpenJustAfterWindow(
+                TimingRules.JustAfterTrigger.KlingonWithHonorDied,
+                dead,
+                owner,
+                $"Just after: {dead.Name} (Klingon with Honor) died");
+            return;
+        }
+        if (_pendingPersonnelBattleDeaths.Count > 0)
+        {
+            var p = _pendingPersonnelBattleDeaths.Dequeue();
+            OpenPersonnelBattleJustAfterWindow(p);
+            return;
+        }
+    }
+
+    private void OpenPersonnelBattleJustAfterWindow(PendingPersonnelBattleJustAfter p)
+    {
+        var action = new TimingRules.PendingAction
+        {
+            Kind = TimingRules.ActionKind.JustAfter,
+            JustTrigger = TimingRules.JustAfterTrigger.PersonnelBattleKlingonDied,
+            Controller = p.AtkOwner,
+            DefenderOwner = p.DefOwner,
+            AttackerHost = p.AttackerHost,
+            DefenderHost = p.DefenderHost,
+            AttackerTeam = p.SurvivingAtk.Cast<object>().ToList(),
+            DefenderTeam = p.SurvivingDef.Cast<object>().ToList(),
+            AttackerPresent = p.AttackerPresent,
+            DefenderPresent = p.DefenderPresent,
+            Summary = $"Just after: personnel battle where {p.KilledKlingonName} died"
+        };
+        _stack.Push(action);
+        int first = _activePlayer is 1 or 2 ? _activePlayer : 1;
+        OpenResponseWindow(first);
+        ScheduleActionAnnounce(400);
+        StatusText.Text = action.Summary + " — just responses (Right of Vengeance)…";
+        _session.Log.Add(_session.TurnNumber, "sys",
+            $"JustAfter({TimingRules.JustAfterTrigger.PersonnelBattleKlingonDied}) window ({p.KilledKlingonName})");
+    }
+
+    private bool IsBorderAtHost(Border b, Border host) =>
+        _stackOnHost.TryGetValue(host, out var list) && list.Contains(b);
+
+    private List<Border> GetKlingonsPresentAtHost(Border host, int player)
+    {
+        var result = new List<Border>();
+        if (!_stackOnHost.TryGetValue(host, out var list)) return result;
+        foreach (var b in list)
+        {
+            if (b.Tag is not Card c || !BattleRules.IsPersonnelCombatant(c) || !BattleRules.IsKlingonPersonnel(c)) continue;
+            int o = CardOwner(b);
+            if (o == 0) o = 1;
+            if (o != player) continue;
+            result.Add(b);
+        }
+        return result;
+    }
+
+    private bool CanPlayerExecuteRightOfVengeance(int player, TimingRules.PendingAction top)
+    {
+        var oppTeam = (player == top.DefenderOwner ? top.AttackerTeam : top.DefenderTeam)?.OfType<Border>().ToList();
+        if (oppTeam == null || oppTeam.Count == 0) return false;
+
+        Border? host = (player == top.DefenderOwner ? top.DefenderHost : top.AttackerHost) as Border
+                       ?? (player == top.DefenderOwner ? top.AttackerHost : top.DefenderHost) as Border;
+        if (host == null) return false;
+
+        var myKlingons = GetKlingonsPresentAtHost(host, player);
+        if (myKlingons.Count == 0 && top.AttackerHost != top.DefenderHost)
+        {
+            Border? altHost = (player == top.DefenderOwner ? top.AttackerHost : top.DefenderHost) as Border;
+            if (altHost != null)
+                myKlingons = GetKlingonsPresentAtHost(altHost, player);
+        }
+        return myKlingons.Count > 0;
+    }
+
+    private void ApplyRightOfVengeanceFromResponse(int controller, TimingRules.PendingAction top)
+    {
+        Border? atkHost = (controller == top.DefenderOwner ? top.DefenderHost : top.AttackerHost) as Border;
+        Border? defHost = (controller == top.DefenderOwner ? top.AttackerHost : top.DefenderHost) as Border;
+        atkHost ??= defHost;
+        defHost ??= atkHost;
+        if (atkHost == null || defHost == null)
+        {
+            ShowPlayError("Klingon Right of Vengeance: battle location missing.");
+            return;
+        }
+
+        var atkBorders = GetKlingonsPresentAtHost(atkHost, controller);
+        if (atkBorders.Count == 0 && defHost != atkHost)
+        {
+            atkBorders = GetKlingonsPresentAtHost(defHost, controller);
+            if (atkBorders.Count > 0)
+                atkHost = defHost;
+        }
+        if (atkBorders.Count == 0)
+        {
+            ShowPlayError("Klingon Right of Vengeance: no Klingons present to attack.");
+            return;
+        }
+
+        var oppTeamBorders = (controller == top.DefenderOwner ? top.AttackerTeam : top.DefenderTeam)?.OfType<Border>().ToList() ?? new List<Border>();
+        var defBorders = oppTeamBorders.Where(b => IsBorderAtHost(b, defHost) || IsBorderAtHost(b, atkHost)).ToList();
+        if (defBorders.Count == 0)
+        {
+            ShowPlayError("Klingon Right of Vengeance: no surviving opposing personnel present.");
+            return;
+        }
+
+        foreach (var b in atkBorders)
+            UnstopBorder(b);
+
+        var atkPresent = GetAllCardsOnHost(atkHost, controller);
+        var defPresent = GetAllCardsOnHost(defHost, opponentOf(controller));
+
+        if (_stack.IsOpen && ReferenceEquals(_stack.Top, top))
+            _stack.Pop();
+
+        BeginPersonnelBattleStack(
+            atkHost, defHost, atkBorders, defBorders,
+            atkPresent, defPresent, controller, opponentOf(controller),
+            klingonStrengthDoubled: true);
+
+        StatusText.Text = $"Klingon Right of Vengeance: P{controller} attacks with {atkBorders.Count} Klingons (STRENGTH doubled)!";
     }
 
     private void OpenJustAfterWindow(
@@ -25824,7 +26041,7 @@ _spacelineOrder.Remove(pod);
                 ApplyDisabledVisual(b, IsCardDisabled(c));
         }
 
-                NoteIonizationBeam(srcMission, toMove.Count(b => b.Tag is Card bc && CardKinds.IsPersonnel(bc)), sourceHost: source, destHost: targetHost);
+        NoteIonizationBeam(srcMission, toMove.Count(b => b.Tag is Card bc && CardKinds.IsPersonnel(bc)), sourceHost: source, destHost: targetHost);
 
         UpdateHostBadge(source);
         UpdateHostBadge(targetHost);

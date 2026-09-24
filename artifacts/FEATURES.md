@@ -1,6 +1,6 @@
 # Compendium 2.7.4 — Features backlog
 
-Quelle: `rules/Compendium_Rulebook.pdf`. Prozess: `RULES.md`. Feinliste: `RULES_CHECKLIST.md`.
+Quelle: `rules/Compendium_Rulebook.pdf`. Ablauf: `IMPLEMENT.md`. Feinliste: `RULES_CHECKLIST.md`.
 Stand: 2026-09-19. Living list — **Seven owns ranking.**
 
 ✅ spielbar (Pepsch green) · 🟡 CODED / ACTIVE / partial · ❌ offen · ➖ geparkt / später
@@ -26,7 +26,7 @@ Ranking (Pepsch/Captain 2026-09-19): **Premiere CARD_TRACKER-Welle ist P0-top**;
 | 6.5.1 / 5 | Response Window (Hotseat UX) | 🟡 | CODED Silent Badge, Think Tray `[R]`, Pass Space, Presets 2s/3s/5s/10s; **Pepsch smoke still open** |
 | 7.2.2.3 | Dilemma Cure System | ✅ | DONE Pepsch green: Archer, Alien Abduction, Phased Matter 2026-09-13; Fix Team-Stop / Curable AttachContinue 7.2.2.3 & 7.2.6 |
 | 7.1.3 / 7.4 | Staffing/Fly/Battle Gaps G2–G7 | ✅ | DONE `2cd5bc8` |
-| 12.3 / 12.4 | Glossary/Compendium Welle 2 Control/Owner/Present | 🟡 | ACTIVE (Docs); Seven + Spock |
+| 12.3 / 12.4 | Glossary/Compendium Control/Owner/Present | 🟡 | ACTIVE (Docs); Seven + Spock; Tracker nur `GLOSSARY_COVERAGE.md` |
 | — | Rule cites (Code + Detailfenster) | 🟡 | ACTIVE Pepsch 2026-09-18 Standing Practice; Decide/Apply mit Compendium-§ / Glossary-Lemma; Retrofit kein Big-Bang; Coverage bei Seven |
 | UX / 7.0.1 | Occupancy Badge UX | 🟡 | CODED tip `034ee39` (Pepsch lock, smoke pending). Host footer P1 cyan / P2 orange; Planet=Away Team, Ship/Outpost/Station=Crew; personnel only; dual badges; no glow. **DONE only after Pepsch green** |
 | 7.2.2 | Armus | ✅ | Pepsch green 2026-09-19 (Captain) |

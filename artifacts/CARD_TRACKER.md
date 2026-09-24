@@ -226,7 +226,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Incoming Message: Romulan (122 U) | working | Pepsch green 2026-09-20 (Incoming Message family). | Pepsch 2026-09-20 |
 | Jaglom Shrek: Information Broker (123 R) | working | Pepsch 2026-09-23 funktioniert. | Pepsch green |
 | Kevin Uxbridge (124 U) | working | Pepsch green Response auf Vulcan Stone of Gol (Play-on Away Team): Event nullify OK; Mission bleibt auf Spaceline. tip Data/`8cc832f`. UX Ship-Detail Kevin-Targets+Scrollbar OK. | Pepsch 2026-09-20; Data/`8cc832f` |
-| Klingon Death Yell (125 R) | partial | tip Escape-Pod-drain: ResolveEntireStack breaks on JustAfter mid-drain so Pod Pass no longer auto-passes Yell. Prior e1d3cf4 DestroyShipOrFacility note. Smoke SMOKE_KLINGON_DEATH_YELL_ESCAPE_POD.md. Stays partial until Pepsch green. | Data/pending; Pepsch retest |
+| Klingon Death Yell (125 R) | working | Tips 3e140a1 + e1d3cf4 + c42ec0f (JustAfter; Ship-Destroy; Escape Pod frisst nicht). Pepsch: funktioniert. | Pepsch green |
 | Klingon Right of Vengeance (126 C) | unknown |  |  |
 | Life-form Scan (127 U) | unknown |  |  |
 | Long-Range Scan (128 C) | unknown |  |  |

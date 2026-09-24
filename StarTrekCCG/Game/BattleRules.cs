@@ -504,6 +504,15 @@ public static class BattleRules
         return t.Contains("personnel") || t.Contains("android") || t.Contains("animal");
     }
 
+    public static bool IsKlingonPersonnel(Card c)
+    {
+        if (!IsPersonnelCombatant(c)) return false;
+        var tokens = ReportingRules.ParseAffiliationTokens(c.Affiliation);
+        if (tokens.Contains("KLI")) return true;
+        string blob = ((c.Affiliation ?? "") + " " + (c.Text ?? ""));
+        return blob.Contains("Klingon", StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>
     /// Personnel Battle initiieren: Leader in angreifender Force, Gegner present, Affiliation.
     /// </summary>
@@ -512,7 +521,8 @@ public static class BattleRules
         IReadOnlyList<Card> defenderForce,
         int attackerOwner,
         int defenderOwner,
-        string? wartimeVs = null)
+        string? wartimeVs = null,
+        bool leaderRequired = true)
     {
         if (attackerOwner == defenderOwner)
             return new AttackCheck(false, "You may only attack an opposing force.");
@@ -525,7 +535,7 @@ public static class BattleRules
         if (def.Count == 0)
             return new AttackCheck(false, "No opposing personnel present.");
 
-        if (!HasLeader(atk))
+        if (leaderRequired && !HasLeader(atk))
             return new AttackCheck(false, "No leader in the away team / crew (OFFICER or Leadership).");
 
         // Affiliation: repräsentatives Personal vs. repräsentatives Ziel
@@ -554,7 +564,8 @@ public static class BattleRules
         IReadOnlyList<Card>? presentAtk = null,
         IReadOnlyList<Card>? presentDef = null,
         int atkOwner = 1,
-        int defOwner = 2)
+        int defOwner = 2,
+        bool klingonStrengthDoubled = false)
     {
         rng ??= new Random();
 
@@ -588,6 +599,8 @@ public static class BattleRules
             var a = atkPile[i];
             var d = defPile[j];
             int sa = GetStrength(a, atkPresent, atkOwner);
+            if (klingonStrengthDoubled && IsKlingonPersonnel(a))
+                sa *= 2;
             int sd = GetStrength(d, defPresent, defOwner);
 
             CombatOutcome vsDef = CombatOutcome.None;
@@ -623,12 +636,17 @@ public static class BattleRules
         }
 
         // Live STRENGTH (weder stunned noch mortal), inkl. Rest in Pile
-        int LiveStr(IEnumerable<Card> force, IEnumerable<Card> present, int owner) =>
+        int LiveStr(IEnumerable<Card> force, IEnumerable<Card> present, int owner, bool isAttacker) =>
             force.Where(c => !stunned.Contains(c) && !mortal.Contains(c))
-                 .Sum(c => GetStrength(c, present, owner));
+                 .Sum(c => {
+                     int s = GetStrength(c, present, owner);
+                     if (isAttacker && klingonStrengthDoubled && IsKlingonPersonnel(c))
+                         s *= 2;
+                     return s;
+                 });
 
-        int atkLive = LiveStr(atk, atkPresent, atkOwner);
-        int defLive = LiveStr(def, defPresent, defOwner);
+        int atkLive = LiveStr(atk, atkPresent, atkOwner, isAttacker: true);
+        int defLive = LiveStr(def, defPresent, defOwner, isAttacker: false);
 
         string winner;
         if (atkLive > defLive) winner = "Attacker";
@@ -664,6 +682,8 @@ public static class BattleRules
         {
             $"PERSONNEL BATTLE: {atk.Count} vs {def.Count}",
         };
+        if (klingonStrengthDoubled)
+            log.Add("Klingon Right of Vengeance: Klingon STRENGTH doubled for this battle.");
         log.AddRange(pairings.Select(p => "  " + p.Summary));
         log.Add($"Live STRENGTH: Attacker {atkLive} · Defender {defLive} → {winner}");
         if (extraMortalName != null)

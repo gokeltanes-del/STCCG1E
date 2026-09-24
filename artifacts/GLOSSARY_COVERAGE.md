@@ -1,31 +1,22 @@
 # Compendium 2.7.4 — Glossary Coverage
 
-Quelle: `rules/Compendium_Rulebook.pdf` (Glossary p. 104–224). Prozess: `RULES.md`. Wahrheit für spielbare Zellen: `RULES_CHECKLIST.md`.
+Quelle: `rules/Compendium_Rulebook.pdf` (Glossary p. 104–224). Ablauf: `IMPLEMENT.md`. Wahrheit für spielbare Zellen: `RULES_CHECKLIST.md`.
 Stand: 2026-09-19. Scope: Premiere; ➖ = nicht jetzt.
 
 ✅ spielbar · 🟡 Lücken · ❌ fehlt · ➖ später
 
-Ein A–Z-Tracker **aller** Glossary-Lemmata aus dem PDF. Welle-1-Notizen aus `GLOSSARY_WELLE1.md` sind hier eingefaltet; Welle1 ist Archiv.
+Ein A–Z-Tracker **aller** Glossary-Lemmata aus dem PDF. Das ist die einzige Glossary-Datei.
 Owners: **Seven** (Matrix + Checklist-Sync) + **Spock** (Ist/Soll + Quellen). Data only on Captain Go.
 
-### 6-Wellen-Plan
-
-| § | Thema | Status | Code / Hinweis |
-|---|--------|--------|----------------|
-| W1 | Timing / Actions / Nullify | ✅ / 🟡 | Hugh CanRespond DONE (`447beac`); core docs done; remaining partials open |
-| W2 | Control / Owner / Present | 🟡 | **ACTIVE** |
-| W3 | Movement / Hazards | ❌ | Stub — nach Welle 2 |
-| W4 | Ship states | ❌ | Stub — nach Welle 2 |
-| W5 | Battle / Damage | ❌ | Stub — nach Welle 2 |
-| W6 | Rest Glossary A–Z + leftover Compendium | 🟡 | Diese Datei: alle Lemmata gelistet; Status oft ❌/➖ ehrlich |
+Aktiver Dokumentenschwerpunkt: Control / Owner / Present (🟡).
 
 Spalten: **Lemma** · **Status** · **Checklist-§** · **Notes/Code** · **Spock source**.
 
 Lemmata im PDF: **1025** unique.
 
-### Welle-1-Notizen ohne eigenes 16.1-Lemma im PDF
+### Begriffe ohne eigenen Glossary-Kopf im PDF
 
-Diese Zeilen stammen aus `GLOSSARY_WELLE1.md` / Checklist, sind aber im PDF-Glossary **kein** 16.1-Head (Lookup trotzdem Pflicht).
+Diese Zeilen stehen in der Checkliste bzw. in Appendix-A-Beispielen, sind im PDF-Glossary aber **kein** 16.1-Head (Lookup trotzdem Pflicht).
 
 | Lemma | Thema | Status | Notes/Code |
 |-------|--------|--------|------------|

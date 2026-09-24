@@ -1,107 +1,99 @@
 # STCCG 1E — Projekt
 
-Private, nicht-kommerzielle C# / .NET 8 / WPF-App (Hotseat zuerst, später Netz + KI).  
-Repo: https://github.com/gokeltanes-del/STCCG1E  
-**Stand:** 2026-09-19
+Private, nicht-kommerzielle C# / .NET 8 / WPF-App für Star Trek Customizable Card Game First Edition.  
+Zuerst Hotseat, später Netz und Gegner-KI.
 
-## Docs-Wahrheit
+Repo (nur lesen, nur Pepsch schiebt): https://github.com/gokeltanes-del/STCCG1E  
+**Stand dieser Datei:** 2026-09-23
 
-- **Resume / Bot-Handoff:** `artifacts/HANDOFF.md` (jeder neue Chat zuerst)
-- **Projekt-Überblick:** `artifacts/PROJECT.md` (diese Datei)
-- `PROJECT_STATUS.md` (Repo-Root) ist **entfernt** — nicht wieder anlegen
+Diese Datei beschreibt das Repo, die Arbeitsorte und **welche Markdown-Datei wofür da ist**.  
+Kein Tip-Protokoll, keine Erledigt-Liste, kein Implementierungsablauf.
 
-Canon unter `artifacts/`:
+---
 
-| Datei | Inhalt | Owner (Team) |
-|-------|--------|--------------|
-| HANDOFF.md | Current tip, Smoke, Workflow | Captain + Data (tip) |
-| PROJECT.md | Architektur, Ist/Offen, Team | Captain + Data |
-| ENGINE.md | Board + Foundation | Data |
-| CODE_PLACEMENT.md | Wo neuer Code hingehört | Data |
-| TABLEWINDOW_INVENTORY.md | TW-Extract-Inventar | Data |
-| FEATURES.md | Feature-Backlog / Coverage-Hinweise | Seven |
-| CARD_TRACKER.md | Premiere+AU Kartenstatus | Jadzia |
-| RULES.md | Fix-Protokoll A/B/C | Spock + Team |
-| RULES_CHECKLIST.md | Checklist-Zellen | Spock / Seven |
-| GLOSSARY_COVERAGE.md | Glossary-Coverage | Seven / Spock |
-| GLOSSARY_WELLE1.md | Welle-1 Notes | Spock / Seven |
-| EXTRACT_REST.md | TW-Extract Rest | Data / Captain |
-| CHANGELOG.md | Playable Changes | Data (Zeile) + Team |
+## Arbeitsorte
 
-Regelbuch: `artifacts/rules/Compendium_Rulebook.pdf` (2.7.4).  
-Lookup: Checklist → Glossary → Temporary Rulings → Appendix A Errata → Appendix B.
+| Ort | Gilt |
+|-----|------|
+| Josef, lokal | Wahrheit für laufenden Code und Commits: `C:\Dev\StarTrekCCG\StarTrekCCG`. Tippen und committen nur dort. GitHub nur lesen. Nur Pepsch schiebt nach Grün-Test. Ein Branch: `master`. Kratzdateien nur `GROK_TEMP`. Programmdatei: `StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe` (keine `_build_*`). |
+| Online-Kopie / Cursor / `artifacts/` | Dokumente und diese Kopie. `artifacts/StarTrekCCG/` ist **kein** Live-Pfad. Änderungen hier nicht als Josef-Tip ausgeben. |
 
-## Team
+Quellbaum (VS / Git): `StarTrekCCG/` am Repo-Root.  
+Karten-JSON und Bilder: Lackey-Sets, oft `C:\STCCG_Data` / `GamePaths`.  
+Karten-Scope: Premiere zuerst. Andere Expansions nur nach Captain oder Pepsch, Liste aus den Set-JSON-Dateien.
 
-| Agent | Rolle |
-|-------|--------|
-| **Captain** | Goals, Go/Stop, Docs-Koordination, Pepsch-Kontakt |
-| **Data** | Alleiniger Code-Implementierer (Rules/Engine/UI) auf Josef: tip+commit, **nie push**; Pepsch testet/pusht |
-| **Spock** | Rules Ist/Soll + Glossary-Quellen |
-| **Seven** | FEATURES-Backlog + Glossary/Compendium Coverage |
-| **Jadzia** | CARD_TRACKER (Premiere+AU) |
+---
 
-**Workflow:** Agents edit+commit nur lokal auf Josef. **Nur Pepsch pusht** nach Grün-Test.  
-**Ein Branch: master.**
 
-## Code-Root (wichtig)
+## Online-Einzel-KI (Grok / Cursor)
 
-**Quellbaum (VS / Git):** `StarTrekCCG/` am **Repo-Root**  
-(`C:\Dev\StarTrekCCG\StarTrekCCG\StarTrekCCG\` für das .csproj).  
+Wenn Pepsch mit **einer** Online-KI weiterarbeitet (kein Bot-Team):
 
-**Nicht** `artifacts/StarTrekCCG/` — das ist kein Live-Code-Pfad.
+1. Startprompt: \rtifacts/UEBERGABE_PROMPT.md2. Arbeitsregeln Online: \rtifacts/ONLINE_WORKFLOW.md3. Rollen in einem Kopf: \BOTS.md\ → Gemeinsame Regeln + Gesamtbeschreibung
+4. **Jede** geänderte \.cs\ / \.md\ wird **vollständig** in den Projektordner geschrieben (kein Patch-only als Lieferform).
 
-**Pepsch Default-EXE (nicht Side-Builds `_build_*`):**  
-`C:\Dev\StarTrekCCG\StarTrekCCG\StarTrekCCG\bin\Debug\net8.0-windows\StarTrekCCG.exe`
+Repo: https://github.com/gokeltanes-del/STCCG1E — lokale Wahrheit Josef \C:\\Dev\\StarTrekCCG\\StarTrekCCG\. Push nur Pepsch.
 
-Daten: Lackey → Sets → `cards.json` + Bilder (`GamePaths` / oft `C:\STCCG_Data`).  
-Karten-Scope: **Premiere zuerst**; AU nur wo verdrahtet.
 
-## Programmstruktur (Kurz)
+## Bot-Team oder eine KI
+
+Rollen-Prompts: `BOTS.md`.
+
+- **Bot-Team:** Jeder Chat eine Rolle. Gemeinsame Regeln plus eine Einzelbeschreibung aus `BOTS.md`.
+- **Eine KI:** Gemeinsame Regeln plus Gesamtbeschreibung in `BOTS.md`. Eine Stimme, intern fünf Rollen, Ablauf in `IMPLEMENT.md`.
+
+| Rolle | Tut |
+|-------|-----|
+| Captain | Ziele, Freigabe, Pepsch, Handoff/Projekt/Bots |
+| Data | Einziger C#-Implementierer |
+| Spock | Gültige Regel aus dem Compendium-PDF, Ist gegen Soll |
+| Seven | Features + Coverage-Status |
+| Jadzia | Nur `CARD_TRACKER.md` |
+
+---
+
+## Markdown — eine Tatsache, eine Datei
+
+| Datei | Korb | Inhalt |
+|-------|------|--------|
+| `PROJECT.md` | Statisch | Diese Übersicht |
+| `BOTS.md` | Statisch | Prompts |
+| `IMPLEMENT.md` | Statisch | Wie eine Karte, Regel oder ein Feature gebaut wird |
+| `ENGINE.md` | Statisch | Ist-Landkarte der `.cs`-Dateien |
+| `TABLEWINDOW_INVENTORY.md` | Statisch | Ist von `TableWindow.xaml.cs` und Verdrahtung |
+| `EXTRACT_REST.md` | Status | Was noch aus der Tischdatei gezogen wird |
+| `FEATURES.md` | Status | Seven: Rangfolge der Themen |
+| `RULES_CHECKLIST.md` | Status | Compendium-§ → Fortschritt |
+| `GLOSSARY_COVERAGE.md` | Status | Einziger Glossar-Tracker |
+| `APPENDIX_A_COVERAGE.md` | Status | Appendix-A-Errata |
+| `CARD_TRACKER.md` | Status | Karte → `unknown` / `not-started` / `partial` / `working` / `blocked` |
+| `CHANGELOG.md` | Log | Jeder schreibt, was spielbar geändert wurde |
+| `HANDOFF.md` | Brücke | Nur jetzt aktiv, zuletzt, offen, geschlossen |
+
+Regelbuch-Norm: `artifacts/rules/Compendium_Rulebook.pdf` (2.7.4).  
+Lookup-Reihenfolge steht in `IMPLEMENT.md` und bei Spock in `BOTS.md`.
+
+Nicht anlegen: `PROJECT_STATUS.md`, `RULES.md`, `CODE_PLACEMENT.md`, `GLOSSARY_WELLE1.md`, `BOARD_MODEL.md`, `ENGINE_FOUNDATION.md`.
+
+---
+
+## Code-Baum (kurz)
 
 ```
-StarTrekCCG/                    # C# / .NET 8 / WPF
-  TableWindow.xaml[.cs]         # Tisch = View + Input + Apply-UI
-  DeckBuilderWindow.xaml[.cs]
-  Models/                       # Card, Deck, …
-  Game/                         # Regeln + Engine (kein WPF)
-    GameState, EngineAuthority, LegalMoves, EffectRegistry, *Rules
-  Services/                     # CardDatabase, DeckService, GameSave, GameSession
-  Assets/, Data/Sets/, Data/Decks/, Data/SaveGames/
+StarTrekCCG/
+  TableWindow.xaml(.cs)     Tisch
+  DeckBuilderWindow.*       Deckbau
+  Models/                   Card, Deck
+  Game/                     LegalMoves, EngineAuthority, *Rules, Board/
+  Services/                 Database, Save, Session
 ```
 
-Suche: Kartenfelder → `Models/Card.cs` · Legalität → `LegalMoves` + `EngineAuthority` · Effekttext → `Game/*Rules` · UI → `TableWindow.xaml.cs`.
+Suche nach Mechanik: `ENGINE.md`, dann `TABLEWINDOW_INVENTORY.md`, dann Kommentare `Rule:` / `Glossary:` / `Verb:` im Code.
 
-Neue Karte/Verb: Struktur nach `CODE_PLACEMENT.md` (Rules, nicht TW-Big-Bang).
+---
 
-## Architektur
+## Nicht jetzt
 
-```
-UI (TableWindow) → GameAction → EngineAuthority(GameState)
-                                  → *Rules / EffectRegistry
-LegalMoves.Collect / CollectBoth  = gleiche Quelle Hotseat / Netz / KI
-```
+Netz, eigene KI-Gegner, Sites und Tactics vollständig, Borg, Mirror, Big-Bang-Split der Tischdatei.
 
-Board 0–6 + Foundation E1–E6: siehe `ENGINE.md` (fertig). Dual-Run neben UI-Dicts. Kein Big-Bang-TW-Split.
-
-## Fix-Protokoll (kurz)
-
-Ist/Soll → Verb → Lookup Checklist/Glossary/Errata → Klasse A Karte | B Phrase | C Grundlage  
-→ kleinste Datei → CHANGELOG + Checklist-Zelle.  
-Antwort: Klasse, Dateien, bewusst nicht.
-
-Standing Practice (FEATURES): Decide/Apply mit Glossary/Compendium-Kommentar; Detail/Status nennt die Regel.
-
-## Als Nächstes (siehe HANDOFF)
-
-1. Pepsch Grün-Tests / Push für lokale Josef-Tips (Holo gates, Fingernail, …).  
-2. TableWindow-Extract schrittweise (EXTRACT_REST / Inventory) — Premiere-first.  
-3. Weitere Premiere-Karten einzeln nach Captain Go.  
-4. Persist/Battle-Foundation deferred bis Captain sagt.
-
-**Nicht jetzt:** Netz, KI, Sites/Tactics voll, Borg, Mirror, Big-Bang-UI.
-
-## Archiv / Altstand
-
-`Phase0_Starter` / `Phase1_Starter` / `Phase2_Starter` und ähnliche Starter-Bäume: **archiviert — nicht editieren.**  
-Ältere „Phase“-Warnungen in alten Chats gelten nicht mehr als Live-Pfad.
+Archivierte Starter-Bäume (`Phase0_Starter` und ähnlich) nicht editieren.

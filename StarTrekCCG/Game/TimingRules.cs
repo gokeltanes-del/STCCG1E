@@ -30,11 +30,12 @@ public static class TimingRules
         JustAfter
     }
 
-    /// <summary>Shared JustAfter(trigger) — first consumer: KlingonWithHonorDied (Death Yell).</summary>
+    /// <summary>Shared JustAfter(trigger) — consumers: KlingonWithHonorDied (Death Yell), PersonnelBattleKlingonDied (Right of Vengeance).</summary>
     public enum JustAfterTrigger
     {
         None = 0,
         KlingonWithHonorDied = 1,
+        PersonnelBattleKlingonDied = 2,
     }
 
     public enum Destination
@@ -97,6 +98,9 @@ public static class TimingRules
 
         /// <summary>In-play card this action is targeting (e.g. Kevin on an Event already in play).</summary>
         public Card? TargetCard { get; set; }
+
+        /// <summary>When true: Klingon combatants on attacking force have STRENGTH doubled (Klingon Right of Vengeance).</summary>
+        public bool KlingonStrengthDoubled { get; set; }
 
         /// <summary>When Kind==JustAfter: which just-after trigger opened this window.</summary>
         public JustAfterTrigger JustTrigger { get; init; }
@@ -249,7 +253,8 @@ public static class TimingRules
             || n.Equals("Distortion of Space/Time Continuum", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Emergency Transporter Armbands", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Honor Challenge", StringComparison.OrdinalIgnoreCase)
-            || n.Equals("Klingon Death Yell", StringComparison.OrdinalIgnoreCase);
+            || n.Equals("Klingon Death Yell", StringComparison.OrdinalIgnoreCase)
+            || n.Equals("Klingon Right of Vengeance", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -368,7 +373,7 @@ public static class TimingRules
             return (true, "Can cancel the battle against your ship (2 Navigation aboard at resolution).");
         }
 
-                if (n.Equals("Subspace Interference", StringComparison.OrdinalIgnoreCase))
+        if (n.Equals("Subspace Interference", StringComparison.OrdinalIgnoreCase))
         {
             // Nullifies Incoming Message OR Hail OR Subspace Schism as they are played.
             if (top.Kind != ActionKind.PlayCard || top.Card == null)
@@ -447,6 +452,14 @@ public static class TimingRules
                 return (false, "Klingon Death Yell: plays just after a Klingon with Honor dies.");
             // Either player; limit one each = one JustAfter window per such death.
             return (true, "Score 5 points (just after that Klingon with Honor died).");
+        }
+
+        // SEARCH: Rule: 7.4.2 · 7.4.4; Glossary: actions - "just" / just after; AppA: Klingon Right of Vengeance; Verb: JustAfter(PersonnelBattleKlingonDied)
+        if (n.Equals("Klingon Right of Vengeance", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!IsJustAfter(top, JustAfterTrigger.PersonnelBattleKlingonDied))
+                return (false, "Klingon Right of Vengeance: plays just after a personnel battle where a Klingon died.");
+            return (true, "Your Klingons present may immediately attack same opponents, even without a leader (STRENGTH doubled).");
         }
 
         return (false, $"\"{n}\" is not a valid response in this window.");

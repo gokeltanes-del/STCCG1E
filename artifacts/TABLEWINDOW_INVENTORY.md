@@ -1,62 +1,111 @@
-# TableWindow Inventory (Extract prep)
+# TABLEWINDOW_INVENTORY — Ist der Tischdatei
 
-Last updated: 2026-09-05  
-Source: `StarTrekCCG/TableWindow.xaml.cs` (~19921 lines, ~581 private methods)  
-Owner: Data Ã¢â‚¬â€ after Foundation E1Ã¢â‚¬â€œE6; before Premiere A/B card waves.  
-Scope: catalog altcode / per-card Apply hooks to pull into `Game/*Rules`, BoardStore, templates. **No big-bang split.**
+**Owner:** Data  
+**Stand:** 2026-09-21  
+**Datei:** `StarTrekCCG/TableWindow.xaml.cs` (plus `TableWindow.xaml`, `TableWindow.DetailGroups.cs`)
 
-## Priority extract clusters (effect-ish)
+Nur der **aktuelle** Stand: was die Datei tut und welche `*Rules` sie aufruft.  
+Keine Slice-Geschichte, kein DONE, keine Ticketliste. Offenes Ziehen aus dieser Datei: `EXTRACT_REST.md`.  
+Systeme im Rest der Engine: `ENGINE.md`. Ablauf: `IMPLEMENT.md`.
 
-| Area | Methods (line approx.) | Target layer |
-|------|------------------------|--------------|
-| Interrupts hand play | `TryPlayInterruptFromHand`, `TryPlayWormholeFromHand` | InterruptRules + TargetQuery |
-| Events instant/named | `ApplyInstantEvent`, `ApplyNamedAuInterrupt` | EventRules / EffectRegistry |
-| Kevin / Hugh / Lore | `ApplyKevinConvergence`, `ApplyHugh`, Rogue EOT | Interrupt/Dilemma Rules |
-| Dilemmas | `ApplyDilemmaResult`, start/EOT dilemma processors | DilemmaRules |
-| Artifacts | `ApplyArtifactAcquire` | ArtifactRules |
-| IM / Required move | `ApplyIncomingMessage`, `ProcessIncomingMessageMoves`, arrival | InterruptRules + RequiredMoveRules (hops done E6) |
-| Movement hazards | `CheckEventMovement`, `ApplyEventAfterMove` (Gaps/Rift/Q-Net/Tetryon) | EventRules onEnter |
-| Battle | Ship/Personnel begin + resolve | BattleRules |
-| Beam / Fly UI | `BeginBeamMode`, `BeginFlyHighlight` | stay View; Authority already |
-| EOT processors | repairs, dilemmas, Borg ship, Rogue Borg, events | TurnExpiry / *Rules |
+Verdrahtung = TableWindow ruft Decide in `Game/*Rules` auf und wendet das Ergebnis an.  
+„Nicht verdrahtet“ = Entscheidung oder Wirkung steckt noch als Zweig in der Tischdatei.
 
-## Persist kinds still branched in TableWindow (32)
+---
 
-AntiTime, Baryon, CaptainsLog, Distortion, Espionage, Gaps, Goddess, IncomingMessage, IntruderField, Ionization, Kidnappers, Klim, LoreReturns, LowerDecks, NeuralServo, ParticleScatter, PatternEnhancers, PlasmaFire, QNet, RaiseStakes, RedAlert, Rift, Spacedock, StaticWarp, Supernova, Table, Tetryon, Thermal, Traveler, WarpCore, YellowAlert (+ None)
+## Dateien
 
-## NameIs hardcodes in TableWindow
+| Datei | Rolle |
+|-------|--------|
+| `TableWindow.xaml` | Layout des Tisches |
+| `TableWindow.xaml.cs` | Eingabe, Modi, Apply, Paint, Relayout, viele Kartenzweige |
+| `TableWindow.DetailGroups.cs` | Detailgruppen; nicht die Regelwahrheit |
 
-Gaps / Q-Net -> `EventRules.IsGapsInNormalSpace` / `IsQNet` (**Slice 8**)
+Ungefähre Größe der `.cs`: sehr groß (viele hundert private Methoden). Neue Wirkung gehört nicht als weiterer Namenszweig hierher.
 
-(Slice 7: Asteroid Sanctuary / Distortion / Tachyon / Transwarp -> InterruptRules.Is* helpers)
+---
 
-## Parked smoke bugs (not this inventory)
+## Was hier bleiben soll (View)
 
+Klick, Drop, Snap, Halo, Zoom, Relayout, Overlay, AskPlayer, Reveal, Schadensanzeige, Zerstören sichtbar machen, `SyncBoardFromTable` / Paint.  
+`LegalMoves` / `EngineAuthority` sagen, ob die Aktion geht. TableWindow führt sie am Bildschirm aus.
 
-0. Hugh Borg Ship Dilemma branch (parked)
-1. Gaps Host/Host2 kill Ã¢â‚¬â€ **fixed** `f47469b` (await Pepsch retest/push)
-2. Dump omits ships on Gaps
-3. IM false already-at-facility
-4. Wormhole broken (Pepsch) Ã¢â‚¬â€ addressed in Slice 2 locally; retest
-5. Fed 7.4.1; E2b Treaty/Rogue store staffing
+---
 
-## Suggested extract order (Captain may reorder)
+## Verdrahtung zu Rules (Ist)
 
-1. Movement onEnter hazards Ã¢â‚¬â€ **Slice 1 DONE** (`MovementHazardRules`)
-2. Wormhole pair play Ã¢â‚¬â€ **Slice 2 DONE** (`InterruptRules` gates + sync/hit-test)
-3. Incoming Message apply/arrival (facility lookup) - **Slice 3 DONE** (`IncomingMessageRules`)
-4. Kevin/Hugh/LoreReturns Apply blocks - **Slice 4 DONE** (`EventRules` Lore/Kevin + `InterruptRules.DecideHugh`)
-5. ApplyInstantEvent / ApplyNamedAuInterrupt - **Slice 5 DONE** (`InstantEventRules` / `NamedInterruptRules`)
-6. Dilemma/Artifact Apply remnants - **Slice 6 DONE** (`DilemmaRules` apply gates / `ArtifactRules` placement)
-7. Sanctuary/Distortion/Tachyon/Transwarp - **Slice 7 DONE** (`InterruptShipEffectRules`)
-8. EOT attached events - **Slice 8 DONE** (`EndOfTurnEventRules` + Gaps/Q-Net Is*)
-9. EOT-rest (repairs, Rogue invade, Edo, SOT discard, dilemma cure/Junior/countdown) - **Slice 9 DONE** (`EndOfTurnRestRules`); Borg Ship EOT battle stays in TW
-10. Only then Premiere A card waves (Captain Go)
+Zählung = Vorkommen des Typnamens in `TableWindow.xaml.cs`. Hoch heißt: die Datei spricht oft mit diesem System, nicht dass Decide vollständig draußen ist.
 
-## Tip note after extracts
+| System | Aufrufe (ca.) | Rolle am Tisch | Verdrahtung |
+|--------|---------------|----------------|-------------|
+| `EventRules` | 266 | Event spielen, Persist, Instant | teilweise — Decide oft in Rules, Persist-Arten und Apply noch am Tisch |
+| `TimingRules` | 231 | Stack, just, Response, Nullify-Fenster | teilweise |
+| `InterruptRules` | 172 | Interrupt aus der Hand, auch plays-as | teilweise |
+| `DilemmaRules` | 129 | Encounter, Outcome, Attach | teilweise — große Katalogteile in Rules, Apply/Reveal am Tisch |
+| `ModifierRules` | 70 | Effektive Skills/Attribute in Detail und Attempt | teilweise |
+| `BoardStore` | 67 | Board neben UI-Listen | teilweise — Dual-Stand, nicht jede Aktion liest nur Board |
+| `BattleRules` | 55 | Schiff / Personal beginnen und auflösen | teilweise — Decide in Rules, Ablauf-UI am Tisch |
+| `ArtifactRules` | 49 | Erwerb und Nutzung | teilweise |
+| `PlayOnRules` | 46 | Plays on / Plays as, Host | teilweise (F0–F3 im Bau, typunabhängig) |
+| `TargetQuery` | 40 | Halo / Picker / Snap-Ziele | teilweise |
+| `ReportingRules` | 38 | Report | teilweise |
+| `MissionRules` | 26 | Attempt / Solve | teilweise |
+| `DownloadRules` | 25 | Download | teilweise |
+| `DetailStatusRules` | 25 | Statuszeile Buff/Debuff/Timer | verdrahtet für Decide, Paint am Tisch |
+| `DualAffiliationRules` | 23 | Mix / Dual | teilweise |
+| `MovementRules` | 20 | Fly / Staff / RANGE | teilweise — Pfad und Highlight am Tisch |
+| `SeedRules` | 16 | Seed | teilweise |
+| `EndOfTurnEventRules` | 15 | EOT angehängte Events | teilweise |
+| `EndOfTurnRestRules` | 15 | EOT-Rest-Tore | teilweise |
+| `TreatyRules` | 9 | Treaty / occupy | teilweise |
+| `DilemmaCureRules` | 9 | Cure | teilweise |
+| `TurnExpiry` | 8 | Until end of turn | teilweise |
+| `LegalMoves` | 6 | Aktionsliste | verdrahtet als Quelle, Sammlung noch nicht alles abdeckend |
+| `EngineAuthority` | 6 | Validate/Apply-Eingang | verdrahtet, nicht jede Geste geht darüber |
+| `PlayRules` | 6 | Entering play / free play | teilweise |
+| `InterruptShipEffectRules` | 6 | Interrupt am Schiff | teilweise |
+| `NamedInterruptRules` | 6 | Namens-Routing | teilweise — Altbestand |
+| `WnohgbRules` | 5 | Where No One Has Gone Before | kartenbenannte Datei |
+| `IncomingMessageRules` | 5 | Incoming Message | kartenbenannte Datei |
+| `RequiredMoveRules` | 4 | Pflichtflug | teilweise |
+| `MovementHazardRules` | 4 | Gaps / Q-Net / Rift / Tetryon beim Flug | teilweise |
+| `TargetingRules` | 3 | Zielvertrag | teilweise |
+| `GapsNullifyRules` | 3 | Gaps-Nullify | kartenbenannte Datei |
+| `EffectRegistry` | 2 | Vorlagen | dünn am Tisch |
+| `HailRules` | 2 | Hail | kartenbenannte Datei |
+| `DockingRules` | 2 | Dock | dünn — viel Layout noch am Tisch |
+| `InstantEventRules` | 1 | Instant-Event-Tore | dünn |
 
-Slices 1-9 decide gates extracted (Slice 9 EOT-rest); Gaps nullify relocate `bb163ed` Pepsch green. Local tip may be ahead of origin — **NO PUSH** until Pepsch signs full stack. Parked: Hugh Borg Ship Dilemma; IM FindMissionForDockable; dump@Gaps; Distortion (no AU). Placement strategy: `artifacts/CODE_PLACEMENT.md`.
+---
 
-## Deliberately not in first extract wave
+## Noch in der Tischdatei verzweigt (Persist-Arten)
 
-Paint/layout, Snap/Halo, Deck Builder, Save UI, Hotseat chrome, card zoom.
+Diese Namen hängen als Persist-Kind oder Apply-Zweig noch an TableWindow, auch wenn einzelne Tore schon in `EventRules` / EOT-Rules liegen:
+
+AntiTime, Baryon, CaptainsLog, Distortion, Espionage, Gaps, Goddess, IncomingMessage, IntruderField, Ionization, Kidnappers, Klim, LoreReturns, LowerDecks, NeuralServo, ParticleScatter, PatternEnhancers, PlasmaFire, QNet, RaiseStakes, RedAlert, Rift, Spacedock, StaticWarp, Supernova, Table, Tetryon, Thermal, Traveler, WarpCore, YellowAlert.
+
+Das ist Ist, keine Abarbeitungsliste. Zum Abbau: `EXTRACT_REST.md`.
+
+---
+
+## Typische Einstiege in der Datei
+
+| Thema | Typische Methoden / Orte | Rules |
+|-------|--------------------------|--------|
+| Interrupt aus der Hand | `TryPlayInterruptFromHand` und Verwandte | `InterruptRules`, `TimingRules` |
+| Event | `ApplyInstantEvent` und Event-Apply | `EventRules`, `InstantEventRules` |
+| Dilemma | `ApplyDilemmaResult`, Encounter | `DilemmaRules`, `DilemmaCureRules` |
+| Artifact | Acquire-Apply | `ArtifactRules` |
+| Fly / Beam | `BeginFlyHighlight`, `BeginBeamMode` | `MovementRules`; Legalität Authority |
+| Bewegungshindernis | nach dem Flug | `MovementHazardRules`, `EventRules` |
+| Battle | Begin/Resolve-UI | `BattleRules` |
+| Zugende | Process-EOT | `EndOfTurnEventRules`, `EndOfTurnRestRules`, `TurnExpiry` |
+| Plays on / Host | Drop / Place / Parse | `PlayOnRules`, `TargetQuery` |
+
+Namensvergleiche (`NameIs` / `IsGaps` / `IsQNet`) sollen in den `*Rules.Is*`-Helfern liegen; Reste in der Tischdatei sind Ist.
+
+---
+
+## Bewusst nicht Rules
+
+Paint, Snap, Halo, Zoom, DeckBuilder, Save-Dialog, Hotseat-Chrome. Bleiben View.

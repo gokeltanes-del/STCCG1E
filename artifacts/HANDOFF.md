@@ -1,4 +1,11 @@
 ---
+## Aktiv (Data tip - Klingon Right of Vengeance)
+- **Soll:** JustAfter(PersonnelBattleKlingonDied) nach Personnel Battle mit Klingonen-Tod; eigene Klingonen dürfen sofort "same opponents" angreifen; Leader-Bypass; STRENGTH verdoppelt.
+- **Ist:** `TimingRules.JustAfterTrigger.PersonnelBattleKlingonDied` + Response-Validierung; `BattleRules.ResolvePersonnelBattle` verdoppelt STRENGTH (`klingonStrengthDoubled`); Leader-Bypass in `CanInitiatePersonnelAttack` und `ApplyRightOfVengeanceFromResponse`; `UnstopBorder` der Klingonen; Hand-Play-Deny außerhalb des Fensters.
+- **Smoke:** `GROK_TEMP/SMOKE_KLINGON_RIGHT_OF_VENGEANCE.md`.
+- **Tracker:** Klingon Right of Vengeance → partial until Pepsch green. No push.
+- **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52; Artifact-Y Load.
+---
 ## Aktiv (Data tip - Escape Pod Pass must not eat Death Yell)
 - **Soll:** JustAfter(ShipDestroyed)=Escape Pod; JustAfter(Honor-Klingon died)=Death Yell; order Destroy→Pod→unresected die→Yell; rescue=no Yell; Pod must not auto-pass Yell.
 - **Ist:** ResolveEntireStack breaks when JustAfter opened mid-drain (ShipDestroyed Results / TryFlush). Inline Destroy (no Pod) unchanged.

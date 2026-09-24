@@ -96,6 +96,7 @@ public static class InterruptRules
     public static bool IsEmergencyTransporterArmbands(Card? c) => NameIs(c, "Emergency Transporter Armbands");
     public static bool IsHonorChallenge(Card? c) => NameIs(c, "Honor Challenge");
     public static bool IsDeathYell(Card? c) => NameIs(c, "Klingon Death Yell");
+    public static bool IsRightOfVengeance(Card? c) => NameIs(c, "Klingon Right of Vengeance");
     public static bool IsFullPlanetScan(Card? c) => NameIs(c, "Full Planet Scan");
     public static bool IsTachyonDetectionGrid(Card? c) => NameIs(c, "Tachyon Detection Grid");
 
@@ -107,13 +108,13 @@ public static class InterruptRules
     public static bool IsInterferenceNullifyTarget(Card? c) =>
         IsIncomingMessage(c) || IsHail(c) || IsSubspaceSchism(c);
     public static bool IsSubspaceSchism(Card? c) => NameIs(c, "Subspace Schism");
-        public static bool IsAlienGroupie(Card c) =>
-        NameIs(c, "Alien Groupie");
+    public static bool IsAlienGroupie(Card c) =>
+    NameIs(c, "Alien Groupie");
 
     public static bool IsAutoDestruct(Card c) =>
         NameIs(c, "Auto-Destruct Sequence");
 
-public static bool IsEscapePod(Card? c) => NameIs(c, "Escape Pod");
+    public static bool IsEscapePod(Card? c) => NameIs(c, "Escape Pod");
     public static bool IsWormhole(Card? c) => NameIs(c, "Wormhole");
 
     public static bool IsShipSeizure(Card? c) => NameIs(c, "Ship Seizure");
