@@ -254,7 +254,8 @@ public static class TimingRules
             || n.Equals("Emergency Transporter Armbands", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Honor Challenge", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Klingon Death Yell", StringComparison.OrdinalIgnoreCase)
-            || n.Equals("Klingon Right of Vengeance", StringComparison.OrdinalIgnoreCase);
+            || n.Equals("Klingon Right of Vengeance", StringComparison.OrdinalIgnoreCase)
+            || n.Equals("Particle Fountain", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -408,6 +409,22 @@ public static class TimingRules
             if (!present.Any(DilemmaRules.IsMale))
                 return (false, "Alien Groupie: no male present to stop.");
             return (true, "Stop one male present until countdown 2 expires.");
+        }
+
+        if (n.Equals("Particle Fountain", StringComparison.OrdinalIgnoreCase))
+        {
+            if (top.Kind != ActionKind.MissionJustSolved || (top.Card != null && !MissionRules.IsPlanetMission(top.Card)))
+                return (false, "Particle Fountain: plays just after a planet mission is solved.");
+            if (top.Controller != responseOwner)
+                return (false, "Particle Fountain: that was not your Away Team's solve.");
+            var present = top.AttackerPresent;
+            if (present == null || present.Count == 0)
+                return (false, "Particle Fountain: Away Team missing.");
+            int engCount = DilemmaRules.CountEffectiveSkill(present, responseOwner, "ENGINEER");
+            return InterruptRules.CanPlayParticleFountain(
+                justSolvedPlanet: true,
+                isOwnSolve: true,
+                engineerCount: engCount);
         }
 
 

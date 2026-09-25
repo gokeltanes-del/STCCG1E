@@ -120,6 +120,7 @@ public static class InterruptRules
     public static bool IsShipSeizure(Card? c) => NameIs(c, "Ship Seizure");
     public static bool IsLossOfOrbitalStability(Card? c) => NameIs(c, "Loss of Orbital Stability");
     public static bool IsNearWarpTransport(Card? c) => NameIs(c, "Near-Warp Transport");
+    public static bool IsParticleFountain(Card? c) => NameIs(c, "Particle Fountain");
 
     /// <summary>Extract Slice 2: pair gate â€” need two Wormholes in hand to start the first.</summary>
     public static bool CanStartWormholePair(int wormholesInHand) => wormholesInHand >= 2;
@@ -719,6 +720,136 @@ public static class InterruptRules
             return "crewed ship should fail";
         if (IsLegalShipSeizureVictim(true, true, true, true, false))
             return "unexposed (docked/cloaked/etc) should fail";
+        return null;
+    }
+
+    /// <summary>
+    /// Particle Fountain (Premiere 132 C):
+    /// "Plays if your Away Team just solved a planet mission. If 2 ENGINEER in Away Team, score points. 5"
+    /// </summary>
+    public static (bool ok, string reason) CanPlayParticleFountain(
+        bool justSolvedPlanet,
+        bool isOwnSolve,
+        int engineerCount)
+    {
+        if (!justSolvedPlanet)
+            return (false, "Particle Fountain: plays just after a planet mission is solved.");
+        if (!isOwnSolve)
+            return (false, "Particle Fountain: that was not your Away Team's solve.");
+        if (engineerCount < 2)
+            return (false, "Particle Fountain requires 2 ENGINEER in the solving Away Team.");
+        return (true, "Score 5 points (Away Team solved planet mission with 2 ENGINEER).");
+    }
+
+    /// <summary>DE mini-test for Particle Fountain gates. Null = OK.</summary>
+    public static string? VerifyParticleFountainDecide()
+    {
+        static Card Pers(string name, string cls, string text) => new()
+        {
+            Name = name,
+            Type = "Personnel",
+            Class = cls,
+            Text = text,
+            Characteristics = "Human; Male; Federation;",
+            IntegrityOrRange = "5",
+            CunningOrWeapons = "5",
+            StrengthOrShields = "5"
+        };
+        static Card Eq(string name) => new()
+        {
+            Name = name,
+            Type = "Equipment",
+            Text = name
+        };
+
+        var pf = new Card { Name = "Particle Fountain", Type = "Interrupt" };
+        var planetMission = new Card { Name = "Planet Test", Type = "Mission", MissionDilemmaType = "Planet [P]" };
+        var spaceMission = new Card { Name = "Space Test", Type = "Mission", MissionDilemmaType = "Space [S]" };
+
+        var eng1 = Pers("Eng One", "ENGINEER", "ENGINEER");
+        var eng2 = Pers("Eng Two", "ENGINEER", "ENGINEER");
+        var off1 = Pers("Off One", "OFFICER", "OFFICER");
+        var off2 = Pers("Off Two", "OFFICER", "OFFICER");
+        var kit = Eq("Engineering Kit");
+
+        // 1. Basic gate tests via CanPlayParticleFountain
+        var valid = CanPlayParticleFountain(justSolvedPlanet: true, isOwnSolve: true, engineerCount: 2);
+        if (!valid.ok)
+            return "valid solve with 2 ENGINEER should pass: " + valid.reason;
+
+        var valid3 = CanPlayParticleFountain(justSolvedPlanet: true, isOwnSolve: true, engineerCount: 3);
+        if (!valid3.ok)
+            return "valid solve with 3 ENGINEER should pass: " + valid3.reason;
+
+        var notPlanet = CanPlayParticleFountain(justSolvedPlanet: false, isOwnSolve: true, engineerCount: 2);
+        if (notPlanet.ok)
+            return "solve on non-planet should fail";
+
+        var notOwn = CanPlayParticleFountain(justSolvedPlanet: true, isOwnSolve: false, engineerCount: 2);
+        if (notOwn.ok)
+            return "opponent solve should fail";
+
+        var only1Eng = CanPlayParticleFountain(justSolvedPlanet: true, isOwnSolve: true, engineerCount: 1);
+        if (only1Eng.ok)
+            return "solve with 1 ENGINEER should fail";
+
+        var zeroEng = CanPlayParticleFountain(justSolvedPlanet: true, isOwnSolve: true, engineerCount: 0);
+        if (zeroEng.ok)
+            return "solve with 0 ENGINEER should fail";
+
+        // 2. Integration with TimingRules.CanRespond on ActionKind.MissionJustSolved
+        var top2Eng = new TimingRules.PendingAction
+        {
+            Kind = TimingRules.ActionKind.MissionJustSolved,
+            Controller = 1,
+            Card = planetMission,
+            AttackerPresent = new List<Card> { eng1, eng2 }
+        };
+        var res2Eng = TimingRules.CanRespond(pf, top2Eng, 1);
+        if (!res2Eng.ok)
+            return "TimingRules.CanRespond should pass with 2 printed ENGINEER: " + res2Eng.reason;
+
+        // Opponent attempt to respond
+        var resOpp = TimingRules.CanRespond(pf, top2Eng, 2);
+        if (resOpp.ok)
+            return "TimingRules.CanRespond should reject opponent";
+
+        // Only 1 ENGINEER
+        var top1Eng = new TimingRules.PendingAction
+        {
+            Kind = TimingRules.ActionKind.MissionJustSolved,
+            Controller = 1,
+            Card = planetMission,
+            AttackerPresent = new List<Card> { eng1, off1 }
+        };
+        var res1Eng = TimingRules.CanRespond(pf, top1Eng, 1);
+        if (res1Eng.ok)
+            return "TimingRules.CanRespond should fail with only 1 ENGINEER";
+
+        // 2 Officers + Engineering Kit => 2 effective ENGINEER
+        var topKit = new TimingRules.PendingAction
+        {
+            Kind = TimingRules.ActionKind.MissionJustSolved,
+            Controller = 1,
+            Card = planetMission,
+            AttackerPresent = new List<Card> { off1, off2, kit }
+        };
+        var resKit = TimingRules.CanRespond(pf, topKit, 1);
+        if (!resKit.ok)
+            return "TimingRules.CanRespond should pass with 2 Officers + Engineering Kit: " + resKit.reason;
+
+        // Space mission solve
+        var topSpace = new TimingRules.PendingAction
+        {
+            Kind = TimingRules.ActionKind.MissionJustSolved,
+            Controller = 1,
+            Card = spaceMission,
+            AttackerPresent = new List<Card> { eng1, eng2 }
+        };
+        var resSpace = TimingRules.CanRespond(pf, topSpace, 1);
+        if (resSpace.ok)
+            return "TimingRules.CanRespond should fail on Space mission";
+
         return null;
     }
 }

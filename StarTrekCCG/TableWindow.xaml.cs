@@ -4786,7 +4786,8 @@ public partial class TableWindow : Window
                         || InterruptRules.IsEmergencyTransporterArmbands(a.Card)
                         || InterruptRules.IsHonorChallenge(a.Card)
                         || InterruptRules.IsDeathYell(a.Card)
-                        || InterruptRules.IsRightOfVengeance(a.Card)))
+                        || InterruptRules.IsRightOfVengeance(a.Card)
+                        || InterruptRules.IsParticleFountain(a.Card)))
                 {
                     TryResolveInterruptPlay(a.Card, a.Controller, isResponse: true, a.TargetCard);
                 }
@@ -14056,6 +14057,37 @@ public partial class TableWindow : Window
             }
         }
 
+        if (InterruptRules.IsParticleFountain(card))
+        {
+            if (_stack.IsOpen && _stack.Top != null
+                && TimingRules.CanRespond(card, _stack.Top, owner).ok)
+            {
+                BeginPlayCardStack(card, isResponse: true, controllerOverride: owner,
+                    target: _stack.Top.Card);
+                return true;
+            }
+            if (_justSolvedPlanetMission == null || _justSolvedPlayer != owner
+                || _justSolvedTeamBorders.Count == 0)
+            {
+                ShowPlayError("Particle Fountain plays just after your Away Team solves a planet mission.");
+                return false;
+            }
+            var cards = _justSolvedTeamBorders.Select(b => b.Tag as Card).Where(c => c != null).Cast<Card>().ToList();
+            int engCount = DilemmaRules.CountEffectiveSkill(cards, owner, "ENGINEER");
+            var check = InterruptRules.CanPlayParticleFountain(
+                justSolvedPlanet: true,
+                isOwnSolve: true,
+                engineerCount: engCount);
+            if (!check.ok)
+            {
+                ShowPlayError(check.reason);
+                return false;
+            }
+            BeginPlayCardStack(card, isResponse: false, controllerOverride: owner,
+                target: _justSolvedPlanetMission.Tag as Card);
+            return true;
+        }
+
         if (InterruptRules.IsHugh(card))
         {
             if (_stack.IsOpen && _stack.Top != null
@@ -15595,8 +15627,16 @@ public partial class TableWindow : Window
                     break;
                 }
             case InterruptRules.Effect.ParticleFountain:
-                AwardDilemmaPoints(r.Points > 0 ? r.Points : 5);
-                break;
+                {
+                    int pts = r.Points > 0 ? r.Points : 5;
+                    if (controller == 1) _scoreP1 += pts;
+                    else if (controller == 2) _scoreP2 += pts;
+                    UpdateScoreDisplay();
+                    StatusText.Text = $"Particle Fountain: P{controller} scores {pts} points.";
+                    _session.Log.Add(_session.TurnNumber, $"P{controller}",
+                        $"Particle Fountain +{pts} (Away Team solved planet mission with 2 ENGINEER)");
+                    break;
+                }
             // SEARCH: Glossary: actions - "just"; AppA: Klingon Death Yell; Verb: JustAfter(KlingonWithHonorDied)
             case InterruptRules.Effect.DeathYell:
                 {
@@ -22833,7 +22873,7 @@ public partial class TableWindow : Window
     private void OpenMissionJustSolvedResponse(Border missionBorder, Card mission, List<Border> teamBorders, int player)
     {
         var present = teamBorders
-            .Where(b => b.Tag is Card c && ModifierRules.IsPersonnelCard(c))
+            .Where(b => b.Tag is Card c && (ModifierRules.IsPersonnelCard(c) || ModifierRules.IsEquipmentCard(c)))
             .Select(b => (Card)b.Tag!)
             .ToList();
         _stack.Push(new TimingRules.PendingAction
@@ -22848,7 +22888,7 @@ public partial class TableWindow : Window
         });
         OpenResponseWindow(player);
         ScheduleActionAnnounce(400);
-        StatusText.Text = $"{mission.Name} solved — just responses (Alien Groupie)…";
+        StatusText.Text = $"{mission.Name} solved — just responses (Alien Groupie, Particle Fountain)…";
         _session.Log.Add(_session.TurnNumber, $"P{player}",
             $"MissionJustSolved response window ({mission.Name})");
     }
@@ -22858,10 +22898,10 @@ public partial class TableWindow : Window
         _justSolvedPlanetMission = mission;
         _justSolvedPlayer = player;
         _justSolvedTeamBorders.Clear();
-        _justSolvedTeamBorders.AddRange(teamBorders.Where(b => b.Tag is Card c && ModifierRules.IsPersonnelCard(c)));
-        StatusText.Text = "Just: planet solved — Alien Groupie may play on that Away Team.";
+        _justSolvedTeamBorders.AddRange(teamBorders.Where(b => b.Tag is Card c && (ModifierRules.IsPersonnelCard(c) || ModifierRules.IsEquipmentCard(c))));
+        StatusText.Text = "Just: planet solved — Alien Groupie / Particle Fountain may play on that Away Team.";
         _session.Log.Add(_session.TurnNumber, $"P{player}",
-            "Just window: planet mission solved (Alien Groupie)");
+            "Just window: planet mission solved (Alien Groupie / Particle Fountain)");
     }
 
     private void ClearJustSolvedPlanet(string reason)
@@ -22870,7 +22910,7 @@ public partial class TableWindow : Window
         _justSolvedPlanetMission = null;
         _justSolvedTeamBorders.Clear();
         _justSolvedPlayer = 0;
-        _session.Log.AddDebug(_session.TurnNumber, "Just", $"Alien Groupie window cleared ({reason})");
+        _session.Log.AddDebug(_session.TurnNumber, "Just", $"Just-solved planet window cleared ({reason})");
     }
 
 

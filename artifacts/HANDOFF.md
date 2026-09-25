@@ -1,4 +1,19 @@
 ---
+## Aktiv (Particle Fountain - Premiere 132 C)
+- **Soll:** Particle Fountain (132 C): "Plays if your Away Team just solved a planet mission. If 2 ENGINEER in Away Team, score points. 5"
+- **Rulings & Design:**
+  - Nutzt dieselbe "Just"-Pipeline und das `MissionJustSolved`-Response-Fenster wie *Alien Groupie*.
+  - Trigger: Away Team hat soeben eine Planeten-Mission gelöst (`ActionKind.MissionJustSolved`).
+  - Bedingung: Mindestens 2 ENGINEER im Away Team (geprüft via `DilemmaRules.CountEffectiveSkill`, berücksichtigt printed Skill, Klassifikation und Equipment wie Engineering Kit/PADD).
+  - Effekt: 5 Punkte für den ausspielenden Spieler, Score-Update mit Siegbedingungsprüfung, Discard.
+- **Ist:**
+  - `InterruptRules.cs`: `IsParticleFountain`, `CanPlayParticleFountain` und Mini-Test `VerifyParticleFountainDecide` implementiert.
+  - `TimingRules.cs`: `IsCatalogResponse` und `CanRespond` um `Particle Fountain` erweitert.
+  - `TableWindow.xaml.cs`: In `ResolveTopOfStack`, `TryResolveInterruptPlay`, `TryPlayInterruptFromHand`, `OpenMissionJustSolvedResponse` und `ArmJustSolvedPlanet` integriert.
+- **Smoke/Test:** `VerifyParticleFountainDecide` mini-test passed.
+- **Tracker:** *Particle Fountain* auf `working`.
+- **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52; Artifact-Y Load.
+---
 ## Aktiv (Compiler Fix - DetailStatusRules / ToneForEvent / EventRules.Persist)
 - **Problem:** 8 Compilerfehler in Visual Studio:
   - `"DetailStatusRules" enthält keine Definition für "IsDebuff"` (2x)

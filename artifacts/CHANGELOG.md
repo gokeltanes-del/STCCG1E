@@ -1,3 +1,21 @@
+## 2026-09-25 — Particle Fountain (132 C)
+
+- Feature: Premiere-Interrupt *Particle Fountain* (132 C) implementiert.
+- Gametext: *"Plays if your Away Team just solved a planet mission. If 2 ENGINEER in Away Team, score points. 5"*
+- Rulings & Regeln:
+  - Trigger: Spielt direkt im Anschluss an das Lösen einer Planeten-Mission durch das eigene Away Team. Nutzt die bestehende `MissionJustSolved` Action-/Response-Pipeline (analog zu *Alien Groupie*).
+  - Bedingung: Mindestens 2 ENGINEER im lösenden Away Team erforderlich. Effektive Fertigkeitslevel (`DilemmaRules.CountEffectiveSkill`) berücksichtigen gedruckte Fähigkeiten, Klassifikation und Ausrüstung (z. B. Engineering Kit, Engineering PADD).
+  - Effekt: Verleiht dem ausspielenden Spieler sofort 5 Punkte (`_scoreP1 += 5` bzw. `_scoreP2 += 5`), aktualisiert das Scoreboard (`UpdateScoreDisplay()`), loggt das Ereignis und legt die Karte auf den Ablagestapel.
+- Implementierung:
+  - `InterruptRules.cs`: `IsParticleFountain(Card? c)` und Gate-Validierung `CanPlayParticleFountain(justSolvedPlanet, isOwnSolve, engineerCount)` hinzugefügt; Mini-Test `VerifyParticleFountainDecide` prüft alle Gates und Response-Fälle.
+  - `TimingRules.cs`: `Particle Fountain` in `IsCatalogResponse` aufgenommen; `CanRespond` validiert `ActionKind.MissionJustSolved`, eigene Mission, Planeten-Typ und 2 effektive ENGINEER.
+  - `TableWindow.xaml.cs`:
+    - `ResolveTopOfStack`: Erkennt `IsParticleFountain` als Stack-Response und leitet an `TryResolveInterruptPlay` weiter.
+    - `TryResolveInterruptPlay`: Schreibt 5 Punkte für `controller` gut, ruft `UpdateScoreDisplay()` auf und loggt die Wertung.
+    - `TryPlayInterruptFromHand`: Erlaubt das Ausspielen sowohl als direkte Stack-Response als auch während des offenen Just-Solved-Fensters mit 2-ENGINEER-Prüfung.
+    - `OpenMissionJustSolvedResponse` & `ArmJustSolvedPlanet`: Berücksichtigen auch Equipment-Karten im Away Team für `CountEffectiveSkill`.
+- Mini-Test: `VerifyParticleFountainDecide` erfolgreich ausgeführt (PASS).
+
 ## 2026-09-24 — Near-Warp Transport (130 U) UI & Beaming-Mechanik-Refactoring
 
 - UX/Mechanik: Interaktions-Flow für *Near-Warp Transport* (130 U) auf die reguläre Beam-Mechanik umgestellt:
