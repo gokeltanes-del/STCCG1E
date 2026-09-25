@@ -26,9 +26,9 @@ Columns: **Status** · **Notes** · **Source** (who / tip / date). Source tip: whe
 
 | Status | Count | Role |
 | --- | --- | --- |
-| `working` | 107 | Done (Pepsch green) |
+| `working` | 108 | Done (Pepsch green) |
 | `partial` | 6 | **Next smoke / rework** |
-| `unknown` | 250 | **Backlog — finish Premiere** |
+| `unknown` | 249 | **Backlog — finish Premiere** |
 | `blocked` | 0 | — |
 | **Total** | **363** |  |
 
@@ -230,8 +230,8 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Klingon Right of Vengeance (126 C) | working | tip JustAfter(PersonnelBattleKlingonDied): unstop present Klingons, immediate attack same opponents, leader bypass, STRENGTH doubled. Pepsch green 2026-09-24. | Pepsch green 2026-09-24 |
 | Life-form Scan (127 U) | working | Pepsch green 2026-09-24 (Examine opponent's hand). | Pepsch green 2026-09-24 |
 | Long-Range Scan (128 C) | unknown |  |  |
-| Loss of Orbital Stability (129 C) | partial | tip: plays on ship orbiting [P] (Target=Schiff im Orbit, nicht Planet); NO RANGE until EOT; SHIELDS>4 discard; SHIELDS<=4 destroyed at end of owner's next turn. Retest offen. | tip Data/Spock 2026-09-24 |
-| Near-Warp Transport (130 U) | unknown |  |  |
+| Loss of Orbital Stability (129 C) | working | tip: plays on ship orbiting [P] (Target=Schiff im Orbit, nicht Planet); NO RANGE until EOT; SHIELDS>4 discard; SHIELDS<=4 attached/destroyed at end of owner's next turn. Als negativer Effekt / Debuff (rot) und Interrupt unter Negative im Schiff-Detail eingeordnet. | Pepsch/tip Data/Spock 2026-09-24 |
+| Near-Warp Transport (130 U) | working | Plays to beam up to 6 cards (personnel and/or Equipment) from your exposed ship with transporters to an adjacent spaceline location. Q-Net does not break location adjacency (transports through Q-Net), but beaming obstacles apply (Rulebook 7.1.1.0.2). Space locations require own ship/facility. | Cursor Agent 2026-09-24 |
 | Palor Toff: Alien Trader (131 C) | unknown |  |  |
 | Particle Fountain (132 C) | unknown |  |  |
 | Q2 (133 U) | unknown |  |  |

@@ -156,6 +156,17 @@ public static class TargetQuery
             return (true, "Loss of Orbital Stability on orbiting ship.");
         }
 
+        if (InterruptRules.IsNearWarpTransport(drag))
+        {
+            if (!facts.IsShip)
+                return (false, "Near-Warp Transport: plays on your exposed ship with transporters.");
+            if (facts.Owner != player)
+                return (false, "Near-Warp Transport: must be your ship.");
+            if (!facts.Exposed)
+                return (false, "Near-Warp Transport: ship must be exposed (undocked, uncloaked).");
+            return (true, "Near-Warp Transport on your exposed ship.");
+        }
+
         if (EventRules.IsEvent(drag) && EventRules.PlaysOnHost(drag))
         {
             if (IsGapPlay(drag))

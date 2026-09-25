@@ -119,6 +119,7 @@ public static class InterruptRules
 
     public static bool IsShipSeizure(Card? c) => NameIs(c, "Ship Seizure");
     public static bool IsLossOfOrbitalStability(Card? c) => NameIs(c, "Loss of Orbital Stability");
+    public static bool IsNearWarpTransport(Card? c) => NameIs(c, "Near-Warp Transport");
 
     /// <summary>Extract Slice 2: pair gate â€” need two Wormholes in hand to start the first.</summary>
     public static bool CanStartWormholePair(int wormholesInHand) => wormholesInHand >= 2;

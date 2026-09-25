@@ -70,4 +70,51 @@ public static class InterruptShipEffectRules
         if (!atPlanet) return "Loss of Orbital Stability: ship must be orbiting a planet mission.";
         return null;
     }
+
+    // Rule: 7.1.1 · 7.1.1.0.2 Card-Activated Transport
+    // Glossary: Near-Warp Transport · adjacent · exposed
+    // Verb: plays to beam
+    /// <summary>
+    /// Near-Warp Transport: Plays to beam up to six cards (personnel and/or [Equipment])
+    /// from your exposed ship with transporters to an adjacent spaceline location (if possible).
+    /// Exposed = undocked, uncloaked, unphased, and not landed or carried (Glossary: exposed).
+    /// </summary>
+    public static string? NearWarpTransportDeny(
+        bool hostIsShip,
+        bool isYours,
+        bool isExposed,
+        bool hasTransporters,
+        int beamableCardsCount,
+        bool hasAdjacentLocation)
+    {
+        if (!hostIsShip) return "Near-Warp Transport: plays on your exposed ship with transporters.";
+        if (!isYours) return "Near-Warp Transport: must be your ship.";
+        if (!isExposed) return "Near-Warp Transport: ship must be exposed (undocked, uncloaked, not landed/carried).";
+        if (!hasTransporters) return "Near-Warp Transport: ship must have functional transporters.";
+        if (beamableCardsCount <= 0) return "Near-Warp Transport: no beamable personnel or equipment aboard.";
+        if (!hasAdjacentLocation) return "Near-Warp Transport: no adjacent spaceline location in the same quadrant.";
+        return null;
+    }
+
+    /// <summary>
+    /// Mini-test for Near-Warp Transport gates. Null = OK.
+    /// </summary>
+    public static string? VerifyNearWarpTransportDecide()
+    {
+        if (NearWarpTransportDeny(true, true, true, true, 1, true) != null)
+            return "valid ship should pass NearWarpTransportDeny";
+        if (NearWarpTransportDeny(false, true, true, true, 1, true) == null)
+            return "non-ship should fail NearWarpTransportDeny";
+        if (NearWarpTransportDeny(true, false, true, true, 1, true) == null)
+            return "opponent ship should fail NearWarpTransportDeny";
+        if (NearWarpTransportDeny(true, true, false, true, 1, true) == null)
+            return "unexposed ship should fail NearWarpTransportDeny";
+        if (NearWarpTransportDeny(true, true, true, false, 1, true) == null)
+            return "ship without transporters should fail NearWarpTransportDeny";
+        if (NearWarpTransportDeny(true, true, true, true, 0, true) == null)
+            return "empty ship should fail NearWarpTransportDeny";
+        if (NearWarpTransportDeny(true, true, true, true, 1, false) == null)
+            return "no adjacent location should fail NearWarpTransportDeny";
+        return null;
+    }
 }

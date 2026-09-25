@@ -1,4 +1,5 @@
 using System;
+using StarTrekCCG.Models;
 
 namespace StarTrekCCG;
 
@@ -56,6 +57,23 @@ public static class DetailStatusRules
                 => DetailStatusTone.Debuff,
             _ => DetailStatusTone.Info
         };
+    }
+
+    public static DetailStatusTone ToneForEvent(EventRules.Persist kind, int countdown, Card? card)
+    {
+        if (card != null && (InterruptRules.IsLossOfOrbitalStability(card) || (card.Name ?? "").Equals("Loss of Orbital Stability", StringComparison.OrdinalIgnoreCase)))
+            return DetailStatusTone.Debuff;
+        return ToneForEvent(kind, countdown);
+    }
+
+    public static bool IsDebuff(EventRules.Persist kind) =>
+        ToneForEvent(kind, 0) == DetailStatusTone.Debuff;
+
+    public static bool IsDebuff(EventRules.Persist kind, Card? card = null)
+    {
+        if (card != null && (InterruptRules.IsLossOfOrbitalStability(card) || (card.Name ?? "").Equals("Loss of Orbital Stability", StringComparison.OrdinalIgnoreCase)))
+            return true;
+        return IsDebuff(kind);
     }
 
     public static string FormatInStasisLine(string dilemmaName, string? cureHint = null)
@@ -153,4 +171,19 @@ public static class DetailStatusRules
 
     public static string EffectContinueLogVerb(string? cardName, string? message) =>
         IsRelocateContinue(cardName, message) ? "RELOCATED" : "EFFECT";
+
+    public static string? VerifyLossOfOrbitalStabilityNegative()
+    {
+        var loss = new Card
+        {
+            Name = "Loss of Orbital Stability",
+            Type = "Interrupt",
+            Text = "Plays on a ship orbiting a [P]. Ship has NO RANGE until end of turn. If SHIELDS>4, discard interrupt. Otherwise, ship destroyed at end of its owner's next turn. (Cumulative.)"
+        };
+        if (!IsDebuff(EventRules.Persist.None, loss))
+            return "Loss of Orbital Stability by card must be identified as Debuff";
+        if (ToneForEvent(EventRules.Persist.None, 1, loss) != DetailStatusTone.Debuff)
+            return "Loss of Orbital Stability ToneForEvent must be Debuff even with countdown";
+        return null;
+    }
 }

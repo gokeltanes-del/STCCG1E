@@ -1,3 +1,72 @@
+## 2026-09-24 — Near-Warp Transport (130 U) UI & Beaming-Mechanik-Refactoring
+
+- UX/Mechanik: Interaktions-Flow für *Near-Warp Transport* (130 U) auf die reguläre Beam-Mechanik umgestellt:
+  - Verwendet nun dieselbe Ansicht wie die normale Beam-Mechanik: Schiffsdetail-Overlay im Beam-Auswahlmodus (`ShowHostContents(shipB, sc, beamSelectMode: true)`).
+  - Crew und Equipment an Bord des Schiffes werden mit Checkboxen angezeigt (`_hostStripBeam = true`, `_beamSelected`).
+  - Karten können durch Klick auf die Checkbox oder direkt durch Klick auf die Mini-Karte an-/abgewählt werden.
+  - Begrenzung auf maximal 6 Karten (gemäß Kartentext "up to six cards"): Bei Auswahl von mehr als 6 Karten wird die Auswahl verhindert und ein Hinweisdialog angezeigt.
+  - Button "Select max (6)" / "Select none" im Detailfenster zur schnellen Auswahl.
+  - Schließen-Button im Detailfenster zeigt während Near-Warp Transport `"Beam Crew"` an; erfordert mindestens 1 ausgewählte Karte und schließt das Fenster für die Zielauswahl auf der Spaceline.
+  - Alle legalen Ziele auf benachbarten Spaceline-Locations (eigene Schiffe/Einrichtungen und Planetenoberflächen) werden simultan mit grünem Halo hervorgehoben.
+  - Zielwahl erfolgt direkt per Klick auf das hervorgehobene Ziel auf der Spaceline; Klick auf das Ausgangsschiff öffnet das Detailfenster zur Anpassung erneut; Rechtsklick/Leerklick bricht ab und nimmt die Karte zurück auf die Hand.
+  - Transport prüft Spaceline-Adjazenz, Verbot von Beamen ins freie All (7.1.1.0.1), Hindernisse (`CanBeamAtMission`), Verträge (`TreatyRules.CanOccupyHost`), Hologramme (`FilterHoloBeamAllowed`), heilt Dilemmata und aktualisiert Badges, Quarantäne und Logs.
+
+## 2026-09-24 — Fix: Compiler-Kompatibilität DetailStatusRules, EventRules & TableWindow (Loss of Orbital Stability)
+
+- Bugfix (Build/Compiler): Visual Studio meldete 8 Compilerfehler beim Kompilieren von `TableWindow.xaml.cs`:
+  - `"DetailStatusRules" enthält keine Definition für "IsDebuff"` (2x)
+  - `"EventRules.Persist" enthält keine Definition für "LossOfOrbitalStability"` (2x)
+  - `Keine Überladung für die ToneForEvent-Methode nimmt 3 Argumente an` (4x)
+- Root Cause:
+  - `TableWindow.xaml.cs` rief `DetailStatusRules.IsDebuff` und `DetailStatusRules.ToneForEvent(ae.Kind, ae.Countdown, ae.Card)` mit 3 Argumenten auf und setzte `Kind = EventRules.Persist.LossOfOrbitalStability`.
+  - Wenn `TableWindow.xaml.cs` gegen die Standardversion von `DetailStatusRules.cs` und `EventRules.cs` kompiliert wurde (wo `LossOfOrbitalStability` als Interrupt nicht in `EventRules.Persist` existiert und `ToneForEvent` 2 Argumente hat), schlug der Build fehl.
+- Fix:
+  - `TableWindow.xaml.cs`:
+    - Eigene private Hilfsmethoden `ToneForAttachedEvent(ae)` und `IsAttachedEffectDebuff(ae)` eingeführt, die `Loss of Orbital Stability` direkt über `InterruptRules.IsLossOfOrbitalStability(ae.Card)` erkennen und für Events den standardmäßigen 2-Argument-Aufruf `DetailStatusRules.ToneForEvent(ae.Kind, ae.Countdown)` bzw. `DetailStatusRules.ToneForEvent(ae.Kind, 0)` verwenden.
+    - `ApplyLossOfOrbitalStability`: Verwendet wieder `Kind = EventRules.Persist.None` wie auf `master`.
+    - `FormatAttachedHostEffectLine`: Formatiert die Zusammenfassung für `Loss of Orbital Stability` direkt ohne Abhängigkeit von `EventRules.Persist.LossOfOrbitalStability`.
+  - `DetailStatusRules.cs`:
+    - Beide Überladungen von `ToneForEvent` bereitgestellt: `(EventRules.Persist kind, int countdown)` (2 Argumente) sowie `(EventRules.Persist kind, int countdown, Card? card)` (3 Argumente).
+    - `IsDebuff(EventRules.Persist kind)` und `IsDebuff(EventRules.Persist kind, Card? card = null)` bereitgestellt.
+    - Abhängigkeit von `EventRules.Persist.LossOfOrbitalStability` entfernt.
+    - `VerifyLossOfOrbitalStabilityNegative`: Verwendet `EventRules.Persist.None`.
+- Ergebnis: Saubere Kompatibilität sowohl mit altem als auch neuem `DetailStatusRules`/`EventRules`, 0 Compilerfehler.
+
+## 2026-09-24 — Near-Warp Transport (130 U)
+
+- Feature: Premiere-Interrupt *Near-Warp Transport* (130 U) implementiert.
+- Gametext: *"Plays to beam up to six cards (personnel and/or [Equipment]) from your exposed ship with transporters to an adjacent spaceline location (if possible)."*
+- Rulings & Regeln:
+  - *Glossary: exposed*: Ein Schiff ist exposed, wenn es ungedockt (`!IsShipDocked`), nicht getarnt (`!IsShipCloaked`), unphased und nicht gelandet/getragen ist. `IsShipExposed` in `TableWindow.xaml.cs` prüft nun sauber auf `!IsShipCloaked(ship) && !IsShipDocked(ship)`.
+  - *Glossary: adjacent*: Zwei Spaceline-Locations sind benachbart, wenn keine andere Location zwischen ihnen liegt — auch wenn eine Nicht-Location-Karte wie Q-Net dazwischen liegt. `GetAdjacentSpacelineLocations` filtert Spaceline-Span-Barrieren heraus.
+  - *Rulebook 7.1.1.0.2 Card-Activated Transport*: Q-Net blockiert Near-Warp Transport nicht, Hindernisse für Beaming (z. B. Distortion Field, Atmospheric Ionization) gelten jedoch weiterhin und werden über `CanBeamAtMission` geprüft.
+  - *Rulebook 7.1.1.0.1*: Beamen ins freie All an Space-Missionen ist verboten; an Space-Locations wird ein eigenes Schiff oder eine eigene Station als Ziel verlangt.
+- Implementierung:
+  - `InterruptRules.cs`: `IsNearWarpTransport` hinzugefügt; `GetPlayTarget` liefert `PlayTarget.OwnShip`; `Resolve` mappt auf `Kind.Instant`, `Effect.NearWarp`, `DiscardAfter: true`.
+  - `InterruptShipEffectRules.cs`: `NearWarpTransportDeny` mit Validierung für Schiff, Eignerschaft, Exposed-Status, Transporter, beamfähige Crew/Equipment und benachbarte Spaceline-Locations im selben Quadranten; Mini-Test `VerifyNearWarpTransportDecide`.
+  - `TargetQuery.cs`: `CanPlayOn` validiert `facts.IsShip`, `facts.Owner == player` und `facts.Exposed`.
+  - `TableWindow.xaml.cs`:
+    - `HostMatchesInterruptTargetForCard` und `CollectLegalSnapHosts` filtern auf eigene exposed Schiffe.
+    - `ExecuteInterruptAction`: Behandelt `Effect.NearWarp` via `ApplyNearWarpTransport`.
+    - `ApplyNearWarpTransport`: Führt Kartenauswahl (bis zu 6 Personnel/Equipment), Wahl der benachbarten Spaceline-Location (links/rechts Dialog bei Verzweigung), Wahl des Ziel-Hosts (Planetenoberfläche oder eigenes Schiff/Einrichtung), Treaty- und Holo-Checks durch, führt den Transport durch und aktualisiert Badges, Visuals und Logs.
+- Smoke: `GROK_TEMP/SMOKE_NEAR_WARP_TRANSPORT.md`. Tracker `working`.
+
+## 2026-09-24 — Loss of Orbital Stability (129 C) Debuff/Negative-Fix
+
+- Bugfix (UX/Classification): *Loss of Orbital Stability* wurde nach dem Anheften an ein Schiff im Schiffsdetail fälschlicherweise als "Positive" mit grünem Label und als "Event" angezeigt.
+- Root Cause:
+  - `DetailStatusRules.ToneForEvent` lieferte bei `countdown > 0` pauschal `DetailStatusTone.Timer`, und für `Persist.None` `DetailStatusTone.Info`.
+  - In `TableWindow.xaml.cs` filterte `positiveEvents` auf `!= DetailStatusTone.Debuff`, wodurch der zerstörerische Interrupt unter "Positive" einsortiert und mit dem Präfix "Event" versehen wurde.
+- Fix:
+  - `EventRules.cs`: `EventRules.Persist.LossOfOrbitalStability` hinzugefügt und in `FormatHostEffectSummary` als `"ship has NO RANGE; destroyed at end of owner's next turn"` definiert.
+  - `DetailStatusRules.cs`: `IsDebuff` eingeführt, welches `LossOfOrbitalStability` sowie alle schädlichen persistierenden Effekte (`PlasmaFire`, `WarpCore`, `Baryon`, etc.) und per Card-Name erkennt. `ToneForEvent` priorisiert `IsDebuff` (liefert `DetailStatusTone.Debuff` / rot auch bei Countdown).
+  - `TableWindow.xaml.cs`:
+    - `positiveEvents` und `negativeEvents` trennen sauber nach `DetailStatusRules.IsDebuff`.
+    - Mini-Karten und Statuszeilen erkennen `Interrupt` (zeigen `"Interrupt — countdown 1"` bzw. `"Interrupt (debuff)"` statt `"Event"`).
+    - `FormatAttachedHostEffectLine` unterstützt Interrupts und formatiert die Effektzusammenfassung.
+    - `ApplyLossOfOrbitalStability` setzt `Kind = EventRules.Persist.LossOfOrbitalStability`.
+  - Tests: `DetailStatusRules.VerifyLossOfOrbitalStabilityNegative()` als Regressions-Check hinzugefügt.
+
 ## 2026-09-24 — Loss of Orbital Stability (129 C) Target-Fix
 
 - Bugfix (Targeting): *Loss of Orbital Stability* gab fälschlicherweise eine Planeten-Mission als Snap/Target an anstatt ein Schiff.

@@ -123,6 +123,9 @@ public partial class TableWindow : Window
     private enum CardActionMode { None, BeamPickTarget, FlyPickMission, AttackPickTarget, PersonnelAttackPick, EventPickTarget, TractorPickScow, HailMarkShips, BoardPickShip }
     private CardActionMode _cardActionMode = CardActionMode.None;
     private Border? _actionSourceHost;
+    private bool _isNearWarpTransportMode;
+    private Card? _nearWarpInterruptCard;
+    private int _nearWarpController;
     /// <summary>Host chosen by drag before event resolve (or click in EventPickTarget mode).</summary>
     private Border? _eventPreferredHost;
     private Border? _eventPreferredHost2;
@@ -13064,6 +13067,15 @@ public partial class TableWindow : Window
     {
         if (_cardActionMode == CardActionMode.HailMarkShips && _hailMarkCard != null)
             CancelHailMarkMode(discard: true);
+        if (_isNearWarpTransportMode && _nearWarpInterruptCard != null)
+        {
+            ReturnCardToHand(_nearWarpInterruptCard, _nearWarpController);
+            RemoveOrphanTableCopies(_nearWarpInterruptCard);
+            _isNearWarpTransportMode = false;
+            _nearWarpInterruptCard = null;
+            _nearWarpController = 0;
+            StatusText.Text = "Near-Warp Transport cancelled.";
+        }
         bool wasBeam = _cardActionMode == CardActionMode.BeamPickTarget;
         bool releaseEtaHold = _etaBeamHoldsBattle;
         _cardActionMode = CardActionMode.None;
@@ -13348,9 +13360,35 @@ public partial class TableWindow : Window
     private void BeamSelect_Changed(object sender, RoutedEventArgs e)
     {
         if (sender is not CheckBox cb || cb.Tag is not Border cardBorder) return;
-        if (cb.IsChecked == true) _beamSelected.Add(cardBorder);
-        else _beamSelected.Remove(cardBorder);
-        StatusText.Text = $"BEAM: {_beamSelected.Count} card(s) selected – click destination.";
+        if (cb.IsChecked == true)
+        {
+            if (_isNearWarpTransportMode && _beamSelected.Count >= 6)
+            {
+                cb.Checked -= BeamSelect_Changed;
+                cb.Unchecked -= BeamSelect_Changed;
+                cb.IsChecked = false;
+                cb.Checked += BeamSelect_Changed;
+                cb.Unchecked += BeamSelect_Changed;
+                ShowPlayError("Near-Warp Transport: You may select at most 6 cards (as prescribed by the card).");
+                return;
+            }
+            _beamSelected.Add(cardBorder);
+        }
+        else
+        {
+            _beamSelected.Remove(cardBorder);
+            if (cardBorder.Tag is Card c)
+                _beamSelected.RemoveWhere(b => ReferenceEquals(b.Tag, c));
+        }
+        if (_isNearWarpTransportMode)
+        {
+            StatusText.Text = $"Near-Warp Transport: {_beamSelected.Count} card(s) selected (max 6). Click 'Beam Crew' when done.";
+        }
+        else
+        {
+            StatusText.Text = $"BEAM: {_beamSelected.Count} card(s) selected – click destination.";
+        }
+        UpdateDetailBeamSelectButton(_detailHost ?? _hostStripHost);
     }
 
     private void TryAttemptMission(Border missionBorder, Card mission, Border? attemptingShipBorder = null)
@@ -14258,6 +14296,13 @@ public partial class TableWindow : Window
             return host.Tag is Card th && IsShipCard(th) && IsShipCloaked(host);
         if (InterruptRules.IsLossOfOrbitalStability(interrupt))
             return host.Tag is Card ls && IsShipCard(ls) && IsShipOrbitingPlanet(host, ls);
+        if (InterruptRules.IsNearWarpTransport(interrupt))
+        {
+            if (host.Tag is not Card nw || !IsShipCard(nw)) return false;
+            int o = GetBorderOwner(host);
+            if (o == 0) o = owner;
+            return o == owner && IsShipExposed(host);
+        }
         var spec = PlayOnRules.Parse(interrupt);
         if (spec.Host != PlayOnRules.Host.None)
             return HostMatchesPlayOn(host, owner, spec);
@@ -15586,6 +15631,10 @@ public partial class TableWindow : Window
             case InterruptRules.Effect.LossOfOrbit:
                 ApplyLossOfOrbitalStability(card, controller, target);
                 break;
+            case InterruptRules.Effect.NearWarp:
+                if (!ApplyNearWarpTransport(card, controller, target))
+                    return true;
+                break;
             case InterruptRules.Effect.Wormhole:
                 // Pair is resolved on drop (exposed ship, then location). Stack only announces.
                 break;
@@ -15666,10 +15715,14 @@ public partial class TableWindow : Window
         bool hailMarkPending = r.Effect == InterruptRules.Effect.Hail
                                && _cardActionMode == CardActionMode.HailMarkShips
                                && ReferenceEquals(_hailMarkCard, card);
+        bool nearWarpPending = r.Effect == InterruptRules.Effect.NearWarp
+                               && _isNearWarpTransportMode
+                               && ReferenceEquals(_nearWarpInterruptCard, card);
+        bool pendingInterrupt = hailMarkPending || nearWarpPending;
 
         if (r.OutOfPlay)
             SendCardTo(card, controller, TimingRules.Destination.OutOfPlay);
-        else if (r.DiscardAfter && !hailMarkPending)
+        else if (r.DiscardAfter && !pendingInterrupt)
             SendCardTo(card, controller, TimingRules.Destination.Discard);
 
         // Instant interrupts must never remain as free-floating board cards
@@ -15680,7 +15733,7 @@ public partial class TableWindow : Window
             and not InterruptRules.Effect.AlienGroupie
             and not InterruptRules.Effect.AutoDestruct
             and not InterruptRules.Effect.LossOfOrbit
-            && !hailMarkPending)
+            && !pendingInterrupt)
             RemoveOrphanTableCopies(card);
 
         _session.Log.Add(_session.TurnNumber, $"P{controller}", $"Interrupt {card.Name}: {r.Effect}");
@@ -16377,6 +16430,17 @@ public partial class TableWindow : Window
             {
                 if (b.Tag is not Card hc || !IsShipCard(hc)) continue;
                 if (IsShipOrbitingPlanet(b, hc)) Add(b);
+            }
+            return list;
+        }
+
+        if (InterruptRules.IsNearWarpTransport(card))
+        {
+            foreach (var b in TableCanvas.Children.OfType<Border>())
+            {
+                if (b.Tag is not Card hc || !IsShipCard(hc)) continue;
+                if (GetBorderOwner(b) != owner) continue;
+                if (IsShipExposed(b)) Add(b);
             }
             return list;
         }
@@ -22187,8 +22251,8 @@ public partial class TableWindow : Window
         return _cloakedShips.Contains(ship);
     }
 
-    /// <summary>Glossary: exposed = in play and not cloaked (landed/phased later).</summary>
-    private bool IsShipExposed(Border ship) => !IsShipCloaked(ship);
+    /// <summary>Glossary: exposed = undocked, uncloaked, unphased, and not landed or carried.</summary>
+    private bool IsShipExposed(Border ship) => !IsShipCloaked(ship) && !IsShipDocked(ship);
 
     private bool IsShipDocked(Border ship)
     {
@@ -24493,6 +24557,20 @@ public partial class TableWindow : Window
         });
     }
 
+    private static DetailStatusTone ToneForAttachedEvent(AttachedEvent ae)
+    {
+        if (ae.Card != null && InterruptRules.IsLossOfOrbitalStability(ae.Card))
+            return DetailStatusTone.Debuff;
+        return DetailStatusRules.ToneForEvent(ae.Kind, ae.Countdown);
+    }
+
+    private static bool IsAttachedEffectDebuff(AttachedEvent ae)
+    {
+        if (ae.Card != null && InterruptRules.IsLossOfOrbitalStability(ae.Card))
+            return true;
+        return DetailStatusRules.ToneForEvent(ae.Kind, 0) == DetailStatusTone.Debuff;
+    }
+
     private void ApplyStatusVisualToMini(Border mini, Card card)
     {
         if (IsCardDisabled(card))
@@ -24508,7 +24586,7 @@ public partial class TableWindow : Window
         // Amber timer / red debuff / green buff badge via border for attached effects on this card itself
         foreach (var ae in _attachedEvents.Where(e => ReferenceEquals(e.Card, card)))
         {
-            var tone = DetailStatusRules.ToneForEvent(ae.Kind, ae.Countdown);
+            var tone = ToneForAttachedEvent(ae);
             ApplyToneBorder(mini, tone);
             return;
         }
@@ -24643,8 +24721,9 @@ public partial class TableWindow : Window
 
                 foreach (var ae in EventsOn(shipBorder))
                 {
-                    var tone = DetailStatusRules.ToneForEvent(ae.Kind, ae.Countdown);
-                    string line = FormatAttachedHostEffectLine("Event", ae.Card, ae.Countdown, ae.Kind.ToString(),
+                    var tone = ToneForAttachedEvent(ae);
+                    string cardKindName = (ae.Card.Type ?? "").Contains("Interrupt", StringComparison.OrdinalIgnoreCase) ? "Interrupt" : "Event";
+                    string line = FormatAttachedHostEffectLine(cardKindName, ae.Card, ae.Countdown, ae.Kind.ToString(),
                         GetAllCardsOnHost(shipBorder, owner));
                     AddDetailStatusLine(line, tone);
                 }
@@ -24708,24 +24787,26 @@ public partial class TableWindow : Window
                 }
                 foreach (var ae in EventsOn(missionBorder))
                 {
-                    var tone = DetailStatusRules.ToneForEvent(ae.Kind, ae.Countdown);
-                    string line = FormatAttachedHostEffectLine("Event", ae.Card, ae.Countdown, ae.Kind.ToString(), null);
+                    var tone = ToneForAttachedEvent(ae);
+                    string cardKindName = (ae.Card.Type ?? "").Contains("Interrupt", StringComparison.OrdinalIgnoreCase) ? "Interrupt" : "Event";
+                    string line = FormatAttachedHostEffectLine(cardKindName, ae.Card, ae.Countdown, ae.Kind.ToString(), null);
                     AddDetailStatusLine(line, tone);
                 }
             }
         }
 
-        // Dilemma / Event card itself: show tone for live attachments
-        if (EventRules.IsEvent(card) || CardKinds.IsDilemma(card))
+        // Dilemma / Event / Interrupt card itself: show tone for live attachments
+        if (EventRules.IsEvent(card) || CardKinds.IsDilemma(card) || (card.Type ?? "").Contains("Interrupt", StringComparison.OrdinalIgnoreCase))
         {
             if (EventRules.IsRedAlert(card))
                 AddDetailStatusLine(FormatRedAlertStatusLine(card), DetailStatusTone.Buff);
 
             foreach (var ae in _attachedEvents.Where(e => ReferenceEquals(e.Card, card)))
             {
-                var tone = DetailStatusRules.ToneForEvent(ae.Kind, ae.Countdown);
+                var tone = ToneForAttachedEvent(ae);
                 string hostName = (ae.Host?.Tag as Card)?.Name ?? "(no host)";
-                AddDetailStatusLine($"{FormatAttachedHostEffectLine("Event", card, ae.Countdown, ae.Kind.ToString(), null)}  on {hostName}", tone);
+                string cardKindName = (card.Type ?? "").Contains("Interrupt", StringComparison.OrdinalIgnoreCase) ? "Interrupt" : "Event";
+                AddDetailStatusLine($"{FormatAttachedHostEffectLine(cardKindName, card, ae.Countdown, ae.Kind.ToString(), null)}  on {hostName}", tone);
             }
             foreach (var ad in _attachedDilemmas.Where(d => ReferenceEquals(d.Card, card)))
             {
@@ -25216,6 +25297,159 @@ public partial class TableWindow : Window
                 + $"SHIELDS {effShields} <= 4 → {sc.Name} will be destroyed at end of owner's next turn (P{shipOwner}).",
                 RevealButtons.Ok, card.Name);
         }
+    }
+
+    /// <summary>
+    /// Near-Warp Transport: Plays to beam up to six cards (personnel and/or [Equipment])
+    /// from your exposed ship with transporters to an adjacent spaceline location (if possible).
+    /// </summary>
+    private bool ApplyNearWarpTransport(Card card, int controller, Card? target)
+    {
+        Border? shipB = _interruptTargetHost;
+        if ((shipB == null || shipB.Tag is not Card) && target != null)
+            shipB = FindBorderForCard(target);
+        if (shipB == null)
+            shipB = PickOwnShip(controller);
+
+        Card? sc = shipB?.Tag as Card;
+        bool hostIsShip = shipB != null && sc != null && IsShipCard(sc);
+        int shipOwner = shipB != null ? GetBorderOwner(shipB) : controller;
+        if (shipOwner == 0) shipOwner = controller;
+        bool isYours = shipOwner == controller;
+        bool exposed = shipB != null && IsShipExposed(shipB);
+        bool hasTransporters = hostIsShip; // In STCCG 1E all ships have functional transporters by default
+
+        var srcMission = shipB != null ? FindMissionForDockable(shipB) : null;
+        var adjLocations = srcMission != null ? GetAdjacentSpacelineLocations(srcMission) : new List<Border>();
+
+        // Collect all beamable crew and equipment aboard the ship
+        var allCrewBorders = shipB != null ? (StackOnHost(shipB)?.ToList() ?? new List<Border>()) : new List<Border>();
+        if (shipB != null)
+        {
+            foreach (var c in GetCrewOnShip(shipB))
+            {
+                var vb = FindBorderForCard(c);
+                if (vb != null && !allCrewBorders.Contains(vb))
+                    allCrewBorders.Add(vb);
+            }
+        }
+
+        var beamableCards = allCrewBorders.Where(b =>
+        {
+            if (b.Tag is not Card c) return false;
+            return IsBeamableFromHost(c, shipB!, b, controller);
+        }).ToList();
+
+        var deny = InterruptShipEffectRules.NearWarpTransportDeny(
+            hostIsShip: hostIsShip,
+            isYours: isYours,
+            isExposed: exposed,
+            hasTransporters: hasTransporters,
+            beamableCardsCount: beamableCards.Count,
+            hasAdjacentLocation: adjLocations.Count > 0);
+
+        if (deny != null)
+        {
+            ShowPlayError(deny);
+            var hand = controller == 1 ? _handCards : _oppHandCards;
+            if (!hand.Contains(card)) hand.Add(card);
+            RefreshHandStrips();
+            RefreshZoneCounts();
+            return false;
+        }
+
+        // Rule: 7.1.1.0.2 Card-Activated Transport does not overcome obstacles to beaming
+        if (!CanBeamAtMission(srcMission!, plannedCount: Math.Min(6, beamableCards.Count), beamingPlayer: controller, sourceHost: shipB))
+        {
+            var hand = controller == 1 ? _handCards : _oppHandCards;
+            if (!hand.Contains(card)) hand.Add(card);
+            RefreshHandStrips();
+            RefreshZoneCounts();
+            return false;
+        }
+
+        // Collect legal destination targets across all adjacent spaceline locations
+        var legalTargets = new List<Border>();
+        foreach (var adjMission in adjLocations)
+        {
+            foreach (var dock in GetDockablesUnderMission(adjMission))
+            {
+                if (ReferenceEquals(dock, shipB)) continue;
+                int o = GetBorderOwner(dock);
+                if (o != controller) continue;
+                if (dock.Tag is Card dc && IsShipCard(dc) && IsShipCloaked(dock))
+                    continue;
+                legalTargets.Add(dock);
+            }
+            if (adjMission.Tag is Card mc && MissionCountsAsPlanetCard(mc))
+            {
+                legalTargets.Add(adjMission);
+            }
+        }
+
+        if (legalTargets.Count == 0)
+        {
+            ShowPlayError("Near-Warp Transport: No legal destination targets at adjacent locations (need own ship/facility, or planet surface).");
+            var hand = controller == 1 ? _handCards : _oppHandCards;
+            if (!hand.Contains(card)) hand.Add(card);
+            RefreshHandStrips();
+            RefreshZoneCounts();
+            return false;
+        }
+
+        _actionSourceHost = shipB;
+        _beamModePlayer = controller;
+        _cardActionMode = CardActionMode.BeamPickTarget;
+        _isNearWarpTransportMode = true;
+        _nearWarpInterruptCard = card;
+        _nearWarpController = controller;
+
+        ClearTargetHighlights();
+        foreach (var t in legalTargets.Distinct())
+            AddTargetHighlight(t, Color.FromArgb(100, 80, 220, 120));
+
+        _beamSelected.Clear();
+
+        ShowHostContents(shipB!, sc!, beamSelectMode: true);
+        StatusText.Text = $"Near-Warp Transport: Check up to 6 cards on {sc!.Name}, click 'Beam Crew', then click a highlighted destination at an adjacent location. (Right-click = cancel)";
+        UpdateCardDetailCloseButton();
+        UpdateDetailBeamSelectButton(shipB);
+        return true;
+    }
+
+    /// <summary>
+    /// Gets adjacent spaceline locations in the same quadrant for a given mission/location border.
+    /// Non-location span cards (such as Q-Net) are ignored as locations.
+    /// </summary>
+    private List<Border> GetAdjacentSpacelineLocations(Border missionBorder)
+    {
+        var result = new List<Border>();
+        if (missionBorder.Tag is not Card mc) return result;
+        string quad = GetSpacelineQuadrant(missionBorder);
+
+        // Filter spaceline order to actual locations only (missions and landable locations like Gaps),
+        // skipping barriers like Q-Net that do not form a location.
+        var locations = _spacelineOrder
+            .Where(b => b.Tag is Card c && (IsMissionCard(c) || IsLandableLocation(c)))
+            .ToList();
+
+        int idx = locations.IndexOf(missionBorder);
+        if (idx < 0) return result;
+
+        if (idx - 1 >= 0)
+        {
+            var left = locations[idx - 1];
+            if (GetSpacelineQuadrant(left) == quad)
+                result.Add(left);
+        }
+        if (idx + 1 < locations.Count)
+        {
+            var right = locations[idx + 1];
+            if (GetSpacelineQuadrant(right) == quad)
+                result.Add(right);
+        }
+
+        return result;
     }
 
     /// <summary>Discard victim ship only (no Escape Pod response window).</summary>
@@ -26093,6 +26327,11 @@ public partial class TableWindow : Window
         var dstMission = FindMissionForDockable(targetHost)
             ?? (string.Equals((targetHost.Tag as Card)?.Type, "Mission", StringComparison.OrdinalIgnoreCase) ? targetHost : null);
 
+        if (_isNearWarpTransportMode)
+        {
+            return CompleteNearWarpBeamTo(targetHost, source, beamWho, list, srcMission, dstMission);
+        }
+
         if (srcMission == null || dstMission == null || !ReferenceEquals(srcMission, dstMission))
         {
             ShowPlayError("Beam only at the same mission (same location).");
@@ -26218,6 +26457,177 @@ public partial class TableWindow : Window
             ClearCardActionUi();
             SetSelection(targetHost);
         }
+        return true;
+    }
+
+    private bool CompleteNearWarpBeamTo(
+        Border targetHost,
+        Border source,
+        int beamWho,
+        List<Border> list,
+        Border? srcMission,
+        Border? dstMission)
+    {
+        if (ReferenceEquals(targetHost, source))
+        {
+            ShowHostContents(source, (source.Tag as Card)!, beamSelectMode: true);
+            return true;
+        }
+
+        if (srcMission == null || dstMission == null)
+        {
+            ShowPlayError("Near-Warp Transport: Could not identify spaceline location.");
+            return true;
+        }
+
+        var adjLocations = GetAdjacentSpacelineLocations(srcMission);
+        if (!adjLocations.Contains(dstMission))
+        {
+            ShowPlayError("Near-Warp Transport: You must beam to an adjacent spaceline location.");
+            return true;
+        }
+
+        if (targetHost.Tag is Card destAsMission
+            && CardKinds.IsMission(destAsMission)
+            && !MissionCountsAsPlanetCard(destAsMission))
+        {
+            ShowPlayError($"Near-Warp Transport: You may not beam cards into space at {destAsMission.Name} (7.1.1.0.1).");
+            return true;
+        }
+
+        bool targetIsPlanet = targetHost.Tag is Card tmc && ReferenceEquals(targetHost, dstMission) && MissionCountsAsPlanetCard(tmc);
+        if (!targetIsPlanet)
+        {
+            int tOwner = GetBorderOwner(targetHost);
+            if (tOwner != beamWho)
+            {
+                ShowPlayError("Near-Warp Transport: Target ship or facility must be your own.");
+                return true;
+            }
+            if (targetHost.Tag is Card dc && IsShipCard(dc) && IsShipCloaked(targetHost))
+            {
+                ShowPlayError("Near-Warp Transport: Cannot beam to a cloaked ship.");
+                return true;
+            }
+        }
+
+        if (!CanBeamAtMission(srcMission, plannedCount: Math.Max(1, _beamSelected.Count), beamingPlayer: beamWho, sourceHost: source, destHost: targetHost))
+            return true;
+        if (!CanBeamAtMission(dstMission, plannedCount: Math.Max(1, _beamSelected.Count), beamingPlayer: beamWho, sourceHost: source, destHost: targetHost))
+            return true;
+
+        var toMove = list.Where(b =>
+        {
+            if (b.Tag is not Card c) return false;
+            if (_beamSelected.Count > 0 && !_beamSelected.Contains(b)) return false;
+            return IsBeamableFromHost(c, source, b, beamWho);
+        }).ToList();
+
+        if (toMove.Count == 0 && _beamSelected.Count > 0)
+        {
+            var selectedCards = new HashSet<Card>(_beamSelected.Select(b => b.Tag).OfType<Card>());
+            toMove = list.Where(b =>
+            {
+                if (b.Tag is not Card c) return false;
+                if (!selectedCards.Contains(c)) return false;
+                return IsBeamableFromHost(c, source, b, beamWho);
+            }).ToList();
+        }
+
+        if (toMove.Count == 0)
+        {
+            ShowPlayError("Near-Warp Transport: No cards selected to beam (use checkboxes in detail window).");
+            return true;
+        }
+
+        if (toMove.Count > 6)
+        {
+            ShowPlayError("Near-Warp Transport: Maximum 6 cards may be selected to beam.");
+            return true;
+        }
+
+        if (targetHost.Tag is Card destHostCard && !ReferenceEquals(targetHost, dstMission))
+        {
+            var treaties = GetActiveTreaties(beamWho);
+            var blocked = toMove
+                .Select(b => b.Tag as Card)
+                .Where(c => c != null && !TreatyRules.CanOccupyHost(c!, destHostCard, treaties))
+                .Select(c => c!.Name)
+                .ToList();
+            if (blocked.Count > 0)
+            {
+                ShowPlayError(
+                    $"Cannot beam {string.Join(", ", blocked)} onto {destHostCard.Name} — " +
+                    "incompatible affiliation (need a Treaty). Equipment and Artifacts are unrestricted.");
+                return true;
+            }
+        }
+
+        toMove = FilterHoloBeamAllowed(toMove, source, targetHost, srcMission, dstMission);
+        if (toMove.Count == 0)
+            return true;
+
+        foreach (var b in toMove.ToList())
+        {
+            if (b.Tag is Card bc && IsCardLeaveBlocked(bc))
+            {
+                ShowPlayError(LeaveBlockedMessage(bc));
+                continue;
+            }
+            RemoveCardFromHostStack(source, b);
+            SetBorderOwner(b, beamWho);
+            AddCardToHostStack(targetHost, b);
+            _etaEscapeeBorders?.Add(b);
+            TryJoinQuarantineOnHost(targetHost, b);
+            foreach (var rb in _rogueBorg.Where(r => ReferenceEquals(r.Visual, b)))
+            {
+                rb.Host = targetHost;
+                rb.Controller = beamWho;
+            }
+        }
+
+        TryCureAttachedDilemmas(targetHost);
+        EraseStrandedHologramsOnHost(source);
+        EraseStrandedHologramsOnHost(targetHost);
+
+        SyncTwoDimDisabledVisuals(source);
+        SyncTwoDimDisabledVisuals(targetHost);
+        foreach (var b in toMove)
+        {
+            if (b.Tag is Card c && ModifierRules.IsPersonnelCard(c))
+                ApplyDisabledVisual(b, IsCardDisabled(c));
+        }
+
+        NoteIonizationBeam(srcMission, toMove.Count(b => b.Tag is Card bc && CardKinds.IsPersonnel(bc)), sourceHost: source, destHost: targetHost);
+        NoteIonizationBeam(dstMission, toMove.Count(b => b.Tag is Card bc && CardKinds.IsPersonnel(bc)), sourceHost: source, destHost: targetHost);
+
+        UpdateHostBadge(source);
+        UpdateHostBadge(targetHost);
+
+        if (_nearWarpInterruptCard != null)
+        {
+            SendCardTo(_nearWarpInterruptCard, _nearWarpController, TimingRules.Destination.Discard);
+            RemoveOrphanTableCopies(_nearWarpInterruptCard);
+        }
+
+        string fromName = (source.Tag as Card)?.Name ?? "ship";
+        string destName = (targetHost.Tag as Card)?.Name ?? (dstMission.Tag as Card)?.Name ?? "destination";
+        string names = string.Join(", ", toMove.Select(b => (b.Tag as Card)?.Name ?? "?").Where(n => n != "?"));
+
+        StatusText.Text = $"Near-Warp Transport: Beamed {toMove.Count} card(s) from {fromName} to {destName} at {(dstMission.Tag as Card)?.Name ?? "location"}.";
+        _session.Log.Add(_session.TurnNumber, $"P{beamWho}",
+            $"Near-Warp Transport: {toMove.Count} card(s) ({names}) beamed from {fromName} to {destName} at {(dstMission.Tag as Card)?.Name ?? "location"}");
+
+        _isNearWarpTransportMode = false;
+        _nearWarpInterruptCard = null;
+        _nearWarpController = 0;
+
+        SyncBoardFromTable();
+        ClearCardActionUi();
+        SetSelection(targetHost);
+        if (targetHost.Tag is Card tc)
+            ShowHostContents(targetHost, tc);
+
         return true;
     }
 
@@ -26869,7 +27279,7 @@ public partial class TableWindow : Window
     private string FormatAttachedHostEffectLine(
         string kind, Card card, int countdown, string? persistKind, IEnumerable<Card>? aboard)
     {
-        if (kind == "Event"
+        if ((kind == "Event" || kind == "Interrupt")
             && Enum.TryParse<EventRules.Persist>(persistKind, out var ek)
             && ek != EventRules.Persist.None)
             return EventRules.FormatHostEffectSummary(ek, card, aboard, countdown);
@@ -26878,6 +27288,14 @@ public partial class TableWindow : Window
             && Enum.TryParse<DilemmaRules.PersistKind>(persistKind, out var dk)
             && dk != DilemmaRules.PersistKind.None)
             return DilemmaRules.FormatHostEffectSummary(dk, card, countdown);
+
+        if (InterruptRules.IsLossOfOrbitalStability(card))
+        {
+            string effect = "ship has NO RANGE; destroyed at end of owner's next turn";
+            if (countdown > 0)
+                effect += $"  ·  COUNTER {countdown}";
+            return effect;
+        }
 
         // No card.Name here — DetailName is the only name channel.
         _ = card;
@@ -27109,7 +27527,9 @@ public partial class TableWindow : Window
         DetailStackSection.Visibility = Visibility.Visible;
         if (DetailStackTitle != null)
         {
-            if (_hostStripBeam)
+            if (_isNearWarpTransportMode)
+                DetailStackTitle.Text = $"NEAR-WARP TRANSPORT — check up to 6 cards to beam from {hostCard.Name}";
+            else if (_hostStripBeam)
                 DetailStackTitle.Text = $"BEAM — check cards to move from {hostCard.Name}";
             else
                 DetailStackTitle.Text = isMission
@@ -27186,11 +27606,6 @@ public partial class TableWindow : Window
                 mini.ToolTip = $"{c.Name}\nClick = show in this window · RMB hold = enlarge";
 
             Card cRef = c;
-            mini.MouseLeftButtonDown += (_, ev) =>
-            {
-                ShowCardDetail(cRef);
-                ev.Handled = true;
-            };
             mini.MouseRightButtonDown += (s, ev) =>
             {
                 ShowCardDetail(cRef);
@@ -27207,9 +27622,11 @@ public partial class TableWindow : Window
             if (beamThis)
             {
                 var cell = new Grid { Margin = new Thickness(2) };
+                bool isSel = _beamSelected.Contains(cardBorder!)
+                             || _beamSelected.Any(b => ReferenceEquals(b.Tag, c));
                 var cb = new CheckBox
                 {
-                    IsChecked = _beamSelected.Contains(cardBorder!),
+                    IsChecked = isSel,
                     Tag = cardBorder,
                     HorizontalAlignment = HorizontalAlignment.Left,
                     VerticalAlignment = VerticalAlignment.Top,
@@ -27219,12 +27636,24 @@ public partial class TableWindow : Window
                 Panel.SetZIndex(cb, 5);
                 cb.Checked += BeamSelect_Changed;
                 cb.Unchecked += BeamSelect_Changed;
+                mini.MouseLeftButtonDown += (_, ev) =>
+                {
+                    cb.IsChecked = !(cb.IsChecked == true);
+                    ev.Handled = true;
+                };
                 cell.Children.Add(mini);
                 cell.Children.Add(cb);
                 DetailStackCards.Children.Add(cell);
             }
             else
+            {
+                mini.MouseLeftButtonDown += (_, ev) =>
+                {
+                    ShowCardDetail(cRef);
+                    ev.Handled = true;
+                };
                 DetailStackCards.Children.Add(mini);
+            }
         }
 
 
@@ -27314,7 +27743,7 @@ public partial class TableWindow : Window
 
         // 1. Positive — attached buff events + non-debuff events (timer/info)
         var positiveEvents = EventsOn(host)
-            .Where(ae => DetailStatusRules.ToneForEvent(ae.Kind, ae.Countdown) != DetailStatusTone.Debuff)
+            .Where(ae => !IsAttachedEffectDebuff(ae))
             .ToList();
         if (positiveEvents.Count > 0)
         {
@@ -27322,15 +27751,16 @@ public partial class TableWindow : Window
             foreach (var ae in positiveEvents)
             {
                 if (!shown.Add(ae.Card)) continue;
-                var tone = DetailStatusRules.ToneForEvent(ae.Kind, ae.Countdown);
+                var tone = ToneForAttachedEvent(ae);
+                string cardKindName = (ae.Card.Type ?? "").Contains("Interrupt", StringComparison.OrdinalIgnoreCase) ? "Interrupt" : "Event";
                 string label = ae.Countdown > 0
-                    ? $"Event — countdown {ae.Countdown}"
-                    : tone == DetailStatusTone.Buff ? "Event (buff)" : "Event";
+                    ? $"{cardKindName} — countdown {ae.Countdown}"
+                    : tone == DetailStatusTone.Buff ? $"{cardKindName} (buff)" : cardKindName;
                 AddStackMini(ae.Card, label);
             }
         }
 
-        // 2. Negative — lasting dilemmas + personnel in stasis/quarantine
+        // 2. Negative — lasting dilemmas + personnel in stasis/quarantine + debuff events/interrupts
         var hostDilemmas = _attachedDilemmas.Where(d => ReferenceEquals(d.Host, host)).ToList();
         var negPersonnel = new List<(Border b, Card c)>();
         if (_stackOnHost.TryGetValue(host, out var stackList))
@@ -27343,17 +27773,18 @@ public partial class TableWindow : Window
                     negPersonnel.Add((b, pc));
             }
         }
-        bool hasNeg = hostDilemmas.Count > 0 || negPersonnel.Count > 0
-            || EventsOn(host).Any(ae =>
-                DetailStatusRules.ToneForEvent(ae.Kind, ae.Countdown) is DetailStatusTone.Debuff);
+        var negativeEvents = EventsOn(host)
+            .Where(e => IsAttachedEffectDebuff(e))
+            .ToList();
+        bool hasNeg = hostDilemmas.Count > 0 || negPersonnel.Count > 0 || negativeEvents.Count > 0;
         if (hasNeg)
         {
             AddGroupLabel("Negative", negColor);
-            foreach (var ae in EventsOn(host)
-                .Where(e => DetailStatusRules.ToneForEvent(e.Kind, e.Countdown) == DetailStatusTone.Debuff))
+            foreach (var ae in negativeEvents)
             {
                 if (!shown.Add(ae.Card)) continue;
-                AddStackMini(ae.Card, ae.Countdown > 0 ? $"Event — countdown {ae.Countdown}" : "Event (debuff)");
+                string cardKindName = (ae.Card.Type ?? "").Contains("Interrupt", StringComparison.OrdinalIgnoreCase) ? "Interrupt" : "Event";
+                AddStackMini(ae.Card, ae.Countdown > 0 ? $"{cardKindName} — countdown {ae.Countdown}" : $"{cardKindName} (debuff)");
             }
             foreach (var ad in hostDilemmas)
             {
@@ -27447,18 +27878,32 @@ public partial class TableWindow : Window
 
     private void BtnCardDetailClose_Click(object sender, RoutedEventArgs e)
     {
+        if (_isNearWarpTransportMode && _cardActionMode == CardActionMode.BeamPickTarget && _beamSelected.Count == 0)
+        {
+            ShowPlayError("Near-Warp Transport: Check at least 1 card (up to 6) to beam, then click 'Beam Crew'.");
+            return;
+        }
         // During beam: close detail so destination can be picked; beam mode stays active.
         CloseCardDetailPopup();
     }
 
     /// <summary>
-    /// Beam pick: label "Beam selected" (close detail, keep BeamPickTarget). Otherwise "Close".
+    /// Beam pick: label "Beam selected" or "Beam Crew" (close detail, keep BeamPickTarget). Otherwise "Close".
     /// </summary>
     private void UpdateCardDetailCloseButton()
     {
         if (BtnCardDetailClose == null) return;
         bool beam = _hostStripBeam || _cardActionMode == CardActionMode.BeamPickTarget;
-        BtnCardDetailClose.Content = beam ? "Beam selected" : "Close";
+        if (beam)
+        {
+            BtnCardDetailClose.Content = _isNearWarpTransportMode ? "Beam Crew" : "Beam selected";
+            BtnCardDetailClose.Background = new SolidColorBrush(Color.FromRgb(40, 70, 110));
+        }
+        else
+        {
+            BtnCardDetailClose.Content = "Close";
+            BtnCardDetailClose.Background = new SolidColorBrush(Color.FromRgb(0x3A, 0x3A, 0x58));
+        }
     }
 
     private void UpdateDetailBackButton(Card shown)
@@ -27490,7 +27935,15 @@ public partial class TableWindow : Window
             var beamable = crewList
                 .Where(b => b.Tag is Card c && IsBeamableFromHost(c, host, b))
                 .ToList();
-            allOn = beamable.Count > 0 && beamable.All(b => _beamSelected.Contains(b));
+            if (_isNearWarpTransportMode)
+            {
+                allOn = beamable.Count > 0 && _beamSelected.Count > 0 &&
+                    (beamable.Count <= 6 ? beamable.All(b => _beamSelected.Contains(b)) : _beamSelected.Count == 6);
+            }
+            else
+            {
+                allOn = beamable.Count > 0 && beamable.All(b => _beamSelected.Contains(b));
+            }
         }
         // All selected → show "Select none" (red). Partial/none → "Select all" (green).
         if (allOn)
@@ -27502,7 +27955,7 @@ public partial class TableWindow : Window
         }
         else
         {
-            BtnDetailBeamSelect.Content = "Select all";
+            BtnDetailBeamSelect.Content = _isNearWarpTransportMode ? "Select max (6)" : "Select all";
             BtnDetailBeamSelect.Background = new SolidColorBrush(Color.FromRgb(40, 90, 50));
             BtnDetailBeamSelect.Foreground = new SolidColorBrush(Color.FromRgb(180, 255, 190));
             BtnDetailBeamSelect.BorderBrush = new SolidColorBrush(Color.FromRgb(80, 180, 100));
@@ -27517,16 +27970,33 @@ public partial class TableWindow : Window
         var beamable = crewList
             .Where(b => b.Tag is Card c && IsBeamableFromHost(c, host, b, markWho))
             .ToList();
-        bool allOn = beamable.Count > 0 && beamable.All(b => _beamSelected.Contains(b));
+        bool allOn = beamable.Count > 0 && (_isNearWarpTransportMode
+            ? (beamable.Count <= 6 ? beamable.All(b => _beamSelected.Contains(b)) : _beamSelected.Count == 6)
+            : beamable.All(b => _beamSelected.Contains(b)));
         if (allOn)
         {
             foreach (var b in beamable) _beamSelected.Remove(b);
         }
         else
         {
-            foreach (var b in beamable) _beamSelected.Add(b);
+            if (_isNearWarpTransportMode)
+            {
+                _beamSelected.Clear();
+                foreach (var b in beamable.Take(6)) _beamSelected.Add(b);
+            }
+            else
+            {
+                foreach (var b in beamable) _beamSelected.Add(b);
+            }
         }
-        StatusText.Text = $"BEAM: {_beamSelected.Count} card(s) selected – click destination.";
+        if (_isNearWarpTransportMode)
+        {
+            StatusText.Text = $"Near-Warp Transport: {_beamSelected.Count} card(s) selected (max 6). Click 'Beam Crew' when done.";
+        }
+        else
+        {
+            StatusText.Text = $"BEAM: {_beamSelected.Count} card(s) selected – click destination.";
+        }
         FillDetailStackSection(host);
     }
 
@@ -27549,6 +28019,21 @@ public partial class TableWindow : Window
             BtnDetailBack.Visibility = Visibility.Collapsed;
         _detailHost = null;
         UpdateCardDetailCloseButton();
+        if (_cardActionMode == CardActionMode.BeamPickTarget)
+        {
+            if (_isNearWarpTransportMode)
+            {
+                StatusText.Text = _beamSelected.Count > 0
+                    ? $"Near-Warp Transport: {_beamSelected.Count} card(s) selected. Click a highlighted target at an adjacent spaceline location. (Right-click = cancel)"
+                    : "Near-Warp Transport: No cards selected. Click source ship to re-select crew, or right-click to cancel.";
+            }
+            else
+            {
+                StatusText.Text = _beamSelected.Count > 0
+                    ? $"BEAM: {_beamSelected.Count} card(s) selected – click destination."
+                    : "BEAM: No cards selected – click destination or right-click to cancel.";
+            }
+        }
     }
 
     private void CardDetailOverlay_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)

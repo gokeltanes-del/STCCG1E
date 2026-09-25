@@ -1,4 +1,41 @@
 ---
+## Aktiv (Compiler Fix - DetailStatusRules / ToneForEvent / EventRules.Persist)
+- **Problem:** 8 Compilerfehler in Visual Studio:
+  - `"DetailStatusRules" enthält keine Definition für "IsDebuff"` (2x)
+  - `"EventRules.Persist" enthält keine Definition für "LossOfOrbitalStability"` (2x)
+  - `Keine Überladung für die ToneForEvent-Methode nimmt 3 Argumente an` (4x)
+- **Lösung:**
+  - `TableWindow.xaml.cs`: `ToneForAttachedEvent` und `IsAttachedEffectDebuff` trennen Interrupt-spezifische Debuffs (`Loss of Orbital Stability`) sauber ab und rufen `ToneForEvent` nur mit 2 Argumenten auf. `ApplyLossOfOrbitalStability` nutzt `EventRules.Persist.None`. `FormatAttachedHostEffectLine` benötigt `EventRules.Persist.LossOfOrbitalStability` nicht mehr.
+  - `DetailStatusRules.cs`: Überladungen für `ToneForEvent` (2 und 3 Argumente) und `IsDebuff` (1 und 2 Argumente) bereitgestellt; keine Abhängigkeit von `EventRules.Persist.LossOfOrbitalStability`.
+  - Vollständige Rückwärtskompatibilität, 0 Fehler.
+- **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52; Artifact-Y Load.
+---
+## Aktiv (Data tip - Near-Warp Transport)
+- **Soll:** Near-Warp Transport (130 U): "Plays to beam up to six cards (personnel and/or [Equipment]) from your exposed ship with transporters to an adjacent spaceline location (if possible)."
+- **Rulings:**
+  - Q-Net bricht die Adjazenz von Spaceline-Locations nicht (transportiert durch Q-Net).
+  - Hindernisse für Beaming (Distortion Field, Atmospheric Ionization) gelten (Rulebook 7.1.1.0.2).
+  - Exposed = ungedockt, nicht getarnt, unphased, nicht gelandet/getragen.
+  - Beamen ins freie All an Space-Missionen ist verboten (Rulebook 7.1.1.0.1); erfordert eigenes Schiff/Station.
+- **Ist:**
+  - `InterruptRules.cs`: `IsNearWarpTransport` hinzugefügt; `PlayTarget.OwnShip`; `Resolution` Instant mit `Effect.NearWarp`.
+  - `InterruptShipEffectRules.cs`: `NearWarpTransportDeny` mit vollständigen Gates und `VerifyNearWarpTransportDecide`.
+  - `TargetQuery.cs`: `CanPlayOn` validiert Ship, Owner, Exposed.
+  - `TableWindow.xaml.cs`: `IsShipExposed` prüft `!IsShipCloaked && !IsShipDocked`; `GetAdjacentSpacelineLocations` überspringt Span-Barrieren wie Q-Net; `ApplyNearWarpTransport` steuert Karten-Auswahl (bis zu 6), Location-Wahl, Ziel-Host-Wahl, Beaming-Hindernisse, Treaty-/Holo-Checks, Verschieben und Discard.
+- **Smoke:** `GROK_TEMP/SMOKE_NEAR_WARP_TRANSPORT.md`.
+- **Tracker:** *Near-Warp Transport* auf `working`.
+- **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52; Artifact-Y Load.
+---
+## Aktiv (Data tip - Loss of Orbital Stability Debuff/Negative-Fix)
+- **Soll:** Loss of Orbital Stability ist ein negativer Effekt (kein positiver), der an Schiffe angehängt wird und sie zerstört bzw. Reichweite nimmt. Soll im Schiffsdetail als `Negative` (rot) und als `Interrupt` erscheinen.
+- **Ist:**
+  - `DetailStatusRules.cs`: `IsDebuff` eingeführt, welches `LossOfOrbitalStability`, `PlasmaFire`, `WarpCore` etc. und Card-Name erkennt. `ToneForEvent` liefert `DetailStatusTone.Debuff` (rot) statt pauschalem Timer/Info.
+  - `EventRules.cs`: `Persist.LossOfOrbitalStability` hinzugefügt; `FormatHostEffectSummary` beschreibt den negativen Effekt ("ship has NO RANGE; destroyed at end of owner's next turn").
+  - `TableWindow.xaml.cs`: `positiveEvents` und `negativeEvents` filtern nach `IsDebuff`. Loss of Orbital Stability wird unter der roten "Negative"-Gruppe als "Interrupt — countdown 1" oder "Interrupt (debuff)" angezeigt (nicht mehr unter "Positive" und nicht als "Event").
+- **Smoke:** `GROK_TEMP/SMOKE_LOSS_OF_ORBITAL_STABILITY.md`.
+- **Tracker:** *Loss of Orbital Stability* auf `working`.
+- **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52; Artifact-Y Load.
+---
 ## Aktiv (Data tip - Loss of Orbital Stability Target-Fix)
 - **Soll:** Ein Schiff im Orbit einer Planeten-Mission muss das Target sein (nicht der Planet).
 - **Ist:**
