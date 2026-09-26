@@ -22,6 +22,27 @@ public sealed class BoardStore
     public List<int> TableP1 { get; } = new();
     public List<int> TableP2 { get; } = new();
 
+    /// <summary>P0-D1: Attached dilemmas persist on board side.</summary>
+    public List<BoardAttachedDilemma> AttachedDilemmas { get; } = new();
+
+    /// <summary>P0-E1: Attached events persist on board side.</summary>
+    public List<BoardAttachedEvent> AttachedEvents { get; } = new();
+
+    /// <summary>P2-S7: Counter-Attack state on board/session side.</summary>
+    public BattleRules.CounterAttackOpportunity? CounterAttack { get; set; }
+
+    public bool HasAttachedEvent(EventRules.Persist kind, int? owner = null) =>
+        AttachedEvents.Any(e => e.Kind == kind && (!owner.HasValue || e.Owner == owner.Value));
+
+    public bool HasAttachedDilemma(DilemmaRules.PersistKind kind, int? hostInstanceId = null) =>
+        AttachedDilemmas.Any(d => d.Kind == kind && (!hostInstanceId.HasValue || d.HostInstanceId == hostInstanceId.Value));
+
+    public BoardAttachedEvent? FindAttachedEvent(EventRules.Persist kind, int? hostInstanceId = null) =>
+        AttachedEvents.FirstOrDefault(e => e.Kind == kind && (!hostInstanceId.HasValue || e.HostInstanceId == hostInstanceId.Value));
+
+    public BoardAttachedDilemma? FindAttachedDilemma(DilemmaRules.PersistKind kind, int? hostInstanceId = null) =>
+        AttachedDilemmas.FirstOrDefault(d => d.Kind == kind && (!hostInstanceId.HasValue || d.HostInstanceId == hostInstanceId.Value));
+
     public void Clear()
     {
         ById.Clear();
@@ -29,6 +50,9 @@ public sealed class BoardStore
         HandP2.Clear();
         TableP1.Clear();
         TableP2.Clear();
+        AttachedDilemmas.Clear();
+        AttachedEvents.Clear();
+        CounterAttack = null;
         while (Spaceline.Locations.Count > 0)
             Spaceline.Remove(Spaceline.Locations[0]);
     }
@@ -214,6 +238,49 @@ public sealed class BoardStore
 
         AddTablePieces(list, TableP1, 1, seen);
         AddTablePieces(list, TableP2, 2, seen);
+
+        foreach (var ev in AttachedEvents)
+        {
+            if (ev.Card.InstanceId > 0 && !seen.Add(ev.Card.InstanceId)) continue;
+            string? hostName = null;
+            if (ev.HostInstanceId is int hid && ById.TryGetValue(hid, out var hInst))
+                hostName = hInst.Name;
+            list.Add(new BoardPiece
+            {
+                Card = ev.Card,
+                Kind = MapKind(ev.Card),
+                Owner = ev.Owner,
+                Controller = ev.Card.Controller != 0 ? ev.Card.Controller : ev.Owner,
+                InstanceId = ev.Card.InstanceId,
+                FaceUp = ev.FaceUp,
+                HostName = hostName,
+                Persist = ev.Kind,
+                Countdown = ev.Countdown,
+                TurnScope = ev.TurnScope,
+                PhasePoint = ev.PhasePoint
+            });
+        }
+
+        foreach (var d in AttachedDilemmas)
+        {
+            if (d.Card.InstanceId > 0 && !seen.Add(d.Card.InstanceId)) continue;
+            string? hostName = null;
+            if (d.HostInstanceId is int dhid && ById.TryGetValue(dhid, out var dhInst))
+                hostName = dhInst.Name;
+            list.Add(new BoardPiece
+            {
+                Card = d.Card,
+                Kind = BoardPieceKind.Dilemma,
+                Owner = d.Card.OwnerPlayer,
+                Controller = d.Card.Controller != 0 ? d.Card.Controller : d.Card.OwnerPlayer,
+                InstanceId = d.Card.InstanceId,
+                FaceUp = d.Card.FaceUp,
+                HostName = hostName,
+                DilemmaPersist = d.Kind,
+                Countdown = d.Countdown
+            });
+        }
+
         return list;
     }
 
@@ -397,6 +464,7 @@ public sealed class BoardStore
         HasSecurityAboard = store.HasSecurityAboard || ui.HasSecurityAboard,
         HasEngineerAboard = store.HasEngineerAboard || ui.HasEngineerAboard,
         Persist = ui.Persist != default ? ui.Persist : store.Persist,
+        DilemmaPersist = ui.DilemmaPersist != default ? ui.DilemmaPersist : store.DilemmaPersist,
         Countdown = ui.Countdown != 0 ? ui.Countdown : store.Countdown,
         TurnScope = ui.TurnScope,
         PhasePoint = ui.PhasePoint,

@@ -288,6 +288,8 @@ public partial class TableWindow : Window
         public required Border Host { get; set; }
         public Card? Extra { get; set; }
         public Border? Dest { get; set; }
+        /// <summary>Borg Ship: Bewegungsrichtung entlang der Spaceline (+1 oder -1).</summary>
+        public int Direction { get; set; } = 1;
         /// <summary>Personnel held in stasis by Abduction / Phased Matter etc. Quarantine: originals + joiners.</summary>
         public List<Card> Held { get; } = new();
         /// <summary>REM Fatigue: personnel present at encounter (kill on countdown 0). Joiners not listed.</summary>
@@ -406,6 +408,130 @@ public partial class TableWindow : Window
     }
 
     private readonly List<AttachedEvent> _attachedEvents = new();
+
+    private void AddAttachedDilemma(AttachedDilemma d)
+    {
+        _attachedDilemmas.Add(d);
+        var store = BoardStore.Current;
+        var existing = store.AttachedDilemmas.FirstOrDefault(x => ReferenceEquals(x.Card, d.Card));
+        if (existing != null) store.AttachedDilemmas.Remove(existing);
+        int? hostId = (d.Host?.Tag as Card)?.InstanceId;
+        int? destId = (d.Dest?.Tag as Card)?.InstanceId;
+        var bd = new BoardAttachedDilemma
+        {
+            Card = d.Card,
+            Kind = d.Kind,
+            Countdown = d.Countdown,
+            HostInstanceId = hostId,
+            Extra = d.Extra,
+            DestInstanceId = destId,
+            Direction = d.Direction
+        };
+        bd.Held.AddRange(d.Held);
+        bd.OriginalEncounter.AddRange(d.OriginalEncounter);
+        store.AttachedDilemmas.Add(bd);
+    }
+
+    private void RemoveAttachedDilemma(AttachedDilemma d)
+    {
+        _attachedDilemmas.Remove(d);
+        var store = BoardStore.Current;
+        var existing = store.AttachedDilemmas.FirstOrDefault(x => ReferenceEquals(x.Card, d.Card));
+        if (existing != null) store.AttachedDilemmas.Remove(existing);
+    }
+
+    private void AddAttachedEvent(AttachedEvent e)
+    {
+        _attachedEvents.Add(e);
+        var store = BoardStore.Current;
+        var existing = store.AttachedEvents.FirstOrDefault(x => ReferenceEquals(x.Card, e.Card));
+        if (existing != null) store.AttachedEvents.Remove(existing);
+        int? hostId = (e.Host?.Tag as Card)?.InstanceId;
+        int? host2Id = (e.Host2?.Tag as Card)?.InstanceId;
+        var be = new BoardAttachedEvent
+        {
+            Card = e.Card,
+            Kind = e.Kind,
+            Owner = e.Owner,
+            HostInstanceId = hostId,
+            Host2InstanceId = host2Id,
+            Countdown = e.Countdown,
+            FaceUp = e.FaceUp,
+            EspionageAs = e.EspionageAs,
+            EspionageOn = e.EspionageOn,
+            TravelerPlayer = e.TravelerPlayer,
+            TurnScope = e.TurnScope,
+            PhasePoint = e.PhasePoint,
+            ScopePlayer = e.ScopePlayer,
+            SavedHostOwner = e.SavedHostOwner,
+            Extra = e.Extra
+        };
+        store.AttachedEvents.Add(be);
+    }
+
+    private void RemoveAttachedEvent(AttachedEvent e)
+    {
+        _attachedEvents.Remove(e);
+        var store = BoardStore.Current;
+        var existing = store.AttachedEvents.FirstOrDefault(x => ReferenceEquals(x.Card, e.Card));
+        if (existing != null) store.AttachedEvents.Remove(existing);
+    }
+
+    private void RemoveAttachedEventsForCard(Card c)
+    {
+        var toRemove = _attachedEvents.Where(x => ReferenceEquals(x.Card, c)).ToList();
+        foreach (var e in toRemove)
+            RemoveAttachedEvent(e);
+    }
+
+    private void SyncAttachmentsToStore(BoardStore store)
+    {
+        store.AttachedDilemmas.Clear();
+        foreach (var d in _attachedDilemmas)
+        {
+            int? hostId = (d.Host?.Tag as Card)?.InstanceId;
+            int? destId = (d.Dest?.Tag as Card)?.InstanceId;
+            var bd = new BoardAttachedDilemma
+            {
+                Card = d.Card,
+                Kind = d.Kind,
+                Countdown = d.Countdown,
+                HostInstanceId = hostId,
+                Extra = d.Extra,
+                DestInstanceId = destId,
+                Direction = d.Direction
+            };
+            bd.Held.AddRange(d.Held);
+            bd.OriginalEncounter.AddRange(d.OriginalEncounter);
+            store.AttachedDilemmas.Add(bd);
+        }
+
+        store.AttachedEvents.Clear();
+        foreach (var e in _attachedEvents)
+        {
+            int? hostId = (e.Host?.Tag as Card)?.InstanceId;
+            int? host2Id = (e.Host2?.Tag as Card)?.InstanceId;
+            var be = new BoardAttachedEvent
+            {
+                Card = e.Card,
+                Kind = e.Kind,
+                Owner = e.Owner,
+                HostInstanceId = hostId,
+                Host2InstanceId = host2Id,
+                Countdown = e.Countdown,
+                FaceUp = e.FaceUp,
+                EspionageAs = e.EspionageAs,
+                EspionageOn = e.EspionageOn,
+                TravelerPlayer = e.TravelerPlayer,
+                TurnScope = e.TurnScope,
+                PhasePoint = e.PhasePoint,
+                ScopePlayer = e.ScopePlayer,
+                SavedHostOwner = e.SavedHostOwner,
+                Extra = e.Extra
+            };
+            store.AttachedEvents.Add(be);
+        }
+    }
     /// <summary>Glossary Atmospheric Ionization: personnel beamed this way per controller this turn.</summary>
     private readonly int[] _ionizationBeamsThisTurnByPlayer = new int[3]; // [1],[2]
 
@@ -1085,7 +1211,7 @@ public partial class TableWindow : Window
                 {
                     if (statusShip.RangeLeft >= 0)
                         rangeLeft = statusShip.RangeLeft;
-                    cloaked = statusShip.Cloaked || cloaked;
+                    cloaked = statusShip.Cloaked;
                     if (statusShip.DockedAtId > 0)
                         dockedAtId = statusShip.DockedAtId;
                     if (statusShip.HullPercent >= 0)
@@ -1162,14 +1288,16 @@ public partial class TableWindow : Window
             if (kind == BoardPieceKind.Mission)
             {
                 missionSolved = _solvedMissions.Contains(kv.Key);
-                if (_attachedDilemmas.Any(a =>
+                if (store.HasAttachedDilemma(DilemmaRules.PersistKind.Scow, c.InstanceId)
+                    || _attachedDilemmas.Any(a =>
                         a.Kind == DilemmaRules.PersistKind.Scow && ReferenceEquals(a.Host, kv.Key)))
                 {
                     attemptBlocked = true;
                     attemptBlock =
                         "Radioactive Garbage Scow: this mission cannot be attempted (tow with Tractor Beam + 2 ENGINEER).";
                 }
-                if (_attachedEvents.Any(e =>
+                if (store.HasAttachedEvent(EventRules.Persist.Supernova, c.InstanceId)
+                    || _attachedEvents.Any(e =>
                         e.Kind == EventRules.Persist.Supernova && ReferenceEquals(e.Host, kv.Key))
                     || _supernovaHuskMissions.Contains(kv.Key))
                 {
@@ -1179,8 +1307,10 @@ public partial class TableWindow : Window
                 spacelineIndex = IndexOfMission(kv.Key);
             }
 
-            bool quarantineLeave = _attachedDilemmas.Any(a =>
-                DilemmaRules.IsQuarantinePersist(a.Kind) && ReferenceEquals(a.Host, kv.Key));
+            bool quarantineLeave = store.AttachedDilemmas.Any(a =>
+                DilemmaRules.IsQuarantinePersist(a.Kind) && a.HostInstanceId == c.InstanceId)
+                || _attachedDilemmas.Any(a =>
+                    DilemmaRules.IsQuarantinePersist(a.Kind) && ReferenceEquals(a.Host, kv.Key));
             board.Add(new BoardPiece
             {
                 Card = c,
@@ -1211,8 +1341,11 @@ public partial class TableWindow : Window
             });
         }
 
-        foreach (var ev in _attachedEvents)
+        foreach (var ev in store.AttachedEvents)
         {
+            string? hostName = null;
+            if (ev.HostInstanceId is int hid && store.ById.TryGetValue(hid, out var hInst))
+                hostName = hInst.Name;
             board.Add(new BoardPiece
             {
                 Card = ev.Card,
@@ -1221,7 +1354,7 @@ public partial class TableWindow : Window
                 Controller = ev.Card.Controller != 0 ? ev.Card.Controller : ev.Owner,
                 InstanceId = ev.Card.InstanceId,
                 FaceUp = ev.FaceUp,
-                HostName = (ev.Host?.Tag as Card)?.Name,
+                HostName = hostName,
                 Persist = ev.Kind,
                 Countdown = ev.Countdown,
                 TurnScope = ev.TurnScope,
@@ -1421,6 +1554,7 @@ public partial class TableWindow : Window
 
         // E3/E3b: UI dicts remain mirrors; copy RangeLeft / Stopped / Cloak / Dock / Hull onto fresh wraps.
         ApplyUiStatusToStore(store);
+        SyncAttachmentsToStore(store);
 
         if (!logDual) return;
         var uiParts = new List<string>();
@@ -1626,11 +1760,11 @@ public partial class TableWindow : Window
                         var mini = FindBorderForCard(fx.Card);
                         if (mini != null)
                             RemoveCardFromHostStack(ae.Host, mini);
-                        _cloakLocked.Remove(ae.Host);
+                        SetCloakLocked(ae.Host, false);
                         UpdateHostBadge(ae.Host);
                     }
                 }
-                _attachedEvents.RemoveAll(e => ReferenceEquals(e.Card, fx.Card));
+                RemoveAttachedEventsForCard(fx.Card);
                 _session.Log.Add(_session.TurnNumber, $"P{finishingPlayer}",
                     $"Until end of turn: discarded {fx.Card.Name}"
                     + (string.IsNullOrEmpty(fx.Note) ? "" : $" ({fx.Note})"));
@@ -5104,7 +5238,7 @@ public partial class TableWindow : Window
         int defOwner = GetBorderOwner(defenderBorder);
         if (defOwner == 0) defOwner = 2;
         bool borgAtk = TimingRules.IsBorgShipDilemma(attackerShip);
-        int atkW = borgAtk ? 24 : BattleRules.GetWeapons(attackerShip);
+        int atkW = borgAtk ? BorgShipRules.Weapons : BattleRules.GetWeapons(attackerShip);
         bool returnFire = false;
         int defWeapons = BattleRules.GetWeapons(defenderCard);
 
@@ -5128,7 +5262,7 @@ public partial class TableWindow : Window
             facShields = BattleRules.GetShields(fc);
         int printedAtkW = BattleRules.GetWeapons(attackerShip);
         int atkBonus = borgAtk
-            ? Math.Max(0, atkW - printedAtkW)
+            ? BorgShipRules.BorgWeaponsBonus(attackerShip)
             : 0;
         if (!borgAtk)
         {
@@ -5142,24 +5276,21 @@ public partial class TableWindow : Window
             int atkAdds = EventRules.WeaponsBonusFromEvents(atkEv) + atkLog;
             atkBonus = BattleRules.AttributeBonusOverPrinted(printedAtkW, atkAdds, atkAboard);
         }
-        var predicted = BattleRules.ResolveFire(
-            new[] { (attackerShip, atkBonus) },
-            defenderCard,
-            targetShieldsBonus: defShieldBonus,
-            facilityShieldsIfDocked: facShields);
-        bool wouldDestroy = BattleRules.ApplyRotationDamage(
-            GetHullDamage(defenderBorder), predicted.Result).Destroyed;
 
-        // Spock Soll G6: RF = Matching HARD on defender; NO Leader; WEAPONS>0; undocked; uncloaked.
-        // Pepsch: no RF offer after Direct Hit destroy.
         var defCrew = GetCrewOnShip(defenderBorder);
         bool loreRf = ShipStaffedByRogueBorg(defenderBorder);
-        var rfMatch = BattleRules.CanReturnFire(defenderCard, defCrew, loreStaffed: loreRf);
-        bool cloakedDef = IsShipCloaked(defenderBorder);
-        bool canReturn = defWeapons > 0 && !IsBorderStopped(defenderBorder)
-                         && !IsShipDocked(defenderBorder) && !cloakedDef && !wouldDestroy
-                         && rfMatch.Ok;
-        if (canReturn)
+
+        var rfEligibility = BattleRules.DecideReturnFireEligibility(
+            attackerShip, atkBonus, defenderCard, defCrew,
+            defenderShieldsBonus: defShieldBonus,
+            defenderFacilityShieldsIfDocked: facShields,
+            defenderHullDamagePercent: GetHullDamage(defenderBorder),
+            defenderIsStopped: IsBorderStopped(defenderBorder),
+            defenderIsDocked: IsShipDocked(defenderBorder),
+            defenderIsCloaked: IsShipCloaked(defenderBorder),
+            defenderLoreStaffed: loreRf);
+
+        if (rfEligibility.CanReturnFire)
         {
             string pick = AskChoice(defenderCard, "Return Fire?",
                 $"{attackerShip.Name} attacks {defenderCard.Name}.\n" +
@@ -5168,18 +5299,14 @@ public partial class TableWindow : Window
                 "Return Fire", "No");
             returnFire = pick.StartsWith("Return", StringComparison.OrdinalIgnoreCase);
         }
-        else if (IsShipDocked(defenderBorder))
+        else if (IsShipDocked(defenderBorder) || IsShipCloaked(defenderBorder))
         {
-            StatusText.Text = $"{defenderCard.Name} is docked - cannot return fire.";
+            StatusText.Text = rfEligibility.Reason;
         }
-        else if (cloakedDef)
+        else if (defWeapons > 0 && !IsBorderStopped(defenderBorder) && !rfEligibility.WouldBeDestroyed)
         {
-            StatusText.Text = $"{defenderCard.Name} is cloaked - cannot return fire.";
-        }
-        else if (defWeapons > 0 && !IsBorderStopped(defenderBorder) && !wouldDestroy && !rfMatch.Ok)
-        {
-            ShowPlayError(rfMatch.Reason);
-            StatusText.Text = rfMatch.Reason;
+            ShowPlayError(rfEligibility.Reason);
+            StatusText.Text = rfEligibility.Reason;
         }
         ResolveShipBattle(attackerBorder, attackerShip, defenderBorder, defenderCard, returnFire);
     }
@@ -8235,7 +8362,7 @@ public partial class TableWindow : Window
         foreach (var e in _attachedEvents.Where(x =>
                      x.Kind == EventRules.Persist.Espionage && ReferenceEquals(x.Host, missionBorder)).ToList())
         {
-            _attachedEvents.Remove(e);
+            RemoveAttachedEvent(e);
             SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
         }
         // Alien Abduction: mission completed is an OR cure - release Held + discard dilemma
@@ -8244,7 +8371,7 @@ public partial class TableWindow : Window
                      && ReferenceEquals(x.Host, missionBorder)).ToList())
         {
             ClearStasisForDilemma(d);
-            _attachedDilemmas.Remove(d);
+            RemoveAttachedDilemma(d);
             SendCardTo(d.Card, player, TimingRules.Destination.Discard);
             _session.Log.Add(_session.TurnNumber, $"P{player}",
                 $"Alien Abduction cured (mission completed): {d.Card.Name}");
@@ -8254,7 +8381,7 @@ public partial class TableWindow : Window
         foreach (var d in _attachedDilemmas.Where(x => x.Kind == DilemmaRules.PersistKind.EdoProbe).ToList())
         {
             if (ReferenceEquals(d.Host, missionBorder)) continue;
-            _attachedDilemmas.Remove(d);
+            RemoveAttachedDilemma(d);
             SendCardTo(d.Card, player, TimingRules.Destination.Discard);
         }
         _edoContinuePenalty.Remove(missionBorder);
@@ -9523,7 +9650,7 @@ public partial class TableWindow : Window
                 Hull = IsShipCard(card) ? GetHullDamage(b) : _hullDamagePercent.GetValueOrDefault(b),
                 Stopped = _stoppedBorders.Contains(b),
                 RangeLeft = IsShipCard(card) ? GetRemainingRange(b, card) : (_shipRangeLeft.TryGetValue(b, out int rng) ? rng : null),
-                RepairTurns = _repairTurnsAtOutpost.GetValueOrDefault(b),
+                RepairTurns = IsShipCard(card) ? GetRepairTurns(b) : _repairTurnsAtOutpost.GetValueOrDefault(b),
                 SolvedBy = _missionSolver.TryGetValue(b, out int sol) ? sol : null,
                 InstanceId = card.InstanceId,
                 Controller = card.Controller != 0 ? card.Controller : GetBorderOwner(b),
@@ -9633,7 +9760,7 @@ public partial class TableWindow : Window
         _hullDamagePercent.Clear(); _stoppedBorders.Clear();
         _dockedAt.Clear(); _cloakedShips.Clear();
         _repairTurnsAtOutpost.Clear(); _shipRangeLeft.Clear();
-        _borderOwner.Clear(); _attachedDilemmas.Clear(); _alienParasiteControls.Clear(); _attachedEvents.Clear();
+        _borderOwner.Clear(); _attachedDilemmas.Clear(); BoardStore.Current.AttachedDilemmas.Clear(); _alienParasiteControls.Clear(); _attachedEvents.Clear(); BoardStore.Current.AttachedEvents.Clear();
         _dockableAtMission.Clear();
         SpacelineY = SpacelineYDefault;
         _missionsByQuadrant.Clear(); _spacelineOrder.Clear();
@@ -9723,7 +9850,8 @@ public partial class TableWindow : Window
             if (snap.Stopped) MarkStopped(border);
             if (snap.RangeLeft.HasValue)
                 SetShipRangeLeft(border, card, snap.RangeLeft.Value);
-            if (snap.RepairTurns > 0) _repairTurnsAtOutpost[border] = snap.RepairTurns;
+            if (snap.RepairTurns > 0)
+                SetRepairTurns(border, snap.RepairTurns);
             if (snap.SolvedBy is 1 or 2)
             {
                 _solvedMissions.Add(border);
@@ -9783,7 +9911,7 @@ public partial class TableWindow : Window
                 kind = EventRules.Persist.Table;
             Border? host = ev.HostId is int hid && byId.TryGetValue(hid, out var h) ? h : null;
             Border? host2 = ev.Host2Id is int hid2 && byId.TryGetValue(hid2, out var h2) ? h2 : null;
-            _attachedEvents.Add(new AttachedEvent
+            AddAttachedEvent(new AttachedEvent
             {
                 Card = card,
                 Kind = kind,
@@ -9836,7 +9964,7 @@ public partial class TableWindow : Window
                     }
                 }
             }
-            _attachedDilemmas.Add(attached);
+            AddAttachedDilemma(attached);
             if (kind == DilemmaRules.PersistKind.Scow)
                 PlaceScowToken(card, host);
             if (kind == DilemmaRules.PersistKind.BorgShip)
@@ -10222,6 +10350,7 @@ public partial class TableWindow : Window
         _oppTablePermanentCards.Clear();
         _tablePermanentCards.Clear();
         _attachedDilemmas.Clear();
+        BoardStore.Current.AttachedDilemmas.Clear();
         _alienParasiteControls.Clear();
         _horgahnP1 = _horgahnP2 = false;
         _toxPlayedAsEventThisTurnP1 = _toxPlayedAsEventThisTurnP2 = false;
@@ -10238,6 +10367,7 @@ public partial class TableWindow : Window
         _completingTurnChange = false;
         _endTurnAfterDrawStack = false;
         _attachedEvents.Clear();
+        BoardStore.Current.AttachedEvents.Clear();
         _ionizationBeamsThisTurnByPlayer[1] = 0; _ionizationBeamsThisTurnByPlayer[2] = 0;
         _holoDeactivatedThisTurn.Clear();
         _redAlertPlaysLeft = 0;
@@ -10923,6 +11053,18 @@ public partial class TableWindow : Window
             if (store.ById.TryGetValue(c.InstanceId, out var inst) && inst is ShipInstance sh)
                 sh.HullPercent = kv.Value;
         }
+        foreach (var kv in _repairTurnsAtOutpost)
+        {
+            if (kv.Key.Tag is not Card c || c.InstanceId <= 0) continue;
+            if (store.ById.TryGetValue(c.InstanceId, out var inst) && inst is ShipInstance sh)
+                sh.RepairTurns = kv.Value;
+        }
+        foreach (var b in _cloakLocked)
+        {
+            if (b.Tag is not Card c || c.InstanceId <= 0) continue;
+            if (store.ById.TryGetValue(c.InstanceId, out var inst) && inst is ShipInstance sh)
+                sh.CloakLocked = true;
+        }
         foreach (var inst in store.ById.Values)
         {
             if (inst is PersonnelInstance pInst)
@@ -11056,6 +11198,49 @@ public partial class TableWindow : Window
             && BoardStore.Current.ById.TryGetValue(c.InstanceId, out var inst)
             && inst is ShipInstance sh)
             sh.HullPercent = hullPercent;
+    }
+
+    private int GetRepairTurns(Border shipBorder)
+    {
+        if (shipBorder.Tag is Card c && c.InstanceId > 0
+            && BoardStore.Current.ById.TryGetValue(c.InstanceId, out var inst)
+            && inst is ShipInstance sh)
+        {
+            _repairTurnsAtOutpost[shipBorder] = sh.RepairTurns;
+            return sh.RepairTurns;
+        }
+        return _repairTurnsAtOutpost.GetValueOrDefault(shipBorder, 0);
+    }
+
+    private void SetRepairTurns(Border shipBorder, int turns)
+    {
+        if (turns > 0) _repairTurnsAtOutpost[shipBorder] = turns;
+        else _repairTurnsAtOutpost.Remove(shipBorder);
+
+        if (shipBorder.Tag is Card c && c.InstanceId > 0
+            && BoardStore.Current.ById.TryGetValue(c.InstanceId, out var inst)
+            && inst is ShipInstance sh)
+            sh.RepairTurns = turns;
+    }
+
+    private bool IsCloakLocked(Border shipBorder)
+    {
+        if (shipBorder.Tag is Card c && c.InstanceId > 0
+            && BoardStore.Current.ById.TryGetValue(c.InstanceId, out var inst)
+            && inst is ShipInstance sh)
+            return sh.CloakLocked;
+        return _cloakLocked.Contains(shipBorder);
+    }
+
+    private void SetCloakLocked(Border shipBorder, bool locked)
+    {
+        if (locked) _cloakLocked.Add(shipBorder);
+        else _cloakLocked.Remove(shipBorder);
+
+        if (shipBorder.Tag is Card c && c.InstanceId > 0
+            && BoardStore.Current.ById.TryGetValue(c.InstanceId, out var inst)
+            && inst is ShipInstance sh)
+            sh.CloakLocked = locked;
     }
 
     private int GetDockedAtInstanceId(Border ship)
@@ -13349,7 +13534,7 @@ public partial class TableWindow : Window
                         AddBtn("Repair status", (_, _) => ShowRepairStatus(cardBorder, card));
                     AddBtn("Solvable missions?", (_, _) => HighlightSolvableMissions(
                         GetAllCardsOnHost(cardBorder, GetBorderOwner(cardBorder) == 0 ? _activePlayer : GetBorderOwner(cardBorder))));
-                    if (ShipHasCloakingDevice(card) && !_cloakLocked.Contains(cardBorder))
+                    if (ShipHasCloakingDevice(card) && !IsCloakLocked(cardBorder))
                     {
                         bool towing = IsTowingScow(cardBorder);
                         if (IsShipCloaked(cardBorder) || !towing)
@@ -15308,7 +15493,7 @@ public partial class TableWindow : Window
                 RevertLoreReturnsControl(ae.Host);
             if (ae.Host != null) UpdateHostBadge(ae.Host);
             if (ae.Host2 != null) UpdateHostBadge(ae.Host2);
-            _attachedEvents.Remove(ae);
+            RemoveAttachedEvent(ae);
         }
 
         // Gaps / Q-Net are inserted into the spaceline as a visible card.
@@ -15665,7 +15850,7 @@ public partial class TableWindow : Window
                         break;
                     }
                     _crosisShips.Add(host);
-                    _attachedEvents.Add(new AttachedEvent
+                    AddAttachedEvent(new AttachedEvent
                     {
                         Card = card,
                         Kind = EventRules.Persist.None,
@@ -15936,7 +16121,7 @@ public partial class TableWindow : Window
                         int used = Math.Max(0, printed - left);
                         // Full RANGE is doubled; RANGE already spent this turn still counts.
                         SetShipRangeLeft(shipB, sc, Math.Max(0, printed * 2 - used));
-                        _attachedEvents.Add(new AttachedEvent
+                        AddAttachedEvent(new AttachedEvent
                         {
                             Card = card,
                             Kind = EventRules.Persist.None,
@@ -16149,8 +16334,7 @@ public partial class TableWindow : Window
         {
             ShowPlayError("Yellow Alert prevents Red Alert!");
             RemoveCardFromTableColumn(ev);
-            foreach (var ae in _attachedEvents.Where(e => ReferenceEquals(e.Card, ev)).ToList())
-                _attachedEvents.Remove(ae);
+            RemoveAttachedEventsForCard(ev);
             var hand = controller == 1 ? _handCards : _oppHandCards;
             if (!hand.Contains(ev)) hand.Add(ev);
             RebuildTablePermanentsPanel();
@@ -16317,7 +16501,7 @@ public partial class TableWindow : Window
                     RemoveCardFromTableColumn(ev);
                     var h = controller == 1 ? _handCards : _oppHandCards;
                     if (!h.Contains(ev)) h.Add(ev);
-                    _attachedEvents.RemoveAll(x => ReferenceEquals(x.Card, ev));
+                    RemoveAttachedEventsForCard(ev);
                     return true;
                 }
             }
@@ -16353,7 +16537,7 @@ public partial class TableWindow : Window
                 }
                 // No: stays on table; fall through to attach.
             }
-            _attachedEvents.Add(ae);
+            AddAttachedEvent(ae);
             if (r.Persist == EventRules.Persist.YellowAlert)
                 ApplyYellowAlert(controller, ev);
             RefreshTableBuffs();
@@ -17968,7 +18152,7 @@ public partial class TableWindow : Window
     {
         foreach (var ae in _attachedEvents.Where(e => e.Kind == EventRules.Persist.RedAlert).ToList())
         {
-            _attachedEvents.Remove(ae);
+            RemoveAttachedEvent(ae);
             SendCardTo(ae.Card, ae.Owner, TimingRules.Destination.Discard);
         }
         foreach (var c in _tablePermanentCards.Where(EventRules.IsRedAlert).ToList())
@@ -18180,7 +18364,7 @@ public partial class TableWindow : Window
             case NamedInterruptRules.NamedAuOutcome.Countermanda:
                 foreach (var e in _attachedEvents.Where(x => x.Kind == EventRules.Persist.Kidnappers).ToList())
                 {
-                    _attachedEvents.Remove(e);
+                    RemoveAttachedEvent(e);
                     SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
                 }
                 StatusText.Text = "Countermanda: Telepathic Alien Kidnappers nullified.";
@@ -18194,7 +18378,7 @@ public partial class TableWindow : Window
                         return;
                     }
                     var host = scow.Host;
-                    _attachedDilemmas.Remove(scow);
+                    RemoveAttachedDilemma(scow);
                     _scowTowShip = null;
                     RemoveScowToken();
                     SendCardTo(scow.Card, controller, TimingRules.Destination.Discard);
@@ -18280,7 +18464,7 @@ public partial class TableWindow : Window
                     || (f.Type ?? "").Contains("outpost", StringComparison.OrdinalIgnoreCase))
                 && GetBorderOwner(b) == turnPlayer);
             if (!empty || !dockedOwn) continue;
-            _attachedEvents.Remove(e);
+            RemoveAttachedEvent(e);
             SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
             _session.Log.Add(_session.TurnNumber, $"P{turnPlayer}",
                 $"Baryon Buildup nullified ({(e.Host.Tag as Card)?.Name} empty at own facility).");
@@ -18305,7 +18489,7 @@ public partial class TableWindow : Window
                          ReferenceEquals(ae.Host2, loc),
                          ae.Host != null && FindMissionForDockable(ae.Host) == loc)).ToList())
         {
-            _attachedEvents.Remove(e);
+            RemoveAttachedEvent(e);
             SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
             n++;
         }
@@ -18696,7 +18880,7 @@ public partial class TableWindow : Window
                     int nearIdx = _spacelineOrder.IndexOf(missionBorder);
                     if (farIdx < 0) farIdx = _spacelineOrder.Count - 1;
                     if (nearIdx < 0) nearIdx = 0;
-                    _borgShipDir = farIdx >= nearIdx ? -1 : 1;
+                    _borgShipDir = BorgShipRules.DecideInitialDirection(farIdx, nearIdx);
                     break;
                 case DilemmaRules.AttachHostPreference.ShipOrMission:
                     host = shipBorder ?? missionBorder;
@@ -18714,7 +18898,8 @@ public partial class TableWindow : Window
                 Extra = r.Relocate,
                 Dest = r.Persist == DilemmaRules.PersistKind.Cytherians
                     ? ResolveFarEndMission(host)
-                    : null
+                    : null,
+                Direction = r.Persist == DilemmaRules.PersistKind.BorgShip ? _borgShipDir : 1
             };
             if (DilemmaRules.IsStasisPersist(r.Persist))
             {
@@ -18744,7 +18929,7 @@ public partial class TableWindow : Window
             {
                 ApplyKtarianDisable(attached);
             }
-            _attachedDilemmas.Add(attached);
+            AddAttachedDilemma(attached);
             if (r.Persist == DilemmaRules.PersistKind.TwoDim)
                 SyncTwoDimDisabledVisuals(host);
             if (r.Persist == DilemmaRules.PersistKind.Scow)
@@ -19600,7 +19785,7 @@ public partial class TableWindow : Window
                 var curedHost = a.Host;
                 var curedKind = a.Kind;
                 ClearStasisForDilemma(a);
-                _attachedDilemmas.Remove(a);
+                RemoveAttachedDilemma(a);
                 SendCardTo(a.Card, cureOwner, TimingRules.Destination.Discard);
                 if (curedKind == DilemmaRules.PersistKind.TwoDim)
                     SyncTwoDimDisabledVisuals(curedHost);
@@ -20256,15 +20441,24 @@ public partial class TableWindow : Window
 
     // ---------- G7 Counter-Attack (next turn; != Return Fire) ----------
 
-    private bool IsArmedCounterAttackAt(Border mission, int player) =>
-        _pendingCounterAttack is { Armed: true } ca
-        && ca.EligiblePlayer == player
-        && ReferenceEquals(ca.LocationMission, mission);
+    private bool IsArmedCounterAttackAt(Border mission, int player)
+    {
+        int missionId = (mission.Tag as Card)?.InstanceId ?? 0;
+        if (BoardStore.Current.CounterAttack != null)
+            return BattleRules.IsArmedCounterAttackAt(BoardStore.Current.CounterAttack, missionId, player);
+        return _pendingCounterAttack is { Armed: true } ca
+               && ca.EligiblePlayer == player
+               && ReferenceEquals(ca.LocationMission, mission);
+    }
 
-    private bool IsCounterAttackTarget(Card target) =>
-        _pendingCounterAttack != null
-        && target.InstanceId > 0
-        && _pendingCounterAttack.InvolvedOpponentIds.Contains(target.InstanceId);
+    private bool IsCounterAttackTarget(Card target)
+    {
+        if (BoardStore.Current.CounterAttack != null)
+            return BattleRules.IsCounterAttackTarget(BoardStore.Current.CounterAttack, target.InstanceId);
+        return _pendingCounterAttack != null
+               && target.InstanceId > 0
+               && _pendingCounterAttack.InvolvedOpponentIds.Contains(target.InstanceId);
+    }
 
     private void RegisterCounterAttackOpportunity(int defenderPlayer, Border locationMission, Card attackerShip)
     {
@@ -20277,6 +20471,10 @@ public partial class TableWindow : Window
             Armed = false
         };
         _pendingCounterAttack.InvolvedOpponentIds.Add(attackerShip.InstanceId);
+
+        int missionId = (locationMission.Tag as Card)?.InstanceId ?? 0;
+        BoardStore.Current.CounterAttack = BattleRules.RegisterCounterAttack(defenderPlayer, missionId, attackerShip.InstanceId);
+
         DebugLog.Engine(_session.TurnNumber, defenderPlayer,
             $"counter-attack: pending for P{defenderPlayer} at {(locationMission.Tag as Card)?.Name ?? "?"} vs #{attackerShip.InstanceId} {attackerShip.Name}");
     }
@@ -20286,26 +20484,39 @@ public partial class TableWindow : Window
     /// </summary>
     private void UpdateCounterAttackWindow()
     {
-        if (_pendingCounterAttack == null) return;
-        var ca = _pendingCounterAttack;
-        if (!ca.Armed)
+        if (_pendingCounterAttack == null && BoardStore.Current.CounterAttack == null) return;
+
+        bool storeArmedNow = false;
+        bool storeExpired = false;
+        if (BoardStore.Current.CounterAttack != null)
         {
-            if (_session.ActivePlayer == ca.EligiblePlayer)
-            {
-                ca.Armed = true;
-                DebugLog.Engine(_session.TurnNumber, ca.EligiblePlayer,
-                    "counter-attack: ARMED (next-turn window open)");
-                StatusText.Text =
-                    $"Counter-Attack available this turn at the prior battle location " +
-                    $"(no Leader / no affiliation restriction; Match+WEAPONS still required).";
-            }
-            return;
+            BattleRules.UpdateCounterAttackWindow(BoardStore.Current.CounterAttack, _session.ActivePlayer, out storeArmedNow, out storeExpired);
+            if (storeExpired)
+                BoardStore.Current.CounterAttack = null;
         }
-        if (_session.ActivePlayer != ca.EligiblePlayer)
+
+        var ca = _pendingCounterAttack;
+        if (ca != null)
         {
-            DebugLog.Engine(_session.TurnNumber, ca.EligiblePlayer,
-                "counter-attack: expired (turn window closed)");
-            _pendingCounterAttack = null;
+            if (!ca.Armed)
+            {
+                if (_session.ActivePlayer == ca.EligiblePlayer || storeArmedNow)
+                {
+                    ca.Armed = true;
+                    DebugLog.Engine(_session.TurnNumber, ca.EligiblePlayer,
+                        "counter-attack: ARMED (next-turn window open)");
+                    StatusText.Text =
+                        $"Counter-Attack available this turn at the prior battle location " +
+                        $"(no Leader / no affiliation restriction; Match+WEAPONS still required).";
+                }
+                return;
+            }
+            if (_session.ActivePlayer != ca.EligiblePlayer || storeExpired)
+            {
+                DebugLog.Engine(_session.TurnNumber, ca.EligiblePlayer,
+                    "counter-attack: expired (turn window closed)");
+                _pendingCounterAttack = null;
+            }
         }
     }
 
@@ -20317,30 +20528,6 @@ public partial class TableWindow : Window
             ShowPlayError("Ship battle only during Execute segment.");
             return;
         }
-        if (ShipHasRequiredMove(shipBorder))
-        {
-            ShowPlayError("Incoming Message: ship may not initiate battle (7.10). Return fire is allowed.");
-            return;
-        }
-        if (IsBorderStopped(shipBorder))
-        {
-            ShowPlayError("Stopped ship cannot attack.");
-            return;
-        }
-        if (IsShipDocked(shipBorder))
-        {
-            ShowPlayError("Docked ship cannot initiate battle — undock first.");
-            return;
-        }
-        if (IsShipCloaked(shipBorder))
-        {
-            ShowPlayError("Cloaked ship cannot initiate battle — decloak first.");
-            return;
-        }
-
-        var crew = GetCrewOnShip(shipBorder);
-        int owner = GetBorderOwner(shipBorder);
-        if (owner == 0) owner = _activePlayer;
 
         var mission = FindMissionForDockable(shipBorder);
         if (mission == null)
@@ -20349,25 +20536,25 @@ public partial class TableWindow : Window
             return;
         }
 
+        var crew = GetCrewOnShip(shipBorder);
+        int owner = GetBorderOwner(shipBorder);
+        if (owner == 0) owner = _activePlayer;
+
         bool counter = IsArmedCounterAttackAt(mission, owner);
 
-        // Vorab-Check ohne konkretes Ziel (WEAPONS + Leader/Match)
-        if (BattleRules.GetWeapons(ship) <= 0)
+        var preCheck = BattleRules.CanShipInitiateBattleAtLocation(
+            ship, crew, owner,
+            isStopped: IsBorderStopped(shipBorder),
+            isDocked: IsShipDocked(shipBorder),
+            isCloaked: IsShipCloaked(shipBorder),
+            hasRequiredMove: ShipHasRequiredMove(shipBorder),
+            counterAttack: counter,
+            loreStaffed: ShipStaffedByRogueBorg(shipBorder),
+            activeTreaties: GetActiveTreaties(owner));
+
+        if (!preCheck.Ok)
         {
-            ShowPlayError($"{ship.Name} has no WEAPONS.");
-            return;
-        }
-        // G7: Counter-Attack — no Leader. Normal initiate still needs Leader (unless Rogue lore).
-        if (!counter && !BattleRules.HasLeader(crew) && !ShipStaffedByRogueBorg(shipBorder))
-        {
-            ShowPlayError("No leader aboard (OFFICER or Leadership required).");
-            return;
-        }
-        // G1: Matching Affiliation HARD (Counter-Attack still requires Match; Cmd/Stf icons not required).
-        if (BattleRules.IsShipCard(ship) && !ShipStaffedByRogueBorg(shipBorder)
-            && !MovementRules.HasMatchingAffiliation(ship, crew, GetActiveTreaties(owner)))
-        {
-            ShowPlayError("Cannot initiate ship battle: no matching-affiliation personnel aboard (Treaty/NA does not count as Match). Leader+WEAPONS alone is not enough.");
+            ShowPlayError(preCheck.Reason);
             return;
         }
 
@@ -20376,19 +20563,23 @@ public partial class TableWindow : Window
         _cardActionMode = CardActionMode.AttackPickTarget;
 
         var enemies = new List<Border>();
+        var counterTargetIds = BoardStore.Current.CounterAttack?.InvolvedOpponentInstanceIds
+            ?? _pendingCounterAttack?.InvolvedOpponentIds;
+
         foreach (var dock in GetDockablesUnderMission(mission))
         {
-            if (ReferenceEquals(dock, shipBorder)) continue;
             if (dock.Tag is not Card tc) continue;
-            if (!BattleRules.IsShipOrFacility(tc)) continue;
             int o = GetBorderOwner(dock);
             if (o == 0) o = 1;
-            if (o == owner) continue;
-            if (GetHullDamage(dock) >= 100) continue;
-            if (IsShipCloaked(dock)) continue;
-            // G7: Counter-Attack only vs involved/still-there opponent cards at that location.
-            if (counter && !IsCounterAttackTarget(tc))
+
+            if (!BattleRules.IsLegalShipAttackTarget(
+                    ship, owner, tc, o,
+                    targetHullDamagePercent: GetHullDamage(dock),
+                    targetIsCloaked: IsShipCloaked(dock),
+                    counterAttack: counter,
+                    counterAttackInvolvedTargetIds: counterTargetIds))
                 continue;
+
             enemies.Add(dock);
         }
 
@@ -20497,13 +20688,12 @@ public partial class TableWindow : Window
             var atkEv = EventsOn(attackerBorder).Select(e => (e.Kind, e.Card));
             var defEv = EventsOn(defenderBorder).Select(e => (e.Kind, e.Card));
             bool borgAtk = TimingRules.IsBorgShipDilemma(attackerShip);
-            const int borgWeapons = 24;
             int printedAtkW = BattleRules.GetWeapons(attackerShip);
             int atkLog = !borgAtk && HasMatchingCommander(attackerBorder, attackerShip)
                 && _attachedEvents.Any(e => e.Kind == EventRules.Persist.CaptainsLog && e.Owner == atkOwner)
                 ? 3 : 0;
             int atkBonus = borgAtk
-                ? Math.Max(0, borgWeapons - printedAtkW)
+                ? BorgShipRules.BorgWeaponsBonus(attackerShip)
                 : BattleRules.AttributeBonusOverPrinted(
                     printedAtkW,
                     EventRules.WeaponsBonusFromEvents(atkEv) + atkLog,
@@ -20526,110 +20716,49 @@ public partial class TableWindow : Window
                 && fac?.Tag is Card fc)
                 facShields = BattleRules.GetShields(fc);
 
-            // --- Open Fire ---
-            var openFire = BattleRules.ResolveFire(
-                new[] { (attackerShip, atkBonus) },
-                defenderCard,
-                targetShieldsBonus: defShieldBonus,
-                facilityShieldsIfDocked: facShields);
-            logLines.Add($"Open Fire: {openFire.Summary}" + (atkMult > 1 ? $" (Kurlan ×{atkMult})" : ""));
+            // --- Battle Plan Execution in BattleRules (P2-S3) ---
+            var battleMission = FindMissionForDockable(defenderBorder) ?? FindMissionForDockable(attackerBorder);
+            int locationMissionId = (battleMission?.Tag as Card)?.InstanceId ?? 0;
 
-            int defHullBefore = GetHullDamage(defenderBorder);
-            var defDmg = BattleRules.ApplyRotationDamage(defHullBefore, openFire.Result);
-            int atkHullTaken = 0;
-            int defHullTaken = Math.Max(0, defDmg.HullAfter - defDmg.HullBefore);
-
-            if (defDmg.NewlyDamaged)
+            int atkShieldsBonus;
+            if (borgAtk)
             {
-                ApplyHullDamage(defenderBorder, defenderCard, defDmg.HullAfter);
-                logLines.Add($"  Defender: {defDmg.Description}");
+                atkShieldsBonus = BorgShipRules.BorgShieldsBonus(attackerShip);
+            }
+            else
+            {
+                int atkPrintedS = BattleRules.GetShields(attackerShip);
+                int atkShieldLog = HasMatchingCommander(attackerBorder, attackerShip)
+                    && _attachedEvents.Any(e => e.Kind == EventRules.Persist.CaptainsLog && e.Owner == atkOwner)
+                    ? 3 : 0;
+                int atkShieldAdds = EventRules.ShieldsBonusFromEvents(atkEv, GetAllCardsOnHost(attackerBorder, atkOwner))
+                    + atkShieldLog;
+                atkShieldsBonus = BattleRules.AttributeBonusOverPrinted(atkPrintedS, atkShieldAdds, atkAboard);
             }
 
-            // --- Return Fire ---
-            FireCalc? returnCalc = null;
-            DamageOutcome? atkDmg = null;
-            // G6 Spock Soll: re-check Matching HARD + undocked/uncloaked on defender before RF.
-            if (returnFire && !defDmg.Destroyed)
-            {
-                if (IsShipDocked(defenderBorder))
-                {
-                    logLines.Add("Return Fire denied: defender is docked.");
-                    returnFire = false;
-                }
-                else if (IsShipCloaked(defenderBorder))
-                {
-                    logLines.Add("Return Fire denied: defender is cloaked.");
-                    ShowPlayError($"{defenderCard.Name} is cloaked - cannot return fire.");
-                    returnFire = false;
-                }
-                else
-                {
-                    var rfCrew = GetCrewOnShip(defenderBorder);
-                    var rfCheck = BattleRules.CanReturnFire(
-                        defenderCard, rfCrew, loreStaffed: ShipStaffedByRogueBorg(defenderBorder));
-                    if (!rfCheck.Ok)
-                    {
-                        logLines.Add($"Return Fire denied: {rfCheck.Reason}");
-                        ShowPlayError(rfCheck.Reason);
-                        returnFire = false;
-                    }
-                }
-            }
-            if (returnFire && !defDmg.Destroyed)
-            {
-                // Verteidiger schießt zurück auf den Angreifer (1 Ziel)
-                // S.A.M.: attacker shields bonus over printed (events + Captain's Log) × Kurlan
-                int borgShieldBonus;
-                if (borgAtk)
-                {
-                    borgShieldBonus = Math.Max(0, 24 - BattleRules.GetShields(attackerShip));
-                }
-                else
-                {
-                    int atkPrintedS = BattleRules.GetShields(attackerShip);
-                    int atkShieldLog = HasMatchingCommander(attackerBorder, attackerShip)
-                        && _attachedEvents.Any(e => e.Kind == EventRules.Persist.CaptainsLog && e.Owner == atkOwner)
-                        ? 3 : 0;
-                    int atkShieldAdds = EventRules.ShieldsBonusFromEvents(atkEv, GetAllCardsOnHost(attackerBorder, atkOwner))
-                        + atkShieldLog;
-                    borgShieldBonus = BattleRules.AttributeBonusOverPrinted(atkPrintedS, atkShieldAdds, atkAboard);
-                }
-                returnCalc = BattleRules.ResolveFire(
-                    new[] { (defenderCard, defWeaponsBonus) },
-                    attackerShip,
-                    targetShieldsBonus: borgShieldBonus);
-                logLines.Add($"Return Fire: {returnCalc.Value.Summary}" + (defMult > 1 ? $" (Kurlan ×{defMult})" : ""));
+            var plan = BattleRules.ExecuteShipBattlePlan(
+                attackerShip, atkOwner, GetHullDamage(attackerBorder), atkBonus, atkShieldsBonus,
+                attackerIsBorgShip: borgAtk, attackerKurlanMult: atkMult,
+                defenderCard, defOwner, GetHullDamage(defenderBorder), defWeaponsBonus, defShieldBonus,
+                defenderFacilityShieldsIfDocked: facShields,
+                defenderIsDocked: IsShipDocked(defenderBorder),
+                defenderIsCloaked: IsShipCloaked(defenderBorder),
+                defenderLoreStaffed: ShipStaffedByRogueBorg(defenderBorder),
+                defenderCrew: GetCrewOnShip(defenderBorder),
+                returnFireRequested: returnFire,
+                defenderKurlanMult: defMult,
+                locationMissionInstanceId: locationMissionId);
 
-                int atkHullBefore = GetHullDamage(attackerBorder);
-                atkDmg = BattleRules.ApplyRotationDamage(atkHullBefore, returnCalc.Value.Result);
-                atkHullTaken = Math.Max(0, atkDmg.Value.HullAfter - atkDmg.Value.HullBefore);
-                if (atkDmg.Value.NewlyDamaged)
-                {
-                    ApplyHullDamage(attackerBorder, attackerShip, atkDmg.Value.HullAfter);
-                    logLines.Add($"  Attacker: {atkDmg.Value.Description}");
-                }
-            }
-            else if (returnFire && defDmg.Destroyed)
-            {
-                logLines.Add("Return Fire skipped (defender already destroyed).");
-            }
+            // Apply Plan side-effects
+            if (plan.DefenderDamage.NewlyDamaged)
+                ApplyHullDamage(defenderBorder, defenderCard, plan.DefenderDamage.HullAfter);
 
-            string winner = BattleRules.DetermineWinner(atkHullTaken, defHullTaken);
-            logLines.Add($"Winner (HULL damage): {winner}");
+            if (plan.AttackerDamage.HasValue && plan.AttackerDamage.Value.NewlyDamaged)
+                ApplyHullDamage(attackerBorder, attackerShip, plan.AttackerDamage.Value.HullAfter);
 
-            // --- Resolution: Destroyed → Discard ---
-            bool defDestroyed = defDmg.Destroyed || GetHullDamage(defenderBorder) >= 100;
-            bool atkDestroyed = (atkDmg?.Destroyed ?? false) || GetHullDamage(attackerBorder) >= 100;
-
-            if (defDestroyed)
-                logLines.Add($"DESTROYED: {defenderCard.Name} (P{defOwner}) — Escape Pod may respond.");
-            if (atkDestroyed)
-                logLines.Add($"DESTROYED: {attackerShip.Name} (P{atkOwner}) — Escape Pod may respond.");
-
-            // Survivors stop (Borg Ship dilemma token is not a player ship).
-            if (!borgAtk && !atkDestroyed && attackerBorder.Parent != null)
+            if (plan.AttackerSurvivesAndStops && attackerBorder.Parent != null)
                 MarkStopped(attackerBorder);
-            if (!defDestroyed && defenderBorder.Parent != null)
+            if (plan.DefenderSurvivesAndStops && defenderBorder.Parent != null)
                 MarkStopped(defenderBorder);
 
             if (!borgAtk)
@@ -20638,51 +20767,46 @@ public partial class TableWindow : Window
 
             if (_borgEotActive != null)
             {
-                string hit = defDestroyed
-                    ? $"{defenderCard.Name} DESTROYED ({openFire.Result})"
-                    : $"{defenderCard.Name} {openFire.Result} HULL {GetHullDamage(defenderBorder)}%";
+                string hit = plan.DefenderDestroyed
+                    ? $"{defenderCard.Name} DESTROYED ({plan.OpenFire.Result})"
+                    : $"{defenderCard.Name} {plan.OpenFire.Result} HULL {GetHullDamage(defenderBorder)}%";
                 _borgEotHitLog.Add(hit);
             }
 
-            if (borgAtk && atkDestroyed)
+            if (plan.BorgShipDestroyedAwardPoints)
             {
                 var borg = _attachedDilemmas.FirstOrDefault(d => d.Kind == DilemmaRules.PersistKind.BorgShip);
-                if (borg != null) _attachedDilemmas.Remove(borg);
+                if (borg != null) RemoveAttachedDilemma(borg);
                 RemoveBorgShipToken();
                 _borgEotActive = null;
                 _borgEotAttackQueue = null;
-                AwardDilemmaPoints(15);
-                logLines.Add("Borg Ship dilemma destroyed by return fire (+15).");
+                AwardDilemmaPoints(BorgShipRules.PointsOnDestroyed);
             }
 
-            string summary = string.Join("\n", logLines);
             _session.Log.Add(_session.TurnNumber, $"P{atkOwner}",
-                $"Battle {attackerShip.Name} vs {defenderCard.Name}: OF={openFire.Result}" +
-                (returnCalc.HasValue ? $" RF={returnCalc.Value.Result}" : "") +
-                $", Winner={winner}");
+                $"Battle {attackerShip.Name} vs {defenderCard.Name}: OF={plan.OpenFire.Result}" +
+                (plan.ReturnFire.HasValue ? $" RF={plan.ReturnFire.Value.Result}" : "") +
+                $", Winner={plan.Winner}");
 
             StatusText.Text =
                 $"Battle: {attackerShip.Name} → {defenderCard.Name} · " +
-                $"OF {openFire.Result}" +
-                (returnCalc.HasValue ? $" · RF {returnCalc.Value.Result}" : "") +
-                (defDestroyed ? " · defender DESTROYED" : "") +
-                (atkDestroyed ? " · attacker DESTROYED" : "") +
+                $"OF {plan.OpenFire.Result}" +
+                (plan.ReturnFire.HasValue ? $" · RF {plan.ReturnFire.Value.Result}" : "") +
+                (plan.DefenderDestroyed ? " · defender DESTROYED" : "") +
+                (plan.AttackerDestroyed ? " · attacker DESTROYED" : "") +
                 " · survivors stopped.";
 
-            ShowCardReveal(defenderCard, "Ship Battle", summary, RevealButtons.Ok, attackerShip.Name);
+            ShowCardReveal(defenderCard, "Ship Battle", plan.Summary, RevealButtons.Ok, attackerShip.Name);
 
-            // G7: defender may Counter-Attack on their next turn at this location vs involved attackers still there.
-            // Return Fire in this battle is not Counter-Attack.
-            var battleMission = FindMissionForDockable(defenderBorder) ?? FindMissionForDockable(attackerBorder);
-            if (battleMission != null && !atkDestroyed)
+            if (plan.DefenderMayCounterAttack && battleMission != null)
                 RegisterCounterAttackOpportunity(defOwner, battleMission, attackerShip);
-            else if (battleMission != null && atkDestroyed)
+            else if (battleMission != null && plan.AttackerDestroyed)
                 DebugLog.Engine(_session.TurnNumber, defOwner,
                     "counter-attack: skipped (attacker destroyed)");
 
-            if (defDestroyed)
+            if (plan.DefenderDestroyed)
                 DestroyShipOrFacility(defenderBorder, defenderCard, defOwner);
-            if (atkDestroyed)
+            if (plan.AttackerDestroyed)
                 DestroyShipOrFacility(attackerBorder, attackerShip, atkOwner);
 
         }
@@ -20744,10 +20868,11 @@ public partial class TableWindow : Window
             if (o != owner) continue;
 
             int hull = GetHullDamage(b);
-            int turnsAlready = _repairTurnsAtOutpost.GetValueOrDefault(b, 0);
+            int turnsAlready = GetRepairTurns(b);
             var action = EndOfTurnRestRules.DecideRepair(hull, IsShipAtOwnRepairFacility(b, owner), turnsAlready);
             if (action == EndOfTurnRestRules.RepairAction.SkipHull) continue;
-            _repairTurnsAtOutpost[b] = EndOfTurnRestRules.NextRepairTurnCount(action, turnsAlready);
+            int nextTurns = EndOfTurnRestRules.NextRepairTurnCount(action, turnsAlready);
+            SetRepairTurns(b, nextTurns);
             UpdateDamageBadge(b, hull);
             if (action == EndOfTurnRestRules.RepairAction.FullyRepair)
             {
@@ -20756,7 +20881,7 @@ public partial class TableWindow : Window
             }
             else if (action == EndOfTurnRestRules.RepairAction.Progress)
             {
-                progress.Add($"{c.Name} ({_repairTurnsAtOutpost[b]}/2)");
+                progress.Add($"{c.Name} ({nextTurns}/2)");
             }
             // ResetProgress: badge already updated, no list entry (same as before)
         }
@@ -20821,7 +20946,7 @@ public partial class TableWindow : Window
             if (curePlan.Action == DilemmaCureRules.CureAction.CureAndDiscard)
             {
                 ClearStasisForDilemma(a);
-                _attachedDilemmas.Remove(a);
+                RemoveAttachedDilemma(a);
                 if (curePlan.PointsAwarded > 0)
                     AwardDilemmaPoints(curePlan.PointsAwarded);
                 _session.Log.Add(_session.TurnNumber, $"P{ho}", curePlan.LogMessage);
@@ -20831,6 +20956,8 @@ public partial class TableWindow : Window
             if (a.Kind == DilemmaRules.PersistKind.Junior && ho == owner)
             {
                 a.Countdown++;
+                var storeBd = BoardStore.Current.AttachedDilemmas.FirstOrDefault(x => ReferenceEquals(x.Card, a.Card));
+                if (storeBd != null) storeBd.Countdown = a.Countdown;
                 if (a.Host.Tag is Card ship)
                 {
                     int range = ComputeShipTurnRange(a.Host, ship);
@@ -20838,7 +20965,7 @@ public partial class TableWindow : Window
                     if (EndOfTurnRestRules.JuniorDestroysShip(range))
                     {
                         DestroyShipOrFacility(a.Host, ship, ho);
-                        _attachedDilemmas.Remove(a);
+                        RemoveAttachedDilemma(a);
                     }
                 }
             }
@@ -20848,6 +20975,8 @@ public partial class TableWindow : Window
                 && ho == owner)
             {
                 a.Countdown--;
+                var storeBd = BoardStore.Current.AttachedDilemmas.FirstOrDefault(x => ReferenceEquals(x.Card, a.Card));
+                if (storeBd != null) storeBd.Countdown = a.Countdown;
                 if (EndOfTurnRestRules.CountdownExpired(a.Countdown))
                 {
                     if (a.Kind == DilemmaRules.PersistKind.Nitrium && a.Host.Tag is Card ns)
@@ -20878,7 +21007,7 @@ public partial class TableWindow : Window
                             }
                         }
                     }
-                    _attachedDilemmas.Remove(a);
+                    RemoveAttachedDilemma(a);
                     _session.Log.Add(_session.TurnNumber, $"P{ho}", $"{a.Card.Name} countdown expired");
                 }
             }
@@ -20919,16 +21048,11 @@ public partial class TableWindow : Window
         foreach (var dock in GetDockablesUnderMission(host).ToList())
         {
             if (dock.Tag is not Card sc) continue;
-            // Ships (uncloaked) and outposts/facilities at this location
-            if (IsShipCard(sc))
-            {
-                if (IsShipCloaked(dock)) continue;
+            bool isShip = IsShipCard(sc);
+            bool isFac = IsFacilityCard(sc);
+            bool isCloaked = isShip && IsShipCloaked(dock);
+            if (BorgShipRules.IsLegalTarget(isShip, isFac, isCloaked))
                 targets.Enqueue(dock);
-            }
-            else if (IsFacilityCard(sc))
-            {
-                targets.Enqueue(dock);
-            }
         }
         if (targets.Count == 0)
         {
@@ -20982,40 +21106,47 @@ public partial class TableWindow : Window
         var host = a.Host;
         if (host.Tag is not Card hostMission) return;
         int idx = _spacelineOrder.IndexOf(host);
-        if (idx < 0 && _spacelineOrder.Count > 0)
-            idx = _borgShipDir > 0 ? 0 : _spacelineOrder.Count - 1;
-        int nextIdx = idx + _borgShipDir;
-        string attackPart = _borgEotHitLog.Count > 0
-            ? ("Attacks at " + hostMission.Name + ": " + string.Join(", ", _borgEotHitLog) + ".")
-            : ("At " + hostMission.Name + ": no ships damaged.");
-        if (nextIdx < 0 || nextIdx >= _spacelineOrder.Count)
+        int dir = a.Direction != 0 ? a.Direction : _borgShipDir;
+        string? nextName = null;
+        int provisionalNext = (idx < 0 && _spacelineOrder.Count > 0 ? (dir > 0 ? 0 : _spacelineOrder.Count - 1) : idx) + dir;
+        if (provisionalNext >= 0 && provisionalNext < _spacelineOrder.Count)
+            nextName = (_spacelineOrder[provisionalNext].Tag as Card)?.Name;
+
+        var plan = BorgShipRules.DecideMove(
+            idx,
+            dir,
+            _spacelineOrder.Count,
+            _borgEotHitLog,
+            hostMission.Name ?? "?",
+            nextName);
+
+        if (plan.LeavesPlay)
         {
-            _attachedDilemmas.Remove(a);
+            RemoveAttachedDilemma(a);
             RemoveBorgShipToken();
-            string leaveMsg = attackPart + " Moves off the spaceline and leaves play.";
-            _session.Log.Add(_session.TurnNumber, "sys", leaveMsg);
-            StatusText.Text = leaveMsg;
-            ShowCardReveal(a.Card, "Borg Ship leaves", leaveMsg, RevealButtons.Ok, a.Card.Name);
+            _session.Log.Add(_session.TurnNumber, "sys", plan.Message);
+            StatusText.Text = plan.Message;
+            ShowCardReveal(a.Card, "Borg Ship leaves", plan.Message, RevealButtons.Ok, a.Card.Name);
             return;
         }
-        var newHost = _spacelineOrder[nextIdx];
-        _attachedDilemmas.Remove(a);
-        _attachedDilemmas.Add(new AttachedDilemma
+
+        var newHost = _spacelineOrder[plan.NextIndex];
+        RemoveAttachedDilemma(a);
+        AddAttachedDilemma(new AttachedDilemma
         {
             Card = a.Card,
             Kind = a.Kind,
             Countdown = a.Countdown,
             Host = newHost,
-            Extra = a.Extra
+            Extra = a.Extra,
+            Direction = dir
         });
         PositionBorgShipToken(newHost);
-        string where = (newHost.Tag as Card)?.Name ?? "?";
-        string msg = attackPart + " Moves to " + where + ".";
-        _session.Log.Add(_session.TurnNumber, "sys", msg);
-        StatusText.Text = msg;
+        _session.Log.Add(_session.TurnNumber, "sys", plan.Message);
+        StatusText.Text = plan.Message;
         // Pepsch: no Detail/Reveal spam when nothing was attacked this EOT.
         if (_borgEotDidAttack)
-            ShowCardReveal(a.Card, "Borg Ship", msg, RevealButtons.Ok, a.Card.Name);
+            ShowCardReveal(a.Card, "Borg Ship", plan.Message, RevealButtons.Ok, a.Card.Name);
     }
 
     private AttachedEvent? IncomingMessageOn(Border ship) =>
@@ -21251,7 +21382,7 @@ public partial class TableWindow : Window
             if (owner == 0) owner = 1;
             if (owner == 1) _scoreP1 += 15; else _scoreP2 += 15;
             UpdateScoreDisplay();
-            _attachedDilemmas.Remove(d);
+            RemoveAttachedDilemma(d);
             SendCardTo(d.Card, owner, TimingRules.Destination.Discard);
             StatusText.Text = $"Cytherians completed at {(dest.Tag as Card)?.Name}: +15.";
             _session.Log.Add(_session.TurnNumber, $"P{owner}", "Cytherians +15");
@@ -21363,7 +21494,7 @@ public partial class TableWindow : Window
             TableCanvas.Children.Add(mini);
         AddCardToHostStack(host!, mini);
 
-        _attachedEvents.Add(new AttachedEvent
+        AddAttachedEvent(new AttachedEvent
         {
             Card = card,
             Kind = EventRules.Persist.IncomingMessage,
@@ -21398,7 +21529,7 @@ public partial class TableWindow : Window
         foreach (var ae in _attachedEvents.Where(e =>
                      e.Kind == EventRules.Persist.IncomingMessage && SameHostShip(e.Host, ship)).ToList())
         {
-            _attachedEvents.Remove(ae);
+            RemoveAttachedEvent(ae);
             if (ae.Host != null)
             {
                 var stacked = FindBorderForCard(ae.Card);
@@ -21769,7 +21900,7 @@ public partial class TableWindow : Window
         }
         else if (ae != null)
         {
-            _attachedEvents.RemoveAll(e => ReferenceEquals(e.Card, hit));
+            RemoveAttachedEventsForCard(hit);
             if (ae.Host != null) UpdateHostBadge(ae.Host);
             SendCardTo(hit, ae.Owner != 0 ? ae.Owner : controller, TimingRules.Destination.Discard);
         }
@@ -22535,7 +22666,7 @@ public partial class TableWindow : Window
         if (ship.Tag is Card c && c.InstanceId > 0
             && BoardStore.Current.ById.TryGetValue(c.InstanceId, out var inst)
             && inst is ShipInstance sh)
-            return sh.Cloaked || _cloakedShips.Contains(ship);
+            return sh.Cloaked;
         return _cloakedShips.Contains(ship);
     }
 
@@ -22622,7 +22753,7 @@ public partial class TableWindow : Window
 
     private void ToggleCloak(Border shipBorder, Card ship)
     {
-        if (_cloakLocked.Contains(shipBorder))
+        if (IsCloakLocked(shipBorder))
         {
             ShowPlayError($"{ship.Name} may not cloak (Tachyon Detection Grid).");
             return;
@@ -22750,7 +22881,7 @@ public partial class TableWindow : Window
             }
         }
         SyncDockableSideAfterOwnerChange(e.Host);
-        _attachedEvents.Remove(e);
+        RemoveAttachedEvent(e);
         SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
         _session.Log.Add(_session.TurnNumber, $"P{e.Owner}",
             $"Neural Servo ends — {(e.Host.Tag as Card)?.Name} returns to P{back}.");
@@ -22808,7 +22939,7 @@ public partial class TableWindow : Window
         }
         var shipCard = ship!;
         var hostBorder = host!;
-        _attachedEvents.Add(new AttachedEvent
+        AddAttachedEvent(new AttachedEvent
         {
             Card = card,
             Kind = EventRules.Persist.None,
@@ -22990,7 +23121,7 @@ public partial class TableWindow : Window
         }
         var shipCard = ship!;
         var hostBorder = host!;
-        _attachedEvents.Add(new AttachedEvent
+        AddAttachedEvent(new AttachedEvent
         {
             Card = card,
             Kind = EventRules.Persist.None,
@@ -23043,7 +23174,7 @@ public partial class TableWindow : Window
             else
                 StatusText.Text = "Distortion: no Away Team here to unstop.";
         }
-        _attachedEvents.Remove(ae);
+        RemoveAttachedEvent(ae);
         SendCardTo(ae.Card, ae.Owner, TimingRules.Destination.Discard);
         _session.Log.Add(_session.TurnNumber, $"P{ae.Owner}", "Distortion discarded after use.");
         UpdateHostBadge(host);
@@ -23094,8 +23225,8 @@ public partial class TableWindow : Window
         if (target.InstanceId > 0)
             DebugLog.Move(_session.TurnNumber, controller,
                 $"cloak #{target.InstanceId} cloaked=0 source=instance");
-        _cloakLocked.Add(host);
-        _attachedEvents.Add(new AttachedEvent
+        SetCloakLocked(host, true);
+        AddAttachedEvent(new AttachedEvent
         {
             Card = card,
             Kind = EventRules.Persist.None,
@@ -23188,7 +23319,7 @@ public partial class TableWindow : Window
         AddCardToHostStack(shipB, mini);
 
         int cd = r.Countdown > 0 ? r.Countdown : 1;
-        _attachedEvents.Add(new AttachedEvent
+        AddAttachedEvent(new AttachedEvent
         {
             Card = card,
             Kind = EventRules.Persist.None,
@@ -23223,7 +23354,7 @@ public partial class TableWindow : Window
     {
         if (e.Host == null || e.Host.Tag is not Card ship || !IsShipCard(ship))
         {
-            _attachedEvents.Remove(e);
+            RemoveAttachedEvent(e);
             SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
             return;
         }
@@ -23257,7 +23388,7 @@ public partial class TableWindow : Window
                     TableCanvas.Children.Remove(b);
             }
         }
-        _attachedEvents.Remove(e);
+        RemoveAttachedEvent(e);
 
         ShowCardReveal(e.Card, "Auto-Destruct Sequence",
             $"{ship.Name} is destroyed (countdown expired).",
@@ -23332,7 +23463,7 @@ public partial class TableWindow : Window
         AddCardToHostStack(attachHost, mini);
 
         int cd = r.Countdown > 0 ? r.Countdown : 2;
-        _attachedEvents.Add(new AttachedEvent
+        AddAttachedEvent(new AttachedEvent
         {
             Card = card,
             Kind = EventRules.Persist.None,
@@ -23382,7 +23513,7 @@ public partial class TableWindow : Window
             }
             UpdateHostBadge(e.Host);
         }
-        _attachedEvents.Remove(e);
+        RemoveAttachedEvent(e);
         SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
         string who = e.Extra?.Name ?? "?";
         _session.Log.Add(_session.TurnNumber, "sys",
@@ -23429,7 +23560,7 @@ public partial class TableWindow : Window
             _session.Log.Add(_session.TurnNumber, "sys",
                 $"Anti-Time Anomaly: P{player} shuffled {n} personnel into draw.");
         }
-        _attachedEvents.Remove(e);
+        RemoveAttachedEvent(e);
         SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
         RefreshZoneCounts();
         StatusText.Text = "Anti-Time Anomaly expires — personnel in play shuffled into owners' draw decks.";
@@ -23688,6 +23819,8 @@ public partial class TableWindow : Window
                 turnPlayer,
                 ae.ScopePlayer);
             ae.Countdown = cd;
+            var storeBe = BoardStore.Current.AttachedEvents.FirstOrDefault(x => ReferenceEquals(x.Card, ae.Card));
+            if (storeBe != null) storeBe.Countdown = ae.Countdown;
             if (!expired) continue;
 
             // Crosis and any other start-of-next-turn discards
@@ -23695,7 +23828,7 @@ public partial class TableWindow : Window
             {
                 if (ae.Host != null)
                     _crosisShips.Remove(ae.Host);
-                _attachedEvents.Remove(ae);
+                RemoveAttachedEvent(ae);
                 if (ae.Host != null && _stackOnHost.TryGetValue(ae.Host, out var stack))
                 {
                     foreach (var b in stack.Where(x => x.Tag is Card c && ReferenceEquals(c, ae.Card)).ToList())
@@ -23739,22 +23872,22 @@ public partial class TableWindow : Window
                       + EventRules.WeaponsBonusFromEvents(EventsOn(shipBorder).Select(e => (e.Kind, e.Card)));
         weapons *= BattleRules.KurlanMultiplier(crew);
         // Borg SHIELDS 24 — need WEAPONS > 24 to damage; second hit destroys (100%)
-        const int borgShields = 24;
+        const int borgShields = BorgShipRules.Shields;
         if (weapons <= borgShields)
         {
             ShowPlayError($"Need WEAPONS > {borgShields} to damage the Borg Ship (you have {weapons}).");
             return;
         }
         // One successful hit destroys the dilemma token (sandbox: strong enough shot wins 15)
-        _attachedDilemmas.Remove(borg);
+        RemoveAttachedDilemma(borg);
         RemoveBorgShipToken();
-        AwardDilemmaPoints(15);
+        AwardDilemmaPoints(BorgShipRules.PointsOnDestroyed);
         _session.Log.Add(_session.TurnNumber, $"P{owner}",
-            $"Destroyed Borg Ship with {shipCard.Name} (WEAPONS {weapons}) for 15 points");
+            $"Destroyed Borg Ship with {shipCard.Name} (WEAPONS {weapons}) for {BorgShipRules.PointsOnDestroyed} points");
         ShowCardReveal(borg.Card, "Borg Ship destroyed",
-            $"{shipCard.Name} destroys the Borg Ship!\n+15 points (P{owner}).",
+            $"{shipCard.Name} destroys the Borg Ship!\n+{BorgShipRules.PointsOnDestroyed} points (P{owner}).",
             RevealButtons.Ok, shipCard.Name);
-        StatusText.Text = $"Borg Ship destroyed by {shipCard.Name}. +15 (P{owner}).";
+        StatusText.Text = $"Borg Ship destroyed by {shipCard.Name}. +{BorgShipRules.PointsOnDestroyed} (P{owner}).";
     }
 
     private void ProcessStartOfTurnDilemmas(int owner)
@@ -23773,7 +23906,7 @@ public partial class TableWindow : Window
             if (curePlan.Action == DilemmaCureRules.CureAction.CureAndDiscard)
             {
                 ClearStasisForDilemma(a);
-                _attachedDilemmas.Remove(a);
+                RemoveAttachedDilemma(a);
                 _session.Log.Add(_session.TurnNumber, $"P{ho}", curePlan.LogMessage);
                 continue;
             }
@@ -24149,14 +24282,14 @@ public partial class TableWindow : Window
             if (EndOfTurnEventRules.ShouldDiscardTranswarp(
                     InterruptRules.IsTranswarpConduit(e.Card), e.Owner == owner))
             {
-                _attachedEvents.Remove(e);
+                RemoveAttachedEvent(e);
                 SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
                 continue;
             }
 
             if (InterruptRules.IsVulcanMindmeld(e.Card))
             {
-                _attachedEvents.Remove(e);
+                RemoveAttachedEvent(e);
                 if (e.Extra != null)
                 {
                     ModifierRules.ClearTemporarySkills(e.Extra);
@@ -24182,6 +24315,8 @@ public partial class TableWindow : Window
                     ref cd, e.TurnScope, e.PhasePoint,
                     TimingRules.TurnPhasePoint.EndOfTurn, owner, e.ScopePlayer);
                 e.Countdown = cd;
+                var storeBe = BoardStore.Current.AttachedEvents.FirstOrDefault(x => ReferenceEquals(x.Card, e.Card));
+                if (storeBe != null) storeBe.Countdown = e.Countdown;
                 if (expired)
                     ExpireAlienGroupie(e);
                 continue;
@@ -24194,6 +24329,8 @@ public partial class TableWindow : Window
                     ref cd, e.TurnScope, e.PhasePoint,
                     TimingRules.TurnPhasePoint.EndOfTurn, owner, e.ScopePlayer);
                 e.Countdown = cd;
+                var storeBe = BoardStore.Current.AttachedEvents.FirstOrDefault(x => ReferenceEquals(x.Card, e.Card));
+                if (storeBe != null) storeBe.Countdown = e.Countdown;
                 if (expired)
                     ExpireAutoDestruct(e);
                 continue;
@@ -24239,7 +24376,7 @@ public partial class TableWindow : Window
                         $"{ship.Name} is destroyed by Plasma Fire (HULL 100%).",
                         RevealButtons.Ok, ship.Name, autoCloseMs: 4000);
                     DestroyShipOrFacility(e.Host, ship, shipOwner);
-                    _attachedEvents.Remove(e);
+                    RemoveAttachedEvent(e);
                     SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
                 }
                 else
@@ -24272,6 +24409,8 @@ public partial class TableWindow : Window
                         return (cd, explode);
                     });
                 e.Countdown = plan.CountdownAfter;
+                var storeBe = BoardStore.Current.AttachedEvents.FirstOrDefault(x => ReferenceEquals(x.Card, e.Card));
+                if (storeBe != null) storeBe.Countdown = e.Countdown;
                 if (plan.Action == EndOfTurnEventRules.WarpCoreAction.SkipTiming)
                     continue;
                 if (plan.Action == EndOfTurnEventRules.WarpCoreAction.Explode
@@ -24281,7 +24420,7 @@ public partial class TableWindow : Window
                         $"{ws.Name} is destroyed (end of controller's next turn).",
                         RevealButtons.Ok, ws.Name, autoCloseMs: 4000);
                     DestroyShipOrFacility(e.Host, ws, shipOwner);
-                    _attachedEvents.Remove(e);
+                    RemoveAttachedEvent(e);
                     if (!_discardCards.Contains(e.Card) && !_oppDiscardCards.Contains(e.Card))
                         SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
                     _session.Log.Add(_session.TurnNumber, "sys",
@@ -24308,6 +24447,8 @@ public partial class TableWindow : Window
                     ref cd, e.TurnScope, e.PhasePoint,
                     TimingRules.TurnPhasePoint.EndOfTurn, owner, e.ScopePlayer);
                 e.Countdown = cd;
+                var storeBe = BoardStore.Current.AttachedEvents.FirstOrDefault(x => ReferenceEquals(x.Card, e.Card));
+                if (storeBe != null) storeBe.Countdown = e.Countdown;
 
                 if (explode && e.Host.Tag is Card ls)
                 {
@@ -24315,7 +24456,7 @@ public partial class TableWindow : Window
                         $"{ls.Name} is destroyed (Loss of Orbital Stability at end of owner's next turn).",
                         RevealButtons.Ok, ls.Name, autoCloseMs: 4000);
                     DestroyShipOrFacility(e.Host, ls, shipOwner);
-                    _attachedEvents.Remove(e);
+                    RemoveAttachedEvent(e);
                     if (!_discardCards.Contains(e.Card) && !_oppDiscardCards.Contains(e.Card))
                         SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
                     _session.Log.Add(_session.TurnNumber, "sys",
@@ -24371,10 +24512,12 @@ public partial class TableWindow : Window
                     {
                         bool done = TimingRules.TickCountdown(
                             ref cd, e.TurnScope, e.PhasePoint,
-                            TimingRules.TurnPhasePoint.EndOfTurn, owner, e.ScopePlayer);
+                    TimingRules.TurnPhasePoint.EndOfTurn, owner, e.ScopePlayer);
                         return (cd, done);
                     });
                 e.Countdown = plan.CountdownAfter;
+                var storeBe = BoardStore.Current.AttachedEvents.FirstOrDefault(x => ReferenceEquals(x.Card, e.Card));
+                if (storeBe != null) storeBe.Countdown = e.Countdown;
                 if (plan.Expire)
                     ApplyAntiTimeExpire(e);
             }
@@ -24668,22 +24811,36 @@ public partial class TableWindow : Window
         if (owner is not (1 or 2)) owner = _activePlayer;
         var disc = owner == 2 ? _oppDiscardCards : _discardCards;
         if (!disc.Contains(rem.Card)) disc.Add(rem.Card);
-        _attachedDilemmas.Remove(rem);
+        RemoveAttachedDilemma(rem);
         _session.Log.Add(_session.TurnNumber, $"P{owner}", plan.LogMessage);
         StatusText.Text = plan.StatusMessage;
     }
 
     private bool IsCardQuarantined(Card card)
     {
-        bool quarantined = _attachedDilemmas.Any(d =>
+        var store = BoardStore.Current;
+        bool quarantined = store.AttachedDilemmas.Any(d =>
             DilemmaRules.IsQuarantinePersist(d.Kind)
             && (d.Held.Any(h => ReferenceEquals(h, card)
+                                || (h.InstanceId > 0 && h.InstanceId == card.InstanceId)
                                 || string.Equals(h.Name, card.Name, StringComparison.OrdinalIgnoreCase))
-                || IsPersonnelOnQuarantineHost(card, d.Host)));
+                || (d.HostInstanceId.HasValue && IsPersonnelOnHostId(card, d.HostInstanceId.Value))))
+            || _attachedDilemmas.Any(d =>
+                DilemmaRules.IsQuarantinePersist(d.Kind)
+                && (d.Held.Any(h => ReferenceEquals(h, card)
+                                    || string.Equals(h.Name, card.Name, StringComparison.OrdinalIgnoreCase))
+                    || IsPersonnelOnQuarantineHost(card, d.Host)));
         card.Quarantined = quarantined;
-        if (card.InstanceId > 0 && BoardStore.Current.ById.TryGetValue(card.InstanceId, out var inst) && inst is PersonnelInstance pi)
+        if (card.InstanceId > 0 && store.ById.TryGetValue(card.InstanceId, out var inst) && inst is PersonnelInstance pi)
             pi.Quarantined = quarantined;
         return quarantined;
+    }
+
+    private bool IsPersonnelOnHostId(Card card, int hostInstanceId)
+    {
+        var store = BoardStore.Current;
+        var crew = store.CrewPersonnel(hostInstanceId);
+        return crew.Any(c => (card.InstanceId > 0 && c.InstanceId == card.InstanceId) || ReferenceEquals(c, card));
     }
 
     private bool IsPersonnelOnQuarantineHost(Card card, Border host)
@@ -24723,18 +24880,24 @@ public partial class TableWindow : Window
 
     private bool IsCardDisabled(Card card)
     {
-        bool ktarian = _attachedDilemmas.Any(d =>
+        var store = BoardStore.Current;
+        bool ktarian = store.AttachedDilemmas.Any(d =>
             d.Kind == DilemmaRules.PersistKind.Ktarian
             && d.Held.Any(h => ReferenceEquals(h, card)
                                 || (h.InstanceId > 0 && h.InstanceId == card.InstanceId)
-                                || string.Equals(h.Name, card.Name, StringComparison.OrdinalIgnoreCase)));
+                                || string.Equals(h.Name, card.Name, StringComparison.OrdinalIgnoreCase)))
+            || _attachedDilemmas.Any(d =>
+                d.Kind == DilemmaRules.PersistKind.Ktarian
+                && d.Held.Any(h => ReferenceEquals(h, card)
+                                    || (h.InstanceId > 0 && h.InstanceId == card.InstanceId)
+                                    || string.Equals(h.Name, card.Name, StringComparison.OrdinalIgnoreCase)));
         bool twoDim = IsTwoDimEmpathyDisabledAboard(card);
         // Glossary hologram: deactivated (PersonnelInstance.HologramDeactivated) — not Ktarian wipe.
         bool holoDeact = IsHologramDeactivated(card);
         // Live: TwoDim clears when beamed off; Ktarian Held keeps Disabled until cure.
         bool disabled = ktarian || twoDim || holoDeact;
         card.Disabled = disabled;
-        if (card.InstanceId > 0 && BoardStore.Current.ById.TryGetValue(card.InstanceId, out var inst) && inst is PersonnelInstance pi)
+        if (card.InstanceId > 0 && store.ById.TryGetValue(card.InstanceId, out var inst) && inst is PersonnelInstance pi)
             pi.Disabled = disabled;
         return disabled;
     }
@@ -24788,6 +24951,9 @@ public partial class TableWindow : Window
                 }
                 if (!attached.Held.Contains(victimCard))
                     attached.Held.Add(victimCard);
+                var storeBd = BoardStore.Current.AttachedDilemmas.FirstOrDefault(x => ReferenceEquals(x.Card, attached.Card));
+                if (storeBd != null && !storeBd.Held.Any(h => ReferenceEquals(h, victimCard)))
+                    storeBd.Held.Add(victimCard);
 
                 ApplyDisabledVisual(victimBorder, true);
                 _session.Log.Add(_session.TurnNumber, $"P{ho}",
@@ -24831,6 +24997,9 @@ public partial class TableWindow : Window
                 pi.Quarantined = true;
             if (d.Held.Any(h => ReferenceEquals(h, pc))) continue;
             d.Held.Add(pc);
+            var storeBd = BoardStore.Current.AttachedDilemmas.FirstOrDefault(x => ReferenceEquals(x.Card, d.Card));
+            if (storeBd != null && !storeBd.Held.Any(h => ReferenceEquals(h, pc)))
+                storeBd.Held.Add(pc);
             ApplyStasisVisual(cardBorder, true);
             _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
                 $"{pc.Name} joins Hyper-Aging quarantine.");
@@ -25029,7 +25198,7 @@ public partial class TableWindow : Window
                 int hull = GetHullDamage(shipBorder);
                 int owner = GetBorderOwner(shipBorder);
                 if (owner == 0) owner = _activePlayer;
-                int turns = _repairTurnsAtOutpost.GetValueOrDefault(shipBorder, 0);
+                int turns = GetRepairTurns(shipBorder);
                 bool atRepair = IsShipAtOwnRepairFacility(shipBorder, owner);
                 if (hull > 0 && hull < 100 && (turns > 0 || atRepair))
                 {
@@ -25146,9 +25315,9 @@ public partial class TableWindow : Window
 
     private void ClearRepairProgressOnLeave(Border shipBorder)
     {
-        int turns = _repairTurnsAtOutpost.GetValueOrDefault(shipBorder, 0);
+        int turns = GetRepairTurns(shipBorder);
         if (!EndOfTurnRestRules.ShouldClearRepairOnLeave(turns)) return;
-        _repairTurnsAtOutpost.Remove(shipBorder);
+        SetRepairTurns(shipBorder, 0);
         UpdateDamageBadge(shipBorder, GetHullDamage(shipBorder));
     }
 
@@ -25178,7 +25347,7 @@ public partial class TableWindow : Window
     private void RepairShipFully(Border shipBorder, Card ship)
     {
         SetHullDamagePercent(shipBorder, 0);
-        _repairTurnsAtOutpost.Remove(shipBorder);
+        SetRepairTurns(shipBorder, 0);
         shipBorder.RenderTransform = null;
         shipBorder.Opacity = 1.0;
         UpdateDamageBadge(shipBorder, 0);
@@ -25194,7 +25363,7 @@ public partial class TableWindow : Window
     private void ShowRepairStatus(Border shipBorder, Card ship)
     {
         int hull = GetHullDamage(shipBorder);
-        int turns = _repairTurnsAtOutpost.GetValueOrDefault(shipBorder, 0);
+        int turns = GetRepairTurns(shipBorder);
         int owner = GetBorderOwner(shipBorder);
         if (owner == 0) owner = _activePlayer;
         bool atOutpost = IsShipAtOwnRepairFacility(shipBorder, owner);
@@ -25301,12 +25470,10 @@ public partial class TableWindow : Window
         foreach (var sb in stacked)
         {
             if (sb.Tag is not Card sc) continue;
-            if (IsEquipmentType(sc)) continue;
-            if (!IsCrewType(sc) && !ModifierRules.IsPersonnelCard(sc)) continue;
             int co = CardOwner(sb);
             if (co == 0) co = sc.Controller != 0 ? sc.Controller : sc.OwnerPlayer;
-            if (co != 0 && co != owner) continue; // captive
-            return true;
+            if (InterruptRules.IsLegalEscapePodCrew(sc, co, owner))
+                return true;
         }
         return false;
     }
@@ -25336,13 +25503,10 @@ public partial class TableWindow : Window
             {
                 if (sb.Tag is not Card sc) continue;
                 // Spock PR: crew/personnel only — not equipment, not captives.
-                if (IsEquipmentType(sc)) continue;
-                if (!IsCrewType(sc) && !ModifierRules.IsPersonnelCard(sc))
-                    continue;
-                // Captives = opponent personnel aboard your ship (Glossary); they are not saved.
                 int co = CardOwner(sb);
                 if (co == 0) co = sc.Controller != 0 ? sc.Controller : sc.OwnerPlayer;
-                if (co != 0 && co != owner) continue;
+                if (!InterruptRules.IsLegalEscapePodCrew(sc, co, owner))
+                    continue;
                 crew.Add(sc);
                 stacked.Remove(sb);
                 if (TableCanvas.Children.Contains(sb))
@@ -25359,7 +25523,7 @@ public partial class TableWindow : Window
             if (mission != null)
             {
                 AttachCardToHost(pod, mission, owner);
-                _attachedEvents.Add(new AttachedEvent
+                AddAttachedEvent(new AttachedEvent
                 {
                     Card = pod,
                     Kind = EventRules.Persist.None,
@@ -25417,8 +25581,7 @@ public partial class TableWindow : Window
         {
             if (pod.Mission != null)
             {
-                foreach (var ae in _attachedEvents.Where(e => ReferenceEquals(e.Card, pod.Pod)).ToList())
-                    _attachedEvents.Remove(ae);
+                RemoveAttachedEventsForCard(pod.Pod);
                 if (_stackOnHost.TryGetValue(pod.Mission, out var stack))
                 {
                     foreach (var b in stack.Where(x => x.Tag is Card c && ReferenceEquals(c, pod.Pod)).ToList())
@@ -25588,7 +25751,7 @@ public partial class TableWindow : Window
         else
         {
             // Attach to ship: destroyed at end of owner's next turn
-            _attachedEvents.Add(new AttachedEvent
+            AddAttachedEvent(new AttachedEvent
             {
                 Card = card,
                 Kind = EventRules.Persist.None,
@@ -25779,7 +25942,7 @@ public partial class TableWindow : Window
         AddCardToHostStack(host, mini);
         UpdateHostBadge(host);
 
-        _attachedEvents.Add(new AttachedEvent
+        AddAttachedEvent(new AttachedEvent
         {
             Card = card,
             Kind = EventRules.Persist.None,
@@ -26045,8 +26208,10 @@ public partial class TableWindow : Window
             deadSh.DockedAtId = 0;
             deadSh.HullPercent = -1;
             deadSh.Stopped = false;
+            deadSh.RepairTurns = 0;
+            deadSh.CloakLocked = false;
         }
-        _repairTurnsAtOutpost.Remove(border);
+        SetRepairTurns(border, 0);
         ClearShipRangeLeft(border);
         _borderOwner.Remove(border);
         _dockableAtMission.Remove(border);
@@ -26064,8 +26229,7 @@ public partial class TableWindow : Window
             ReleaseScowTowAtMission(mission, reason: "tow ship destroyed");
         // Escape Pod: offer when YOUR ship with crew is destroyed (any cause incl. Borg EOT),
         // even while battle stack is open. Empty ships / Ship Seizure use DiscardShipSeizureVictim (no window).
-        if (!_resolvingDestroy && IsShipCard(card) && HasEscapePodInHand(owner)
-            && ShipHasCrewForEscapePod(border))
+        if (BattleRules.CanEscapePodRespond(IsShipCard(card), HasEscapePodInHand(owner), ShipHasCrewForEscapePod(border), _resolvingDestroy))
         {
             _stack.Push(new TimingRules.PendingAction
             {
@@ -26186,8 +26350,10 @@ public partial class TableWindow : Window
             deadSh.Cloaked = false;
             deadSh.DockedAtId = 0;
             deadSh.HullPercent = -1;
+            deadSh.RepairTurns = 0;
+            deadSh.CloakLocked = false;
         }
-        _repairTurnsAtOutpost.Remove(border);
+        SetRepairTurns(border, 0);
         ClearShipRangeLeft(border);
         _borderOwner.Remove(border);
 
@@ -26198,7 +26364,7 @@ public partial class TableWindow : Window
         foreach (var d in _attachedDilemmas.Where(x =>
                      x.Kind == DilemmaRules.PersistKind.Cytherians && SameHostShip(x.Host, border)).ToList())
         {
-            _attachedDilemmas.Remove(d);
+            RemoveAttachedDilemma(d);
             SendCardTo(d.Card, owner, TimingRules.Destination.Discard);
             _session.Log.Add(_session.TurnNumber, $"P{owner}",
                 "Cytherians discarded (ship destroyed, no points)");
@@ -26333,15 +26499,13 @@ public partial class TableWindow : Window
     private bool CanOfferPersonnelBattleFromShip(Border shipBorder)
     {
         var myCrew = GetPersonnelBordersAtHost(shipBorder, ownerFilter: _activePlayer);
-        if (myCrew.Count == 0) return false;
         // Gegner-Crew auf demselben Schiff
-        if (GetPersonnelBordersAtHost(shipBorder, opponentOf: _activePlayer).Count > 0)
-            return true;
+        bool hasOppOnShip = GetPersonnelBordersAtHost(shipBorder, opponentOf: _activePlayer).Count > 0;
         // Oder Away Team des Gegners auf Planet derselben Mission
         var mission = FindMissionForDockable(shipBorder);
-        if (mission?.Tag is Card mc && MissionCountsAsPlanetCard(mc))
-            return GetPersonnelBordersAtHost(mission, opponentOf: _activePlayer).Count > 0;
-        return false;
+        bool hasOppOnPlanet = mission?.Tag is Card mc && MissionCountsAsPlanetCard(mc)
+            && GetPersonnelBordersAtHost(mission, opponentOf: _activePlayer).Count > 0;
+        return BattleRules.CanOfferPersonnelBattle(myCrew.Count > 0, hasOppOnShip || hasOppOnPlanet);
     }
 
     private void BeginPersonnelAttackFromHost(Border hostBorder)

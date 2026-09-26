@@ -67,6 +67,12 @@ public sealed class ShipInstance : CardInstance
 
     /// <summary>E3b: hull damage 0-100. -1 = unset (UI dict fills). UI <c>_hullDamagePercent</c> mirrors.</summary>
     public int HullPercent { get; set; } = -1;
+
+    /// <summary>P0-S1: repair turns at outpost (0-2). UI <c>_repairTurnsAtOutpost</c> mirrors.</summary>
+    public int RepairTurns { get; set; } = 0;
+
+    /// <summary>P0-S1: cloaking locked (e.g. Tachyon Detection Grid). UI <c>_cloakLocked</c> mirrors.</summary>
+    public bool CloakLocked { get; set; }
 }
 
 public sealed class FacilityInstance : CardInstance

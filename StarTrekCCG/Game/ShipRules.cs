@@ -235,6 +235,10 @@ public static class ShipRules
         var vmErr = InterruptRules.VerifyVulcanMindmeldDecide();
         if (vmErr != null) return "VulcanMindmeldDecide failure: " + vmErr;
 
+        // 11. BattleRules ShipBattle plan verification
+        var battleErr = BattleRules.VerifyBattleRulesPlan();
+        if (battleErr != null) return "BattleRulesPlan failure: " + battleErr;
+
         return null;
     }
 }

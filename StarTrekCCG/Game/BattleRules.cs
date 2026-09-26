@@ -696,4 +696,365 @@ public static class BattleRules
             true, "OK", pairings, atkLive, defLive, winner,
             extraMortalName, killed, string.Join("\n", log));
     }
+
+    // ========== Ship Battle Orchestration & Plan (P2) ==========
+
+    /// <summary>
+    /// G7: Counter-Attack opportunity after being attacked in ship battle.
+    /// Next-turn reply at the same location vs involved/still-there opponents.
+    /// </summary>
+    public sealed class CounterAttackOpportunity
+    {
+        public int EligiblePlayer { get; set; }
+        public int LocationMissionInstanceId { get; set; }
+        public HashSet<int> InvolvedOpponentInstanceIds { get; } = new();
+        public bool Armed { get; set; }
+    }
+
+    public static bool IsArmedCounterAttackAt(CounterAttackOpportunity? ca, int locationMissionInstanceId, int player) =>
+        ca != null
+        && ca.Armed
+        && ca.EligiblePlayer == player
+        && locationMissionInstanceId > 0
+        && ca.LocationMissionInstanceId == locationMissionInstanceId;
+
+    public static bool IsCounterAttackTarget(CounterAttackOpportunity? ca, int targetInstanceId) =>
+        ca != null
+        && targetInstanceId > 0
+        && ca.InvolvedOpponentInstanceIds.Contains(targetInstanceId);
+
+    public static CounterAttackOpportunity? RegisterCounterAttack(int defenderPlayer, int locationMissionInstanceId, int attackerShipInstanceId)
+    {
+        if (defenderPlayer is < 1 or > 2) return null;
+        if (attackerShipInstanceId <= 0 || locationMissionInstanceId <= 0) return null;
+        var opp = new CounterAttackOpportunity
+        {
+            EligiblePlayer = defenderPlayer,
+            LocationMissionInstanceId = locationMissionInstanceId,
+            Armed = false
+        };
+        opp.InvolvedOpponentInstanceIds.Add(attackerShipInstanceId);
+        return opp;
+    }
+
+    public static bool UpdateCounterAttackWindow(CounterAttackOpportunity? ca, int activePlayer, out bool armedNow, out bool expired)
+    {
+        armedNow = false;
+        expired = false;
+        if (ca == null) return false;
+        if (!ca.Armed)
+        {
+            if (activePlayer == ca.EligiblePlayer)
+            {
+                ca.Armed = true;
+                armedNow = true;
+                return true;
+            }
+            return false;
+        }
+        if (activePlayer != ca.EligiblePlayer)
+        {
+            expired = true;
+            return false;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Check whether a ship/facility may initiate battle at its location before picking a target.
+    /// </summary>
+    public static AttackCheck CanShipInitiateBattleAtLocation(
+        Card ship,
+        IEnumerable<Card> crew,
+        int owner,
+        bool isStopped,
+        bool isDocked,
+        bool isCloaked,
+        bool hasRequiredMove,
+        bool counterAttack = false,
+        bool loreStaffed = false,
+        IReadOnlyList<TreatyRules.TreatyLink>? activeTreaties = null)
+    {
+        if (hasRequiredMove)
+            return new AttackCheck(false, "Incoming Message: ship may not initiate battle (7.10). Return fire is allowed.");
+        if (isStopped)
+            return new AttackCheck(false, "Stopped ship cannot attack.");
+        if (isDocked)
+            return new AttackCheck(false, "Docked ship cannot initiate battle — undock first.");
+        if (isCloaked)
+            return new AttackCheck(false, "Cloaked ship cannot initiate battle — decloak first.");
+
+        int weapons = GetWeapons(ship);
+        if (weapons <= 0)
+            return new AttackCheck(false, $"{ship.Name} has no WEAPONS.");
+
+        var crewList = crew?.ToList() ?? new List<Card>();
+        if (!counterAttack && !HasLeader(crewList) && !loreStaffed)
+            return new AttackCheck(false, "No leader aboard (OFFICER or Leadership required).");
+
+        if (IsShipCard(ship) && !loreStaffed
+            && !MovementRules.HasMatchingAffiliation(ship, crewList, activeTreaties))
+        {
+            return new AttackCheck(false,
+                "Cannot initiate ship battle: no matching-affiliation personnel aboard (Treaty/NA does not count as Match). Leader+WEAPONS alone is not enough.");
+        }
+
+        return new AttackCheck(true, "Initiation ok.");
+    }
+
+    /// <summary>
+    /// Target filter for ship battle: opposing, ship or facility, not destroyed, not cloaked,
+    /// and (if counter-attack) involved in the prior battle.
+    /// </summary>
+    public static bool IsLegalShipAttackTarget(
+        Card attackerShip,
+        int attackerOwner,
+        Card target,
+        int targetOwner,
+        int targetHullDamagePercent,
+        bool targetIsCloaked,
+        bool counterAttack = false,
+        IReadOnlyCollection<int>? counterAttackInvolvedTargetIds = null)
+    {
+        if (ReferenceEquals(attackerShip, target)) return false;
+        if (attackerShip.InstanceId > 0 && target.InstanceId > 0 && attackerShip.InstanceId == target.InstanceId) return false;
+        if (!IsShipOrFacility(target)) return false;
+        if (attackerOwner == targetOwner) return false;
+        if (targetHullDamagePercent >= 100) return false;
+        if (targetIsCloaked) return false;
+        if (counterAttack && (counterAttackInvolvedTargetIds == null || !counterAttackInvolvedTargetIds.Contains(target.InstanceId)))
+            return false;
+        return true;
+    }
+
+    public readonly record struct ReturnFireEligibility(
+        bool CanReturnFire,
+        bool WouldBeDestroyed,
+        FireCalc PredictedOpenFire,
+        string Reason);
+
+    public static ReturnFireEligibility DecideReturnFireEligibility(
+        Card attackerShip,
+        int attackerWeaponsBonus,
+        Card defenderCard,
+        IEnumerable<Card> defenderCrew,
+        int defenderShieldsBonus,
+        int defenderFacilityShieldsIfDocked,
+        int defenderHullDamagePercent,
+        bool defenderIsStopped,
+        bool defenderIsDocked,
+        bool defenderIsCloaked,
+        bool defenderLoreStaffed = false)
+    {
+        int defWeapons = GetWeapons(defenderCard);
+        var predicted = ResolveFire(
+            new[] { (attackerShip, attackerWeaponsBonus) },
+            defenderCard,
+            targetShieldsBonus: defenderShieldsBonus,
+            facilityShieldsIfDocked: defenderFacilityShieldsIfDocked);
+        bool wouldDestroy = ApplyRotationDamage(defenderHullDamagePercent, predicted.Result).Destroyed;
+
+        if (defenderIsDocked)
+            return new ReturnFireEligibility(false, wouldDestroy, predicted, $"{defenderCard.Name} is docked - cannot return fire.");
+        if (defenderIsCloaked)
+            return new ReturnFireEligibility(false, wouldDestroy, predicted, $"{defenderCard.Name} is cloaked - cannot return fire.");
+        if (defenderIsStopped)
+            return new ReturnFireEligibility(false, wouldDestroy, predicted, $"{defenderCard.Name} is stopped - cannot return fire.");
+        if (wouldDestroy)
+            return new ReturnFireEligibility(false, wouldDestroy, predicted, $"{defenderCard.Name} would be destroyed by open fire.");
+        if (defWeapons <= 0)
+            return new ReturnFireEligibility(false, wouldDestroy, predicted, $"{defenderCard.Name} has no WEAPONS to return fire.");
+
+        var rfMatch = CanReturnFire(defenderCard, defenderCrew, loreStaffed: defenderLoreStaffed);
+        if (!rfMatch.Ok)
+            return new ReturnFireEligibility(false, wouldDestroy, predicted, rfMatch.Reason);
+
+        return new ReturnFireEligibility(true, wouldDestroy, predicted, "Return Fire allowed.");
+    }
+
+    public readonly record struct ShipBattlePlan(
+        FireCalc OpenFire,
+        DamageOutcome DefenderDamage,
+        bool ReturnFireAttempted,
+        bool ReturnFireExecuted,
+        string? ReturnFireDenyReason,
+        FireCalc? ReturnFire,
+        DamageOutcome? AttackerDamage,
+        int AttackerHullTaken,
+        int DefenderHullTaken,
+        string Winner,
+        bool DefenderDestroyed,
+        bool AttackerDestroyed,
+        bool AttackerSurvivesAndStops,
+        bool DefenderSurvivesAndStops,
+        bool BorgShipDestroyedAwardPoints,
+        bool DefenderMayCounterAttack,
+        IReadOnlyList<string> LogLines,
+        string Summary);
+
+    public static ShipBattlePlan ExecuteShipBattlePlan(
+        Card attackerShip,
+        int attackerOwner,
+        int attackerHullBefore,
+        int attackerWeaponsBonus,
+        int attackerShieldsBonus,
+        bool attackerIsBorgShip,
+        int attackerKurlanMult,
+        Card defenderCard,
+        int defenderOwner,
+        int defenderHullBefore,
+        int defenderWeaponsBonus,
+        int defenderShieldsBonus,
+        int defenderFacilityShieldsIfDocked,
+        bool defenderIsDocked,
+        bool defenderIsCloaked,
+        bool defenderLoreStaffed,
+        IEnumerable<Card> defenderCrew,
+        bool returnFireRequested,
+        int defenderKurlanMult,
+        int locationMissionInstanceId = 0)
+    {
+        var logLines = new List<string>
+        {
+            $"SHIP BATTLE: {attackerShip.Name} (S{attackerOwner}) → {defenderCard.Name} (S{defenderOwner})"
+        };
+
+        // 1. Open Fire
+        var openFire = ResolveFire(
+            new[] { (attackerShip, attackerWeaponsBonus) },
+            defenderCard,
+            targetShieldsBonus: defenderShieldsBonus,
+            facilityShieldsIfDocked: defenderFacilityShieldsIfDocked);
+        logLines.Add($"Open Fire: {openFire.Summary}" + (attackerKurlanMult > 1 ? $" (Kurlan ×{attackerKurlanMult})" : ""));
+
+        var defDmg = ApplyRotationDamage(defenderHullBefore, openFire.Result);
+        int atkHullTaken = 0;
+        int defHullTaken = Math.Max(0, defDmg.HullAfter - defDmg.HullBefore);
+
+        if (defDmg.NewlyDamaged)
+            logLines.Add($"  Defender: {defDmg.Description}");
+
+        // 2. Return Fire
+        FireCalc? returnCalc = null;
+        DamageOutcome? atkDmg = null;
+        bool returnExecuted = false;
+        string? rfDenyReason = null;
+
+        if (returnFireRequested && !defDmg.Destroyed)
+        {
+            if (defenderIsDocked)
+            {
+                rfDenyReason = "Return Fire denied: defender is docked.";
+                logLines.Add(rfDenyReason);
+            }
+            else if (defenderIsCloaked)
+            {
+                rfDenyReason = "Return Fire denied: defender is cloaked.";
+                logLines.Add(rfDenyReason);
+            }
+            else
+            {
+                var rfCheck = CanReturnFire(defenderCard, defenderCrew, loreStaffed: defenderLoreStaffed);
+                if (!rfCheck.Ok)
+                {
+                    rfDenyReason = $"Return Fire denied: {rfCheck.Reason}";
+                    logLines.Add(rfDenyReason);
+                }
+                else
+                {
+                    returnExecuted = true;
+                    returnCalc = ResolveFire(
+                        new[] { (defenderCard, defenderWeaponsBonus) },
+                        attackerShip,
+                        targetShieldsBonus: attackerShieldsBonus);
+                    logLines.Add($"Return Fire: {returnCalc.Value.Summary}" + (defenderKurlanMult > 1 ? $" (Kurlan ×{defenderKurlanMult})" : ""));
+
+                    atkDmg = ApplyRotationDamage(attackerHullBefore, returnCalc.Value.Result);
+                    atkHullTaken = Math.Max(0, atkDmg.Value.HullAfter - atkDmg.Value.HullBefore);
+                    if (atkDmg.Value.NewlyDamaged)
+                        logLines.Add($"  Attacker: {atkDmg.Value.Description}");
+                }
+            }
+        }
+        else if (returnFireRequested && defDmg.Destroyed)
+        {
+            rfDenyReason = "Return Fire skipped (defender already destroyed).";
+            logLines.Add(rfDenyReason);
+        }
+
+        // 3. Winner
+        string winner = DetermineWinner(atkHullTaken, defHullTaken);
+        logLines.Add($"Winner (HULL damage): {winner}");
+
+        // 4. Destruction & Status
+        bool defDestroyed = defDmg.Destroyed || defDmg.HullAfter >= 100;
+        bool atkDestroyed = (atkDmg?.Destroyed ?? false) || (atkDmg.HasValue && atkDmg.Value.HullAfter >= 100);
+
+        if (defDestroyed)
+            logLines.Add($"DESTROYED: {defenderCard.Name} (P{defenderOwner}) — Escape Pod may respond.");
+        if (atkDestroyed)
+            logLines.Add($"DESTROYED: {attackerShip.Name} (P{attackerOwner}) — Escape Pod may respond.");
+
+        bool atkSurvivesAndStops = !attackerIsBorgShip && !atkDestroyed;
+        bool defSurvivesAndStops = !defDestroyed;
+        bool borgDestroyed = attackerIsBorgShip && atkDestroyed;
+        bool defMayCounter = locationMissionInstanceId > 0 && !atkDestroyed && !attackerIsBorgShip;
+
+        if (borgDestroyed)
+            logLines.Add($"Borg Ship dilemma destroyed by return fire (+{BorgShipRules.PointsOnDestroyed}).");
+
+        string summary = string.Join("\n", logLines);
+
+        return new ShipBattlePlan(
+            openFire,
+            defDmg,
+            returnFireRequested,
+            returnExecuted,
+            rfDenyReason,
+            returnCalc,
+            atkDmg,
+            atkHullTaken,
+            defHullTaken,
+            winner,
+            defDestroyed,
+            atkDestroyed,
+            atkSurvivesAndStops,
+            defSurvivesAndStops,
+            borgDestroyed,
+            defMayCounter,
+            logLines,
+            summary);
+    }
+
+    public static bool CanEscapePodRespond(bool isShip, bool hasEscapePodInHand, bool hasCrewForEscapePod, bool resolvingDestroy) =>
+        !resolvingDestroy && isShip && hasEscapePodInHand && hasCrewForEscapePod;
+
+    public static bool CanOfferPersonnelBattle(bool hasOwnUnstoppedPersonnel, bool hasOpposingPersonnelPresent) =>
+        hasOwnUnstoppedPersonnel && hasOpposingPersonnelPresent;
+
+    public static string? VerifyBattleRulesPlan()
+    {
+        var attacker = new Card { Name = "Vor'Cha", Type = "Ship", CunningOrWeapons = "9", StrengthOrShields = "8", Affiliation = "Klingon" };
+        var defender = new Card { Name = "Enterprise", Type = "Ship", CunningOrWeapons = "8", StrengthOrShields = "8", Affiliation = "Federation" };
+        var fedCrew = new List<Card> { new Card { Name = "Riker", Type = "Personnel", Class = "OFFICER", Affiliation = "Federation" } };
+
+        var elig = DecideReturnFireEligibility(attacker, 0, defender, fedCrew, 0, 0, 0, false, false, false);
+        if (!elig.CanReturnFire)
+            return "Defender Enterprise should be eligible for return fire";
+
+        var plan = ExecuteShipBattlePlan(
+            attacker, 1, 0, 0, 0, false, 1,
+            defender, 2, 0, 0, 0, 0, false, false, false, fedCrew, true, 1, 100);
+
+        if (plan.OpenFire.Result != FireResult.Hit)
+            return "Vor'Cha weapons 9 vs shields 8 must be Hit";
+        if (plan.DefenderDamage.HullAfter != 50)
+            return "Hit must apply 50% damage";
+        if (!plan.ReturnFireExecuted)
+            return "Return fire must be executed";
+        if (plan.ReturnFire?.Result != FireResult.Miss)
+            return "Enterprise weapons 8 vs shields 8 must be Miss";
+
+        return null;
+    }
 }

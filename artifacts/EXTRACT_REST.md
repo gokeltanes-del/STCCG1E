@@ -41,50 +41,52 @@ Nur Metadaten und ein Methodenname sind überholt:
 
 Ohne P0 bleibt jeder EOT-Tick an `Border`-Hosts kleben.
 
-### P0-D1 — `AttachedDilemma` aus Window nach Board
+### P0-D1 — `AttachedDilemma` aus Window nach Board — [x] ERLEDIGT (2026-09-26)
 
 | | |
 |---|---|
-| **TW heute** | Klasse `AttachedDilemma` L280–292; Liste `_attachedDilemmas` L294 |
-| **Felder** | `Card`, `Kind` (`DilemmaRules.PersistKind`), `Countdown`, `Host` (**Border**), `Extra`, `Dest` (**Border**), `Held` |
+| **TW heute** | Klasse `AttachedDilemma` L280–292; Liste `_attachedDilemmas` L294 (jetzt synchronisiert mit Store) |
+| **Felder** | `Card`, `Kind` (`DilemmaRules.PersistKind`), `Countdown`, `HostInstanceId` / `Host` (Border Mirror), `Extra`, `DestInstanceId` / `Dest`, `Held` |
 | **Ziel** | Persist-Instanz auf Board-Seite: Host = `Location` / `instanceId`, nicht `Border`. |
 | **Apply bleibt TW** | Token malen, Held-Visual (Stasis), Detail-Gruppen |
-| **Done** | `_attachedDilemmas` ist Mirror oder tot; Capture/Save lesen Store |
+| **Done** | `BoardAttachedDilemma` in `Game/Board/BoardAttachments.cs`; `BoardStore.AttachedDilemmas` ist Datenmodell; `_attachedDilemmas` in TW ist Mirror; `CaptureEngineState` liest Store. |
 
-### P0-E1 — `AttachedEvent` aus Window nach Board
-
-| | |
-|---|---|
-| **TW heute** | Klasse `AttachedEvent` L380–403; Liste `_attachedEvents` L405 |
-| **Felder** | `Card`, `Kind` (`EventRules.Persist`), `Owner`, `Host`/`Host2` (**Border**), `Countdown`, `FaceUp`, Espionage-Paar, `TravelerPlayer`, `TurnScope`, `PhasePoint`, `ScopePlayer`, `SavedHostOwner` |
-| **Ziel** | Dieselbe Persist-Schicht wie P0-D1. `Host2` = Gaps/Q-Net zweites Ende → zwei Location-Ids. |
-| **Done** | EOT-Schleifen iterieren Store, nicht `_attachedEvents` als Quelle |
-
-### P0-S1 — Dual-Run abschließen
+### P0-E1 — `AttachedEvent` aus Window nach Board — [x] ERLEDIGT (2026-09-26)
 
 | | |
 |---|---|
-| **TW heute** | `CaptureEngineState` L1027; `ApplyUiStatusToStore` L10655; `_stackOnHost` L164; `_hullDamagePercent` L138; `_repairTurnsAtOutpost` L147; `_cloakedShips` L420; `_cloakLocked` L432 |
+| **TW heute** | Klasse `AttachedEvent` L380–403; Liste `_attachedEvents` L405 (jetzt synchronisiert mit Store) |
+| **Felder** | `Card`, `Kind` (`EventRules.Persist`), `Owner`, `HostInstanceId`/`Host2InstanceId` (`Host`/`Host2` Border Mirror), `Countdown`, `FaceUp`, Espionage-Paar, `TravelerPlayer`, `TurnScope`, `PhasePoint`, `ScopePlayer`, `SavedHostOwner` |
+| **Ziel** | Dieselbe Persist-Schicht wie P0-D1. `Host2InstanceId` = Gaps/Q-Net zweites Ende. |
+| **Done** | `BoardAttachedEvent` in `Game/Board/BoardAttachments.cs`; `BoardStore.AttachedEvents` ist Datenmodell; Live-Sync in TW über `AddAttachedEvent`/`RemoveAttachedEvent`/`RemoveAttachedEventsForCard` und Countdown-Ticks; `CaptureEngineState` liest Store. |
+
+### P0-S1 — Dual-Run abschließen — [x] ERLEDIGT (2026-09-26)
+
+| | |
+|---|---|
+| **TW heute** | `CaptureEngineState` liest Store; `ApplyUiStatusToStore` synchronisiert `RepairTurns` und `CloakLocked`; Store ist Single Source of Truth für Hull, Cloak, RepairTurns, CloakLocked |
 | **Ziel** | Hull / Cloak / RepairTurns / Occupants nur noch Store. Overlay liest Store. |
-| **Datei** | `Game/Board/BoardStore.cs` + Capture verdünnen |
-| **Done** | Ein Status hat eine Quelle |
+| **Datei** | `Game/Board/BoardStore.cs` + `Game/Board/CardInstance.cs` (`RepairTurns`, `CloakLocked` an `ShipInstance`) |
+| **Done** | Ein Status hat eine Quelle: `ShipInstance` hält die Wahrheit, UI spiegelt für Canvas/Badges. |
 
 **Reihenfolge P0:** D1 und E1 parallel ok, wenn gemeinsames Attachment-Record zuerst steht. S1 nach den ersten Persist-Ticks.
 
 ---
 
-## P1 — Borg Ship EOT
+## P1 — Borg Ship EOT — [x] ERLEDIGT (2026-09-26)
 
 Kompendium-Dilemma „Borg Ship“: WEAPONS 24, EOT angreifen, eine Mission weiter, runter von der Spaceline, +15 wenn zerstört.
 
 | ID | TW-Methoden | Zeilen | Ziel-Decide | Apply bleibt in TW |
 |---|---|---|---|---|
-| **P1-B1** | `ProcessBorgShipEndOfTurn` | L20141 | `DilemmaRules` oder System-Decide EOT-Schritt | — |
-| **P1-B2** | `StartBorgShipEotAttacks` | L20147 | Welche Schiffe hier legale Ziele sind | Queue + Reveal |
-| **P1-B3** | `BeginNextBorgEotAttack` | L20187 | FireCalc: WEAPONS 24 vs SHIELDS über `BattleRules.ResolveFire` | `ApplyHullDamage`, Overlay |
-| **P1-B4** | `FinishBorgShipEotMove` | L20222 | Nächster Index, off-spaceline, Richtung `_borgShipDir` L321 | Token umsetzen |
-| **P1-B5** | `PlaceBorgShipToken` / `PositionBorgShipToken` / `RemoveBorgShipToken` | L21025 / L21077 / L21121 | — | **bleibt View** |
-| **P1-B6** | Felder `_borgShipToken`, `_borgEotAttackQueue`, `_borgEotActive`, `_borgEotHitLog`, `_borgShipDir` | L175–185, L321 | Richtung + Location-Id in Persist-Instanz | Token-Ref darf Window bleiben |
+| **P1-B1** | `ProcessBorgShipEndOfTurn` | L21095 | `BorgShipRules` EOT-Steuerung | — |
+| **P1-B2** | `StartBorgShipEotAttacks` | L21101 | Welche Schiffe/Einrichtungen legale Ziele sind: `BorgShipRules.IsLegalTarget` | Queue + Reveal |
+| **P1-B3** | `BeginNextBorgEotAttack` / FireCalc | L21142 / L5235 / L20690 | `BorgShipRules.Weapons`, `BorgShipRules.Shields`, `BorgWeaponsBonus`, `BorgShieldsBonus`, `PointsOnDestroyed` | `ApplyHullDamage`, Overlay, Reveal |
+| **P1-B4** | `FinishBorgShipEotMove` | L21172 | `BorgShipRules.DecideMove` (Nächster Index, off-spaceline, MovePlan) | Token umsetzen |
+| **P1-B5** | `PlaceBorgShipToken` / `PositionBorgShipToken` / `RemoveBorgShipToken` | L21965 / L22019 / L22071 | — | **bleibt View** |
+| **P1-B6** | `_borgShipDir`, `Direction` in Persist | L324, L427 | `BorgShipRules.DecideInitialDirection`; `Direction` in `BoardAttachedDilemma` & `AttachedDilemma` | Token-Ref darf Window bleiben |
+
+**Status:** ERLEDIGT. `BorgShipRules.cs` implementiert. Alle Literal-Werte (WEAPONS 24, SHIELDS 24, Punkte 15, legale Zielprüfung, Richtungs- und Bewegungsentscheidung) nach `BorgShipRules` ausgelagert. Window enthält keine Hardcoded-Regellogik mehr dafür.
 
 **Parked (nicht in P1 mischen):** Hugh-Zweig (`ApplyHugh` L14409, `ResolveHughRogueBorgHost` L14329, `HostMatchesRogueBorgTarget` L14111). Eigenes Ticket **P4-H1**.
 
@@ -92,37 +94,37 @@ Kompendium-Dilemma „Borg Ship“: WEAPONS 24, EOT angreifen, eine Mission weit
 
 ---
 
-## P2 — Battle-Ablauf (Decide-Gates schon in `BattleRules`)
+## P2 — Battle-Ablauf (Decide-Gates schon in `BattleRules`) — [x] ERLEDIGT (2026-09-26)
 
 Bereits in Rules: `CanInitiateShipAttack`, `CanReturnFire`, `CheckAffiliationAttackRestriction`, `ResolveFire`, `ApplyRotationDamage`, `DetermineWinner`, `CanInitiatePersonnelAttack`, `ResolvePersonnelBattle`, `HasLeader`.
 
 ### Ship Battle
 
-| ID | TW-Methoden | Zeilen | Was noch Wahrheit ist | Ziel |
-|---|---|---|---|---|
-| **P2-S1** | `BeginAttackMode` | L19585 | Zielwahl-Filter, Dock/Cloak/Stop-Recheck | Filter → `BattleRules`. Highlight bleibt TW |
-| **P2-S2** | `CompleteShipAttack` | L19686 | Wer schießt, Facility-½-SHIELDS wenn docked | `BattleRules.ResolveFire` aus Store |
-| **P2-S3** | `ResolveShipBattle` | L19749 | Open Fire → RF-Ask → Damage → Winner → Stopped → Destroy | Orchestrierung als Plan in `BattleRules` |
-| **P2-S4** | `AskReturnFireAndResolve` | L4973 | Dialog + zweiter `CanReturnFire` + Schaden | Decide schon Rules; Dialog = Apply |
-| **P2-S5** | `ApplyHullDamage` / `SetHullDamagePercent` / `GetHullDamage` | L19937 / L10813 / L10860 | Prozent in `_hullDamagePercent` L138 | Store-Feld; Badge = View |
-| **P2-S6** | `DestroyShipOrFacility` | L24631 | Crew-Verbleib, Cytherians-Discard ohne Punkte, Escape-Pod-Fenster | Destroy-Policy nach Rules |
-| **P2-S7** | `PendingCounterAttack` L455, `IsArmedCounterAttackAt` L19531, `IsCounterAttackTarget` L19536, `UpdateCounterAttackWindow` L19559 | Fenster-State in TW | EligiblePlayer + Location-Id → Session/Store |
+| ID | TW-Methoden | Zeilen | Was noch Wahrheit ist | Ziel | Status |
+|---|---|---|---|---|---|
+| **P2-S1** | `BeginAttackMode` | L19585 | Zielwahl-Filter, Dock/Cloak/Stop-Recheck | Filter → `BattleRules`. Highlight bleibt TW | [x] ERLEDIGT (`BattleRules.CanShipInitiateBattleAtLocation`, `BattleRules.IsLegalShipAttackTarget`) |
+| **P2-S2** | `CompleteShipAttack` | L19686 | Wer schießt, Facility-½-SHIELDS wenn docked | `BattleRules.ResolveFire` aus Store | [x] ERLEDIGT |
+| **P2-S3** | `ResolveShipBattle` | L19749 | Open Fire → RF-Ask → Damage → Winner → Stopped → Destroy | Orchestrierung als Plan in `BattleRules` | [x] ERLEDIGT (`BattleRules.ExecuteShipBattlePlan`, `ShipBattlePlan`) |
+| **P2-S4** | `AskReturnFireAndResolve` | L4973 | Dialog + zweiter `CanReturnFire` + Schaden | Decide schon Rules; Dialog = Apply | [x] ERLEDIGT (`BattleRules.DecideReturnFireEligibility`) |
+| **P2-S5** | `ApplyHullDamage` / `SetHullDamagePercent` / `GetHullDamage` | L19937 / L10813 / L10860 | Prozent in `_hullDamagePercent` L138 | Store-Feld; Badge = View | [x] ERLEDIGT (Store `ShipInstance.HullPercent` ist Wahrheit) |
+| **P2-S6** | `DestroyShipOrFacility` | L24631 | Crew-Verbleib, Cytherians-Discard ohne Punkte, Escape-Pod-Fenster | Destroy-Policy nach Rules | [x] ERLEDIGT (`BattleRules.CanEscapePodRespond`, `InterruptRules.IsLegalEscapePodCrew`) |
+| **P2-S7** | `PendingCounterAttack` L455, `IsArmedCounterAttackAt` L19531, `IsCounterAttackTarget` L19536, `UpdateCounterAttackWindow` L19559 | Fenster-State in TW | EligiblePlayer + Location-Id → Session/Store | [x] ERLEDIGT (`BoardStore.CounterAttack`, `BattleRules.CounterAttackOpportunity`) |
 
 ### Personnel Battle
 
-| ID | TW-Methoden | Zeilen | Ziel |
-|---|---|---|---|
-| **P2-P1** | `BeginPersonnelAttackFromHost` L24904, `CanOfferPersonnelBattleFromShip` L24890 | TW sammelt Host-Karten und fragt; Initiate-Filter schon Rules |
-| **P2-P2** | `CompletePersonnelAttack` L24977 | Pairing aus `ResolvePersonnelBattle` — prüfen ob TW noch Stun/Mortal selbst setzt |
-| **P2-P3** | `ResolvePendingPersonnelBattle` L5049 | Apply: Kill/Stop/Reveal |
-| **P2-P4** | `BeginShipBattleStack` L3769 / `BeginPersonnelBattleStack` L3797 | Timing-Stack = `TimingRules`; Window nur Push/Highlight |
+| ID | TW-Methoden | Zeilen | Ziel | Status |
+|---|---|---|---|---|
+| **P2-P1** | `BeginPersonnelAttackFromHost` L24904, `CanOfferPersonnelBattleFromShip` L24890 | TW sammelt Host-Karten und fragt; Initiate-Filter schon Rules | [x] ERLEDIGT (`BattleRules.CanOfferPersonnelBattle`) |
+| **P2-P2** | `CompletePersonnelAttack` L24977 | Pairing aus `ResolvePersonnelBattle` — prüfen ob TW noch Stun/Mortal selbst setzt | [x] ERLEDIGT |
+| **P2-P3** | `ResolvePendingPersonnelBattle` L5049 | Apply: Kill/Stop/Reveal | [x] ERLEDIGT |
+| **P2-P4** | `BeginShipBattleStack` L3769 / `BeginPersonnelBattleStack` L3797 | Timing-Stack = `TimingRules`; Window nur Push/Highlight | [x] ERLEDIGT |
 
 ### Escape Pod / Aftermath
 
-| ID | TW-Methoden | Zeilen | Ziel |
-|---|---|---|---|
-| **P2-E1** | `HasEscapePodInHand` L24342, `EscapePodHere` L12965 | Legal „darf jetzt Pod“ → `InterruptRules` / `BattleRules` |
-| **P2-E2** | `ApplyEscapePodFromResponse` L24356, `RecoverEscapePodCrew` L24415 | Crew-Rettung Apply; welche Crew legal = Rules |
+| ID | TW-Methoden | Zeilen | Ziel | Status |
+|---|---|---|---|---|
+| **P2-E1** | `HasEscapePodInHand` L24342, `EscapePodHere` L12965 | Legal „darf jetzt Pod“ → `InterruptRules` / `BattleRules` | [x] ERLEDIGT (`BattleRules.CanEscapePodRespond`) |
+| **P2-E2** | `ApplyEscapePodFromResponse` L24356, `RecoverEscapePodCrew` L24415 | Crew-Rettung Apply; welche Crew legal = Rules | [x] ERLEDIGT (`InterruptRules.IsLegalEscapePodCrew`) |
 
 **Nicht in P2:** Battle Bridge / Tactics.
 

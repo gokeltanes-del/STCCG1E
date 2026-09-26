@@ -1,4 +1,32 @@
 ---
+## Aktiv (EXTRACT_REST — P2: Ship & Personnel Battle, Counter-Attack State & Escape Pod)
+- **Soll:**
+  - `artifacts/EXTRACT_REST.md` Abschnitt P2 abarbeiten:
+    - P2-S1 bis P2-S7: Ship Battle Orchestrierung, Zielwahl-Filter, Dock/Cloak/Stop-Recheck, Return-Fire Decide, Counter-Attack State im BoardStore.
+    - P2-P1 bis P2-P4: Personnel Battle Vorprüfung auslagern.
+    - P2-E1 bis P2-E2: Escape Pod Crew Eligibility und Respond-Prüfung auslagern.
+    - TableWindow als reine View/Apply-Schicht halten; keine direkten Battle-Wahrheiten im Fenster.
+- **Ist:**
+  - `StarTrekCCG/Game/BattleRules.cs`:
+    - `CounterAttackOpportunity`, `IsArmedCounterAttackAt`, `IsCounterAttackTarget`, `RegisterCounterAttack`, `UpdateCounterAttackWindow` für G7 Counter-Attack implementiert.
+    - `CanShipInitiateBattleAtLocation`, `IsLegalShipAttackTarget` für Initiation und Zielauswahl implementiert.
+    - `DecideReturnFireEligibility` für Return Fire Vorprüfung implementiert.
+    - `ExecuteShipBattlePlan` (`ShipBattlePlan`) für vollständige Gefechts-Orchestrierung implementiert.
+    - `CanEscapePodRespond` und `CanOfferPersonnelBattle` implementiert.
+    - Neuer Mini-Test `VerifyBattleRulesPlan()` geschrieben und in `ShipRules.VerifyShipRules()` verankert.
+  - `StarTrekCCG/Game/Board/BoardStore.cs`:
+    - `BoardStore.CounterAttack` hinzugefügt und in `Clear()` integriert.
+  - `StarTrekCCG/Game/InterruptRules.cs`:
+    - `IsLegalEscapePodCrew` implementiert (filtert Nicht-Personal, Equipment und Captives regelkonform heraus).
+  - `StarTrekCCG/TableWindow.xaml.cs`:
+    - `BeginAttackMode`, `CompleteShipAttack`, `AskReturnFireAndResolve`, `ResolveShipBattle`, `DestroyShipOrFacility`, `ShipHasCrewForEscapePod`, `ApplyEscapePodFromResponse`, `CanOfferPersonnelBattleFromShip` auf `BattleRules`, `InterruptRules` und `BoardStore` umgestellt.
+- **Smoke/Test:**
+  - `DOTNET_ReadyToRun=0 dotnet build`: 0 Fehler.
+  - Mini-Tests `VerifyBattleRulesPlan()` und `VerifyShipRules()` erfolgreich ausgeführt (PASS).
+- **Tracker/Doku:**
+  - `artifacts/EXTRACT_REST.md`: P2 komplett als `[x] ERLEDIGT` markiert.
+  - `artifacts/CHANGELOG.md` aktualisiert.
+---
 ## Aktiv (Vulcan Mindmeld - Premiere 144 U Bugfix & Generisches Buried-Target-Peek-System)
 - **Soll:**
   - *Vulcan Mindmeld* Bugfix: Sarek kopiert Skills von Data, hatte fälschlich `ENGINEER x 2` anstelle von `ENGINEER x 1`.

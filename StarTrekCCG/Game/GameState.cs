@@ -222,6 +222,7 @@ public sealed class BoardPiece
     public bool HasSecurityAboard { get; init; }
     public bool HasEngineerAboard { get; init; }
     public EventRules.Persist Persist { get; init; }
+    public DilemmaRules.PersistKind DilemmaPersist { get; init; }
     public int Countdown { get; init; }
     public TimingRules.TurnScope TurnScope { get; init; }
     public TimingRules.TurnPhasePoint PhasePoint { get; init; }

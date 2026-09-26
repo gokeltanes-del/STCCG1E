@@ -116,6 +116,17 @@ public static class InterruptRules
         NameIs(c, "Auto-Destruct Sequence");
 
     public static bool IsEscapePod(Card? c) => NameIs(c, "Escape Pod");
+
+    /// <summary>
+    /// Compendium Escape Pod: crew/personnel only — not equipment, not captives (opp personnel aboard).
+    /// </summary>
+    public static bool IsLegalEscapePodCrew(Card card, int cardOwner, int shipOwner)
+    {
+        if (CardKinds.IsEquipment(card)) return false;
+        if (!CardKinds.IsPersonnel(card) && !ModifierRules.IsPersonnelCard(card)) return false;
+        if (cardOwner != 0 && shipOwner != 0 && cardOwner != shipOwner) return false;
+        return true;
+    }
     public static bool IsWormhole(Card? c) => NameIs(c, "Wormhole");
 
     public static bool IsShipSeizure(Card? c) => NameIs(c, "Ship Seizure");

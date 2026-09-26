@@ -1,3 +1,48 @@
+## 2026-09-26 — EXTRACT_REST: P2 (Ship & Personnel Battle, Counter-Attack State & Escape Pod)
+
+- *P2-S7 (Counter-Attack State in BoardStore & BattleRules)*:
+  - Datenmodell `BattleRules.CounterAttackOpportunity` eingeführt (`EligiblePlayer`, `LocationMissionInstanceId`, `InvolvedOpponentInstanceIds`, `Armed`).
+  - Helper `BattleRules.IsArmedCounterAttackAt`, `BattleRules.IsCounterAttackTarget`, `BattleRules.RegisterCounterAttack` und `BattleRules.UpdateCounterAttackWindow` implementiert.
+  - `BoardStore.CounterAttack` als Single Source of Truth auf der Engine-Seite angelegt und in `Clear()` integriert.
+  - In `TableWindow.xaml.cs` `IsArmedCounterAttackAt`, `IsCounterAttackTarget`, `RegisterCounterAttackOpportunity` und `UpdateCounterAttackWindow` so umgestellt, dass sie primär `BoardStore.Current.CounterAttack` und `BattleRules` nutzen.
+- *P2-S1 & P2-S2 (Ship Battle Zielwahl-Filter & Initiierung)*:
+  - In `BattleRules.cs` `CanShipInitiateBattleAtLocation` und `IsLegalShipAttackTarget` implementiert (prüft ungestoppt, ungedockt, ungetarnt, kein Required Move, WEAPONS > 0, Leader und Matching Affiliation).
+  - In `TableWindow.xaml.cs` `BeginAttackMode` auf `BattleRules.CanShipInitiateBattleAtLocation` und `BattleRules.IsLegalShipAttackTarget` umgestellt.
+- *P2-S3 & P2-S4 (Ship Battle Plan & Return Fire Orchestrierung)*:
+  - In `BattleRules.cs` `DecideReturnFireEligibility` und `ExecuteShipBattlePlan` (`ShipBattlePlan`) implementiert. Berechnet Open Fire, Rotation Damage, Return Fire Checks & Boni, Winner und Folgestatus komplett als Regelplan.
+  - In `TableWindow.xaml.cs` `AskReturnFireAndResolve` delegiert die Eignungsprüfung an `BattleRules.DecideReturnFireEligibility`.
+  - In `TableWindow.xaml.cs` `ResolveShipBattle` delegiert die Gefechtsauflösung vollständig an `BattleRules.ExecuteShipBattlePlan` und führt die Wirkungen (Damage, Stopped, Discard/Destroy, Reveal) aus dem Plan aus.
+- *P2-S6, P2-E1 & P2-E2 (Destroy-Policy & Escape Pod Checks)*:
+  - In `BattleRules.cs` `CanEscapePodRespond` ausgelagert.
+  - In `InterruptRules.cs` `IsLegalEscapePodCrew` ausgelagert (filtert Nicht-Personal, Equipment und gefangenes Gegner-Personal heraus).
+  - In `TableWindow.xaml.cs` `DestroyShipOrFacility`, `ShipHasCrewForEscapePod` und `ApplyEscapePodFromResponse` auf die neuen Rules-Methoden umgestellt.
+- *P2-P1..P2-P4 (Personnel Battle)*:
+  - In `BattleRules.cs` `CanOfferPersonnelBattle` ausgelagert; `CanOfferPersonnelBattleFromShip` in `TableWindow.xaml.cs` darauf umgestellt.
+- *Verifikation*:
+  - Neuer Mini-Test `BattleRules.VerifyBattleRulesPlan()` in `ShipRules.VerifyShipRules()` eingehängt und erfolgreich verifiziert (PASS).
+
+## 2026-09-26 — EXTRACT_REST: P0 (Persist-Modell & Dual-Run) & P1 (Borg Ship EOT)
+
+- *P0-D1 (`AttachedDilemma` aus Window nach Board)*:
+  - Datenmodell `BoardAttachedDilemma` in `StarTrekCCG/Game/Board/BoardAttachments.cs` eingeführt mit `HostInstanceId`, `DestInstanceId`, `Direction`, `Held` und `OriginalEncounter`.
+  - `BoardStore.AttachedDilemmas` angelegt, in `Clear()` integriert und in `ToBoardPieces()` als Engine-Snapshot-Pieces (`PieceRole.DilemmaPersist`) serialisiert.
+  - In `TableWindow.xaml.cs` Helper `AddAttachedDilemma`, `RemoveAttachedDilemma` und `SyncAttachmentsToStore` verdrahtet. Alle `_attachedDilemmas.Add`/`Remove` umgestellt. `CaptureEngineState()` liest Dilemma-Attachments und Quarantäne-Zustand direkt aus dem Store.
+- *P0-E1 (`AttachedEvent` aus Window nach Board)*:
+  - Datenmodell `BoardAttachedEvent` in `StarTrekCCG/Game/Board/BoardAttachments.cs` eingeführt mit `HostInstanceId`, `Host2InstanceId`, `TurnScope`, `PhasePoint`, `ScopePlayer` etc.
+  - `BoardStore.AttachedEvents` angelegt, in `Clear()` integriert und in `ToBoardPieces()` als Engine-Snapshot-Pieces (`PieceRole.EventPersist`) serialisiert.
+  - In `TableWindow.xaml.cs` Helper `AddAttachedEvent`, `RemoveAttachedEvent`, `RemoveAttachedEventsForCard` und EOT-Tick-Sync verdrahtet. Alle direkten Zugriffe auf `_attachedEvents.Add`/`Remove` umgestellt; `CaptureEngineState()` liest Store.
+- *P0-S1 (Dual-Run abschließen)*:
+  - `ShipInstance` in `StarTrekCCG/Game/Board/CardInstance.cs` um `RepairTurns` und `CloakLocked` erweitert.
+  - In `TableWindow.xaml.cs` Store als Single Source of Truth für Hull, Cloak, RepairTurns und CloakLocked etabliert: `GetRepairTurns`/`SetRepairTurns`, `IsCloakLocked`/`SetCloakLocked`, `IsShipCloaked`, `ApplyHullDamage`/`GetHullDamage` operieren auf Store-Instanzen. `ApplyUiStatusToStore` synchronisiert die Felder auf die Instanzen.
+- *P1 (Borg Ship EOT)*:
+  - `BorgShipRules.cs` in `StarTrekCCG/Game/BorgShipRules.cs` erstellt mit `Weapons = 24`, `Shields = 24`, `PointsOnDestroyed = 15`, `IsLegalTarget(...)`, `BorgWeaponsBonus(...)`, `BorgShieldsBonus(...)`, `DecideInitialDirection(...)` und `DecideMove(...)`.
+  - In `TableWindow.xaml.cs`:
+    - `StartBorgShipEotAttacks`: Ziele via `BorgShipRules.IsLegalTarget` gefiltert.
+    - `AskReturnFireAndResolve`, `ResolveShipBattle`, `TryDestroyBorgShipInBattle`: Literal-24 und Hardcoded-15 durch `BorgShipRules`-Konstanten und Boni ersetzt.
+    - `FinishBorgShipEotMove`: Bewegungs- und Verlassens-Logik vollständig an `BorgShipRules.DecideMove(...)` delegiert.
+    - `_borgShipDir` / `Direction` in `BoardAttachedDilemma` und `AttachedDilemma` abgelegt; Initialrichtung über `BorgShipRules.DecideInitialDirection` ermittelt.
+  - In `artifacts/EXTRACT_REST.md`: Abschnitte P0 (P0-D1, P0-E1, P0-S1) und P1 als ERLEDIGT markiert.
+
 ## 2026-09-26 — Vulcan Mindmeld (144 U) Bugfix & Generisches Buried-Target-Peek-System
 
 - *ModifierRules & Vulcan Mindmeld Bugfix (Kein Stacking auf Engineer x2)*:
