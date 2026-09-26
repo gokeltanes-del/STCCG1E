@@ -1,4 +1,75 @@
 ---
+## Aktiv (Temporal Rift - Premiere 140 U & The Juggler - Premiere 142 U)
+- **Soll:**
+  - *Temporal Rift* (140 U): "Plays on table as a [Univ][S] time location; relocate one of your exposed ships OR a dilemma here. Counts down only at the start of your turn. When nullified, return that ship or dilemma to its former location."
+    - Rulings: Keine valide Response auf Battle oder ein Dilemma (Flucht verboten).
+    - Exposed: Ungedockt, ungetarnt, unphased, nicht gelandet, nicht getragen (`ShipRules.IsShipExposed`).
+    - Handhabung als eigenständige Spaceline Location links auf der Spaceline (wie *Time Travel Pod*).
+    - Eigene wiederverwendbare Spaceline-Location-Pipeline (`SpacelineLocationRules`).
+    - Timing: Zählt nur zu Beginn des Zuges des Besitzers herunter (`ProcessStartOfTurnTimedEffects`).
+    - Bei Nullify oder Ablauf: Rückkehr von Schiff oder Dilemma an den vorherigen Ort/Wirt.
+  - *The Juggler* (142 U): "Choose any player to re-shuffle the cards in their draw deck." Verifizieren und sicherstellen, dass alles funktioniert.
+- **Ist:**
+  - `StarTrekCCG/Game/SpacelineLocationRules.cs`: Neu erstellte zentrale Pipeline für Spaceline- und Time-Locations (`IsTimeLocation`, `IsSpacelineLocation`, `PlaysAsSpacelineLocation`, `IsLandableSpacelineLocation`, `IsDifferentTimeContinuum`, `VerifySpacelineLocationRules`).
+  - `StarTrekCCG/Game/TimingRules.cs`: `CanRespond` blockiert *Temporal Rift* explizit als Response auf Kampf- und Dilemma-Aktionen.
+  - `StarTrekCCG/Game/InterruptRules.cs`: `IsTemporalRift`, `IsTheJuggler`, `CanPlayTemporalRift`, aktualisierter Gametext und Mini-Test `VerifyTemporalRiftDecide`.
+  - `StarTrekCCG/Game/ShipRules.cs`: `VerifyTemporalRiftDecide` in `VerifyShipRules` eingebunden.
+  - `StarTrekCCG/TableWindow.xaml.cs`:
+    - `PlaceSpacelineTimeLocation`: Einheitliche Platzierungsmethode für Zeitorte auf der Spaceline (geteilt von *Time Travel Pod* und *Temporal Rift*).
+    - `PlaceTemporalRift`: Platziert Rift als universalen [S] Zeitort, lässt Spieler Schiff oder Dilemma wählen (Drag & Drop, gelber Glow oder Liste) und versetzt das Ziel dorthin.
+    - `ReturnFromTemporalRift`: Stellt Schiffe und Dilemmas an ursprüngliche Orte/Wirte zurück, aktualisiert Tokens (Borg Ship / Scow) und räumt den Border auf der Spaceline ab.
+    - `ProcessTemporalRiftCountdowns`: Zählt Countdown 2 nur zu Beginn des Zuges des Besitzers herunter; bei 0 Rückkehr und Ablage.
+    - `OnCardLeftPlay`: Ruft `ReturnFromTemporalRift` auf, wenn der Rift nullified oder abgelegt wird.
+    - Flug zwischen Spaceline und Zeitorten blockiert (verschiedene Zeitepochen).
+    - Schiffsstatus: Countdown und Schaden pausieren an Zeitorten (`IsShipAtTimeLocation`).
+    - `The Juggler`: Rückmeldung im Log und StatusText verfeinert.
+- **Smoke/Test:**
+  - `dotnet build` erfolgreich, 0 Fehler.
+  - Mini-Tests `VerifyTemporalRiftDecide`, `VerifySpacelineLocationRules`, `VerifyShipRules` alle PASS.
+- **Tracker:** *Temporal Rift* und *The Juggler* in `artifacts/CARD_TRACKER.md` auf `working`.
+---
+## Aktiv (Scan - Premiere 295 C & Tachyon Detection Grid - Premiere 318 U)
+- **Soll:**
+  - *Scan* (295 C): "Plays at the start of your turn on your ship with at least two staffing icons at a [S] mission. Stop your Computer Skill and Stellar Cartography aboard to examine the bottom seed card here." (Gegenstück zu *Full Planet Scan* für Weltraummissionen).
+  - *Tachyon Detection Grid* (318 U): "If you control four exposed ships, plays on a cloaked ship. It de-cloaks (even if it is stopped or has cloaked this turn). It may not cloak." Standardisieren auf `CountExposedShips` und `PickBoardTarget`.
+  - Verifikation von *Q2* und *Subspace Schism*.
+- **Ist:**
+  - `StarTrekCCG/Game/TimingRules.cs`: `RequiresStartOfTurnWindow` umfasst nun auch `IsScan`.
+  - `StarTrekCCG/Game/InterruptRules.cs`: `IsScan`, `GetPlayTarget` (OwnShip), `Resolve` (`Effect.SpaceScan`), Gametext für Tachyon Detection Grid angepasst.
+  - `StarTrekCCG/Game/InterruptShipEffectRules.cs`:
+    - `TachyonDeny`: Prüft `exposedShipsInPlay >= 4` und `targetIsCloaked`.
+    - `ScanDeny` & `FullPlanetScanDeny`: Pure decide Logik für Scans.
+    - Mini-Tests `VerifyTachyonDecide` und `VerifyScanDecide` implementiert.
+  - `StarTrekCCG/Game/ShipRules.cs`: `VerifyShipRules` führt `VerifyTachyonDecide` und `VerifyScanDecide` mit aus.
+  - `StarTrekCCG/TableWindow.xaml.cs`:
+    - `ApplyScan`: Start-of-turn Gate, Wirtschiff-Ermittlung (Drop oder On-Board Zielauswahl mit `PickBoardTarget` via `FindLegalScanShips`), Prüfung auf Weltraummission (`!MissionCountsAsPlanetCard`), >=2 Staffing-Icons, Seed-Karten vorhanden, ungestopptes `Computer Skill` und `Stellar Cartography` (bevorzugt 2 getrennte Personen via `FindUnstoppedSkillPair`), Stoppen der Crew, Aufdecken der untersten Seed-Karte mit `ShowCardReveal`.
+    - `ApplyFullPlanetScan`: Synchron mit `FindLegalScanShips` und `FindUnstoppedSkillPair` modernisiert.
+    - `ApplyTachyonGrid`: Nutzt `CountExposedShips(controller) >= 4` (nicht mehr `CountControllerShips`); wenn ungedroppt, werden getarnte Schiffe auf dem Spielfeld via `PickBoardTarget` (violett) zur Auswahl angeboten. Enttarnt das Schiff (`SetShipCloaked(host, false)`), sperrt erneutes Tarnen (`_cloakLocked`) und registriert Discard bis Rundenende (`TurnExpiry`).
+    - `CanPlayCardWithReason`: Pre-Stack-Gate für *Tachyon Detection Grid* (verhindert Spiel ohne 4 exposed Schiffe oder ohne getarnte Schiffe im Spiel).
+    - `GetLegalInterruptPlayHosts` & `HostMatchesInterruptTargetForCard`: Snap-Glow und Drop-Gating für *Scan*, *Full Planet Scan* und *Tachyon Detection Grid* präzisiert.
+    - `ReturnInterruptToHand`: Bereinigt die Karte nun auch aus Discard-Listen, um Doppelreferenzen zu verhindern.
+- **Smoke/Test:**
+  - `dotnet build` 0 Fehler.
+  - `VerifyShipRules`, `VerifyTachyonDecide`, `VerifyScanDecide`, `VerifyShipSeizureDecide`, `VerifyParticleFountainDecide` alle PASS.
+- **Tracker:** *Scan*, *Tachyon Detection Grid*, *Q2*, *Subspace Schism* auf `working`.
+---
+## Aktiv (Einheitliche On-Board Zielauswahl-Pipeline & Ship Seizure - Premiere 136 C)
+- **Soll:**
+  - Objekte auf dem Spielfeld (Schiffe, Spaceline-Locations, Außenposten/Facilities etc.) sollen bei nachgelagerten Karteneffekten nicht mehr in einem Detailfenster/Popup-Streifen (`PickCardFromList`) ausgewählt werden müssen, sondern direkt auf dem Spielplan angeklickt werden können.
+  - Legale Ziele auf dem Tisch sollen mit einem Glow/Halo markiert werden, sodass ein Klick auf die Karte genügt.
+  - Das alte Snap-Glow-System beim direkten Drag-and-Drop von Karten aus Hand/Side-Deck bleibt davon unberührt.
+  - Premiere-Interrupt *Ship Seizure* (136 C): "Plays on your ship with Tractor Beam. Discard another empty exposed ship here."
+- **Ist:**
+  - `TableWindow.xaml.cs`:
+    - `PickBoardTarget`: Zentrale, synchrone (`DispatcherFrame`) Pipeline für Board-Zielauswahl mit Glow (`AddBoardTargetGlow`), Hand-Cursor und Scroll-to-View. Klick auf Ziel wählt aus, Klick auf leere Tischfläche, Rechtsklick oder Esc bricht sauber ab.
+    - `PickBorderFromList`: Erkennt Karten auf dem `TableCanvas` und leitet automatisch an `PickBoardTarget` weiter.
+    - `ApplyShipSeizure`: Wählt Tractor-Schiff (bei ungedropptem Spiel) und Opfer-Schiff (`victims`) direkt auf dem Spielfeld mit Glow; Detailfenster entfällt komplett.
+    - `Incoming Message`, `ShowTargetPickDialog`, `Kurlan Naiskos`, `Alien Parasites` und Spaceline-Location-Auswahlen nutzen die einheitliche Pipeline.
+  - `StarTrekCCG/Game/ShipRules.cs`: Regeln für exposed, empty, occupied, tractor beam, your ship etc.
+- **Smoke/Test:** `dotnet build` 0 Fehler. `ShipRules.VerifyShipRules` und `InterruptRules.VerifyShipSeizureDecide` PASS.
+- **Tracker:** *Ship Seizure* auf `working`.
+- **Park:** Continuum/Q; Plays on/as F3; AI Freundes-Report; ETA 21b2d52; Artifact-Y Load.
+---
 ## Aktiv (Particle Fountain - Premiere 132 C)
 - **Soll:** Particle Fountain (132 C): "Plays if your Away Team just solved a planet mission. If 2 ENGINEER in Away Team, score points. 5"
 - **Rulings & Design:**

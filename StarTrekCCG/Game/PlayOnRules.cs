@@ -56,7 +56,8 @@ public static class PlayOnRules
         bool Cloaked,
         bool ExcludeFacility,
         CardPlayRole Role = CardPlayRole.None,
-        string? Affiliation = null)
+        string? Affiliation = null,
+        bool TractorBeam = false)
     {
         public bool Own => Ownership == Ownership.Your;
         public bool Opponent => Ownership == Ownership.Opponent;
@@ -183,13 +184,14 @@ public static class PlayOnRules
 
         bool exposed = c.Contains("exposed");
         bool occupied = c.Contains("occupied");
-        bool empty = Regex.IsMatch(c, @"\\bempty\\b");
+        bool empty = Regex.IsMatch(c, @"\bempty\b");
         bool cloaked = c.Contains("cloaked") && !c.Contains("uncloaked");
-        bool excludeFacility = Regex.IsMatch(c, @"not\\s+(?:at\\s+)?(?:a\\s+)?facility")
-                               || Regex.IsMatch(c, @"except\\s+(?:at\\s+)?(?:a\\s+)?facility");
+        bool excludeFacility = Regex.IsMatch(c, @"not\s+(?:at\s+)?(?:a\s+)?facility")
+                               || Regex.IsMatch(c, @"except\s+(?:at\s+)?(?:a\s+)?facility");
+        bool tractorBeam = c.Contains("tractor beam");
 
         bool hasAwayTeam = c.Contains("away team");
-        bool hasCrew = Regex.IsMatch(c, @"\\bcrew\\b");
+        bool hasCrew = Regex.IsMatch(c, @"\bcrew\b");
 
         Host host = Host.None;
         Host host2 = Host.None;
@@ -220,10 +222,10 @@ public static class PlayOnRules
             host = Host.Event;
 
         if (host == Host.None)
-            return new Spec(Host.None, Host.None, Ownership.Any, false, false, false, false, false, role);
+            return new Spec(Host.None, Host.None, Ownership.Any, false, false, false, false, false, role, null, false);
 
         return new Spec(host, host2, ownership, exposed, occupied, empty, cloaked, excludeFacility,
-            role, ParseAffiliationIcon(clause));
+            role, ParseAffiliationIcon(clause), tractorBeam);
     }
 
     public static bool SpecAllowsHost(Spec spec, Host concrete) =>

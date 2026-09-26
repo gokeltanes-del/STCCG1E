@@ -105,7 +105,8 @@ public static class TargetQuery
         bool IsPlanetMission,
         bool IsNonAlignedShip,
         bool IsBorgShip,
-        bool IsOrbitingPlanet = false);
+        bool IsOrbitingPlanet = false,
+        bool HasTractorBeam = false);
 
     public static bool IsGapPlay(Card? drag)
     {
@@ -288,6 +289,7 @@ public static class TargetQuery
         if (spec.Cloaked && facts.IsShip && !facts.Cloaked) return (false, "Ship is not cloaked.");
         if (spec.Occupied && !facts.Occupied) return (false, "Must be occupied.");
         if (spec.Empty && facts.Occupied) return (false, "Must be empty.");
+        if (spec.TractorBeam && facts.IsShip && !facts.HasTractorBeam) return (false, "Ship does not have a Tractor Beam.");
         if (!string.IsNullOrEmpty(spec.Affiliation) && !AffiliationMatches(candidate, spec.Affiliation))
             return (false, "Affiliation does not match.");
         return (true, "Legal play-on host.");

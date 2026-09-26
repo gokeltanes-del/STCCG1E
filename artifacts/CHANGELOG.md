@@ -1,3 +1,115 @@
+## 2026-09-26 — Interrupt Temporal Rift (140 U) & The Juggler (142 U)
+
+- *SpacelineLocationRules* (Neue Architektur-Pipeline):
+  - Zentralisierte Klassifizierung und Pipeline für alle Arten von Spaceline-Locations geschaffen (`IsTimeLocation`, `IsSpacelineLocation`, `PlaysAsSpacelineLocation`, `IsLandableSpacelineLocation`, `IsDifferentTimeContinuum`).
+  - Standardisiert Karten, die als Spaceline Location fungieren (*Time Travel Pod*, *Temporal Rift*, zukünftige Zeit- und Raumlinienkarten).
+  - Verhindert reguläre Warp-Flüge zwischen Zeitorten und der regulären Raumlinie (`IsDifferentTimeContinuum`).
+  - Vereinheitlichung in `TableWindow`: `IsLandableLocation`, `BuildSpacelineDisplayOrder`, `GetSpacelineQuadrant` und `IsWormholeLocation` greifen nun auf `SpacelineLocationRules` zu.
+  - Dedizierte, wiederverwendbare Platzierungspipeline `PlaceSpacelineTimeLocation` geschaffen, die von `PlaceTimeTravelPod` und `PlaceTemporalRift` geteilt wird.
+- *Temporal Rift* (Premiere 140 U / 322 C):
+  - Regelkonforme Umsetzung nach aktuellem Errata & Rulings:
+    - Text: *"Plays on table as a universal space time location; relocate one of your exposed ships OR a dilemma here. Counts down only at the start of your turn. When nullified, return that ship or dilemma to its former location."*
+    - Response- & Flucht-Sperre: `TimingRules.CanRespond` verbietet *Temporal Rift* als Antwort auf Kampf (`InitiateShipBattle`, `InitiatePersonnelBattle`) oder Dilemma-Begegnung (`EncounterDilemma`).
+    - Exposed-Bedingung: Nur exposed Schiffe (`ShipRules.IsShipExposed`: ungedockt, ungetarnt, unphased, nicht gelandet/getragen) können versetzt werden.
+    - Zielauswahl: Unterstützt Drag & Drop auf exposed Schiffe, On-Board-Auswahl via gelbem Glow (`BeginBoardPickShip`) oder Auswahl eines aktiven Dilemmas im Spiel.
+    - Dilemma-Relocate: Versetzt Dilemmas (inkl. Borg Ship / Scow Token) an den Zeitort und stellt sie bei Ablauf/Nullify an ihren vorherigen Wirtsort zurück.
+    - Timing & Countdown: Zählt nur zu Beginn des Zuges des Besitzers herunter (`ProcessTemporalRiftCountdowns` in `ProcessStartOfTurnTimedEffects`).
+    - Rückkehr: Bei Nullify (via Kevin Uxbridge o. Ä., `OnCardLeftPlay`) oder nach Ablauf von Countdown 2 kehrt das Schiff bzw. das Dilemma an den ursprünglichen Ort zurück.
+    - Immunität / Pausierung: Schaden und Countdowns von Schiffseffekten (z. B. *Plasma Fire*, *Warp Core Breach*) pausieren am Zeitort (`IsShipAtTimeLocation`).
+    - Detailstatus: Zeigt Countdown und anwesende Schiffe/Dilemmas im Detailblock an.
+- *The Juggler* (Premiere 142 U / 326 C):
+  - Verifiziert und verbessert: Wählt Spieler aus (`AskPlayer`), mischt dessen Nachziehstapel per RNG neu und protokolliert dies detailliert im Log und der Statuszeile.
+  - In `CARD_TRACKER.md` als funktionierend (`working`) verifiziert.
+- Tests & Verifikation:
+  - `InterruptRules.VerifyTemporalRiftDecide` implementiert und in `ShipRules.VerifyShipRules` integriert (alle Checks PASS).
+  - `SpacelineLocationRules.VerifySpacelineLocationRules` validiert Zeitort- und Raumlinienregeln.
+  - `dotnet build /p:EnableWindowsTargeting=true` erfolgreich (0 Fehler).
+
+## 2026-09-25 — Interrupt Scan (295 C) & Tachyon Detection Grid (318 U)
+
+- *Scan* (Premiere 295 C):
+  - Regelkonforme Implementierung als Gegenstück zu *Full Planet Scan* für Weltraummissionen:
+    - Timing-Gate: Spielbar zu Beginn des Zuges (`TimingRules.RequiresStartOfTurnWindow`, Segment 1, vor Ausspielen der regulären Karte).
+    - Ziel: Eigenes Schiff an einer [S]-Mission (`!MissionCountsAsPlanetCard(mc)`) mit mindestens zwei gedruckten Staffing-Icons (`[Cmd]` / `[Stf]`).
+    - Kosten: Stoppen von ungestopptem `Computer Skill` und `Stellar Cartography` an Bord (bevorzugt zwei getrennte Crew-Mitglieder; unterstützt auch Einzelpersonal mit beiden Fähigkeiten).
+    - Effekt: Unterste Seed-Karte der Mission wird aufgedeckt (`ShowCardReveal`) und untersucht, Personal wird gestoppt, Karte wird abgelegt.
+  - On-Board Picking & Snap-Glow:
+    - Bei Ausspielen ohne Drop-Ziel werden alle legalen Schiffe am Tisch ermittelt (`FindLegalScanShips`) und via `PickBoardTarget` mit grünem Glow hervorgehoben und direkt auf dem Tisch auswählbar gemacht.
+    - Drag & Drop Snap-Glow (`HostMatchesInterruptTargetForCard`, `GetLegalInterruptPlayHosts`) hebt nur eigene Schiffe an Space-Missions mit >=2 Staffing hervor.
+- *Tachyon Detection Grid* (Premiere 318 U):
+  - Standardisierung & Korrektur auf offizielle Regeln:
+    - Voraussetzung: Spieler muss mindestens 4 exposed Schiffe im Spiel kontrollieren (`CountExposedShips >= 4`).
+    - Exposed-Definition aus `ShipRules.IsShipExposed` verwendet: ungedockt, ungetarnt, unphased, nicht gelandet, nicht getragen. Getarnte oder gedockte Schiffe zählen nicht zu den 4 Schiffen.
+    - Ziel: Ein beliebiges getarntes Schiff auf dem Tisch (Gegner oder eigenes).
+    - Effekt: Schiff enttarnt sich sofort (`SetShipCloaked(host, false)`), selbst wenn es gestoppt ist oder sich in diesem Zug bereits getarnt hat.
+    - Cloak-Lock: Wirtschiff wird bis zum Ende des Zuges für erneutes Tarnen gesperrt (`_cloakLocked`, via `TurnExpiry`).
+  - Target-Selection Pipeline:
+    - Wenn nicht direkt auf ein getarntes Schiff abgelegt, werden alle getarnten Schiffe auf dem Tisch ermittelt. Bei mehreren Schiffen leuchtet `PickBoardTarget` mit violettem Glow für direkte Klick-Auswahl.
+    - Drag & Drop Snap-Glow hebt nur getarnte Schiffe hervor und wird sofort unterdrückt, falls der Spieler weniger als 4 exposed Schiffe besitzt.
+    - Pre-Stack Validierung in `CanPlayCardWithReason` verhindert illegales Ausspielen ohne 4 exposed Schiffe oder ohne getarnte Schiffe.
+- *ReturnInterruptToHand*:
+  - Bereinigt bei Abbruch oder Fehlern die Karte zusätzlich aus dem Ablagestapel (`_discardCards` / `_oppDiscardCards`), um doppelte Kartenreferenzen zu verhindern.
+- Tests & Verifikation:
+  - `InterruptShipEffectRules.VerifyTachyonDecide` und `VerifyScanDecide` implementiert und in `ShipRules.VerifyShipRules` integriert (alle PASS).
+  - Status von *Q2* und *Subspace Schism* in `CARD_TRACKER.md` als funktionierend (`working`) verifiziert und dokumentiert.
+  - `dotnet build` erfolgreich (0 Fehler).
+
+## 2026-09-25 — Einheitliche On-Board Zielauswahl-Pipeline & Ship Seizure (136 C) Board-Pick
+
+- UX-Architektur & Einheitliche Pipeline:
+  - `PickBoardTarget` in `TableWindow.xaml.cs` als zentrale Pipeline für die direkte Auswahl von Karten/Objekten auf dem Spielfeld (Schiffe, Spaceline Locations, Außenposten/Facilities etc.) implementiert:
+    - Legale Ziele werden direkt auf dem `TableCanvas` mit einem animierten Halo/Glow hervorgehoben (`AddBoardTargetGlow`).
+    - Mauszeiger wechselt über Zielobjekten auf `Cursors.Hand`.
+    - Das erste Ziel wird bei Bedarf automatisch in den sichtbaren Bildbereich gescrollt.
+    - Modale Interaktion via `DispatcherFrame`, sodass Karteneffekte synchron auf die getroffene Wahl warten können, ohne den UI-Thread zu blockieren.
+    - Ein Klick auf ein markiertes Ziel wählt es aus; Klick auf leere Tischfläche oder Rechtsklick bricht die Auswahl ab und setzt das Ziel auf `null`.
+    - Escape-Taste bricht die Auswahl ebenfalls sauber ab.
+    - Vollständiges Aufräumen aller Glow-Rechtecke und Wiederherstellen der ursprünglichen Mauszeiger im `finally`-Block.
+  - `PickBorderFromList` modernisiert:
+    - Wenn die übergebenen Zielgrenzen (`candidates`) sichtbare Karten auf dem `TableCanvas` sind (z. B. Schiffe, Missionen, Einrichtungen), leitet `PickBorderFromList` automatisch an `PickBoardTarget` weiter, statt ein Detailfenster/Popup-Streifen (`PickCardFromList`) zu öffnen.
+    - Nicht auf dem Tisch liegende Auswahlen (z. B. Personal in Crew-Stapeln bei *Genetronic Replicator*) nutzen weiterhin sicher die Scroll-Streifen-Detailansicht.
+  - `PickCardOnBoard`: Komfort-Methode zur Auflösung von `Card`-Listen auf dem Spielfeld in Border-Ziele für `PickBoardTarget`.
+- Integration bei Karten:
+  - *Ship Seizure* (136 C):
+    - Wählt das zu zerstörende leere, ungeschützte Schiff (`victim`) nicht mehr über ein Detailfenster (`PickCardFromList`), sondern lässt alle legalen Opfer am Ort auf dem Spielfeld mit bernsteinfarbenem Glow erstrahlen.
+    - Spieler klickt das Zielschiff direkt auf dem Spielplan an.
+    - Bei ungedropptem Ausspielen (z. B. Klick auf Ausspielen) werden auch die eigenen Schiffe mit Tractor Beam direkt auf dem Spielfeld grün markiert und zur Auswahl angeboten.
+    - Bei Abbruch (Rechtsklick) wandert *Ship Seizure* sauber auf die Hand zurück (`ReturnInterruptToHand`).
+  - *Incoming Message*: Auswahl der Ziel-Facility auf der Spaceline läuft nun über `PickBoardTarget` mit zyanfarbenem Glow direkt auf dem Tisch.
+  - *Kurlan Naiskos*, *Alien Parasites*, *Kevin Uxbridge: Convergence* und `ShowTargetPickDialog` (*Conundrum*, *Anti-Matter Pod*, etc.): Nutzen via `PickBorderFromList` nun alle die einheitliche Board-Target-Pipeline.
+  - Drag-and-Drop Snap-Glow bleibt für das direkte Ziehen von Karten aus der Hand oder dem Side-Deck auf Hosts unverändert intakt.
+- Tests & Build:
+  - `dotnet build` erfolgreich (0 Fehler, 2 bestehende Warnungen).
+
+## 2026-09-25 — Ship Rules Pipeline & Ship Seizure (136 C) Standardisierung
+
+- Architektur & Pipeline:
+  - `ShipRules.cs`: Zentrale, wiederverwendbare Pipeline für Ship-, Facility- und Site-Begriffe nach aktuellem Regelbuch/Glossar (Stand 1. Januar 2024) implementiert:
+    - `exposed`: Ein Schiff ist exposed, wenn es ungedockt (`!isDocked`), ungetarnt (`!isCloaked`), unphased (`!isPhased`) und weder gelandet noch getragen ist (`!isLanded && !isCarried`).
+    - `occupied`: Ein Schiff, eine Einrichtung oder eine Site ist occupied, wenn mindestens ein Personnel an Bord ist (`aboard.Any(ModifierRules.IsPersonnelCard)`). Equipment oder Interrupts (z. B. Rogue Borg Tokens) allein machen einen Host gemäß Ruling vom 1. Jan. 2024 nicht occupied.
+    - `unoccupied` / `empty`: Ein Schiff/Facility/Site ohne Personnel an Bord ist empty.
+    - `empty exposed ship`: Kombinierte Bedingung für leere und ungeschützte Schiffe.
+    - `your ship`: Prüfung auf Schiffsbesitz/Kontrolle (`shipOwner == player`).
+    - `tractor beam`: Erkennt Tractor Beam sowohl im Text als auch in den `Characteristics` eines Schiffes.
+    - `CanBeShipSeizureTractorHost`: Validiert das Wirtschiff für *Ship Seizure* (eigenes Schiff mit Tractor Beam).
+    - `CanBeShipSeizureVictim`: Validiert das Zielschiff (ein anderes Schiff am selben Ort, leer und exposed).
+    - `VerifyShipRules`: Umfassender Mini-Test für alle Permutationen, Grenzfälle und Rulings.
+- Vereinheitlichung bestehender Karten & Mechaniken:
+  - `MovementRules.cs`: `ShipHasSpecialEquipment` prüft neben `Text` auch `ship.Characteristics`.
+  - `PlayOnRules.cs`: `Spec` um `TractorBeam` erweitert; `BuildSpecFromClause` erkennt "tractor beam" automatisch in Play-On-Klauseln.
+  - `TargetQuery.cs`: `HostFacts` um `HasTractorBeam` erweitert; `MatchPlayOnSpec` prüft `facts.HasTractorBeam`.
+  - `TableWindow.xaml.cs`:
+    - `IsShipExposed(Border ship)` delegiert direkt an `ShipRules.IsShipExposed(IsShipDocked(ship), IsShipCloaked(ship))`.
+    - `CountExposedShips` (*Tachyon Detection Grid*): Prüfte zuvor nur Cloak und ignorierte Docking; nun vereinheitlicht auf `IsShipExposed`.
+    - `DefenderExposed` (*Asteroid Sanctuary*): Prüfte zuvor nur Cloak; nun vereinheitlicht auf `IsShipExposed`.
+    - `CollectLegalSnapHosts`: Berücksichtigt `ShipRules.CanBeShipSeizureTractorHost` für Halos und Drop-Targets.
+    - `HostMatchesInterruptTargetForCard` & `HostMatchesPlayOn`: Nutzen `ShipRules.CanBeShipSeizureTractorHost` bzw. `ShipRules.HasTractorBeam`.
+    - `ApplyShipSeizure`: Validiert Tractor-Wirt mit `ShipRules.CanBeShipSeizureTractorHost`, filtert Opfer mit `ShipRules.CanBeShipSeizureVictim` und gibt den Interrupt bei illegalem Ziel oder Abbruch sauber auf die Hand zurück (`ReturnInterruptToHand`). Lokales Duplikat `IsShipSeizureExposed` entfernt.
+  - `InterruptRules.cs`: `IsLegalShipSeizureTractor` und `IsLegalShipSeizureVictim` an `ShipRules` angebunden; `VerifyShipSeizureDecide` führt `ShipRules.VerifyShipRules` aus.
+- Tests:
+  - `ShipRules.VerifyShipRules` und `InterruptRules.VerifyShipSeizureDecide` erfolgreich ausgeführt (PASS).
+  - Projekt erfolgreich gebaut (`dotnet build`, 0 Fehler).
+
 ## 2026-09-25 — Particle Fountain (132 C)
 
 - Feature: Premiere-Interrupt *Particle Fountain* (132 C) implementiert.

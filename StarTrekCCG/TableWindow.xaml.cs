@@ -1615,8 +1615,21 @@ public partial class TableWindow : Window
             {
                 SendCardTo(fx.Card, fx.Owner > 0 ? fx.Owner : finishingPlayer,
                     TimingRules.Destination.Discard);
-                foreach (var ae in _attachedEvents.Where(e => ReferenceEquals(e.Card, fx.Card) && e.Host != null))
-                    _cloakLocked.Remove(ae.Host!);
+                foreach (var ae in _attachedEvents.Where(e => ReferenceEquals(e.Card, fx.Card)).ToList())
+                {
+                    if (ae.Extra != null)
+                    {
+                        ModifierRules.ClearTemporarySkills(ae.Extra);
+                    }
+                    if (ae.Host != null)
+                    {
+                        var mini = FindBorderForCard(fx.Card);
+                        if (mini != null)
+                            RemoveCardFromHostStack(ae.Host, mini);
+                        _cloakLocked.Remove(ae.Host);
+                        UpdateHostBadge(ae.Host);
+                    }
+                }
                 _attachedEvents.RemoveAll(e => ReferenceEquals(e.Card, fx.Card));
                 _session.Log.Add(_session.TurnNumber, $"P{finishingPlayer}",
                     $"Until end of turn: discarded {fx.Card.Name}"
@@ -4775,7 +4788,8 @@ public partial class TableWindow : Window
                                   || InterruptRules.IsDistortionContinuum(a.Card)
                                   || InterruptRules.IsTachyonDetectionGrid(a.Card)
                                   || InterruptRules.IsAlienGroupie(a.Card)
-                                  || InterruptRules.IsAutoDestruct(a.Card);
+                                  || InterruptRules.IsAutoDestruct(a.Card)
+                                  || InterruptRules.IsVulcanMindmeld(a.Card);
                 // Kevin (etc.) may still need TargetCard nullify when used as a response
                 // Rule: 7.1.1 / 7.1.1.0.2 / 7.4.2 / 10.2.1
                 // Glossary: Emergency Transporter Armbands / Honor Challenge / battle
@@ -4787,7 +4801,8 @@ public partial class TableWindow : Window
                         || InterruptRules.IsHonorChallenge(a.Card)
                         || InterruptRules.IsDeathYell(a.Card)
                         || InterruptRules.IsRightOfVengeance(a.Card)
-                        || InterruptRules.IsParticleFountain(a.Card)))
+                        || InterruptRules.IsParticleFountain(a.Card)
+                        || InterruptRules.IsVulcanMindmeld(a.Card)))
                 {
                     TryResolveInterruptPlay(a.Card, a.Controller, isResponse: true, a.TargetCard);
                 }
@@ -14088,6 +14103,77 @@ public partial class TableWindow : Window
             return true;
         }
 
+        if (InterruptRules.IsVulcanMindmeld(card))
+        {
+            Border? targetHost = null;
+            Card? preselectedPersonnel = null;
+
+            // Direct hit-test on a crew mini in strip or board
+            var hit = InputHitTest(windowPos) as DependencyObject;
+            while (hit != null)
+            {
+                if (hit is FrameworkElement fe && fe.Tag is HostCardRef href)
+                {
+                    if (HostMatchesVulcanMindmeld(href.Host, owner))
+                    {
+                        targetHost = href.Host;
+                        int o = CardOwner(href.CardBorder);
+                        if (o == 0) o = GetBorderOwner(href.CardBorder);
+                        if (o == 0) o = 1;
+                        if (o == owner && InterruptRules.CardHasMindmeld(href.Card))
+                            preselectedPersonnel = href.Card;
+                        break;
+                    }
+                }
+                hit = ParentOf(hit);
+            }
+
+            if (targetHost == null)
+            {
+                if (_currentSnapHost != null && HostMatchesVulcanMindmeld(_currentSnapHost, owner))
+                    targetHost = _currentSnapHost;
+                else
+                    targetHost = FindTeamOrShipHostAt(windowPos, owner, InterruptRules.PlayTarget.OwnCrew, card);
+            }
+
+            if (targetHost == null)
+            {
+                var legalHosts = CollectLegalVulcanMindmeldHosts(owner);
+                if (legalHosts.Count == 0)
+                {
+                    ShowPlayError("Vulcan Mindmeld: plays on your Mindmeld personnel present with at least one other personnel.");
+                    return false;
+                }
+                if (legalHosts.Count == 1)
+                {
+                    targetHost = legalHosts[0];
+                }
+                else
+                {
+                    var hostCards = legalHosts.Select(h => h.Tag as Card).Where(c => c != null).Cast<Card>().ToList();
+                    var pickHostCard = PickCardFromList(
+                        "Vulcan Mindmeld: choose location / host of your Mindmeld personnel",
+                        hostCards, "Vulcan Mindmeld", card);
+                    if (pickHostCard == null)
+                    {
+                        ShowPlayError("Vulcan Mindmeld: cancelled — returned to hand.");
+                        return false;
+                    }
+                    targetHost = legalHosts.FirstOrDefault(h => h.Tag == pickHostCard);
+                }
+            }
+
+            if (targetHost == null)
+            {
+                ShowPlayError("Vulcan Mindmeld: no legal Mindmeld personnel present with other personnel.");
+                return false;
+            }
+
+            _interruptTargetHost = targetHost;
+            BeginPlayCardStack(card, isResponse: _stack.IsOpen, controllerOverride: owner, target: preselectedPersonnel ?? (targetHost.Tag as Card));
+            return true;
+        }
+
         if (InterruptRules.IsHugh(card))
         {
             if (_stack.IsOpen && _stack.Top != null
@@ -14335,6 +14421,8 @@ public partial class TableWindow : Window
             if (o == 0) o = owner;
             return o == owner && IsShipExposed(host);
         }
+        if (InterruptRules.IsVulcanMindmeld(interrupt))
+            return HostMatchesVulcanMindmeld(host, owner);
         var spec = PlayOnRules.Parse(interrupt);
         if (spec.Host != PlayOnRules.Host.None)
             return HostMatchesPlayOn(host, owner, spec);
@@ -15740,6 +15828,9 @@ public partial class TableWindow : Window
             case InterruptRules.Effect.AutoDestruct:
                 ApplyAutoDestruct(card, controller, r);
                 break;
+            case InterruptRules.Effect.Mindmeld:
+                ApplyVulcanMindmeld(card, controller, target);
+                break;
             case InterruptRules.Effect.SubspaceSchism:
                 _session.SuppressEndOfTurnDraw = false;
                 // next draw discard: simple flag on session via log note
@@ -15773,6 +15864,7 @@ public partial class TableWindow : Window
             and not InterruptRules.Effect.AlienGroupie
             and not InterruptRules.Effect.AutoDestruct
             and not InterruptRules.Effect.LossOfOrbit
+            and not InterruptRules.Effect.Mindmeld
             && !pendingInterrupt)
             RemoveOrphanTableCopies(card);
 
@@ -16482,6 +16574,13 @@ public partial class TableWindow : Window
                 if (GetBorderOwner(b) != owner) continue;
                 if (IsShipExposed(b)) Add(b);
             }
+            return list;
+        }
+
+        if (InterruptRules.IsVulcanMindmeld(card))
+        {
+            foreach (var b in CollectLegalVulcanMindmeldHosts(owner))
+                Add(b);
             return list;
         }
 
@@ -17647,6 +17746,18 @@ public partial class TableWindow : Window
         }
         if (EventRules.IsRedAlert(card))
             OfferYellowAlertDownload("Red Alert! left play.");
+        if (card.TemporarySkills != null)
+            ModifierRules.ClearTemporarySkills(card);
+        if (InterruptRules.IsVulcanMindmeld(card))
+        {
+            foreach (var ae in _attachedEvents.Where(e => ReferenceEquals(e.Card, card)).ToList())
+            {
+                if (ae.Extra != null)
+                    ModifierRules.ClearTemporarySkills(ae.Extra);
+                if (ae.Host != null)
+                    UpdateHostBadge(ae.Host);
+            }
+        }
     }
 
     private void SetHorgahnFlag(int player, bool on)
@@ -23906,6 +24017,27 @@ public partial class TableWindow : Window
                 continue;
             }
 
+            if (InterruptRules.IsVulcanMindmeld(e.Card))
+            {
+                _attachedEvents.Remove(e);
+                if (e.Extra != null)
+                {
+                    ModifierRules.ClearTemporarySkills(e.Extra);
+                    _session.Log.Add(_session.TurnNumber, $"P{owner}",
+                        $"Vulcan Mindmeld expired: temporary skills cleared from {e.Extra.Name}");
+                }
+                if (e.Host != null)
+                {
+                    var mini = FindBorderForCard(e.Card);
+                    if (mini != null)
+                        RemoveCardFromHostStack(e.Host, mini);
+                    UpdateHostBadge(e.Host);
+                }
+                SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
+                StatusText.Text = "Vulcan Mindmeld discarded at end of turn.";
+                continue;
+            }
+
             if (InterruptRules.IsAlienGroupie(e.Card) && e.Countdown > 0)
             {
                 int cd = e.Countdown;
@@ -24601,6 +24733,8 @@ public partial class TableWindow : Window
     {
         if (ae.Card != null && InterruptRules.IsLossOfOrbitalStability(ae.Card))
             return DetailStatusTone.Debuff;
+        if (ae.Card != null && InterruptRules.IsVulcanMindmeld(ae.Card))
+            return DetailStatusTone.Buff;
         return DetailStatusRules.ToneForEvent(ae.Kind, ae.Countdown);
     }
 
@@ -24739,6 +24873,14 @@ public partial class TableWindow : Window
                     DetailStatusTone.Stasis);
             }
 
+            if (card.TemporarySkills != null && card.TemporarySkills.Count > 0)
+            {
+                var skillNames = card.TemporarySkills
+                    .OrderBy(kv => kv.Key)
+                    .Select(kv => kv.Value > 1 ? $"{kv.Key}×{kv.Value}" : kv.Key);
+                string source = string.IsNullOrWhiteSpace(card.MindmeldSourceName) ? "Vulcan Mindmeld" : card.MindmeldSourceName;
+                AddDetailStatusLine($"Vulcan Mindmeld ({source}): +{string.Join(", ", skillNames)} until end of turn", DetailStatusTone.Buff);
+            }
         }
 
         // Ship: outpost repair amber timer
@@ -25337,6 +25479,186 @@ public partial class TableWindow : Window
                 + $"SHIELDS {effShields} <= 4 → {sc.Name} will be destroyed at end of owner's next turn (P{shipOwner}).",
                 RevealButtons.Ok, card.Name);
         }
+    }
+
+    private bool HostMatchesVulcanMindmeld(Border host, int owner)
+    {
+        if (host.Tag is not Card hc) return false;
+        bool isShip = IsShipCard(hc);
+        bool isFac = IsFacilityCard(hc);
+        bool isMission = IsMissionCard(hc);
+        if (!isShip && !isFac && !isMission) return false;
+
+        var myPersonnel = GetPersonnelBordersAtHost(host, ownerFilter: owner)
+            .Select(b => b.Tag as Card)
+            .Where(c => c != null)
+            .Cast<Card>()
+            .ToList();
+
+        if (myPersonnel.Count < 2) return false;
+        return myPersonnel.Any(InterruptRules.CardHasMindmeld);
+    }
+
+    private List<Border> CollectLegalVulcanMindmeldHosts(int owner)
+    {
+        var list = new List<Border>();
+        foreach (var b in TableCanvas.Children.OfType<Border>())
+        {
+            if (b.Visibility != Visibility.Visible) continue;
+            if (HostMatchesVulcanMindmeld(b, owner))
+                list.Add(b);
+        }
+        return list;
+    }
+
+    private void ApplyVulcanMindmeld(Card card, int controller, Card? target)
+    {
+        Border? host = _interruptTargetHost;
+        if (host == null && target != null)
+            host = FindBorderForCard(target);
+
+        if (host == null)
+        {
+            var legalHosts = CollectLegalVulcanMindmeldHosts(controller);
+            if (legalHosts.Count == 1)
+                host = legalHosts[0];
+            else if (legalHosts.Count > 1)
+            {
+                var hostCards = legalHosts.Select(h => h.Tag as Card).Where(c => c != null).Cast<Card>().ToList();
+                var pickHostCard = PickCardFromList(
+                    "Vulcan Mindmeld: choose location / host of your Mindmeld personnel",
+                    hostCards, "Vulcan Mindmeld", card);
+                if (pickHostCard != null)
+                    host = legalHosts.FirstOrDefault(h => h.Tag == pickHostCard);
+            }
+        }
+
+        if (host == null || !HostMatchesVulcanMindmeld(host, controller))
+        {
+            ShowPlayError("Vulcan Mindmeld: no legal Mindmeld personnel present with other personnel.");
+            ReturnInterruptToHand(card, controller);
+            return;
+        }
+
+        var myPersonnelBorders = GetPersonnelBordersAtHost(host, ownerFilter: controller);
+        var myPersonnelCards = myPersonnelBorders
+            .Select(b => b.Tag as Card)
+            .Where(c => c != null)
+            .Cast<Card>()
+            .ToList();
+
+        var mindmeldCandidates = myPersonnelCards.Where(InterruptRules.CardHasMindmeld).ToList();
+        if (mindmeldCandidates.Count == 0)
+        {
+            ShowPlayError("Vulcan Mindmeld: no personnel with Mindmeld on this host.");
+            ReturnInterruptToHand(card, controller);
+            return;
+        }
+
+        Card? mindmeldUser = null;
+        if (target != null && mindmeldCandidates.Contains(target))
+        {
+            mindmeldUser = target;
+        }
+        else if (mindmeldCandidates.Count == 1)
+        {
+            mindmeldUser = mindmeldCandidates[0];
+        }
+        else
+        {
+            mindmeldUser = PickCardFromList(
+                "Vulcan Mindmeld: choose your Mindmeld personnel",
+                mindmeldCandidates, "Vulcan Mindmeld", card);
+        }
+
+        if (mindmeldUser == null)
+        {
+            ShowPlayError("Vulcan Mindmeld: cancelled — returned to hand.");
+            ReturnInterruptToHand(card, controller);
+            return;
+        }
+
+        var otherPersonnel = myPersonnelCards.Where(p => !ReferenceEquals(p, mindmeldUser)).ToList();
+        if (otherPersonnel.Count == 0)
+        {
+            ShowPlayError("Vulcan Mindmeld requires at least one other of your personnel present.");
+            ReturnInterruptToHand(card, controller);
+            return;
+        }
+
+        Card? skillDonor = null;
+        if (otherPersonnel.Count == 1)
+        {
+            skillDonor = otherPersonnel[0];
+        }
+        else
+        {
+            skillDonor = PickCardFromList(
+                $"Vulcan Mindmeld: choose other personnel whose skills {mindmeldUser.Name} gains",
+                otherPersonnel, "Vulcan Mindmeld — choose donor", card);
+        }
+
+        if (skillDonor == null)
+        {
+            ShowPlayError("Vulcan Mindmeld: cancelled — returned to hand.");
+            ReturnInterruptToHand(card, controller);
+            return;
+        }
+
+        // Evaluate donor's skills in context
+        var allPresentCards = GetAllCardsOnHost(host, controller);
+        var donorResolved = ModifierRules.ResolvePersonnel(
+            skillDonor,
+            allPresentCards,
+            controller,
+            DisabledSkillsOnHost(host),
+            LoseFirstListedOnHost(host));
+
+        var skillsToCopy = donorResolved.Skills;
+        if (skillsToCopy.Count == 0)
+        {
+            skillsToCopy = MissionRules.ParsePersonnelSkills(skillDonor);
+        }
+
+        ModifierRules.GrantTemporarySkills(mindmeldUser, skillsToCopy, skillDonor.Name);
+
+        var mini = CreateFloatingCard(card);
+        mini.Visibility = Visibility.Collapsed;
+        if (!TableCanvas.Children.Contains(mini))
+            TableCanvas.Children.Add(mini);
+        AddCardToHostStack(host, mini);
+        UpdateHostBadge(host);
+
+        _attachedEvents.Add(new AttachedEvent
+        {
+            Card = card,
+            Kind = EventRules.Persist.None,
+            Owner = controller,
+            Host = host,
+            Extra = mindmeldUser,
+            Countdown = 0
+        });
+
+        TurnExpiry.Register(_session, new ExpiringEffect
+        {
+            Key = $"VulcanMindmeld|{card.InstanceId}",
+            Owner = controller,
+            Card = card,
+            Verb = "Discard",
+            Note = $"Vulcan Mindmeld on {mindmeldUser.Name}"
+        });
+
+        var copiedSummary = string.Join(", ", skillsToCopy.Select(kv => kv.Value > 1 ? $"{kv.Key}×{kv.Value}" : kv.Key));
+        StatusText.Text = $"Vulcan Mindmeld: {mindmeldUser.Name} gains {skillDonor.Name}'s skills ({copiedSummary}) until end of turn.";
+        _session.Log.Add(_session.TurnNumber, $"P{controller}",
+            $"Vulcan Mindmeld: {mindmeldUser.Name} gained skills from {skillDonor.Name} ({copiedSummary}) until end of turn.");
+
+        ShowCardReveal(card, "Vulcan Mindmeld",
+            $"Plays on your Mindmeld personnel: {mindmeldUser.Name}.\n\n"
+            + $"Gains all skills of {skillDonor.Name} until end of turn:\n"
+            + $"+ {copiedSummary}\n\n"
+            + "At end of turn, Vulcan Mindmeld is discarded.",
+            RevealButtons.Ok, card.Name);
     }
 
     /// <summary>
@@ -27335,6 +27657,11 @@ public partial class TableWindow : Window
             if (countdown > 0)
                 effect += $"  ·  COUNTER {countdown}";
             return effect;
+        }
+
+        if (InterruptRules.IsVulcanMindmeld(card))
+        {
+            return "Mindmeld personnel gains skills of other personnel present until end of turn";
         }
 
         // No card.Name here — DetailName is the only name channel.

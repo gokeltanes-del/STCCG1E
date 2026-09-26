@@ -101,6 +101,14 @@ public class Card
     [JsonIgnore]
     public List<string>? FrameSkills { get; set; }
 
+    /// <summary>Temporary skills granted until end of turn (e.g. Vulcan Mindmeld).</summary>
+    [JsonIgnore]
+    public Dictionary<string, int>? TemporarySkills { get; set; }
+
+    /// <summary>Source name/label of granted temporary skills (e.g. "Dr. Selar").</summary>
+    [JsonIgnore]
+    public string? MindmeldSourceName { get; set; }
+
     /// <summary>Multi-affiliation current mode (FED/ROM/…). Empty = not chosen yet.</summary>
     [JsonIgnore]
     public string? CurrentAffiliation { get; set; }

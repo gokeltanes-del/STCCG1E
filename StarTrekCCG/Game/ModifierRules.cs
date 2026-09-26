@@ -385,6 +385,21 @@ public static class ModifierRules
                 str - before, owner));
         }
 
+        // Temporary skills (e.g. Vulcan Mindmeld)
+        if (subject.TemporarySkills != null && subject.TemporarySkills.Count > 0)
+        {
+            foreach (var kv in subject.TemporarySkills)
+            {
+                skills[kv.Key] = skills.GetValueOrDefault(kv.Key) + kv.Value;
+                applied.Add(new Modifier(
+                    subject.MindmeldSourceName ?? "Vulcan Mindmeld",
+                    ModifierKind.SkillGrant,
+                    kv.Key,
+                    kv.Value,
+                    owner));
+            }
+        }
+
         ApplySkillDisables(skills, applied, disabledSkills, owner);
         if (loseFirstListedSkill)
             ApplyFirstListedSkillLoss(skills, applied, subject, owner);
@@ -455,6 +470,25 @@ public static class ModifierRules
         if (present == null)
             return MissionRules.ParseAttributes(personnel).str;
         return ResolvePersonnel(personnel, present, owner).Strength;
+    }
+
+    /// <summary>Grants temporary skills (e.g. Vulcan Mindmeld) until end of turn.</summary>
+    public static void GrantTemporarySkills(Card target, IReadOnlyDictionary<string, int> skillsToGrant, string sourceName = "Vulcan Mindmeld")
+    {
+        target.TemporarySkills ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var kv in skillsToGrant)
+        {
+            target.TemporarySkills[kv.Key] = target.TemporarySkills.GetValueOrDefault(kv.Key) + kv.Value;
+        }
+        target.MindmeldSourceName = sourceName;
+    }
+
+    /// <summary>Clears temporary skills granted until end of turn (e.g. Vulcan Mindmeld expiry).</summary>
+    public static void ClearTemporarySkills(Card target)
+    {
+        target.TemporarySkills?.Clear();
+        target.TemporarySkills = null;
+        target.MindmeldSourceName = null;
     }
 
     private static bool NamesMatch(string a, string b)

@@ -98,6 +98,7 @@ public static class InterruptRules
     public static bool IsDeathYell(Card? c) => NameIs(c, "Klingon Death Yell");
     public static bool IsRightOfVengeance(Card? c) => NameIs(c, "Klingon Right of Vengeance");
     public static bool IsFullPlanetScan(Card? c) => NameIs(c, "Full Planet Scan");
+    public static bool IsScan(Card? c) => NameIs(c, "Scan");
     public static bool IsTachyonDetectionGrid(Card? c) => NameIs(c, "Tachyon Detection Grid");
 
     public static bool IsIncomingMessage(Card? c) =>
@@ -121,6 +122,19 @@ public static class InterruptRules
     public static bool IsLossOfOrbitalStability(Card? c) => NameIs(c, "Loss of Orbital Stability");
     public static bool IsNearWarpTransport(Card? c) => NameIs(c, "Near-Warp Transport");
     public static bool IsParticleFountain(Card? c) => NameIs(c, "Particle Fountain");
+    public static bool IsVulcanMindmeld(Card? c) => NameIs(c, "Vulcan Mindmeld");
+
+    public static bool CardHasMindmeld(Card? c)
+    {
+        if (c == null) return false;
+        if (!CardKinds.IsPersonnel(c) && !ModifierRules.IsPersonnelCard(c)) return false;
+        if (c.TemporarySkills != null && c.TemporarySkills.ContainsKey("Mindmeld")) return true;
+        var skills = MissionRules.ParsePersonnelSkills(c);
+        if (skills.ContainsKey("Mindmeld")) return true;
+        return (c.Text ?? "").Contains("Mindmeld", StringComparison.OrdinalIgnoreCase);
+    }
+    public static bool IsTemporalRift(Card? c) => NameIs(c, "Temporal Rift");
+    public static bool IsTheJuggler(Card? c) => NameIs(c, "The Juggler");
 
     /// <summary>Extract Slice 2: pair gate â€” need two Wormholes in hand to start the first.</summary>
     public static bool CanStartWormholePair(int wormholesInHand) => wormholesInHand >= 2;
@@ -207,7 +221,8 @@ public static class InterruptRules
         if (n.Equals("Near-Warp Transport", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Distortion of Space/Time Continuum", StringComparison.OrdinalIgnoreCase)
             || n.Equals("Auto-Destruct Sequence", StringComparison.OrdinalIgnoreCase)
-            || n.Equals("Full Planet Scan", StringComparison.OrdinalIgnoreCase))
+            || n.Equals("Full Planet Scan", StringComparison.OrdinalIgnoreCase)
+            || IsScan(card))
             return PlayTarget.OwnShip;
 
         if (IsIncomingMessage(card) || IsHugh(card))
@@ -417,7 +432,7 @@ public static class InterruptRules
                 Effect = Effect.TemporalRift,
                 DiscardAfter = false,
                 Countdown = 2,
-                Message = "Plays on table as a universal space time location; relocate one of your exposed ships OR a dilemma here. Counts down only at the start of your turn. When nullified, return that card."
+                Message = "Plays on table as a universal space time location; relocate one of your exposed ships OR a dilemma here. Counts down only at the start of your turn. When nullified, return that ship or dilemma to its former location."
             },
             "The Juggler" => new Result
             {
@@ -483,7 +498,7 @@ public static class InterruptRules
                 Kind = Kind.AttachShip,
                 Effect = Effect.Tachyon,
                 DiscardAfter = false,
-                Message = "If you control four ships in play (cloaked count): plays on a cloaked ship. Force de-cloak; may not cloak rest of turn. Phased is not cloaked."
+                Message = "If you control four exposed ships, plays on a cloaked ship. It de-cloaks (even if it is stopped or has cloaked this turn). It may not cloak."
             },
             "Distortion of Space/Time Continuum" => new Result
             {
@@ -699,11 +714,14 @@ public static class InterruptRules
         bool sameLocation,
         bool emptyOfPersonnel,
         bool exposed) =>
-        isShip && isAnotherShip && sameLocation && emptyOfPersonnel && exposed;
+        ShipRules.CanBeShipSeizureVictim(isShip, isAnotherShip, sameLocation, emptyOfPersonnel, exposed).ok;
 
     /// <summary>DE mini-test: Tractor gate + victim gates. Null = OK.</summary>
     public static string? VerifyShipSeizureDecide()
     {
+        var srErr = ShipRules.VerifyShipRules();
+        if (srErr != null) return "ShipRules failure: " + srErr;
+
         if (!IsLegalShipSeizureTractor(true, true, true))
             return "own tractor ship should be legal";
         if (IsLegalShipSeizureTractor(true, true, false))
@@ -849,6 +867,161 @@ public static class InterruptRules
         var resSpace = TimingRules.CanRespond(pf, topSpace, 1);
         if (resSpace.ok)
             return "TimingRules.CanRespond should fail on Space mission";
+
+        return null;
+    }
+
+    /// <summary>
+    /// Vulcan Mindmeld (Premiere 354 C):
+    /// "Plays on your Mindmeld personnel. Personnel gains the skills of one of your other personnel present until end of turn. At end of turn, discard interrupt."
+    /// </summary>
+    public static (bool ok, string reason) CanPlayVulcanMindmeld(
+        bool isPersonnel,
+        bool isOwnPersonnel,
+        bool targetHasMindmeld,
+        int otherPresentPersonnelCount)
+    {
+        if (!isPersonnel)
+            return (false, "Plays on your Mindmeld personnel (target must be personnel).");
+        if (!isOwnPersonnel)
+            return (false, "Plays on your Mindmeld personnel (must be your own personnel).");
+        if (!targetHasMindmeld)
+            return (false, "Plays on your Mindmeld personnel (personnel must have Mindmeld).");
+        if (otherPresentPersonnelCount < 1)
+            return (false, "Vulcan Mindmeld requires at least one other of your personnel present.");
+        return (true, "Valid target and presence for Vulcan Mindmeld.");
+    }
+
+    /// <summary>DE mini-test for Vulcan Mindmeld gates and temporary skill grant/expiry. Null = OK.</summary>
+    public static string? VerifyVulcanMindmeldDecide()
+    {
+        var valid = CanPlayVulcanMindmeld(isPersonnel: true, isOwnPersonnel: true, targetHasMindmeld: true, otherPresentPersonnelCount: 1);
+        if (!valid.ok) return "valid Mindmeld target with 1 other present should pass: " + valid.reason;
+
+        var validMulti = CanPlayVulcanMindmeld(isPersonnel: true, isOwnPersonnel: true, targetHasMindmeld: true, otherPresentPersonnelCount: 3);
+        if (!validMulti.ok) return "valid Mindmeld target with 3 other present should pass: " + validMulti.reason;
+
+        var notPers = CanPlayVulcanMindmeld(isPersonnel: false, isOwnPersonnel: true, targetHasMindmeld: true, otherPresentPersonnelCount: 1);
+        if (notPers.ok) return "non-personnel target should fail";
+
+        var notOwn = CanPlayVulcanMindmeld(isPersonnel: true, isOwnPersonnel: false, targetHasMindmeld: true, otherPresentPersonnelCount: 1);
+        if (notOwn.ok) return "opponent personnel target should fail";
+
+        var noMindmeld = CanPlayVulcanMindmeld(isPersonnel: true, isOwnPersonnel: true, targetHasMindmeld: false, otherPresentPersonnelCount: 1);
+        if (noMindmeld.ok) return "personnel without Mindmeld should fail";
+
+        var noOther = CanPlayVulcanMindmeld(isPersonnel: true, isOwnPersonnel: true, targetHasMindmeld: true, otherPresentPersonnelCount: 0);
+        if (noOther.ok) return "no other personnel present should fail";
+
+        // Verify CardHasMindmeld detection
+        var taurik = new Card { Name = "Taurik", Type = "Personnel", Class = "ENGINEER", Text = "ENGINEER Mindmeld" };
+        var geordi = new Card { Name = "Geordi La Forge", Type = "Personnel", Class = "ENGINEER", Text = "ENGINEER Navigation" };
+        var selar = new Card { Name = "Dr. Selar", Type = "Personnel", Class = "MEDICAL", Text = "MEDICAL Computer Skill Mindmeld" };
+
+        if (!CardHasMindmeld(taurik)) return "Taurik should have Mindmeld";
+        if (CardHasMindmeld(geordi)) return "Geordi should not have Mindmeld";
+        if (!CardHasMindmeld(selar)) return "Dr. Selar should have Mindmeld";
+
+        // Verify skill granting and clearing via ModifierRules
+        var selarSkills = MissionRules.ParsePersonnelSkills(selar);
+        ModifierRules.GrantTemporarySkills(taurik, selarSkills, "Dr. Selar");
+        var ep = ModifierRules.ResolvePersonnel(taurik, new[] { taurik, selar }, 1);
+
+        if (ep.Skills.GetValueOrDefault("ENGINEER") < 1) return "Taurik should retain ENGINEER";
+        if (ep.Skills.GetValueOrDefault("MEDICAL") < 1) return "Taurik should gain MEDICAL from Selar";
+        if (ep.Skills.GetValueOrDefault("Computer Skill") < 1) return "Taurik should gain Computer Skill from Selar";
+        if (ep.Skills.GetValueOrDefault("Mindmeld") < 2) return "Taurik should have Mindmeld x 2 (own + Selar)";
+
+        ModifierRules.ClearTemporarySkills(taurik);
+        var epAfter = ModifierRules.ResolvePersonnel(taurik, new[] { taurik, selar }, 1);
+        if (epAfter.Skills.ContainsKey("MEDICAL")) return "Taurik should not have MEDICAL after expiry";
+        if (epAfter.Skills.GetValueOrDefault("Mindmeld") != 1) return "Taurik should have Mindmeld x 1 after expiry";
+
+        return null;
+    }
+
+    /// <summary>
+    /// Temporal Rift (Premiere 140 U / 322 C):
+    /// "Plays on table as a [Univ][S] time location; relocate one of your exposed ships OR a dilemma here.
+    /// Counts down only at the start of your turn. When nullified, return that ship or dilemma to its former location."
+    /// Rulings:
+    /// - "This interrupt is not a valid response to battle or a dilemma, and may not be used to 'escape' them."
+    /// - exposed: undocked, uncloaked, unphased, not landed/carried.
+    /// </summary>
+    public static (bool ok, string reason) CanPlayTemporalRift(
+        bool inBattleOrDilemma,
+        bool hasExposedShipOrDilemma)
+    {
+        if (inBattleOrDilemma)
+            return (false, "Temporal Rift is not a valid response to battle or a dilemma, and may not be used to escape them.");
+        if (!hasExposedShipOrDilemma)
+            return (false, "Temporal Rift requires one of your exposed ships or a dilemma in play.");
+        return (true, "Plays on table as a universal space time location; relocate one of your exposed ships OR a dilemma here.");
+    }
+
+    /// <summary>DE mini-test for Temporal Rift decide rules. Null = OK.</summary>
+    public static string? VerifyTemporalRiftDecide()
+    {
+        var tr = new Card { Name = "Temporal Rift", Type = "Interrupt" };
+
+        var valid = CanPlayTemporalRift(inBattleOrDilemma: false, hasExposedShipOrDilemma: true);
+        if (!valid.ok)
+            return "valid Temporal Rift play should pass: " + valid.reason;
+
+        var battle = CanPlayTemporalRift(inBattleOrDilemma: true, hasExposedShipOrDilemma: true);
+        if (battle.ok)
+            return "Temporal Rift during battle or dilemma should fail";
+
+        var noTarget = CanPlayTemporalRift(inBattleOrDilemma: false, hasExposedShipOrDilemma: false);
+        if (noTarget.ok)
+            return "Temporal Rift with no legal ship or dilemma should fail";
+
+        // TimingRules.CanRespond check
+        var battleAction = new TimingRules.PendingAction
+        {
+            Kind = TimingRules.ActionKind.InitiateShipBattle,
+            Controller = 1
+        };
+        var resBattle = TimingRules.CanRespond(tr, battleAction, 1);
+        if (resBattle.ok)
+            return "TimingRules.CanRespond should reject Temporal Rift responding to battle";
+
+        var dilemmaAction = new TimingRules.PendingAction
+        {
+            Kind = TimingRules.ActionKind.EncounterDilemma,
+            Controller = 1
+        };
+        var resDilemma = TimingRules.CanRespond(tr, dilemmaAction, 1);
+        if (resDilemma.ok)
+            return "TimingRules.CanRespond should reject Temporal Rift responding to dilemma";
+
+        // Exposed ship rules check (from ShipRules.IsShipExposed)
+        if (!ShipRules.IsShipExposed(isDocked: false, isCloaked: false, isPhased: false, isLanded: false, isCarried: false))
+            return "undocked, uncloaked, unphased, not landed, not carried should be exposed";
+        if (ShipRules.IsShipExposed(isDocked: true, isCloaked: false, isPhased: false, isLanded: false, isCarried: false))
+            return "docked ship should not be exposed";
+        if (ShipRules.IsShipExposed(isDocked: false, isCloaked: true, isPhased: false, isLanded: false, isCarried: false))
+            return "cloaked ship should not be exposed";
+
+        // SpacelineLocationRules check
+        var ttp = new Card { Name = "Time Travel Pod", Type = "Artifact" };
+        var mission = new Card { Name = "Test Mission", Type = "Mission" };
+        if (!SpacelineLocationRules.IsTimeLocation(tr))
+            return "Temporal Rift should be recognized as a time location";
+        if (!SpacelineLocationRules.IsTimeLocation(ttp))
+            return "Time Travel Pod should be recognized as a time location";
+        if (SpacelineLocationRules.IsTimeLocation(mission))
+            return "Standard mission should not be recognized as a time location";
+        if (!SpacelineLocationRules.PlaysAsSpacelineLocation(tr))
+            return "Temporal Rift plays as a spaceline location";
+        if (!SpacelineLocationRules.PlaysAsSpacelineLocation(ttp))
+            return "Time Travel Pod plays as a spaceline location";
+        if (SpacelineLocationRules.PlaysAsSpacelineLocation(mission))
+            return "Standard mission does not 'play as' a spaceline location (it is printed mission)";
+
+        var spacelineErr = SpacelineLocationRules.VerifySpacelineLocationRules();
+        if (spacelineErr != null)
+            return "SpacelineLocationRules failure: " + spacelineErr;
 
         return null;
     }

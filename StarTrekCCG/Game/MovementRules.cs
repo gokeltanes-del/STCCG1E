@@ -186,12 +186,15 @@ public static class MovementRules
 
     /// <summary>
     /// Printed special equipment from ship Text comma-list before sentence gametext
-    /// (e.g. Galaxy: "Holodeck, Tractor Beam").
+    /// (e.g. Galaxy: "Holodeck, Tractor Beam") or Characteristics.
     /// </summary>
     public static bool ShipHasSpecialEquipment(Card ship, string equipmentName)
     {
         if (ship == null || string.IsNullOrWhiteSpace(equipmentName))
             return false;
+        if (!string.IsNullOrWhiteSpace(ship.Characteristics) &&
+            ship.Characteristics.Contains(equipmentName, StringComparison.OrdinalIgnoreCase))
+            return true;
         string t = (ship.Text ?? "").Replace("\r\n", "\n").Replace('\r', '\n').Trim();
         if (string.IsNullOrEmpty(t))
             return false;

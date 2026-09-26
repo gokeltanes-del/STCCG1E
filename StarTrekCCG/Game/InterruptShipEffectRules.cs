@@ -35,17 +35,63 @@ public static class InterruptShipEffectRules
     }
 
     /// <summary>
-    /// Tachyon Detection Grid (Spock 2026-09-05): need >=4 Controller ships in play
-    /// (cloaked count). Target must be cloaked (Phased is not cloaked).
+    /// Tachyon Detection Grid (Premiere 318 U):
+    /// "If you control four exposed ships, plays on a cloaked ship. It de-cloaks (even if it is stopped or has cloaked this turn). It may not cloak."
+    /// Exposed = undocked, uncloaked, unphased, not landed, not carried (ShipRules.IsShipExposed).
+    /// Target must be cloaked (Phased is not cloaked).
     /// Null = force-decloak + lock rest of turn.
     /// </summary>
-    public static string? TachyonDeny(int controllerShipsInPlay, bool targetIsCloaked)
+    public static string? TachyonDeny(int exposedShipsInPlay, bool targetIsCloaked)
     {
-        if (controllerShipsInPlay < 4)
-            return "Tachyon Detection Grid: you must control four ships in play (have "
-                   + controllerShipsInPlay + ").";
+        if (exposedShipsInPlay < 4)
+            return "Tachyon Detection Grid: you must control four exposed ships in play (have "
+                   + exposedShipsInPlay + ").";
         if (!targetIsCloaked)
             return "Tachyon Detection Grid: play on a cloaked ship (Phased is not cloaked).";
+        return null;
+    }
+
+    /// <summary>
+    /// Scan (Premiere 295 C):
+    /// "Plays at the start of your turn on your ship with at least two staffing icons at a [S] mission. Stop your Computer Skill and Stellar Cartography aboard to examine the bottom seed card here."
+    /// </summary>
+    public static string? ScanDeny(
+        bool hostIsShip,
+        bool isYours,
+        bool isSpaceMission,
+        bool has2StaffingIcons,
+        bool hasSeedCards,
+        bool hasComputerSkill,
+        bool hasStellarCartography)
+    {
+        if (!hostIsShip) return "Scan: play on your ship with at least two staffing icons at a [S] mission.";
+        if (!isYours) return "Scan: must be your ship.";
+        if (!isSpaceMission) return "Scan: ship must be at a [S] mission.";
+        if (!has2StaffingIcons) return "Scan: ship needs at least two staffing icons (printed [Cmd]/[Stf]).";
+        if (!hasSeedCards) return "Scan: no seed cards under this mission.";
+        if (!hasComputerSkill || !hasStellarCartography) return "Scan: need Computer Skill and Stellar Cartography aboard (unstopped).";
+        return null;
+    }
+
+    /// <summary>
+    /// Full Planet Scan (Premiere 117 U):
+    /// "Plays at the start of your turn on your ship with at least two staffing icons at a [P] mission. Stop your Computer Skill and Geology aboard to examine the bottom seed card here."
+    /// </summary>
+    public static string? FullPlanetScanDeny(
+        bool hostIsShip,
+        bool isYours,
+        bool isPlanetMission,
+        bool has2StaffingIcons,
+        bool hasSeedCards,
+        bool hasComputerSkill,
+        bool hasGeology)
+    {
+        if (!hostIsShip) return "Full Planet Scan: play on your ship at a planet mission.";
+        if (!isYours) return "Full Planet Scan: must be your ship.";
+        if (!isPlanetMission) return "Full Planet Scan: ship must be at a planet mission.";
+        if (!has2StaffingIcons) return "Full Planet Scan: ship needs at least two staffing icons (printed [Cmd]/[Stf]).";
+        if (!hasSeedCards) return "Full Planet Scan: no seed cards under this mission.";
+        if (!hasComputerSkill || !hasGeology) return "Full Planet Scan: need Computer Skill and Geology aboard (unstopped).";
         return null;
     }
 
@@ -115,6 +161,46 @@ public static class InterruptShipEffectRules
             return "empty ship should fail NearWarpTransportDeny";
         if (NearWarpTransportDeny(true, true, true, true, 1, false) == null)
             return "no adjacent location should fail NearWarpTransportDeny";
+        return null;
+    }
+
+    /// <summary>
+    /// Mini-test for Tachyon Detection Grid gates. Null = OK.
+    /// </summary>
+    public static string? VerifyTachyonDecide()
+    {
+        if (TachyonDeny(4, true) != null)
+            return "4 exposed ships and cloaked target should pass TachyonDeny";
+        if (TachyonDeny(5, true) != null)
+            return "5 exposed ships and cloaked target should pass TachyonDeny";
+        if (TachyonDeny(3, true) == null)
+            return "3 exposed ships should fail TachyonDeny";
+        if (TachyonDeny(4, false) == null)
+            return "uncloaked target should fail TachyonDeny";
+        return null;
+    }
+
+    /// <summary>
+    /// Mini-test for Scan gates. Null = OK.
+    /// </summary>
+    public static string? VerifyScanDecide()
+    {
+        if (ScanDeny(true, true, true, true, true, true, true) != null)
+            return "valid ship and space mission should pass ScanDeny";
+        if (ScanDeny(false, true, true, true, true, true, true) == null)
+            return "non-ship should fail ScanDeny";
+        if (ScanDeny(true, false, true, true, true, true, true) == null)
+            return "opponent ship should fail ScanDeny";
+        if (ScanDeny(true, true, false, true, true, true, true) == null)
+            return "planet mission should fail ScanDeny";
+        if (ScanDeny(true, true, true, false, true, true, true) == null)
+            return "less than 2 staffing icons should fail ScanDeny";
+        if (ScanDeny(true, true, true, true, false, true, true) == null)
+            return "no seed cards should fail ScanDeny";
+        if (ScanDeny(true, true, true, true, true, false, true) == null)
+            return "missing Computer Skill should fail ScanDeny";
+        if (ScanDeny(true, true, true, true, true, true, false) == null)
+            return "missing Stellar Cartography should fail ScanDeny";
         return null;
     }
 }

@@ -268,6 +268,11 @@ public static class TimingRules
     {
         string n = (response.Name ?? "").Trim();
 
+        if (InterruptRules.IsTemporalRift(response))
+        {
+            return (false, "Temporal Rift is not a valid response to battle or a dilemma, and may not be used to escape them.");
+        }
+
         if (n.Equals("Amanda Rogers", StringComparison.OrdinalIgnoreCase))
         {
             if (top.Kind != ActionKind.PlayCard || top.Card == null)
@@ -604,7 +609,7 @@ public static class TimingRules
         if (card == null) return false;
         if (HasStartOfTurnPlayPhrase(card)) return true;
         // First consumer (Premiere) until more phrase cards share the window.
-        return InterruptRules.IsFullPlanetScan(card);
+        return InterruptRules.IsFullPlanetScan(card) || InterruptRules.IsScan(card);
     }
 
     /// <summary>Gametext / text contains start-of-turn play wording.</summary>

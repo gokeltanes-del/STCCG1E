@@ -96,7 +96,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Alien Parasites (11 U) | working | Pepsch green tip Data/`79a7612` Neg-Control Fix2 (no BeamBack before chooser). | Pepsch 2026-09-19; Data/`79a7612` |
 | Anaphasic Organism (12 C) | working | Pepsch green: Fail resigns=discard, not Kill. tips Data/`502d8e0` + Fix/`3532748`. | Pepsch 2026-09-15; Data/`3532748` |
 | Ancient Computer (13 R) | working | Pepsch green: Wall 2 Computer Skill OR 3 SCIENCE OR 3 ENGINEER; Fail Stop+unter Mission. tip Data/`bb551f1`. | Pepsch 2026-09-15; Data/`bb551f1` |
-| Archer (14 C) | working | Pepsch green bestätigt: Auswertung Attribute / Opponent-Choice bei Gleichstand und Stop-Verhalten funktionieren einwandfrei. | Pepsch 2026-09-13 |
+| Archer (14 C) | working | Pepsch green bestï¿½tigt: Auswertung Attribute / Opponent-Choice bei Gleichstand und Stop-Verhalten funktionieren einwandfrei. | Pepsch 2026-09-13 |
 | Armus: Skin Of Evil (15 R) | working | Pepsch green (Captain 2026-09-19). tip Data/`31d0c73` 1 AT random Kill; discard; Rest Continue. | Pepsch 2026-09-19 |
 | Barclay's Protomorphosis Disease (16 R) | working | Pepsch getestet OK (Metamorphosis/Transformation). | Pepsch 2026-09-06 |
 | Birth of "Junior" (17 U) | working | Pepsch green: Place+Continue; cumulative RANGE Countdown tip Data/`755242c`; destroy at 0; Cure 3 ENG nullify. | Pepsch 2026-09-14; Data/`755242c` |
@@ -110,7 +110,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Firestorm (25 U) | working | Pepsch green: INT&lt;5 Kills OK, Versuch-Fortsetzung OK, Overlay EFFECT-Header OK. PARK: ETA-Escape. | Pepsch 2026-09-12 |
 | Gravitic Mine (26 U) | working | Pepsch green: Pass SCIENCE+Navigation Continue; Fail Damage + Ship/Crew stop. tip Data/`5c4f563`. | Pepsch 2026-09-15; Data/`5c4f563` |
 | Hologram Ruse (27 U) | working | Pepsch green (reconfirmed). | Pepsch 2026-09-15 |
-| Hyper-Aging (28 U) | working | Pepsch green Quarantäne+Beam-Block `46eab15`; Detailansicht Debuff-Gruppierung OK. RemFatigue PARK. | Pepsch 2026-09-12 |
+| Hyper-Aging (28 U) | working | Pepsch green Quarantï¿½ne+Beam-Block `46eab15`; Detailansicht Debuff-Gruppierung OK. RemFatigue PARK. | Pepsch 2026-09-12 |
 | Iconian Computer Weapon (29 C) | partial | tip Data/`47984b5`. Pass SCIENCE Continue; Fail Stop + Non-Pers Hand discard+draw. Ungetestet. | Data/`47984b5` 2026-09-06 |
 | Impassable Door (30 C) | working | Pepsch green (komplett); tip Data/`be5062b`. | Pepsch + Data/`be5062b` 2026-09-07 |
 | Ktarian Game (31 R) | working | Pepsch green (reconfirmed): Now + start-of-turn disable; Cure CUNNING&gt;30 or Android (ship-hosted cure present = host crew only, tip Data/`3c7ee2d`). Unit tests `VerifyKtarianGame` / `VerifyDilemmaCureRules`. | Pepsch 2026-09-15; Data/`3c7ee2d` |
@@ -118,14 +118,14 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Matriarchal Society (33 U) | working | Pepsch green: Wall &gt;=2 Female Continue; Fail Stop+unter Mission. tip Data/`d68f511`. | Pepsch 2026-09-15; Data/`d68f511` |
 | Menthar Booby Trap (34 C) | working | Pepsch green: Place immer; MED Continue else Kill+Stop; Cure 2 ENG. tip Data/`01e5bb8`. | Pepsch 2026-09-15; Data/`01e5bb8` |
 | Microbiotic Colony (35 C) | working | Pepsch green: SCI+ENG+OFF Continue; Fail Damage+Stop; immer discard. tip Data/`f8c14d5`. | Pepsch 2026-09-15; Data/`f8c14d5` |
-| Microvirus (36 C) | working | Pos+neg Choose OK. PARK: UI Dilemma-groß + 2-Fenster Chooser/Beobachter. | Pepsch 2026-09-07 |
+| Microvirus (36 C) | working | Pos+neg Choose OK. PARK: UI Dilemma-groï¿½ + 2-Fenster Chooser/Beobachter. | Pepsch 2026-09-07 |
 | Nagilum (37 R) | working | Pepsch green: 3 Diplomacy OR STR&gt;40 -&gt; +5 Continue; Fail half-kill (abrunden)+Stop. tip Data/`b16e2b8`. | Pepsch 2026-09-15; Data/`b16e2b8` |
 | Nanites (38 U) | working | Pepsch green: 2 SCIENCE OR Diplomacy -&gt; +5 Continue; Fail Damage+Stop. tip Data/`df0e3fa`. | Pepsch 2026-09-15; Data/`df0e3fa` |
 | Nausicaans (39 U) | working | Pepsch green: STR&gt;44 Continue; Fail random Kill+Stop. tip Data/`485814c`. | Pepsch 2026-09-15; Data/`485814c` |
 | Nitrium Metal Parasites (40 U) | working | Pepsch green (AttachAndContinue). | Pepsch 2026-09-06 |
 | Null Space (41 U) | working | Pepsch green: 2 Navigation -&gt; +5 Continue; Fail Damage+Stop. tip Data/`04f4bd6`. | Pepsch 2026-09-15; Data/`04f4bd6` |
-| Phased Matter (42 C) | working | Pepsch green: AT-Split, Stasis der größeren Gruppe, Weiterführung der kleineren Gruppe und Cure (ENG+SCI unphased) via zentrales Cure-System bestätigt. | Pepsch 2026-09-13 |
-| Portal Guard (43 U) | working | CUNN&gt;7/Honor Continue; Fail: BeamBack+Stop wenn Beamen möglich (Schiff/Facility vorhanden, kein Stasis/Quarantäne); Kill wenn Beamen unmöglich (z.B. Hyper-Aging Quarantäne oder kein Schiff/Facility) + unter Mission. Unit-Test `VerifyPortalGuard`. | Captain 2026-09-13 |
+| Phased Matter (42 C) | working | Pepsch green: AT-Split, Stasis der grï¿½ï¿½eren Gruppe, Weiterfï¿½hrung der kleineren Gruppe und Cure (ENG+SCI unphased) via zentrales Cure-System bestï¿½tigt. | Pepsch 2026-09-13 |
+| Portal Guard (43 U) | working | CUNN&gt;7/Honor Continue; Fail: BeamBack+Stop wenn Beamen mï¿½glich (Schiff/Facility vorhanden, kein Stasis/Quarantï¿½ne); Kill wenn Beamen unmï¿½glich (z.B. Hyper-Aging Quarantï¿½ne oder kein Schiff/Facility) + unter Mission. Unit-Test `VerifyPortalGuard`. | Captain 2026-09-13 |
 | Q (44 R) | partial | Pepsch: Smoke blockiert bis Q-Continuum Expansion. Needs Continuum foundation; tip `59b51e6` bleibt bis Continuum+Smoke. Printed LOCK; Q-Flash full verb PARK. Not working. | Pepsch 2026-09-19; Data/`59b51e6` |
 | Radioactive Garbage Scow (45 U) | working | Pepsch green: Tractor Beam attach -&gt; offset hang -&gt; Fly follow -&gt; EOT drop. tips Data through `9cd104f` (a4e4e5d/bf7a394/558fc4e/2c6a3f9/9cd104f). Spock Tractor Soll. | Pepsch 2026-09-14; Data/`9cd104f` |
 | Rebel Encounter (46 U) | working | Pepsch green: destroy Equipment path OK. tip Data/`7d649f7`. Interphase Generator nullify also OK. | Pepsch 2026-09-18; Data/`7d649f7` |
@@ -217,7 +217,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Distortion of Space/Time Continuum (113 U) | working | Pepsch green 2026-09-20 (rest OK; unstop untested). | Pepsch 2026-09-20 |
 | Emergency Transporter Armbands (114 C) | working | tips e29dec4 BeginBeamMode; 8630dc1/de0b0dd Force-Host; 8c5aaa8 Selection+Battle deferred. Pepsch 2026-09-22 ETA funktioniert (Outpost-Crew nach Destination, Kampf wartet). Stop-Bypass bewusst nicht. Folge: normal Beamen nach ETA zeigt stopped ? Spock+Data Inventur, Code geparkt bis Spock+Go. | Pepsch green |
 | Energy Vortex (115 U) | working | Pepsch green 2026-09-20. | Pepsch 2026-09-20 |
-| Escape Pod (116 C) | partial | tips Data/`5e55eef` + `7917a30`/`a3481a1` + `acc1426` + Z/`c1b622e` (Josef, no push): Response/Think Tray Z over CardDetail while open. Prior: ShipDestroyed window during battle stack; crew/personnel only; crew aboard + Pod in hand; excludes captives. Stays partial until Pepsch greens Borg-destroy -&gt; pick Pod — not working. | Data/`c1b622e` 2026-09-15 |
+| Escape Pod (116 C) | partial | tips Data/`5e55eef` + `7917a30`/`a3481a1` + `acc1426` + Z/`c1b622e` (Josef, no push): Response/Think Tray Z over CardDetail while open. Prior: ShipDestroyed window during battle stack; crew/personnel only; crew aboard + Pod in hand; excludes captives. Stays partial until Pepsch greens Borg-destroy -&gt; pick Pod ï¿½ not working. | Data/`c1b622e` 2026-09-15 |
 | Full Planet Scan (117 U) | working | tip 4f0ccce StartOfTurnWindow-Gate + tip 673f598 SoT-Effekt. Pepsch 2026-09-21 Retest gr?n (nur vor Normal Card Play; danach Deny ohne Amanda). | Pepsch green |
 | Honor Challenge (118 R) | working | tip ec905ab Responses vor Results / Nullify-vor-Kill; tip b082421 Effekt. Pepsch Gr?n komplett. | Pepsch green |
 | Hugh (119 R) | working | Pepsch green: works on Borg Ship dilemma attack (valid response). | Pepsch 2026-09-15 |
@@ -234,16 +234,16 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | Near-Warp Transport (130 U) | working | Plays to beam up to 6 cards (personnel and/or Equipment) from your exposed ship with transporters to an adjacent spaceline location. Q-Net does not break location adjacency (transports through Q-Net), but beaming obstacles apply (Rulebook 7.1.1.0.2). Space locations require own ship/facility. | Cursor Agent 2026-09-24 |
 | Palor Toff: Alien Trader (131 C) | working | Pepsch: Palor Toff funktioniert (Exchange for non-Personnel in discard pile). | Pepsch 2026-09-25 |
 | Particle Fountain (132 C) | working | Plays if your Away Team just solved a planet mission with 2 ENGINEER (effective skill, includes Kit/PADD/classification); scores 5 points. Integrated into Just-solve response stack and hand play. | Cursor Agent 2026-09-25 |
-| Q2 (133 U) | unknown |  |  |
+| Q2 (133 U) | working | Nullifies Amanda Rogers, Kevin Uxbridge, [Q] icon dilemma, or dilemma with "Q" in title. Places Q2 out-of-play. Exception under Goddess of Empathy. | working |
 | Rogue Borg (134 C) | working | Pepsch green (Rogue Borg Mercenaries). | Pepsch 2026-09-06 |
-| Scan (135 C) | unknown |  |  |
-| Ship Seizure (136 C) | working | Pepsch green: play-on = tractor host; then victim-only pick same location (empty exposed). tips Data/`7c295d7` + `3e39af8`. Spock Soll. | Pepsch 2026-09-14; Data/`3e39af8` |
+| Scan (135 C) | working | Plays at start of turn on your ship with >=2 staffing icons at [S] mission. Stop unstopped Computer Skill + Stellar Cartography aboard to examine bottom seed card. Uses PickBoardTarget on-board selection pipeline. | Cursor Agent 2026-09-25 |
+| Ship Seizure (136 C) | working | Plays on your ship with Tractor Beam. Discard another empty exposed ship here. Routed through centralized ShipRules pipeline (exposed, empty/occupied per 1 Jan 2024 ruling, tractor beam in text/characteristics). | Cursor Agent 2026-09-25 |
 | Subspace Interference (137 C) | working | Pepsch green: works vs Subspace Schism + Incoming Message. tip Data/`fb90d15` CanRespond+Apply nullify IM/Hail/Schism (stack + attached IM). Hail itself still pending smoke. | Pepsch 2026-09-17; Data/`fb90d15` |
-| Subspace Schism (138 U) | unknown |  |  |
-| Tachyon Detection Grid (139 C) | unknown |  |  |
-| Temporal Rift (140 U) | unknown |  |  |
+| Subspace Schism (138 U) | working | Plays when a player would draw a card (limit once every turn). Discards that card (player draws next card). Nullified by Subspace Interference. | working |
+| Tachyon Detection Grid (139 C) | working | If you control >=4 exposed ships (ShipRules.IsShipExposed), plays on a cloaked ship. Target de-cloaks (even if stopped or already cloaked this turn) and may not cloak rest of turn. Uses PickBoardTarget on-board selection. | Cursor Agent 2026-09-25 |
+| Temporal Rift (140 U) | working | Plays on table as a universal space time location; relocate one of your exposed ships OR a dilemma here. Counts down only at start of owner turn. When nullified (or expired), returns card to former location. Routed through SpacelineLocationRules pipeline. | Cursor Agent 2026-09-26 |
 | The Devil (141 R) | working | Pepsch green: nullify Wind Dancer. | Pepsch 2026-09-18 |
-| The Juggler (142 U) | unknown |  |  |
+| The Juggler (142 U) | working | Choose any player to re-shuffle the cards in their draw deck. RNG-based draw deck reshuffle with status feedback. | Cursor Agent 2026-09-26 |
 | Transwarp Conduit (143 U) | working | Pepsch green. | Pepsch 2026-09-06 |
 | Vulcan Mindmeld (144 U) | unknown |  |  |
 | Wormhole (145 C) | working | Pepsch green. | Pepsch 2026-09-06 |
