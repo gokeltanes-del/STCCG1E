@@ -1,3 +1,31 @@
+## 2026-09-26 — Vulcan Mindmeld (144 U) Bugfix & Generisches Buried-Target-Peek-System
+
+- *ModifierRules & Vulcan Mindmeld Bugfix (Kein Stacking auf Engineer x2)*:
+  - Equipment-Skill-Grant-Regel (1E Glossar "Equipment" & "skills — modifying"): Equipment, das eine Fähigkeit verleiht ("gain [skill]"), verleiht diese nur an Personal, das diese Fähigkeit noch nicht besitzt. In `ModifierRules.ResolvePersonnel` wurde die Prüfung `if (skills.GetValueOrDefault(def.GrantedSkill) > 0) continue;` ergänzt, sodass Data (gedruckt `ENGINEER: 1` und `OFFICER`) bei anwesendem *Engineering Kit* nicht fälschlich `ENGINEER x 2` erhält.
+  - Classification-Filterung bei Skill-Kopieren: In `TableWindow.ApplyVulcanMindmeld` wird die gedruckte Classification des Donors (`MissionRules.PrintedClassificationParts(skillDonor)`, z. B. `OFFICER` bei Data) vor der Skill-Übertragung herausgefiltert, sodass nur reguläre Skills übertragen werden.
+  - Saubere Initialisierung temporärer Skills: `ModifierRules.GrantTemporarySkills` erzeugt stets ein frisches Dictionary, um Nebeneffekte durch Mehrfachaufrufe auszuschließen.
+- *Generisches Buried-Target-Peek- und Drop-System*:
+  - Generische Erkennung verdeckter Ziele: `TargetQuery.IsCardTargetingBuried` erkennt neben *Vulcan Mindmeld* und *Disruptor Overload* per Regex alle Karten mit Zielformulierungen auf Personal, Equipment oder Mindmeld (`plays on ... personnel/equipment/mindmeld`).
+  - Erweiterung von `WantsBuriedPeek` und `CanTarget`: Ermöglicht Stack-Peek beim Draggen über Wirtselemente (Schiffe, Außenposten/Facilities, Planeten/Missionen mit Away Teams).
+  - Hover & Detailfenster-Anzeige (`IsLegalPeekTarget`, `BuriedLegalOn`, `FindHostUnderWindow`, `UpdatePeekSnapAt`):
+    - Beim Halten über einem Wirt mit legalen Zielen öffnet sich nach 1s Haltezeit das Detailfenster (`CardDetailOverlay`).
+    - Legale Ziele im Stapel leuchten cyan auf (`Color.FromRgb(80, 220, 255)`).
+    - Beim Bewegen über das Mini rastet der Snap ein (`Color.FromRgb(40, 255, 120)` grün).
+    - SnapSite erzeugt für Play-On-Karten saubere Status-Meldungen (`Play on {hit.Name}`).
+  - Drop-Unterstützung für Hand- und entsperrte Sidedeck-Karten (`ZoneMini_MouseUp`):
+    - `isHandOrUnlockedSide` integriert (gilt für Hand und entsperrte Sidedecks wie *Q's Tent*).
+    - Bei Vulcan Mindmeld: Droppen auf ein Personal im Detailfenster übernimmt dieses direkt als `preselectedPersonnel` (überspringt den Auswahldialog für den Mindmeld-Anwender) und schließt das Detailfenster sauber.
+    - Bei Events: Ermittelt bei offenem Detailfenster das Ziel bzw. den Wirt (`_eventPreferredHost`), schließt das Detailfenster und platziert das Event regelkonform.
+    - Bei Disruptor Overload: Droppen auf ein konkretes Equipment zerstört dieses direkt (`RemoveEquipmentFromHost`).
+- *Tests & Verifikation*:
+  - `InterruptRules.VerifyVulcanMindmeldDecide` um vollständigen Sarek/Data/Engineering Kit-Fall erweitert:
+    - Data behält `ENGINEER = 1` trotz anwesendem `Engineering Kit`.
+    - Sarek erhält via Mindmeld `ENGINEER = 1` (nicht 2), `Computer Skill = 2`, `Music = 1`, `Astrophysics = 1`, `Exobiology = 1`.
+    - Sarek behält seine eigenen Skills `Diplomacy = 3` und `Mindmeld = 1`.
+    - Sarek erhält kein `OFFICER`.
+    - Nach Expiry sind alle temporären Skills sauber bereinigt.
+  - In `ShipRules.VerifyShipRules` eingehängt und verifiziert.
+
 ## 2026-09-26 — Interrupt Temporal Rift (140 U) & The Juggler (142 U)
 
 - *SpacelineLocationRules* (Neue Architektur-Pipeline):

@@ -353,13 +353,16 @@ public static class ModifierRules
 
         // Skill grants: one matching equipment covers all of RequiredClass present.
         // Multiple kits do NOT stack extra levels on one personnel.
+        // Equipment that grants a skill ("gain [skill]") only grants it if the personnel lacks it (1E Glossary).
         foreach (var def in SkillEquipment)
         {
             if (!subjectClass.Equals(def.RequiredClass, StringComparison.OrdinalIgnoreCase))
                 continue;
             var match = yourEquipment.FirstOrDefault(eq => NamesMatch(eq.Name ?? "", def.Name));
             if (match == null) continue;
-            skills[def.GrantedSkill] = skills.GetValueOrDefault(def.GrantedSkill) + 1;
+            if (skills.GetValueOrDefault(def.GrantedSkill) > 0)
+                continue;
+            skills[def.GrantedSkill] = 1;
             applied.Add(new Modifier(match.Name ?? def.Name, ModifierKind.SkillGrant, def.GrantedSkill, 1, owner));
         }
 
@@ -475,10 +478,10 @@ public static class ModifierRules
     /// <summary>Grants temporary skills (e.g. Vulcan Mindmeld) until end of turn.</summary>
     public static void GrantTemporarySkills(Card target, IReadOnlyDictionary<string, int> skillsToGrant, string sourceName = "Vulcan Mindmeld")
     {
-        target.TemporarySkills ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        target.TemporarySkills = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         foreach (var kv in skillsToGrant)
         {
-            target.TemporarySkills[kv.Key] = target.TemporarySkills.GetValueOrDefault(kv.Key) + kv.Value;
+            target.TemporarySkills[kv.Key] = kv.Value;
         }
         target.MindmeldSourceName = sourceName;
     }

@@ -245,7 +245,7 @@ Source JSON: `artifacts/sample_data/PR/cards.json`
 | The Devil (141 R) | working | Pepsch green: nullify Wind Dancer. | Pepsch 2026-09-18 |
 | The Juggler (142 U) | working | Choose any player to re-shuffle the cards in their draw deck. RNG-based draw deck reshuffle with status feedback. | Cursor Agent 2026-09-26 |
 | Transwarp Conduit (143 U) | working | Pepsch green. | Pepsch 2026-09-06 |
-| Vulcan Mindmeld (144 U) | unknown |  |  |
+| Vulcan Mindmeld (144 U) | partial | Plays on your Mindmeld personnel. Gains skills of another personnel present until end of turn. Equipment skill-grant non-stacking fix (no duplicate ENGINEER with kit), classification filter, generic buried-target hover peek & drop system. | Cursor Agent 2026-09-26 |
 | Wormhole (145 C) | working | Pepsch green. | Pepsch 2026-09-06 |
 
 ### Mission
