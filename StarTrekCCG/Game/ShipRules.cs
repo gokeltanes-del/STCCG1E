@@ -231,6 +231,10 @@ public static class ShipRules
         var riftErr = InterruptRules.VerifyTemporalRiftDecide();
         if (riftErr != null) return "TemporalRiftDecide failure: " + riftErr;
 
+        // 10. Vulcan Mindmeld decide rules (including Sarek/Data Engineer kit non-stacking check)
+        var vmErr = InterruptRules.VerifyVulcanMindmeldDecide();
+        if (vmErr != null) return "VulcanMindmeldDecide failure: " + vmErr;
+
         return null;
     }
 }

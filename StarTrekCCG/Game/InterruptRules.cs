@@ -123,6 +123,7 @@ public static class InterruptRules
     public static bool IsNearWarpTransport(Card? c) => NameIs(c, "Near-Warp Transport");
     public static bool IsParticleFountain(Card? c) => NameIs(c, "Particle Fountain");
     public static bool IsVulcanMindmeld(Card? c) => NameIs(c, "Vulcan Mindmeld");
+    public static bool IsDisruptorOverload(Card? c) => NameIs(c, "Disruptor Overload");
 
     public static bool CardHasMindmeld(Card? c)
     {
@@ -936,6 +937,47 @@ public static class InterruptRules
         var epAfter = ModifierRules.ResolvePersonnel(taurik, new[] { taurik, selar }, 1);
         if (epAfter.Skills.ContainsKey("MEDICAL")) return "Taurik should not have MEDICAL after expiry";
         if (epAfter.Skills.GetValueOrDefault("Mindmeld") != 1) return "Taurik should have Mindmeld x 1 after expiry";
+
+        // Verify Sarek & Data scenario with Engineering Kit present (prevent duplicate ENGINEER x 2)
+        var sarek = new Card { Name = "Sarek", Type = "Personnel", Class = "V.I.P.", Text = "V.I.P. Diplomacy x 3 Mindmeld" };
+        var data = new Card { Name = "Data", Type = "Personnel", Class = "OFFICER", Text = "OFFICER ENGINEER Computer Skill x 2 Music Astrophysics Exobiology" };
+        var engKit = new Card { Name = "Engineering Kit", Type = "Equipment", Text = "Your OFFICER-classification personnel present gain ENGINEER." };
+        var allPresent = new[] { sarek, data, engKit };
+
+        // Data has printed ENGINEER and is OFFICER; Engineering Kit must not give him ENGINEER x 2
+        var epData = ModifierRules.ResolvePersonnel(data, allPresent, 1);
+        if (epData.Skills.GetValueOrDefault("ENGINEER") != 1)
+            return $"Data should have ENGINEER x 1 with Engineering Kit present, got {epData.Skills.GetValueOrDefault("ENGINEER")}";
+
+        // Mindmeld: copy Data's regular skills (excluding donor's classification box OFFICER)
+        var donorClasses = MissionRules.PrintedClassificationParts(data);
+        var dataSkills = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (k, v) in epData.Skills)
+        {
+            if (donorClasses.Any(dc => dc.Equals(k, StringComparison.OrdinalIgnoreCase)))
+                continue;
+            dataSkills[k] = v;
+        }
+        ModifierRules.GrantTemporarySkills(sarek, dataSkills, "Data");
+        var epSarek = ModifierRules.ResolvePersonnel(sarek, allPresent, 1);
+
+        if (epSarek.Skills.GetValueOrDefault("ENGINEER") != 1)
+            return $"Sarek should have ENGINEER x 1 after Mindmeld from Data, got {epSarek.Skills.GetValueOrDefault("ENGINEER")}";
+        if (epSarek.Skills.GetValueOrDefault("Diplomacy") != 3)
+            return $"Sarek should retain Diplomacy x 3, got {epSarek.Skills.GetValueOrDefault("Diplomacy")}";
+        if (epSarek.Skills.GetValueOrDefault("Mindmeld") != 1)
+            return $"Sarek should retain Mindmeld x 1, got {epSarek.Skills.GetValueOrDefault("Mindmeld")}";
+        if (epSarek.Skills.GetValueOrDefault("Computer Skill") != 2)
+            return $"Sarek should gain Computer Skill x 2 from Data, got {epSarek.Skills.GetValueOrDefault("Computer Skill")}";
+        if (epSarek.Skills.ContainsKey("OFFICER"))
+            return "Sarek should not gain OFFICER classification from Data";
+
+        ModifierRules.ClearTemporarySkills(sarek);
+        var epSarekAfter = ModifierRules.ResolvePersonnel(sarek, allPresent, 1);
+        if (epSarekAfter.Skills.ContainsKey("ENGINEER"))
+            return "Sarek should not have ENGINEER after Mindmeld expiry";
+        if (epSarekAfter.Skills.GetValueOrDefault("Diplomacy") != 3)
+            return "Sarek should retain Diplomacy x 3 after expiry";
 
         return null;
     }

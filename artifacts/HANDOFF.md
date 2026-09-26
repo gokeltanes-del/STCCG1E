@@ -1,4 +1,40 @@
 ---
+## Aktiv (Vulcan Mindmeld - Premiere 144 U Bugfix & Generisches Buried-Target-Peek-System)
+- **Soll:**
+  - *Vulcan Mindmeld* Bugfix: Sarek kopiert Skills von Data, hatte fälschlich `ENGINEER x 2` anstelle von `ENGINEER x 1`.
+    - Ursache: Im Starterdeck/Set befindet sich ein *Engineering Kit* ("Your OFFICER-classification personnel present gain ENGINEER"). Data ist OFFICER und hat ENGINEER: 1. Equipment, das einen Skill verleiht ("gain [skill]"), verleiht diesen nur an Personal, das ihn noch nicht besitzt (1E Glossar).
+    - Classification: Classification des Donors (z. B. OFFICER bei Data) darf bei Mindmeld nicht als Skill kopiert werden (Glossar Mindmeld).
+  - Generisches UI-System („Hover & Drop ins DetailWindow auf legales Ziel im Stapel“):
+    - Gilt für alle Karten, die aus der Hand gespielt werden (oder einem entsperrten Sidedeck wie *Q's Tent*, das als Hand fungiert) und auf einen Stapel gespielt werden, wo der Inhalt des Stapels das Ziel ist.
+    - Beim Draggen über ein Element auf dem Spielfeld (Schiff, Outpost/Facility, Planet/Mission mit Away Team) öffnet sich nach Haltezeit (1s) das Detailfenster (`CardDetailOverlay`).
+    - Legale Ziele im Stapel leuchten cyan auf (`Color.FromRgb(80, 220, 255)`).
+    - Beim Bewegen über das Mini rastet der Snap ein (`Color.FromRgb(40, 255, 120)` grün).
+    - Das Interrupt/Event kann direkt auf diese Person bzw. dieses Ziel im Detailfenster gedroppt werden.
+- **Ist:**
+  - `StarTrekCCG/Game/ModifierRules.cs`:
+    - `ResolvePersonnel`: Prüfung `if (skills.GetValueOrDefault(def.GrantedSkill) > 0) continue; skills[def.GrantedSkill] = 1;` bei Skill-Equipment eingebaut.
+    - `GrantTemporarySkills`: Erzeugt stets ein frisches Dictionary, um Nebeneffekte durch Mehrfachaufrufe zu verhindern.
+  - `StarTrekCCG/Game/TargetQuery.cs`:
+    - `IsCardTargetingBuried`: Regex für "plays on ... personnel/equipment/mindmeld" erkennt generisch Karten mit verdeckten Zielen.
+    - `WantsBuriedPeek` & `CanTarget`: Um Vulcan Mindmeld, Disruptor Overload und generische Buried-Targets erweitert.
+  - `StarTrekCCG/TableWindow.xaml.cs`:
+    - `ApplyVulcanMindmeld`: Filtert gedruckte Classification des Donors vor Skill-Übertragung heraus. Nutzt bei vorhandenem `target` direkt dieses als `mindmeldUser` ohne redundanten Auswahldialog.
+    - `IsLegalPeekTarget`: Filtert legale Ziele im Stapel für Mindmeld, Disruptor Overload und generische Buried-Targets (inkl. Owner-Check für "your" / "opponent").
+    - `BuriedLegalOn`: Bezieht Personal-Borders (`GetPersonnelBordersAtHost`) an Schiffen, Facilities und Planeten-Missionen mit ein.
+    - `FindHostUnderWindow`: Unterstützt Schiffe, Facilities und Missionen mit Away Teams sowie Hit-Test für Crew-Minis mit `HostCardRef`.
+    - `UpdatePeekSnapAt`: SnapSite nutzt für Play-On-Karten saubere Meldungen (`Play on {hit.Name}`).
+    - `TryPlayInterruptFromHand`: Wertet `PeekTargetUnderDetail(windowPos) ?? _peekSnapCard` für Vulcan Mindmeld und generische Interrupts aus, schließt das Detailfenster und übergibt das Ziel an den Stack.
+    - `ZoneMini_MouseUp`: Handhabt Handkarten und entsperrte Sidedeck-Karten (`isHandOrUnlockedSide`). Events werten bei offenem Detailfenster `peekHost` aus, setzen `_eventPreferredHost` und schließen das Detailfenster sauber.
+    - `TryResolveInterruptPlay`: Disruptor Overload zerstört bei direktem Drop auf ein Equipment gezielt diese Karte (`RemoveEquipmentFromHost`).
+- **Smoke/Test:**
+  - Mini-Test `InterruptRules.VerifyVulcanMindmeldDecide` um vollständigen Sarek/Data/Engineering Kit-Fall erweitert und in `ShipRules.VerifyShipRules` eingehängt:
+    - Data behält `ENGINEER = 1` trotz anwesendem Engineering Kit.
+    - Sarek erhält via Mindmeld von Data `ENGINEER = 1`, `Computer Skill = 2`, `Music = 1`, `Astrophysics = 1`, `Exobiology = 1`.
+    - Sarek behält eigene Skills `Diplomacy = 3` und `Mindmeld = 1`.
+    - Sarek erhält keine OFFICER-Klassifikation.
+    - Nach Expiry sind alle temporären Skills sauber bereinigt.
+- **Tracker:** Vulcan Mindmeld in `artifacts/CARD_TRACKER.md` auf `partial`.
+---
 ## Aktiv (Temporal Rift - Premiere 140 U & The Juggler - Premiere 142 U)
 - **Soll:**
   - *Temporal Rift* (140 U): "Plays on table as a [Univ][S] time location; relocate one of your exposed ships OR a dilemma here. Counts down only at the start of your turn. When nullified, return that ship or dilemma to its former location."

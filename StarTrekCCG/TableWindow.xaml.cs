@@ -5610,8 +5610,11 @@ public partial class TableWindow : Window
         cardBorder.Width = TableCardWidth;
         cardBorder.Height = TableCardHeight;
 
+        bool isHandOrUnlockedSide = zref.ZoneName == "Hand"
+            || (IsSideDeckZone(zref.ZoneName) && IsSideDeckUnlocked(zref.ZoneName, zref.Opponent));
+
         // Drop back on own hand = cancel play, never resolve Kevin/Devil.
-        if (zref.ZoneName == "Hand"
+        if (isHandOrUnlockedSide
             && TryReturnCardToZone(card, cardBorder, zref.ZoneName, windowPos, zref.Opponent))
         {
             EndTargetSession();
@@ -5620,7 +5623,7 @@ public partial class TableWindow : Window
         }
         // Kevin / The Devil target a card already on TABLE — must NOT commit as a
         // TABLE permanent first (that path opens the stack with no TargetCard).
-        else if (!_seedPhaseActive && zref.ZoneName == "Hand"
+        else if (!_seedPhaseActive && isHandOrUnlockedSide
             && InterruptRules.IsInterrupt(card)
             && (InterruptRules.IsKevinNullify(card) || InterruptRules.IsDevil(card)))
         {
@@ -5645,7 +5648,8 @@ public partial class TableWindow : Window
         }
         // Targeted interrupt onto crew/ship in the same strip must run BEFORE "return to hand"
         else if (!_seedPhaseActive && InterruptRules.IsInterrupt(card)
-                 && InterruptRules.NeedsDropTarget(card) && zref.ZoneName == "Hand")
+                 && (InterruptRules.NeedsDropTarget(card) || TargetQuery.IsCardTargetingBuried(card))
+                 && isHandOrUnlockedSide)
         {
             int owner = zref.Opponent ? 2 : 1;
             if (TryPlayInterruptFromHand(card, cardBorder, windowPos, owner))
@@ -5673,7 +5677,7 @@ public partial class TableWindow : Window
         {
             placedOk = true;
         }
-        else if (!_seedPhaseActive && zref.ZoneName == "Hand"
+        else if (!_seedPhaseActive && isHandOrUnlockedSide
                  && ArtifactRules.IsPlaysAsInterruptFromHand(card))
         {
             int owner = zref.Opponent ? 2 : 1;
@@ -5685,7 +5689,7 @@ public partial class TableWindow : Window
             BeginPlayCardStack(card, isResponse: _stack.IsOpen, controllerOverride: owner);
             placedOk = true;
         }
-        else if (!_seedPhaseActive && InterruptRules.IsInterrupt(card) && zref.ZoneName == "Hand")
+        else if (!_seedPhaseActive && InterruptRules.IsInterrupt(card) && isHandOrUnlockedSide)
         {
             int owner = zref.Opponent ? 2 : 1;
             if (TryPlayInterruptFromHand(card, cardBorder, windowPos, owner))
@@ -5919,26 +5923,53 @@ public partial class TableWindow : Window
             // Events with a table host: prefer drag-snap onto ship/mission/gap
             if (EventRules.IsEvent(card) && !_seedPhaseActive)
             {
+                var peekTarget = PeekTargetUnderDetail(windowPos) ?? _peekSnapCard;
+                Border? peekHost = null;
+                if (peekTarget != null)
+                {
+                    peekHost = _detailHost ?? _peekHoverHost ?? FindBorderForCard(peekTarget);
+                }
+                else if (CardDetailOverlay?.Visibility == Visibility.Visible && _detailHost != null)
+                {
+                    peekHost = _detailHost;
+                }
+
+                if (peekHost != null)
+                {
+                    CancelStackPeek(keepOverlay: false);
+                    CloseCardDetailPopup();
+                }
+
                 var er = EventRules.ResolvePlay(card);
                 var tk = EventRules.GetTargetKind(er);
                 if (EventRules.NeedsTableHost(tk))
                 {
-                    // Floating card is on DragLayer (window coords) — convert drop point to table space
-                    var tablePt = WindowToTablePoint(windowPos);
-                    var snapped = TrySnapEventTargetAt(tablePt.X, tablePt.Y, tk, zref.Opponent ? 2 : 1, card);
-                    if (snapped.host != null)
+                    if (peekHost != null)
                     {
-                        _eventPreferredHost = snapped.host;
-                        _eventPreferredHost2 = snapped.host2;
-                        string h1 = (snapped.host.Tag as Card)?.Name ?? "?";
-                        string h2 = snapped.host2 != null ? ((snapped.host2.Tag as Card)?.Name ?? "?") : "";
-                        StatusText.Text = string.IsNullOrEmpty(h2)
-                            ? $"{card.Name} → target {h1}"
-                            : $"{card.Name} → gap {h1} ↔ {h2}";
+                        _eventPreferredHost = peekHost;
+                        _eventPreferredHost2 = null;
+                        string h1 = (peekHost.Tag as Card)?.Name ?? "?";
+                        StatusText.Text = $"{card.Name} → target {h1}";
                     }
                     else
                     {
-                        StatusText.Text = $"{card.Name}: no legal snap — choose target from the menu when the card resolves.";
+                        // Floating card is on DragLayer (window coords) — convert drop point to table space
+                        var tablePt = WindowToTablePoint(windowPos);
+                        var snapped = TrySnapEventTargetAt(tablePt.X, tablePt.Y, tk, zref.Opponent ? 2 : 1, card);
+                        if (snapped.host != null)
+                        {
+                            _eventPreferredHost = snapped.host;
+                            _eventPreferredHost2 = snapped.host2;
+                            string h1 = (snapped.host.Tag as Card)?.Name ?? "?";
+                            string h2 = snapped.host2 != null ? ((snapped.host2.Tag as Card)?.Name ?? "?") : "";
+                            StatusText.Text = string.IsNullOrEmpty(h2)
+                                ? $"{card.Name} → target {h1}"
+                                : $"{card.Name} → gap {h1} ↔ {h2}";
+                        }
+                        else
+                        {
+                            StatusText.Text = $"{card.Name}: no legal snap — choose target from the menu when the card resolves.";
+                        }
                     }
                 }
             }
@@ -5952,6 +5983,12 @@ public partial class TableWindow : Window
             StatusText.Text = $"{card.Name} has no legal placement – returned to {zref.ZoneName}.";
             ReturnFloatingToZone(card, cardBorder, zref.ZoneName, zref.Opponent);
             placedOk = false;
+        }
+
+        if (CardDetailOverlay?.Visibility == Visibility.Visible && _peekLegalTargets.Count > 0)
+        {
+            CancelStackPeek(keepOverlay: false);
+            CloseCardDetailPopup();
         }
 
         RefreshZoneCounts();
@@ -11663,10 +11700,45 @@ public partial class TableWindow : Window
 
     private static bool DragWantsStackPeek(Card drag) => TargetQuery.WantsBuriedPeek(drag);
 
-    private static bool IsLegalPeekTarget(Card drag, Card buried)
+    private bool IsLegalPeekTarget(Card drag, Card buried, Border? host = null)
     {
         if (InterruptRules.IsHugh(drag))
             return TimingRules.IsHughBattleSource(buried) && !InterruptRules.IsRogueBorg(buried);
+        if (InterruptRules.IsVulcanMindmeld(drag))
+        {
+            if (!ModifierRules.IsPersonnelCard(buried)) return false;
+            if (!InterruptRules.CardHasMindmeld(buried)) return false;
+            int owner = _activePlayer;
+            var b = FindBorderForCard(buried);
+            int cardOwner = b != null ? CardOwner(b) : (buried.Controller != 0 ? buried.Controller : (buried.OwnerPlayer != 0 ? buried.OwnerPlayer : owner));
+            if (cardOwner != owner) return false;
+            if (host != null && !HostMatchesVulcanMindmeld(host, owner)) return false;
+            return true;
+        }
+        if (InterruptRules.IsDisruptorOverload(drag))
+        {
+            if (!ModifierRules.IsEquipmentCard(buried)) return false;
+            return true;
+        }
+        if (TargetQuery.IsCardTargetingBuried(drag))
+        {
+            string t = (drag.Text ?? "").ToLowerInvariant();
+            if (t.Contains("your ") && !t.Contains("either"))
+            {
+                int owner = _activePlayer;
+                var b = FindBorderForCard(buried);
+                int cardOwner = b != null ? CardOwner(b) : (buried.Controller != 0 ? buried.Controller : (buried.OwnerPlayer != 0 ? buried.OwnerPlayer : owner));
+                if (cardOwner != owner) return false;
+            }
+            else if (t.Contains("opponent"))
+            {
+                int owner = _activePlayer;
+                var b = FindBorderForCard(buried);
+                int cardOwner = b != null ? CardOwner(b) : (buried.Controller != 0 ? buried.Controller : (buried.OwnerPlayer != 0 ? buried.OwnerPlayer : 0));
+                if (cardOwner == owner && cardOwner != 0) return false;
+            }
+            return TargetQuery.IsLegal(drag, buried);
+        }
         return TargetQuery.IsLegal(drag, buried);
     }
 
@@ -11683,7 +11755,7 @@ public partial class TableWindow : Window
         var list = new List<Card>();
         void Add(Card? c)
         {
-            if (c == null || !IsLegalPeekTarget(drag, c)) return;
+            if (c == null || !IsLegalPeekTarget(drag, c, host)) return;
             if (!list.Contains(c)) list.Add(c);
         }
         if (host.Tag is Card self && EventRules.IsEvent(self))
@@ -11692,6 +11764,8 @@ public partial class TableWindow : Window
         if (stacked != null)
             foreach (var b in stacked)
                 if (b.Tag is Card c) Add(c);
+        foreach (var pb in GetPersonnelBordersAtHost(host))
+            if (pb.Tag is Card pc) Add(pc);
         foreach (var ae in EventsOn(host))
             Add(ae.Card);
         foreach (var rb in RogueBorgUnitsOn(host))
@@ -11963,11 +12037,26 @@ public partial class TableWindow : Window
         int bestLegalZ = int.MinValue;
         Border? bestAny = null;
         int bestAnyZ = int.MinValue;
+
+        // 1. Direct hit-test for crew/staff minis with HostCardRef
+        var hitObj = InputHitTest(windowPos) as DependencyObject;
+        while (hitObj != null)
+        {
+            if (hitObj is FrameworkElement fe && fe.Tag is HostCardRef href && href.Host != null)
+            {
+                if (drag != null && BuriedLegalOn(href.Host, drag).Count > 0)
+                    return href.Host;
+                if (bestAny == null)
+                    bestAny = href.Host;
+            }
+            hitObj = ParentOf(hitObj);
+        }
+
         foreach (var b in TableCanvas.Children.OfType<Border>())
         {
             if (b.Tag is not Card hc) continue;
             if (b.Visibility != Visibility.Visible) continue;
-            bool hostKind = IsShipCard(hc) || IsFacilityCard(hc)
+            bool hostKind = IsShipCard(hc) || IsFacilityCard(hc) || IsMissionCard(hc)
                             || (EventRules.IsEvent(hc) && _spacelineOrder.Contains(b));
             if (!hostKind) continue;
             try
@@ -12171,8 +12260,12 @@ public partial class TableWindow : Window
         if (hit != null)
         {
             var hostCard = _peekHoverHost?.Tag as Card ?? _detailHost?.Tag as Card;
+            var dragCard = _dragCard?.Tag as Card;
+            bool isNullify = TargetQuery.IsNullifyDrag(dragCard);
+            var why = isNullify ? TargetWhy.Nullify : TargetWhy.PlayOn;
+            string reason = isNullify ? "Nullify that Event." : $"Play on {hit.Name}.";
             _snapSite = new TargetSite(TargetSiteKind.BuriedCard, hit, hostCard, null,
-                TargetWhy.Nullify, "Nullify that Event.");
+                why, reason);
             StatusText.Text = $"Snap: {hit.Name} — drop to target.";
         }
         else
@@ -14108,24 +14201,36 @@ public partial class TableWindow : Window
             Border? targetHost = null;
             Card? preselectedPersonnel = null;
 
-            // Direct hit-test on a crew mini in strip or board
-            var hit = InputHitTest(windowPos) as DependencyObject;
-            while (hit != null)
+            var peekTarget = PeekTargetUnderDetail(windowPos) ?? _peekSnapCard;
+            if (peekTarget != null && (_peekLegalTargets.Contains(peekTarget) || InterruptRules.CardHasMindmeld(peekTarget)))
             {
-                if (hit is FrameworkElement fe && fe.Tag is HostCardRef href)
+                preselectedPersonnel = peekTarget;
+                targetHost = _detailHost ?? _peekHoverHost ?? FindBorderForCard(peekTarget);
+                CancelStackPeek(keepOverlay: false);
+                CloseCardDetailPopup();
+            }
+
+            if (targetHost == null)
+            {
+                // Direct hit-test on a crew mini in strip or board
+                var hit = InputHitTest(windowPos) as DependencyObject;
+                while (hit != null)
                 {
-                    if (HostMatchesVulcanMindmeld(href.Host, owner))
+                    if (hit is FrameworkElement fe && fe.Tag is HostCardRef href)
                     {
-                        targetHost = href.Host;
-                        int o = CardOwner(href.CardBorder);
-                        if (o == 0) o = GetBorderOwner(href.CardBorder);
-                        if (o == 0) o = 1;
-                        if (o == owner && InterruptRules.CardHasMindmeld(href.Card))
-                            preselectedPersonnel = href.Card;
-                        break;
+                        if (HostMatchesVulcanMindmeld(href.Host, owner))
+                        {
+                            targetHost = href.Host;
+                            int o = CardOwner(href.CardBorder);
+                            if (o == 0) o = GetBorderOwner(href.CardBorder);
+                            if (o == 0) o = 1;
+                            if (o == owner && InterruptRules.CardHasMindmeld(href.Card))
+                                preselectedPersonnel = href.Card;
+                            break;
+                        }
                     }
+                    hit = ParentOf(hit);
                 }
-                hit = ParentOf(hit);
             }
 
             if (targetHost == null)
@@ -14295,12 +14400,36 @@ public partial class TableWindow : Window
 
         var need = InterruptRules.GetPlayTarget(card);
         if (need is InterruptRules.PlayTarget.OwnCrew or InterruptRules.PlayTarget.AnyCrew
-            or InterruptRules.PlayTarget.OwnShip or InterruptRules.PlayTarget.AnyShip)
+            or InterruptRules.PlayTarget.OwnShip or InterruptRules.PlayTarget.AnyShip
+            || TargetQuery.IsCardTargetingBuried(card))
         {
-            var host = _currentSnapHost != null
+            var peekTarget = PeekTargetUnderDetail(windowPos) ?? _peekSnapCard;
+            Border? host = null;
+            Card? targetCard = null;
+
+            if (peekTarget != null && (_peekLegalTargets.Contains(peekTarget) || TargetQuery.IsLegal(card, peekTarget)))
+            {
+                targetCard = peekTarget;
+                host = _detailHost ?? _peekHoverHost ?? FindBorderForCard(targetCard);
+                CancelStackPeek(keepOverlay: false);
+                CloseCardDetailPopup();
+            }
+
+            if (host == null && CardDetailOverlay?.Visibility == Visibility.Visible && _detailHost != null)
+            {
+                host = _detailHost;
+                CancelStackPeek(keepOverlay: false);
+                CloseCardDetailPopup();
+            }
+
+            if (host == null)
+            {
+                host = _currentSnapHost != null
                        && HostMatchesInterruptTargetForCard(_currentSnapHost, owner, card)
-                ? _currentSnapHost
-                : FindTeamOrShipHostAt(windowPos, owner, need, card);
+                    ? _currentSnapHost
+                    : FindTeamOrShipHostAt(windowPos, owner, need, card);
+            }
+
             if (host == null)
             {
                 ShowPlayError($"{card.Name}: no legal target under the cursor. "
@@ -14313,7 +14442,7 @@ public partial class TableWindow : Window
                 return false;
             }
             _interruptTargetHost = host;
-            Card? targetCard = host.Tag as Card;
+            targetCard ??= host.Tag as Card;
             BeginPlayCardStack(card, isResponse: _stack.IsOpen, controllerOverride: owner, target: targetCard);
             return true;
         }
@@ -15620,17 +15749,25 @@ public partial class TableWindow : Window
                 }
             case InterruptRules.Effect.DisruptorOverload:
                 {
-                    Border? host = _interruptTargetHost ?? PickAnyHostWithEquipment();
+                    Border? host = _interruptTargetHost ?? (target != null ? FindBorderForCard(target) : null) ?? PickAnyHostWithEquipment();
                     if (host != null && _stackOnHost.TryGetValue(host, out var list))
                     {
-                        var eqs = list.Where(b => b.Tag is Card c && ModifierRules.IsEquipmentCard(c)
-                                                  && !(c.Icons ?? "").Contains("Shield", StringComparison.OrdinalIgnoreCase))
-                            .ToList();
-                        if (eqs.Count > 0)
+                        if (target != null && ModifierRules.IsEquipmentCard(target)
+                            && !(target.Icons ?? "").Contains("Shield", StringComparison.OrdinalIgnoreCase))
                         {
-                            var victim = eqs[new Random().Next(eqs.Count)];
-                            if (victim.Tag is Card eq)
-                                RemoveEquipmentFromHost(host, eq);
+                            RemoveEquipmentFromHost(host, target);
+                        }
+                        else
+                        {
+                            var eqs = list.Where(b => b.Tag is Card c && ModifierRules.IsEquipmentCard(c)
+                                                      && !(c.Icons ?? "").Contains("Shield", StringComparison.OrdinalIgnoreCase))
+                                .ToList();
+                            if (eqs.Count > 0)
+                            {
+                                var victim = eqs[new Random().Next(eqs.Count)];
+                                if (victim.Tag is Card eq)
+                                    RemoveEquipmentFromHost(host, eq);
+                            }
                         }
                     }
                     break;
@@ -25620,7 +25757,20 @@ public partial class TableWindow : Window
             skillsToCopy = MissionRules.ParsePersonnelSkills(skillDonor);
         }
 
-        ModifierRules.GrantTemporarySkills(mindmeldUser, skillsToCopy, skillDonor.Name);
+        // 1E Glossary Mindmeld: Personnel gains regular skills of the other personnel,
+        // not their classification box (e.g. Data's OFFICER classification is not copied).
+        var donorClasses = MissionRules.PrintedClassificationParts(skillDonor);
+        var skillsToGrant = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (k, v) in skillsToCopy)
+        {
+            if (donorClasses.Any(dc => dc.Equals(k, StringComparison.OrdinalIgnoreCase)))
+                continue;
+            skillsToGrant[k] = v;
+        }
+        if (skillsToGrant.Count == 0)
+            skillsToGrant = new Dictionary<string, int>(skillsToCopy, StringComparer.OrdinalIgnoreCase);
+
+        ModifierRules.GrantTemporarySkills(mindmeldUser, skillsToGrant, skillDonor.Name);
 
         var mini = CreateFloatingCard(card);
         mini.Visibility = Visibility.Collapsed;
@@ -25648,7 +25798,7 @@ public partial class TableWindow : Window
             Note = $"Vulcan Mindmeld on {mindmeldUser.Name}"
         });
 
-        var copiedSummary = string.Join(", ", skillsToCopy.Select(kv => kv.Value > 1 ? $"{kv.Key}×{kv.Value}" : kv.Key));
+        var copiedSummary = string.Join(", ", skillsToGrant.Select(kv => kv.Value > 1 ? $"{kv.Key}×{kv.Value}" : kv.Key));
         StatusText.Text = $"Vulcan Mindmeld: {mindmeldUser.Name} gains {skillDonor.Name}'s skills ({copiedSummary}) until end of turn.";
         _session.Log.Add(_session.TurnNumber, $"P{controller}",
             $"Vulcan Mindmeld: {mindmeldUser.Name} gained skills from {skillDonor.Name} ({copiedSummary}) until end of turn.");

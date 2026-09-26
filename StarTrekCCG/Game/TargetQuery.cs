@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using StarTrekCCG.Models;
 
 namespace StarTrekCCG;
@@ -43,8 +44,25 @@ public static class TargetQuery
     public static bool IsNullifyDrag(Card? drag) =>
         drag != null && (InterruptRules.IsKevinNullify(drag) || InterruptRules.IsDevil(drag));
 
+    public static bool IsCardTargetingBuried(Card? drag)
+    {
+        if (drag == null) return false;
+        if (InterruptRules.IsVulcanMindmeld(drag)) return true;
+        if (InterruptRules.IsDisruptorOverload(drag)) return true;
+        string t = (drag.Text ?? "").ToLowerInvariant();
+        if (Regex.IsMatch(t,
+            @"plays?\s+on\s+(?:(?:any|an?|your|opponents?|one|either\s+player'?s)\s+)?(?:[a-zA-Z-]+\s+)*(?:personnel|equipment|mindmeld)",
+            RegexOptions.IgnoreCase))
+            return true;
+        return false;
+    }
+
     public static bool WantsBuriedPeek(Card? drag) =>
-        drag != null && (IsNullifyDrag(drag) || InterruptRules.IsHugh(drag));
+        drag != null && (IsNullifyDrag(drag)
+                         || InterruptRules.IsHugh(drag)
+                         || InterruptRules.IsVulcanMindmeld(drag)
+                         || InterruptRules.IsDisruptorOverload(drag)
+                         || IsCardTargetingBuried(drag));
 
     public static (bool ok, string reason) CanTarget(Card drag, Card candidate)
     {
@@ -52,6 +70,28 @@ public static class TargetQuery
             return TimingRules.CanDevilTarget(candidate);
         if (InterruptRules.IsKevinNullify(drag))
             return TimingRules.CanKevinTargetEvent(candidate);
+        if (InterruptRules.IsVulcanMindmeld(drag))
+        {
+            if (!ModifierRules.IsPersonnelCard(candidate))
+                return (false, "Vulcan Mindmeld: target must be personnel.");
+            if (!InterruptRules.CardHasMindmeld(candidate))
+                return (false, "Vulcan Mindmeld: target must have Mindmeld skill.");
+            return (true, "Target for Vulcan Mindmeld.");
+        }
+        if (InterruptRules.IsDisruptorOverload(drag))
+        {
+            if (!ModifierRules.IsEquipmentCard(candidate))
+                return (false, "Disruptor Overload: target must be equipment.");
+            return (true, "Target for Disruptor Overload.");
+        }
+        if (IsCardTargetingBuried(drag))
+        {
+            string t = (drag.Text ?? "").ToLowerInvariant();
+            if (t.Contains("personnel") && ModifierRules.IsPersonnelCard(candidate))
+                return (true, $"Play on {candidate.Name}.");
+            if (t.Contains("equipment") && ModifierRules.IsEquipmentCard(candidate))
+                return (true, $"Play on {candidate.Name}.");
+        }
         return (false, "No targeting rule for this card.");
     }
 
