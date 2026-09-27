@@ -9,7 +9,7 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 
 ## Jetzt aktiv ├ö├ç├Â Multiplayer / Network-Modus
 
-**Status:** Network Viewer=LocalPlayer getippt (Seed/Hand). **netztauglich.** Tip-Hash PENDING. Nächster Tip: Phase 5 Disconnect oder Pepsch-Go.
+**Status:** Network Viewer=LocalPlayer getippt (Seed/Hand). **netztauglich.** Tip-Hash 1bd513f. Nächster Tip: Phase 5 Disconnect oder Pepsch-Go.
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
 
 ### Architektur
@@ -24,13 +24,13 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 4. **Phase 4 — Dialoge/Timing:** ChoiceRequest / ChoiceResponse. → Tip e102b47.
 5. **Phase 5 ├ö├ç├Â HÔö£├▒rtung:** Disconnect, Reconnect, Abbruch.
 
-**Code-Stand (Data 2026-09-27):** Network Viewer=LocalPlayer getippt; Tip-Hash PENDING. Seed/Mission Sync ba2ee6f. Working tree dirty (fremde Änderungen unberührt). Kein Push durch Bots.
+**Code-Stand (Data 2026-09-27):** Network Viewer=LocalPlayer getippt; Tip-Hash 1bd513f. Seed/Mission Sync ba2ee6f. Working tree dirty (fremde Änderungen unberührt). Kein Push durch Bots.
 
 ---
 
 ## Zuletzt (kurz)
 
-- Network Viewer=LocalPlayer: Guest sieht P2-Seed/Hand unten; Fremdzonen maskiert; Host-Broadcast nach Seed bleibt. Tip-Hash PENDING.
+- Network Viewer=LocalPlayer: Guest sieht P2-Seed/Hand unten; Fremdzonen maskiert; Host-Broadcast nach Seed bleibt. Tip-Hash 1bd513f.
 
 - Network Seed/Mission Sync getippt: Host broadcast nach Seed + SeedCard Guest→Host. Tip-Hash ba2ee6f.
 - Network Phase 4 ChoiceRequest/Response getippt: NetChoiceDto + AskChoiceForPlayer + response window routing. Tip-Hash `e102b47`.
