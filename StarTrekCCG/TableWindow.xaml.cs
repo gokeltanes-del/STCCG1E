@@ -2425,11 +2425,11 @@ public partial class TableWindow : Window
 
         if (_seedPhaseActive)
         {
-            // P1 unten
+            // Bottom = ViewerPlayer; top = opponent (Network remaps via PlayerForStrip)
             AddSeedZonesFor(PlayerZonesPanel, opponent: false);
             AddSideDeckZonesIfPresent(PlayerZonesPanel, opponent: false);
             // P2 oben (gleiche Struktur)
-            if (_gameMode == GameMode.Hotseat && _loadedDeckOpp != null)
+            if (IsSeedMultiPlayerMode() && _loadedDeckOpp != null)
             {
                 AddSeedZonesFor(OpponentZonesPanel, opponent: true);
                 AddSideDeckZonesIfPresent(OpponentZonesPanel, opponent: true);
@@ -2437,16 +2437,16 @@ public partial class TableWindow : Window
         }
         else
         {
-            // Spielphase: P2 oben, P1 unten – gleiche Zonen
+            // Play phase: top = opp strip, bottom = viewer strip
             AddZone(OpponentZonesPanel, "Discard", ColDiscard, opponent: true);
             AddZone(OpponentZonesPanel, "Draw Deck", ColDraw, opponent: true);
-            if (_oppSeedCards.Count > 0)
+            if (ZoneListCount("Seed Deck", opponent: true) > 0)
                 AddZone(OpponentZonesPanel, "Seed Deck", ColSeed, opponent: true);
             AddSideDeckZonesIfPresent(OpponentZonesPanel, opponent: true);
             // Hand is shown in the horizontal strip (not a left zone box)
 
             AddZone(PlayerZonesPanel, "Discard", ColDiscard, opponent: false);
-            if (_seedCards.Count > 0)
+            if (ZoneListCount("Seed Deck", opponent: false) > 0)
                 AddZone(PlayerZonesPanel, "Seed Deck", ColSeed, opponent: false);
             AddZone(PlayerZonesPanel, "Draw Deck", ColDraw, opponent: false);
             AddSideDeckZonesIfPresent(PlayerZonesPanel, opponent: false);
@@ -2576,30 +2576,36 @@ public partial class TableWindow : Window
         if (panel == null) return;
 
         panel.Children.Clear();
+        int stripOwner = PlayerForStrip(opponent);
         if (title != null)
         {
-            string who = opponent ? "P2" : "P1";
+            string who = $"P{stripOwner}";
             title.Text = zoneName == "Hand" ? $"{who} HAND" : $"{who} · {zoneName}";
             // Pepsch mockup: P1 #B5CEA8, P2 #8EC8D8 (Hand); other zones keep aid blue
+            bool p2Chrome = stripOwner == 2;
             title.Foreground = zoneName == "Hand"
-                ? new SolidColorBrush(opponent
+                ? new SolidColorBrush(p2Chrome
                     ? Color.FromRgb(0x8E, 0xC8, 0xD8)
                     : Color.FromRgb(0xB5, 0xCE, 0xA8))
                 : new SolidColorBrush(Color.FromRgb(0x9C, 0xDC, 0xFE));
         }
 
         var cards = CardsForStripDisplay(GetCardsForZone(zoneName, opponent), zoneName);
-        int stripOwner = opponent ? 2 : 1;
-        // Hotseat OR Glossary Alien Probe: both hands face-up (continuous while Probe in play).
-        // Battle Bridge / used tactics NOT affected (stay face-down). Draw/seed/side remain private.
+        // Hotseat OR Glossary Alien Probe: both hands face-up.
+        // Network: opponent private zones always face-down for LocalPlayer viewer.
         bool revealHands = zoneName == "Hand"
             && (_gameMode == GameMode.Hotseat || HasAlienProbeInPlay());
+        bool isOwnSide = stripOwner == ViewerPlayer;
         bool isActiveSide = stripOwner == _activePlayer || _devPeekOpponentPiles || revealHands;
         bool privateZone = zoneName is "Hand" or "Draw Deck" or "Seed Deck"
+            or "Doorways" or "Missions" or "Dilemmas" or "Facilities"
             or "Q's Tent" or "Battle Bridge" or "Q-Continuum" or "Site Pile" or "Tribble" or "Side Deck";
         bool faceDownAlways = zoneName is "Draw Deck" or "Battle Bridge" or "Q-Continuum";
+        bool networkMaskOpp = _gameMode == GameMode.Network && !isOwnSide && privateZone
+            && !_devPeekOpponentPiles;
 
-        if (!isActiveSide && privateZone && zoneName != "Hand")
+        if ((networkMaskOpp || (!isActiveSide && privateZone && zoneName != "Hand"))
+            && !(revealHands && zoneName == "Hand"))
         {
             int n = cards.Count;
             for (int i = 0; i < Math.Min(n, 12); i++)
@@ -2622,7 +2628,9 @@ public partial class TableWindow : Window
 
         foreach (var card in cards)
         {
-            var mini = CreateMiniCard(card, faceDown: faceDownAlways && zoneName != "Hand");
+            bool fd = (faceDownAlways && zoneName != "Hand")
+                || (!card.FaceUp && _gameMode == GameMode.Network && !isOwnSide);
+            var mini = CreateMiniCard(card, faceDown: fd);
             mini.RenderTransform = Transform.Identity;
             mini.Tag = new ZoneCardRef(zoneName, card, opponent);
             mini.MouseLeftButtonDown += ZoneMini_MouseDown;
@@ -3096,26 +3104,30 @@ public partial class TableWindow : Window
 
     private void AddSeedZonesFor(Panel parent, bool opponent)
     {
-        int door = opponent ? _oppDoorwayCards.Count : _doorwayCards.Count;
-        int miss = opponent ? _oppMissionSeedCards.Count : _missionSeedCards.Count;
-        int dil = opponent ? _oppDilemmaSeedCards.Count : _dilemmaSeedCards.Count;
-        int fac = opponent ? _oppFacilitySeedCards.Count : _facilitySeedCards.Count;
+        int owner = PlayerForStrip(opponent);
+        int door = owner == 1 ? _doorwayCards.Count : _oppDoorwayCards.Count;
+        int miss = owner == 1 ? _missionSeedCards.Count : _oppMissionSeedCards.Count;
+        int dil = owner == 1 ? _dilemmaSeedCards.Count : _oppDilemmaSeedCards.Count;
+        int fac = owner == 1 ? _facilitySeedCards.Count : _oppFacilitySeedCards.Count;
+        // Network: viewer always sees own phase pile. Hotseat: active player's strip.
+        bool phaseActor = _gameMode == GameMode.Network
+            ? owner == ViewerPlayer
+            : owner == _activePlayer;
 
-        if (door > 0 || (_seedSubPhase == SeedSubPhase.Doorway && !opponent) ||
-            (_seedSubPhase == SeedSubPhase.Doorway && opponent && _activePlayer == 2))
+        if (door > 0 || (_seedSubPhase == SeedSubPhase.Doorway && phaseActor))
             AddZone(parent, "Doorways", ColDoorway, opponent);
-        if (miss > 0 || (_seedSubPhase == SeedSubPhase.Mission && ((!opponent && _activePlayer == 1) || (opponent && _activePlayer == 2))))
+        if (miss > 0 || (_seedSubPhase == SeedSubPhase.Mission && phaseActor))
             AddZone(parent, "Missions", ColMission, opponent);
-        if (dil > 0 || (_seedSubPhase == SeedSubPhase.Dilemma && ((!opponent && _activePlayer == 1) || (opponent && _activePlayer == 2))))
+        if (dil > 0 || (_seedSubPhase == SeedSubPhase.Dilemma && phaseActor))
             AddZone(parent, "Dilemmas", ColDilemma, opponent);
-        if (fac > 0 || (_seedSubPhase == SeedSubPhase.Facility && ((!opponent && _activePlayer == 1) || (opponent && _activePlayer == 2))))
+        if (fac > 0 || (_seedSubPhase == SeedSubPhase.Facility && phaseActor))
             AddZone(parent, "Facilities", ColFacility, opponent);
     }
 
     /// <summary>Side-Deck-Zonen nur anzeigen, wenn Karten vorhanden.</summary>
     private void AddSideDeckZonesIfPresent(Panel parent, bool opponent)
     {
-        bool p2 = opponent;
+        bool p2 = PlayerForStrip(opponent) == 2;
         if ((p2 ? _oppQsTentCards : _qsTentCards).Count > 0)
             AddZone(parent, "Q's Tent", Color.FromRgb(106, 27, 154), opponent);
         if ((p2 ? _oppBattleBridgeCards : _battleBridgeCards).Count > 0)
@@ -3264,7 +3276,7 @@ public partial class TableWindow : Window
         (opponent ? _oppSideDeckCovers : _sideDeckCovers).ContainsKey(zoneName);
 
     private Dictionary<string, Card> CoversFor(bool opponent) =>
-        opponent ? _oppSideDeckCovers : _sideDeckCovers;
+        PlayerForStrip(opponent) == 1 ? _sideDeckCovers : _oppSideDeckCovers;
 
     /// <summary>Welches Side-Deck öffnet dieser Doorway? (Name-Heuristik)</summary>
     private static string? GetSideDeckForDoorway(Card doorway)
@@ -3331,7 +3343,7 @@ public partial class TableWindow : Window
 
         // Doppelklick Draw-Deck der aktiven Seite → 1 Karte ziehen
         var now = DateTime.Now;
-        int zonePlayer = opponent ? 2 : 1;
+        int zonePlayer = PlayerForStrip(opponent);
         if (zoneName == "Draw Deck" && zonePlayer == _activePlayer
             && _lastZoneClick == box && (now - _lastZoneClickTime).TotalMilliseconds < 350)
         {
@@ -3386,12 +3398,13 @@ public partial class TableWindow : Window
 
     private void ShowPrivateOpponentZone(string zoneName)
     {
+        int opp = PlayerForStrip(true);
         _stripZoneP2 = zoneName;
         FillStrip(true, zoneName);
         int n = GetCardsForZone(zoneName, opponent: true).Count;
         StatusText.Text = zoneName == "Hand"
-            ? $"P2 hand: {n} card(s) hidden (Developer > Peek opponent piles)."
-            : $"P2 {zoneName}: {n} card(s) hidden.";
+            ? $"P{opp} hand: {n} card(s) hidden (Developer > Peek opponent piles)."
+            : $"P{opp} {zoneName}: {n} card(s) hidden.";
     }
 
     private void ShowStackContents(string zoneName, bool opponent)
@@ -3402,9 +3415,9 @@ public partial class TableWindow : Window
         FillStrip(opponent, zoneName);
 
         if (StackTitle != null)
-            StackTitle.Text = $"{zoneName} ({(opponent ? "P2" : "P1")})";
+            StackTitle.Text = $"{zoneName} (P{PlayerForStrip(opponent)})";
 
-        string owner = opponent ? "P2" : "P1";
+        string owner = $"P{PlayerForStrip(opponent)}";
         int n = GetCardsForZone(zoneName, opponent).Count;
         if (!opponent && zoneName == "Draw Deck" && _drawCards.Count > 0 && !_seedPhaseActive)
             StatusText.Text = $"Draw ({owner}): {_drawCards.Count} – double-click zone = draw 1 to hand";
@@ -6491,7 +6504,7 @@ public partial class TableWindow : Window
 
     private List<Card>? GetZoneList(string zoneName, bool opponent = false)
     {
-        bool p1 = !opponent;
+        bool p1 = PlayerForStrip(opponent) == 1;
         return zoneName switch
         {
             "Hand" => p1 ? _handCards : _oppHandCards,
@@ -7722,8 +7735,8 @@ public partial class TableWindow : Window
 
     private List<Card> GetCardsForZone(string zoneName, bool opponent)
     {
-        // Fest: unten = Spieler 1, oben = Spieler 2 (keine Perspektiv-Spiegelung)
-        bool p1 = !opponent;
+        // Bottom/top strips map through PlayerForStrip (Network: LocalPlayer bottom).
+        bool p1 = PlayerForStrip(opponent) == 1;
         return zoneName switch
         {
             "Seed Deck" => (p1 ? _seedCards : _oppSeedCards).ToList(),
@@ -8561,7 +8574,9 @@ public partial class TableWindow : Window
             _ => "Hand"
         };
         if (_seedPhaseActive)
-            ShowStackContents(zone, opponent: _activePlayer == 2);
+            ShowStackContents(zone, opponent: _gameMode == GameMode.Network
+                ? false  // always own seed pile on bottom strip
+                : PlayerForStrip(true) == _activePlayer); // Hotseat: active on their strip
     }
 
 
@@ -8736,7 +8751,7 @@ public partial class TableWindow : Window
             }
             else if (ActivePlayerText != null && ResponseIndicatorBadge?.Visibility == Visibility.Visible)
             {
-                string side = _activePlayer == 1 ? "Player 1 (BOTTOM)" : "Player 2 (TOP)";
+                string side = _activePlayer == ViewerPlayer ? $"Player {_activePlayer} (BOTTOM)" : $"Player {_activePlayer} (TOP)";
                 ActivePlayerText.Text = $"TURN {_turnNumber} · {side}";
             }
             if (ActivePlayerBanner != null)
@@ -8771,7 +8786,7 @@ public partial class TableWindow : Window
 
         if (_seedPhaseActive)
         {
-            string side = _activePlayer == 1 ? "Player 1 (BOTTOM)" : "Player 2 (TOP)";
+            string side = _activePlayer == ViewerPlayer ? $"Player {_activePlayer} (BOTTOM)" : $"Player {_activePlayer} (TOP)";
             int left = CountSeedFor(_seedSubPhase, _activePlayer);
             SetActiveBanner(
                 $"SEED · {SeedPhaseShortName()} · {side} · {left} card(s) left",
@@ -8797,7 +8812,7 @@ public partial class TableWindow : Window
         }
         else if (_loadedDeck != null)
         {
-            string side = _activePlayer == 1 ? "Player 1 (BOTTOM)" : "Player 2 (TOP)";
+            string side = _activePlayer == ViewerPlayer ? $"Player {_activePlayer} (BOTTOM)" : $"Player {_activePlayer} (TOP)";
             string phase = _session.Segment switch
             {
                 GameSession.TurnSegment.Play => "PLAY",
@@ -10543,7 +10558,23 @@ public partial class TableWindow : Window
 
     private Card? ResolveCard(CardRef? r)
     {
-        if (r == null || string.IsNullOrWhiteSpace(r.Name) || _db == null) return null;
+        if (r == null || _db == null) return null;
+        // Masked private zones: keep InstanceId stub so counts/sync survive fog-of-war.
+        if (string.IsNullOrWhiteSpace(r.Name))
+        {
+            if (r.InstanceId <= 0) return null;
+            var stub = new Card
+            {
+                Name = "",
+                Type = r.Type ?? "",
+                InstanceId = r.InstanceId,
+                OwnerPlayer = r.Owner is 1 or 2 ? r.Owner : 0,
+                Controller = r.Controller > 0 ? r.Controller : (r.Owner is 1 or 2 ? r.Owner : 0),
+                FaceUp = false
+            };
+            CardFactory.NoteHighestId(r.InstanceId);
+            return stub;
+        }
         var all = _db.AllCards;
         Card? hit = null;
         if (!string.IsNullOrWhiteSpace(r.Set))
@@ -10574,7 +10605,7 @@ public partial class TableWindow : Window
             {
                 Match = _session.Match.ToString(),
                 Segment = _session.Segment.ToString(),
-                ActivePlayer = _session.ActivePlayer,
+                ActivePlayer = _seedPhaseActive && (_activePlayer is 1 or 2) ? _activePlayer : _session.ActivePlayer,
                 TurnNumber = _session.TurnNumber,
                 HasDrawn = _session.HasDrawnThisTurn,
                 SuppressDraw = _session.SuppressEndOfTurnDraw,
@@ -11324,40 +11355,26 @@ public partial class TableWindow : Window
             }
         }
 
-        SetCount(PlayerZonesPanel, "Seed Deck", _seedCards.Count);
-        SetCount(PlayerZonesPanel, "Doorways", _doorwayCards.Count);
-        SetCount(PlayerZonesPanel, "Missions", _missionSeedCards.Count);
-        SetCount(PlayerZonesPanel, "Dilemmas", _dilemmaSeedCards.Count);
-        SetCount(PlayerZonesPanel, "Facilities", _facilitySeedCards.Count);
-        SetCount(PlayerZonesPanel, "Draw Deck", _drawCards.Count);
-        SetCount(PlayerZonesPanel, "Side Deck", _sideCards.Count);
-        SetCount(PlayerZonesPanel, "Q's Tent", _qsTentCards.Count);
-        SetCount(PlayerZonesPanel, "Battle Bridge", _battleBridgeCards.Count);
-        SetCount(PlayerZonesPanel, "Q-Continuum", _qContinuumCards.Count);
-        SetCount(PlayerZonesPanel, "Site Pile", _sitePileCards.Count);
-        SetCount(PlayerZonesPanel, "Tribble", _tribbleCards.Count);
-        SetCount(PlayerZonesPanel, "Discard", _discardCards.Count);
-        SetCount(PlayerZonesPanel, "Hand", _handCards.Count);
-        SetCount(PlayerZonesPanel, "Draw Deck", _drawCards.Count);
-        SetCount(PlayerZonesPanel, "Doorways", _doorwayCards.Count);
-        SetCount(PlayerZonesPanel, "Missions", _missionSeedCards.Count);
-        SetCount(PlayerZonesPanel, "Dilemmas", _dilemmaSeedCards.Count);
-        SetCount(PlayerZonesPanel, "Facilities", _facilitySeedCards.Count);
-
-        SetCount(OpponentZonesPanel, "Discard", _oppDiscardCards.Count);
-        SetCount(OpponentZonesPanel, "Hand", _oppHandCards.Count);
-        SetCount(OpponentZonesPanel, "Draw Deck", _oppDrawCards.Count);
-        SetCount(OpponentZonesPanel, "Doorways", _oppDoorwayCards.Count);
-        SetCount(OpponentZonesPanel, "Missions", _oppMissionSeedCards.Count);
-        SetCount(OpponentZonesPanel, "Dilemmas", _oppDilemmaSeedCards.Count);
-        SetCount(OpponentZonesPanel, "Facilities", _oppFacilitySeedCards.Count);
-        SetCount(OpponentZonesPanel, "Seed Deck", _oppSeedCards.Count);
-        SetCount(OpponentZonesPanel, "Side Deck", _oppSideCards.Count);
-        SetCount(OpponentZonesPanel, "Q's Tent", _oppQsTentCards.Count);
-        SetCount(OpponentZonesPanel, "Battle Bridge", _oppBattleBridgeCards.Count);
-        SetCount(OpponentZonesPanel, "Q-Continuum", _oppQContinuumCards.Count);
-        SetCount(OpponentZonesPanel, "Site Pile", _oppSitePileCards.Count);
-        SetCount(OpponentZonesPanel, "Tribble", _oppTribbleCards.Count);
+        void SetStripCounts(bool opponent)
+        {
+            var panel = opponent ? OpponentZonesPanel : PlayerZonesPanel;
+            SetCount(panel, "Seed Deck", ZoneListCount("Seed Deck", opponent));
+            SetCount(panel, "Doorways", ZoneListCount("Doorways", opponent));
+            SetCount(panel, "Missions", ZoneListCount("Missions", opponent));
+            SetCount(panel, "Dilemmas", ZoneListCount("Dilemmas", opponent));
+            SetCount(panel, "Facilities", ZoneListCount("Facilities", opponent));
+            SetCount(panel, "Draw Deck", ZoneListCount("Draw Deck", opponent));
+            SetCount(panel, "Side Deck", ZoneListCount("Side Deck", opponent));
+            SetCount(panel, "Q's Tent", ZoneListCount("Q's Tent", opponent));
+            SetCount(panel, "Battle Bridge", ZoneListCount("Battle Bridge", opponent));
+            SetCount(panel, "Q-Continuum", ZoneListCount("Q-Continuum", opponent));
+            SetCount(panel, "Site Pile", ZoneListCount("Site Pile", opponent));
+            SetCount(panel, "Tribble", ZoneListCount("Tribble", opponent));
+            SetCount(panel, "Discard", ZoneListCount("Discard", opponent));
+            SetCount(panel, "Hand", ZoneListCount("Hand", opponent));
+        }
+        SetStripCounts(opponent: false);
+        SetStripCounts(opponent: true);
     }
 
     private void PlaceDeckOnTable(Deck deck)
@@ -28776,7 +28793,25 @@ public partial class TableWindow : Window
             b.RenderTransform = Transform.Identity;
     }
 
-    /// <summary>Nur UI/Stapel aktualisieren – keine Perspektiv-Spiegelung mehr.</summary>
+    /// <summary>
+    /// Network: each instance views as LocalPlayer (Host=1, Guest=2). Hotseat/Solo: bottom strip stays P1.
+    /// </summary>
+    private int ViewerPlayer =>
+        _gameMode == GameMode.Network && _netSession != null
+            ? _netSession.LocalPlayer
+            : 1;
+
+    /// <summary>Absolute player id for bottom strip (false) or top strip (true).</summary>
+    private int PlayerForStrip(bool opponentStrip) =>
+        opponentStrip ? (ViewerPlayer == 1 ? 2 : 1) : ViewerPlayer;
+
+    /// <summary>Count cards in a named zone for the strip side (viewer-mapped).</summary>
+    private int ZoneListCount(string zoneName, bool opponent)
+    {
+        var list = GetZoneList(zoneName, opponent);
+        return list?.Count ?? 0;
+    }
+
     private void ApplyPerspective()
     {
         RelayoutMissionsOnSpaceline();

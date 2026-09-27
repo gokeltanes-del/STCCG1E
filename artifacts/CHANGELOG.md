@@ -1,3 +1,9 @@
+## 2026-09-27 - Network Viewer = LocalPlayer (Seed/Hand UI)
+
+- *Bugfix (Pepsch)*: Beide Localhost-Instanzen zeigten P1-Ansicht (`SEED Player 1 (BOTTOM)`, `P1 Missions`); Guest sah P1-Missionen statt eigener.
+- *Ursache*: UI fest P1=unten/P2=oben; Network-Seed baute nur P1-Zonen; `ShowCurrentSeedStack` zeigte immer ActivePlayer-Stapel auf Hotseat-Layout; `ApplyPerspective` ohne Viewer-Spiegelung.
+- *netztauglich*: `ViewerPlayer` = `NetPlaySession.LocalPlayer`; Bottom-Strip/Zonen = LocalPlayer, Top = Gegner (`PlayerForStrip` / `GetZoneList` / `GetCardsForZone`); Fremd-Hand/Seed face-down (`FillStrip` + `NetStateMask`); Host-Broadcast nach Seed unverändert (`NotifyNetworkAfterSeedPlacement`); `CaptureGameSave.ActivePlayer` seed-aware; masked `ResolveCard`-Stubs halten Zählungen.
+- *Scope*: kein P5 Disconnect; kein Push.
 ## 2026-09-27 — Network Seed/Mission Sync (Host broadcast)
 
 - *Bugfix (Pepsch/Captain)*: Nach Lobby+Start seedet P1 eine Mission — P2 sah nichts; beide spielten getrennt. Ursache: kein `BroadcastMaskedStateToGuest` nach Seed-Drop; Seed-Spielerwechsel nur Hotseat; `SeedCard` nicht in Net-Sync.
