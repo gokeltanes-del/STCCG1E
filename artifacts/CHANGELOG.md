@@ -1,3 +1,8 @@
+## 2026-09-27 — Network Phase 3 GameAction-Sync (Host authority + masked State)
+
+- *NetActionDto / NetStateMask / NetPlaySession*: JSON-DTO for GameAction (names only), fog-of-war mask for Guest (opp hand + private decks FaceDown/name cleared), session owns NetServer XOR NetClient after lobby with receive-loop + Dispatcher callbacks.
+- *Lobby DetachTransport*: `NetworkLobbyWindow` exposes IsHost/Server/Client; Closing does not dispose when transport detached to session.
+- *TableWindow vertical slice*: After lobby Connected → `NetPlaySession`; Host `ActionReceived` → `AuthorizePlay` → EndPhase/EndTurn apply + `CaptureGameSave` → `MaskForViewer(2)` → Broadcast; Guest End PLAY/End turn sends Action and `ApplyGameSave` on State. Live kinds: EndPhase, EndTurn (+ Pass/Draw/PlayCard authorize stubs). No ChoiceRequest (P4), no Disconnect harden (P5).
 ## 2026-09-27 — Network Phase 2 Lobby (Host / Join / Localhost)
 
 - *Lobby-UI*: `StarTrekCCG/NetworkLobbyWindow.xaml` + `.xaml.cs` — Dark UI (#252528 / #0E639C), Port (Default 7777), Host-Adresse, Buttons Host / Join / Localhost / Disconnect.

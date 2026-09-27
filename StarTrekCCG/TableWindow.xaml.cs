@@ -1,7 +1,9 @@
 using Microsoft.Win32;
 using StarTrekCCG.Models;
+using StarTrekCCG.Network;
 using StarTrekCCG.Services;
 using System;
+using System.Threading;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -75,6 +77,7 @@ public partial class TableWindow : Window
     private GameMode _gameMode = GameMode.Hotseat;
     private NetworkLobbyWindow? _networkLobby;
     private bool _networkLobbyConnected;
+    private NetPlaySession? _netSession;
     private readonly GameSession _session = new();
     /// <summary>E1: last compact state: line so Capture does not flood the log.</summary>
     private string? _lastEngineStateLine;
@@ -8581,7 +8584,9 @@ public partial class TableWindow : Window
         StatusText.Text = _gameMode switch
         {
             GameMode.Hotseat => "Mode: Hotseat (two players on one PC)",
-            GameMode.Network => _networkLobbyConnected ? "Mode: Network (connected)" : "Mode: Network (lobby)",
+            GameMode.Network => _netSession != null
+                ? $"Mode: Network ({(_netSession.IsHost ? "Host P1" : "Guest P2")} sync)"
+                : (_networkLobbyConnected ? "Mode: Network (connected)" : "Mode: Network (lobby)"),
             GameMode.SingleAi => "Mode: Singleplayer AI (not available yet)",
             _ => "Mode selected"
         };
@@ -8617,12 +8622,16 @@ public partial class TableWindow : Window
         lobby.ConnectionChanged += (_, connected) =>
         {
             _networkLobbyConnected = connected;
+            if (connected)
+                TryStartNetSessionFromLobby(lobby);
             if (ModeNetwork?.IsChecked == true)
                 ApplySelectedGameMode();
         };
         lobby.Closed += (_, _) =>
         {
-            _networkLobbyConnected = lobby.IsConnected;
+            // Keep _networkLobbyConnected if session owns the transport.
+            if (_netSession == null)
+                _networkLobbyConnected = lobby.IsConnected;
             if (ReferenceEquals(_networkLobby, lobby))
                 _networkLobby = null;
             if (ModeNetwork?.IsChecked == true)
@@ -8632,9 +8641,305 @@ public partial class TableWindow : Window
         lobby.Show();
     }
 
+    /// <summary>
+    /// Phase 3: detach lobby transport into NetPlaySession and start receive loop on UI sync context.
+    /// </summary>
+    private void TryStartNetSessionFromLobby(NetworkLobbyWindow lobby)
+    {
+        if (_netSession != null) return;
+        if (!lobby.IsConnected) return;
+
+        var (server, client) = lobby.DetachTransport();
+        if (server != null)
+            _netSession = NetPlaySession.CreateHost(server, localPlayer: 1);
+        else if (client != null)
+            _netSession = NetPlaySession.CreateGuest(client, localPlayer: 2);
+        else
+        {
+            StatusText.Text = "Network: connected but no transport to detach.";
+            return;
+        }
+
+        _netSession.ActionReceived += OnNetActionReceived;
+        _netSession.StateReceived += OnNetStateReceived;
+        _netSession.ErrorReceived += OnNetErrorReceived;
+        _netSession.Disconnected += OnNetDisconnected;
+
+        var sync = SynchronizationContext.Current
+                   ?? new System.Windows.Threading.DispatcherSynchronizationContext(Dispatcher);
+        _netSession.StartReceiveLoop(sync);
+
+        _networkLobbyConnected = true;
+        _session.Log.AddDebug(_session.TurnNumber, "Net",
+            $"Session started as {(_netSession.IsHost ? "Host P1" : "Guest P2")}.");
+        StatusText.Text = _netSession.IsHost
+            ? "Network: Host session live — EngineAuthority authoritative."
+            : "Network: Guest session live — actions sent to Host.";
+        if (ModeNetwork?.IsChecked == true)
+            ApplySelectedGameMode();
+    }
+
+    private void OnNetDisconnected(string reason)
+    {
+        StatusText.Text = "Network disconnected: " + reason;
+        _session.Log.AddDebug(_session.TurnNumber, "Net", "Disconnected: " + reason);
+    }
+
+    private void OnNetErrorReceived(string message)
+    {
+        StatusText.Text = "Net error: " + message;
+        _session.Log.AddDebug(_session.TurnNumber, "Net", "Error: " + message);
+        RefreshActionHistory();
+    }
+
+    /// <summary>Guest: apply masked GameSave from Host.</summary>
+    private void OnNetStateReceived(GameSave save)
+    {
+        try
+        {
+            ApplyGameSave(save);
+            StatusText.Text = $"Net state applied (T{_session.TurnNumber} P{_session.ActivePlayer} {_session.Segment}).";
+            _session.Log.AddDebug(_session.TurnNumber, "Net", "ApplyGameSave from Host.");
+            RefreshActionHistory();
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = "Net ApplyGameSave failed: " + ex.Message;
+            _session.Log.AddDebug(_session.TurnNumber, "Net", "ApplyGameSave failed: " + ex.Message);
+        }
+    }
+
+    /// <summary>Host: remote GameAction → AuthorizePlay → UI apply → broadcast masked state.</summary>
+    private void OnNetActionReceived(NetActionDto dto)
+    {
+        if (_netSession == null || !_netSession.IsHost) return;
+
+        GameAction action;
+        try
+        {
+            action = NetActionDto.FromDto(dto, LookupCardForNetAction);
+        }
+        catch (Exception ex)
+        {
+            _ = _netSession.SendErrorAsync("Bad action: " + ex.Message);
+            return;
+        }
+
+        if (action.Kind == GameActionKind.PlayCard && action.Card == null)
+        {
+            _ = _netSession.SendErrorAsync($"PlayCard: card '{dto.CardName}' not found on Host.");
+            return;
+        }
+
+        if (!IsNetSyncKindSupported(action.Kind))
+        {
+            _ = _netSession.SendErrorAsync($"Phase 3 does not sync '{action.Kind}' yet.");
+            return;
+        }
+
+        if (action.Kind is GameActionKind.EndPhase or GameActionKind.EndTurn or GameActionKind.Draw)
+        {
+            if (action.Player != _session.ActivePlayer)
+            {
+                _ = _netSession.SendErrorAsync($"Not your turn (active P{_session.ActivePlayer}).");
+                return;
+            }
+        }
+
+        var auth = AuthorizePlay(action);
+        if (!auth.Ok)
+        {
+            _ = _netSession.SendErrorAsync(auth.Message);
+            StatusText.Text = "Net DENY: " + auth.Message;
+            return;
+        }
+
+        if (!TryApplyNetAuthorizedAction(action))
+        {
+            _ = _netSession.SendErrorAsync("Host could not apply " + action.Kind);
+            return;
+        }
+
+        BroadcastMaskedStateToGuest();
+    }
+
+    private static bool IsNetSyncKindSupported(GameActionKind kind) =>
+        kind is GameActionKind.Pass
+            or GameActionKind.EndPhase
+            or GameActionKind.EndTurn
+            or GameActionKind.Draw
+            or GameActionKind.PlayCard;
+
+    /// <summary>Resolve card by name/set from hand or table for Host FromDto.</summary>
+    private Card? LookupCardForNetAction(string? name, string? set)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return null;
+        IEnumerable<Card> pools = _handCards
+            .Concat(_oppHandCards)
+            .Concat(_tablePermanentCards)
+            .Concat(_oppTablePermanentCards)
+            .Concat(TableCanvas.Children.OfType<Border>().Select(b => b.Tag).OfType<Card>());
+
+        Card? hit = null;
+        if (!string.IsNullOrWhiteSpace(set))
+        {
+            hit = pools.FirstOrDefault(c =>
+                string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(c.SetFolder, set, StringComparison.OrdinalIgnoreCase));
+        }
+        hit ??= pools.FirstOrDefault(c =>
+            string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
+        return hit;
+    }
+
+    /// <summary>
+    /// Apply EndPhase / EndTurn / Pass / Draw on Host after AuthorizePlay OK.
+    /// PlayCard: status+log only in Phase 3 (full UI play path deferred).
+    /// </summary>
+    private bool TryApplyNetAuthorizedAction(GameAction action)
+    {
+        switch (action.Kind)
+        {
+            case GameActionKind.EndPhase:
+                if (_session.Segment != GameSession.TurnSegment.Play)
+                {
+                    StatusText.Text = "Net EndPhase ignored: not in Play segment.";
+                    return false;
+                }
+                _session.AdvanceSegment();
+                SyncSessionToUi();
+                OnTurnContextChanged(_session.StatusLine() + " — execute orders.");
+                ProcessIncomingMessageMoves(_session.ActivePlayer);
+                _session.Log.Add(_session.TurnNumber, $"P{action.Player}", "Net: End Play phase → Execute");
+                return true;
+
+            case GameActionKind.EndTurn:
+                if (_session.Segment == GameSession.TurnSegment.Play)
+                {
+                    StatusText.Text = "Net EndTurn: still in Play (Authorize should have caught).";
+                    return false;
+                }
+                FinishExecuteAndEndTurn();
+                _session.Log.Add(_session.TurnNumber, $"P{action.Player}", "Net: End turn");
+                return true;
+
+            case GameActionKind.Pass:
+                _session.Log.Add(_session.TurnNumber, $"P{action.Player}", "Net: Pass (response)");
+                StatusText.Text = $"Net: P{action.Player} Pass (logged; full response sync = P4).";
+                return true;
+
+            case GameActionKind.Draw:
+                _session.Log.Add(_session.TurnNumber, $"P{action.Player}", "Net: Draw (logged; no auto-draw UI in P3)");
+                StatusText.Text = $"Net: P{action.Player} Draw authorized (apply via state if Host drew locally).";
+                return true;
+
+            case GameActionKind.PlayCard:
+                _session.Log.Add(_session.TurnNumber, $"P{action.Player}",
+                    $"Net: PlayCard {action.Card?.Name} authorized — full UI play not wired in P3.");
+                StatusText.Text = $"Net: PlayCard {action.Card?.Name} OK at authority; UI play path deferred.";
+                return false;
+
+            default:
+                return false;
+        }
+    }
+
+    private void BroadcastMaskedStateToGuest()
+    {
+        if (_netSession == null || !_netSession.IsHost) return;
+        try
+        {
+            var save = CaptureGameSave();
+            var masked = NetStateMask.MaskForViewer(save, viewerPlayer: 2);
+            _ = _netSession.BroadcastStateAsync(masked);
+            _session.Log.AddDebug(_session.TurnNumber, "Net", "Broadcast masked GameSave to Guest.");
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = "Net broadcast failed: " + ex.Message;
+            _session.Log.AddDebug(_session.TurnNumber, "Net", "Broadcast failed: " + ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Network End PLAY / End turn. Guest sends action; Host applies locally + broadcasts.
+    /// </summary>
+    private void HandleNetworkEndTurnClick()
+    {
+        if (_netSession == null)
+        {
+            StatusText.Text = "Network: connect via lobby first.";
+            return;
+        }
+        if (_inspectorMode == InspectorMode.OpponentPileInteract)
+        {
+            StatusText.Text = "Resolve or cancel the pile interaction first.";
+            return;
+        }
+        if (_endTurnAfterDrawStack || _eotEndingInProgress)
+        {
+            if (_netSession.IsHost)
+            {
+                ResumeEndOfTurnAfterDrawResponses();
+                BroadcastMaskedStateToGuest();
+            }
+            else
+                StatusText.Text = "Network: waiting for Host end-of-turn state…";
+            return;
+        }
+
+        bool endPhase = _session.Segment == GameSession.TurnSegment.Play;
+        var action = endPhase
+            ? GameAction.EndPhase(_netSession.LocalPlayer)
+            : GameAction.EndTurn(_netSession.LocalPlayer);
+
+        if (_session.ActivePlayer != _netSession.LocalPlayer)
+        {
+            StatusText.Text = $"Network: waiting for P{_session.ActivePlayer} (you are P{_netSession.LocalPlayer}).";
+            return;
+        }
+
+        if (_netSession.IsHost)
+        {
+            var auth = AuthorizePlay(action);
+            if (!auth.Ok)
+            {
+                StatusText.Text = "Net DENY: " + auth.Message;
+                return;
+            }
+            if (!TryApplyNetAuthorizedAction(action))
+                return;
+            BroadcastMaskedStateToGuest();
+            return;
+        }
+
+        _ = SendGuestActionAsync(action);
+    }
+
+    private async System.Threading.Tasks.Task SendGuestActionAsync(GameAction action)
+    {
+        if (_netSession == null || !_netSession.IsGuest) return;
+        try
+        {
+            await _netSession.SendActionAsync(NetActionDto.ToDto(action)).ConfigureAwait(true);
+            StatusText.Text = $"Net: sent {action.Kind} — waiting for Host state…";
+            _session.Log.AddDebug(_session.TurnNumber, "Net", $"Sent {action.Kind} to Host.");
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = "Net send failed: " + ex.Message;
+        }
+    }
+
     private void BtnEndTurn_Click(object sender, RoutedEventArgs e)
     {
-        if (_seedPhaseActive || _gameMode != GameMode.Hotseat) return;
+        if (_seedPhaseActive) return;
+        if (_gameMode == GameMode.Network)
+        {
+            HandleNetworkEndTurnClick();
+            return;
+        }
+        if (_gameMode != GameMode.Hotseat) return;
         if (_inspectorMode == InspectorMode.OpponentPileInteract)
         {
             StatusText.Text = "Resolve or cancel the pile interaction first.";

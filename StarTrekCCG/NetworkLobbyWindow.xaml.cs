@@ -10,7 +10,7 @@ namespace StarTrekCCG;
 // Verb: network lobby host join
 /// <summary>
 /// Phase-2 Lobby: Host / Join / Localhost against NetServer/NetClient.
-/// Connection + handshake only — no game-state sync.
+/// Connection + handshake; DetachTransport for Phase-3 session — no game-state sync.
 /// </summary>
 public partial class NetworkLobbyWindow : Window
 {
@@ -20,6 +20,17 @@ public partial class NetworkLobbyWindow : Window
     private bool _busy;
 
     public bool IsConnected { get; private set; }
+
+    /// <summary>True when this window hosted the listen/accept side.</summary>
+    public bool IsHost => _server is not null || _detachedWasHost;
+
+    public NetServer? Server => _server;
+    public NetClient? Client => _client;
+
+    /// <summary>True after DetachTransport — Closing must not dispose the live socket.</summary>
+    public bool TransportDetached { get; private set; }
+
+    private bool _detachedWasHost;
 
     public event EventHandler<bool>? ConnectionChanged;
 
@@ -156,6 +167,25 @@ public partial class NetworkLobbyWindow : Window
         return true;
     }
 
+    /// <summary>
+    /// Hand ownership of the live NetServer/NetClient to NetPlaySession.
+    /// Nulls local refs without Dispose so Closing will not kill the connection.
+    /// </summary>
+    public (NetServer? server, NetClient? client) DetachTransport()
+    {
+        TransportDetached = true;
+        _detachedWasHost = _server is not null;
+        try { _cts?.Cancel(); } catch { /* ignore */ }
+        try { _cts?.Dispose(); } catch { /* ignore */ }
+        _cts = null;
+
+        var server = _server;
+        var client = _client;
+        _server = null;
+        _client = null;
+        return (server, client);
+    }
+
     private void DisconnectInternal(string? statusMessage)
     {
         try { _cts?.Cancel(); } catch { /* ignore */ }
@@ -209,6 +239,9 @@ public partial class NetworkLobbyWindow : Window
 
     private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
     {
+        // Phase 3: if session took the transport, do not dispose the live socket.
+        if (TransportDetached)
+            return;
         DisconnectInternal(null);
     }
 }
