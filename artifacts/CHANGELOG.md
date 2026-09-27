@@ -1,3 +1,11 @@
+## 2026-09-27 - Artifact Seed Glow ALL [P] (Nachzieher)
+
+- *Bugfix (Pepsch, nach 23044e0)*: Unter manchen Missionen kein Artifact-Snap/Glow (Stone of Gol); Glow zeigte nicht alle legalen [P].
+- *Ursache (Captain-Punkt 1)*: CollectSitesForDrag lief IsPlayOnDrag vor Seed. Artifacts wie Vulcan Stone of Gol sind NeedsBoardSnap (spaeter play-as-Event) -> Glow = Away-Team-PlayOn (oft leer) statt ALLER legalen [P]-Missionen. Snap/Drop nearest-legal blieb OK; Glow nicht. Punkt 4: ShipSnapRange 280 knapp vs UnderMissionGap-dy. Punkt 3: Deny-StatusText bei Range/Limit oft leer/generisch. Punkt 2: ParseLocationIcons Lore-Fallback aboard/Away Team konnte falsch klassifizieren (abgehaertet). Punkt 5 Execute: unveraendert / Smoke noch offen.
+- *Fix*: Seed-CollectTargets VOR PlayOn; gold Glow alle LocationSlot/Seed; SeedUnderMissionSnapRange (560); DescribeSeedUnderDeny (Limits/Planet-Space/Range); SeedRules ParseLocationIcons mdt-first ohne Lore-aboard. Execute unveraendert.
+- *netztauglich*: Decide SeedRules + CollectSites; Apply TableWindow Host/Guest gleiche Deny-Texte.
+- *Scope*: SeedRules + TableWindow; Docs separat. Bug-3-Ordner unberuehrt. Kein Push.
+
 ## 2026-09-27 - Artifact Seed Targets + P2 End EXECUTE (Network)
 
 - *Bugfix (Pepsch)*: (1) Artifact (Vulcan Stone of Gol) nur unter Hunt for DNA Program seedbar; (2) P2 Turn 1 steckt in EXECUTE — Space/Button tot.
