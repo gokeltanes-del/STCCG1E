@@ -1,3 +1,10 @@
+## 2026-09-27 - Network Guest->Host Seed Authority Loop
+
+- *Bugfix (Pepsch, Screenshot)*: P2 Mission auf Guest -> P1-Board blieb alt (Spaceline 2 vs 1; Zaehler 5 vs 6 left). Host->Guest nach f020183 ok.
+- *Ursache*: Guest Drop applyte lokal, dann TryAlternateSeedPlayer flipte _activePlayer P2->P1 *vor* NotifyNetworkAfterSeedPlacement. f020183-Gate _activePlayer != LocalPlayer skippte SendGuestActionAsync — Host bekam nie SeedCard.
+- *netztauglich*: Guest Seed-Pile-Drop = nur Action (TrySubmitGuestNetworkSeed → Host OnNetActionReceived → TryApplyNetSeedCard → BroadcastMaskedStateToGuest); kein lokales Guest-Board ohne Host-Wahrheit; Karte bleibt im Guest-Stapel bis ApplyGameSave. Notify-Gate entfernt (Fallback sendet immer LocalPlayer).
+- *Scope*: kein P5 Disconnect; kein Push.
+
 ## 2026-09-27 - Network Host->Guest Seed Sync (ActivePlayer + input gate)
 
 - *Bugfix (Pepsch, Screenshot 27.09.)*: P1 Mission auf Host -> Guest-Board blieb alt; Banner "P1 dran"; Guest konnte fremde/ungehoerige Karten legen (paralleles Hotseat).

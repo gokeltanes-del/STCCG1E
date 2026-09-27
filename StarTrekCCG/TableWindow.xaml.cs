@@ -6045,6 +6045,18 @@ public partial class TableWindow : Window
         cardBorder.Width = TableCardWidth;
         cardBorder.Height = TableCardHeight;
 
+        // Network Guest: seed pile drops are Actions only — Host Apply + Broadcast is board truth.
+        // Do not PlaceMission / AddSeedUnderMission / TryAlternate locally (avoids optimistic desync
+        // and the post-Alternate ActivePlayer gate that skipped SendGuestActionAsync).
+        if (_netSession != null && _netSession.IsGuest && _seedPhaseActive
+            && IsSeedZone(zref.ZoneName))
+        {
+            _ = TrySubmitGuestNetworkSeed(card, cardBorder, windowPos, zref);
+            RefreshZoneCounts();
+            ShowCurrentSeedStack();
+            return;
+        }
+
         bool isHandOrUnlockedSide = zref.ZoneName == "Hand"
             || (IsSideDeckZone(zref.ZoneName) && IsSideDeckUnlocked(zref.ZoneName, zref.Opponent));
 
@@ -28910,8 +28922,89 @@ public partial class TableWindow : Window
         BroadcastMaskedStateToGuest();
     }
 
+
     /// <summary>
-    /// After a local seed placement: Host broadcasts; Guest sends SeedCard so Host places + broadcasts.
+    /// Guest seed drop → SeedCard Action to Host; card stays in local pile until Host Broadcast.
+    /// Returns true when Action was sent; false when drop illegal / not our turn (card returned).
+    /// </summary>
+    private bool TrySubmitGuestNetworkSeed(Card card, Border cardBorder, Point windowPos, ZoneCardRef zref)
+    {
+        if (_netSession == null || !_netSession.IsGuest)
+            return false;
+
+        if (_activePlayer != _netSession.LocalPlayer)
+        {
+            StatusText.Text =
+                $"Network: waiting for P{_activePlayer} (you are P{_netSession.LocalPlayer}).";
+            ReturnFloatingToZone(card, cardBorder, zref.ZoneName, zref.Opponent);
+            return false;
+        }
+
+        Card? target = null;
+        string? deny = null;
+        var tablePt = WindowToTablePoint(windowPos);
+
+        if (IsMissionCard(card))
+        {
+            // Host AutoSeedMission — no target / insert pixels required for visibility sync.
+        }
+        else if (IsSeedableUnderMission(card))
+        {
+            var missionBorder = FindNearestLegalSeedMission(card, tablePt.X, tablePt.Y, out double dist);
+            if (missionBorder?.Tag is Card mc
+                && dist <= ShipSnapRange
+                && CanSeedCardUnderMission(card, mc).ok)
+            {
+                target = mc;
+            }
+            else
+            {
+                deny = missionBorder?.Tag is Card m2
+                    ? CanSeedCardUnderMission(card, m2).reason
+                    : $"{card.Name} requires a matching mission (Planet/Space).";
+            }
+        }
+        else if (IsFacilityCard(card))
+        {
+            Canvas.SetLeft(cardBorder, tablePt.X - TableCardWidth / 2.0);
+            Canvas.SetTop(cardBorder, tablePt.Y - TableCardHeight / 2.0);
+            var missionBorder = FindNearestLegalFacilityMission(card, cardBorder, out _);
+            if (missionBorder?.Tag is Card mc)
+                target = mc;
+            else
+                deny = $"{card.Name} needs a matching planet mission (outposts not at space).";
+        }
+        else if (IsDoorwayCard(card))
+        {
+            // Host AutoSeedDoorway — no target.
+        }
+        // else: Facility-phase ships/personnel/etc. — Host TryApplyNetSeedCard CommitCardToTable.
+
+        if (deny != null)
+        {
+            StatusText.Text = deny;
+            ReturnFloatingToZone(card, cardBorder, zref.ZoneName, zref.Opponent);
+            return false;
+        }
+
+        // Keep card in Guest seed pile until Host ApplyGameSave; no local spaceline mutate.
+        ReturnFloatingToZone(card, cardBorder, zref.ZoneName, zref.Opponent);
+        int player = _netSession.LocalPlayer;
+        var action = GameAction.Seed(player, card, target);
+        _ = SendGuestActionAsync(action);
+        StatusText.Text = $"Net: Seed {card.Name} sent — waiting for Host…";
+        _session.Log.AddDebug(_session.TurnNumber, "Net",
+            $"Guest SeedCard submitted: {card.Name}" +
+            (target != null ? $" under {target.Name}" : "") + ".");
+        return true;
+    }
+
+    /// <summary>
+    /// After a local seed placement (Host): broadcast masked state.
+    /// Guest seed drops must NOT use this path — they submit via TrySubmitGuestNetworkSeed
+    /// before any local board mutate / TryAlternateSeedPlayer.
+    /// If Guest still reaches here (legacy), always SendAction: do not gate on _activePlayer
+    /// because TryAlternateSeedPlayer may already have switched away from LocalPlayer.
     /// </summary>
     private void NotifyNetworkAfterSeedPlacement(Card card, Card? targetMission = null, string? note = null)
     {
@@ -28923,13 +29016,8 @@ public partial class TableWindow : Window
             BroadcastMaskedStateToGuest();
             return;
         }
-        // Guest: only act on own turn; Host is authoritative (ApplyGameSave will reconcile).
-        if (_activePlayer != _netSession.LocalPlayer)
-        {
-            StatusText.Text =
-                $"Network: waiting for P{_activePlayer} (you are P{_netSession.LocalPlayer}).";
-            return;
-        }
+        // Guest fallback only: LocalPlayer is the seeder who just dropped (ActivePlayer may
+        // already have flipped). Host EngineAuthority still checks Host-side ActivePlayer.
         int player = _netSession.LocalPlayer;
         var action = GameAction.Seed(player, card, targetMission, note);
         _ = SendGuestActionAsync(action);
