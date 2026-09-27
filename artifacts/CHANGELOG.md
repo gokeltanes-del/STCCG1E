@@ -1,3 +1,11 @@
+## 2026-09-27 - Guest PlayCard Host-apply (P2 Play->Execute Hand-Wipe)
+
+- *Bugfix (Pepsch, Guest T3-T5 ~18:34)*: P2 spielt Qu'Vat / Medical Tricorder / Genetronic Replicator; nach End PLAY (EndPhase) Karten weg vom Board, wieder in Hand. Host-Save ships=0 / ohne Equipment.
+- *Ursache*: Guest Hand-Play mutierte nur lokal (phantom). Host TryApplyNetAuthorizedAction PlayCard = P3-Stub (return false, kein UI-Apply). EndPhase Broadcast Host-Wahrheit ohne Guest-Plays -> Guest ApplyGameSave wischt Board, Karte wieder Hand.
+- *Fix*: Guest TrySubmitGuestNetworkPlay (Action only, Karte bleibt in Hand bis Save); Host TryApplyNetPlayCard platziert Ship (Facility-Report) / Personnel+Equipment (Host-Stack) / Event+TABLE; OnSuccessfulHandPlay; ActivePlayer-Gate; GameAction.Play Note underInst. Interrupts weiter P4.
+- *netztauglich*: Decide Play Host EngineAuthority; Guest UI nur aus ApplyGameSave (wie Seed). Tips 7c040df / 9abb843 erhalten.
+- *Scope*: TableWindow + GameAction.Play Note. Docs separat. Kein Push.
+
 ## 2026-09-27 - Multiplayer Skip seed phase (Network Lobby)
 
 - *Feature (Pepsch)*: Optional Auto-Seed wie Quick Game im Netz, wenn beide Skip seed phase akzeptieren.
