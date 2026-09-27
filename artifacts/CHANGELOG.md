@@ -1,3 +1,10 @@
+## 2026-09-27 - Network P2 Facility Seed docks Spaceline (not TABLE)
+
+- *Bugfix (Pepsch, Screenshot)*: P2 Facility Seed (Remote Supply Depot) landet in „P2 TABLE“ Sidebar statt unter gewählter Mission auf der Spaceline; beide Clients gleich (Engine-Wahrheit falsch). Nor von P1 lag korrekt unter Space-Mission. Status TURN 1 PLAY.
+- *Ursache*: Guest `TrySubmitGuestNetworkSeed` setzte Mission-Target für Facilities, aber Host `TryApplyNetSeedCard` hatte keinen Facility-Zweig → else `CommitCardToTable` → `_oppTablePermanentCards` (P2 TABLE). Dilemma/Artifact-Pfad (AddSeedUnderMission) und Host-lokaler Facility-Drop (DockSlot) waren ok; Events wie Q's Planet auf TABLE bleiben regelkonform (SeedRules Facility-Phase).
+- *netztauglich*: Host `TryApplyNetSeedCard` dockt Facility via `ResolveSeedUnderMissionTarget` + `CanSeedFacilityAtMission` + `AddCardToTable`/`RelayoutDockablesUnderMission` (wie AutoSeedFacility); illegal → zurück Facility-Pile. Guest Note `underInst:InstanceId` für Facilities; Resolve name-legal nutzt `CanSeedFacilityAtMission` für Facilities. Sync-Authority unverändert (Guest Action→Host Apply→Broadcast).
+- *Scope*: P2/Guest Facility Seed Placement; kein PlayCard-UI (weiter deferred); kein Ship-Facility-Phase TABLE-Residual; kein P5; kein Push.
+
 ## 2026-09-27 - Network Seed-under-Mission Host/Guest Sync + Owner Face-up
 
 - *Bugfix (Pepsch, Screenshot)*: Dilemma/Artifact Seed-Anzeige Host vs Guest divergiert (Vulcan Stone of Gol unter Mission nur auf einem Client; Clumping/falsche X; Zaehler 3/1 vs fehlend). Status beide SEED 3/4 Dilemma P2 (TOP vs BOTTOM).

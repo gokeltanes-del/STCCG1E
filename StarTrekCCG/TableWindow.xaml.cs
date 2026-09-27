@@ -9621,7 +9621,8 @@ public partial class TableWindow : Window
     /// <summary>
     /// Host: apply Guest SeedCard authoritatively.
     /// Missions: SeedMissionFromNetNote (after:/before:/insert: from Guest Note → engine index).
-    /// Under-mission when Target set; doorways via AutoSeedDoorway; else CommitCardToTable.
+    /// Under-mission when Target set; Facilities dock at mission (not TABLE); doorways via AutoSeedDoorway;
+    /// else CommitCardToTable (Events/Objectives in Facility phase).
     /// </summary>
     private bool TryApplyNetSeedCard(GameAction action)
     {
@@ -9672,12 +9673,35 @@ public partial class TableWindow : Window
                 StatusText.Text = $"Net Seed: {card.Name} - no legal mission target on Host; returned to pile.";
             }
         }
+        else if (IsFacilityCard(card))
+        {
+            // Guest Seed sends Target / underInst; do NOT CommitCardToTable (P2 TABLE sidebar).
+            Border? missionBorder = ResolveSeedUnderMissionTarget(action);
+            if (missionBorder != null && missionBorder.Tag is Card mCard
+                && CanSeedFacilityAtMission(card, mCard).ok)
+            {
+                var border = AddCardToTable(card,
+                    Canvas.GetLeft(missionBorder),
+                    Canvas.GetTop(missionBorder) + DockSlotOffsetY(0, player),
+                    TableCardWidth);
+                SetBorderOwner(border, player);
+                RelayoutDockablesUnderMission(missionBorder);
+                UpdateHostBadge(border);
+            }
+            else
+            {
+                (player == 1 ? _facilitySeedCards : _oppFacilitySeedCards).Add(card);
+                StatusText.Text =
+                    $"Net Seed: {card.Name} - no legal facility mission on Host; returned to pile.";
+            }
+        }
         else if (IsDoorwayCard(card))
         {
             AutoSeedDoorway(card, player);
         }
         else
         {
+            // Facility-phase Events/Objectives/etc. may sit on TABLE (SeedRules).
             CommitCardToTable(card, player);
         }
 
@@ -29113,7 +29137,9 @@ public partial class TableWindow : Window
                 ? AllMissionBorders()
                     .FirstOrDefault(b => b.Tag is Card mc
                         && string.Equals(mc.Name, action.Target.Name, StringComparison.OrdinalIgnoreCase)
-                        && CanSeedCardUnderMission(action.Card, mc).ok)
+                        && (IsFacilityCard(action.Card)
+                            ? CanSeedFacilityAtMission(action.Card, mc).ok
+                            : CanSeedCardUnderMission(action.Card, mc).ok))
                 : null;
             return byNameLegal
                 ?? AllMissionBorders()
@@ -29217,7 +29243,12 @@ public partial class TableWindow : Window
             Canvas.SetTop(cardBorder, tablePt.Y - TableCardHeight / 2.0);
             var missionBorder = FindNearestLegalFacilityMission(card, cardBorder, out _);
             if (missionBorder?.Tag is Card mc)
+            {
                 target = mc;
+                // Engine identity so Host docks under the same mission (viewer L/R independent).
+                if (mc.InstanceId > 0)
+                    note = $"underInst:{mc.InstanceId}";
+            }
             else
                 deny = $"{card.Name} needs a matching planet mission (outposts not at space).";
         }
@@ -29225,7 +29256,7 @@ public partial class TableWindow : Window
         {
             // Host AutoSeedDoorway — no target.
         }
-        // else: Facility-phase ships/personnel/etc. — Host TryApplyNetSeedCard CommitCardToTable.
+        // else: Facility-phase Events/Objectives may go TABLE; ships without target still Host TABLE (residual).
 
         if (deny != null)
         {
