@@ -9,7 +9,7 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 
 ## Jetzt aktiv ├ö├ç├Â Multiplayer / Network-Modus
 
-**Status:** Network Guest->Host Seed Authority Loop getippt. **netztauglich.** Tip-Hash PENDING. Naechster Tip: Phase 5 Disconnect oder Pepsch-Retest.
+**Status:** Network Guest->Host Seed Authority Loop getippt. **netztauglich.** Tip-Hash ccd9aa5. Naechster Tip: Phase 5 Disconnect oder Pepsch-Retest.
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
 
 ### Architektur
@@ -24,13 +24,13 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 4. **Phase 4 — Dialoge/Timing:** ChoiceRequest / ChoiceResponse. → Tip e102b47.
 5. **Phase 5 ├ö├ç├Â HÔö£├▒rtung:** Disconnect, Reconnect, Abbruch.
 
-**Code-Stand (Data 2026-09-27):** Guest->Host Seed Authority Loop getippt; Tip-Hash PENDING. Host->Guest f020183. Viewer=LocalPlayer 1bd513f. Seed Sync ba2ee6f. Working tree dirty (fremde Aenderungen unberuehrt). Kein Push durch Bots.
+**Code-Stand (Data 2026-09-27):** Guest->Host Seed Authority Loop getippt; Tip-Hash ccd9aa5. Host->Guest f020183. Viewer=LocalPlayer 1bd513f. Seed Sync ba2ee6f. Working tree dirty (fremde Aenderungen unberuehrt). Kein Push durch Bots.
 
 ---
 
 ## Zuletzt (kurz)
 
-- Network Guest->Host Seed Authority: Guest Seed nur Action an Host; kein lokales Apply vor Auth; Notify-Gate-Fix. Tip-Hash PENDING.
+- Network Guest->Host Seed Authority: Guest Seed nur Action an Host; kein lokales Apply vor Auth; Notify-Gate-Fix. Tip-Hash ccd9aa5.
 
 - Network Host->Guest Seed Sync: EnsureNetworkMode + ActivePlayer-Broadcast/Apply + LocalPlayer-Input-Gate. Tip-Hash f020183.
 
