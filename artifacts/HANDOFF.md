@@ -9,7 +9,7 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 
 ## Jetzt aktiv ├ö├ç├Â Multiplayer / Network-Modus
 
-**Status:** P2 Mission-Seed Insert-Index + Slot-Hover getippt. **netztauglich.** Tip-Hash 141c4df. Naechster Tip: Phase 5 Disconnect oder Pepsch-Retest.
+**Status:** Seed-under-Mission Host/Guest Sync + Owner Face-up getippt. **netztauglich.** Tip-Hash 6da1c61. Naechster Tip: Phase 5 Disconnect oder Pepsch-Retest. **HOLD.**
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
 
 ### Architektur
@@ -24,11 +24,14 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 4. **Phase 4 — Dialoge/Timing:** ChoiceRequest / ChoiceResponse. → Tip e102b47.
 5. **Phase 5 ├ö├ç├Â HÔö£├▒rtung:** Disconnect, Reconnect, Abbruch.
 
-**Code-Stand (Data 2026-09-27):** P2 Mission-Seed Index+Hover Tip-Hash 141c4df. UI Nachzieher 7747bf8; Guest->Host ccd9aa5; Host->Guest f020183; Viewer=LocalPlayer 1bd513f. Working tree dirty after tip restore. Kein Push durch Bots.
+**Code-Stand (Data 2026-09-27):** Seed-under Sync Tip-Hash 6da1c61. P2 Mission Insert 141c4df; UI Nachzieher 7747bf8; Guest->Host ccd9aa5; Host->Guest f020183; Viewer=LocalPlayer 1bd513f. Working tree dirty after tip restore. Kein Push durch Bots. **HOLD.**
 
 ---
 
 ## Zuletzt (kurz)
+
+- Network Seed-under-Mission: gleicher Stack Host/Guest; Owner face-up / Opp face-down+Zaehler; underInst+force restore. Tip-Hash 6da1c61. **HOLD.**
+
 
 - Network P2 Mission-Seed: Guest after:/before: Note → Host engine insert; Slot-Hover glow. Tip-Hash 141c4df.
 

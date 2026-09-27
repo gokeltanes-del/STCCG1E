@@ -1,3 +1,11 @@
+## 2026-09-27 - Network Seed-under-Mission Host/Guest Sync + Owner Face-up
+
+- *Bugfix (Pepsch, Screenshot)*: Dilemma/Artifact Seed-Anzeige Host vs Guest divergiert (Vulcan Stone of Gol unter Mission nur auf einem Client; Clumping/falsche X; Zaehler 3/1 vs fehlend). Status beide SEED 3/4 Dilemma P2 (TOP vs BOTTOM).
+- *Klarstellung Pepsch*: Stack-Layout beiderseits identisch; Owner sieht eigene Seeds face-up; Opponent face-down/Zaehler (nicht beide face-up).
+- *Ursache*: (1) `ApplyGameSave` SeedUnder rief `AddSeedUnderMission` mit CanSeed-Re-Check - Mask-Stubs/Drift  Visible-Orphans bei Host-AbsoluteLeft (Clumping) bzw. fehlende Stacks; (2) `FillHostStrip` im Seed-Phase reveal=ALL (Host sah Guest-Artifact face-up); (3) `UpdateSeedBadge` ownCount via `_activePlayer` statt ViewerPlayer; (4) Guest Dilemma-Seed nur Target-Name, kein Mission-InstanceId.
+- *netztauglich / UI+Restore*: Sync-Authority (Guest ActionHost ApplyBroadcast) unveraendert. `AddSeedUnderMission(force)` + FaceUp=false + Pin an Mission-X; ApplyGameSave force + `RelayoutSeedUnderMissions`; Guest Note `underInst:InstanceId`; Host `ResolveSeedUnderMissionTarget`; FillHostStrip/Detail owner-only face-up; `NetStateMask` cleared Opponent-SeedUnder Table-Identitaet (Counts bleiben).
+- *Scope*: kein P5 Disconnect; kein Push.
+
 ﻿## 2026-09-27 - Network P2 Mission-Seed Insert-Index + Slot-Hover
 
 - *Bugfix (Pepsch, Screenshot)*: P2 (Guest) legt Khitomer zwischen Wormhole Negotiations und Avert Disaster → landet rechts am Ende; Slot-Rahmen da, Hover mit Karte in Hand leuchtet nicht.
