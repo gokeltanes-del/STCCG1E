@@ -1,3 +1,9 @@
+﻿## 2026-09-27 - Network P2 Mission-Seed Insert-Index + Slot-Hover
+
+- *Bugfix (Pepsch, Screenshot)*: P2 (Guest) legt Khitomer zwischen Wormhole Negotiations und Avert Disaster → landet rechts am Ende; Slot-Rahmen da, Hover mit Karte in Hand leuchtet nicht.
+- *Ursache*: (1) Guest `TrySubmitGuestNetworkSeed` sandte Mission ohne Note; Host `TryApplyNetSeedCard` nutzte `AutoSeedMission` (Zufalls-X) — ba2ee6f Partial ohne after:Name. (2) `ShowMissionSlotPreviews` zeichnete alle Slots gleich dim; MouseMove rief Preview ohne hoverDropX — kein Hot-Slot wie sonstige Snap-Targets.
+- *netztauglich*: Guest Note `after:`/`before:`/`insert:` (Nachbar-Name = Engine-Index, absolute L→R Spaceline); Host `SeedMissionFromNetNote` + `PlaceMissionOnSpaceline(..., forcedInsertIndex)`; Hover brightened nearest legal slot (Hotseat + Network). Sync Authority unverändert (Guest Action→Host Apply→Broadcast).
+- *Scope*: nur P2 Mission-Seed Index+Hover; kein Dilemma-Target-Umbau; kein Push.
 ## 2026-09-27 - Network UI Nachzieher Seed (Hand face-up / Mission Glow / Viewer-Orientierung)
 
 - *Bugfix (Pepsch, Screenshot)*: Guest eigene Missionen als Rücken außer Zug; Mission-Drop-Glow/Snap fehlte vs Hotseat; Spaceline auf P2-Instanz noch Host-orientiert (P2 auf dem Kopf).

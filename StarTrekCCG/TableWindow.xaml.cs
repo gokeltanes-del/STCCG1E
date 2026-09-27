@@ -3624,7 +3624,11 @@ public partial class TableWindow : Window
                 }
                 var floating = _dragCard;
                 if (floating?.Tag is Card dc && IsMissionCard(dc))
-                    ShowMissionSlotPreviews(dc);
+                {
+                    // Hover-glow: brighten nearest legal slot (Hotseat + Network Guest).
+                    var tablePt = WindowToTablePoint(winPos);
+                    ShowMissionSlotPreviews(dc, tablePt.X);
+                }
                 else if (floating?.Tag is Card dw && IsDoorwayCard(dw))
                 {
                     UpdateZoneSnapForDoorway(dw, winPos);
@@ -7134,7 +7138,7 @@ public partial class TableWindow : Window
         return string.IsNullOrEmpty(r) ? null : r;
     }
 
-    private void PlaceMissionOnSpaceline(Border missionBorder, Card card)
+    private void PlaceMissionOnSpaceline(Border missionBorder, Card card, int? forcedInsertIndex = null)
     {
         string quadrant = GetNativeQuadrant(card);
         double dropX = Canvas.GetLeft(missionBorder) + TableCardWidth / 2.0;
@@ -7168,7 +7172,16 @@ public partial class TableWindow : Window
         qList.Remove(missionBorder);
 
         var validIndices = GetValidSpacelineInsertIndices(quadrant, GetRegion(card));
-        int insertIndex = PickInsertIndexByDropX(validIndices, dropX);
+        int insertIndex;
+        if (forcedInsertIndex.HasValue)
+        {
+            // Network Guest→Host: Note-resolved engine index (after:/before:), not Guest pixels.
+            insertIndex = forcedInsertIndex.Value;
+            if (validIndices.Count > 0 && !validIndices.Contains(insertIndex))
+                insertIndex = validIndices.OrderBy(v => Math.Abs(v - insertIndex)).First();
+        }
+        else
+            insertIndex = PickInsertIndexByDropX(validIndices, dropX);
         insertIndex = Math.Clamp(insertIndex, 0, _spacelineOrder.Count);
         _spacelineOrder.Insert(insertIndex, missionBorder);
         if (!qList.Contains(missionBorder))
@@ -7295,6 +7308,119 @@ public partial class TableWindow : Window
             }
         }
         return best;
+    }
+
+    /// <summary>
+    /// Guest→Host mission seed Note: after:/before:/insert: — identity anchors, not pixels.
+    /// Spaceline engine order is absolute L→R (same on Host+Guest after Broadcast).
+    /// </summary>
+    private string BuildMissionSeedInsertNote(Card card, double dropX)
+    {
+        string quadrant = GetNativeQuadrant(card);
+        var valid = GetValidSpacelineInsertIndices(quadrant, GetRegion(card));
+        int insertIndex = PickInsertIndexByDropX(valid, dropX);
+        insertIndex = Math.Clamp(insertIndex, 0, _spacelineOrder.Count);
+
+        if (_spacelineOrder.Count == 0)
+            return "insert:0";
+
+        if (insertIndex <= 0)
+        {
+            if (_spacelineOrder[0].Tag is Card first)
+                return "before:" + first.Name;
+            return "insert:0";
+        }
+        if (insertIndex >= _spacelineOrder.Count)
+        {
+            if (_spacelineOrder[^1].Tag is Card last)
+                return "after:" + last.Name;
+            return "insert:end";
+        }
+        if (_spacelineOrder[insertIndex - 1].Tag is Card left)
+            return "after:" + left.Name;
+        if (_spacelineOrder[insertIndex].Tag is Card right)
+            return "before:" + right.Name;
+        return "insert:" + insertIndex;
+    }
+
+    private int IndexOfSpacelineMissionByName(string name)
+    {
+        for (int i = 0; i < _spacelineOrder.Count; i++)
+        {
+            if (_spacelineOrder[i].Tag is Card c && IsMissionCard(c)
+                && string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase))
+                return i;
+        }
+        return -1;
+    }
+
+    /// <summary>
+    /// Host: resolve Guest Note to engine insert index; snap to nearest legal quadrant/region slot.
+    /// </summary>
+    private int ResolveMissionSeedInsertIndex(Card card, string? note)
+    {
+        string quadrant = GetNativeQuadrant(card);
+        var valid = GetValidSpacelineInsertIndices(quadrant, GetRegion(card));
+        // Fallback: end of legal block (not AutoSeedMission random X).
+        int fallback = valid.Count > 0 ? valid[^1] : _spacelineOrder.Count;
+
+        if (string.IsNullOrWhiteSpace(note))
+            return Math.Clamp(fallback, 0, _spacelineOrder.Count);
+
+        int? resolved = null;
+        if (note.StartsWith("after:", StringComparison.OrdinalIgnoreCase))
+        {
+            string name = note["after:".Length..].Trim();
+            int i = IndexOfSpacelineMissionByName(name);
+            if (i >= 0) resolved = i + 1;
+        }
+        else if (note.StartsWith("before:", StringComparison.OrdinalIgnoreCase))
+        {
+            string name = note["before:".Length..].Trim();
+            int i = IndexOfSpacelineMissionByName(name);
+            if (i >= 0) resolved = i;
+        }
+        else if (note.StartsWith("insert:", StringComparison.OrdinalIgnoreCase))
+        {
+            string raw = note["insert:".Length..].Trim();
+            if (string.Equals(raw, "end", StringComparison.OrdinalIgnoreCase))
+                resolved = _spacelineOrder.Count;
+            else if (int.TryParse(raw, out int idx))
+                resolved = Math.Clamp(idx, 0, _spacelineOrder.Count);
+        }
+
+        int insertIndex = resolved ?? fallback;
+        if (valid.Count > 0 && !valid.Contains(insertIndex))
+            insertIndex = valid.OrderBy(v => Math.Abs(v - insertIndex)).First();
+        return Math.Clamp(insertIndex, 0, _spacelineOrder.Count);
+    }
+
+    /// <summary>
+    /// Host apply Guest mission seed at Note-resolved engine index (after:/before:/insert:).
+    /// </summary>
+    private void SeedMissionFromNetNote(Card card, int player, string? note)
+    {
+        int insertIndex = ResolveMissionSeedInsertIndex(card, note);
+        double baseX = SpacelineStartX;
+        if (_spacelineOrder.Count == 0)
+            baseX = SpacelineStartX;
+        else if (insertIndex <= 0)
+            baseX = Canvas.GetLeft(_spacelineOrder[0]) - TableCardWidth - MissionSlotGap;
+        else if (insertIndex >= _spacelineOrder.Count)
+            baseX = Canvas.GetLeft(_spacelineOrder[^1]) + TableCardWidth + MissionSlotGap;
+        else
+        {
+            double left = Canvas.GetLeft(_spacelineOrder[insertIndex - 1]);
+            double right = Canvas.GetLeft(_spacelineOrder[insertIndex]);
+            baseX = (left + TableCardWidth + right) / 2.0 - TableCardWidth / 2.0;
+        }
+
+        var border = AddCardToTable(card, baseX, SpacelineY, TableCardWidth);
+        PlaceMissionOnSpaceline(border, card, forcedInsertIndex: insertIndex);
+        SetBorderOwner(border, player);
+        _session.Log.AddDebug(_session.TurnNumber, "Net",
+            $"Host SeedMissionFromNetNote: {card.Name} @ {insertIndex}" +
+            (note != null ? $" ({note})" : "") + ".");
     }
 
     private static string NormalizeMissionLocation(string? name)
@@ -7514,7 +7640,7 @@ public partial class TableWindow : Window
         _missionSlotPreviews.Clear();
     }
 
-    private void ShowMissionSlotPreviews(Card missionCard)
+    private void ShowMissionSlotPreviews(Card missionCard, double? hoverDropX = null)
     {
         ClearMissionSlotPreviews();
         if (!_seedPhaseActive || _seedSubPhase != SeedSubPhase.Mission)
@@ -7522,6 +7648,10 @@ public partial class TableWindow : Window
 
         string quadrant = GetNativeQuadrant(missionCard);
         var valid = GetValidSpacelineInsertIndices(quadrant, GetRegion(missionCard));
+        // Hot slot under cursor (same PickInsertIndexByDropX as PlaceMission / Guest Note).
+        int hotIdx = hoverDropX.HasValue && valid.Count > 0
+            ? PickInsertIndexByDropX(valid, hoverDropX.Value)
+            : int.MinValue;
 
         foreach (int idx in valid)
         {
@@ -7539,21 +7669,25 @@ public partial class TableWindow : Window
                 slotX = (left + TableCardWidth + right) / 2.0 - TableCardWidth / 2.0;
             }
 
+            bool hot = idx == hotIdx;
+            var stroke = hot ? Color.FromRgb(120, 220, 255) : Color.FromRgb(80, 160, 220);
+            var fillA = hot ? (byte)100 : (byte)40;
             var rect = new Rectangle
             {
                 Width = TableCardWidth,
                 Height = TableCardHeight,
-                Stroke = new SolidColorBrush(Color.FromRgb(80, 160, 220)),
-                StrokeThickness = 2,
+                Stroke = new SolidColorBrush(stroke),
+                StrokeThickness = hot ? 3.5 : 2,
                 StrokeDashArray = new DoubleCollection { 4, 3 },
-                Fill = new SolidColorBrush(Color.FromArgb(40, 40, 100, 160)),
+                Fill = new SolidColorBrush(Color.FromArgb(fillA, hot ? (byte)60 : (byte)40, hot ? (byte)160 : (byte)100, (byte)220)),
                 IsHitTestVisible = false,
                 RadiusX = 4,
-                RadiusY = 4
+                RadiusY = 4,
+                Tag = idx
             };
             Canvas.SetLeft(rect, slotX);
             Canvas.SetTop(rect, SpacelineY);
-            Panel.SetZIndex(rect, 5);
+            Panel.SetZIndex(rect, hot ? 12 : 5);
             TableCanvas.Children.Add(rect);
             _missionSlotPreviews.Add(rect);
         }
@@ -9486,9 +9620,8 @@ public partial class TableWindow : Window
 
     /// <summary>
     /// Host: apply Guest SeedCard authoritatively.
-    /// Missions use AutoSeedMission (spaceline insert without Guest pixels).
+    /// Missions: SeedMissionFromNetNote (after:/before:/insert: from Guest Note → engine index).
     /// Under-mission when Target set; doorways via AutoSeedDoorway; else CommitCardToTable.
-    /// Partial: insert index / after:Name from Note not required for Mission visibility sync.
     /// </summary>
     private bool TryApplyNetSeedCard(GameAction action)
     {
@@ -9513,7 +9646,7 @@ public partial class TableWindow : Window
 
         if (IsMissionCard(card))
         {
-            AutoSeedMission(card, player);
+            SeedMissionFromNetNote(card, player, action.Note);
         }
         else if (IsSeedableUnderMission(card) && action.Target != null)
         {
@@ -28960,11 +29093,13 @@ public partial class TableWindow : Window
 
         Card? target = null;
         string? deny = null;
+        string? note = null;
         var tablePt = WindowToTablePoint(windowPos);
 
         if (IsMissionCard(card))
         {
-            // Host AutoSeedMission — no target / insert pixels required for visibility sync.
+            // Guest→Host: after:/before: neighbor name = engine insert index (not pixels).
+            note = BuildMissionSeedInsertNote(card, tablePt.X);
         }
         else if (IsSeedableUnderMission(card))
         {
@@ -29008,12 +29143,13 @@ public partial class TableWindow : Window
         // Keep card in Guest seed pile until Host ApplyGameSave; no local spaceline mutate.
         ReturnFloatingToZone(card, cardBorder, zref.ZoneName, zref.Opponent);
         int player = _netSession.LocalPlayer;
-        var action = GameAction.Seed(player, card, target);
+        var action = GameAction.Seed(player, card, target, note);
         _ = SendGuestActionAsync(action);
         StatusText.Text = $"Net: Seed {card.Name} sent — waiting for Host…";
         _session.Log.AddDebug(_session.TurnNumber, "Net",
             $"Guest SeedCard submitted: {card.Name}" +
-            (target != null ? $" under {target.Name}" : "") + ".");
+            (target != null ? $" under {target.Name}" : "") +
+            (note != null ? $" [{note}]" : "") + ".");
         return true;
     }
 
