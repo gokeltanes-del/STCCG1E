@@ -73,7 +73,10 @@ public sealed class NetActionDto
     /// Rebuild GameAction. Card/Target resolved only when lookup is provided (Host).
     /// Pass/EndPhase/EndTurn/Draw often need no Card.
     /// </summary>
-    public static GameAction FromDto(NetActionDto dto, Func<string?, string?, Card?>? lookup = null)
+    public static GameAction FromDto(
+        NetActionDto dto,
+        Func<string?, string?, Card?>? lookup = null,
+        Func<int, Card?>? lookupById = null)
     {
         ArgumentNullException.ThrowIfNull(dto);
         if (!Enum.TryParse<GameActionKind>(dto.Kind, ignoreCase: true, out var kind))
@@ -82,13 +85,23 @@ public sealed class NetActionDto
         Card? card = null;
         Card? target = null;
         Card? target2 = null;
+        // Prefer InstanceIds (disambiguate same-name ships / hosts on the board).
+        if (lookupById != null && dto.InstanceIds is { Length: > 0 })
+        {
+            if (dto.InstanceIds.Length > 0 && dto.InstanceIds[0] > 0)
+                card = lookupById(dto.InstanceIds[0]);
+            if (dto.InstanceIds.Length > 1 && dto.InstanceIds[1] > 0)
+                target = lookupById(dto.InstanceIds[1]);
+            if (dto.InstanceIds.Length > 2 && dto.InstanceIds[2] > 0)
+                target2 = lookupById(dto.InstanceIds[2]);
+        }
         if (lookup != null)
         {
-            if (!string.IsNullOrWhiteSpace(dto.CardName))
+            if (card == null && !string.IsNullOrWhiteSpace(dto.CardName))
                 card = lookup(dto.CardName, dto.CardSet);
-            if (!string.IsNullOrWhiteSpace(dto.TargetName))
+            if (target == null && !string.IsNullOrWhiteSpace(dto.TargetName))
                 target = lookup(dto.TargetName, null);
-            if (!string.IsNullOrWhiteSpace(dto.Target2Name))
+            if (target2 == null && !string.IsNullOrWhiteSpace(dto.Target2Name))
                 target2 = lookup(dto.Target2Name, null);
         }
 

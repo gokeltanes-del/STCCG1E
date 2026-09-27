@@ -4110,6 +4110,35 @@ public partial class TableWindow : Window
         int controller = controllerOverride
                          ?? (isResponse ? _stack.ResponsePlayer : _activePlayer);
 
+        // Network Guest interrupt: Action only (Respond) — Host TryApplyNetRespond + Broadcast.
+        // Avoids phantom hand/stack EndTurn wipe. Non-interrupt BeginPlayCardStack unchanged.
+        if (_gameMode == GameMode.Network && _netSession is { IsGuest: true }
+            && (InterruptRules.IsInterrupt(card) || TimingRules.IsInterrupt(card)
+                || ArtifactRules.IsPlaysAsInterruptFromHand(card)))
+        {
+            // Card may already be removed from hand by drag — ensure Host opp-hand still has it? Host lookup uses InstanceId/name on Host copy.
+            // Keep/return Guest hand until ApplyGameSave removes it.
+            var hand = controller == 2 ? _oppHandCards : _handCards;
+            // Guest LocalPlayer is always 2; hand strip is bottom = own = _handCards after viewer flip?
+            // Use LocalPlayer hand list: Guest own cards live in _handCards (viewer-relative).
+            if (! _handCards.Contains(card) && !_oppHandCards.Contains(card))
+                _handCards.Add(card);
+            RefreshHandStrips();
+            RefreshZoneCounts();
+            var act = GameAction.Respond(_netSession.LocalPlayer, card);
+            // Attach target via Note/Target — Respond factory only has card; rebuild with Target.
+            act = new GameAction
+            {
+                Kind = GameActionKind.Respond,
+                Player = _netSession.LocalPlayer,
+                Card = card,
+                Target = target
+            };
+            _ = SendGuestActionAsync(act);
+            StatusText.Text = $"Net: Interrupt {card.Name} sent - waiting for Host...";
+            return;
+        }
+
         // Supernova initiation: Tox on table required; discard Tox even if later nullified.
         if (!isResponse && EventRules.IsSupernova(card))
         {
@@ -4165,10 +4194,14 @@ public partial class TableWindow : Window
             && LegalResponsesFor(_oppHandCards, _stack.Top, 2).Count == 0)
         {
             ResolveEntireStack();
+            if (_gameMode == GameMode.Network && _netSession is { IsHost: true })
+                NotifyNetworkBoardChanged();
             return;
         }
         // Card is already on the table / discarded-from-hand: pause, then announce
         ScheduleActionAnnounce(isResponse ? 400 : 600);
+        if (_gameMode == GameMode.Network && _netSession is { IsHost: true })
+            NotifyNetworkBoardChanged();
     }
 
     private void BeginShipBattleStack(
@@ -5199,7 +5232,10 @@ public partial class TableWindow : Window
             }
             CompleteTurnChange();
         }
-    }
+    
+        if (_gameMode == GameMode.Network && _netSession is { IsHost: true })
+            NotifyNetworkBoardChanged();
+}
 
     private void ResolveTopOfStack()
     {
@@ -9560,7 +9596,7 @@ public partial class TableWindow : Window
         GameAction action;
         try
         {
-            action = NetActionDto.FromDto(dto, LookupCardForNetAction);
+            action = NetActionDto.FromDto(dto, LookupCardForNetAction, LookupCardByInstanceId);
         }
         catch (Exception ex)
         {
@@ -9590,7 +9626,20 @@ public partial class TableWindow : Window
                 $"PlayCard: not your turn (active P{_session.ActivePlayer}, you P{action.Player}).");
             return;
         }
-
+        if (action.Kind is GameActionKind.Fly or GameActionKind.Beam or GameActionKind.InitiateShipBattle)
+        {
+            if (action.Player != _session.ActivePlayer)
+            {
+                _ = _netSession.SendErrorAsync(
+                    $"{action.Kind}: not your turn (active P{_session.ActivePlayer}, you P{action.Player}).");
+                return;
+            }
+            if (action.Card == null)
+            {
+                _ = _netSession.SendErrorAsync($"{action.Kind}: card '{dto.CardName}' not found on Host.");
+                return;
+            }
+        }
 
         if (!IsNetSyncKindSupported(action.Kind))
         {
@@ -9647,7 +9696,11 @@ public partial class TableWindow : Window
             or GameActionKind.EndTurn
             or GameActionKind.Draw
             or GameActionKind.PlayCard
-            or GameActionKind.SeedCard;
+            or GameActionKind.SeedCard
+            or GameActionKind.Fly
+            or GameActionKind.Beam
+            or GameActionKind.InitiateShipBattle
+            or GameActionKind.Respond;
 
     /// <summary>Resolve card by name/set from hand or table for Host FromDto.</summary>
     private Card? LookupCardForNetAction(string? name, string? set)
@@ -9758,6 +9811,18 @@ public partial class TableWindow : Window
 
             case GameActionKind.SeedCard:
                 return TryApplyNetSeedCard(action);
+
+            case GameActionKind.Fly:
+                return TryApplyNetFly(action);
+
+            case GameActionKind.Beam:
+                return TryApplyNetBeam(action);
+
+            case GameActionKind.InitiateShipBattle:
+                return TryApplyNetShipBattle(action);
+
+            case GameActionKind.Respond:
+                return TryApplyNetRespond(action);
 
             default:
                 return false;
@@ -10089,6 +10154,260 @@ public partial class TableWindow : Window
         SyncSeedActiveToSession();
         _session.Log.Add(_session.TurnNumber, $"P{player}", $"Net: Seed {card.Name}");
         StatusText.Text = $"Net: seeded {card.Name} (P{player}).";
+        return true;
+    }
+
+    /// <summary>Host: board mutation immediate masked Broadcast (Fly/Beam/Attack/Interrupt).</summary>
+    private void NotifyNetworkBoardChanged()
+    {
+        if (_netSession == null || !_netSession.IsHost) return;
+        EnsureNetworkModeFromSession();
+        BroadcastMaskedStateToGuest();
+    }
+
+    /// <summary>Resolve card by InstanceId across table + zones (Host net lookup).</summary>
+    private Card? LookupCardByInstanceId(int instanceId)
+    {
+        if (instanceId <= 0) return null;
+        foreach (var b in TableCanvas.Children.OfType<Border>())
+        {
+            if (b.Tag is Card c && c.InstanceId == instanceId)
+                return c;
+        }
+        IEnumerable<Card> pools = _handCards
+            .Concat(_oppHandCards)
+            .Concat(_tablePermanentCards)
+            .Concat(_oppTablePermanentCards)
+            .Concat(_missionSeedCards).Concat(_oppMissionSeedCards)
+            .Concat(_dilemmaSeedCards).Concat(_oppDilemmaSeedCards)
+            .Concat(_facilitySeedCards).Concat(_oppFacilitySeedCards)
+            .Concat(_doorwayCards).Concat(_oppDoorwayCards)
+            .Concat(_seedCards).Concat(_oppSeedCards);
+        return pools.FirstOrDefault(c => c.InstanceId == instanceId);
+    }
+
+    private Border? FindBorderByInstanceId(int instanceId)
+    {
+        if (instanceId <= 0) return null;
+        return TableCanvas.Children.OfType<Border>()
+            .FirstOrDefault(b => b.Tag is Card c && c.InstanceId == instanceId);
+    }
+
+    /// <summary>
+    /// Host: apply Guest Fly - TryMoveShipWithRules + Relocate + Sync.
+    /// Guest must not relocate locally (phantom wiped by EndTurn Broadcast).
+    /// </summary>
+    private bool TryApplyNetFly(GameAction action)
+    {
+        if (action.Card == null) return false;
+        if (_seedPhaseActive || _session.Match != GameSession.MatchPhase.Play)
+        {
+            StatusText.Text = "Net Fly ignored: not in Match Play.";
+            return false;
+        }
+        if (_session.Segment != GameSession.TurnSegment.Execute)
+        {
+            StatusText.Text = "Net Fly ignored: not in Execute segment.";
+            return false;
+        }
+
+        var ship = action.Card;
+        var dest = action.Target;
+        if (dest == null || !IsLandableLocation(dest))
+        {
+            StatusText.Text = $"Net Fly: destination '{action.TargetName}' not found.";
+            return false;
+        }
+
+        var shipBorder = FindBorderForCard(ship) ?? FindBorderByInstanceId(ship.InstanceId);
+        var destBorder = FindBorderForCard(dest) ?? FindBorderByInstanceId(dest.InstanceId);
+        if (shipBorder == null || destBorder == null)
+        {
+            StatusText.Text = "Net Fly: ship or destination border missing on Host.";
+            return false;
+        }
+
+        var from = FindMissionForDockable(shipBorder);
+        if (!TryMoveShipWithRules(shipBorder, ship, from, destBorder))
+            return false;
+
+        RelocateShipAlongSpaceline(shipBorder, from, destBorder);
+        SyncBoardFromTable();
+        StatusText.Text = $"Net: P{action.Player} Fly {ship.Name} -> {dest.Name}.";
+        _session.Log.Add(_session.TurnNumber, $"P{action.Player}",
+            $"Net: Fly {ship.Name} -> {dest.Name}");
+        return true;
+    }
+
+
+    /// <summary>
+    /// Host: apply Guest Beam. Note "crew:id,id,..." lists personnel/equipment InstanceIds.
+    /// </summary>
+    private bool TryApplyNetBeam(GameAction action)
+    {
+        if (action.Card == null || action.Target == null) return false;
+        if (_seedPhaseActive || _session.Match != GameSession.MatchPhase.Play)
+        {
+            StatusText.Text = "Net Beam ignored: not in Match Play.";
+            return false;
+        }
+        if (_session.Segment != GameSession.TurnSegment.Execute)
+        {
+            StatusText.Text = "Net Beam ignored: not in Execute segment.";
+            return false;
+        }
+
+        int beamWho = action.Player is 1 or 2 ? action.Player : _session.ActivePlayer;
+        var source = FindBorderForCard(action.Card) ?? FindBorderByInstanceId(action.Card.InstanceId);
+        var targetHost = FindBorderForCard(action.Target) ?? FindBorderByInstanceId(action.Target.InstanceId);
+        if (source == null || targetHost == null)
+        {
+            StatusText.Text = "Net Beam: source or destination host missing on Host.";
+            return false;
+        }
+
+        var crewIds = new HashSet<int>();
+        string note = action.Note ?? "";
+        int crewIdx = note.IndexOf("crew:", StringComparison.OrdinalIgnoreCase);
+        if (crewIdx >= 0)
+        {
+            string rest = note[(crewIdx + 5)..];
+            int end = rest.IndexOf('|');
+            if (end >= 0) rest = rest[..end];
+            foreach (var part in rest.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (int.TryParse(part, out int id) && id > 0)
+                    crewIds.Add(id);
+            }
+        }
+
+        var list = StackOnHost(source)?.ToList() ?? new List<Border>();
+        foreach (var c in GetCrewOnShip(source))
+        {
+            var vb = FindBorderForCard(c);
+            if (vb != null && !list.Contains(vb))
+                list.Add(vb);
+        }
+
+        var toMove = list.Where(b =>
+        {
+            if (b.Tag is not Card c) return false;
+            if (crewIds.Count > 0 && !crewIds.Contains(c.InstanceId)) return false;
+            return IsBeamableFromHost(c, source, b, beamWho);
+        }).ToList();
+
+        if (toMove.Count == 0)
+        {
+            StatusText.Text = "Net Beam: no beamable cards matched on Host.";
+            return false;
+        }
+
+        var srcMission = FindMissionForDockable(source)
+            ?? (source.Tag is Card sc && CardKinds.IsMission(sc) ? source : null);
+        var dstMission = FindMissionForDockable(targetHost)
+            ?? (targetHost.Tag is Card tc0 && CardKinds.IsMission(tc0) ? targetHost : null);
+        if (srcMission == null || dstMission == null || !ReferenceEquals(srcMission, dstMission))
+        {
+            StatusText.Text = "Net Beam: source and destination must share a location.";
+            return false;
+        }
+
+        foreach (var b in toMove.ToList())
+        {
+            if (b.Tag is Card bc && IsCardLeaveBlocked(bc))
+                continue;
+            RemoveCardFromHostStack(source, b);
+            SetBorderOwner(b, beamWho);
+            AddCardToHostStack(targetHost, b);
+            foreach (var rb in _rogueBorg.Where(r => ReferenceEquals(r.Visual, b)))
+            {
+                rb.Host = targetHost;
+                rb.Controller = beamWho;
+            }
+        }
+
+        TryCureAttachedDilemmas(targetHost);
+        EraseStrandedHologramsOnHost(source);
+        EraseStrandedHologramsOnHost(targetHost);
+        SyncTwoDimDisabledVisuals(source);
+        SyncTwoDimDisabledVisuals(targetHost);
+        UpdateHostBadge(source);
+        UpdateHostBadge(targetHost);
+        SyncBoardFromTable();
+        string fromName = (source.Tag as Card)?.Name ?? "?";
+        string toName = (targetHost.Tag as Card)?.Name ?? "?";
+        StatusText.Text = $"Net: P{beamWho} Beam {toMove.Count} card(s) {fromName} -> {toName}.";
+        _session.Log.Add(_session.TurnNumber, $"P{beamWho}",
+            $"Net: Beam {toMove.Count} ({fromName} -> {toName})");
+        return true;
+    }
+
+
+    /// <summary>Host: apply Guest ship attack - open battle stack (response via Phase 4).</summary>
+    private bool TryApplyNetShipBattle(GameAction action)
+    {
+        if (action.Card == null || action.Target == null) return false;
+        if (_seedPhaseActive || _session.Match != GameSession.MatchPhase.Play)
+        {
+            StatusText.Text = "Net ShipBattle ignored: not in Match Play.";
+            return false;
+        }
+
+        var atkBorder = FindBorderForCard(action.Card) ?? FindBorderByInstanceId(action.Card.InstanceId);
+        var defBorder = FindBorderForCard(action.Target) ?? FindBorderByInstanceId(action.Target.InstanceId);
+        if (atkBorder == null || defBorder == null)
+        {
+            StatusText.Text = "Net ShipBattle: attacker or defender border missing.";
+            return false;
+        }
+        if (atkBorder.Tag is not Card atkCard || defBorder.Tag is not Card defCard)
+            return false;
+
+        int atkOwner = GetBorderOwner(atkBorder);
+        if (atkOwner == 0) atkOwner = action.Player;
+        int defOwner = GetBorderOwner(defBorder);
+        if (defOwner == 0) defOwner = atkOwner == 1 ? 2 : 1;
+
+        var crew = GetCrewOnShip(atkBorder);
+        var check = BattleRules.CanInitiateShipAttack(
+            atkCard, crew, atkOwner, defCard, defOwner,
+            GetHullDamage(atkBorder), IsBorderStopped(atkBorder),
+            _wartimeVsAffiliation, ShipStaffedByRogueBorg(atkBorder),
+            counterAttack: false);
+        if (!check.Ok)
+        {
+            StatusText.Text = "Net ShipBattle DENY: " + check.Reason;
+            return false;
+        }
+
+        BeginShipBattleStack(atkBorder, atkCard, defBorder, defCard, atkOwner, defOwner);
+        StatusText.Text = $"Net: P{atkOwner} Ship Battle {atkCard.Name} vs {defCard.Name}.";
+        return true;
+    }
+
+
+    /// <summary>
+    /// Host: apply Guest interrupt response / hand interrupt.
+    /// Opens BeginPlayCardStack; board truth follows Host resolve + Broadcast.
+    /// </summary>
+    private bool TryApplyNetRespond(GameAction action)
+    {
+        if (action.Card == null) return false;
+        var card = action.Card;
+        int player = action.Player is 1 or 2 ? action.Player : 2;
+
+        _handCards.Remove(card);
+        _oppHandCards.Remove(card);
+        RefreshHandStrips();
+        RefreshZoneCounts();
+
+        bool isResponse = _stack.IsOpen;
+        Card? target = action.Target;
+        BeginPlayCardStack(card, isResponse: isResponse, controllerOverride: player, target: target);
+        StatusText.Text = $"Net: P{player} Interrupt {card.Name}" +
+            (target != null ? $" on {target.Name}" : "") + ".";
+        _session.Log.Add(_session.TurnNumber, $"P{player}",
+            $"Net: Respond/Interrupt {card.Name}");
         return true;
     }
 
@@ -12602,8 +12921,23 @@ public partial class TableWindow : Window
             if (okMission && IsShipCard(card) && !_seedPhaseActive
                 && _session.Match == GameSession.MatchPhase.Play)
             {
+                // Network Guest: send Fly Action; revert local position (Host apply + Broadcast).
+                if (_gameMode == GameMode.Network && _netSession is { IsGuest: true }
+                    && targetMission!.Tag is Card destDrag)
+                {
+                    if (_dragOrigin.X > 0 || _dragOrigin.Y > 0)
+                    {
+                        Canvas.SetLeft(cardBorder, _dragOrigin.X);
+                        Canvas.SetTop(cardBorder, _dragOrigin.Y);
+                    }
+                    if (_dragSourceMission != null)
+                        RelayoutDockablesUnderMission(_dragSourceMission);
+                    var flyAct = GameAction.Fly(_netSession.LocalPlayer, card, destDrag);
+                    _ = SendGuestActionAsync(flyAct);
+                    StatusText.Text = $"Net: Fly {card.Name} sent — waiting for Host…";
+                }
                 // 7.1.3 + 7.1.5
-                if (!TryMoveShipWithRules(cardBorder, card, _dragSourceMission, targetMission!))
+                else if (!TryMoveShipWithRules(cardBorder, card, _dragSourceMission, targetMission!))
                 {
                     if (_dragOrigin.X > 0 || _dragOrigin.Y > 0)
                     {
@@ -12621,6 +12955,8 @@ public partial class TableWindow : Window
                     UpdateHostBadge(cardBorder);
                     foreach (var dock in GetDockablesUnderMission(targetMission!))
                         UpdateHostBadge(dock);
+                    if (_gameMode == GameMode.Network && _netSession is { IsHost: true })
+                        NotifyNetworkBoardChanged();
                 }
             }
             else if (okMission)
@@ -22161,10 +22497,21 @@ public partial class TableWindow : Window
                 return false;
             if (_actionSourceHost.Tag is not Card ship) return false;
             var from = FindMissionForDockable(_actionSourceHost);
+            // Network Guest: Action only — Host TryApplyNetFly + Broadcast; no phantom relocate.
+            if (_gameMode == GameMode.Network && _netSession is { IsGuest: true })
+            {
+                var flyAct = GameAction.Fly(_netSession.LocalPlayer, ship, destCard);
+                ClearCardActionUi();
+                _ = SendGuestActionAsync(flyAct);
+                StatusText.Text = $"Net: Fly {ship.Name} sent — waiting for Host…";
+                return true;
+            }
             if (!TryMoveShipWithRules(_actionSourceHost, ship, from, clicked))
                 return true;
             RelocateShipAlongSpaceline(_actionSourceHost, from, clicked);
             SyncBoardFromTable();
+            if (_gameMode == GameMode.Network && _netSession is { IsHost: true })
+                NotifyNetworkBoardChanged();
             var shipRef = _actionSourceHost;
             ClearCardActionUi();
             SetSelection(shipRef);
@@ -22409,7 +22756,18 @@ public partial class TableWindow : Window
             return true;
         }
 
+        // Network Guest: Action only - Host TryApplyNetShipBattle + Broadcast.
+        if (_gameMode == GameMode.Network && _netSession is { IsGuest: true })
+        {
+            var bat = GameAction.ShipBattle(_netSession.LocalPlayer, attackerShip, targetCard);
+            ClearCardActionUi();
+            _ = SendGuestActionAsync(bat);
+            StatusText.Text = $"Net: Ship attack sent - waiting for Host...";
+            return true;
+        }
         BeginShipBattleStack(attackerBorder, attackerShip, targetBorder, targetCard, atkOwner, defOwner);
+        if (_gameMode == GameMode.Network && _netSession is { IsHost: true })
+            NotifyNetworkBoardChanged();
         ClearCardActionUi();
         return true;
     }
@@ -22563,7 +22921,10 @@ public partial class TableWindow : Window
         {
             _adversariesInCombat = false;
         }
-    }
+    
+        if (_gameMode == GameMode.Network && _netSession is { IsHost: true })
+            NotifyNetworkBoardChanged();
+}
 
     private void ApplyHullDamage(Border border, Card card, int hullPercent)
     {
@@ -23419,6 +23780,8 @@ public partial class TableWindow : Window
         }
         RelocateShipAlongSpaceline(shipB, from, to);
         SyncBoardFromTable(logDual: false);
+        if (_gameMode == GameMode.Network && _netSession is { IsHost: true })
+            NotifyNetworkBoardChanged();
     }
 
     private bool TryMoveShipWithRulesIgnoringHailFlyBy(Border shipBorder, Card ship, Border? fromMission, Border toMission)
@@ -28822,6 +29185,19 @@ public partial class TableWindow : Window
         if (toMove.Count == 0)
             return true;
 
+        // Network Guest: Action only - Host TryApplyNetBeam + Broadcast.
+        if (_gameMode == GameMode.Network && _netSession is { IsGuest: true }
+            && source.Tag is Card fromCard && targetHost.Tag is Card toCard)
+        {
+            var crewIds = string.Join(",",
+                toMove.Select(b => (b.Tag as Card)?.InstanceId ?? 0).Where(i => i > 0));
+            var beamAct = GameAction.Beam(_netSession.LocalPlayer, fromCard, toCard, $"crew:{crewIds}");
+            ClearCardActionUi();
+            _ = SendGuestActionAsync(beamAct);
+            StatusText.Text = $"Net: Beam sent - waiting for Host...";
+            return true;
+        }
+
         foreach (var b in toMove.ToList())
         {
             if (b.Tag is Card bc && IsCardLeaveBlocked(bc))
@@ -28871,6 +29247,8 @@ public partial class TableWindow : Window
             _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
                 $"Beam: {names}  ({fromName} → {tc.Name})");
             SyncBoardFromTable();
+            if (_gameMode == GameMode.Network && _netSession is { IsHost: true })
+                NotifyNetworkBoardChanged();
             ClearCardActionUi();
             SetSelection(targetHost);
             ShowHostContents(targetHost, tc);
@@ -28879,6 +29257,8 @@ public partial class TableWindow : Window
         {
             _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}", $"Beam {toMove.Count} cards");
             SyncBoardFromTable();
+            if (_gameMode == GameMode.Network && _netSession is { IsHost: true })
+                NotifyNetworkBoardChanged();
             ClearCardActionUi();
             SetSelection(targetHost);
         }

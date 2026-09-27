@@ -161,6 +161,17 @@ public sealed class GameAction
             Note = note
         };
 
+
+    public static GameAction ShipBattle(int player, Card attacker, Card defender, string? note = null) =>
+        new()
+        {
+            Kind = GameActionKind.InitiateShipBattle,
+            Player = player,
+            Card = attacker,
+            Target = defender,
+            Note = note
+        };
+
     public static GameAction Seed(int player, Card card, Card? mission = null, string? note = null) =>
         new()
         {
