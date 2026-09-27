@@ -4,6 +4,7 @@ using StarTrekCCG.Network;
 using StarTrekCCG.Services;
 using System;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -78,6 +79,12 @@ public partial class TableWindow : Window
     private NetworkLobbyWindow? _networkLobby;
     private bool _networkLobbyConnected;
     private NetPlaySession? _netSession;
+    /// <summary>Phase 4: Host waits on Guest ChoiceResponse by correlationId.</summary>
+    private readonly Dictionary<string, TaskCompletionSource<NetChoiceDto>> _pendingChoiceResponses = new();
+    /// <summary>Guest: correlationId of inbound ChoiceRequest currently shown.</summary>
+    private string? _guestActiveChoiceCorrelationId;
+    /// <summary>Guest: true while handling inbound ChoiceRequest (do not start own engine choice).</summary>
+    private bool _guestHandlingInboundChoice;
     private readonly GameSession _session = new();
     /// <summary>E1: last compact state: line so Capture does not flood the log.</summary>
     private string? _lastEngineStateLine;
@@ -693,7 +700,11 @@ public partial class TableWindow : Window
                     e.Handled = true;
                     return;
                 }
-                PassCurrentResponseWindow();
+                if (_gameMode == GameMode.Network && _netSession != null && _netSession.IsGuest
+                    && !string.IsNullOrEmpty(_guestActiveChoiceCorrelationId))
+                    SendGuestResponsePass(timedOut: false);
+                else
+                    PassCurrentResponseWindow();
                 e.Handled = true;
                 return;
             }
@@ -766,7 +777,11 @@ public partial class TableWindow : Window
         {
             if (_stack.Top?.IsMandatory == true)
                 return false;
-            PassCurrentResponseWindow();
+            if (_gameMode == GameMode.Network && _netSession != null && _netSession.IsGuest
+                && !string.IsNullOrEmpty(_guestActiveChoiceCorrelationId))
+                SendGuestResponsePass(timedOut: false);
+            else
+                PassCurrentResponseWindow();
             return true;
         }
 
@@ -2132,14 +2147,53 @@ public partial class TableWindow : Window
     /// <summary>
     /// Labeled OR-choice. Buttons show the option names (not Yes/No).
     /// Timeout with no click → uniform random option, then a result overlay.
+    /// Hotseat / no session: local. Network: routes via AskChoiceForPlayer(_activePlayer, …).
     /// </summary>
     private string AskChoice(Card? card, string title, string prompt, params string[] options)
+        => AskChoiceForPlayer(_activePlayer, card, title, prompt, options);
+
+    /// <summary>
+    /// netztauglich: Host shows local UI when decidingPlayer == LocalPlayer;
+    /// otherwise sends ChoiceRequest and waits on ChoiceResponse (DispatcherFrame).
+    /// Guest does not start engine choices — only answers inbound ChoiceRequest.
+    /// Host timeout: simulates random option locally if Guest does not answer (documented).
+    /// </summary>
+    private string AskChoiceForPlayer(int decidingPlayer, Card? card, string title, string prompt, params string[] options)
     {
         if (options == null || options.Length == 0) return "";
         var clean = options.Where(o => !string.IsNullOrWhiteSpace(o)).Select(o => o.Trim()).ToArray();
         if (clean.Length == 0) return "";
         if (clean.Length == 1) return clean[0];
 
+        if (decidingPlayer is not (1 or 2))
+            decidingPlayer = _activePlayer is 1 or 2 ? _activePlayer : 1;
+
+        // Hotseat / no live session → local modal (unchanged).
+        if (_gameMode != GameMode.Network || _netSession == null)
+            return AskChoiceLocal(decidingPlayer, card, title, prompt, clean);
+
+        // Guest must not open engine-side choices; inbound handler uses AskChoiceLocal directly.
+        if (_netSession.IsGuest)
+        {
+            if (_guestHandlingInboundChoice && decidingPlayer == _netSession.LocalPlayer)
+                return AskChoiceLocal(decidingPlayer, card, title, prompt, clean);
+            StatusText.Text = $"Net Guest: ignoring local AskChoice for P{decidingPlayer} (Host decides).";
+            _session.Log.AddDebug(_session.TurnNumber, "Net",
+                $"Guest suppressed AskChoice '{title}' for P{decidingPlayer}.");
+            return clean[0];
+        }
+
+        // Host: local player decides → local UI.
+        if (decidingPlayer == _netSession.LocalPlayer)
+            return AskChoiceLocal(decidingPlayer, card, title, prompt, clean);
+
+        // Host: remote player → ChoiceRequest + wait.
+        return AskChoiceRemoteOnHost(decidingPlayer, card, title, prompt, clean);
+    }
+
+    /// <summary>Local modal choice (hotseat / Host-local / Guest inbound). Logs under decidingPlayer.</summary>
+    private string AskChoiceLocal(int decidingPlayer, Card? card, string title, string prompt, string[] clean)
+    {
         string picked;
         bool timed;
         if (clean.Length == 2)
@@ -2161,12 +2215,126 @@ public partial class TableWindow : Window
         }
 
         string how = timed ? "No answer in time — random choice" : "Chosen";
-        _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
+        _session.Log.Add(_session.TurnNumber, $"P{decidingPlayer}",
             $"{title}: {picked}" + (timed ? " (timeout, random)" : ""));
         StatusText.Text = $"{title}: {picked}";
         if (timed)
             AnnounceChoiceResult(card, title, $"{how}:\n{picked}");
         return picked;
+    }
+
+    /// <summary>
+    /// Host sends ChoiceRequest kind=choice to Guest and blocks on DispatcherFrame until
+    /// ChoiceResponse or timeout. Timeout: Host picks random option (Guest timer may also reply earlier).
+    /// </summary>
+    private string AskChoiceRemoteOnHost(int decidingPlayer, Card? card, string title, string prompt, string[] clean)
+    {
+        if (_netSession == null || !_netSession.IsHost) return AskChoiceLocal(decidingPlayer, card, title, prompt, clean);
+
+        string corr = Guid.NewGuid().ToString("N");
+        int timeoutMs = 10000;
+        var dto = new NetChoiceDto
+        {
+            CorrelationId = corr,
+            Kind = NetChoiceDto.Kinds.Choice,
+            TargetPlayer = decidingPlayer,
+            Title = title,
+            Prompt = prompt,
+            Options = clean,
+            CardName = card?.Name,
+            TimeoutMs = timeoutMs
+        };
+
+        var tcs = new TaskCompletionSource<NetChoiceDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pendingChoiceResponses[corr] = tcs;
+
+        StatusText.Text = $"Waiting for P{decidingPlayer} choice: {title}…";
+        _session.Log.AddDebug(_session.TurnNumber, "Net",
+            $"ChoiceRequest → P{decidingPlayer} corr={corr} '{title}'");
+
+        try
+        {
+            _ = _netSession.SendChoiceRequestAsync(dto);
+        }
+        catch (Exception ex)
+        {
+            _pendingChoiceResponses.Remove(corr);
+            StatusText.Text = "Net ChoiceRequest send failed: " + ex.Message;
+            return clean[_autoSeedRng.Next(clean.Length)];
+        }
+
+        var result = WaitForChoiceResponse(corr, tcs, timeoutMs);
+        _pendingChoiceResponses.Remove(corr);
+
+        if (result != null && !string.IsNullOrWhiteSpace(result.SelectedOption))
+        {
+            string picked = result.SelectedOption!;
+            // Prefer exact match; else keep guest string if in list; else random.
+            if (!clean.Contains(picked))
+            {
+                var hit = clean.FirstOrDefault(o =>
+                    string.Equals(o, picked, StringComparison.OrdinalIgnoreCase));
+                picked = hit ?? clean[_autoSeedRng.Next(clean.Length)];
+            }
+            bool timed = result.TimedOut == true;
+            _session.Log.Add(_session.TurnNumber, $"P{decidingPlayer}",
+                $"{title}: {picked}" + (timed ? " (remote timeout)" : " (remote)"));
+            StatusText.Text = $"{title}: {picked}";
+            return picked;
+        }
+
+        // Host-side timeout simulation.
+        string fallback = clean[_autoSeedRng.Next(clean.Length)];
+        _session.Log.Add(_session.TurnNumber, $"P{decidingPlayer}",
+            $"{title}: {fallback} (Host timeout, random — Guest did not answer)");
+        StatusText.Text = $"{title}: {fallback} (timeout)";
+        AnnounceChoiceResult(card, title, $"No answer from P{decidingPlayer} in time — random choice:\n{fallback}");
+        return fallback;
+    }
+
+    /// <summary>Block UI thread until ChoiceResponse for correlationId or timeoutMs.</summary>
+    private NetChoiceDto? WaitForChoiceResponse(
+        string correlationId,
+        TaskCompletionSource<NetChoiceDto> tcs,
+        int timeoutMs)
+    {
+        var frame = new System.Windows.Threading.DispatcherFrame();
+        System.Windows.Threading.DispatcherTimer? timer = null;
+        if (timeoutMs > 0)
+        {
+            timer = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(Math.Max(200, timeoutMs))
+            };
+            timer.Tick += (_, _) =>
+            {
+                timer.Stop();
+                frame.Continue = false;
+            };
+            timer.Start();
+        }
+
+        tcs.Task.ContinueWith(_ =>
+        {
+            try
+            {
+                Dispatcher.BeginInvoke(new Action(() => { frame.Continue = false; }));
+            }
+            catch { /* dispose race */ }
+        }, TaskScheduler.Default);
+
+        try
+        {
+            System.Windows.Threading.Dispatcher.PushFrame(frame);
+        }
+        finally
+        {
+            timer?.Stop();
+        }
+
+        if (tcs.Task.IsCompletedSuccessfully)
+            return tcs.Task.Result;
+        return null;
     }
 
     private int AskPlayer(Card? card, string title, string prompt) =>
@@ -4441,12 +4609,106 @@ public partial class TableWindow : Window
     // Back-compat alias used by Space / CloseResponseWindowUi
     private void StopLegalActionBlink() => StopThinkTrayFrameBlink();
 
+
+    /// <summary>
+    /// Host: responder is Guest — show wait status, send ChoiceRequest kind=responseWindow,
+    /// wait for ChoiceResponse(pass) or Host timeout (then Host PassCurrentResponseWindow).
+    /// Timer runs on Host wait only (Guest also has its own Pass timer that may reply first).
+    /// </summary>
+    private void OpenRemoteResponseWindowOnHost(
+        int responder,
+        TimingRules.PendingAction top,
+        List<TimingRules.LegalResponseItem> legal)
+    {
+        if (_netSession == null || !_netSession.IsHost) return;
+
+        if (CardRevealOverlay != null && _announceKind is AnnounceKind.RespondOrPass or AnnounceKind.PickCard)
+            CardRevealOverlay.Visibility = Visibility.Collapsed;
+        if (ResponseIndicatorBadge != null)
+            ResponseIndicatorBadge.Visibility = Visibility.Collapsed;
+        if (ThinkTrayBorder != null)
+            ThinkTrayBorder.Visibility = Visibility.Collapsed;
+
+        StopResponseWindowTimer();
+        UpdatePhaseControls();
+
+        string corr = Guid.NewGuid().ToString("N");
+        int timeoutMs = Math.Max(1000, _responseDefaultDurationSec * 1000);
+        var names = legal.Select(i => i.Card?.Name).Where(n => !string.IsNullOrWhiteSpace(n)).Cast<string>().ToArray();
+        var dto = new NetChoiceDto
+        {
+            CorrelationId = corr,
+            Kind = NetChoiceDto.Kinds.ResponseWindow,
+            TargetPlayer = responder,
+            Title = top.Summary ?? "Response window",
+            Prompt = $"P{responder} response window — Pass or respond.",
+            LegalNames = names,
+            LegalCount = legal.Count,
+            TimeoutMs = timeoutMs,
+            CardName = top.Card?.Name ?? top.AttackerCard?.Name ?? top.TargetCard?.Name
+        };
+
+        var tcs = new TaskCompletionSource<NetChoiceDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pendingChoiceResponses[corr] = tcs;
+        StatusText.Text = $"P{responder} response window… waiting for Guest.";
+        _session.Log.AddDebug(_session.TurnNumber, "Net",
+            $"ResponseWindow → P{responder} corr={corr} legal={legal.Count}");
+
+        try
+        {
+            _ = _netSession.SendChoiceRequestAsync(dto);
+        }
+        catch (Exception ex)
+        {
+            _pendingChoiceResponses.Remove(corr);
+            StatusText.Text = "Net ResponseWindow send failed: " + ex.Message;
+            PassCurrentResponseWindow();
+            return;
+        }
+
+        var result = WaitForChoiceResponse(corr, tcs, timeoutMs + 500);
+        _pendingChoiceResponses.Remove(corr);
+
+        if (result?.Passed == true || result == null)
+        {
+            if (result == null)
+                _session.Log.Add(_session.TurnNumber, $"P{responder}",
+                    "Pass (response) — Host timeout waiting for Guest");
+            PassCurrentResponseWindow();
+            if (!_stack.IsOpen)
+                BroadcastMaskedStateToGuest();
+            return;
+        }
+
+        StatusText.Text = $"Net: unexpected response-window payload from P{responder} — treating as Pass.";
+        PassCurrentResponseWindow();
+        if (!_stack.IsOpen)
+            BroadcastMaskedStateToGuest();
+    }
+
     private void OpenSilentResponseWindow(int responder, TimingRules.PendingAction top, List<TimingRules.LegalResponseItem> legal)
     {
         _stack.State = TimingRules.ResponseWindowState.Silent;
         _stack.ResponsePlayer = responder;
         _currentLegalResponses = legal;
         BringResponseUiToFront();
+
+        // Phase 4: Host + remote responder → wait on Guest (no local Pass timer for wrong player).
+        if (_gameMode == GameMode.Network && _netSession != null && _netSession.IsHost
+            && responder != _netSession.LocalPlayer)
+        {
+            OpenRemoteResponseWindowOnHost(responder, top, legal);
+            return;
+        }
+
+        // Guest should not open local engine response windows (Host owns TimingRules).
+        if (_gameMode == GameMode.Network && _netSession != null && _netSession.IsGuest
+            && !_guestHandlingInboundChoice && string.IsNullOrEmpty(_guestActiveChoiceCorrelationId))
+        {
+            StatusText.Text = $"Net Guest: Host owns response window (P{responder}).";
+            return;
+        }
+
 
         if (CardRevealOverlay != null && _announceKind is AnnounceKind.RespondOrPass or AnnounceKind.PickCard)
             CardRevealOverlay.Visibility = Visibility.Collapsed;
@@ -4753,6 +5015,12 @@ public partial class TableWindow : Window
 
     private void BtnThinkPass_Click(object sender, RoutedEventArgs e)
     {
+        if (_gameMode == GameMode.Network && _netSession != null && _netSession.IsGuest
+            && !string.IsNullOrEmpty(_guestActiveChoiceCorrelationId))
+        {
+            SendGuestResponsePass(timedOut: false);
+            return;
+        }
         PassCurrentResponseWindow();
     }
 
@@ -4763,6 +5031,12 @@ public partial class TableWindow : Window
 
     private void BtnRevealPass_Click(object sender, RoutedEventArgs e)
     {
+        if (_gameMode == GameMode.Network && _netSession != null && _netSession.IsGuest
+            && !string.IsNullOrEmpty(_guestActiveChoiceCorrelationId))
+        {
+            SendGuestResponsePass(timedOut: false);
+            return;
+        }
         PassCurrentResponseWindow();
     }
 
@@ -5297,7 +5571,7 @@ public partial class TableWindow : Window
 
         if (rfEligibility.CanReturnFire)
         {
-            string pick = AskChoice(defenderCard, "Return Fire?",
+            string pick = AskChoiceForPlayer(defOwner, defenderCard, "Return Fire?",
                 $"{attackerShip.Name} attacks {defenderCard.Name}.\n" +
                 $"Attacker WEAPONS {atkW} vs target SHIELDS {BattleRules.GetShields(defenderCard)}.\n" +
                 $"P{defOwner}: return fire (WEAPONS {defWeapons})?",
@@ -8676,6 +8950,8 @@ public partial class TableWindow : Window
         _netSession.StateReceived += OnNetStateReceived;
         _netSession.ErrorReceived += OnNetErrorReceived;
         _netSession.Disconnected += OnNetDisconnected;
+        _netSession.ChoiceRequestReceived += OnNetChoiceRequestReceived;
+        _netSession.ChoiceResponseReceived += OnNetChoiceResponseReceived;
 
         var sync = SynchronizationContext.Current
                    ?? new System.Windows.Threading.DispatcherSynchronizationContext(Dispatcher);
@@ -8722,6 +8998,184 @@ public partial class TableWindow : Window
         try { lobby.Close(); } catch { /* ignore */ }
         if (ModeNetwork?.IsChecked == true)
             ApplySelectedGameMode();
+    }
+
+
+    /// <summary>Guest (or remote): Host asked for a choice / response-window pass.</summary>
+    private void OnNetChoiceRequestReceived(NetChoiceDto dto)
+    {
+        if (_netSession == null) return;
+        if (dto.TargetPlayer != _netSession.LocalPlayer)
+        {
+            _session.Log.AddDebug(_session.TurnNumber, "Net",
+                $"ChoiceRequest ignored (target P{dto.TargetPlayer}, local P{_netSession.LocalPlayer}).");
+            return;
+        }
+
+        string kind = dto.Kind ?? NetChoiceDto.Kinds.Choice;
+        if (string.Equals(kind, NetChoiceDto.Kinds.ResponseWindow, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(kind, NetChoiceDto.Kinds.ResponsePass, StringComparison.OrdinalIgnoreCase))
+        {
+            HandleGuestResponseWindowRequest(dto);
+            return;
+        }
+
+        // kind=choice
+        _guestHandlingInboundChoice = true;
+        _guestActiveChoiceCorrelationId = dto.CorrelationId;
+        try
+        {
+            var opts = dto.Options ?? Array.Empty<string>();
+            string picked = AskChoiceLocal(
+                dto.TargetPlayer,
+                null,
+                dto.Title ?? "Choice",
+                dto.Prompt ?? "",
+                opts.Length > 0 ? opts : new[] { "OK" });
+
+            var resp = new NetChoiceDto
+            {
+                CorrelationId = dto.CorrelationId,
+                Kind = NetChoiceDto.Kinds.Choice,
+                TargetPlayer = dto.TargetPlayer,
+                SelectedOption = picked,
+                TimedOut = _revealTimedOut
+            };
+            _ = _netSession.SendChoiceResponseAsync(resp);
+            StatusText.Text = $"Net: answered choice '{dto.Title}' → {picked}";
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = "Net ChoiceRequest handle failed: " + ex.Message;
+            try
+            {
+                _ = _netSession.SendChoiceResponseAsync(new NetChoiceDto
+                {
+                    CorrelationId = dto.CorrelationId,
+                    Kind = NetChoiceDto.Kinds.Choice,
+                    TargetPlayer = dto.TargetPlayer,
+                    SelectedOption = dto.Options?.FirstOrDefault() ?? "",
+                    TimedOut = true
+                });
+            }
+            catch { /* ignore */ }
+        }
+        finally
+        {
+            _guestHandlingInboundChoice = false;
+            _guestActiveChoiceCorrelationId = null;
+        }
+    }
+
+    /// <summary>Host: complete pending TCS for correlationId.</summary>
+    private void OnNetChoiceResponseReceived(NetChoiceDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.CorrelationId)) return;
+        if (_pendingChoiceResponses.TryGetValue(dto.CorrelationId, out var tcs))
+        {
+            tcs.TrySetResult(dto);
+            return;
+        }
+
+        // Late / unsolicited pass from Guest while Host already moved on.
+        if (dto.Passed == true && _netSession?.IsHost == true && _stack.IsOpen)
+        {
+            _session.Log.AddDebug(_session.TurnNumber, "Net",
+                $"Late ChoiceResponse pass corr={dto.CorrelationId} — applying Pass if still open.");
+            if (_stack.ResponsePlayer != _netSession.LocalPlayer)
+                PassCurrentResponseWindow();
+        }
+    }
+
+    /// <summary>
+    /// Guest: show ThinkTray/Pass for responseWindow request; Pass → ChoiceResponse(passed=true).
+    /// Respond with card: use existing Action path if Guest plays (partial); Pass is mandatory live.
+    /// </summary>
+    private void HandleGuestResponseWindowRequest(NetChoiceDto dto)
+    {
+        if (_netSession == null || !_netSession.IsGuest) return;
+
+        _guestActiveChoiceCorrelationId = dto.CorrelationId;
+        int responder = dto.TargetPlayer;
+        _stack.ResponsePlayer = responder;
+        _stack.State = TimingRules.ResponseWindowState.Silent;
+
+        // Minimal legal list from names (Guest may not have Host TimingRules stack).
+        _currentLegalResponses.Clear();
+        var names = dto.LegalNames ?? Array.Empty<string>();
+        foreach (string nm in names)
+        {
+            if (string.IsNullOrWhiteSpace(nm)) continue;
+            var card = (_handCards.Concat(_oppHandCards))
+                .FirstOrDefault(c => string.Equals(c.Name, nm, StringComparison.OrdinalIgnoreCase));
+            if (card == null)
+                card = new Card { Name = nm, Type = "Interrupt" };
+            _currentLegalResponses.Add(new TimingRules.LegalResponseItem
+            {
+                Card = card,
+                Source = TimingRules.ResponseCardSource.Hand,
+                Description = "Net response (pass or Action path)"
+            });
+        }
+
+        BringResponseUiToFront();
+        if (ResponseIndicatorBadge != null)
+            ResponseIndicatorBadge.Visibility = Visibility.Collapsed;
+        ShowThinkTrayForResponder(responder, silentCountdown: true);
+        PopulateThinkTray();
+        if (ThinkTrayTitle != null)
+            ThinkTrayTitle.Text = $"RESPONSE (P{responder}) — {dto.Title ?? "window"}";
+        StatusText.Text = $"Net: your response window — Pass or play response card via Action.";
+
+        StopResponseWindowTimer();
+        int timeoutMs = dto.TimeoutMs ?? (_responseDefaultDurationSec * 1000);
+        _responseWindowDeadlineUtc = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+        _responseWindowTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(100)
+        };
+        _responseWindowTimer.Tick += (_, _) =>
+        {
+            double left = (_responseWindowDeadlineUtc - DateTime.UtcNow).TotalSeconds;
+            int secLeft = (int)Math.Ceiling(Math.Max(0, left));
+            if (ThinkTrayCountdown != null && ThinkTrayBorder?.Visibility == Visibility.Visible)
+                ThinkTrayCountdown.Text = $"{secLeft}s";
+            if (left <= 0)
+            {
+                StopResponseWindowTimer();
+                SendGuestResponsePass(timedOut: true);
+            }
+        };
+        _responseWindowTimer.Start();
+        StartThinkTrayFrameBlink(responder);
+    }
+
+    private void SendGuestResponsePass(bool timedOut)
+    {
+        if (_netSession == null || !_netSession.IsGuest) return;
+        string corr = _guestActiveChoiceCorrelationId ?? "";
+        CloseResponseWindowUi();
+        _guestActiveChoiceCorrelationId = null;
+        try
+        {
+            _ = _netSession.SendChoiceResponseAsync(new NetChoiceDto
+            {
+                CorrelationId = corr,
+                Kind = NetChoiceDto.Kinds.ResponsePass,
+                TargetPlayer = _netSession.LocalPlayer,
+                Passed = true,
+                TimedOut = timedOut
+            });
+            StatusText.Text = timedOut
+                ? "Net: response window timed out — Pass sent."
+                : "Net: Pass sent to Host.";
+            _session.Log.Add(_session.TurnNumber, $"P{_netSession.LocalPlayer}",
+                timedOut ? "Net Pass (response timeout)" : "Net Pass (response)");
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = "Net Pass send failed: " + ex.Message;
+        }
     }
 
     private void OnNetDisconnected(string reason)
@@ -15836,9 +16290,7 @@ public partial class TableWindow : Window
         }
         else
         {
-            // Nullifier chooses — AskChoice logs timeout→random as hotseat fallback.
-            int saved = _activePlayer;
-            _activePlayer = nullifier;
+            // Nullifier chooses — AskChoiceForPlayer (netztauglich).
             string n0 = (adj[0].Tag as Card)?.Name ?? "Adjacent A";
             string n1 = (adj[1].Tag as Card)?.Name ?? "Adjacent B";
             // Disambiguate identical names for the Yes/No labels.
@@ -15847,10 +16299,9 @@ public partial class TableWindow : Window
                 n0 = $"{n0} (left)";
                 n1 = $"{n1} (right)";
             }
-            string pick = AskChoice(gapsCard, $"P{nullifier}: Gaps nullify — relocate to?",
+            string pick = AskChoiceForPlayer(nullifier, gapsCard, $"P{nullifier}: Gaps nullify — relocate to?",
                 "Choose one adjacent spaceline location for cards that were at Gaps.",
                 n0, n1);
-            _activePlayer = saved;
             dest = pick == n1 ? adj[1] : adj[0];
         }
 
@@ -18589,7 +19040,7 @@ public partial class TableWindow : Window
         // "Any player" = each player may, not an exclusive P1-or-P2 pick.
         foreach (int who in new[] { 1, 2 })
         {
-            string ans = AskChoice(null, $"P{who}: Download Yellow Alert?",
+            string ans = AskChoiceForPlayer(who, null, $"P{who}: Download Yellow Alert?",
                 why + " Any player may immediately download Yellow Alert.",
                 "Download Yellow Alert", "Pass");
             if (!ans.StartsWith("Download", StringComparison.OrdinalIgnoreCase))
@@ -19797,8 +20248,8 @@ public partial class TableWindow : Window
             return;
         }
 
-        string pick = AskChoice(
-            seedCard,
+        string pick = AskChoiceForPlayer(
+            opp, seedCard,
             $"P{opp}: Alien Parasites — control",
             "Opponent chooses: Away Team and/or one ship + crew here.\n"
             + "You control them until the start of their next turn.\n"
@@ -25071,7 +25522,7 @@ public partial class TableWindow : Window
             return;
         }
 
-        string howMany = AskChoice(qCard, $"Q Continuum download (P{opp})",
+        string howMany = AskChoiceForPlayer(opp, qCard, $"Q Continuum download (P{opp})",
             $"Download how many [Q] atop Continuum? (max {maxCount})",
             Enumerable.Range(0, maxCount + 1).Select(n => n.ToString()).ToArray());
         if (!int.TryParse(howMany, out int want) || want <= 0)
@@ -25170,12 +25621,12 @@ public partial class TableWindow : Window
                 labels.Add($"{i + 1}. {nm}");
             }
             labels.Add("Done");
-            string pick = AskChoice(qCard, $"Q rearrange (P{opp})", "Pick a location to move, or Done.", labels.ToArray());
+            string pick = AskChoiceForPlayer(opp, qCard, $"Q rearrange (P{opp})", "Pick a location to move, or Done.", labels.ToArray());
             if (string.IsNullOrWhiteSpace(pick) || pick.Equals("Done", StringComparison.OrdinalIgnoreCase))
                 break;
             int idx = labels.IndexOf(pick);
             if (idx < 0 || idx >= _spacelineOrder.Count) break;
-            string dir = AskChoice(qCard, "Move location", pick, "Left", "Right", "Cancel");
+            string dir = AskChoiceForPlayer(opp, qCard, "Move location", pick, "Left", "Right", "Cancel");
             if (dir.Equals("Cancel", StringComparison.OrdinalIgnoreCase)) continue;
             int dest = dir.Equals("Left", StringComparison.OrdinalIgnoreCase) ? idx - 1 : idx + 1;
             if (dest < 0 || dest >= _spacelineOrder.Count) continue;

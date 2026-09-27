@@ -37,6 +37,12 @@ public sealed class NetPlaySession : IDisposable
     /// <summary>Either side: Error payload text.</summary>
     public event Action<string>? ErrorReceived;
 
+    /// <summary>Incoming ChoiceRequest (Guest receives Host asks).</summary>
+    public event Action<NetChoiceDto>? ChoiceRequestReceived;
+
+    /// <summary>Incoming ChoiceResponse (Host awaits Guest answer).</summary>
+    public event Action<NetChoiceDto>? ChoiceResponseReceived;
+
     /// <summary>Transport fault / disconnect.</summary>
     public event Action<string>? Disconnected;
 
@@ -101,6 +107,35 @@ public sealed class NetPlaySession : IDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         var payload = JsonSerializer.Serialize(new { message });
         var msg = NetMessage.Create(NetMessage.Types.Error, payloadJson: payload, seq: NextSeq());
+        return SendRawAsync(msg, cancellationToken);
+    }
+
+
+    /// <summary>Host (typically) asks the remote player for a choice / response-window pass.</summary>
+    public Task SendChoiceRequestAsync(NetChoiceDto dto, CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(dto);
+        if (string.IsNullOrWhiteSpace(dto.CorrelationId))
+            dto.CorrelationId = Guid.NewGuid().ToString("N");
+        var msg = NetMessage.Create(
+            NetMessage.Types.ChoiceRequest,
+            payloadJson: dto.ToJson(),
+            seq: NextSeq(),
+            correlationId: dto.CorrelationId);
+        return SendRawAsync(msg, cancellationToken);
+    }
+
+    /// <summary>Guest (typically) answers a ChoiceRequest.</summary>
+    public Task SendChoiceResponseAsync(NetChoiceDto dto, CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(dto);
+        var msg = NetMessage.Create(
+            NetMessage.Types.ChoiceResponse,
+            payloadJson: dto.ToJson(),
+            seq: NextSeq(),
+            correlationId: dto.CorrelationId);
         return SendRawAsync(msg, cancellationToken);
     }
 
@@ -187,6 +222,40 @@ public sealed class NetPlaySession : IDisposable
             }
             catch { /* raw payload */ }
             Post(() => ErrorReceived?.Invoke(text));
+            return;
+        }
+
+        if (string.Equals(msg.Type, NetMessage.Types.ChoiceRequest, StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(msg.PayloadJson)) return;
+            try
+            {
+                var dto = NetChoiceDto.FromJson(msg.PayloadJson);
+                if (string.IsNullOrWhiteSpace(dto.CorrelationId) && !string.IsNullOrWhiteSpace(msg.CorrelationId))
+                    dto.CorrelationId = msg.CorrelationId;
+                Post(() => ChoiceRequestReceived?.Invoke(dto));
+            }
+            catch (Exception ex)
+            {
+                Post(() => ErrorReceived?.Invoke("Bad ChoiceRequest payload: " + ex.Message));
+            }
+            return;
+        }
+
+        if (string.Equals(msg.Type, NetMessage.Types.ChoiceResponse, StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(msg.PayloadJson)) return;
+            try
+            {
+                var dto = NetChoiceDto.FromJson(msg.PayloadJson);
+                if (string.IsNullOrWhiteSpace(dto.CorrelationId) && !string.IsNullOrWhiteSpace(msg.CorrelationId))
+                    dto.CorrelationId = msg.CorrelationId;
+                Post(() => ChoiceResponseReceived?.Invoke(dto));
+            }
+            catch (Exception ex)
+            {
+                Post(() => ErrorReceived?.Invoke("Bad ChoiceResponse payload: " + ex.Message));
+            }
             return;
         }
 

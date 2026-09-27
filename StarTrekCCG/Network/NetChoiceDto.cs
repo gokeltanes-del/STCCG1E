@@ -1,0 +1,83 @@
+﻿using System;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+namespace StarTrekCCG.Network;
+
+/// <summary>
+/// Choice / response-window payloads over NetMessage framing (Phase 4).
+/// netztauglich: Host authoritative; Decide stays Engine/TimingRules; UI shows dialogs / waits / replies.
+/// kind: "choice" | "responseWindow" on request; response carries selectedOption and/or passed.
+/// </summary>
+public sealed class NetChoiceDto
+{
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        WriteIndented = false,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
+
+    public static class Kinds
+    {
+        public const string Choice = "choice";
+        public const string ResponseWindow = "responseWindow";
+        public const string ResponsePass = "responsePass";
+    }
+
+    [JsonPropertyName("correlationId")]
+    public string CorrelationId { get; set; } = string.Empty;
+
+    /// <summary>Request: choice | responseWindow. Response may echo or use responsePass.</summary>
+    [JsonPropertyName("kind")]
+    public string Kind { get; set; } = Kinds.Choice;
+
+    /// <summary>Player who must decide (1 or 2).</summary>
+    [JsonPropertyName("targetPlayer")]
+    public int TargetPlayer { get; set; }
+
+    [JsonPropertyName("title")]
+    public string? Title { get; set; }
+
+    [JsonPropertyName("prompt")]
+    public string? Prompt { get; set; }
+
+    [JsonPropertyName("options")]
+    public string[]? Options { get; set; }
+
+    [JsonPropertyName("cardName")]
+    public string? CardName { get; set; }
+
+    [JsonPropertyName("timeoutMs")]
+    public int? TimeoutMs { get; set; }
+
+    /// <summary>Legal response summary for responseWindow (names only; full list optional).</summary>
+    [JsonPropertyName("legalNames")]
+    public string[]? LegalNames { get; set; }
+
+    [JsonPropertyName("legalCount")]
+    public int? LegalCount { get; set; }
+
+    /// <summary>Response: chosen option label (choice kind).</summary>
+    [JsonPropertyName("selectedOption")]
+    public string? SelectedOption { get; set; }
+
+    /// <summary>Response: true when responder passed the response window.</summary>
+    [JsonPropertyName("passed")]
+    public bool? Passed { get; set; }
+
+    /// <summary>Response: true when local client timed out (Host may also simulate timeout).</summary>
+    [JsonPropertyName("timedOut")]
+    public bool? TimedOut { get; set; }
+
+    public string ToJson() => JsonSerializer.Serialize(this, JsonOptions);
+
+    public static NetChoiceDto FromJson(string json)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(json);
+        var dto = JsonSerializer.Deserialize<NetChoiceDto>(json, JsonOptions);
+        if (dto is null)
+            throw new InvalidOperationException("NetChoiceDto deserialize returned null.");
+        return dto;
+    }
+}

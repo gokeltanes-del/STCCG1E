@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -6,8 +6,8 @@ namespace StarTrekCCG.Network;
 
 // Verb: network transport tcp json
 /// <summary>
-/// JSON-Envelope für Client-Server-Transport (Phase 1).
-/// Keine Spiel-Logik — nur Typ + Payload + optionale Korrelation.
+/// JSON-Envelope fÃ¼r Client-Server-Transport (Phase 1).
+/// Keine Spiel-Logik â€” nur Typ + Payload + optionale Korrelation.
 /// </summary>
 public sealed class NetMessage
 {
@@ -24,6 +24,9 @@ public sealed class NetMessage
         public const string LobbyReady = "lobbyReady";
         public const string LobbyStatus = "lobbyStatus";
         public const string StartGame = "startGame";
+        // Phase 4: dialogs / response window
+        public const string ChoiceRequest = "choiceRequest";
+        public const string ChoiceResponse = "choiceResponse";
     }
 
     [JsonPropertyName("type")]

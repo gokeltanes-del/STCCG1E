@@ -1,3 +1,13 @@
+## 2026-09-27 — Network Phase 4 ChoiceRequest/Response + Response-Fenster
+
+- *netztauglich*: Wahlen/Response über `ChoiceRequest`/`ChoiceResponse` JSON auf bestehendem Framing; Host autoritativ; Decide bleibt Engine/TimingRules; TableWindow zeigt Dialoge / wartet / sendet Antwort; Sync nach Resolve weiter über Phase-3 State (`BroadcastStateAsync(MaskForViewer(2))`).
+- *NetMessage.Types*: `ChoiceRequest`, `ChoiceResponse` + `Network/NetChoiceDto.cs` (correlationId, kind `choice`|`responseWindow`|`responsePass`, targetPlayer, title/prompt/options, selectedOption/passed/timeoutMs).
+- *NetPlaySession*: `SendChoiceRequestAsync` / `SendChoiceResponseAsync`; Events `ChoiceRequestReceived` / `ChoiceResponseReceived`; HandleMessage-Routing.
+- *TableWindow AskChoiceForPlayer*: Hotseat lokal; Host+LocalPlayer lokal; Host+P2 → ChoiceRequest + DispatcherFrame-Wait; Host-Timeout = random option lokal (Guest-Timer kann früher antworten). Guest beantwortet inbound ChoiceRequest, startet keine eigene Engine-Wahl.
+- *Response-Fenster*: Host öffnet für remote Responder Warte-Status + `responseWindow`-Request (kein Pass-Timer für falschen Spieler); Guest ThinkTray/Pass → ChoiceResponse(passed); Host ruft `PassCurrentResponseWindow`. Respond-mit-Karte: Action-Pfad partial.
+- *Verdrahtung*: Return Fire (defOwner), Gaps (nullifier), Q Continuum/rearrange (opp), Yellow Alert (who), Alien Parasites (opp).
+- *Scope*: kein P5 Disconnect; kein Push; TimingRules unangetastet.
+
 ## 2026-09-27 — Network Lobby-Flow (Deck pick + Ready handshake + StartGame)
 
 - *netztauglich*: Lobby-Entscheidungen (Deck/Ready/Start) über JSON `NetMessage` auf demselben Framing; Host autoritativ für Start; Tisch-Übergang nutzt bestehendes `DetachTransport` → `NetPlaySession`; keine UI-only Regel für Spielstart.
