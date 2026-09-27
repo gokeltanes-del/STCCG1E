@@ -9,7 +9,7 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 
 ## Jetzt aktiv ├ö├ç├Â Multiplayer / Network-Modus
 
-**Status:** P2 Facility Seed Spaceline-Dock getippt (nicht TABLE). **netztauglich.** Tip-Hash 493fc0b. Naechster Tip: Pepsch-Retest Facility P2 oder Phase 5 Disconnect. **HOLD.**
+**Status:** P2 Facility Seed-on-Outpost + Viewer Dock Layout getippt. **netztauglich.** Tip-Hash dabaecc. Naechster Tip: Pepsch-Retest P2 Seed auf Outpost / Layout oder Phase 5 Disconnect. **HOLD.**
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
 
 ### Architektur
@@ -24,11 +24,13 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 4. **Phase 4 — Dialoge/Timing:** ChoiceRequest / ChoiceResponse. → Tip e102b47.
 5. **Phase 5 ├ö├ç├Â HÔö£├▒rtung:** Disconnect, Reconnect, Abbruch.
 
-**Code-Stand (Data 2026-09-27):** P2 Facility Spaceline Tip-Hash 493fc0b; Seed-under Sync 6da1c61. P2 Mission Insert 141c4df; UI Nachzieher 7747bf8; Guest->Host ccd9aa5; Host->Guest f020183; Viewer=LocalPlayer 1bd513f. Working tree dirty after tip restore. Kein Push durch Bots. **HOLD.**
+**Code-Stand (Data 2026-09-27):** P2 Facility Seed-on-Outpost + Viewer Dock dabaecc; P2 Facility Spaceline 493fc0b; Seed-under Sync 6da1c61. Working tree dirty after tip restore. Kein Push durch Bots. **HOLD.**
 
 ---
 
 ## Zuletzt (kurz)
+
+- Network P2 Facility Seed-on-Outpost + Viewer Dock: PlayerForStrip owner; underInst Facility Apply; eigene Facilities unten auf P2-Client. Tip-Hash dabaecc. **HOLD.**
 
 - Network P2 Facility Seed: Guest Target/underInst → Host dockt an Mission (nicht CommitCardToTable/P2 TABLE). Tip-Hash 493fc0b. **HOLD.**
 
