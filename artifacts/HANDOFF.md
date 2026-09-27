@@ -9,7 +9,7 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 
 ## Jetzt aktiv ├ö├ç├Â Multiplayer / Network-Modus
 
-**Status:** Phase 4 ChoiceRequest/Response getippt. **netztauglich.** Tip-Hash e102b47. Nächster Tip: Phase 5 Disconnect oder Pepsch-Go.
+**Status:** Seed/Mission Netz-Sync getippt. **netztauglich.** Tip-Hash TIPHASH. Nächster Tip: Phase 5 Disconnect oder Pepsch-Go.
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
 
 ### Architektur
@@ -24,7 +24,7 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 4. **Phase 4 — Dialoge/Timing:** ChoiceRequest / ChoiceResponse. → Tip e102b47.
 5. **Phase 5 ├ö├ç├Â HÔö£├▒rtung:** Disconnect, Reconnect, Abbruch.
 
-**Code-Stand (Data 2026-09-27):** Phase 4 Choice/Response getippt; Tip-Hash e102b47. Pass + Choice Ask live; Respond-Karte partial. Working tree dirty (fremde Änderungen unberührt). Kein Push durch Bots.
+**Code-Stand (Data 2026-09-27):** Seed/Mission Sync getippt; Tip-Hash TIPHASH. Working tree dirty (fremde Änderungen unberührt). Kein Push durch Bots.
 
 ---
 

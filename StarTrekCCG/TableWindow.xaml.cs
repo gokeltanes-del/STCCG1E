@@ -1403,7 +1403,7 @@ public partial class TableWindow : Window
         {
             Match = _session.Match,
             Segment = _session.Segment,
-            ActivePlayer = _session.ActivePlayer,
+            ActivePlayer = _seedPhaseActive && (_activePlayer is 1 or 2) ? _activePlayer : _session.ActivePlayer,
             TurnNumber = _session.TurnNumber,
             SeedPhase = _seedPhaseActive,
             SeedSubPhase = (int)_seedSubPhase,
@@ -6410,6 +6410,19 @@ public partial class TableWindow : Window
 
         if (placedOk && _seedPhaseActive)
         {
+            Card? seedTargetMission = null;
+            if (!IsMissionCard(card) && IsSeedableUnderMission(card))
+            {
+                foreach (var kv in _seedUnderMission)
+                {
+                    if (kv.Value.Any(b => b.Tag is Card c && ReferenceEquals(c, card))
+                        && kv.Key.Tag is Card mc)
+                    {
+                        seedTargetMission = mc;
+                        break;
+                    }
+                }
+            }
             if (_seedSubPhase == SeedSubPhase.Doorway)
                 TrySequentialSeedPlayer(); // P1 alle Doorways, dann P2
             else if (_seedSubPhase is SeedSubPhase.Mission or SeedSubPhase.Dilemma or SeedSubPhase.Facility)
@@ -6417,6 +6430,7 @@ public partial class TableWindow : Window
             TryAutoAdvanceSeedPhase();
             // Immer den aktuellen Seed-Stapel des aktiven Spielers zeigen
             ShowCurrentSeedStack();
+            NotifyNetworkAfterSeedPlacement(card, seedTargetMission);
         }
         else if (IsSideDeckUnlocked(zref.ZoneName, zref.Opponent) || !IsSideDeckZone(zref.ZoneName))
         {
@@ -8424,7 +8438,7 @@ public partial class TableWindow : Window
             StatusText.Text = "No active seed phase – load a deck or start seed first.";
             return;
         }
-        AdvanceSeedPhase(manual: true);
+        BtnPhaseNext_Click(sender, e);
     }
 
     private void MenuSeedFinish_Click(object sender, RoutedEventArgs e)
@@ -8435,7 +8449,7 @@ public partial class TableWindow : Window
             return;
         }
 
-        FinishSeedPhaseAndDrawOpeningHand();
+        BtnSeedFinish_Click(sender, e);
     }
 
     private void EnterSeedPhase(SeedSubPhase start)
@@ -8474,12 +8488,13 @@ public partial class TableWindow : Window
             if (manual)
             {
                 // Noch Facility-Karten beim anderen Spieler? → nicht beenden
-                if (_gameMode == GameMode.Hotseat)
+                if (IsSeedMultiPlayerMode())
                 {
                     int other = _activePlayer == 1 ? 2 : 1;
                     if (CountSeedFor(SeedSubPhase.Facility, other) > 0)
                     {
                         _activePlayer = other;
+                        SyncSeedActiveToSession();
                         ApplyPerspective();
                         UpdatePhaseControls();
                         OnTurnContextChanged(
@@ -8518,6 +8533,7 @@ public partial class TableWindow : Window
         UpdatePhaseControls();
         OnTurnContextChanged((manual ? "Phase complete → " : "Auto-advance → ") + SeedPhaseStatusLine());
         ShowCurrentSeedStack();
+        NotifyNetworkSeedChanged();
     }
 
     private void TryAutoAdvanceSeedPhase()
@@ -8998,6 +9014,7 @@ public partial class TableWindow : Window
         try { lobby.Close(); } catch { /* ignore */ }
         if (ModeNetwork?.IsChecked == true)
             ApplySelectedGameMode();
+        NotifyNetworkSeedChanged();
     }
 
 
@@ -9229,6 +9246,11 @@ public partial class TableWindow : Window
             _ = _netSession.SendErrorAsync($"PlayCard: card '{dto.CardName}' not found on Host.");
             return;
         }
+        if (action.Kind == GameActionKind.SeedCard && action.Card == null)
+        {
+            _ = _netSession.SendErrorAsync($"SeedCard: card '{dto.CardName}' not found on Host seed piles.");
+            return;
+        }
 
         if (!IsNetSyncKindSupported(action.Kind))
         {
@@ -9238,7 +9260,10 @@ public partial class TableWindow : Window
 
         if (action.Kind is GameActionKind.EndPhase or GameActionKind.EndTurn or GameActionKind.Draw)
         {
-            if (action.Player != _session.ActivePlayer)
+            bool seedAdvance = action.Kind == GameActionKind.EndPhase
+                && string.Equals(action.Note, "SeedAdvance", StringComparison.OrdinalIgnoreCase);
+            bool seedFinish = action.Kind == GameActionKind.EndTurn && _seedPhaseActive;
+            if (!seedAdvance && !seedFinish && action.Player != _session.ActivePlayer)
             {
                 _ = _netSession.SendErrorAsync($"Not your turn (active P{_session.ActivePlayer}).");
                 return;
@@ -9267,7 +9292,8 @@ public partial class TableWindow : Window
             or GameActionKind.EndPhase
             or GameActionKind.EndTurn
             or GameActionKind.Draw
-            or GameActionKind.PlayCard;
+            or GameActionKind.PlayCard
+            or GameActionKind.SeedCard;
 
     /// <summary>Resolve card by name/set from hand or table for Host FromDto.</summary>
     private Card? LookupCardForNetAction(string? name, string? set)
@@ -9277,6 +9303,11 @@ public partial class TableWindow : Window
             .Concat(_oppHandCards)
             .Concat(_tablePermanentCards)
             .Concat(_oppTablePermanentCards)
+            .Concat(_missionSeedCards).Concat(_oppMissionSeedCards)
+            .Concat(_dilemmaSeedCards).Concat(_oppDilemmaSeedCards)
+            .Concat(_facilitySeedCards).Concat(_oppFacilitySeedCards)
+            .Concat(_doorwayCards).Concat(_oppDoorwayCards)
+            .Concat(_seedCards).Concat(_oppSeedCards)
             .Concat(TableCanvas.Children.OfType<Border>().Select(b => b.Tag).OfType<Card>());
 
         Card? hit = null;
@@ -9300,6 +9331,13 @@ public partial class TableWindow : Window
         switch (action.Kind)
         {
             case GameActionKind.EndPhase:
+                if (_seedPhaseActive
+                    && string.Equals(action.Note, "SeedAdvance", StringComparison.OrdinalIgnoreCase))
+                {
+                    AdvanceSeedPhase(manual: true);
+                    _session.Log.Add(_session.TurnNumber, $"P{action.Player}", "Net: SeedAdvance");
+                    return true;
+                }
                 if (_session.Segment != GameSession.TurnSegment.Play)
                 {
                     StatusText.Text = "Net EndPhase ignored: not in Play segment.";
@@ -9313,6 +9351,12 @@ public partial class TableWindow : Window
                 return true;
 
             case GameActionKind.EndTurn:
+                if (_seedPhaseActive)
+                {
+                    FinishSeedPhaseAndDrawOpeningHand();
+                    _session.Log.Add(_session.TurnNumber, $"P{action.Player}", "Net: SeedFinish");
+                    return true;
+                }
                 if (_session.Segment == GameSession.TurnSegment.Play)
                 {
                     StatusText.Text = "Net EndTurn: still in Play (Authorize should have caught).";
@@ -9338,9 +9382,85 @@ public partial class TableWindow : Window
                 StatusText.Text = $"Net: PlayCard {action.Card?.Name} OK at authority; UI play path deferred.";
                 return false;
 
+            case GameActionKind.SeedCard:
+                return TryApplyNetSeedCard(action);
+
             default:
                 return false;
         }
+    }
+
+
+    /// <summary>
+    /// Host: apply Guest SeedCard authoritatively.
+    /// Missions use AutoSeedMission (spaceline insert without Guest pixels).
+    /// Under-mission when Target set; doorways via AutoSeedDoorway; else CommitCardToTable.
+    /// Partial: insert index / after:Name from Note not required for Mission visibility sync.
+    /// </summary>
+    private bool TryApplyNetSeedCard(GameAction action)
+    {
+        if (action.Card == null) return false;
+        var card = action.Card;
+        int player = action.Player is 1 or 2 ? action.Player : 2;
+
+        _doorwayCards.Remove(card);
+        _missionSeedCards.Remove(card);
+        _dilemmaSeedCards.Remove(card);
+        _facilitySeedCards.Remove(card);
+        _seedCards.Remove(card);
+        _oppDoorwayCards.Remove(card);
+        _oppMissionSeedCards.Remove(card);
+        _oppDilemmaSeedCards.Remove(card);
+        _oppFacilitySeedCards.Remove(card);
+        _oppSeedCards.Remove(card);
+        RefreshZoneCounts();
+
+        _activePlayer = player;
+        SyncSeedActiveToSession();
+
+        if (IsMissionCard(card))
+        {
+            AutoSeedMission(card, player);
+        }
+        else if (IsSeedableUnderMission(card) && action.Target != null)
+        {
+            Border? missionBorder = AllMissionBorders()
+                .FirstOrDefault(b => b.Tag is Card mc && ReferenceEquals(mc, action.Target));
+            missionBorder ??= AllMissionBorders()
+                .FirstOrDefault(b => b.Tag is Card mc
+                    && string.Equals(mc.Name, action.Target.Name, StringComparison.OrdinalIgnoreCase));
+            if (missionBorder != null && missionBorder.Tag is Card mCard
+                && CanSeedCardUnderMission(card, mCard).ok)
+            {
+                var border = AddCardToTable(card, Canvas.GetLeft(missionBorder), SpacelineY + 40, TableCardWidth);
+                AddSeedUnderMission(missionBorder, border);
+                SetBorderOwner(border, player);
+            }
+            else
+            {
+                CommitCardToTable(card, player);
+                StatusText.Text = $"Net Seed: {card.Name} - no legal mission target on Host; table fallback.";
+            }
+        }
+        else if (IsDoorwayCard(card))
+        {
+            AutoSeedDoorway(card, player);
+        }
+        else
+        {
+            CommitCardToTable(card, player);
+        }
+
+        if (_seedSubPhase == SeedSubPhase.Doorway)
+            TrySequentialSeedPlayer();
+        else if (_seedSubPhase is SeedSubPhase.Mission or SeedSubPhase.Dilemma or SeedSubPhase.Facility)
+            TryAlternateSeedPlayer();
+        TryAutoAdvanceSeedPhase();
+        ShowCurrentSeedStack();
+        SyncSeedActiveToSession();
+        _session.Log.Add(_session.TurnNumber, $"P{player}", $"Net: Seed {card.Name}");
+        StatusText.Text = $"Net: seeded {card.Name} (P{player}).";
+        return true;
     }
 
     private void BroadcastMaskedStateToGuest()
@@ -9746,11 +9866,32 @@ public partial class TableWindow : Window
             RefreshLegalMovesPanel();
     }
 
-    private void BtnPhaseNext_Click(object sender, RoutedEventArgs e) => AdvanceSeedPhase(manual: true);
+    private void BtnPhaseNext_Click(object sender, RoutedEventArgs e)
+    {
+        if (_gameMode == GameMode.Network && _netSession != null)
+        {
+            if (_netSession.IsHost)
+            {
+                AdvanceSeedPhase(manual: true);
+            }
+            else
+            {
+                var action = new GameAction
+                {
+                    Kind = GameActionKind.EndPhase,
+                    Player = _netSession.LocalPlayer,
+                    Note = "SeedAdvance"
+                };
+                _ = SendGuestActionAsync(action);
+            }
+            return;
+        }
+        AdvanceSeedPhase(manual: true);
+    }
     private void BtnSeedFinish_Click(object sender, RoutedEventArgs e)
     {
         // Facility-Phase: anderen Spieler nicht überspringen
-        if (_seedPhaseActive && _seedSubPhase == SeedSubPhase.Facility && _gameMode == GameMode.Hotseat)
+        if (_seedPhaseActive && _seedSubPhase == SeedSubPhase.Facility && IsSeedMultiPlayerMode())
         {
             int other = _activePlayer == 1 ? 2 : 1;
             int otherLeft = CountSeedFor(SeedSubPhase.Facility, other);
@@ -9758,9 +9899,11 @@ public partial class TableWindow : Window
             if (otherLeft > 0)
             {
                 _activePlayer = other;
+                SyncSeedActiveToSession();
                 ApplyPerspective();
                 ShowCurrentSeedStack();
                 UpdatePhaseControls();
+                NotifyNetworkSeedChanged();
                 StatusText.Text =
                     $"Facility phase: Player {_activePlayer} must still seed ({otherLeft} left). " +
                     "Finish seed only after that.";
@@ -9775,9 +9918,26 @@ public partial class TableWindow : Window
             }
         }
         // Andere Seed-Teilphasen: Warnung wenn Gegner noch Karten hat
-        if (_seedPhaseActive && _gameMode == GameMode.Hotseat && _seedSubPhase < SeedSubPhase.Facility)
+        if (_seedPhaseActive && IsSeedMultiPlayerMode() && _seedSubPhase < SeedSubPhase.Facility)
         {
             StatusText.Text = "Please complete all seed sub-phases first (or Next phase).";
+            return;
+        }
+        if (_gameMode == GameMode.Network && _netSession != null)
+        {
+            if (_netSession.IsGuest)
+            {
+                var action = new GameAction
+                {
+                    Kind = GameActionKind.EndTurn,
+                    Player = _netSession.LocalPlayer,
+                    Note = "SeedFinish"
+                };
+                _ = SendGuestActionAsync(action);
+                return;
+            }
+            FinishSeedPhaseAndDrawOpeningHand();
+            NotifyNetworkSeedChanged();
             return;
         }
         FinishSeedPhaseAndDrawOpeningHand();
@@ -10995,8 +11155,8 @@ public partial class TableWindow : Window
             _drawCards.RemoveAt(0);
         }
 
-        // Hotseat: Opening Hand Spieler 2
-        if (_gameMode == GameMode.Hotseat && _oppDrawCards.Count > 0)
+        // Hotseat / Network: Opening Hand Spieler 2
+        if (IsSeedMultiPlayerMode() && _oppDrawCards.Count > 0)
         {
             ShuffleList(_oppDrawCards);
             int hand2 = Math.Min(OpeningHandSize, _oppDrawCards.Count);
@@ -11031,6 +11191,7 @@ public partial class TableWindow : Window
         SyncBoardFromTable();
         foreach (var line in BoardStore.Current.DumpLines())
             _session.Log.AddDebug(_session.TurnNumber, "Board", line);
+        NotifyNetworkSeedChanged();
     }
 
     private static void ShuffleList<T>(IList<T> list)
@@ -28633,13 +28794,51 @@ public partial class TableWindow : Window
         ResetStripsToHand();
     }
 
+
+    /// <summary>Hotseat or Network: seed alternation / facility handoff between players.</summary>
+    private bool IsSeedMultiPlayerMode() =>
+        _gameMode == GameMode.Hotseat || _gameMode == GameMode.Network;
+
+    /// <summary>Keep EngineAuthority ActivePlayer in sync during seed (UI may switch first).</summary>
+    private void SyncSeedActiveToSession()
+    {
+        if (_activePlayer is 1 or 2)
+            _session.ActivePlayer = _activePlayer;
+    }
+
+    /// <summary>Host: broadcast masked GameSave after seed table changes. Guest / non-host: no-op.</summary>
+    private void NotifyNetworkSeedChanged()
+    {
+        if (_gameMode != GameMode.Network || _netSession == null || !_netSession.IsHost)
+            return;
+        SyncSeedActiveToSession();
+        BroadcastMaskedStateToGuest();
+    }
+
+    /// <summary>
+    /// After a local seed placement: Host broadcasts; Guest sends SeedCard so Host places + broadcasts.
+    /// </summary>
+    private void NotifyNetworkAfterSeedPlacement(Card card, Card? targetMission = null, string? note = null)
+    {
+        if (_gameMode != GameMode.Network || _netSession == null) return;
+        SyncSeedActiveToSession();
+        if (_netSession.IsHost)
+        {
+            BroadcastMaskedStateToGuest();
+            return;
+        }
+        int player = _netSession.LocalPlayer;
+        var action = GameAction.Seed(player, card, targetMission, note);
+        _ = SendGuestActionAsync(action);
+    }
+
     /// <summary>
     /// Doorway-Phase: Spieler legt alle eigenen Doorways, danach wechselt es zum anderen
     /// (nicht Karte-für-Karte abwechselnd).
     /// </summary>
     private void TrySequentialSeedPlayer()
     {
-        if (!_seedPhaseActive || _gameMode != GameMode.Hotseat) return;
+        if (!_seedPhaseActive || !IsSeedMultiPlayerMode()) return;
         if (_seedSubPhase != SeedSubPhase.Doorway) return;
 
         int selfCount = CountSeedFor(SeedSubPhase.Doorway, _activePlayer);
@@ -28650,6 +28849,7 @@ public partial class TableWindow : Window
         if (otherCount > 0)
         {
             _activePlayer = other;
+            SyncSeedActiveToSession();
             ApplyPerspective();
             OnTurnContextChanged();
             StatusText.Text =
@@ -28667,7 +28867,7 @@ public partial class TableWindow : Window
     /// </summary>
     private void TryAlternateSeedPlayer()
     {
-        if (!_seedPhaseActive || _gameMode != GameMode.Hotseat) return;
+        if (!_seedPhaseActive || !IsSeedMultiPlayerMode()) return;
         if (_seedSubPhase is not (SeedSubPhase.Mission or SeedSubPhase.Dilemma or SeedSubPhase.Facility))
             return;
 
@@ -28679,6 +28879,7 @@ public partial class TableWindow : Window
         if (otherCount > 0)
         {
             _activePlayer = other;
+            SyncSeedActiveToSession();
             ApplyPerspective();
             ShowCurrentSeedStack();
             string phaseName = _seedSubPhase switch

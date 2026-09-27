@@ -1,3 +1,11 @@
+## 2026-09-27 — Network Seed/Mission Sync (Host broadcast)
+
+- *Bugfix (Pepsch/Captain)*: Nach Lobby+Start seedet P1 eine Mission — P2 sah nichts; beide spielten getrennt. Ursache: kein `BroadcastMaskedStateToGuest` nach Seed-Drop; Seed-Spielerwechsel nur Hotseat; `SeedCard` nicht in Net-Sync.
+- *netztauglich*: Seed/Mission über Host-Wahrheit + `BroadcastMaskedStateToGuest` / Guest `ApplyGameSave`; Seed-Spielerwechsel auch in Network; Guest-Seed via `GameAction.Seed` + Host `TryApplyNetSeedCard`.
+- *TableWindow*: `IsSeedMultiPlayerMode` öffnet Alternate/Sequential + Facility-Handoff für Network; `NotifyNetworkSeedChanged` / `NotifyNetworkAfterSeedPlacement` nach Seed-Tischänderungen; Initial-Broadcast in `OnLobbyGameStarting`; `SeedCard` in `IsNetSyncKindSupported` + Seed-Pile Lookup; Phase Next/Finish Network (`EndPhase` Note=`SeedAdvance`, `EndTurn` Note=`SeedFinish`).
+- *Partial*: Guest-Mission-Insert ohne Pixel/`after:Name` (Host `AutoSeedMission`); Dilemma-Target best-effort; Respond/PlayCard-UI unverändert.
+- *Scope*: kein P5 Disconnect, kein PlayCard-UI voll, kein Push.
+
 ## 2026-09-27 — Network Phase 4 ChoiceRequest/Response + Response-Fenster
 
 - *netztauglich*: Wahlen/Response über `ChoiceRequest`/`ChoiceResponse` JSON auf bestehendem Framing; Host autoritativ; Decide bleibt Engine/TimingRules; TableWindow zeigt Dialoge / wartet / sendet Antwort; Sync nach Resolve weiter über Phase-3 State (`BroadcastStateAsync(MaskForViewer(2))`).
