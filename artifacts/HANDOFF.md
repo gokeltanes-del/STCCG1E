@@ -9,7 +9,7 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 
 ## Jetzt aktiv ├ö├ç├Â Multiplayer / Network-Modus
 
-**Status:** Execute-Haenger P2 (Guest Segment desync) getippt. **netztauglich.** Tip-Hash 9abb843. Naechster: Pepsch Dual-EXE Smoke Treaty/Pass Play -> Execute -> End EXECUTE -> Active P1. **HOLD.**
+**Status:** Skip seed phase (Lobby consensus + Host AutoCompleteSeed) getippt. **netztauglich.** Tip-Hash 7c040df. Prior HOLD Tip 9abb843 (Guest Segment) erhalten — Pepsch Smoke offen. Naechster: Dual-EXE Smoke Skip Accept→Auto-Seed→Play; Decline→manuelle Seed. **HOLD.**
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
 
 ### Architektur
@@ -24,11 +24,13 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 4. **Phase 4 — Dialoge/Timing:** ChoiceRequest / ChoiceResponse. → Tip e102b47.
 5. **Phase 5 ├ö├ç├Â HÔö£├▒rtung:** Disconnect, Reconnect, Abbruch.
 
-**Code-Stand (Data 2026-09-27):** Guest Segment EndPlay/Execute 9abb843; Artifact Glow ALL [P] 041e059; prior seed+EXECUTE 23044e0. Kein Push durch Bots. **HOLD.**
+**Code-Stand (Data 2026-09-27):** Skip seed phase 7c040df; Guest Segment EndPlay/Execute 9abb843; Artifact Glow ALL [P] 041e059; prior seed+EXECUTE 23044e0. Kein Push durch Bots. **HOLD.**
 
 ---
 
 ## Zuletzt (kurz)
+
+- Skip seed phase (Network Lobby): LobbySkipSeed Propose/Accept/Decline; StartGame.skipSeedPhase; Host AutoCompleteSeed. Tip-Hash 7c040df. **HOLD.**
 
 - Execute-Haenger P2 (Guest Segment): OnSuccessfulHandPlay kein lokales AdvanceSegment auf Guest; Host Broadcast nach Advance; EndTurn-while-Play Remap->EndPhase. Tip-Hash 9abb843. **HOLD.**
 

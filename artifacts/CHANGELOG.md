@@ -1,3 +1,11 @@
+## 2026-09-27 - Multiplayer Skip seed phase (Network Lobby)
+
+- *Feature (Pepsch)*: Optional Auto-Seed wie Quick Game im Netz, wenn beide Skip seed phase akzeptieren.
+- *Flow*: Beide Ready → Lobby-Panel **Skip seed phase**; Propose → beide Accept → Host `AutoCompleteSeed`; Decline oder 45s-Timeout → manuelle Seed-Phase.
+- *Technik*: `LobbySkipSeed` Vote (propose/accept/decline); `StartGame.skipSeedPhase`; Host allein Auto-Seed + Broadcast; Guest UI aus Sync. Tip 9abb843 (Guest Segment) erhalten.
+- *netztauglich*: Decide Host; Guest kein lokales AutoSeed.
+- *Scope*: NetMessage/NetLobbyDto + NetworkLobbyWindow + TableWindow OnLobbyGameStarting. Docs separat. Kein Push.
+
 ## 2026-09-27 - Execute-Haenger P2 Guest Segment Sync (Network)
 
 - *Bugfix (Pepsch, Guest ~18:03)*: Nach Treaty Segment -> Execute (Orders); Sent EndTurn -> Error **End Play phase first.** Soft-Lock: Guest-UI Execute, Host-Engine noch Play.
