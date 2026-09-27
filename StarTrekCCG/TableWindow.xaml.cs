@@ -2603,9 +2603,13 @@ public partial class TableWindow : Window
         bool faceDownAlways = zoneName is "Draw Deck" or "Battle Bridge" or "Q-Continuum";
         bool networkMaskOpp = _gameMode == GameMode.Network && !isOwnSide && privateZone
             && !_devPeekOpponentPiles;
+        // Network LocalPlayer: own Hand + seed piles stay face-up even out of turn / after ApplyGameSave.
+        // (Hotseat keeps inactive-side private piles face-down except Hand / Alien Probe.)
+        bool ownNetworkFaceUp = isOwnSide && _netSession != null && !faceDownAlways;
 
         if ((networkMaskOpp || (!isActiveSide && privateZone && zoneName != "Hand"))
-            && !(revealHands && zoneName == "Hand"))
+            && !(revealHands && zoneName == "Hand")
+            && !ownNetworkFaceUp)
         {
             int n = cards.Count;
             for (int i = 0; i < Math.Min(n, 12); i++)
@@ -2628,8 +2632,11 @@ public partial class TableWindow : Window
 
         foreach (var card in cards)
         {
-            bool fd = (faceDownAlways && zoneName != "Hand")
-                || (!card.FaceUp && _gameMode == GameMode.Network && !isOwnSide);
+            bool fd = faceDownAlways
+                || (!isOwnSide && !card.FaceUp && _gameMode == GameMode.Network);
+            // LocalPlayer Hand is always face-up for the viewer (never Fog FaceUp flags).
+            if (isOwnSide && zoneName == "Hand")
+                fd = false;
             var mini = CreateMiniCard(card, faceDown: fd);
             mini.RenderTransform = Transform.Identity;
             mini.Tag = new ZoneCardRef(zoneName, card, opponent);
@@ -7072,12 +7079,13 @@ public partial class TableWindow : Window
     private void ApplyMissionFaceVisual(Border primary, double x)
     {
         bool shared = IsSharedMissionLocation(primary);
-        int face = shared
-            ? (_activePlayer is 1 or 2 ? _activePlayer : 1)
-            : (GetBorderOwner(primary) == 2 ? 2 : 1);
+        // Absolute owner whose "front" faces their side of the table.
+        int faceToward = shared
+            ? (_activePlayer is 1 or 2 ? _activePlayer : ViewerPlayer)
+            : (GetBorderOwner(primary) is 1 or 2 ? GetBorderOwner(primary) : 1);
         if (shared)
         {
-            var printed = MissionPrintedFor(primary, face);
+            var printed = MissionPrintedFor(primary, faceToward);
             if (primary.Child is Image img
                 && !string.IsNullOrEmpty(printed.FullImagePath)
                 && System.IO.File.Exists(printed.FullImagePath))
@@ -7099,10 +7107,12 @@ public partial class TableWindow : Window
                 }
             }
         }
+        // Viewer-relative: LocalPlayer missions upright (bottom); opponent 180° (toward top).
+        // Host Viewer=P1 → P1 Identity / P2 180. Guest Viewer=P2 → P2 Identity / P1 180.
         primary.RenderTransformOrigin = new Point(0.5, 0.5);
-        primary.RenderTransform = face == 2
-            ? new RotateTransform(180)
-            : Transform.Identity;
+        primary.RenderTransform = faceToward == ViewerPlayer
+            ? Transform.Identity
+            : new RotateTransform(180);
         Canvas.SetLeft(primary, x);
     }
 
@@ -18131,7 +18141,10 @@ public partial class TableWindow : Window
     private void ShowLegalPlayHighlights(Card card, bool fromHand)
     {
         ClearEventTargetHighlights();
-        int snapOwner = _zoneDragRef?.Opponent == true ? 2 : _activePlayer;
+        // Network: strip Opponent flag is viewer-relative — map via PlayerForStrip (not Opponent?2:1).
+        int snapOwner = _zoneDragRef != null
+            ? PlayerForStrip(_zoneDragRef.Opponent)
+            : _activePlayer;
         if (!_seedPhaseActive)
         {
             // Named overrides own their halo color + TABLE / gap extras.
@@ -18171,7 +18184,12 @@ public partial class TableWindow : Window
         if (_seedPhaseActive || (_devPlaySeedFromHand && fromHand && IsSeedableUnderMission(card)))
         {
             BeginTargetSession(card);
-            HighlightPlayOnSites();
+            // Mission seed: Quadrant/Region drop-slot glow (same as Hotseat ShowMissionSlotPreviews).
+            // Dilemma/Facility/etc. keep host-site halos via HighlightPlayOnSites.
+            if (IsMissionCard(card))
+                ShowMissionSlotPreviews(card);
+            else
+                HighlightPlayOnSites();
             return;
         }
 

@@ -1,3 +1,10 @@
+## 2026-09-27 - Network UI Nachzieher Seed (Hand face-up / Mission Glow / Viewer-Orientierung)
+
+- *Bugfix (Pepsch, Screenshot)*: Guest eigene Missionen als Rücken außer Zug; Mission-Drop-Glow/Snap fehlte vs Hotseat; Spaceline auf P2-Instanz noch Host-orientiert (P2 auf dem Kopf).
+- *Ursache*: (1) `FillStrip` maskierte eigene private Zonen face-down wenn `!isActiveSide` (Hand ausgenommen, Missions nicht) — nach ApplyGameSave/Gegnerzug Rücken; (2) Seed-Highlight rief für Missionen nur leeres `HighlightPlayOnSites`, Slot-Glow hing allein am MouseMove; `snapOwner` noch `Opponent?2:1`; (3) `ApplyMissionFaceVisual` rotierte fest `face==2` statt ViewerPlayer-relativ.
+- *netztauglich / UI-only*: Sync-Pfad (Guest Action→Host Apply→Broadcast, ActivePlayer-Gate, session-first Notify) unverändert. `ownNetworkFaceUp` + Hand immer face-up für LocalPlayer; `ShowMissionSlotPreviews` im Seed-Highlight + `PlayerForStrip` snapOwner; Mission-Rotation `faceToward == ViewerPlayer`.
+- *Scope*: kein P5 Disconnect; kein Sync-Umbau; kein Push.
+
 ## 2026-09-27 - Network Guest->Host Seed Authority Loop
 
 - *Bugfix (Pepsch, Screenshot)*: P2 Mission auf Guest -> P1-Board blieb alt (Spaceline 2 vs 1; Zaehler 5 vs 6 left). Host->Guest nach f020183 ok.
