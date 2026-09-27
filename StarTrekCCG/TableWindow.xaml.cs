@@ -2745,18 +2745,30 @@ public partial class TableWindow : Window
             if (cardBorder.Tag is not Card c) continue;
             int o = GetBorderOwner(cardBorder);
             if (o == 0) o = 1;
-            bool beamThis = _hostStripBeam && o == _activePlayer;
+            bool fogHidden = IsOccupancyHiddenFromViewer(o);
+            bool beamThis = _hostStripBeam && o == _activePlayer && !fogHidden;
             if (_hostStripBeam && o != _activePlayer)
             {
-                // Still show opponent cards (public), but no checkbox
+                // Opponent occupancy is fogged (6.3 / 7); no beam checkbox.
             }
 
-            var mini = CreateMiniCard(c);
+            var mini = CreateMiniCard(c, faceDown: fogHidden);
             mini.Tag = new HostCardRef(host, cardBorder, c);
             mini.Opacity = IsBorderStopped(cardBorder) ? 0.55 : 1;
             mini.BorderBrush = new SolidColorBrush(o == 2
                 ? Color.FromRgb(80, 140, 180)
                 : Color.FromRgb(120, 160, 90));
+            if (fogHidden)
+            {
+                mini.ToolTip = $"P{o} occupancy (face-down)\n12.12 Looking at cards — stub";
+                mini.MouseLeftButtonDown += (_, e2) =>
+                {
+                    NoteLookingAtCardsStub($"host-strip P{o} on {hostCard.Name}");
+                    e2.Handled = true;
+                };
+                panel.Children.Add(mini);
+                continue;
+            }
             mini.ToolTip = $"{c.Name}  (P{o})"
                            + (IsBorderStopped(cardBorder) ? "  · stopped" : "")
                            + "\nClick = detail  ·  Drag = move";
@@ -2812,10 +2824,13 @@ public partial class TableWindow : Window
             panel.Children.Add(emini);
         }
 
-        // Keep that player's hand visible on the same strip so interrupts stay playable.
-        var hand = CardsForStripDisplay(opponent ? _oppHandCards : _handCards, "Hand");
+        // Keep that strip's hand visible so interrupts stay playable.
+        // Viewer-relative (PlayerForStrip); opponent hand face-down unless Hotseat / Alien Probe.
+        var hand = CardsForStripDisplay(GetCardsForZone("Hand", opponent), "Hand");
         if (hand.Count > 0)
         {
+            bool revealOppHand = _gameMode == GameMode.Hotseat || HasAlienProbeInPlay();
+            bool handFaceDown = opponent && !revealOppHand && !_devPeekOpponentPiles;
             panel.Children.Add(new TextBlock
             {
                 Text = $"P{PlayerForStrip(opponent)} HAND",
@@ -2827,11 +2842,16 @@ public partial class TableWindow : Window
             });
             foreach (var card in hand)
             {
-                var mini = CreateMiniCard(card, faceDown: false);
+                var mini = CreateMiniCard(card, faceDown: handFaceDown);
                 mini.Tag = new ZoneCardRef("Hand", card, opponent);
-                mini.MouseLeftButtonDown += ZoneMini_MouseDown;
-                mini.MouseRightButtonDown += ZoneMini_MouseRightDown;
-                mini.MouseRightButtonUp += ZoneMini_MouseRightUp;
+                if (!handFaceDown)
+                {
+                    mini.MouseLeftButtonDown += ZoneMini_MouseDown;
+                    mini.MouseRightButtonDown += ZoneMini_MouseRightDown;
+                    mini.MouseRightButtonUp += ZoneMini_MouseRightUp;
+                }
+                else
+                    mini.IsHitTestVisible = false;
                 panel.Children.Add(mini);
             }
         }
@@ -14531,6 +14551,9 @@ public partial class TableWindow : Window
 
         string text1 = OccupancyLabel(crew1);
         string text2 = OccupancyLabel(crew2);
+        // 6.3 / 7: opponent occupancy not freely visible (badge would leak crew/AT presence).
+        if (IsOccupancyHiddenFromViewer(1)) text1 = "";
+        if (IsOccupancyHiddenFromViewer(2)) text2 = "";
 
         // Rogue Borg notice (gameplay) - keep on active controller side; not an Eq/Art badge.
         int rbCount = CountRogueBorgOn(host);
@@ -29550,6 +29573,37 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
     private int PlayerForStrip(bool opponentStrip) =>
         opponentStrip ? (ViewerPlayer == 1 ? 2 : 1) : ViewerPlayer;
 
+    /// <summary>
+    /// Fog-of-war viewer: Network = LocalPlayer; Hotseat/Solo = ActivePlayer so the acting
+    /// side sees own crew/AT and not the opponent's (6.3 / 7 / 12.12 baseline).
+    /// </summary>
+    private int FogViewerPlayer =>
+        _netSession != null
+            ? _netSession.LocalPlayer
+            : (_activePlayer is 1 or 2 ? _activePlayer : 1);
+
+    /// <summary>
+    /// Opponent occupancy (crew / Away Team / docked ships / equipment on hosts) is face-down
+    /// for the fog viewer. Own cards stay clear. 12.12 exceptions are stubs (log only).
+    /// </summary>
+    private bool IsOccupancyHiddenFromViewer(int cardOwner)
+    {
+        if (_devPeekOpponentPiles) return false;
+        int o = cardOwner is 1 or 2 ? cardOwner : 0;
+        if (o == 0) return false;
+        return o != FogViewerPlayer;
+    }
+
+    /// <summary>12.12 Looking at cards — MVP stub (no targeting UI yet).</summary>
+    private void NoteLookingAtCardsStub(string context)
+    {
+        string msg =
+            "Looking at cards (12.12): not available yet — need play / card effect / non-random targeting / rule verification. ("
+            + context + ")";
+        if (StatusText != null) StatusText.Text = msg;
+        _session.Log.AddDebug(_session.TurnNumber, "Fog", msg);
+    }
+
     /// <summary>Count cards in a named zone for the strip side (viewer-mapped).</summary>
     private int ZoneListCount(string zoneName, bool opponent)
     {
@@ -30517,6 +30571,11 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
             {
                 var present = GetAllCardsOnHost(host, p);
                 if (!present.Any()) continue;
+                if (IsOccupancyHiddenFromViewer(p))
+                {
+                    Run($"— Player {p} — occupancy hidden (6.3 / 7)");
+                    continue;
+                }
                 Run($"— Player {p} —");
                 if (present.Any(ModifierRules.IsPersonnelCard))
                 {
@@ -30541,6 +30600,14 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
             mini.Cursor = Cursors.Hand;
             mini.Tag = c;
             ApplyStatusVisualToMini(mini, c);
+            if (faceDown)
+            {
+                mini.MouseLeftButtonDown += (_, ev) =>
+                {
+                    NoteLookingAtCardsStub(badge ?? c.Name ?? "occupancy");
+                    ev.Handled = true;
+                };
+            }
             if (_peekLegalTargets.Contains(c)
                 || _peekLegalTargets.Any(t =>
                     string.Equals(t.Name, c.Name, StringComparison.OrdinalIgnoreCase)))
@@ -30797,7 +30864,12 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
                     }
                 });
                 foreach (var (b, pc) in g)
-                    AddStackMini(pc, g.Key, cardBorder: b);
+                    {
+                        int own = GetBorderOwner(b);
+                        if (own == 0) own = 1;
+                        bool hide = IsOccupancyHiddenFromViewer(own);
+                        AddStackMini(pc, hide ? $"P{own} occupancy (face-down)" : g.Key, cardBorder: b, faceDown: hide);
+                    }
             }
         }
 
@@ -30827,7 +30899,14 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
             AddGroupLabel("Personnel", Color.FromRgb(0xB0, 0xB0, 0xB8));
             foreach (var (b, card) in personnelRows)
             {
-                shown.Add(card);
+                int own = GetBorderOwner(b);
+                if (own == 0) own = 1;
+                bool hide = IsOccupancyHiddenFromViewer(own);
+                if (hide)
+                {
+                    AddStackMini(card, $"P{own} occupancy (face-down)", cardBorder: b, faceDown: true);
+                    continue;
+                }
                 AddStackMini(card, cardBorder: b);
             }
         }
@@ -30838,7 +30917,14 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
             AddGroupLabel("Equipment", Color.FromRgb(0xB0, 0xB0, 0xB8));
             foreach (var (b, card) in equipmentRows)
             {
-                shown.Add(card);
+                int own = GetBorderOwner(b);
+                if (own == 0) own = 1;
+                bool hide = IsOccupancyHiddenFromViewer(own);
+                if (hide)
+                {
+                    AddStackMini(card, $"P{own} occupancy (face-down)", cardBorder: b, faceDown: true);
+                    continue;
+                }
                 AddStackMini(card, cardBorder: b);
             }
         }
