@@ -1,4 +1,4 @@
-﻿# HANDOFF ├ö├ç├Â STCCG 1E
+# HANDOFF ├ö├ç├Â STCCG 1E
 
 **Owner:** Captain Ôö¼├Ç **Stand:** 2026-09-27 Ôö¼├Ç **Ort:** Josef `C:\Dev\StarTrekCCG\StarTrekCCG`
 
@@ -9,7 +9,7 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 
 ## Jetzt aktiv ├ö├ç├Â Multiplayer / Network-Modus
 
-**Status:** Alien Probe Hand-Sync + Occupancy/AT Fog getippt. **netztauglich.** Prior PlayCard 5da7c3b / Docs 4a981ce erhalten. Dual-EXE Smoke: ohne Probe Opp-Hand/Occupancy/AT verborgen; mit Probe beide Haende; eigene Crew/AT sichtbar. **HOLD.**
+**Status:** Board-Sync Fly/Beam/Attack/Interrupt getippt. **netztauglich.** Basis Probe b2dfaf7 / Docs b0e8faa Visibility erhalten. Dual-EXE Smoke: P2 fly/attack/beam/interrupt sofort bei P1 und bleibt nach EndTurn. **HOLD.**
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
 
 ### Architektur
@@ -24,12 +24,13 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 4. **Phase 4 — Dialoge/Timing:** ChoiceRequest / ChoiceResponse. → Tip e102b47.
 5. **Phase 5 ├ö├ç├Â HÔö£├▒rtung:** Disconnect, Reconnect, Abbruch.
 
-**Code-Stand (Data 2026-09-27):** Probe+Occupancy Fog (tip follows); Guest PlayCard 5da7c3b; Skip-Seed 7c040df; Guest Segment 9abb843. Kein Push durch Bots. **HOLD.**
+**Code-Stand (Data 2026-09-27):** Board-Sync 8322b68; Probe+Occupancy Fog b2dfaf7; Guest PlayCard 5da7c3b; Skip-Seed 7c040df. Kein Push durch Bots. **HOLD.**
 
 ---
 
 ## Zuletzt (kurz)
 
+- Board-Sync Multiplayer (Fly/Beam/Attack/Interrupt): Guest Action-only; Host TryApplyNet* + sofort Broadcast; kein Phantom-EndTurn-Wipe. Tip-Hash 8322b68. Visibility b2dfaf7 erhalten. **HOLD.**
 - Alien Probe Hand-Sync + Occupancy/AT Fog: NetStateMask Probe-Hand + Stack-Occupancy mask; UI FogViewer; 12.12 stub. Prior 5da7c3b erhalten. **HOLD.**
 
 - Guest PlayCard Host-apply (P2 Hand-Wipe Play->Execute): Guest Action-only; Host TryApplyNetPlayCard Ship/Pers/Eq/Event; underInst Note. Tip-Hash 5da7c3b. **HOLD.**

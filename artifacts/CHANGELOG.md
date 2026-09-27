@@ -1,3 +1,11 @@
+## 2026-09-27 - Board-Sync Multiplayer (Fly / Beam / Attack / Interrupt)
+
+- *Bugfix (Pepsch)*: P2 Fly / Ship-Attack / Beam nicht live bei P1; nach Rundenende Board auf P1-Stand (P2-Aktionen verloren); P1→P2 oft erst nach EndTurn; Interrupt-Effekte erreichen P2 nicht.
+- *Ursache*: Fly/Beam/InitiateShipBattle/Respond nicht in IsNetSyncKindSupported; Guest mutierte Board lokal (phantom). Host BroadcastMaskedStateToGuest nur bei EndPhase/EndTurn/Seed/PlayCard — Host-Board-Aktionen ohne sofortigen Sync; EndTurn-Broadcast Host-Save ohne Guest-Phantom → ApplyGameSave wischt P2.
+- *Fix*: Muster wie Seed/PlayCard 5da7c3b — Guest Action only (Fly click/drag, Beam CompleteBeamTo, ShipBattle, Interrupt BeginPlayCardStack→Respond); Host TryApplyNetFly/Beam/ShipBattle/Respond + Broadcast; Host NotifyNetworkBoardChanged nach lokalem Fly/Beam/Attack/Stack-Resolve; NetActionDto InstanceId-Lookup. Kein Fly-in Card-Effekt; keine Action-History drittes Fenster.
+- *netztauglich*: Decide Host EngineAuthority; Guest UI aus ApplyGameSave. Visibility Probe/Occupancy Fog b2dfaf7 / Docs b0e8faa erhalten.
+- *Scope*: TableWindow + GameAction.ShipBattle + NetActionDto. Docs separat. Kein Push.
+
 ## 2026-09-27 - Alien Probe Hand-Sync + Occupancy/AT Fog (Network Visibility)
 
 - *Bugfix (Pepsch)*: Alien Probe on table — P1 sah beide Haende, P2 sah P1-Hand nicht. Parallel Spock: Gegner-Occupancy (Schiff/Facility) und Planet-AT frei einsehbar.
