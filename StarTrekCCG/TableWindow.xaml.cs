@@ -6106,6 +6106,19 @@ public partial class TableWindow : Window
             ClearEventTargetHighlights();
             placedOk = true;
         }
+        // Network Guest: hand play in Match Play = Action only (Host Apply + Broadcast).
+        // Same pattern as TrySubmitGuestNetworkSeed - no local phantom board EndPhase can wipe.
+        else if (_netSession != null && _netSession.IsGuest && !_seedPhaseActive
+            && zref.ZoneName == "Hand"
+            && _session.Match == GameSession.MatchPhase.Play
+            && !_stack.IsOpen
+            && !InterruptRules.IsInterrupt(card)
+            && !ArtifactRules.IsPlaysAsInterruptFromHand(card))
+        {
+            _ = TrySubmitGuestNetworkPlay(card, cardBorder, windowPos, zref);
+            RefreshZoneCounts();
+            return;
+        }
         // Kevin / The Devil target a card already on TABLE — must NOT commit as a
         // TABLE permanent first (that path opens the stack with no TargetCard).
         else if (!_seedPhaseActive && isHandOrUnlockedSide
@@ -9551,6 +9564,13 @@ public partial class TableWindow : Window
                 $"SeedCard: not your turn (active P{_session.ActivePlayer}, you P{action.Player}).");
             return;
         }
+        if (action.Kind == GameActionKind.PlayCard && action.Player != _session.ActivePlayer)
+        {
+            _ = _netSession.SendErrorAsync(
+                $"PlayCard: not your turn (active P{_session.ActivePlayer}, you P{action.Player}).");
+            return;
+        }
+
 
         if (!IsNetSyncKindSupported(action.Kind))
         {
@@ -9638,7 +9658,7 @@ public partial class TableWindow : Window
 
     /// <summary>
     /// Apply EndPhase / EndTurn / Pass / Draw on Host after AuthorizePlay OK.
-    /// PlayCard: status+log only in Phase 3 (full UI play path deferred).
+    /// PlayCard: Host TryApplyNetPlayCard (Ship/Personnel/Equipment/Event); interrupts = P4.
     /// </summary>
     private bool TryApplyNetAuthorizedAction(GameAction action)
     {
@@ -9712,11 +9732,9 @@ public partial class TableWindow : Window
                 StatusText.Text = $"Net: P{action.Player} Draw authorized (apply via state if Host drew locally).";
                 return true;
 
+
             case GameActionKind.PlayCard:
-                _session.Log.Add(_session.TurnNumber, $"P{action.Player}",
-                    $"Net: PlayCard {action.Card?.Name} authorized — full UI play not wired in P3.");
-                StatusText.Text = $"Net: PlayCard {action.Card?.Name} OK at authority; UI play path deferred.";
-                return false;
+                return TryApplyNetPlayCard(action);
 
             case GameActionKind.SeedCard:
                 return TryApplyNetSeedCard(action);
@@ -9726,6 +9744,192 @@ public partial class TableWindow : Window
         }
     }
 
+
+    /// <summary>
+    /// Host: apply Guest PlayCard authoritatively (Ship / Personnel / Equipment / Event).
+    /// Guest keeps card in hand until Broadcast ApplyGameSave — no phantom local board.
+    /// Interrupts / response stack = P4 (not applied here).
+    /// </summary>
+    private bool TryApplyNetPlayCard(GameAction action)
+    {
+        if (action.Card == null) return false;
+        if (_seedPhaseActive)
+        {
+            StatusText.Text = "Net PlayCard ignored: still in seed phase.";
+            return false;
+        }
+        if (_session.Match != GameSession.MatchPhase.Play)
+        {
+            StatusText.Text = "Net PlayCard ignored: not in Match Play.";
+            return false;
+        }
+
+        var card = action.Card;
+        int player = action.Player is 1 or 2 ? action.Player : 2;
+
+        // Remove from hand (Guest card lives in Host opp-hand when player==2).
+        _handCards.Remove(card);
+        _oppHandCards.Remove(card);
+        RefreshHandStrips();
+        RefreshZoneCounts();
+
+        bool placed = false;
+
+        if (IsShipCard(card))
+        {
+            Border? fac = ResolveSeedFacilityHostTarget(action, player);
+            if (fac == null)
+            {
+                // Fallback: Target may be mission — try underInst mission then nearest own facility.
+                Border? missionBorder = ResolveSeedUnderMissionTarget(action);
+                if (missionBorder != null)
+                {
+                    fac = TableCanvas.Children.OfType<Border>()
+                        .FirstOrDefault(b => b.Tag is Card fc
+                            && ReportingRules.IsFacilityHost(fc)
+                            && GetBorderOwner(b) == player
+                            && ReferenceEquals(FindMissionForDockable(b), missionBorder));
+                }
+            }
+            if (fac != null)
+            {
+                var mission = FindMissionForDockable(fac) ?? TrySnapToMission(fac);
+                double x = mission != null ? Canvas.GetLeft(mission) : Canvas.GetLeft(fac);
+                double y = mission != null
+                    ? Canvas.GetTop(mission) + DockSlotOffsetY(0, player)
+                    : Canvas.GetTop(fac) + DockSlotOffsetY(0, player);
+                var border = AddCardToTable(card, x, y, TableCardWidth);
+                SetBorderOwner(border, player);
+                if (mission != null)
+                    RelayoutDockablesUnderMission(mission);
+                UpdateHostBadge(border);
+                SetSelection(border);
+                string at = fac.Tag is Card fc2 ? fc2.Name ?? "?" : "?";
+                StatusText.Text = $"Net: P{player} Ship {card.Name} reports at {at}.";
+                placed = true;
+            }
+        }
+        else if (IsStackableCard(card))
+        {
+            Border? host = ResolvePlayHostTarget(action, player);
+            if (host != null && host.Tag is Card)
+            {
+                var border = AddCardToTable(card, Canvas.GetLeft(host), Canvas.GetTop(host), TableCardWidth);
+                SetBorderOwner(border, player);
+                AddCardToHostStack(host, border);
+                UpdateHostBadge(host);
+                SetSelection(host);
+                string hn = host.Tag is Card hc ? hc.Name ?? "?" : "?";
+                StatusText.Text = $"Net: P{player} {card.Name} reports at {hn}.";
+                placed = true;
+            }
+        }
+        else if (IsTablePermanentType(card) || EventRules.IsEvent(card) || CardKinds.IsObjective(card))
+        {
+            // TABLE column events/objectives — skip response stack (P4); Commit is board truth.
+            if (EventBelongsOnTableColumn(card) || IsTablePermanentType(card))
+            {
+                CommitCardToTable(card, player);
+                placed = true;
+                StatusText.Text = $"Net: P{player} {card.Name} on TABLE.";
+            }
+            else if (action.Target != null || (!string.IsNullOrWhiteSpace(action.Note)
+                     && action.Note!.StartsWith("underInst:", StringComparison.OrdinalIgnoreCase)))
+            {
+                Border? host = ResolvePlayHostTarget(action, player)
+                    ?? ResolveSeedUnderMissionTarget(action);
+                if (host != null)
+                {
+                    // Hosted event: attach via Commit path with preferred host when possible.
+                    _eventPreferredHost = host;
+                    CommitCardToTable(card, player);
+                    placed = true;
+                    StatusText.Text = $"Net: P{player} {card.Name} played (host {(host.Tag as Card)?.Name}).";
+                }
+            }
+            else
+            {
+                CommitCardToTable(card, player);
+                placed = true;
+                StatusText.Text = $"Net: P{player} {card.Name} played.";
+            }
+        }
+
+        if (!placed)
+        {
+            // Return to hand on Host so Broadcast does not drop the card.
+            var hand = player == 2 ? _oppHandCards : _handCards;
+            if (!hand.Contains(card)) hand.Add(card);
+            RefreshHandStrips();
+            RefreshZoneCounts();
+            StatusText.Text =
+                $"Net PlayCard: {card.Name} - no legal target on Host; returned to hand.";
+            _session.Log.Add(_session.TurnNumber, $"P{player}",
+                $"Net: PlayCard {card.Name} failed (no target)");
+            return false;
+        }
+
+        // Normal-play bookkeeping + Segment (Host Advance / Horga stay); Guest UI from next Save.
+        OnSuccessfulHandPlay(card, "Hand");
+        RefreshHandStrips();
+        RefreshZoneCounts();
+        UpdatePhaseControls();
+        _session.Log.Add(_session.TurnNumber, $"P{player}", $"Net: Play {card.Name}");
+        return true;
+    }
+
+    /// <summary>
+    /// Host: map Guest PlayCard Target/Note to facility or ship Border (report host).
+    /// Prefers underInst:InstanceId; then Target.InstanceId; then name+owner.
+    /// </summary>
+    private Border? ResolvePlayHostTarget(GameAction action, int player)
+    {
+        Border? ByInst(int inst) =>
+            TableCanvas.Children.OfType<Border>()
+                .FirstOrDefault(b => b.Tag is Card hc
+                    && hc.InstanceId == inst
+                    && GetBorderOwner(b) == player
+                    && (ReportingRules.IsFacilityHost(hc) || IsShipCard(hc)));
+
+        string? note = action.Note;
+        if (!string.IsNullOrWhiteSpace(note)
+            && note.StartsWith("underInst:", StringComparison.OrdinalIgnoreCase)
+            && int.TryParse(note.AsSpan("underInst:".Length), out int inst)
+            && inst > 0)
+        {
+            var byInst = ByInst(inst);
+            if (byInst != null) return byInst;
+        }
+
+        // Facility-only first (report).
+        var fac = ResolveSeedFacilityHostTarget(action, player);
+        if (fac != null) return fac;
+
+        if (action.Target != null)
+        {
+            if (action.Target.InstanceId > 0)
+            {
+                var byT = ByInst(action.Target.InstanceId);
+                if (byT != null) return byT;
+            }
+            var byName = TableCanvas.Children.OfType<Border>()
+                .FirstOrDefault(b => b.Tag is Card hc
+                    && GetBorderOwner(b) == player
+                    && (ReportingRules.IsFacilityHost(hc) || IsShipCard(hc))
+                    && string.Equals(hc.Name, action.Target.Name, StringComparison.OrdinalIgnoreCase));
+            if (byName != null) return byName;
+        }
+
+        if (!string.IsNullOrWhiteSpace(action.TargetName))
+        {
+            return TableCanvas.Children.OfType<Border>()
+                .FirstOrDefault(b => b.Tag is Card hc
+                    && GetBorderOwner(b) == player
+                    && (ReportingRules.IsFacilityHost(hc) || IsShipCard(hc))
+                    && string.Equals(hc.Name, action.TargetName, StringComparison.OrdinalIgnoreCase));
+        }
+        return null;
+    }
 
     /// <summary>
     /// Host: apply Guest SeedCard authoritatively.
@@ -29573,6 +29777,124 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
         BroadcastMaskedStateToGuest();
     }
 
+
+    /// <summary>
+    /// Guest hand drop during Play — PlayCard Action to Host; card stays in hand until Broadcast.
+    /// Supports Ship (report facility), Personnel/Equipment (host stack), Event/TABLE permanents.
+    /// Returns true when handled (sent or denied+returned); false only if not Guest.
+    /// </summary>
+    private bool TrySubmitGuestNetworkPlay(Card card, Border cardBorder, Point windowPos, ZoneCardRef zref)
+    {
+        if (_netSession == null || !_netSession.IsGuest)
+            return false;
+
+        if (_activePlayer != _netSession.LocalPlayer)
+        {
+            StatusText.Text =
+                $"Network: waiting for P{_activePlayer} (you are P{_netSession.LocalPlayer}).";
+            ReturnFloatingToZone(card, cardBorder, zref.ZoneName, zref.Opponent);
+            return true;
+        }
+
+        Card? target = null;
+        string? deny = null;
+        string? note = null;
+        var tablePt = WindowToTablePoint(windowPos);
+        int owner = _netSession.LocalPlayer;
+
+        if (IsShipCard(card))
+        {
+            // Temporary position for snap helpers (card stays in hand).
+            Canvas.SetLeft(cardBorder, tablePt.X - TableCardWidth / 2.0);
+            Canvas.SetTop(cardBorder, tablePt.Y - TableCardHeight / 2.0);
+            var facility = FindNearestLegalReportHost(tablePt.X, tablePt.Y, owner, card, out double fdist);
+            if (facility == null || fdist > ShipSnapRange * 1.8)
+            {
+                deny = $"{card.Name}: snap onto your matching Outpost/HQ to report.";
+            }
+            else if (facility.Tag is Card fc)
+            {
+                target = fc;
+                if (fc.InstanceId > 0)
+                    note = $"underInst:{fc.InstanceId}";
+            }
+        }
+        else if (IsStackableCard(card))
+        {
+            Canvas.SetLeft(cardBorder, tablePt.X - TableCardWidth / 2.0);
+            Canvas.SetTop(cardBorder, tablePt.Y - TableCardHeight / 2.0);
+            bool isReport = _session.Match == GameSession.MatchPhase.Play
+                && ReportingRules.MustReportForDuty(card);
+            var host = TrySnapToHost(cardBorder, owner, reportTargetsOnly: isReport);
+            if (host == null)
+                host = TrySnapToHost(cardBorder, owner, reportTargetsOnly: false);
+            if (host?.Tag is Card hc)
+            {
+                if (isReport)
+                {
+                    var (ok, reason) = CanReportToHost(card, hc, host, owner);
+                    if (!ok)
+                        deny = reason;
+                    else
+                    {
+                        target = hc;
+                        if (hc.InstanceId > 0)
+                            note = $"underInst:{hc.InstanceId}";
+                    }
+                }
+                else
+                {
+                    target = hc;
+                    if (hc.InstanceId > 0)
+                        note = $"underInst:{hc.InstanceId}";
+                }
+            }
+            else
+            {
+                deny = $"{card.Name}: snap onto your Outpost/HQ (or ship) to report.";
+            }
+        }
+        else if (IsTablePermanentType(card) || EventRules.IsEvent(card) || CardKinds.IsObjective(card))
+        {
+            // TABLE column — optional host snap for play-on events.
+            if (EventRules.IsEvent(card) && EventRules.NeedsTableHost(EventRules.GetTargetKind(EventRules.ResolvePlay(card))))
+            {
+                var er = EventRules.ResolvePlay(card);
+                var tk = EventRules.GetTargetKind(er);
+                var snapped = TrySnapEventTargetAt(tablePt.X, tablePt.Y, tk, owner, card);
+                if (snapped.host?.Tag is Card th)
+                {
+                    target = th;
+                    if (th.InstanceId > 0)
+                        note = $"underInst:{th.InstanceId}";
+                }
+                // Host may still accept without target (menu later / soft) — send without deny.
+            }
+            // else: pure TABLE drop, no target required
+        }
+        else
+        {
+            deny = $"Net: play of {card.Type ?? card.Name} not synced yet — returned to hand.";
+        }
+
+        if (deny != null)
+        {
+            StatusText.Text = deny;
+            ReturnFloatingToZone(card, cardBorder, zref.ZoneName, zref.Opponent);
+            return true;
+        }
+
+        // Keep card in Guest hand until Host ApplyGameSave; no local board mutate.
+        ReturnFloatingToZone(card, cardBorder, zref.ZoneName, zref.Opponent);
+        var action = GameAction.Play(owner, card, target, note);
+        _ = SendGuestActionAsync(action);
+        StatusText.Text = $"Net: Play {card.Name} sent — waiting for Host…";
+        _session.Log.AddDebug(_session.TurnNumber, "Net",
+            $"Guest PlayCard submitted: {card.Name}" +
+            (target != null ? $" on {target.Name}" : "") +
+            (note != null ? $" [{note}]" : "") + ".");
+        return true;
+    }
 
     /// <summary>
     /// Guest seed drop → SeedCard Action to Host; card stays in local pile until Host Broadcast.

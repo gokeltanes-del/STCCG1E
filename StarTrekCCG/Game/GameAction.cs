@@ -90,8 +90,8 @@ public sealed class GameAction
     public static GameAction EndTurn(int player) =>
         new() { Kind = GameActionKind.EndTurn, Player = player };
 
-    public static GameAction Play(int player, Card card, Card? target = null) =>
-        new() { Kind = GameActionKind.PlayCard, Player = player, Card = card, Target = target };
+    public static GameAction Play(int player, Card card, Card? target = null, string? note = null) =>
+        new() { Kind = GameActionKind.PlayCard, Player = player, Card = card, Target = target, Note = note };
 
     public static GameAction Respond(int player, Card card) =>
         new() { Kind = GameActionKind.Respond, Player = player, Card = card };
