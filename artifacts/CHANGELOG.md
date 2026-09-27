@@ -1,3 +1,10 @@
+## 2026-09-27 - Network Host->Guest Seed Sync (ActivePlayer + input gate)
+
+- *Bugfix (Pepsch, Screenshot 27.09.)*: P1 Mission auf Host -> Guest-Board blieb alt; Banner "P1 dran"; Guest konnte fremde/ungehoerige Karten legen (paralleles Hotseat).
+- *Ursache*: (1) `NotifyNetwork*` / Viewer hingen am ModeNetwork-Radio -- bei Live-`NetPlaySession` ohne Radio-Check kein Broadcast; (2) `ApplySelectedGameMode` setzte `_activePlayer=1` zurueck; (3) Drag-Gate nur Hotseat + Owner `Opponent?2:1` statt `PlayerForStrip` -- Guest ohne `LocalPlayer==ActivePlayer`-Gate; (4) SeedCard ohne Turn-Check auf Host.
+- *netztauglich*: `EnsureNetworkModeFromSession` erzwingt Network sobald Session lebt; Broadcast/Notify session-first; Guest `OnNetStateReceived` refreshed Seed-Banner/Stack aus Save-ActivePlayer; Drag nur eigene Zone + nur wenn LocalPlayer==ActivePlayer; `SetBorderOwner` via `PlayerForStrip`; SeedCard ActivePlayer-Deny; `ApplySelectedGameMode` clobbert ActivePlayer nicht waehrend Live-Match/Session.
+- *Scope*: kein P5 Disconnect; kein Push.
+
 ## 2026-09-27 - Network Viewer = LocalPlayer (Seed/Hand UI)
 
 - *Bugfix (Pepsch)*: Beide Localhost-Instanzen zeigten P1-Ansicht (`SEED Player 1 (BOTTOM)`, `P1 Missions`); Guest sah P1-Missionen statt eigener.

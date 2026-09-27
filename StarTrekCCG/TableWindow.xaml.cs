@@ -3513,16 +3513,32 @@ public partial class TableWindow : Window
         {
             if (dx * dx + dy * dy < DragThreshold * DragThreshold)
                 return;
-            // Nur Karten der eigenen Seite (P1 unten / P2 oben)
-            int sidePlayer = _zoneDragRef.Opponent ? 2 : 1;
-            if (_gameMode == GameMode.Hotseat && sidePlayer != _activePlayer)
+            // Absolute player for strip (Network: LocalPlayer bottom via PlayerForStrip).
+            int sidePlayer = PlayerForStrip(_zoneDragRef.Opponent);
+            bool anytime = _zoneDragRef.ZoneName == "Hand"
+                           && TimingRules.IsAnytimeType(_zoneDragRef.Card);
+            if (_gameMode == GameMode.Network && _netSession != null)
             {
-                bool anytime = _zoneDragRef.ZoneName == "Hand"
-                               && TimingRules.IsAnytimeType(_zoneDragRef.Card);
+                // Never drag opponent private zones; act only when LocalPlayer == ActivePlayer.
+                if (sidePlayer != _netSession.LocalPlayer)
+                {
+                    StatusText.Text =
+                        $"Network: that zone belongs to P{sidePlayer} (you are P{_netSession.LocalPlayer}).";
+                    return;
+                }
+                if (!anytime && _activePlayer != _netSession.LocalPlayer)
+                {
+                    StatusText.Text =
+                        $"Network: waiting for P{_activePlayer} (you are P{_netSession.LocalPlayer}).";
+                    return;
+                }
+            }
+            else if (_gameMode == GameMode.Hotseat && sidePlayer != _activePlayer)
+            {
                 if (!anytime)
                 {
                     StatusText.Text =
-                        $"Player {_activePlayer}'s turn – the other player may only play interrupts / doorways.";
+                        $"Player {_activePlayer}'s turn — the other player may only play interrupts / doorways.";
                     return;
                 }
             }
@@ -3537,7 +3553,7 @@ public partial class TableWindow : Window
             _dragOnOverlay = true;
             // Schwebekarte auf DragLayer (ganzes Fenster) – damit Drop auf untere Stapel möglich ist
             var border = CreateFloatingCard(_zoneDragRef.Card);
-            SetBorderOwner(border, _zoneDragRef.Opponent ? 2 : 1);
+            SetBorderOwner(border, PlayerForStrip(_zoneDragRef.Opponent));
             Canvas.SetLeft(border, pos.X - TableCardWidth / 2);
             Canvas.SetTop(border, pos.Y - TableCardHeight / 2);
             DragLayer.Children.Add(border);
@@ -8879,13 +8895,25 @@ public partial class TableWindow : Window
 
     private void ApplySelectedGameMode()
     {
-        if (ModeHotseat?.IsChecked == true) _gameMode = GameMode.Hotseat;
+        // Live NetPlaySession always wins over the radio (Open lobby without Network checked).
+        if (_netSession != null)
+        {
+            _gameMode = GameMode.Network;
+            if (ModeNetwork != null) ModeNetwork.IsChecked = true;
+        }
+        else if (ModeHotseat?.IsChecked == true) _gameMode = GameMode.Hotseat;
         else if (ModeNetwork?.IsChecked == true) _gameMode = GameMode.Network;
         else if (ModeSingle?.IsChecked == true) _gameMode = GameMode.SingleAi;
         else _gameMode = GameMode.Hotseat;
 
-        _activePlayer = 1;
-        _turnNumber = 1;
+        // Do not reset ActivePlayer/turn while a match or live network session is running.
+        bool live = _netSession != null || _seedPhaseActive
+            || _session.Match is GameSession.MatchPhase.Seed or GameSession.MatchPhase.Play;
+        if (!live)
+        {
+            _activePlayer = 1;
+            _turnNumber = 1;
+        }
         StatusText.Text = _gameMode switch
         {
             GameMode.Hotseat => "Mode: Hotseat (two players on one PC)",
@@ -8896,9 +8924,23 @@ public partial class TableWindow : Window
             _ => "Mode selected"
         };
     }
+
+    /// <summary>
+    /// Ensure TableWindow treats this instance as Network whenever NetPlaySession is live.
+    /// Fixes Host→Guest seed broadcast no-op when ModeNetwork radio was unchecked.
+    /// </summary>
+    private void EnsureNetworkModeFromSession()
+    {
+        if (_netSession == null) return;
+        _gameMode = GameMode.Network;
+        if (ModeNetwork != null && ModeNetwork.IsChecked != true)
+            ModeNetwork.IsChecked = true;
+    }
     private void ModeNetwork_Checked(object sender, RoutedEventArgs e)
     {
         if (ModeNetwork?.IsChecked != true) return;
+        // Avoid re-opening lobby when EnsureNetworkModeFromSession checks the radio mid-session.
+        if (_netSession != null || _networkLobbyConnected) return;
         OpenNetworkLobby();
     }
 
@@ -8989,13 +9031,13 @@ public partial class TableWindow : Window
         _netSession.StartReceiveLoop(sync);
 
         _networkLobbyConnected = true;
+        EnsureNetworkModeFromSession();
+        ApplySelectedGameMode();
         _session.Log.AddDebug(_session.TurnNumber, "Net",
             $"Session started as {(_netSession.IsHost ? "Host P1" : "Guest P2")}.");
         StatusText.Text = _netSession.IsHost
             ? "Network: Host session live — EngineAuthority authoritative."
             : "Network: Guest session live — actions sent to Host.";
-        if (ModeNetwork?.IsChecked == true)
-            ApplySelectedGameMode();
     }
 
     /// <summary>
@@ -9026,9 +9068,9 @@ public partial class TableWindow : Window
         _session.Log.AddDebug(_session.TurnNumber, "Net",
             $"Lobby start: P1={deck1.Name}, P2={deck2.Name}, role={(_netSession.IsHost ? "Host" : "Guest")}.");
 
+        EnsureNetworkModeFromSession();
         try { lobby.Close(); } catch { /* ignore */ }
-        if (ModeNetwork?.IsChecked == true)
-            ApplySelectedGameMode();
+        ApplySelectedGameMode();
         NotifyNetworkSeedChanged();
     }
 
@@ -9223,14 +9265,22 @@ public partial class TableWindow : Window
         RefreshActionHistory();
     }
 
-    /// <summary>Guest: apply masked GameSave from Host.</summary>
+    /// <summary>Guest: apply masked GameSave from Host (single board truth).</summary>
     private void OnNetStateReceived(GameSave save)
     {
         try
         {
+            EnsureNetworkModeFromSession();
             ApplyGameSave(save);
-            StatusText.Text = $"Net state applied (T{_session.TurnNumber} P{_session.ActivePlayer} {_session.Segment}).";
-            _session.Log.AddDebug(_session.TurnNumber, "Net", "ApplyGameSave from Host.");
+            // ApplyGameSave restores Session.ActivePlayer → _activePlayer; refresh seed banner/stack.
+            UpdatePhaseControls();
+            if (_seedPhaseActive)
+                ShowCurrentSeedStack();
+            StatusText.Text =
+                $"Net state applied (T{_session.TurnNumber} P{_activePlayer}/{_session.ActivePlayer} " +
+                $"{(_seedPhaseActive ? "SEED " + _seedSubPhase : _session.Segment.ToString())}).";
+            _session.Log.AddDebug(_session.TurnNumber, "Net",
+                $"ApplyGameSave from Host (active P{_activePlayer}, seed={_seedPhaseActive}).");
             RefreshActionHistory();
         }
         catch (Exception ex)
@@ -9264,6 +9314,12 @@ public partial class TableWindow : Window
         if (action.Kind == GameActionKind.SeedCard && action.Card == null)
         {
             _ = _netSession.SendErrorAsync($"SeedCard: card '{dto.CardName}' not found on Host seed piles.");
+            return;
+        }
+        if (action.Kind == GameActionKind.SeedCard && action.Player != _session.ActivePlayer)
+        {
+            _ = _netSession.SendErrorAsync(
+                $"SeedCard: not your turn (active P{_session.ActivePlayer}, you P{action.Player}).");
             return;
         }
 
@@ -9481,12 +9537,16 @@ public partial class TableWindow : Window
     private void BroadcastMaskedStateToGuest()
     {
         if (_netSession == null || !_netSession.IsHost) return;
+        EnsureNetworkModeFromSession();
         try
         {
+            SyncSeedActiveToSession();
             var save = CaptureGameSave();
             var masked = NetStateMask.MaskForViewer(save, viewerPlayer: 2);
             _ = _netSession.BroadcastStateAsync(masked);
-            _session.Log.AddDebug(_session.TurnNumber, "Net", "Broadcast masked GameSave to Guest.");
+            _session.Log.AddDebug(_session.TurnNumber, "Net",
+                $"Broadcast masked GameSave to Guest (active P{save.Session.ActivePlayer}, " +
+                $"seed={save.Session.SeedPhaseActive}, table={save.Table.Count}, spaceline={save.Spaceline.Count}).");
         }
         catch (Exception ex)
         {
@@ -28797,7 +28857,7 @@ public partial class TableWindow : Window
     /// Network: each instance views as LocalPlayer (Host=1, Guest=2). Hotseat/Solo: bottom strip stays P1.
     /// </summary>
     private int ViewerPlayer =>
-        _gameMode == GameMode.Network && _netSession != null
+        _netSession != null
             ? _netSession.LocalPlayer
             : 1;
 
@@ -28832,7 +28892,7 @@ public partial class TableWindow : Window
 
     /// <summary>Hotseat or Network: seed alternation / facility handoff between players.</summary>
     private bool IsSeedMultiPlayerMode() =>
-        _gameMode == GameMode.Hotseat || _gameMode == GameMode.Network;
+        _gameMode == GameMode.Hotseat || _gameMode == GameMode.Network || _netSession != null;
 
     /// <summary>Keep EngineAuthority ActivePlayer in sync during seed (UI may switch first).</summary>
     private void SyncSeedActiveToSession()
@@ -28844,8 +28904,8 @@ public partial class TableWindow : Window
     /// <summary>Host: broadcast masked GameSave after seed table changes. Guest / non-host: no-op.</summary>
     private void NotifyNetworkSeedChanged()
     {
-        if (_gameMode != GameMode.Network || _netSession == null || !_netSession.IsHost)
-            return;
+        if (_netSession == null || !_netSession.IsHost) return;
+        EnsureNetworkModeFromSession();
         SyncSeedActiveToSession();
         BroadcastMaskedStateToGuest();
     }
@@ -28855,11 +28915,19 @@ public partial class TableWindow : Window
     /// </summary>
     private void NotifyNetworkAfterSeedPlacement(Card card, Card? targetMission = null, string? note = null)
     {
-        if (_gameMode != GameMode.Network || _netSession == null) return;
+        if (_netSession == null) return;
+        EnsureNetworkModeFromSession();
         SyncSeedActiveToSession();
         if (_netSession.IsHost)
         {
             BroadcastMaskedStateToGuest();
+            return;
+        }
+        // Guest: only act on own turn; Host is authoritative (ApplyGameSave will reconcile).
+        if (_activePlayer != _netSession.LocalPlayer)
+        {
+            StatusText.Text =
+                $"Network: waiting for P{_activePlayer} (you are P{_netSession.LocalPlayer}).";
             return;
         }
         int player = _netSession.LocalPlayer;
