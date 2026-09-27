@@ -1,3 +1,11 @@
+## 2026-09-27 - Play Fly-in Reveal (Network Hand/Interrupt)
+
+- *Feature (Pepsch, Freigabe Punkt 2)*: Beide Spieler sehen sofort welche Karte gespielt wurde (kurze Fly-in Overlay-Animation wie digitale CCGs). Gilt Play aus Hand (Ship/Pers/Eq/Event/Interrupt).
+- *Ursache*: Nach Guest PlayCard Host-apply / Board-Sync sah der Gegner oft nur Board-Diff ohne klares Card-Reveal; Guest durfte Animation nicht lokal vor Host-Apply zeigen (Desync).
+- *Fix*: `NetMessage.Types.PlayReveal` + `NetPlayRevealDto`; Host `BroadcastPlayRevealAsync` nach erfolgreichem Play (`OnSuccessfulHandPlay` / Interrupt `BeginPlayCardStack`); beide Clients `ShowPlayFlyIn` (Scale/Opacity, non-modal ~1.4s, Hover-Preview-Muster). Guest nur `OnNetPlayRevealReceived` — kein Fly-in in `TrySubmitGuestNetworkPlay`. Host `NotifyPlayReveal` pusht auch masked State (Host-local Play Sync).
+- *netztauglich*: Decide/Apply weiter Host; Animation Event nach Apply; Board-Sync Tip 8322b68 / Docs 665c014 nicht revertiert. Kein Action-History-Kartenreihe; keine Gaps/Q-Net P2 Spaceline.
+- *Scope*: Network (NetMessage/NetPlaySession/NetPlayRevealDto) + TableWindow (+ XAML Overlay). Tip-Hash 57c1a3e. Docs separat. Kein Push.
+
 ## 2026-09-27 - Board-Sync Multiplayer (Fly / Beam / Attack / Interrupt)
 
 - *Bugfix (Pepsch)*: P2 Fly / Ship-Attack / Beam nicht live bei P1; nach Rundenende Board auf P1-Stand (P2-Aktionen verloren); P1→P2 oft erst nach EndTurn; Interrupt-Effekte erreichen P2 nicht.
