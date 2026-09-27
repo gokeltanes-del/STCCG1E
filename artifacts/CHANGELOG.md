@@ -1,3 +1,11 @@
+## 2026-09-27 - Alien Probe Hand-Sync + Occupancy/AT Fog (Network Visibility)
+
+- *Bugfix (Pepsch)*: Alien Probe on table — P1 sah beide Haende, P2 sah P1-Hand nicht. Parallel Spock: Gegner-Occupancy (Schiff/Facility) und Planet-AT frei einsehbar.
+- *Ursache*: `NetStateMask.MaskForViewer` maskierte Opponent-Hand immer (kein Probe-Check); Stack-Kinder (Crew/AT/docked) behielten volle Identitaet im Guest-Save. UI `FillHostStrip`/`Detail` zeigte Occupancy face-up; Host-Strip-Hand absolut P1/P2 ohne Probe-Gate.
+- *Fix*: `NetStateMask` — bei Alien Probe (AttachedEvents Kind Probe / p*.table / Table-Name) Hand-Zonen unmasked; Opponent-Stack-Occupancy nameless/FaceDown. UI FogViewerPlayer (Network=LocalPlayer, Hotseat=ActivePlayer); FillHostStrip/Detail/Badge Occupancy face-down; 12.12 Looking-at-cards Stub (Status+Log). Host-Strip-Hand viewer-relativ + Probe/Hotseat reveal.
+- *netztauglich*: Host volle Wahrheit; Broadcast maskiert viewer-relativ; Host-UI gleiche Fog-Regel. Scope nur Probe-Hand + Occupancy/AT Fog — keine Ship/Facility Face-Visual-Umbauten darueber hinaus. 12.12 Ausnahmen MVP-Stub.
+- *Scope*: NetStateMask + TableWindow. Prior Tips 5da7c3b / 4a981ce erhalten. Docs separat. Kein Push.
+
 ## 2026-09-27 - Guest PlayCard Host-apply (P2 Play->Execute Hand-Wipe)
 
 - *Bugfix (Pepsch, Guest T3-T5 ~18:34)*: P2 spielt Qu'Vat / Medical Tricorder / Genetronic Replicator; nach End PLAY (EndPhase) Karten weg vom Board, wieder in Hand. Host-Save ships=0 / ohne Equipment.
