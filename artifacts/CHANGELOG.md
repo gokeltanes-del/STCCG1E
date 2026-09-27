@@ -1,3 +1,11 @@
+## 2026-09-27 - Play Fly-in Nachzieher (Hand→Mitte→Slot)
+
+- *Feature (Pepsch, Referenz-Video ausgewertet)*: Fly-in anpassen — Hand → Bildschirmmitte (~3–4× Board, 100% Opacity, Drop-Shadow) → Hold lesen → Mitte → Zielslot Board-Größe nahtlos. Gerader Pfad (linear/eased), Rotation aufrecht (Hand-Winkel→0°); kein Bogen, kein Tumble, kein Neon-Glow.
+- *UI*: kein Board-Dimmen, kein Name-Banner, kein Fullscreen-Overlay. Overlay = transparente Canvas + Karte mit DropShadow; landet und verschwindet ohne Fade.
+- *Timing*: Hand→Mitte ~1.7s, Hold ~1.2s, Mitte→Slot ~1.3s (gesamt ~4.2s).
+- *Netzwerk*: PlayReveal-Pipeline 57c1a3e behalten; `NetPlayRevealDto.TargetNormX/Y` für Landepunkt; Host `NotifyNetworkBoardChanged` vor BroadcastPlayReveal (Guest Border für Ghost/Land). Board-Karte Opacity 0 während Ani, Restore on land.
+- *Scope*: NetPlayRevealDto + TableWindow (+ XAML Overlay). Tip-Hash b1d5d3e. Basis 57c1a3e / Docs 642f53f. Kein Action-History; keine Gaps/Q-Net. Docs separat. Kein Push.
+
 ## 2026-09-27 - Play Fly-in Reveal (Network Hand/Interrupt)
 
 - *Feature (Pepsch, Freigabe Punkt 2)*: Beide Spieler sehen sofort welche Karte gespielt wurde (kurze Fly-in Overlay-Animation wie digitale CCGs). Gilt Play aus Hand (Ship/Pers/Eq/Event/Interrupt).

@@ -1,4 +1,4 @@
-# HANDOFF ├ö├ç├Â STCCG 1E
+﻿# HANDOFF ├ö├ç├Â STCCG 1E
 
 **Owner:** Captain Ôö¼├Ç **Stand:** 2026-09-27 Ôö¼├Ç **Ort:** Josef `C:\Dev\StarTrekCCG\StarTrekCCG`
 
@@ -9,7 +9,7 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 
 ## Jetzt aktiv ├ö├ç├Â Multiplayer / Network-Modus
 
-**Status:** Play Fly-in Reveal getippt. **netztauglich.** Basis Board-Sync 8322b68 / Docs 665c014 erhalten. Dual-EXE Smoke: P1 und P2 spielen Karte → beide sehen Fly-in Overlay. **HOLD.**
+**Status:** Play Fly-in Nachzieher (Hand→Mitte→Slot) getippt. **netztauglich.** Gerade Bahn, Drop-Shadow, kein Dim/Banner. Basis Fly-in 57c1a3e / Docs 642f53f. Dual-EXE Smoke: P1/P2 Play → Fly Hand→Mitte→Slot. **HOLD.**
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
 
 ### Architektur
@@ -24,11 +24,13 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 4. **Phase 4 — Dialoge/Timing:** ChoiceRequest / ChoiceResponse. → Tip e102b47.
 5. **Phase 5 ├ö├ç├Â HÔö£├▒rtung:** Disconnect, Reconnect, Abbruch.
 
-**Code-Stand (Data 2026-09-27):** Play Fly-in 57c1a3e; Board-Sync 8322b68; Probe+Occupancy Fog b2dfaf7; Guest PlayCard 5da7c3b; Skip-Seed 7c040df. Kein Push durch Bots. **HOLD.**
+**Code-Stand (Data 2026-09-27):** Fly-in Nachzieher b1d5d3e; Play Fly-in 57c1a3e; Board-Sync 8322b68; Probe+Occupancy Fog b2dfaf7; Guest PlayCard 5da7c3b; Skip-Seed 7c040df. Kein Push durch Bots. **HOLD.**
 
 ---
 
 ## Zuletzt (kurz)
+
+- Play Fly-in Nachzieher (Hand→Mitte→Slot): Gerade Bahn Hand→~3.5× Mitte Hold→Slot; DropShadow; kein Dim/Banner/Neon; DTO TargetNorm; Host State vor Reveal. Tip-Hash b1d5d3e. Pipeline 57c1a3e erhalten. **HOLD.**
 
 - Play Fly-in Reveal (Network): Host nach erfolgreichem Hand-Play / Interrupt BeginPlayCardStack → BroadcastPlayReveal + lokale Animation; Guest nur nach PlayReveal-Message (kein lokales Pre-Apply). Overlay non-modal ~1.4s. Tip-Hash 57c1a3e. Board-Sync 8322b68 erhalten. **HOLD.**
 
