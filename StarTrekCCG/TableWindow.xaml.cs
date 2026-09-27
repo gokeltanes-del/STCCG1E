@@ -15,6 +15,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
+using System.Windows.Media.Effects;
 using System.Windows.Media.Media3D;
 using System.Windows.Shapes;
 using static StarTrekCCG.BattleRules;
@@ -578,6 +579,8 @@ public partial class TableWindow : Window
     private Card? _pendingAuJustPlayedCard;
     private int _pendingAuJustPlayedBy;
     private System.Windows.Threading.DispatcherTimer? _playFlyInHideTimer;
+    private Border? _playFlyInBoardGhost;
+    private int _playFlyInGen;
     /// <summary>True while personnel/ship battle dice are resolving (Armbands forbidden).</summary>
     private bool _adversariesInCombat;
     // SEARCH: Glossary: actions - "just" / just after; AppA: Klingon Death Yell; Verb: JustAfter(KlingonWithHonorDied)
@@ -10176,18 +10179,23 @@ public partial class TableWindow : Window
 
 
     /// <summary>
-    /// Non-blocking fly-in: both players see which card was just played (digital-CCG style).
-    /// Host broadcasts PlayReveal; Guest only animates on receive (never before Host apply).
+    /// Non-blocking fly-in: Hand → center (read) → target slot (straight path, upright).
+    /// Host broadcasts PlayReveal after Apply; Guest only animates on receive (never before Host apply).
     /// </summary>
     private void NotifyPlayReveal(Card card, int player, string? title = null)
     {
         if (card == null) return;
         if (player is not (1 or 2)) player = _activePlayer;
-        ShowPlayFlyIn(card, player, title);
+
+        // Capture landing (Host knows target after Apply). Broadcast State first so Guest can resolve InstanceId.
+        TryGetPlayFlyInTargetNorm(card, out double? tnx, out double? tny);
+
         if (_gameMode == GameMode.Network && _netSession is { IsHost: true })
         {
             try
             {
+                // Host-local plays: push board truth before reveal so Guest border exists for seamless land.
+                NotifyNetworkBoardChanged();
                 var dto = new NetPlayRevealDto
                 {
                     Player = player,
@@ -10195,17 +10203,19 @@ public partial class TableWindow : Window
                     CardSet = card.SetFolder,
                     InstanceId = card.InstanceId,
                     CardType = card.Type,
-                    Title = title ?? $"P{player} plays {card.Name}"
+                    Title = title ?? $"P{player} plays {card.Name}",
+                    TargetNormX = tnx,
+                    TargetNormY = tny
                 };
                 _ = _netSession.BroadcastPlayRevealAsync(dto);
-                // Host local plays must also push board truth (Guest Action path already Broadcasts after apply).
-                NotifyNetworkBoardChanged();
             }
             catch (Exception ex)
             {
                 _session.Log.AddDebug(_session.TurnNumber, "Net", "PlayReveal broadcast failed: " + ex.Message);
             }
         }
+
+        ShowPlayFlyIn(card, player, tnx, tny);
     }
 
     private void OnNetPlayRevealReceived(NetPlayRevealDto dto)
@@ -10230,7 +10240,6 @@ public partial class TableWindow : Window
                 Type = dto.CardType,
                 InstanceId = dto.InstanceId
             };
-            // Best-effort image from DB template
             if (_db != null)
             {
                 var proto = _db.AllCards.FirstOrDefault(c =>
@@ -10240,23 +10249,23 @@ public partial class TableWindow : Window
             }
         }
         int player = dto.Player is 1 or 2 ? dto.Player : 2;
-        ShowPlayFlyIn(card, player, dto.Title);
+        ShowPlayFlyIn(card, player, dto.TargetNormX, dto.TargetNormY);
         _session.Log.AddDebug(_session.TurnNumber, "Net",
             $"PlayReveal received: P{player} {dto.CardName}");
     }
 
-    /// <summary>Short non-modal card overlay (reuse hover scale/opacity pattern). Auto-hides.</summary>
-    private void ShowPlayFlyIn(Card? card, int player, string? title = null)
+    /// <summary>
+    /// Straight fly-in: Hand (mini) → center ~3.5× board, hold to read, → target slot board size.
+    /// No dim, no name banner, 100% opacity + drop-shadow; overlay collapses on land (no fade).
+    /// </summary>
+    private void ShowPlayFlyIn(Card? card, int player, double? targetNormX = null, double? targetNormY = null)
     {
         if (PlayFlyInOverlay == null || PlayFlyInCard == null) return;
         _playFlyInHideTimer?.Stop();
         _playFlyInHideTimer = null;
+        RestorePlayFlyInBoardGhost();
 
-        string name = card?.Name ?? "?";
-        if (PlayFlyInTitle != null)
-            PlayFlyInTitle.Text = title ?? $"P{player} plays {name}";
-        if (PlayFlyInSubtitle != null)
-            PlayFlyInSubtitle.Text = string.IsNullOrWhiteSpace(card?.Type) ? "" : card!.Type!;
+        int gen = ++_playFlyInGen;
 
         if (PlayFlyInImage != null)
         {
@@ -10270,7 +10279,7 @@ public partial class TableWindow : Window
                     bmp.BeginInit();
                     bmp.CacheOption = BitmapCacheOption.OnLoad;
                     bmp.UriSource = new Uri(path, UriKind.Absolute);
-                    bmp.DecodePixelWidth = 400;
+                    bmp.DecodePixelWidth = 480;
                     bmp.EndInit();
                     PlayFlyInImage.Source = bmp;
                 }
@@ -10278,54 +10287,265 @@ public partial class TableWindow : Window
             }
         }
 
-        var scale = new ScaleTransform(0.82, 0.82);
-        PlayFlyInCard.RenderTransform = scale;
-        PlayFlyInCard.Opacity = 0;
+        PlayFlyInCard.Width = TableCardWidth;
+        PlayFlyInCard.Height = TableCardHeight;
+        PlayFlyInCard.Opacity = 1;
+        PlayFlyInCard.BeginAnimation(UIElement.OpacityProperty, null);
+
+        // Ghost the board card so landing is seamless (overlay IS the card until collapse).
+        Border? ghost = null;
+        if (card != null)
+        {
+            ghost = FindBorderForCard(card) ?? (card.InstanceId > 0 ? FindBorderByInstanceId(card.InstanceId) : null);
+            if (ghost != null)
+            {
+                ghost.Opacity = 0;
+                _playFlyInBoardGhost = ghost;
+            }
+        }
+
         PlayFlyInOverlay.Visibility = Visibility.Visible;
+        PlayFlyInOverlay.UpdateLayout();
 
-        var ease = new QuadraticEase { EasingMode = EasingMode.EaseOut };
-        scale.BeginAnimation(ScaleTransform.ScaleXProperty,
-            new DoubleAnimation(0.82, 1.0, TimeSpan.FromMilliseconds(140)) { EasingFunction = ease });
-        scale.BeginAnimation(ScaleTransform.ScaleYProperty,
-            new DoubleAnimation(0.82, 1.0, TimeSpan.FromMilliseconds(140)) { EasingFunction = ease });
-        PlayFlyInCard.BeginAnimation(UIElement.OpacityProperty,
-            new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(120)));
+        double ow = PlayFlyInOverlay.ActualWidth > 1 ? PlayFlyInOverlay.ActualWidth : (ActualWidth > 1 ? ActualWidth : 1280);
+        double oh = PlayFlyInOverlay.ActualHeight > 1 ? PlayFlyInOverlay.ActualHeight : (ActualHeight > 1 ? ActualHeight : 800);
 
+        Point start = ResolvePlayFlyInHandCenter(player, ow, oh);
+        Point mid = new Point(ow / 2.0, oh / 2.0);
+        Point end = ResolvePlayFlyInLanding(card, targetNormX, targetNormY, mid, ow, oh);
+
+        const double handScale = 68.0 / 100.0;   // CreateMiniCard 68 vs TableCardWidth 100
+        const double midScale = 3.5;            // ~3–4× board
+        const double endScale = 1.0;
+        const double startAngle = -6.0;         // slight hand tilt → upright (no tumble)
+
+        var tt = new TranslateTransform();
+        var st = new ScaleTransform(handScale, handScale);
+        var rt = new RotateTransform(startAngle);
+        PlayFlyInCard.RenderTransform = new TransformGroup
+        {
+            Children = { rt, st, tt }
+        };
+
+        // Position by top-left so center tracks (W/2, H/2) under scale about origin 0.5,0.5
+        void PlaceCenter(Point c)
+        {
+            Canvas.SetLeft(PlayFlyInCard, c.X - TableCardWidth / 2.0);
+            Canvas.SetTop(PlayFlyInCard, c.Y - TableCardHeight / 2.0);
+        }
+        PlaceCenter(start);
+        tt.X = 0;
+        tt.Y = 0;
+
+        var easeOut = new QuadraticEase { EasingMode = EasingMode.EaseOut };
+        var easeInOut = new QuadraticEase { EasingMode = EasingMode.EaseInOut };
+
+        // Phase timings (ms): Hand→Mid ~1.7s, Hold ~1.2s, Mid→Slot ~1.3s ≈ 4.2s
+        var d1 = TimeSpan.FromMilliseconds(1700);
+        var dHold = TimeSpan.FromMilliseconds(1200);
+        var d2 = TimeSpan.FromMilliseconds(1300);
+        var tHold = d1;
+        var t2 = d1 + dHold;
+        var tEnd = t2 + d2;
+
+        double dx1 = mid.X - start.X;
+        double dy1 = mid.Y - start.Y;
+        double dx2 = end.X - mid.X;
+        double dy2 = end.Y - mid.Y;
+
+        var sb = new Storyboard();
+
+        void AddKeys(Animatable target, DependencyProperty dp, params (TimeSpan at, double val, IEasingFunction? ease)[] keys)
+        {
+            var anim = new DoubleAnimationUsingKeyFrames { FillBehavior = FillBehavior.HoldEnd };
+            foreach (var (at, val, ease) in keys)
+            {
+                var kf = new EasingDoubleKeyFrame(val, KeyTime.FromTimeSpan(at));
+                if (ease != null) kf.EasingFunction = ease;
+                anim.KeyFrames.Add(kf);
+            }
+            Storyboard.SetTarget(anim, target);
+            Storyboard.SetTargetProperty(anim, new PropertyPath(dp));
+            sb.Children.Add(anim);
+        }
+
+        // Straight path: start → mid (hold) → end. Upright by mid (no tumble/arc).
+        AddKeys(tt, TranslateTransform.XProperty,
+            (TimeSpan.Zero, 0, null),
+            (tHold, dx1, easeOut),
+            (t2, dx1, null),
+            (tEnd, dx1 + dx2, easeInOut));
+        AddKeys(tt, TranslateTransform.YProperty,
+            (TimeSpan.Zero, 0, null),
+            (tHold, dy1, easeOut),
+            (t2, dy1, null),
+            (tEnd, dy1 + dy2, easeInOut));
+        AddKeys(st, ScaleTransform.ScaleXProperty,
+            (TimeSpan.Zero, handScale, null),
+            (tHold, midScale, easeOut),
+            (t2, midScale, null),
+            (tEnd, endScale, easeInOut));
+        AddKeys(st, ScaleTransform.ScaleYProperty,
+            (TimeSpan.Zero, handScale, null),
+            (tHold, midScale, easeOut),
+            (t2, midScale, null),
+            (tEnd, endScale, easeInOut));
+        AddKeys(rt, RotateTransform.AngleProperty,
+            (TimeSpan.Zero, startAngle, null),
+            (tHold, 0, easeOut),
+            (tEnd, 0, null));
+
+        sb.Completed += (_, _) =>
+        {
+            if (gen != _playFlyInGen) return;
+            FinishPlayFlyInLand(gen);
+        };
+        sb.Begin();
+
+        // Safety: if Storyboard Completed is skipped, force land
         _playFlyInHideTimer = new System.Windows.Threading.DispatcherTimer
         {
-            Interval = TimeSpan.FromMilliseconds(1400)
+            Interval = d1 + dHold + d2 + TimeSpan.FromMilliseconds(200)
         };
         _playFlyInHideTimer.Tick += (_, _) =>
         {
             _playFlyInHideTimer?.Stop();
             _playFlyInHideTimer = null;
-            HidePlayFlyIn();
+            if (gen != _playFlyInGen) return;
+            FinishPlayFlyInLand(gen);
         };
         _playFlyInHideTimer.Start();
     }
 
-    private void HidePlayFlyIn()
+    private void FinishPlayFlyInLand(int gen)
     {
-        if (PlayFlyInOverlay == null) return;
+        if (gen != _playFlyInGen) return;
+        _playFlyInHideTimer?.Stop();
+        _playFlyInHideTimer = null;
+        RestorePlayFlyInBoardGhost();
+        if (PlayFlyInOverlay != null)
+            PlayFlyInOverlay.Visibility = Visibility.Collapsed;
+        if (PlayFlyInImage != null)
+            PlayFlyInImage.Source = null;
         if (PlayFlyInCard != null)
         {
-            var fade = new DoubleAnimation(PlayFlyInCard.Opacity, 0, TimeSpan.FromMilliseconds(180));
-            fade.Completed += (_, _) =>
-            {
-                PlayFlyInOverlay.Visibility = Visibility.Collapsed;
-                if (PlayFlyInImage != null) PlayFlyInImage.Source = null;
-                PlayFlyInCard.BeginAnimation(UIElement.OpacityProperty, null);
-            };
-            PlayFlyInCard.BeginAnimation(UIElement.OpacityProperty, fade);
+            PlayFlyInCard.BeginAnimation(UIElement.OpacityProperty, null);
+            PlayFlyInCard.RenderTransform = Transform.Identity;
         }
-        else
+    }
+
+    private void RestorePlayFlyInBoardGhost()
+    {
+        if (_playFlyInBoardGhost != null)
         {
-            PlayFlyInOverlay.Visibility = Visibility.Collapsed;
+            _playFlyInBoardGhost.Opacity = 1;
+            _playFlyInBoardGhost = null;
         }
+    }
+
+    private void HidePlayFlyIn()
+    {
+        FinishPlayFlyInLand(_playFlyInGen);
+    }
+
+    private Point ResolvePlayFlyInHandCenter(int player, double ow, double oh)
+    {
+        // Own hand = bottom strip; opponent = top strip (viewer-relative).
+        FrameworkElement? strip = player == ViewerPlayer ? PlayerHandStripBorder : OppHandStripBorder;
+        strip ??= PlayerHandStripBorder ?? OppHandStripBorder;
+        if (strip != null && PlayFlyInOverlay != null)
+        {
+            try
+            {
+                double sw = Math.Max(1, strip.ActualWidth);
+                double sh = Math.Max(1, strip.ActualHeight);
+                var tl = PlayFlyInOverlay.PointFromScreen(strip.PointToScreen(new Point(0, 0)));
+                var br = PlayFlyInOverlay.PointFromScreen(strip.PointToScreen(new Point(sw, sh)));
+                return new Point((tl.X + br.X) / 2.0, (tl.Y + br.Y) / 2.0);
+            }
+            catch { /* layout not ready */ }
+        }
+        // Fallback: bottom-center (own hand) or top-center
+        bool own = player == ViewerPlayer;
+        return new Point(ow / 2.0, own ? oh - 60 : 60);
+    }
+
+    private Point ResolvePlayFlyInLanding(Card? card, double? tnx, double? tny, Point mid, double ow, double oh)
+    {
+        if (tnx is >= 0 and <= 1.5 && tny is >= 0 and <= 1.5)
+            return new Point(tnx.Value * ow, tny.Value * oh);
+
+        Border? b = null;
+        if (card != null)
+            b = FindBorderForCard(card) ?? (card.InstanceId > 0 ? FindBorderByInstanceId(card.InstanceId) : null);
+        if (b != null && PlayFlyInOverlay != null)
+        {
+            try
+            {
+                double bw = b.ActualWidth > 0 ? b.ActualWidth : TableCardWidth;
+                double bh = b.ActualHeight > 0 ? b.ActualHeight : TableCardHeight;
+                var tl = PlayFlyInOverlay.PointFromScreen(b.PointToScreen(new Point(0, 0)));
+                var br = PlayFlyInOverlay.PointFromScreen(b.PointToScreen(new Point(bw, bh)));
+                return new Point((tl.X + br.X) / 2.0, (tl.Y + br.Y) / 2.0);
+            }
+            catch { /* ignore */ }
+        }
+        return mid;
+    }
+
+    private bool TryGetPlayFlyInTargetNorm(Card card, out double? tnx, out double? tny)
+    {
+        tnx = null;
+        tny = null;
+        var b = FindBorderForCard(card) ?? (card.InstanceId > 0 ? FindBorderByInstanceId(card.InstanceId) : null);
+        if (b == null || PlayFlyInOverlay == null) return false;
+        try
+        {
+            // Ensure overlay metrics: briefly measure against window if collapsed
+            double ow = PlayFlyInOverlay.ActualWidth;
+            double oh = PlayFlyInOverlay.ActualHeight;
+            if (ow < 2 || oh < 2)
+            {
+                ow = ActualWidth > 2 ? ActualWidth : 1280;
+                oh = ActualHeight > 2 ? ActualHeight : 800;
+            }
+            double bw = b.ActualWidth > 0 ? b.ActualWidth : TableCardWidth;
+            double bh = b.ActualHeight > 0 ? b.ActualHeight : TableCardHeight;
+            // Use window as proxy when overlay not laid out yet
+            var origin = PlayFlyInOverlay.IsVisible
+                ? PlayFlyInOverlay
+                : (FrameworkElement)(Content as FrameworkElement ?? this);
+            Point tl, br;
+            if (ReferenceEquals(origin, PlayFlyInOverlay) && PlayFlyInOverlay.Visibility == Visibility.Visible)
+            {
+                tl = PlayFlyInOverlay.PointFromScreen(b.PointToScreen(new Point(0, 0)));
+                br = PlayFlyInOverlay.PointFromScreen(b.PointToScreen(new Point(bw, bh)));
+            }
+            else
+            {
+                // Overlay collapsed: map via DragLayer (same ColumnSpan=2 root) if available
+                var layer = (FrameworkElement?)DragLayer ?? this;
+                tl = layer.PointFromScreen(b.PointToScreen(new Point(0, 0)));
+                br = layer.PointFromScreen(b.PointToScreen(new Point(bw, bh)));
+                ow = layer.ActualWidth > 2 ? layer.ActualWidth : ow;
+                oh = layer.ActualHeight > 2 ? layer.ActualHeight : oh;
+            }
+            double cx = (tl.X + br.X) / 2.0;
+            double cy = (tl.Y + br.Y) / 2.0;
+            if (ow > 2 && oh > 2)
+            {
+                tnx = cx / ow;
+                tny = cy / oh;
+                return true;
+            }
+        }
+        catch { /* layout */ }
+        return false;
     }
 
     /// <summary>Host: board mutation immediate masked Broadcast (Fly/Beam/Attack/Interrupt).</summary>
     private void NotifyNetworkBoardChanged()
+
     {
         if (_netSession == null || !_netSession.IsHost) return;
         EnsureNetworkModeFromSession();

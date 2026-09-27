@@ -371,17 +371,15 @@
                 <StackPanel x:Name="StackGrid" Visibility="Collapsed" Width="0" Height="0"/>
                 <TextBlock x:Name="StackTitle" Visibility="Collapsed"/>
             </Grid>
-            <Border x:Name="PlayFlyInOverlay" Visibility="Collapsed" IsHitTestVisible="False" Background="#990A0A0F" Panel.ZIndex="190">
-                <Border x:Name="PlayFlyInCard" HorizontalAlignment="Center" VerticalAlignment="Center" Background="#252530" BorderBrush="#FFE082" BorderThickness="2" CornerRadius="10" Padding="14" MaxWidth="320" RenderTransformOrigin="0.5,0.5">
-                    <StackPanel>
-                        <TextBlock x:Name="PlayFlyInTitle" Text="Card played" Foreground="#FFE082" FontSize="14" FontWeight="Bold" TextAlignment="Center" TextWrapping="Wrap" Margin="0,0,0,10"/>
-                        <Border Width="200" Height="280" BorderBrush="#555" BorderThickness="1" CornerRadius="4" Background="#111" HorizontalAlignment="Center">
-                            <Image x:Name="PlayFlyInImage" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
-                        </Border>
-                        <TextBlock x:Name="PlayFlyInSubtitle" Text="" Foreground="#9CDCFE" FontSize="12" TextAlignment="Center" Margin="0,8,0,0" TextWrapping="Wrap"/>
-                    </StackPanel>
+            <!-- Play fly-in: transparent Canvas (no dim / no banner). Card flies Hand→Center→Slot. -->
+            <Canvas x:Name="PlayFlyInOverlay" Grid.ColumnSpan="2" Visibility="Collapsed" IsHitTestVisible="False" Background="Transparent" Panel.ZIndex="190">
+                <Border x:Name="PlayFlyInCard" Width="100" Height="140" Background="#111" BorderBrush="#666" BorderThickness="1" CornerRadius="3" RenderTransformOrigin="0.5,0.5">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="28" ShadowDepth="10" Direction="270" Opacity="0.75" Color="#000000"/>
+                    </Border.Effect>
+                    <Image x:Name="PlayFlyInImage" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                 </Border>
-            </Border>
+            </Canvas>
             <Canvas x:Name="DragLayer" Grid.ColumnSpan="2" IsHitTestVisible="False" Panel.ZIndex="50"/>
             <Border x:Name="WelcomeOverlay" Grid.ColumnSpan="2" Background="#CC101014" Panel.ZIndex="100">
                 <Border Background="#252528" CornerRadius="10" Padding="36,28" HorizontalAlignment="Center" VerticalAlignment="Center" BorderBrush="#3A3A48" BorderThickness="1" MinWidth="360">

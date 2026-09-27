@@ -35,6 +35,14 @@ public sealed class NetPlayRevealDto
     [JsonPropertyName("title")]
     public string? Title { get; set; }
 
+    /// <summary>Landing point X as fraction of overlay width (Host after Apply). Null = client resolves locally.</summary>
+    [JsonPropertyName("targetNormX")]
+    public double? TargetNormX { get; set; }
+
+    /// <summary>Landing point Y as fraction of overlay height (Host after Apply).</summary>
+    [JsonPropertyName("targetNormY")]
+    public double? TargetNormY { get; set; }
+
     public string ToJson() => JsonSerializer.Serialize(this, JsonOptions);
 
     public static NetPlayRevealDto FromJson(string json)
