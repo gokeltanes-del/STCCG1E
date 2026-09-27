@@ -1,3 +1,10 @@
+## 2026-09-27 - Play Fly-in sichtbar (Nachzieher-Fix)
+
+- *Bug (Pepsch)*: Nach Tip b1d5d3e kein Overlay — Animation startete nicht sichtbar (Host lokal + Guest).
+- *Root cause*: `Storyboard.SetTarget` auf Transform-Freezables ohne zuverlässigen Clock; `PlayFlyInOverlay` Canvas nach Collapsed oft ohne Layout/Koordinaten → Karte unsichtbar. Ghost Opacity 0 ohne sichtbare Overlay-Karte.
+- *Fix*: `PlayFlyInCard` auf immer gelayoutetes `DragLayer` reparenten; Pfad/Scale/Rotate via `BeginAnimation` (Hover-Preview-Muster); Host `ShowPlayFlyIn` vor Network-IO; Debug `StatusText`/GameLog `Fly-in: P# Name`. TargetNorm + PlayReveal-Pipeline erhalten.
+- *Scope*: TableWindow.xaml.cs. Tip-Hash 034aec2. Basis b1d5d3e / Docs fc8b5ca. Kein Action-History; keine Gaps/Q-Net. Docs separat. Kein Push.
+
 ## 2026-09-27 - Play Fly-in Nachzieher (Hand→Mitte→Slot)
 
 - *Feature (Pepsch, Referenz-Video ausgewertet)*: Fly-in anpassen — Hand → Bildschirmmitte (~3–4× Board, 100% Opacity, Drop-Shadow) → Hold lesen → Mitte → Zielslot Board-Größe nahtlos. Gerader Pfad (linear/eased), Rotation aufrecht (Hand-Winkel→0°); kein Bogen, kein Tumble, kein Neon-Glow.
