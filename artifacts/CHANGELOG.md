@@ -1,3 +1,9 @@
+## 2026-09-27 — Network Phase 2 Lobby (Host / Join / Localhost)
+
+- *Lobby-UI*: `StarTrekCCG/NetworkLobbyWindow.xaml` + `.xaml.cs` — Dark UI (#252528 / #0E639C), Port (Default 7777), Host-Adresse, Buttons Host / Join / Localhost / Disconnect.
+- *Flows*: Host → `NetServer.StartAsync` + `AcceptClientAsync` + Handshake → „Connected as Host (P1)“; Join → `NetClient.ConnectAsync` + Handshake → „Connected as Guest (P2)“; Localhost = Host mit `loopbackOnly=true`.
+- *TableWindow-Anbindung (minimal)*: `ModeNetwork` enabled; Status „Mode: Network (lobby|connected)“; Button „Open lobby…“ / Checked öffnet Lobby (`Show`). Kein GameMode-Spielstand-Sync, keine GameAction-Pipeline.
+- *Scope*: Nur Connect/Listen/Accept/Handshake. Kein Engine-Sync.
 ## 2026-09-27 — Network Phase 1 Scaffold (Transport)
 
 - *TCP+JSON Transport-Scaffold*: `StarTrekCCG/Network/NetMessage.cs`, `NetServer.cs`, `NetClient.cs` — Envelope + Listen/Accept/Connect/Send/Receive; kein Lobby/UI, kein GameMode-Anbinden.

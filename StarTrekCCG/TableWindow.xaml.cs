@@ -73,6 +73,8 @@ public partial class TableWindow : Window
 
     private enum GameMode { Hotseat, Network, SingleAi }
     private GameMode _gameMode = GameMode.Hotseat;
+    private NetworkLobbyWindow? _networkLobby;
+    private bool _networkLobbyConnected;
     private readonly GameSession _session = new();
     /// <summary>E1: last compact state: line so Capture does not flood the log.</summary>
     private string? _lastEngineStateLine;
@@ -8579,10 +8581,55 @@ public partial class TableWindow : Window
         StatusText.Text = _gameMode switch
         {
             GameMode.Hotseat => "Mode: Hotseat (two players on one PC)",
-            GameMode.Network => "Mode: Network (not available yet)",
+            GameMode.Network => _networkLobbyConnected ? "Mode: Network (connected)" : "Mode: Network (lobby)",
             GameMode.SingleAi => "Mode: Singleplayer AI (not available yet)",
             _ => "Mode selected"
         };
+    }
+    private void ModeNetwork_Checked(object sender, RoutedEventArgs e)
+    {
+        if (ModeNetwork?.IsChecked != true) return;
+        OpenNetworkLobby();
+    }
+
+    private void OpenLobby_Click(object sender, RoutedEventArgs e)
+        => OpenNetworkLobby();
+
+    private void OpenNetworkLobby()
+    {
+        if (_networkLobby != null)
+        {
+            try
+            {
+                if (_networkLobby.IsLoaded)
+                {
+                    _networkLobby.Activate();
+                    return;
+                }
+            }
+            catch
+            {
+                _networkLobby = null;
+            }
+        }
+
+        var lobby = new NetworkLobbyWindow { Owner = this };
+        lobby.ConnectionChanged += (_, connected) =>
+        {
+            _networkLobbyConnected = connected;
+            if (ModeNetwork?.IsChecked == true)
+                ApplySelectedGameMode();
+        };
+        lobby.Closed += (_, _) =>
+        {
+            _networkLobbyConnected = lobby.IsConnected;
+            if (ReferenceEquals(_networkLobby, lobby))
+                _networkLobby = null;
+            if (ModeNetwork?.IsChecked == true)
+                ApplySelectedGameMode();
+        };
+        _networkLobby = lobby;
+        lobby.Show();
     }
 
     private void BtnEndTurn_Click(object sender, RoutedEventArgs e)
