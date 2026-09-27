@@ -9,7 +9,7 @@ Archiv der aufgeblähten Vorgängerdatei: `GROK_TEMP/HANDOFF_ARCHIVE_*.md`.
 
 ## Jetzt aktiv — Multiplayer / Network-Modus
 
-**Status:** Phase 2 Lobby/UI getippt — Host / Join / Localhost (`NetworkLobbyWindow`) an `NetServer`/`NetClient`. Tip-Hash `PHASE2_TIP_PENDING`.
+**Status:** Phase 2 Lobby/UI getippt — Host / Join / Localhost (`NetworkLobbyWindow`) an `NetServer`/`NetClient`. Tip-Hash `2aa9790`.
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
 
 ### Architektur
@@ -19,18 +19,18 @@ Archiv der aufgeblähten Vorgängerdatei: `GROK_TEMP/HANDOFF_ARCHIVE_*.md`.
 
 ### Roadmap
 1. **Phase 1 — Transport:** `NetMessage`, `NetServer`, `NetClient` unter `StarTrekCCG/Network/`.
-2. **Phase 2 — Lobby/UI:** Host / Join / Localhost. → Tip `PHASE2_TIP_PENDING`.
+2. **Phase 2 — Lobby/UI:** Host / Join / Localhost. → Tip `2aa9790`.
 3. **Phase 3 — Sync:** `GameAction` → Host `EngineAuthority` → maskierter State an Gast.
 4. **Phase 4 — Dialoge/Timing:** `ChoiceRequest` / `ChoiceResponse`.
 5. **Phase 5 — Härtung:** Disconnect, Reconnect, Abbruch.
 
-**Code-Stand (Data 2026-09-27):** Phase 2 Lobby getippt; Tip-Hash `PHASE2_TIP_PENDING`. Kein Game-Sync. Working tree bleibt dirty (fremde Änderungen unberührt). Kein Push durch Bots.
+**Code-Stand (Data 2026-09-27):** Phase 2 Lobby getippt; Tip-Hash `2aa9790`. Kein Game-Sync. Working tree bleibt dirty (fremde Änderungen unberührt). Kein Push durch Bots.
 
 ---
 
 ## Zuletzt (kurz)
 
-- Network Phase 2 Lobby getippt: `NetworkLobbyWindow` + ModeNetwork-Anbindung. Tip-Hash `PHASE2_TIP_PENDING`.
+- Network Phase 2 Lobby getippt: `NetworkLobbyWindow` + ModeNetwork-Anbindung. Tip-Hash `2aa9790`.
 - Network Phase 1 Scaffold getippt: `StarTrekCCG/Network/` (NetMessage/NetServer/NetClient). Tip-Hash `027f993`.
 - EXTRACT P2–P5 und viele Premiere-Tips: `CHANGELOG.md` (`EXTRACT_REST.md` fehlt lokal unter artifacts).
 - Tracker bleibt aktiv (Jadzia). Behauptete Löschung vom 26.09. war falsch — Datei und Docs-Verweise existieren weiter.
