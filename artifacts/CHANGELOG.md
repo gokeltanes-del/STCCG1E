@@ -1,3 +1,10 @@
+## 2026-09-27 - Play Fly-in Ziel stale (Outpost nach Relayout/Neuspield)
+
+- *Bugfix (Pepsch, nach Tip 857ab9e)*: Personnel fliegen zum **alten Outpost-Punkt vom vorigen Spiel**; Ziel folgt nicht dem aktuellen legalen Snap-Fenster / Facility-Bounds nach Relayout.
+- *Root cause*: Stack-Pers/Eq bleiben Collapsed mit Host-AbsoluteLeft (Drop/Save); TargetNorm wurde vor Relayout gecacht und als Fallback genutzt; Guest mass Slot vor ScheduleRelayoutAfterLoadSettle — Facility schon verschoben, Kind-Border stale.
+- *Fix*: FindPlayFlyInLandBorder = Host-Facility/Ship nach Layout (Pers/Eq), sonst eigener Face/TABLE; SyncPlayFlyInStackedCardBounds bei Relayout + AddCardToHostStack; TargetNorm erst zur Animation (Loaded); InvalidatePlayFlyInTargets bei ClearTableCards / RelayoutAllDockables. Ship/Event unveraendert Live-Land-Bounds. Pipeline 857ab9e erhalten.
+- *Scope*: TableWindow.xaml.cs. Tip-Hash df1259e. Basis 857ab9e / Docs fd8450b. Kein Action-History; keine Gaps/Q-Net. Docs separat. Kein Push.
+
 ## 2026-09-27 - Play Fly-in Nachzieher Ziel/Perspektive/Doppel (Pepsch-Video)
 
 - *Bugfix (Pepsch, Video nach Tip 034aec2)*: (1) Zielkoordinaten falsch — Ship/Event fliegen in leeren Spaceline-Raum/Ecke statt Outpost bzw. Core/TABLE; (2) P2-Play startet bei P1 von unterer Hand statt Gegner-Hand oben; (3) echte Karte am Ziel schon während Fly (Doppel); (4) Snap/Jump am Outpost (End≠Slot); (5) Mitte blanker schwarzer Rücken statt Face (Beverly P2); (6) Tempo ~4s zu langsam.
