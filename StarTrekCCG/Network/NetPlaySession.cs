@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Text.Json;
 using System.Threading;
@@ -42,6 +42,9 @@ public sealed class NetPlaySession : IDisposable
 
     /// <summary>Incoming ChoiceResponse (Host awaits Guest answer).</summary>
     public event Action<NetChoiceDto>? ChoiceResponseReceived;
+
+    /// <summary>Guest: Host play fly-in reveal after successful Play.</summary>
+    public event Action<NetPlayRevealDto>? PlayRevealReceived;
 
     /// <summary>Transport fault / disconnect.</summary>
     public event Action<string>? Disconnected;
@@ -136,6 +139,20 @@ public sealed class NetPlaySession : IDisposable
             payloadJson: dto.ToJson(),
             seq: NextSeq(),
             correlationId: dto.CorrelationId);
+        return SendRawAsync(msg, cancellationToken);
+    }
+
+    /// <summary>Host: both clients show the same play fly-in (Guest listens; Host shows locally).</summary>
+    public Task BroadcastPlayRevealAsync(NetPlayRevealDto dto, CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        if (!IsHost)
+            throw new InvalidOperationException("Only Host may broadcast play reveal.");
+        ArgumentNullException.ThrowIfNull(dto);
+        var msg = NetMessage.Create(
+            NetMessage.Types.PlayReveal,
+            payloadJson: dto.ToJson(),
+            seq: NextSeq());
         return SendRawAsync(msg, cancellationToken);
     }
 
@@ -255,6 +272,22 @@ public sealed class NetPlaySession : IDisposable
             catch (Exception ex)
             {
                 Post(() => ErrorReceived?.Invoke("Bad ChoiceResponse payload: " + ex.Message));
+            }
+            return;
+        }
+
+        if (string.Equals(msg.Type, NetMessage.Types.PlayReveal, StringComparison.OrdinalIgnoreCase))
+        {
+            if (!IsGuest) return;
+            if (string.IsNullOrWhiteSpace(msg.PayloadJson)) return;
+            try
+            {
+                var dto = NetPlayRevealDto.FromJson(msg.PayloadJson);
+                Post(() => PlayRevealReceived?.Invoke(dto));
+            }
+            catch (Exception ex)
+            {
+                Post(() => ErrorReceived?.Invoke("Bad PlayReveal payload: " + ex.Message));
             }
             return;
         }

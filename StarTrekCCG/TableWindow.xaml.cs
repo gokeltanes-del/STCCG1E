@@ -577,6 +577,7 @@ public partial class TableWindow : Window
     private bool _auPlayedThisTurnP2;
     private Card? _pendingAuJustPlayedCard;
     private int _pendingAuJustPlayedBy;
+    private System.Windows.Threading.DispatcherTimer? _playFlyInHideTimer;
     /// <summary>True while personnel/ship battle dice are resolving (Armbands forbidden).</summary>
     private bool _adversariesInCombat;
     // SEARCH: Glossary: actions - "just" / just after; AppA: Klingon Death Yell; Verb: JustAfter(KlingonWithHonorDied)
@@ -4180,6 +4181,16 @@ public partial class TableWindow : Window
         _session.Log.Add(_session.TurnNumber, $"P{controller}",
             (isResponse ? "Response: " : "Play: ") + card.Name);
 
+        // Interrupt fly-in (UsesNormalCardPlay=false so OnSuccessfulHandPlay will not reveal).
+        if (InterruptRules.IsInterrupt(card) || TimingRules.IsInterrupt(card)
+            || ArtifactRules.IsPlaysAsInterruptFromHand(card))
+        {
+            if (!(_gameMode == GameMode.Network && _netSession is { IsGuest: true }))
+                NotifyPlayReveal(card, controller, isResponse
+                    ? $"P{controller} Response: {card.Name}"
+                    : $"P{controller} plays {card.Name}");
+        }
+
         // SEARCH: Rule: 7.4.3.0.2; Glossary: responses / just; Verb: interrupt-play stack response nullify
         // Stage-2 (and all) Interrupt-Play: Initiation = Push only; Responses open next;
         // Results (ApplyResponseEffect / kills / beam) wait until ResolveTopOfStack — Armbands/Hugh pattern.
@@ -5894,6 +5905,11 @@ public partial class TableWindow : Window
         if (_seedPhaseActive) return;
         if (_session.Match != GameSession.MatchPhase.Play) return;
         if (!GameSession.UsesNormalCardPlay(card)) return;
+
+        // Fly-in: Solo/Hotseat local; Network Host shows + BroadcastPlayReveal (Guest waits for message).
+        int revealPlayer = _session.ActivePlayer is 1 or 2 ? _session.ActivePlayer : _activePlayer;
+        if (!(_gameMode == GameMode.Network && _netSession is { IsGuest: true }))
+            NotifyPlayReveal(card, revealPlayer);
 
         if (_redAlertPlaysLeft > 0
             && (ModifierRules.IsPersonnelCard(card) || ModifierRules.IsEquipmentCard(card)))
@@ -9299,6 +9315,7 @@ public partial class TableWindow : Window
         _netSession.Disconnected += OnNetDisconnected;
         _netSession.ChoiceRequestReceived += OnNetChoiceRequestReceived;
         _netSession.ChoiceResponseReceived += OnNetChoiceResponseReceived;
+        _netSession.PlayRevealReceived += OnNetPlayRevealReceived;
 
         var sync = SynchronizationContext.Current
                    ?? new System.Windows.Threading.DispatcherSynchronizationContext(Dispatcher);
@@ -10155,6 +10172,156 @@ public partial class TableWindow : Window
         _session.Log.Add(_session.TurnNumber, $"P{player}", $"Net: Seed {card.Name}");
         StatusText.Text = $"Net: seeded {card.Name} (P{player}).";
         return true;
+    }
+
+
+    /// <summary>
+    /// Non-blocking fly-in: both players see which card was just played (digital-CCG style).
+    /// Host broadcasts PlayReveal; Guest only animates on receive (never before Host apply).
+    /// </summary>
+    private void NotifyPlayReveal(Card card, int player, string? title = null)
+    {
+        if (card == null) return;
+        if (player is not (1 or 2)) player = _activePlayer;
+        ShowPlayFlyIn(card, player, title);
+        if (_gameMode == GameMode.Network && _netSession is { IsHost: true })
+        {
+            try
+            {
+                var dto = new NetPlayRevealDto
+                {
+                    Player = player,
+                    CardName = card.Name,
+                    CardSet = card.SetFolder,
+                    InstanceId = card.InstanceId,
+                    CardType = card.Type,
+                    Title = title ?? $"P{player} plays {card.Name}"
+                };
+                _ = _netSession.BroadcastPlayRevealAsync(dto);
+                // Host local plays must also push board truth (Guest Action path already Broadcasts after apply).
+                NotifyNetworkBoardChanged();
+            }
+            catch (Exception ex)
+            {
+                _session.Log.AddDebug(_session.TurnNumber, "Net", "PlayReveal broadcast failed: " + ex.Message);
+            }
+        }
+    }
+
+    private void OnNetPlayRevealReceived(NetPlayRevealDto dto)
+    {
+        if (dto == null) return;
+        Card? card = null;
+        if (dto.InstanceId > 0)
+            card = LookupCardByInstanceId(dto.InstanceId);
+        if (card == null && !string.IsNullOrWhiteSpace(dto.CardName) && _db != null)
+        {
+            card = _db.AllCards.FirstOrDefault(c =>
+                string.Equals(c.Name, dto.CardName, StringComparison.OrdinalIgnoreCase)
+                && (string.IsNullOrWhiteSpace(dto.CardSet)
+                    || string.Equals(c.Set, dto.CardSet, StringComparison.OrdinalIgnoreCase)));
+        }
+        if (card == null && !string.IsNullOrWhiteSpace(dto.CardName))
+        {
+            card = new Card
+            {
+                Name = dto.CardName,
+                SetFolder = dto.CardSet,
+                Type = dto.CardType,
+                InstanceId = dto.InstanceId
+            };
+            // Best-effort image from DB template
+            if (_db != null)
+            {
+                var proto = _db.AllCards.FirstOrDefault(c =>
+                    string.Equals(c.Name, dto.CardName, StringComparison.OrdinalIgnoreCase));
+                if (proto != null)
+                    card.FullImagePath = proto.FullImagePath;
+            }
+        }
+        int player = dto.Player is 1 or 2 ? dto.Player : 2;
+        ShowPlayFlyIn(card, player, dto.Title);
+        _session.Log.AddDebug(_session.TurnNumber, "Net",
+            $"PlayReveal received: P{player} {dto.CardName}");
+    }
+
+    /// <summary>Short non-modal card overlay (reuse hover scale/opacity pattern). Auto-hides.</summary>
+    private void ShowPlayFlyIn(Card? card, int player, string? title = null)
+    {
+        if (PlayFlyInOverlay == null || PlayFlyInCard == null) return;
+        _playFlyInHideTimer?.Stop();
+        _playFlyInHideTimer = null;
+
+        string name = card?.Name ?? "?";
+        if (PlayFlyInTitle != null)
+            PlayFlyInTitle.Text = title ?? $"P{player} plays {name}";
+        if (PlayFlyInSubtitle != null)
+            PlayFlyInSubtitle.Text = string.IsNullOrWhiteSpace(card?.Type) ? "" : card!.Type!;
+
+        if (PlayFlyInImage != null)
+        {
+            PlayFlyInImage.Source = null;
+            string? path = card?.FullImagePath;
+            if (!string.IsNullOrEmpty(path) && System.IO.File.Exists(path))
+            {
+                try
+                {
+                    var bmp = new BitmapImage();
+                    bmp.BeginInit();
+                    bmp.CacheOption = BitmapCacheOption.OnLoad;
+                    bmp.UriSource = new Uri(path, UriKind.Absolute);
+                    bmp.DecodePixelWidth = 400;
+                    bmp.EndInit();
+                    PlayFlyInImage.Source = bmp;
+                }
+                catch { /* missing art */ }
+            }
+        }
+
+        var scale = new ScaleTransform(0.82, 0.82);
+        PlayFlyInCard.RenderTransform = scale;
+        PlayFlyInCard.Opacity = 0;
+        PlayFlyInOverlay.Visibility = Visibility.Visible;
+
+        var ease = new QuadraticEase { EasingMode = EasingMode.EaseOut };
+        scale.BeginAnimation(ScaleTransform.ScaleXProperty,
+            new DoubleAnimation(0.82, 1.0, TimeSpan.FromMilliseconds(140)) { EasingFunction = ease });
+        scale.BeginAnimation(ScaleTransform.ScaleYProperty,
+            new DoubleAnimation(0.82, 1.0, TimeSpan.FromMilliseconds(140)) { EasingFunction = ease });
+        PlayFlyInCard.BeginAnimation(UIElement.OpacityProperty,
+            new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(120)));
+
+        _playFlyInHideTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(1400)
+        };
+        _playFlyInHideTimer.Tick += (_, _) =>
+        {
+            _playFlyInHideTimer?.Stop();
+            _playFlyInHideTimer = null;
+            HidePlayFlyIn();
+        };
+        _playFlyInHideTimer.Start();
+    }
+
+    private void HidePlayFlyIn()
+    {
+        if (PlayFlyInOverlay == null) return;
+        if (PlayFlyInCard != null)
+        {
+            var fade = new DoubleAnimation(PlayFlyInCard.Opacity, 0, TimeSpan.FromMilliseconds(180));
+            fade.Completed += (_, _) =>
+            {
+                PlayFlyInOverlay.Visibility = Visibility.Collapsed;
+                if (PlayFlyInImage != null) PlayFlyInImage.Source = null;
+                PlayFlyInCard.BeginAnimation(UIElement.OpacityProperty, null);
+            };
+            PlayFlyInCard.BeginAnimation(UIElement.OpacityProperty, fade);
+        }
+        else
+        {
+            PlayFlyInOverlay.Visibility = Visibility.Collapsed;
+        }
     }
 
     /// <summary>Host: board mutation immediate masked Broadcast (Fly/Beam/Attack/Interrupt).</summary>

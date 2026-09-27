@@ -29,6 +29,8 @@ public sealed class NetMessage
         // Phase 4: dialogs / response window
         public const string ChoiceRequest = "choiceRequest";
         public const string ChoiceResponse = "choiceResponse";
+        /// <summary>Host after successful hand/interrupt play: both clients show fly-in overlay.</summary>
+        public const string PlayReveal = "playReveal";
     }
 
     [JsonPropertyName("type")]
