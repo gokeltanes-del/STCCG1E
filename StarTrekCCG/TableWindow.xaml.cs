@@ -10190,11 +10190,14 @@ public partial class TableWindow : Window
         // Capture landing (Host knows target after Apply). Broadcast State first so Guest can resolve InstanceId.
         TryGetPlayFlyInTargetNorm(card, out double? tnx, out double? tny);
 
+        // Host-local: show fly-in first (network IO must not delay or skip local paint).
+        ShowPlayFlyIn(card, player, tnx, tny);
+
         if (_gameMode == GameMode.Network && _netSession is { IsHost: true })
         {
             try
             {
-                // Host-local plays: push board truth before reveal so Guest border exists for seamless land.
+                // Push board truth before reveal so Guest border exists for seamless land.
                 NotifyNetworkBoardChanged();
                 var dto = new NetPlayRevealDto
                 {
@@ -10214,8 +10217,6 @@ public partial class TableWindow : Window
                 _session.Log.AddDebug(_session.TurnNumber, "Net", "PlayReveal broadcast failed: " + ex.Message);
             }
         }
-
-        ShowPlayFlyIn(card, player, tnx, tny);
     }
 
     private void OnNetPlayRevealReceived(NetPlayRevealDto dto)
@@ -10260,162 +10261,173 @@ public partial class TableWindow : Window
     /// </summary>
     private void ShowPlayFlyIn(Card? card, int player, double? targetNormX = null, double? targetNormY = null)
     {
-        if (PlayFlyInOverlay == null || PlayFlyInCard == null) return;
-        _playFlyInHideTimer?.Stop();
-        _playFlyInHideTimer = null;
-        RestorePlayFlyInBoardGhost();
+        if (PlayFlyInCard == null || DragLayer == null) return;
 
-        int gen = ++_playFlyInGen;
-
-        if (PlayFlyInImage != null)
-        {
-            PlayFlyInImage.Source = null;
-            string? path = card?.FullImagePath;
-            if (!string.IsNullOrEmpty(path) && System.IO.File.Exists(path))
-            {
-                try
-                {
-                    var bmp = new BitmapImage();
-                    bmp.BeginInit();
-                    bmp.CacheOption = BitmapCacheOption.OnLoad;
-                    bmp.UriSource = new Uri(path, UriKind.Absolute);
-                    bmp.DecodePixelWidth = 480;
-                    bmp.EndInit();
-                    PlayFlyInImage.Source = bmp;
-                }
-                catch { /* missing art */ }
-            }
-        }
-
-        PlayFlyInCard.Width = TableCardWidth;
-        PlayFlyInCard.Height = TableCardHeight;
-        PlayFlyInCard.Opacity = 1;
-        PlayFlyInCard.BeginAnimation(UIElement.OpacityProperty, null);
-
-        // Ghost the board card so landing is seamless (overlay IS the card until collapse).
-        Border? ghost = null;
-        if (card != null)
-        {
-            ghost = FindBorderForCard(card) ?? (card.InstanceId > 0 ? FindBorderByInstanceId(card.InstanceId) : null);
-            if (ghost != null)
-            {
-                ghost.Opacity = 0;
-                _playFlyInBoardGhost = ghost;
-            }
-        }
-
-        PlayFlyInOverlay.Visibility = Visibility.Visible;
-        PlayFlyInOverlay.UpdateLayout();
-
-        double ow = PlayFlyInOverlay.ActualWidth > 1 ? PlayFlyInOverlay.ActualWidth : (ActualWidth > 1 ? ActualWidth : 1280);
-        double oh = PlayFlyInOverlay.ActualHeight > 1 ? PlayFlyInOverlay.ActualHeight : (ActualHeight > 1 ? ActualHeight : 800);
-
-        Point start = ResolvePlayFlyInHandCenter(player, ow, oh);
-        Point mid = new Point(ow / 2.0, oh / 2.0);
-        Point end = ResolvePlayFlyInLanding(card, targetNormX, targetNormY, mid, ow, oh);
-
-        const double handScale = 68.0 / 100.0;   // CreateMiniCard 68 vs TableCardWidth 100
-        const double midScale = 3.5;            // ~3–4× board
-        const double endScale = 1.0;
-        const double startAngle = -6.0;         // slight hand tilt → upright (no tumble)
-
-        var tt = new TranslateTransform();
-        var st = new ScaleTransform(handScale, handScale);
-        var rt = new RotateTransform(startAngle);
-        PlayFlyInCard.RenderTransform = new TransformGroup
-        {
-            Children = { rt, st, tt }
-        };
-
-        // Position by top-left so center tracks (W/2, H/2) under scale about origin 0.5,0.5
-        void PlaceCenter(Point c)
-        {
-            Canvas.SetLeft(PlayFlyInCard, c.X - TableCardWidth / 2.0);
-            Canvas.SetTop(PlayFlyInCard, c.Y - TableCardHeight / 2.0);
-        }
-        PlaceCenter(start);
-        tt.X = 0;
-        tt.Y = 0;
-
-        var easeOut = new QuadraticEase { EasingMode = EasingMode.EaseOut };
-        var easeInOut = new QuadraticEase { EasingMode = EasingMode.EaseInOut };
-
-        // Phase timings (ms): Hand→Mid ~1.7s, Hold ~1.2s, Mid→Slot ~1.3s ≈ 4.2s
-        var d1 = TimeSpan.FromMilliseconds(1700);
-        var dHold = TimeSpan.FromMilliseconds(1200);
-        var d2 = TimeSpan.FromMilliseconds(1300);
-        var tHold = d1;
-        var t2 = d1 + dHold;
-        var tEnd = t2 + d2;
-
-        double dx1 = mid.X - start.X;
-        double dy1 = mid.Y - start.Y;
-        double dx2 = end.X - mid.X;
-        double dy2 = end.Y - mid.Y;
-
-        var sb = new Storyboard();
-
-        void AddKeys(Animatable target, DependencyProperty dp, params (TimeSpan at, double val, IEasingFunction? ease)[] keys)
-        {
-            var anim = new DoubleAnimationUsingKeyFrames { FillBehavior = FillBehavior.HoldEnd };
-            foreach (var (at, val, ease) in keys)
-            {
-                var kf = new EasingDoubleKeyFrame(val, KeyTime.FromTimeSpan(at));
-                if (ease != null) kf.EasingFunction = ease;
-                anim.KeyFrames.Add(kf);
-            }
-            Storyboard.SetTarget(anim, target);
-            Storyboard.SetTargetProperty(anim, new PropertyPath(dp));
-            sb.Children.Add(anim);
-        }
-
-        // Straight path: start → mid (hold) → end. Upright by mid (no tumble/arc).
-        AddKeys(tt, TranslateTransform.XProperty,
-            (TimeSpan.Zero, 0, null),
-            (tHold, dx1, easeOut),
-            (t2, dx1, null),
-            (tEnd, dx1 + dx2, easeInOut));
-        AddKeys(tt, TranslateTransform.YProperty,
-            (TimeSpan.Zero, 0, null),
-            (tHold, dy1, easeOut),
-            (t2, dy1, null),
-            (tEnd, dy1 + dy2, easeInOut));
-        AddKeys(st, ScaleTransform.ScaleXProperty,
-            (TimeSpan.Zero, handScale, null),
-            (tHold, midScale, easeOut),
-            (t2, midScale, null),
-            (tEnd, endScale, easeInOut));
-        AddKeys(st, ScaleTransform.ScaleYProperty,
-            (TimeSpan.Zero, handScale, null),
-            (tHold, midScale, easeOut),
-            (t2, midScale, null),
-            (tEnd, endScale, easeInOut));
-        AddKeys(rt, RotateTransform.AngleProperty,
-            (TimeSpan.Zero, startAngle, null),
-            (tHold, 0, easeOut),
-            (tEnd, 0, null));
-
-        sb.Completed += (_, _) =>
-        {
-            if (gen != _playFlyInGen) return;
-            FinishPlayFlyInLand(gen);
-        };
-        sb.Begin();
-
-        // Safety: if Storyboard Completed is skipped, force land
-        _playFlyInHideTimer = new System.Windows.Threading.DispatcherTimer
-        {
-            Interval = d1 + dHold + d2 + TimeSpan.FromMilliseconds(200)
-        };
-        _playFlyInHideTimer.Tick += (_, _) =>
+        try
         {
             _playFlyInHideTimer?.Stop();
             _playFlyInHideTimer = null;
-            if (gen != _playFlyInGen) return;
-            FinishPlayFlyInLand(gen);
-        };
-        _playFlyInHideTimer.Start();
+            RestorePlayFlyInBoardGhost();
+
+            int gen = ++_playFlyInGen;
+
+            // Reparent onto DragLayer (always Visible + sized; hover previews prove it paints).
+            if (!ReferenceEquals(PlayFlyInCard.Parent, DragLayer) && PlayFlyInCard.Parent is Panel home)
+            {
+                home.Children.Remove(PlayFlyInCard);
+                DragLayer.Children.Add(PlayFlyInCard);
+            }
+
+            if (PlayFlyInImage != null)
+            {
+                PlayFlyInImage.Source = null;
+                string? path = card?.FullImagePath;
+                if (!string.IsNullOrEmpty(path) && System.IO.File.Exists(path))
+                {
+                    try
+                    {
+                        var bmp = new BitmapImage();
+                        bmp.BeginInit();
+                        bmp.CacheOption = BitmapCacheOption.OnLoad;
+                        bmp.UriSource = new Uri(path, UriKind.Absolute);
+                        bmp.DecodePixelWidth = 480;
+                        bmp.EndInit();
+                        PlayFlyInImage.Source = bmp;
+                    }
+                    catch { /* missing art */ }
+                }
+            }
+
+            PlayFlyInCard.Width = TableCardWidth;
+            PlayFlyInCard.Height = TableCardHeight;
+            PlayFlyInCard.Visibility = Visibility.Visible;
+            PlayFlyInCard.Opacity = 1;
+            PlayFlyInCard.BeginAnimation(UIElement.OpacityProperty, null);
+            PlayFlyInCard.BeginAnimation(Canvas.LeftProperty, null);
+            PlayFlyInCard.BeginAnimation(Canvas.TopProperty, null);
+
+            if (PlayFlyInOverlay != null)
+                PlayFlyInOverlay.Visibility = Visibility.Collapsed;
+
+            DragLayer.UpdateLayout();
+
+            // Ghost board card so landing is seamless.
+            if (card != null)
+            {
+                var ghost = FindBorderForCard(card)
+                    ?? (card.InstanceId > 0 ? FindBorderByInstanceId(card.InstanceId) : null);
+                if (ghost != null)
+                {
+                    ghost.Opacity = 0;
+                    _playFlyInBoardGhost = ghost;
+                }
+            }
+
+            double ow = DragLayer.ActualWidth > 1 ? DragLayer.ActualWidth : (ActualWidth > 1 ? ActualWidth : 1280);
+            double oh = DragLayer.ActualHeight > 1 ? DragLayer.ActualHeight : (ActualHeight > 1 ? ActualHeight : 800);
+
+            Point startPt = ResolvePlayFlyInHandCenter(player, ow, oh);
+            Point mid = new Point(ow / 2.0, oh / 2.0);
+            Point endPt = ResolvePlayFlyInLanding(card, targetNormX, targetNormY, mid, ow, oh);
+
+            const double handScale = 68.0 / 100.0;
+            const double midScale = 3.5;
+            const double endScale = 1.0;
+            const double startAngle = -6.0;
+
+            var tt = new TranslateTransform();
+            var st = new ScaleTransform(handScale, handScale);
+            var rt = new RotateTransform(startAngle);
+            PlayFlyInCard.RenderTransformOrigin = new Point(0.5, 0.5);
+            PlayFlyInCard.RenderTransform = new TransformGroup
+            {
+                Children = { rt, st, tt }
+            };
+
+            Canvas.SetLeft(PlayFlyInCard, startPt.X - TableCardWidth / 2.0);
+            Canvas.SetTop(PlayFlyInCard, startPt.Y - TableCardHeight / 2.0);
+            tt.X = 0;
+            tt.Y = 0;
+
+            var easeOut = new QuadraticEase { EasingMode = EasingMode.EaseOut };
+            var easeInOut = new QuadraticEase { EasingMode = EasingMode.EaseInOut };
+
+            var d1 = TimeSpan.FromMilliseconds(1700);
+            var dHold = TimeSpan.FromMilliseconds(1200);
+            var d2 = TimeSpan.FromMilliseconds(1300);
+            var tHold = d1;
+            var t2 = d1 + dHold;
+            var tEnd = t2 + d2;
+
+            double dx1 = mid.X - startPt.X;
+            double dy1 = mid.Y - startPt.Y;
+            double dx2 = endPt.X - mid.X;
+            double dy2 = endPt.Y - mid.Y;
+
+            DoubleAnimationUsingKeyFrames Keys(params (TimeSpan at, double val, IEasingFunction? ease)[] keys)
+            {
+                var anim = new DoubleAnimationUsingKeyFrames { FillBehavior = FillBehavior.HoldEnd };
+                foreach (var (at, val, ease) in keys)
+                {
+                    var kf = new EasingDoubleKeyFrame(val, KeyTime.FromTimeSpan(at));
+                    if (ease != null) kf.EasingFunction = ease;
+                    anim.KeyFrames.Add(kf);
+                }
+                return anim;
+            }
+
+            // BeginAnimation (hover-preview pattern) — Storyboard.SetTarget on Freezables was silent-failing.
+            tt.BeginAnimation(TranslateTransform.XProperty, Keys(
+                (TimeSpan.Zero, 0, null),
+                (tHold, dx1, easeOut),
+                (t2, dx1, null),
+                (tEnd, dx1 + dx2, easeInOut)));
+            tt.BeginAnimation(TranslateTransform.YProperty, Keys(
+                (TimeSpan.Zero, 0, null),
+                (tHold, dy1, easeOut),
+                (t2, dy1, null),
+                (tEnd, dy1 + dy2, easeInOut)));
+            st.BeginAnimation(ScaleTransform.ScaleXProperty, Keys(
+                (TimeSpan.Zero, handScale, null),
+                (tHold, midScale, easeOut),
+                (t2, midScale, null),
+                (tEnd, endScale, easeInOut)));
+            st.BeginAnimation(ScaleTransform.ScaleYProperty, Keys(
+                (TimeSpan.Zero, handScale, null),
+                (tHold, midScale, easeOut),
+                (t2, midScale, null),
+                (tEnd, endScale, easeInOut)));
+            rt.BeginAnimation(RotateTransform.AngleProperty, Keys(
+                (TimeSpan.Zero, startAngle, null),
+                (tHold, 0, easeOut),
+                (tEnd, 0, null)));
+
+            string who = card?.Name ?? "?";
+            string msg = $"Fly-in: P{player} {who}";
+            _session.Log.AddDebug(_session.TurnNumber, "UI", msg);
+            if (StatusText != null) StatusText.Text = msg;
+
+            _playFlyInHideTimer = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = tEnd + TimeSpan.FromMilliseconds(200)
+            };
+            _playFlyInHideTimer.Tick += (_, _) =>
+            {
+                _playFlyInHideTimer?.Stop();
+                _playFlyInHideTimer = null;
+                if (gen != _playFlyInGen) return;
+                FinishPlayFlyInLand(gen);
+            };
+            _playFlyInHideTimer.Start();
+        }
+        catch (Exception ex)
+        {
+            _session.Log.AddDebug(_session.TurnNumber, "UI", "Fly-in start failed: " + ex.Message);
+            if (StatusText != null) StatusText.Text = "Fly-in start failed: " + ex.Message;
+            RestorePlayFlyInBoardGhost();
+        }
     }
+
 
     private void FinishPlayFlyInLand(int gen)
     {
@@ -10423,15 +10435,26 @@ public partial class TableWindow : Window
         _playFlyInHideTimer?.Stop();
         _playFlyInHideTimer = null;
         RestorePlayFlyInBoardGhost();
-        if (PlayFlyInOverlay != null)
-            PlayFlyInOverlay.Visibility = Visibility.Collapsed;
         if (PlayFlyInImage != null)
             PlayFlyInImage.Source = null;
         if (PlayFlyInCard != null)
         {
             PlayFlyInCard.BeginAnimation(UIElement.OpacityProperty, null);
+            PlayFlyInCard.BeginAnimation(Canvas.LeftProperty, null);
+            PlayFlyInCard.BeginAnimation(Canvas.TopProperty, null);
             PlayFlyInCard.RenderTransform = Transform.Identity;
+            PlayFlyInCard.Visibility = Visibility.Collapsed;
+            // Return card to XAML PlayFlyInOverlay home so tree stays intact.
+            if (PlayFlyInOverlay is Panel home && !ReferenceEquals(PlayFlyInCard.Parent, home))
+            {
+                if (PlayFlyInCard.Parent is Panel cur)
+                    cur.Children.Remove(PlayFlyInCard);
+                if (!home.Children.Contains(PlayFlyInCard))
+                    home.Children.Add(PlayFlyInCard);
+            }
         }
+        if (PlayFlyInOverlay != null)
+            PlayFlyInOverlay.Visibility = Visibility.Collapsed;
     }
 
     private void RestorePlayFlyInBoardGhost()
@@ -10453,14 +10476,15 @@ public partial class TableWindow : Window
         // Own hand = bottom strip; opponent = top strip (viewer-relative).
         FrameworkElement? strip = player == ViewerPlayer ? PlayerHandStripBorder : OppHandStripBorder;
         strip ??= PlayerHandStripBorder ?? OppHandStripBorder;
-        if (strip != null && PlayFlyInOverlay != null)
+        FrameworkElement origin = (FrameworkElement?)DragLayer ?? (FrameworkElement?)PlayFlyInOverlay ?? (FrameworkElement)this;
+        if (strip != null)
         {
             try
             {
                 double sw = Math.Max(1, strip.ActualWidth);
                 double sh = Math.Max(1, strip.ActualHeight);
-                var tl = PlayFlyInOverlay.PointFromScreen(strip.PointToScreen(new Point(0, 0)));
-                var br = PlayFlyInOverlay.PointFromScreen(strip.PointToScreen(new Point(sw, sh)));
+                var tl = origin.PointFromScreen(strip.PointToScreen(new Point(0, 0)));
+                var br = origin.PointFromScreen(strip.PointToScreen(new Point(sw, sh)));
                 return new Point((tl.X + br.X) / 2.0, (tl.Y + br.Y) / 2.0);
             }
             catch { /* layout not ready */ }
@@ -10478,14 +10502,15 @@ public partial class TableWindow : Window
         Border? b = null;
         if (card != null)
             b = FindBorderForCard(card) ?? (card.InstanceId > 0 ? FindBorderByInstanceId(card.InstanceId) : null);
-        if (b != null && PlayFlyInOverlay != null)
+        FrameworkElement origin = (FrameworkElement?)DragLayer ?? (FrameworkElement?)PlayFlyInOverlay ?? (FrameworkElement)this;
+        if (b != null)
         {
             try
             {
                 double bw = b.ActualWidth > 0 ? b.ActualWidth : TableCardWidth;
                 double bh = b.ActualHeight > 0 ? b.ActualHeight : TableCardHeight;
-                var tl = PlayFlyInOverlay.PointFromScreen(b.PointToScreen(new Point(0, 0)));
-                var br = PlayFlyInOverlay.PointFromScreen(b.PointToScreen(new Point(bw, bh)));
+                var tl = origin.PointFromScreen(b.PointToScreen(new Point(0, 0)));
+                var br = origin.PointFromScreen(b.PointToScreen(new Point(bw, bh)));
                 return new Point((tl.X + br.X) / 2.0, (tl.Y + br.Y) / 2.0);
             }
             catch { /* ignore */ }
@@ -10498,38 +10523,16 @@ public partial class TableWindow : Window
         tnx = null;
         tny = null;
         var b = FindBorderForCard(card) ?? (card.InstanceId > 0 ? FindBorderByInstanceId(card.InstanceId) : null);
-        if (b == null || PlayFlyInOverlay == null) return false;
+        if (b == null) return false;
         try
         {
-            // Ensure overlay metrics: briefly measure against window if collapsed
-            double ow = PlayFlyInOverlay.ActualWidth;
-            double oh = PlayFlyInOverlay.ActualHeight;
-            if (ow < 2 || oh < 2)
-            {
-                ow = ActualWidth > 2 ? ActualWidth : 1280;
-                oh = ActualHeight > 2 ? ActualHeight : 800;
-            }
+            FrameworkElement layer = (FrameworkElement?)DragLayer ?? (FrameworkElement?)PlayFlyInOverlay ?? (FrameworkElement)this;
+            double ow = layer.ActualWidth > 2 ? layer.ActualWidth : (ActualWidth > 2 ? ActualWidth : 1280);
+            double oh = layer.ActualHeight > 2 ? layer.ActualHeight : (ActualHeight > 2 ? ActualHeight : 800);
             double bw = b.ActualWidth > 0 ? b.ActualWidth : TableCardWidth;
             double bh = b.ActualHeight > 0 ? b.ActualHeight : TableCardHeight;
-            // Use window as proxy when overlay not laid out yet
-            var origin = PlayFlyInOverlay.IsVisible
-                ? PlayFlyInOverlay
-                : (FrameworkElement)(Content as FrameworkElement ?? this);
-            Point tl, br;
-            if (ReferenceEquals(origin, PlayFlyInOverlay) && PlayFlyInOverlay.Visibility == Visibility.Visible)
-            {
-                tl = PlayFlyInOverlay.PointFromScreen(b.PointToScreen(new Point(0, 0)));
-                br = PlayFlyInOverlay.PointFromScreen(b.PointToScreen(new Point(bw, bh)));
-            }
-            else
-            {
-                // Overlay collapsed: map via DragLayer (same ColumnSpan=2 root) if available
-                var layer = (FrameworkElement?)DragLayer ?? this;
-                tl = layer.PointFromScreen(b.PointToScreen(new Point(0, 0)));
-                br = layer.PointFromScreen(b.PointToScreen(new Point(bw, bh)));
-                ow = layer.ActualWidth > 2 ? layer.ActualWidth : ow;
-                oh = layer.ActualHeight > 2 ? layer.ActualHeight : oh;
-            }
+            var tl = layer.PointFromScreen(b.PointToScreen(new Point(0, 0)));
+            var br = layer.PointFromScreen(b.PointToScreen(new Point(bw, bh)));
             double cx = (tl.X + br.X) / 2.0;
             double cy = (tl.Y + br.Y) / 2.0;
             if (ow > 2 && oh > 2)
