@@ -9,7 +9,7 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 
 ## Jetzt aktiv ├ö├ç├Â Multiplayer / Network-Modus
 
-**Status:** Network Host->Guest Seed Sync getippt (ActivePlayer+Gate). **netztauglich.** Tip-Hash PENDING. Naechster Tip: Phase 5 Disconnect oder Pepsch-Retest.
+**Status:** Network Host->Guest Seed Sync getippt (ActivePlayer+Gate). **netztauglich.** Tip-Hash f020183. Naechster Tip: Phase 5 Disconnect oder Pepsch-Retest.
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
 
 ### Architektur
@@ -24,11 +24,13 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 4. **Phase 4 — Dialoge/Timing:** ChoiceRequest / ChoiceResponse. → Tip e102b47.
 5. **Phase 5 ├ö├ç├Â HÔö£├▒rtung:** Disconnect, Reconnect, Abbruch.
 
-**Code-Stand (Data 2026-09-27):** Host->Guest Seed Sync getippt; Tip-Hash PENDING. Viewer=LocalPlayer 1bd513f. Seed Sync ba2ee6f. Working tree dirty (fremde Aenderungen unberuehrt). Kein Push durch Bots.
+**Code-Stand (Data 2026-09-27):** Host->Guest Seed Sync getippt; Tip-Hash f020183. Viewer=LocalPlayer 1bd513f. Seed Sync ba2ee6f. Working tree dirty (fremde Aenderungen unberuehrt). Kein Push durch Bots.
 
 ---
 
 ## Zuletzt (kurz)
+
+- Network Host->Guest Seed Sync: EnsureNetworkMode + ActivePlayer-Broadcast/Apply + LocalPlayer-Input-Gate. Tip-Hash f020183.
 
 - Network Viewer=LocalPlayer: Guest sieht P2-Seed/Hand unten; Fremdzonen maskiert; Host-Broadcast nach Seed bleibt. Tip-Hash 1bd513f.
 
