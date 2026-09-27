@@ -9,7 +9,7 @@ Archiv der aufgeblähten Vorgängerdatei: `GROK_TEMP/HANDOFF_ARCHIVE_*.md`.
 
 ## Jetzt aktiv — Multiplayer / Network-Modus
 
-**Status:** Phase 1 Scaffold getippt (`NetMessage` / `NetServer` / `NetClient` unter `StarTrekCCG/Network/`). Transport only — kein Lobby/UI, kein GameMode-Anbinden. Tip-Hash folgt nach Commit.
+**Status:** Phase 1 Scaffold getippt (`NetMessage` / `NetServer` / `NetClient` unter `StarTrekCCG/Network/`). Transport only — kein Lobby/UI, kein GameMode-Anbinden. Tip-Hash `027f993`.
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
 
 ### Architektur
@@ -24,13 +24,13 @@ Archiv der aufgeblähten Vorgängerdatei: `GROK_TEMP/HANDOFF_ARCHIVE_*.md`.
 4. **Phase 4 — Dialoge/Timing:** `ChoiceRequest` / `ChoiceResponse`.
 5. **Phase 5 — Härtung:** Disconnect, Reconnect, Abbruch.
 
-**Code-Stand (Data 2026-09-27):** Phase-1-Scaffold getippt; Hash nach Commit. Working tree bleibt dirty (fremde Änderungen unberührt).
+**Code-Stand (Data 2026-09-27):** Phase-1-Scaffold getippt; Tip-Hash `027f993`. Working tree bleibt dirty (fremde Änderungen unberührt).
 
 ---
 
 ## Zuletzt (kurz)
 
-- Network Phase 1 Scaffold getippt: `StarTrekCCG/Network/` (NetMessage/NetServer/NetClient). Hash nach Commit.
+- Network Phase 1 Scaffold getippt: `StarTrekCCG/Network/` (NetMessage/NetServer/NetClient). Tip-Hash `027f993`.
 - EXTRACT P2–P5 und viele Premiere-Tips: `CHANGELOG.md` (`EXTRACT_REST.md` fehlt lokal unter artifacts).
 - Tracker bleibt aktiv (Jadzia). Behauptete Löschung vom 26.09. war falsch — Datei und Docs-Verweise existieren weiter.
 
