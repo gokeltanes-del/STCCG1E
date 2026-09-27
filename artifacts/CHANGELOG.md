@@ -1,3 +1,11 @@
+## 2026-09-27 - Artifact Seed Targets + P2 End EXECUTE (Network)
+
+- *Bugfix (Pepsch)*: (1) Artifact (Vulcan Stone of Gol) nur unter Hunt for DNA Program seedbar; (2) P2 Turn 1 steckt in EXECUTE — Space/Button tot.
+- *Ursache*: (1) Host-Drop `TrySnapToMission`/`FindNearestMission` nahm naechste beliebige Mission (oft [S]) → CanSeed deny; Target-Glow/`FindNearestLegalSeedMission` nicht durchgaengig. (2) Stuck Response-Stack liess End-Turn disabled bei Label „End EXECUTE“; Guest EOT-Flags soft-lockten ohne Host-Flip; FinishExecute Early-Return no-op bei Guest EndTurn.
+- *Fix*: Seed-Snap/Glow/Drop → `FindNearestLegalSeedMission` + `AllMissionBorders` + Artifact-Limits; Layout-Pin unveraendert. Network EndPhase/EndTurn clear stuck stack; Guest EOT sendet EndTurn; Host force `CompleteTurnChange` wenn Flip ausbleibt; UpdatePhaseControls `netActiveEscape`.
+- *netztauglich*: Decide weiter SeedRules/EngineAuthority; Apply Host+Broadcast.
+- *Scope*: Tip TableWindow only; Docs separat. Kein P5; kein Push; kein Projektordner-Cleanup.
+
 ## 2026-09-27 - Network P2 Facility Seed-on-Outpost + Viewer Dock Layout
 
 - *Bugfix (Pepsch, Screenshots)*: (A) P2 seed/report auf eigenen Klingon Outpost - Snapglow korrekt, Reject "Federation Outpost ... foreign facility" / aehnlich. (B) P2-Client: eigene Facilities noch oben; P1/P2 TABLE + Hand-Labels Hotseat-inkonsistent.

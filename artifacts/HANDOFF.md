@@ -1,4 +1,4 @@
-# HANDOFF ├ö├ç├Â STCCG 1E
+﻿# HANDOFF ├ö├ç├Â STCCG 1E
 
 **Owner:** Captain Ôö¼├Ç **Stand:** 2026-09-27 Ôö¼├Ç **Ort:** Josef `C:\Dev\StarTrekCCG\StarTrekCCG`
 
@@ -9,7 +9,7 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 
 ## Jetzt aktiv ├ö├ç├Â Multiplayer / Network-Modus
 
-**Status:** Seed-under-Mission Layout (Horga'hn column pin) getippt. **netztauglich.** Tip-Hash edc79d7. Naechster Tip: Pepsch-Retest Seed-under Layout Host+Guest oder Phase 5 Disconnect. **HOLD.**
+**Status:** Artifact-Seed-Targets + P2 End EXECUTE getippt. **netztauglich.** Tip-Hash 23044e0. Naechster Tip: Pepsch Smoke beide Bugs Host+Guest. **HOLD.**
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
 
 ### Architektur
@@ -24,11 +24,13 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 4. **Phase 4 — Dialoge/Timing:** ChoiceRequest / ChoiceResponse. → Tip e102b47.
 5. **Phase 5 ├ö├ç├Â HÔö£├▒rtung:** Disconnect, Reconnect, Abbruch.
 
-**Code-Stand (Data 2026-09-27):** Seed-under Layout edc79d7; P2 Facility Seed-on-Outpost dabaecc; Seed-under Sync 6da1c61. Working tree dirty after tip restore. Kein Push durch Bots. **HOLD.**
+**Code-Stand (Data 2026-09-27):** Artifact seed + P2 End EXECUTE 23044e0; Seed-under Layout edc79d7; P2 Facility Seed-on-Outpost dabaecc. Working tree dirty after tip restore. Kein Push durch Bots. **HOLD.**
 
 ---
 
 ## Zuletzt (kurz)
+
+- Artifact Seed Targets + P2 End EXECUTE (Network): legal mission snap/glow; Guest EndTurn flip. Tip-Hash 23044e0. **HOLD.**
 
 - Visual Seed-under-Mission Layout (Horga'hn): Relayout pin + orphan scrub. Tip-Hash edc79d7. **HOLD.**
 
