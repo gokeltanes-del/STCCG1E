@@ -581,6 +581,8 @@ public partial class TableWindow : Window
     private System.Windows.Threading.DispatcherTimer? _playFlyInHideTimer;
     private Border? _playFlyInBoardGhost;
     private int _playFlyInGen;
+    /// <summary>InstanceId of board/TABLE card hidden while fly-in overlay is airborne (anti-double).</summary>
+    private int _playFlyInHiddenInstanceId;
     /// <summary>True while personnel/ship battle dice are resolving (Armbands forbidden).</summary>
     private bool _adversariesInCombat;
     // SEARCH: Glossary: actions - "just" / just after; AppA: Klingon Death Yell; Verb: JustAfter(KlingonWithHonorDied)
@@ -5910,7 +5912,10 @@ public partial class TableWindow : Window
         if (!GameSession.UsesNormalCardPlay(card)) return;
 
         // Fly-in: Solo/Hotseat local; Network Host shows + BroadcastPlayReveal (Guest waits for message).
-        int revealPlayer = _session.ActivePlayer is 1 or 2 ? _session.ActivePlayer : _activePlayer;
+        // Prefer card.Controller (set by net apply / local play) so P2 fly starts from opponent hand on P1.
+        int revealPlayer = card.Controller is 1 or 2
+            ? card.Controller
+            : (_session.ActivePlayer is 1 or 2 ? _session.ActivePlayer : _activePlayer);
         if (!(_gameMode == GameMode.Network && _netSession is { IsGuest: true }))
             NotifyPlayReveal(card, revealPlayer);
 
@@ -6938,6 +6943,9 @@ public partial class TableWindow : Window
                     e.Handled = true;
                 };
                 AttachMiniHover(mini, cRef);
+                // Keep TABLE mini invisible while fly-in overlay owns the seat (Rebuild would otherwise revive it).
+                if (_playFlyInHiddenInstanceId > 0 && cRef.InstanceId == _playFlyInHiddenInstanceId)
+                    mini.Opacity = 0;
                 panel.Children.Add(mini);
             }
         }
@@ -9975,6 +9983,7 @@ public partial class TableWindow : Window
         }
 
         // Normal-play bookkeeping + Segment (Host Advance / Horga stay); Guest UI from next Save.
+        card.Controller = player;
         OnSuccessfulHandPlay(card, "Hand");
         RefreshHandStrips();
         RefreshZoneCounts();
@@ -10178,20 +10187,38 @@ public partial class TableWindow : Window
     }
 
 
+
     /// <summary>
     /// Non-blocking fly-in: Hand → center (read) → target slot (straight path, upright).
     /// Host broadcasts PlayReveal after Apply; Guest only animates on receive (never before Host apply).
+    /// Landing prefers LOCAL slot bounds (viewer-relative); Host TargetNorm is fallback only.
     /// </summary>
     private void NotifyPlayReveal(Card card, int player, string? title = null)
     {
         if (card == null) return;
         if (player is not (1 or 2)) player = _activePlayer;
+        if (card.Controller is not (1 or 2))
+            card.Controller = player;
 
-        // Capture landing (Host knows target after Apply). Broadcast State first so Guest can resolve InstanceId.
+        try
+        {
+            UpdateLayout();
+            DragLayer?.UpdateLayout();
+            TableCanvas?.UpdateLayout();
+        }
+        catch { /* layout */ }
+
         TryGetPlayFlyInTargetNorm(card, out double? tnx, out double? tny);
 
         // Host-local: show fly-in first (network IO must not delay or skip local paint).
-        ShowPlayFlyIn(card, player, tnx, tny);
+        // One Loaded tick lets RelayoutDockables / TABLE Rebuild settle before measuring the slot.
+        int pCap = player;
+        double? tnxCap = tnx, tnyCap = tny;
+        Card cardCap = card;
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            ShowPlayFlyIn(cardCap, pCap, tnxCap, tnyCap);
+        }), System.Windows.Threading.DispatcherPriority.Loaded);
 
         if (_gameMode == GameMode.Network && _netSession is { IsHost: true })
         {
@@ -10250,14 +10277,41 @@ public partial class TableWindow : Window
             }
         }
         int player = dto.Player is 1 or 2 ? dto.Player : 2;
-        ShowPlayFlyIn(card, player, dto.TargetNormX, dto.TargetNormY);
+        // Wait for prior State ApplyGameSave layout so local slot beats Host TargetNorm.
+        TryStartPlayFlyInWhenReady(card, player, dto.TargetNormX, dto.TargetNormY, attemptsLeft: 10);
         _session.Log.AddDebug(_session.TurnNumber, "Net",
             $"PlayReveal received: P{player} {dto.CardName}");
     }
 
     /// <summary>
+    /// Guest: retry briefly until local slot border exists (State may still be applying).
+    /// </summary>
+    private void TryStartPlayFlyInWhenReady(
+        Card? card, int player, double? targetNormX, double? targetNormY, int attemptsLeft)
+    {
+        try { UpdateLayout(); } catch { /* */ }
+        Border? slot = card != null ? FindPlayFlyInSlotBorder(card) : null;
+        if (slot != null || attemptsLeft <= 0)
+        {
+            ShowPlayFlyIn(card, player, targetNormX, targetNormY);
+            return;
+        }
+        var t = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(40)
+        };
+        t.Tick += (_, _) =>
+        {
+            t.Stop();
+            TryStartPlayFlyInWhenReady(card, player, targetNormX, targetNormY, attemptsLeft - 1);
+        };
+        t.Start();
+    }
+
+    /// <summary>
     /// Straight fly-in: Hand (mini) → center ~3.5× board, hold to read, → target slot board size.
     /// No dim, no name banner, 100% opacity + drop-shadow; overlay collapses on land (no fade).
+    /// Tempo ~2.6–2.8s total (was ~4.2s).
     /// </summary>
     private void ShowPlayFlyIn(Card? card, int player, double? targetNormX = null, double? targetNormY = null)
     {
@@ -10277,12 +10331,14 @@ public partial class TableWindow : Window
                 home.Children.Remove(PlayFlyInCard);
                 DragLayer.Children.Add(PlayFlyInCard);
             }
+            Panel.SetZIndex(DragLayer, 240);
+            Panel.SetZIndex(PlayFlyInCard, 250);
 
             if (PlayFlyInImage != null)
             {
                 PlayFlyInImage.Source = null;
-                string? path = card?.FullImagePath;
-                if (!string.IsNullOrEmpty(path) && System.IO.File.Exists(path))
+                string? path = ResolvePlayFlyInImagePath(card);
+                if (!string.IsNullOrEmpty(path))
                 {
                     try
                     {
@@ -10292,6 +10348,7 @@ public partial class TableWindow : Window
                         bmp.UriSource = new Uri(path, UriKind.Absolute);
                         bmp.DecodePixelWidth = 480;
                         bmp.EndInit();
+                        bmp.Freeze();
                         PlayFlyInImage.Source = bmp;
                     }
                     catch { /* missing art */ }
@@ -10311,15 +10368,16 @@ public partial class TableWindow : Window
 
             DragLayer.UpdateLayout();
 
-            // Ghost board card so landing is seamless.
+            // Ghost board/TABLE card so landing is seamless (no double).
             if (card != null)
             {
-                var ghost = FindBorderForCard(card)
-                    ?? (card.InstanceId > 0 ? FindBorderByInstanceId(card.InstanceId) : null);
+                var ghost = FindPlayFlyInSlotBorder(card);
                 if (ghost != null)
                 {
                     ghost.Opacity = 0;
                     _playFlyInBoardGhost = ghost;
+                    if (card.InstanceId > 0)
+                        _playFlyInHiddenInstanceId = card.InstanceId;
                 }
             }
 
@@ -10328,11 +10386,13 @@ public partial class TableWindow : Window
 
             Point startPt = ResolvePlayFlyInHandCenter(player, ow, oh);
             Point mid = new Point(ow / 2.0, oh / 2.0);
-            Point endPt = ResolvePlayFlyInLanding(card, targetNormX, targetNormY, mid, ow, oh);
+            TryResolvePlayFlyInSlot(card, targetNormX, targetNormY, mid, ow, oh,
+                out Point endPt, out double endW, out double endH);
 
             const double handScale = 68.0 / 100.0;
             const double midScale = 3.5;
-            const double endScale = 1.0;
+            double endScaleX = Math.Max(0.2, endW / TableCardWidth);
+            double endScaleY = Math.Max(0.2, endH / TableCardHeight);
             const double startAngle = -6.0;
 
             var tt = new TranslateTransform();
@@ -10352,9 +10412,10 @@ public partial class TableWindow : Window
             var easeOut = new QuadraticEase { EasingMode = EasingMode.EaseOut };
             var easeInOut = new QuadraticEase { EasingMode = EasingMode.EaseInOut };
 
-            var d1 = TimeSpan.FromMilliseconds(1700);
-            var dHold = TimeSpan.FromMilliseconds(1200);
-            var d2 = TimeSpan.FromMilliseconds(1300);
+            // ~25% faster than 1.7+1.2+1.3 (~4.2s) → ~1.0+0.7+0.9 = 2.6s (+0.15 land).
+            var d1 = TimeSpan.FromMilliseconds(1000);
+            var dHold = TimeSpan.FromMilliseconds(700);
+            var d2 = TimeSpan.FromMilliseconds(900);
             var tHold = d1;
             var t2 = d1 + dHold;
             var tEnd = t2 + d2;
@@ -10391,12 +10452,12 @@ public partial class TableWindow : Window
                 (TimeSpan.Zero, handScale, null),
                 (tHold, midScale, easeOut),
                 (t2, midScale, null),
-                (tEnd, endScale, easeInOut)));
+                (tEnd, endScaleX, easeInOut)));
             st.BeginAnimation(ScaleTransform.ScaleYProperty, Keys(
                 (TimeSpan.Zero, handScale, null),
                 (tHold, midScale, easeOut),
                 (t2, midScale, null),
-                (tEnd, endScale, easeInOut)));
+                (tEnd, endScaleY, easeInOut)));
             rt.BeginAnimation(RotateTransform.AngleProperty, Keys(
                 (TimeSpan.Zero, startAngle, null),
                 (tHold, 0, easeOut),
@@ -10409,7 +10470,7 @@ public partial class TableWindow : Window
 
             _playFlyInHideTimer = new System.Windows.Threading.DispatcherTimer
             {
-                Interval = tEnd + TimeSpan.FromMilliseconds(200)
+                Interval = tEnd + TimeSpan.FromMilliseconds(150)
             };
             _playFlyInHideTimer.Tick += (_, _) =>
             {
@@ -10455,6 +10516,8 @@ public partial class TableWindow : Window
         }
         if (PlayFlyInOverlay != null)
             PlayFlyInOverlay.Visibility = Visibility.Collapsed;
+        if (DragLayer != null)
+            Panel.SetZIndex(DragLayer, 50);
     }
 
     private void RestorePlayFlyInBoardGhost()
@@ -10464,6 +10527,7 @@ public partial class TableWindow : Window
             _playFlyInBoardGhost.Opacity = 1;
             _playFlyInBoardGhost = null;
         }
+        _playFlyInHiddenInstanceId = 0;
     }
 
     private void HidePlayFlyIn()
@@ -10471,16 +10535,65 @@ public partial class TableWindow : Window
         FinishPlayFlyInLand(_playFlyInGen);
     }
 
+    /// <summary>Face-art path like Hand reveal: card path or DB prototype.</summary>
+    private string? ResolvePlayFlyInImagePath(Card? card)
+    {
+        if (card == null) return null;
+        if (!string.IsNullOrEmpty(card.FullImagePath) && System.IO.File.Exists(card.FullImagePath))
+            return card.FullImagePath;
+        if (_db == null || string.IsNullOrWhiteSpace(card.Name)) return null;
+        Card? proto = null;
+        if (!string.IsNullOrWhiteSpace(card.SetFolder))
+        {
+            proto = _db.AllCards.FirstOrDefault(c =>
+                string.Equals(c.Name, card.Name, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(c.SetFolder ?? c.Set, card.SetFolder, StringComparison.OrdinalIgnoreCase));
+        }
+        proto ??= _db.AllCards.FirstOrDefault(c =>
+            string.Equals(c.Name, card.Name, StringComparison.OrdinalIgnoreCase));
+        if (proto != null && !string.IsNullOrEmpty(proto.FullImagePath)
+            && System.IO.File.Exists(proto.FullImagePath))
+        {
+            card.FullImagePath = proto.FullImagePath;
+            return proto.FullImagePath;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Slot border for fly land: TableCanvas face OR TABLE-column mini (Core events).
+    /// </summary>
+    private Border? FindPlayFlyInSlotBorder(Card card)
+    {
+        var b = FindBorderForCard(card)
+            ?? (card.InstanceId > 0 ? FindBorderByInstanceId(card.InstanceId) : null);
+        if (b != null) return b;
+
+        foreach (var panel in new[] { TablePermanentsPanel, OppTablePermanentsPanel })
+        {
+            if (panel == null) continue;
+            foreach (var mini in panel.Children.OfType<Border>())
+            {
+                if (mini.Tag is not Card c) continue;
+                if (ReferenceEquals(c, card)) return mini;
+                if (card.InstanceId > 0 && c.InstanceId == card.InstanceId) return mini;
+                if (SameTableCard(c, card)) return mini;
+            }
+        }
+        return null;
+    }
+
     private Point ResolvePlayFlyInHandCenter(int player, double ow, double oh)
     {
         // Own hand = bottom strip; opponent = top strip (viewer-relative).
+        // Do NOT fall back to own strip when opponent strip is missing — that caused P2→P1 bottom start.
         FrameworkElement? strip = player == ViewerPlayer ? PlayerHandStripBorder : OppHandStripBorder;
-        strip ??= PlayerHandStripBorder ?? OppHandStripBorder;
         FrameworkElement origin = (FrameworkElement?)DragLayer ?? (FrameworkElement?)PlayFlyInOverlay ?? (FrameworkElement)this;
         if (strip != null)
         {
             try
             {
+                strip.UpdateLayout();
                 double sw = Math.Max(1, strip.ActualWidth);
                 double sh = Math.Max(1, strip.ActualHeight);
                 var tl = origin.PointFromScreen(strip.PointToScreen(new Point(0, 0)));
@@ -10489,48 +10602,68 @@ public partial class TableWindow : Window
             }
             catch { /* layout not ready */ }
         }
-        // Fallback: bottom-center (own hand) or top-center
+        // Fallback: bottom-center (own hand) or top-center — never cross-side.
         bool own = player == ViewerPlayer;
         return new Point(ow / 2.0, own ? oh - 60 : 60);
     }
 
-    private Point ResolvePlayFlyInLanding(Card? card, double? tnx, double? tny, Point mid, double ow, double oh)
+    /// <summary>
+    /// Prefer LIVE local slot (viewer coords). Host TargetNorm only if no local border yet.
+    /// Returns slot center + size for exact end snap (no jump).
+    /// </summary>
+    private bool TryResolvePlayFlyInSlot(
+        Card? card, double? tnx, double? tny, Point mid, double ow, double oh,
+        out Point center, out double width, out double height)
     {
-        if (tnx is >= 0 and <= 1.5 && tny is >= 0 and <= 1.5)
-            return new Point(tnx.Value * ow, tny.Value * oh);
+        center = mid;
+        width = TableCardWidth;
+        height = TableCardHeight;
 
-        Border? b = null;
-        if (card != null)
-            b = FindBorderForCard(card) ?? (card.InstanceId > 0 ? FindBorderByInstanceId(card.InstanceId) : null);
+        Border? b = card != null ? FindPlayFlyInSlotBorder(card) : null;
         FrameworkElement origin = (FrameworkElement?)DragLayer ?? (FrameworkElement?)PlayFlyInOverlay ?? (FrameworkElement)this;
         if (b != null)
         {
             try
             {
-                double bw = b.ActualWidth > 0 ? b.ActualWidth : TableCardWidth;
-                double bh = b.ActualHeight > 0 ? b.ActualHeight : TableCardHeight;
+                b.UpdateLayout();
+                double bw = b.ActualWidth > 1 ? b.ActualWidth : (b.Width > 1 ? b.Width : TableCardWidth);
+                double bh = b.ActualHeight > 1 ? b.ActualHeight : (b.Height > 1 ? b.Height : TableCardHeight);
                 var tl = origin.PointFromScreen(b.PointToScreen(new Point(0, 0)));
                 var br = origin.PointFromScreen(b.PointToScreen(new Point(bw, bh)));
-                return new Point((tl.X + br.X) / 2.0, (tl.Y + br.Y) / 2.0);
+                center = new Point((tl.X + br.X) / 2.0, (tl.Y + br.Y) / 2.0);
+                width = Math.Abs(br.X - tl.X);
+                height = Math.Abs(br.Y - tl.Y);
+                if (width < 8) width = bw;
+                if (height < 8) height = bh;
+                return true;
             }
             catch { /* ignore */ }
         }
-        return mid;
+
+        // Fallback: Host-normalized point (may be wrong across viewers — only when slot missing).
+        if (tnx is >= 0 and <= 1.5 && tny is >= 0 and <= 1.5)
+        {
+            center = new Point(tnx.Value * ow, tny.Value * oh);
+            return false;
+        }
+        return false;
     }
 
     private bool TryGetPlayFlyInTargetNorm(Card card, out double? tnx, out double? tny)
     {
         tnx = null;
         tny = null;
-        var b = FindBorderForCard(card) ?? (card.InstanceId > 0 ? FindBorderByInstanceId(card.InstanceId) : null);
+        var b = FindPlayFlyInSlotBorder(card);
         if (b == null) return false;
         try
         {
             FrameworkElement layer = (FrameworkElement?)DragLayer ?? (FrameworkElement?)PlayFlyInOverlay ?? (FrameworkElement)this;
+            layer.UpdateLayout();
+            b.UpdateLayout();
             double ow = layer.ActualWidth > 2 ? layer.ActualWidth : (ActualWidth > 2 ? ActualWidth : 1280);
             double oh = layer.ActualHeight > 2 ? layer.ActualHeight : (ActualHeight > 2 ? ActualHeight : 800);
-            double bw = b.ActualWidth > 0 ? b.ActualWidth : TableCardWidth;
-            double bh = b.ActualHeight > 0 ? b.ActualHeight : TableCardHeight;
+            double bw = b.ActualWidth > 1 ? b.ActualWidth : (b.Width > 1 ? b.Width : TableCardWidth);
+            double bh = b.ActualHeight > 1 ? b.ActualHeight : (b.Height > 1 ? b.Height : TableCardHeight);
             var tl = layer.PointFromScreen(b.PointToScreen(new Point(0, 0)));
             var br = layer.PointFromScreen(b.PointToScreen(new Point(bw, bh)));
             double cx = (tl.X + br.X) / 2.0;
@@ -10545,6 +10678,7 @@ public partial class TableWindow : Window
         catch { /* layout */ }
         return false;
     }
+
 
     /// <summary>Host: board mutation immediate masked Broadcast (Fly/Beam/Attack/Interrupt).</summary>
     private void NotifyNetworkBoardChanged()
@@ -13050,10 +13184,12 @@ public partial class TableWindow : Window
 
         Canvas.SetLeft(border, x);
         Canvas.SetTop(border, y);
+        // Anti-double during fly-in: if this instance is the airborne card, stay invisible.
+        if (_playFlyInHiddenInstanceId > 0 && card.InstanceId == _playFlyInHiddenInstanceId)
+            border.Opacity = 0;
         TableCanvas.Children.Add(border);
         return border;
     }
-
     // ===================== DRAG =====================
 
     private void Card_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
