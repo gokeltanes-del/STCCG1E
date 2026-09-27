@@ -118,29 +118,30 @@ public static class SeedRules
 
     // ----- Location icons [P] / [S] -----
 
+    // Verb: seed location icons - MissionDilemmaType first; lore "aboard"/"Away Team" alone is not [S]/[P].
     public static (bool planet, bool space, bool known) ParseLocationIcons(Card card)
     {
+        // Prefer printed mission/dilemma type; Icons may carry staffing/era glyphs unrelated to location.
         string mdt = (card.MissionDilemmaType ?? "").Trim();
-        string icons = (card.Icons ?? "").Trim();
-        string blob = $"{mdt} {icons}".ToUpperInvariant();
+        string mdtU = mdt.ToUpperInvariant();
 
         bool planet = false, space = false, known = false;
 
-        if (blob.Contains("[S/P]") || blob.Contains("[P/S]") || blob.Contains("[P][S]") || blob.Contains("[S][P]"))
+        if (mdtU.Contains("[S/P]") || mdtU.Contains("[P/S]") || mdtU.Contains("[P][S]") || mdtU.Contains("[S][P]"))
         {
             planet = space = known = true;
         }
         else
         {
-            if (blob.Contains("[P]") || blob.Contains("[PLANET]"))
+            if (mdtU.Contains("[P]") || mdtU.Contains("[PLANET]"))
             { planet = true; known = true; }
-            if (blob.Contains("[S]") || blob.Contains("[SPACE]"))
+            if (mdtU.Contains("[S]") || mdtU.Contains("[SPACE]"))
             { space = true; known = true; }
         }
 
         if (!known)
         {
-            string bare = mdt.Trim().ToUpperInvariant();
+            string bare = mdtU.Trim();
             if (bare is "P" or "PLANET")
             { planet = true; known = true; }
             else if (bare is "S" or "SPACE")
@@ -151,9 +152,24 @@ public static class SeedRules
 
         if (!known)
         {
-            string text = (card.Text ?? "").ToUpperInvariant();
-            bool tp = text.Contains("[P]") || text.Contains("PLANET MISSION") || text.Contains("AWAY TEAM");
-            bool ts = text.Contains("[S]") || text.Contains("SPACE MISSION") || text.Contains("ABOARD");
+            string icons = (card.Icons ?? "").Trim().ToUpperInvariant();
+            if (icons.Contains("[S/P]") || icons.Contains("[P/S]") || icons.Contains("[P][S]") || icons.Contains("[S][P]"))
+            { planet = space = known = true; }
+            else
+            {
+                if (icons.Contains("[P]") || icons.Contains("[PLANET]"))
+                { planet = true; known = true; }
+                if (icons.Contains("[S]") || icons.Contains("[SPACE]"))
+                { space = true; known = true; }
+            }
+        }
+
+        if (!known)
+        {
+            // Lore: require explicit location phrasing/icons - not "aboard" alone (false [S]).
+            string lore = (card.Text ?? "").ToUpperInvariant();
+            bool tp = lore.Contains("[P]") || lore.Contains("PLANET MISSION");
+            bool ts = lore.Contains("[S]") || lore.Contains("SPACE MISSION");
             if (tp && !ts) { planet = true; known = true; }
             else if (ts && !tp) { space = true; known = true; }
             else if (tp && ts) { planet = space = known = true; }

@@ -263,6 +263,8 @@ public partial class TableWindow : Window
     // Platz für Facility unter Mission + mehrere Schiffe untereinander
     private const double UnderMissionGap = 175;
     private const double ShipSnapRange = 280; // großzügiger für Host-/Mission-Snap
+    // Verb: seed under mission - glow = all legal targets; snap/drop uses wider range (UnderMissionGap dy).
+    private const double SeedUnderMissionSnapRange = ShipSnapRange * 2.0; // 560
 
     private Border? _hostHighlight; // Umrandung am Ziel-Host während Drag
     private Border? _currentSnapHost; // legal host currently in snap range
@@ -6178,7 +6180,7 @@ public partial class TableWindow : Window
             double cx = Canvas.GetLeft(cardBorder) + w / 2.0;
             double cy = Canvas.GetTop(cardBorder) + h / 2.0;
             var targetMission = FindNearestLegalSeedMission(card, cx, cy, out double seedDist);
-            if (targetMission != null && seedDist <= ShipSnapRange && targetMission.Tag is Card mc
+            if (targetMission != null && seedDist <= SeedUnderMissionSnapRange && targetMission.Tag is Card mc
                 && CanSeedCardUnderMission(card, mc).ok)
             {
                 if (_devPlaySeedFromHand && !_seedPhaseActive && ArtifactRules.IsArtifact(card))
@@ -6205,10 +6207,7 @@ public partial class TableWindow : Window
             }
             else
             {
-                string reason = targetMission?.Tag is Card m2
-                    ? CanSeedCardUnderMission(card, m2).reason
-                    : $"{card.Name} requires a matching mission (Planet/Space).";
-                StatusText.Text = reason;
+                StatusText.Text = DescribeSeedUnderDeny(card, cx, cy, targetMission, seedDist);
                 ReturnFloatingToZone(card, cardBorder, zref.ZoneName, zref.Opponent);
                 placedOk = false;
             }
@@ -12247,8 +12246,10 @@ public partial class TableWindow : Window
             double cx = Canvas.GetLeft(cardBorder) + w / 2.0;
             double cy = Canvas.GetTop(cardBorder) + h / 2.0;
             var targetMission = FindNearestLegalSeedMission(card, cx, cy, out double seedDist);
-            if (targetMission != null && seedDist <= ShipSnapRange)
+            if (targetMission != null && seedDist <= SeedUnderMissionSnapRange)
                 AddSeedUnderMission(targetMission, cardBorder);
+            else
+                StatusText.Text = DescribeSeedUnderDeny(card, cx, cy, targetMission, seedDist);
         }
         else if (card != null && IsStackableCard(card))
         {
@@ -13113,7 +13114,7 @@ public partial class TableWindow : Window
             if (IsSeedableUnderMission(card) && (_seedPhaseActive || _devPlaySeedFromHand))
             {
                 target = FindNearestLegalSeedMission(card, cx, cy, out double dist);
-                if (target == null || dist > ShipSnapRange)
+                if (target == null || dist > SeedUnderMissionSnapRange)
                 {
                     HideSnapPreview();
                     return;
@@ -13426,6 +13427,41 @@ public partial class TableWindow : Window
         if (TargetQuery.IsNullifyDrag(drag))
             return TargetQuery.NullifySites(drag, CollectNullifyInPlay());
         var list = new List<TargetSite>();
+        // Verb: seed - BEFORE PlayOn. Stone of Gol etc. are IsPlayOnDrag (NeedsBoardSnap for
+        // later play-as-Event); that hijacked CollectTargets so glow showed Away-Team hosts
+        // (often none) instead of ALL legal [P] missions. Snap/Drop stay nearest-legal.
+        bool seedNow = _seedPhaseActive || _devPlaySeedFromHand;
+        if (seedNow && IsSeedableUnderMission(drag))
+        {
+            int seeder = _activePlayer is 1 or 2 ? _activePlayer : 1;
+            if (_netSession != null)
+                seeder = _netSession.LocalPlayer;
+            foreach (var m in AllMissionBorders())
+            {
+                if (m.Tag is not Card mc) continue;
+                if (m.Visibility != Visibility.Visible) continue;
+                var chk = CanSeedCardUnderMission(drag, mc);
+                if (!chk.ok) continue;
+                if (!MissionAllowsArtifactSeed(drag, seeder, m)) continue;
+                list.Add(new TargetSite(TargetSiteKind.LocationSlot, mc, mc, null, TargetWhy.Seed, chk.reason));
+            }
+            DebugLog.Target(_session.TurnNumber, seeder,
+                $"sites {DebugLog.Card(drag)} seed-missions={list.Count}");
+            return list;
+        }
+        if (seedNow && IsFacilityCard(drag))
+        {
+            foreach (var m in AllMissionBorders())
+            {
+                if (m.Tag is not Card mc) continue;
+                if (m.Visibility != Visibility.Visible) continue;
+                var chk = CanSeedFacilityAtMission(drag, mc);
+                if (!chk.ok) continue;
+                list.Add(new TargetSite(TargetSiteKind.LocationSlot, mc, mc, null, TargetWhy.Seed, chk.reason));
+            }
+            return list;
+        }
+
         if (TargetQuery.IsGapPlay(drag))
         {
             SyncBoardFromTable(logDual: false);
@@ -13470,34 +13506,6 @@ public partial class TableWindow : Window
             return list;
         }
 
-        bool seedNow = _seedPhaseActive || _devPlaySeedFromHand;
-        if (seedNow && IsSeedableUnderMission(drag))
-        {
-            // Verb: seed — every legal mission (layout pin must not narrow this list).
-            int seeder = _activePlayer is 1 or 2 ? _activePlayer : 1;
-            if (_netSession != null)
-                seeder = _netSession.LocalPlayer;
-            foreach (var m in AllMissionBorders())
-            {
-                if (m.Tag is not Card mc) continue;
-                var chk = CanSeedCardUnderMission(drag, mc);
-                if (!chk.ok) continue;
-                if (!MissionAllowsArtifactSeed(drag, seeder, m)) continue;
-                list.Add(new TargetSite(TargetSiteKind.LocationSlot, mc, mc, null, TargetWhy.Seed, chk.reason));
-            }
-            return list;
-        }
-        if (seedNow && IsFacilityCard(drag))
-        {
-            foreach (var m in AllMissionBorders())
-            {
-                if (m.Tag is not Card mc) continue;
-                var chk = CanSeedFacilityAtMission(drag, mc);
-                if (!chk.ok) continue;
-                list.Add(new TargetSite(TargetSiteKind.LocationSlot, mc, mc, null, TargetWhy.Seed, chk.reason));
-            }
-            return list;
-        }
         if (!_seedPhaseActive && ReportingRules.MustReportForDuty(drag))
         {
             int player = _activePlayer;
@@ -18735,6 +18743,8 @@ public partial class TableWindow : Window
     private void HighlightPlayOnSites()
     {
         var hostColor = Color.FromRgb(80, 200, 220);
+        // Verb: seed glow - all legal [P]/matching missions (gold), not only nearest snap ring.
+        var seedColor = Color.FromRgb(255, 210, 80);
         var gapColor = Color.FromRgb(180, 120, 220);
         foreach (var s in _targetSites)
         {
@@ -18763,6 +18773,17 @@ public partial class TableWindow : Window
                 Panel.SetZIndex(rect, 8);
                 TableCanvas.Children.Add(rect);
                 _targetHighlights.Add(rect);
+            }
+            else if (s.Why == TargetWhy.Seed || s.Kind == TargetSiteKind.LocationSlot)
+            {
+                Border? b = null;
+                foreach (var m in AllMissionBorders())
+                {
+                    if (m.Tag is Card mc && ReferenceEquals(mc, s.Card))
+                    { b = m; break; }
+                }
+                b ??= FindBorderForCard(s.Card);
+                if (b != null) AddTargetHalo(b, seedColor);
             }
             else
             {
@@ -28856,7 +28877,48 @@ public partial class TableWindow : Window
     // Verb: seed artifact — legal mission targets only (planet/space + artifact limits).
     // Do not use nearest-any-mission: that forces artifacts onto one nearby illegal space
     // (e.g. only Hunt for DNA Program accepted when drop center is nearer a [S] mission).
-    private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, double centerY, out double distance)
+        // Verb: seed deny messaging - limits / planet-space / range (not empty CanSeed ok-reason).
+    private string DescribeSeedUnderDeny(Card seedCard, double centerX, double centerY, Border? nearestLegal, double legalDist)
+    {
+        int seeder = _activePlayer is 1 or 2 ? _activePlayer : 1;
+        if (_netSession != null)
+            seeder = _netSession.LocalPlayer;
+
+        // Prefer context of nearest ANY mission under the cursor (illegal space / limits).
+        Border? any = FindNearestMission(centerX, centerY, out double anyDist);
+        if (any?.Tag is Card anyMc && anyDist <= SeedUnderMissionSnapRange)
+        {
+            var (ok, reason) = CanSeedCardUnderMission(seedCard, anyMc);
+            if (!ok && !string.IsNullOrWhiteSpace(reason))
+                return reason;
+            if (ArtifactRules.IsArtifact(seedCard)
+                || (seedCard.Type ?? "").Contains("artifact", StringComparison.OrdinalIgnoreCase))
+            {
+                var lim = SeedRules.CheckArtifactSeedLimits(seedCard, seeder, CollectSeededUnderMission(any));
+                if (!lim.ok)
+                    return lim.reason;
+            }
+        }
+
+        if (nearestLegal != null && legalDist > SeedUnderMissionSnapRange)
+        {
+            string name = nearestLegal.Tag is Card lc ? lc.Name : "a legal mission";
+            return $"{seedCard.Name}: move closer to {name} (legal targets glow).";
+        }
+
+        if (nearestLegal == null)
+            return $"{seedCard.Name} requires a matching mission (Planet/Space).";
+
+        if (nearestLegal.Tag is Card nmc)
+        {
+            var (ok2, reason2) = CanSeedCardUnderMission(seedCard, nmc);
+            if (!ok2 && !string.IsNullOrWhiteSpace(reason2))
+                return reason2;
+        }
+        return $"{seedCard.Name}: cannot seed here.";
+    }
+
+private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, double centerY, out double distance)
     {
         Border? nearest = null;
         distance = double.MaxValue;
@@ -28898,7 +28960,7 @@ public partial class TableWindow : Window
         Border? mission = IsSeedableUnderMission(card) && (_seedPhaseActive || _devPlaySeedFromHand)
             ? FindNearestLegalSeedMission(card, cx, cy, out double dist)
             : FindNearestMission(cx, cy, out dist);
-        if (mission == null || dist > ShipSnapRange)
+        if (mission == null || dist > (IsSeedableUnderMission(card) ? SeedUnderMissionSnapRange : ShipSnapRange))
             return null;
 
         if (IsDockableUnderMission(card))
@@ -29480,7 +29542,7 @@ public partial class TableWindow : Window
         {
             var missionBorder = FindNearestLegalSeedMission(card, tablePt.X, tablePt.Y, out double dist);
             if (missionBorder?.Tag is Card mc
-                && dist <= ShipSnapRange
+                && dist <= SeedUnderMissionSnapRange
                 && CanSeedCardUnderMission(card, mc).ok)
             {
                 target = mc;
@@ -29490,9 +29552,7 @@ public partial class TableWindow : Window
             }
             else
             {
-                deny = missionBorder?.Tag is Card m2
-                    ? CanSeedCardUnderMission(card, m2).reason
-                    : $"{card.Name} requires a matching mission (Planet/Space).";
+                deny = DescribeSeedUnderDeny(card, tablePt.X, tablePt.Y, missionBorder, dist);
             }
         }
         else if (IsFacilityCard(card))
