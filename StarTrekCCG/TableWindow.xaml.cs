@@ -5886,9 +5886,20 @@ public partial class TableWindow : Window
             StatusText.Text = $"Horga'hn: extra card play {card.Name}.";
             if (_session.Segment == GameSession.TurnSegment.Play)
             {
-                _session.AdvanceSegment();
-                SyncSessionToUi();
-                OnTurnContextChanged($"Horga'hn 2nd play {card.Name} -> Execute.");
+                // Network Guest: Segment only from Host ApplyGameSave (no local Advance).
+                if (_gameMode == GameMode.Network && _netSession is { IsGuest: true })
+                {
+                    _session.Log.Add(_session.TurnNumber, $"P{_session.ActivePlayer}",
+                        "Net Guest: Horga 2nd play noted; Segment stays Play until Host EndPhase");
+                }
+                else
+                {
+                    _session.AdvanceSegment();
+                    SyncSessionToUi();
+                    OnTurnContextChanged($"Horga'hn 2nd play {card.Name} -> Execute.");
+                    if (_gameMode == GameMode.Network && _netSession is { IsHost: true })
+                        BroadcastMaskedStateToGuest();
+                }
             }
             UpdatePhaseControls();
             return;
@@ -5917,9 +5928,23 @@ public partial class TableWindow : Window
                 UpdatePhaseControls();
                 return; // stay in Play — no AdvanceSegment
             }
+            // Network Guest: do not AdvanceSegment locally. Host owns Segment via EndPhase/ApplyGameSave.
+            // Local Advance after Treaty left Guest UI in Execute while Host still Play -> EndTurn DENY
+            // "End Play phase first."
+            if (_gameMode == GameMode.Network && _netSession is { IsGuest: true })
+            {
+                _session.Log.Add(_session.TurnNumber, $"P{_session.ActivePlayer}",
+                    $"Net Guest: {card.Name} played; Segment stays Play until Host EndPhase");
+                StatusText.Text =
+                    $"{card.Name} played. End PLAY when ready (Host advances to Execute).";
+                UpdatePhaseControls();
+                return;
+            }
             _session.AdvanceSegment();
             SyncSessionToUi();
             OnTurnContextChanged($"{card.Name} played -> Execute (orders).");
+            if (_gameMode == GameMode.Network && _netSession is { IsHost: true })
+                BroadcastMaskedStateToGuest();
             UpdatePhaseControls();
             return;
         }
@@ -9519,6 +9544,20 @@ public partial class TableWindow : Window
                 _ = _netSession.SendErrorAsync($"Not your turn (active P{_session.ActivePlayer}).");
                 return;
             }
+        }
+
+        // Desync recovery: Guest may have Advanced Segment locally after hand play (Treaty)
+        // while Host authority is still Play. EndTurn would Deny "End Play phase first."
+        // Remap to EndPhase so Segment converges; Guest clicks again for End EXECUTE.
+        if (action.Kind == GameActionKind.EndTurn
+            && !_seedPhaseActive
+            && _session.Segment == GameSession.TurnSegment.Play
+            && action.Player == _session.ActivePlayer
+            && !string.Equals(action.Note, "SeedFinish", StringComparison.OrdinalIgnoreCase))
+        {
+            _session.Log.Add(_session.TurnNumber, $"P{action.Player}",
+                "Net: EndTurn remapped to EndPhase (Host still Play; Guest Segment desync recovery)");
+            action = GameAction.EndPhase(action.Player);
         }
 
         var auth = AuthorizePlay(action);
