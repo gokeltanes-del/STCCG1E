@@ -9,7 +9,7 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 
 ## Jetzt aktiv ├ö├ç├Â Multiplayer / Network-Modus
 
-**Status:** P2 Facility Seed-on-Outpost + Viewer Dock Layout getippt. **netztauglich.** Tip-Hash dabaecc. Naechster Tip: Pepsch-Retest P2 Seed auf Outpost / Layout oder Phase 5 Disconnect. **HOLD.**
+**Status:** Seed-under-Mission Layout (Horga'hn column pin) getippt. **netztauglich.** Tip-Hash edc79d7. Naechster Tip: Pepsch-Retest Seed-under Layout Host+Guest oder Phase 5 Disconnect. **HOLD.**
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
 
 ### Architektur
@@ -24,11 +24,13 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 4. **Phase 4 — Dialoge/Timing:** ChoiceRequest / ChoiceResponse. → Tip e102b47.
 5. **Phase 5 ├ö├ç├Â HÔö£├▒rtung:** Disconnect, Reconnect, Abbruch.
 
-**Code-Stand (Data 2026-09-27):** P2 Facility Seed-on-Outpost + Viewer Dock dabaecc; P2 Facility Spaceline 493fc0b; Seed-under Sync 6da1c61. Working tree dirty after tip restore. Kein Push durch Bots. **HOLD.**
+**Code-Stand (Data 2026-09-27):** Seed-under Layout edc79d7; P2 Facility Seed-on-Outpost dabaecc; Seed-under Sync 6da1c61. Working tree dirty after tip restore. Kein Push durch Bots. **HOLD.**
 
 ---
 
 ## Zuletzt (kurz)
+
+- Visual Seed-under-Mission Layout (Horga'hn): Relayout pin + orphan scrub. Tip-Hash edc79d7. **HOLD.**
 
 - Network P2 Facility Seed-on-Outpost + Viewer Dock: PlayerForStrip owner; underInst Facility Apply; eigene Facilities unten auf P2-Client. Tip-Hash dabaecc. **HOLD.**
 

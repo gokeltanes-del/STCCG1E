@@ -6,6 +6,13 @@
 - *netztauglich*: PlayerForStrip fuer Strip-Owner; CanReportToHost(reportingPlayer); FindNearestHost(reportingCard); Guest Seed Personnel/Ship Target+underInst:InstanceId; Host ResolveSeedFacilityHostTarget + AddCardToHostStack; Dock/TABLE/Labels ViewerPlayer-relativ (Host=P1 Guest=P2).
 - *Scope*: Facility seed-on-outpost + viewer dock/TABLE; kein P5; kein Push.
 
+## 2026-09-27 - Visual Seed-under-Mission Layout (Horga'hn column pin)
+
+- *Bugfix (Pepsch, Screenshot)*: Artifact (Horga'hn) nach Seed versetzt links/oben ueber Ziel-Mission, ueberlappt Nachbar-Mission; Badge "1" korrekt unter Slot.
+- *Ursache*: `RelayoutMissionsOnSpaceline` / `ApplyPerspective` (TryAlternate) verschoben Missionen + Badges, pinnten Seed-Borders aber nicht nach → AbsoluteLeft blieb Drop/alt; Visible-Orphans/DragLayer-Kopien moeglich; `RemoveOrphanTableCopies` konnte SeedUnder-Borders strippen.
+- *Fix (Visual layout, Sync-Authority unveraendert)*: `RelayoutSeedUnderMissions` am Ende von `RelayoutMissionsOnSpaceline`; `PinSeedUnderMissionBorder` (Mission-Spalte + viewer-rel. DockSlotOffsetY); `ScrubSeedUnderDuplicates`; SeedUnder-Schutz in `RemoveOrphanTableCopies`. Host/Guest identisch.
+- *Scope*: Seed-under Layout only; kein P5; kein Push.
+
 ## 2026-09-27 - Network P2 Facility Seed docks Spaceline (not TABLE)
 
 - *Bugfix (Pepsch, Screenshot)*: P2 Facility Seed (Remote Supply Depot) landet in „P2 TABLE“ Sidebar statt unter gewählter Mission auf der Spaceline; beide Clients gleich (Engine-Wahrheit falsch). Nor von P1 lag korrekt unter Space-Mission. Status TURN 1 PLAY.
