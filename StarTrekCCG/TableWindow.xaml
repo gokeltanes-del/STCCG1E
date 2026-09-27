@@ -352,7 +352,7 @@
                         </Grid.RowDefinitions>
                         <Border Grid.Row="0" x:Name="OppTischZoneBorder" Background="#252528" BorderBrush="#1A1A1C" BorderThickness="0,0,0,1" Padding="4">
                             <DockPanel>
-                                <TextBlock DockPanel.Dock="Top" Text="P2 TABLE" FontSize="11" FontWeight="SemiBold" Foreground="#8EC8D8" Margin="2,2,2,4"/>
+                                <TextBlock DockPanel.Dock="Top" x:Name="TopTableLabel" Text="P2 TABLE" FontSize="11" FontWeight="SemiBold" Foreground="#8EC8D8" Margin="2,2,2,4"/>
                                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                                     <WrapPanel x:Name="OppTablePermanentsPanel" Width="248" VerticalAlignment="Top"/>
                                 </ScrollViewer>
@@ -360,7 +360,7 @@
                         </Border>
                         <Border Grid.Row="1" x:Name="TischZoneBorder" Background="#3E3E46" BorderBrush="#2E2E34" BorderThickness="0,1,0,0" Padding="4">
                             <DockPanel>
-                                <TextBlock DockPanel.Dock="Top" Text="P1 TABLE" FontSize="11" FontWeight="SemiBold" Foreground="#B5CEA8" Margin="2,2,2,4"/>
+                                <TextBlock DockPanel.Dock="Top" x:Name="BottomTableLabel" Text="P1 TABLE" FontSize="11" FontWeight="SemiBold" Foreground="#B5CEA8" Margin="2,2,2,4"/>
                                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                                     <WrapPanel x:Name="TablePermanentsPanel" Width="248" VerticalAlignment="Top"/>
                                 </ScrollViewer>

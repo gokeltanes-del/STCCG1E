@@ -1,3 +1,11 @@
+## 2026-09-27 - Network P2 Facility Seed-on-Outpost + Viewer Dock Layout
+
+- *Bugfix (Pepsch, Screenshots)*: (A) P2 seed/report auf eigenen Klingon Outpost - Snapglow korrekt, Reject "Federation Outpost ... foreign facility" / aehnlich. (B) P2-Client: eigene Facilities noch oben; P1/P2 TABLE + Hand-Labels Hotseat-inkonsistent.
+- *Ursache A*: Drop-Owner `zref.Opponent ? 2 : 1` (Guest bottom strip = falsch P1); `_dragCard=null` vor TrySnap -> FindNearestHost uebersprang CanReportToHost-Filter -> naechste P1-Facility; Guest Seed Personnel ohne underInst -> Host CommitCardToTable.
+- *Ursache B*: RelayoutDockables/DockSlotOffsetY/GetBorderOwner-Fallback absolut P1 unten/P2 oben; TABLE-Panels + Labels fest P1=bottom.
+- *netztauglich*: PlayerForStrip fuer Strip-Owner; CanReportToHost(reportingPlayer); FindNearestHost(reportingCard); Guest Seed Personnel/Ship Target+underInst:InstanceId; Host ResolveSeedFacilityHostTarget + AddCardToHostStack; Dock/TABLE/Labels ViewerPlayer-relativ (Host=P1 Guest=P2).
+- *Scope*: Facility seed-on-outpost + viewer dock/TABLE; kein P5; kein Push.
+
 ## 2026-09-27 - Network P2 Facility Seed docks Spaceline (not TABLE)
 
 - *Bugfix (Pepsch, Screenshot)*: P2 Facility Seed (Remote Supply Depot) landet in „P2 TABLE“ Sidebar statt unter gewählter Mission auf der Spaceline; beide Clients gleich (Engine-Wahrheit falsch). Nor von P1 lag korrekt unter Space-Mission. Status TURN 1 PLAY.

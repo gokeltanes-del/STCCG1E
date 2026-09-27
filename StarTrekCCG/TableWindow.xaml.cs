@@ -2661,11 +2661,11 @@ public partial class TableWindow : Window
         var host = opponent ? _hostStripHostP2 : _hostStripHostP1;
         if (host?.Tag is not Card hostCard)
         {
-            if (title != null) title.Text = opponent ? "P2 HAND" : "P1 HAND";
+            if (title != null) title.Text = $"P{PlayerForStrip(opponent)} HAND";
             return;
         }
 
-        string who = opponent ? "P2" : "P1";
+        string who = $"P{PlayerForStrip(opponent)}";
         bool beam = _hostStripBeam && !opponent && _activePlayer != 2
                     || _hostStripBeam && opponent && _activePlayer == 2;
         if (title != null)
@@ -2816,7 +2816,7 @@ public partial class TableWindow : Window
         {
             panel.Children.Add(new TextBlock
             {
-                Text = opponent ? "P2 HAND" : "P1 HAND",
+                Text = $"P{PlayerForStrip(opponent)} HAND",
                 Foreground = new SolidColorBrush(Color.FromRgb(0x6A, 0x9A, 0x70)),
                 FontSize = 11,
                 FontWeight = FontWeights.SemiBold,
@@ -3856,9 +3856,9 @@ public partial class TableWindow : Window
         }
     }
 
-    /// <summary>P1 TABLE = bottom-right, P2 TABLE = top-right (not the hand strips).</summary>
+    /// <summary>Own TABLE = bottom-right, opponent TABLE = top-right (viewer-relative).</summary>
     private Border? ActiveTableZoneBorder() =>
-        _activePlayer == 2 ? OppTischZoneBorder : TischZoneBorder;
+        _activePlayer == ViewerPlayer ? TischZoneBorder : OppTischZoneBorder;
 
     private bool UpdateNullifyTableSnap(Point windowPos)
     {
@@ -5115,7 +5115,7 @@ public partial class TableWindow : Window
     {
         if (!_stack.IsOpen || _stack.Top == null) return false;
         if (zref.ZoneName != "Hand") return false;
-        int owner = zref.Opponent ? 2 : 1;
+        int owner = PlayerForStrip(zref.Opponent);
         if (owner != _stack.ResponsePlayer) return false;
 
         var cr = TimingRules.CanRespond(zref.Card, _stack.Top, owner);
@@ -5937,7 +5937,7 @@ public partial class TableWindow : Window
             Add(c);
 
         // Canvas: sichtbare Karten des Besitzers + Host-Stapel
-        int owner = opponent ? 2 : 1;
+        int owner = PlayerForStrip(opponent);
         foreach (var b in TableCanvas.Children.OfType<Border>())
         {
             if (b.Tag is not Card c) continue;
@@ -6085,7 +6085,7 @@ public partial class TableWindow : Window
             && InterruptRules.IsInterrupt(card)
             && (InterruptRules.IsKevinNullify(card) || InterruptRules.IsDevil(card)))
         {
-            int owner = zref.Opponent ? 2 : 1;
+            int owner = PlayerForStrip(zref.Opponent);
             if (TryPlayInterruptFromHand(card, cardBorder, windowPos, owner))
                 placedOk = true;
             else if (TryReturnCardToZone(card, cardBorder, zref.ZoneName, windowPos, zref.Opponent))
@@ -6109,7 +6109,7 @@ public partial class TableWindow : Window
                  && (InterruptRules.NeedsDropTarget(card) || TargetQuery.IsCardTargetingBuried(card))
                  && isHandOrUnlockedSide)
         {
-            int owner = zref.Opponent ? 2 : 1;
+            int owner = PlayerForStrip(zref.Opponent);
             if (TryPlayInterruptFromHand(card, cardBorder, windowPos, owner))
                 placedOk = true;
             else if (TryReturnCardToZone(card, cardBorder, zref.ZoneName, windowPos, zref.Opponent))
@@ -6138,7 +6138,7 @@ public partial class TableWindow : Window
         else if (!_seedPhaseActive && isHandOrUnlockedSide
                  && ArtifactRules.IsPlaysAsInterruptFromHand(card))
         {
-            int owner = zref.Opponent ? 2 : 1;
+            int owner = PlayerForStrip(zref.Opponent);
             if (DragLayer.Children.Contains(cardBorder))
                 DragLayer.Children.Remove(cardBorder);
             if (TableCanvas.Children.Contains(cardBorder))
@@ -6149,7 +6149,7 @@ public partial class TableWindow : Window
         }
         else if (!_seedPhaseActive && InterruptRules.IsInterrupt(card) && isHandOrUnlockedSide)
         {
-            int owner = zref.Opponent ? 2 : 1;
+            int owner = PlayerForStrip(zref.Opponent);
             if (TryPlayInterruptFromHand(card, cardBorder, windowPos, owner))
                 placedOk = true;
             else
@@ -6239,7 +6239,7 @@ public partial class TableWindow : Window
         else if (IsShipCard(card))
         {
             CommitFloatingToCanvas(cardBorder, windowPos);
-            int owner = zref.Opponent ? 2 : 1;
+            int owner = PlayerForStrip(zref.Opponent);
             SetBorderOwner(cardBorder, owner);
 
             bool fromHandPlay = zref.ZoneName == "Hand" && !_seedPhaseActive
@@ -6310,7 +6310,7 @@ public partial class TableWindow : Window
         else if (IsStackableCard(card))
         {
             CommitFloatingToCanvas(cardBorder, windowPos);
-            int owner = zref.Opponent ? 2 : 1;
+            int owner = PlayerForStrip(zref.Opponent);
             SetBorderOwner(cardBorder, owner);
             bool fromHand = zref.ZoneName == "Hand";
             bool isReport = fromHand && !_seedPhaseActive
@@ -6321,7 +6321,7 @@ public partial class TableWindow : Window
             {
                 if (isReport)
                 {
-                    var (ok, reason) = CanReportToHost(card, hostCard, host);
+                    var (ok, reason) = CanReportToHost(card, hostCard, host, owner);
                     if (!ok)
                     {
                         ShowPlayError(reason);
@@ -6368,7 +6368,7 @@ public partial class TableWindow : Window
             // F2: Artifact-as-Event — capture Spec-legal host under drop for TargetCard.
             if (!_seedPhaseActive && ArtifactRules.IsPlaysAsEventFromHand(card))
             {
-                int owner = zref.Opponent ? 2 : 1;
+                int owner = PlayerForStrip(zref.Opponent);
                 var tablePt = WindowToTablePoint(windowPos);
                 var near = NearestLegalSnapHost(card, owner, tablePt.X, tablePt.Y, out double dist);
                 if (near?.Tag is Card hc && dist <= ShipSnapRange * 1.6
@@ -6413,7 +6413,7 @@ public partial class TableWindow : Window
                     {
                         // Floating card is on DragLayer (window coords) — convert drop point to table space
                         var tablePt = WindowToTablePoint(windowPos);
-                        var snapped = TrySnapEventTargetAt(tablePt.X, tablePt.Y, tk, zref.Opponent ? 2 : 1, card);
+                        var snapped = TrySnapEventTargetAt(tablePt.X, tablePt.Y, tk, PlayerForStrip(zref.Opponent), card);
                         if (snapped.host != null)
                         {
                             _eventPreferredHost = snapped.host;
@@ -6825,10 +6825,17 @@ public partial class TableWindow : Window
             }
         }
 
+        // Bottom panel = ViewerPlayer TABLE; top = opponent (Host=P1 bottom, Guest=P2 bottom).
+        var bottomCards = ViewerPlayer == 1 ? _tablePermanentCards : _oppTablePermanentCards;
+        var topCards = ViewerPlayer == 1 ? _oppTablePermanentCards : _tablePermanentCards;
         if (TablePermanentsPanel != null)
-            Fill(TablePermanentsPanel, _tablePermanentCards);
+            Fill(TablePermanentsPanel, bottomCards);
         if (OppTablePermanentsPanel != null)
-            Fill(OppTablePermanentsPanel, _oppTablePermanentCards);
+            Fill(OppTablePermanentsPanel, topCards);
+        if (BottomTableLabel != null)
+            BottomTableLabel.Text = $"P{ViewerPlayer} TABLE";
+        if (TopTableLabel != null)
+            TopTableLabel.Text = $"P{(ViewerPlayer == 1 ? 2 : 1)} TABLE";
     }
 
     private static bool SameTableCard(Card a, Card b)
@@ -7719,11 +7726,11 @@ public partial class TableWindow : Window
     }
 
     /// <summary>Compendium 6.3 – delegiert an ReportingRules (+ Treaties).</summary>
-    private (bool ok, string reason) CanReportToHost(Card card, Card host, Border hostBorder)
+    private (bool ok, string reason) CanReportToHost(Card card, Card host, Border hostBorder, int? reportingPlayer = null)
     {
         int hostOwner = GetBorderOwner(hostBorder);
         if (hostOwner == 0) hostOwner = 1;
-        int player = _activePlayer;
+        int player = reportingPlayer is 1 or 2 ? reportingPlayer.Value : _activePlayer;
 
         if (!EnsureAffiliationModeForHost(card, host))
             return (false, $"{card.Name} has no affiliation mode compatible with {host.Name}.");
@@ -9699,10 +9706,52 @@ public partial class TableWindow : Window
         {
             AutoSeedDoorway(card, player);
         }
+        else if (IsShipCard(card))
+        {
+            Border? missionBorder = ResolveSeedUnderMissionTarget(action);
+            if (missionBorder != null && missionBorder.Tag is Card)
+            {
+                var border = AddCardToTable(card,
+                    Canvas.GetLeft(missionBorder),
+                    Canvas.GetTop(missionBorder) + DockSlotOffsetY(0, player),
+                    TableCardWidth);
+                SetBorderOwner(border, player);
+                RelayoutDockablesUnderMission(missionBorder);
+                UpdateHostBadge(border);
+            }
+            else
+            {
+                AutoSeedFacility(card, player);
+            }
+        }
+        else if (IsStackableCard(card)
+                 && (action.Target != null || (!string.IsNullOrWhiteSpace(action.Note)
+                     && action.Note!.StartsWith("underInst:", StringComparison.OrdinalIgnoreCase))))
+        {
+            // Personnel/equipment onto own facility — same InstanceId Guest snapped.
+            Border? fac = ResolveSeedFacilityHostTarget(action, player);
+            if (fac != null && fac.Tag is Card)
+            {
+                var border = AddCardToTable(card, Canvas.GetLeft(fac), Canvas.GetTop(fac), TableCardWidth);
+                SetBorderOwner(border, player);
+                AddCardToHostStack(fac, border);
+                UpdateHostBadge(fac);
+            }
+            else
+            {
+                (player == 1 ? _facilitySeedCards : _oppFacilitySeedCards).Add(card);
+                StatusText.Text =
+                    $"Net Seed: {card.Name} - no matching own facility on Host; returned to pile.";
+            }
+        }
         else
         {
             // Facility-phase Events/Objectives/etc. may sit on TABLE (SeedRules).
-            CommitCardToTable(card, player);
+            // Personnel without target: AutoSeed onto own facility when present.
+            if (IsStackableCard(card))
+                AutoSeedFacility(card, player);
+            else
+                CommitCardToTable(card, player);
         }
 
         if (_seedSubPhase == SeedSubPhase.Doorway)
@@ -13962,7 +14011,8 @@ public partial class TableWindow : Window
         if (owner == 0) owner = _activePlayer;
         // Großzügigerer Radius beim Report an Facility
         double maxDist = reportTargetsOnly ? ShipSnapRange * 2.5 : ShipSnapRange;
-        var host = FindNearestHost(cx, cy, owner, out double dist, reportTargetsOnly);
+        Card? reporting = cardBorder.Tag as Card;
+        var host = FindNearestHost(cx, cy, owner, out double dist, reportTargetsOnly, reporting);
         if (host == null || dist > maxDist)
             return null;
         return host;
@@ -13978,10 +14028,12 @@ public partial class TableWindow : Window
     /// <param name="reportTargetsOnly">
     /// true = nur Facilities (Built-in Report); Missionen/Schiffe werden übersprungen.
     /// </param>
-    private Border? FindNearestHost(double centerX, double centerY, int cardOwner, out double distance, bool reportTargetsOnly)
+    private Border? FindNearestHost(double centerX, double centerY, int cardOwner, out double distance, bool reportTargetsOnly, Card? reportingCard = null)
     {
         Border? nearest = null;
         distance = double.MaxValue;
+        Card? reporting = reportingCard
+            ?? (_dragCard?.Tag as Card);
 
         foreach (var h in TableCanvas.Children.OfType<Border>()
                      .Where(b => b.Visibility == Visibility.Visible
@@ -13998,8 +14050,8 @@ public partial class TableWindow : Window
                 // Built-in Report: only own compatible Outpost/HQ (not ships/missions)
                 if (!ReportingRules.IsFacilityHost(hc)) continue;
                 if (hostOwner != cardOwner) continue;
-                if (_dragCard?.Tag is Card reporting
-                    && !CanReportToHost(reporting, hc, h).ok)
+                if (reporting != null
+                    && !CanReportToHost(reporting, hc, h, cardOwner).ok)
                     continue;
             }
             else
@@ -18101,7 +18153,10 @@ public partial class TableWindow : Window
         {
             if (b.Visibility != Visibility.Visible || b.Tag is not Card hc) continue;
             if (!ReportingRules.IsFacilityHost(hc)) continue;
-            if (!CanReportToHost(card, hc, b).ok) continue;
+            int ho = GetBorderOwner(b);
+            if (ho == 0) ho = 1;
+            if (ho != owner) continue;
+            if (!CanReportToHost(card, hc, b, owner).ok) continue;
             list.Add(b);
         }
         return list;
@@ -18390,7 +18445,7 @@ public partial class TableWindow : Window
             }
             else
             {
-                int owner = _zoneDragRef?.Opponent == true ? 2 : _activePlayer;
+                int owner = _zoneDragRef != null ? PlayerForStrip(_zoneDragRef.Opponent) : _activePlayer;
                 foreach (var b in TableCanvas.Children.OfType<Border>().ToList())
                 {
                     if (b.Tag is not Card hc || !IsShipCard(hc)) continue;
@@ -18408,7 +18463,7 @@ public partial class TableWindow : Window
                 or InterruptRules.PlayTarget.OwnShip
                 or InterruptRules.PlayTarget.AnyShip)
         {
-            int owner = _zoneDragRef?.Opponent == true ? 2 : _activePlayer;
+            int owner = _zoneDragRef != null ? PlayerForStrip(_zoneDragRef.Opponent) : _activePlayer;
             foreach (var b in TableCanvas.Children.OfType<Border>().ToList())
             {
                 if (HostMatchesInterruptTargetForCard(b, owner, card))
@@ -28803,10 +28858,12 @@ public partial class TableWindow : Window
         return 0.0;
     }
 
-    private static double DockSlotOffsetY(int slotIndexZeroBased, int ownerPlayer)
+    private double DockSlotOffsetY(int slotIndexZeroBased, int ownerPlayer)
     {
-        // Vertical stack: P1 below / P2 above spaceline; multi-ship non-cover via Y steps.
-        double sign = ownerPlayer == 2 ? -1.0 : 1.0;
+        // Viewer-relative: own facilities/ships below spaceline, opponent above.
+        // Host Viewer=P1 → P1 below / P2 above. Guest Viewer=P2 → P2 below / P1 above.
+        int o = ownerPlayer is 1 or 2 ? ownerPlayer : 1;
+        double sign = o == ViewerPlayer ? 1.0 : -1.0;
         return sign * UnderMissionGap * (slotIndexZeroBased + 1);
     }
 
@@ -28878,21 +28935,28 @@ public partial class TableWindow : Window
 
         var dockables = GetDockablesUnderMission(mission, exclude).ToList();
 
-        // Fixed: Player 1 below spaceline, Player 2 above
-        var below = dockables.Where(d => GetBorderOwner(d) != 2)
+        // Viewer-relative: own (LocalPlayer) below spaceline, opponent above.
+        int viewer = ViewerPlayer;
+        int opponent = viewer == 1 ? 2 : 1;
+        int OwnerOf(Border d)
+        {
+            int o = GetBorderOwner(d);
+            return o is 1 or 2 ? o : 1;
+        }
+        var below = dockables.Where(d => OwnerOf(d) == viewer)
             .OrderBy(DockSortKey).ThenBy(b => Canvas.GetTop(b)).ThenBy(StableId).ToList();
-        var above = dockables.Where(d => GetBorderOwner(d) == 2)
+        var above = dockables.Where(d => OwnerOf(d) == opponent)
             .OrderBy(DockSortKey).ThenByDescending(b => Canvas.GetTop(b)).ThenBy(StableId).ToList();
 
         for (int i = 0; i < below.Count; i++)
         {
             Canvas.SetLeft(below[i], missionLeft + DockSlotOffsetX(0));
             // Vertical column: Top ALWAYS missionTop+DockSlotOffsetY(i), never Save-Y+offset.
-            Canvas.SetTop(below[i], missionTop + DockSlotOffsetY(i, 1));
+            Canvas.SetTop(below[i], missionTop + DockSlotOffsetY(i, viewer));
             // Ships above facilities; higher slot => higher Z so topmost stays clickable
             int z = DockSortKey(below[i]) == 0 ? 12 + i : 22 + i;
             Panel.SetZIndex(below[i], z);
-            SetBorderOwner(below[i], 1);
+            SetBorderOwner(below[i], viewer); // preserve absolute owner (= viewer on bottom)
             _dockableAtMission[below[i]] = mission;
             SyncShipCombatVisuals(below[i]);
             UpdateHostBadge(below[i]);
@@ -28901,10 +28965,10 @@ public partial class TableWindow : Window
         {
             // Same vertical rule above spaceline; i only shifts Y / Z.
             Canvas.SetLeft(above[i], missionLeft + DockSlotOffsetX(0));
-            Canvas.SetTop(above[i], missionTop + DockSlotOffsetY(i, 2));
+            Canvas.SetTop(above[i], missionTop + DockSlotOffsetY(i, opponent));
             int z = DockSortKey(above[i]) == 0 ? 12 + i : 22 + i;
             Panel.SetZIndex(above[i], z);
-            SetBorderOwner(above[i], 2);
+            SetBorderOwner(above[i], opponent);
             _dockableAtMission[above[i]] = mission;
             SyncShipCombatVisuals(above[i]);
             UpdateHostBadge(above[i]);
@@ -29039,16 +29103,16 @@ public partial class TableWindow : Window
         if (_borderOwner.TryGetValue(b, out int o) && o is 1 or 2)
             return o;
 
-        // Fallback: Position relativ zur Spaceline (P2 oben, P1 unten)
+        // Fallback: Position relativ zur Spaceline (viewer-relative: own below, opp above)
         if (b.Tag is Card c && (IsShipCard(c) || IsFacilityCard(c) || IsStackableCard(c)))
         {
             double top = Canvas.GetTop(b);
             if (!double.IsNaN(top))
             {
                 if (top + TableCardHeight / 2 < SpacelineY)
-                    return 2;
+                    return ViewerPlayer == 1 ? 2 : 1; // above = opponent
                 if (top > SpacelineY + TableCardHeight / 2)
-                    return 1;
+                    return ViewerPlayer; // below = own
             }
         }
         return 1;
@@ -29086,6 +29150,7 @@ public partial class TableWindow : Window
     {
         RelayoutMissionsOnSpaceline();
         RebuildPlayerZones();
+        RebuildTablePermanentsPanel(); // viewer-relative P1/P2 TABLE panels + labels
         RefreshZoneCounts();
         UpdatePhaseControls();
         ShowActivePlayerHand();
@@ -29152,6 +29217,55 @@ public partial class TableWindow : Window
             return AllMissionBorders()
                 .FirstOrDefault(b => b.Tag is Card mc
                     && string.Equals(mc.Name, action.TargetName, StringComparison.OrdinalIgnoreCase));
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Host: map Guest SeedCard Target/Note to facility Border (personnel seed onto Outpost).
+    /// Prefers underInst:InstanceId; then Target.InstanceId; then name+owner.
+    /// </summary>
+    private Border? ResolveSeedFacilityHostTarget(GameAction action, int player)
+    {
+        Border? ByInst(int inst) =>
+            TableCanvas.Children.OfType<Border>()
+                .FirstOrDefault(b => b.Tag is Card fc
+                    && ReportingRules.IsFacilityHost(fc)
+                    && fc.InstanceId == inst
+                    && GetBorderOwner(b) == player);
+
+        string? note = action.Note;
+        if (!string.IsNullOrWhiteSpace(note)
+            && note.StartsWith("underInst:", StringComparison.OrdinalIgnoreCase)
+            && int.TryParse(note.AsSpan("underInst:".Length), out int inst)
+            && inst > 0)
+        {
+            var byInst = ByInst(inst);
+            if (byInst != null) return byInst;
+        }
+
+        if (action.Target != null)
+        {
+            if (action.Target.InstanceId > 0)
+            {
+                var byT = ByInst(action.Target.InstanceId);
+                if (byT != null) return byT;
+            }
+            var byName = TableCanvas.Children.OfType<Border>()
+                .FirstOrDefault(b => b.Tag is Card fc
+                    && ReportingRules.IsFacilityHost(fc)
+                    && GetBorderOwner(b) == player
+                    && string.Equals(fc.Name, action.Target.Name, StringComparison.OrdinalIgnoreCase));
+            if (byName != null) return byName;
+        }
+
+        if (!string.IsNullOrWhiteSpace(action.TargetName))
+        {
+            return TableCanvas.Children.OfType<Border>()
+                .FirstOrDefault(b => b.Tag is Card fc
+                    && ReportingRules.IsFacilityHost(fc)
+                    && GetBorderOwner(b) == player
+                    && string.Equals(fc.Name, action.TargetName, StringComparison.OrdinalIgnoreCase));
         }
         return null;
     }
@@ -29252,11 +29366,50 @@ public partial class TableWindow : Window
             else
                 deny = $"{card.Name} needs a matching planet mission (outposts not at space).";
         }
+        else if (IsShipCard(card))
+        {
+            Canvas.SetLeft(cardBorder, tablePt.X - TableCardWidth / 2.0);
+            Canvas.SetTop(cardBorder, tablePt.Y - TableCardHeight / 2.0);
+            var missionBorder = TrySnapToMission(cardBorder);
+            if (missionBorder?.Tag is Card mc
+                && string.Equals(mc.Type, "Mission", StringComparison.OrdinalIgnoreCase))
+            {
+                target = mc;
+                if (mc.InstanceId > 0)
+                    note = $"underInst:{mc.InstanceId}";
+            }
+            else
+                deny = $"{card.Name} place at a mission.";
+        }
+        else if (IsStackableCard(card))
+        {
+            // Seed personnel/equipment onto own facility (InstanceId — not name / AbsoluteLeft).
+            Canvas.SetLeft(cardBorder, tablePt.X - TableCardWidth / 2.0);
+            Canvas.SetTop(cardBorder, tablePt.Y - TableCardHeight / 2.0);
+            int owner = _netSession.LocalPlayer;
+            var host = TrySnapToHost(cardBorder, owner, reportTargetsOnly: true);
+            if (host == null)
+                host = TrySnapToHost(cardBorder, owner, reportTargetsOnly: false);
+            if (host?.Tag is Card hc
+                && ReportingRules.IsFacilityHost(hc)
+                && GetBorderOwner(host) == owner)
+            {
+                target = hc;
+                if (hc.InstanceId > 0)
+                    note = $"underInst:{hc.InstanceId}";
+            }
+            else
+            {
+                deny = host?.Tag is Card bad
+                    ? $"\"{bad.Name}\" is not usable by Player {owner} (foreign facility)."
+                    : $"{card.Name}: snap onto your Outpost/HQ (not the mission).";
+            }
+        }
         else if (IsDoorwayCard(card))
         {
             // Host AutoSeedDoorway — no target.
         }
-        // else: Facility-phase Events/Objectives may go TABLE; ships without target still Host TABLE (residual).
+        // else: Facility-phase Events/Objectives may go TABLE.
 
         if (deny != null)
         {
