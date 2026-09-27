@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -24,6 +24,8 @@ public sealed class NetMessage
         public const string LobbyReady = "lobbyReady";
         public const string LobbyStatus = "lobbyStatus";
         public const string StartGame = "startGame";
+        /// <summary>Lobby: propose/accept/decline skip seed phase (pre-StartGame).</summary>
+        public const string LobbySkipSeed = "lobbySkipSeed";
         // Phase 4: dialogs / response window
         public const string ChoiceRequest = "choiceRequest";
         public const string ChoiceResponse = "choiceResponse";

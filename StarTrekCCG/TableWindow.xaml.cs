@@ -9271,12 +9271,36 @@ public partial class TableWindow : Window
             ? $"Network: Host P1 — decks on table ({deck1.Name} vs {deck2.Name})."
             : $"Network: Guest P2 — decks on table ({deck1.Name} vs {deck2.Name}).";
         _session.Log.AddDebug(_session.TurnNumber, "Net",
-            $"Lobby start: P1={deck1.Name}, P2={deck2.Name}, role={(_netSession.IsHost ? "Host" : "Guest")}.");
+            $"Lobby start: P1={deck1.Name}, P2={deck2.Name}, role={(_netSession.IsHost ? "Host" : "Guest")}, skipSeed={args.SkipSeedPhase}.");
 
         EnsureNetworkModeFromSession();
         try { lobby.Close(); } catch { /* ignore */ }
         ApplySelectedGameMode();
-        NotifyNetworkSeedChanged();
+
+        if (args.SkipSeedPhase)
+        {
+            // Host alone runs Quick-Game AutoCompleteSeed; Guest UI follows Broadcast sync.
+            if (_netSession.IsHost)
+            {
+                AutoCompleteSeed();
+                CenterOnSpaceline();
+                StatusText.Text =
+                    $"Network: Skip seed phase — auto-seeded ({deck1.Name} vs {deck2.Name}), Turn 1 Play.";
+                _session.Log.Add(_session.TurnNumber, "System",
+                    "Network: Skip seed phase accepted — Host AutoCompleteSeed.");
+                // AutoCompleteSeed → FinishSeedPhaseAndDrawOpeningHand already NotifyNetworkSeedChanged
+            }
+            else
+            {
+                StatusText.Text = "Network: Skip seed phase — waiting for Host auto-seed sync…";
+                _session.Log.AddDebug(_session.TurnNumber, "Net",
+                    "Skip seed phase: Guest waiting for Host GameSave broadcast.");
+            }
+        }
+        else
+        {
+            NotifyNetworkSeedChanged();
+        }
     }
 
 

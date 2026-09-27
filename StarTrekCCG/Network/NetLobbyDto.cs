@@ -69,6 +69,28 @@ public static class NetLobbyDto
 
         [JsonPropertyName("deckP2Json")]
         public string DeckP2Json { get; set; } = string.Empty;
+
+        /// <summary>True when both players accepted Skip seed phase; Host runs AutoCompleteSeed.</summary>
+        [JsonPropertyName("skipSeedPhase")]
+        public bool SkipSeedPhase { get; set; }
+    }
+
+    /// <summary>Lobby vote: propose / accept / decline Skip seed phase (before StartGame).</summary>
+    public sealed class SkipSeedVote
+    {
+        public static class Actions
+        {
+            public const string Propose = "propose";
+            public const string Accept = "accept";
+            public const string Decline = "decline";
+        }
+
+        [JsonPropertyName("player")]
+        public int Player { get; set; }
+
+        /// <summary>propose | accept | decline</summary>
+        [JsonPropertyName("action")]
+        public string Action { get; set; } = Actions.Propose;
     }
 
     public static string ToJson<T>(T value) => JsonSerializer.Serialize(value, JsonOptions);
@@ -91,4 +113,6 @@ public sealed class LobbyGameStartArgs : EventArgs
     public string DeckP2Name { get; init; } = string.Empty;
     public string DeckP1Json { get; init; } = string.Empty;
     public string DeckP2Json { get; init; } = string.Empty;
+    /// <summary>Both accepted Skip seed phase — Host AutoCompleteSeed then Play.</summary>
+    public bool SkipSeedPhase { get; init; }
 }

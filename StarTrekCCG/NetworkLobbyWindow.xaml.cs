@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using Microsoft.Win32;
 using StarTrekCCG.Network;
 
@@ -35,6 +36,14 @@ public partial class NetworkLobbyWindow : Window
     private string? _peerDeckName;
     private string? _peerDeckJson;
     private bool _peerReady;
+
+    // Skip seed phase consensus (after both Ready, before StartGame)
+    private bool _skipSeedConsensusActive;
+    private bool? _skipSeedLocalAccept; // null = not voted, true = propose/accept, false = decline
+    private bool? _skipSeedPeerAccept;
+    private int _skipSeedProposedBy; // 0 = none, 1/2 = player
+    private DispatcherTimer? _skipSeedTimeout;
+    private const int SkipSeedTimeoutSeconds = 45;
 
     private sealed class DeckListItem
     {
@@ -273,9 +282,9 @@ public partial class NetworkLobbyWindow : Window
                     _peerDeckJson = ready.DeckJson;
                 UpdateLobbyUi();
 
-                // Host authoritative: start only when both ready
-                if (IsHost && _localReady && _peerReady)
-                    _ = TryHostSendStartGameAsync();
+                // Both ready → Skip seed phase consensus (Host starts only after accept/decline/timeout)
+                if (_localReady && _peerReady)
+                    BeginSkipSeedConsensus();
             }
             catch (Exception ex)
             {
@@ -299,6 +308,21 @@ public partial class NetworkLobbyWindow : Window
             return;
         }
 
+        if (string.Equals(msg.Type, NetMessage.Types.LobbySkipSeed, StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(msg.PayloadJson)) return;
+            try
+            {
+                var vote = NetLobbyDto.FromJson<NetLobbyDto.SkipSeedVote>(msg.PayloadJson);
+                ApplyPeerSkipSeedVote(vote);
+            }
+            catch (Exception ex)
+            {
+                SetStatus("Bad LobbySkipSeed: " + ex.Message);
+            }
+            return;
+        }
+
         if (string.Equals(msg.Type, NetMessage.Types.StartGame, StringComparison.OrdinalIgnoreCase))
         {
             if (string.IsNullOrWhiteSpace(msg.PayloadJson)) return;
@@ -315,7 +339,7 @@ public partial class NetworkLobbyWindow : Window
         }
     }
 
-    private async Task TryHostSendStartGameAsync()
+    private async Task TryHostSendStartGameAsync(bool skipSeedPhase)
     {
         if (!IsHost || !_localReady || !_peerReady) return;
         if (string.IsNullOrWhiteSpace(_localDeckJson) || string.IsNullOrWhiteSpace(_peerDeckJson))
@@ -324,12 +348,17 @@ public partial class NetworkLobbyWindow : Window
             return;
         }
 
+        StopSkipSeedTimeout();
+        _skipSeedConsensusActive = false;
+
+        // Host is always P1: local deck is P1, peer is P2
         var start = new NetLobbyDto.StartGame
         {
             DeckP1Name = _localDeckName ?? "P1",
             DeckP2Name = _peerDeckName ?? "P2",
             DeckP1Json = _localDeckJson!,
-            DeckP2Json = _peerDeckJson!
+            DeckP2Json = _peerDeckJson!,
+            SkipSeedPhase = skipSeedPhase
         };
 
         try
@@ -355,7 +384,8 @@ public partial class NetworkLobbyWindow : Window
             DeckP1Name = start.DeckP1Name,
             DeckP2Name = start.DeckP2Name,
             DeckP1Json = start.DeckP1Json,
-            DeckP2Json = start.DeckP2Json
+            DeckP2Json = start.DeckP2Json,
+            SkipSeedPhase = start.SkipSeedPhase
         });
     }
 
@@ -465,8 +495,8 @@ public partial class NetworkLobbyWindow : Window
             await SendLobbyAsync(NetMessage.Create(NetMessage.Types.LobbyReady, NetLobbyDto.ToJson(ready)))
                 .ConfigureAwait(true);
 
-            if (IsHost && _peerReady)
-                await TryHostSendStartGameAsync().ConfigureAwait(true);
+            if (_peerReady)
+                BeginSkipSeedConsensus();
         }
         catch (Exception ex)
         {
@@ -553,6 +583,221 @@ public partial class NetworkLobbyWindow : Window
         return true;
     }
 
+
+    private void BeginSkipSeedConsensus()
+    {
+        if (_gameStarting) return;
+        if (!_localReady || !_peerReady) return;
+        if (_skipSeedConsensusActive) return;
+
+        _skipSeedConsensusActive = true;
+        _skipSeedLocalAccept = null;
+        _skipSeedPeerAccept = null;
+        _skipSeedProposedBy = 0;
+        UpdateSkipSeedUi();
+        StartSkipSeedTimeout();
+        SetStatus("Skip seed phase? Propose skip or choose Manual seed.");
+    }
+
+    private void UpdateSkipSeedUi()
+    {
+        void Apply()
+        {
+            if (SkipSeedPanel == null) return;
+            SkipSeedPanel.Visibility = _skipSeedConsensusActive && !_gameStarting
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+
+            bool proposed = _skipSeedProposedBy != 0;
+            bool iProposed = _skipSeedProposedBy == LocalPlayerNumber;
+            bool localVoted = _skipSeedLocalAccept.HasValue;
+
+            if (BtnSkipSeedPropose != null)
+            {
+                BtnSkipSeedPropose.Visibility = proposed ? Visibility.Collapsed : Visibility.Visible;
+                BtnSkipSeedPropose.IsEnabled = !localVoted;
+            }
+            if (BtnSkipSeedAccept != null)
+            {
+                BtnSkipSeedAccept.Visibility = proposed && !iProposed ? Visibility.Visible : Visibility.Collapsed;
+                BtnSkipSeedAccept.IsEnabled = proposed && !localVoted && _skipSeedLocalAccept != true;
+            }
+            if (BtnSkipSeedDecline != null)
+                BtnSkipSeedDecline.IsEnabled = !localVoted || _skipSeedLocalAccept != false;
+
+            string status;
+            if (!_skipSeedConsensusActive)
+                status = "";
+            else if (_skipSeedLocalAccept == false || _skipSeedPeerAccept == false)
+                status = "Manual seed — starting…";
+            else if (_skipSeedLocalAccept == true && _skipSeedPeerAccept == true)
+                status = "Both accepted — skipping seed phase…";
+            else if (proposed)
+            {
+                string who = _skipSeedProposedBy == LocalPlayerNumber ? "You" : $"P{_skipSeedProposedBy}";
+                string peer = _skipSeedPeerAccept == true ? "accepted" : "waiting";
+                string self = _skipSeedLocalAccept == true ? "accepted" : "decide";
+                status = $"{who} proposed Skip seed phase. You: {self}. Peer: {peer}.";
+            }
+            else
+                status = "Both ready — propose Skip seed phase or Manual seed.";
+
+            if (SkipSeedStatusText != null)
+                SkipSeedStatusText.Text = status;
+        }
+
+        if (Dispatcher.CheckAccess()) Apply();
+        else Dispatcher.Invoke(Apply);
+    }
+
+    private async void BtnSkipSeedPropose_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_skipSeedConsensusActive || _gameStarting) return;
+        if (_skipSeedProposedBy != 0) return;
+        _skipSeedProposedBy = LocalPlayerNumber;
+        _skipSeedLocalAccept = true;
+        UpdateSkipSeedUi();
+        SetStatus("You proposed Skip seed phase — waiting for opponent…");
+        try
+        {
+            var vote = new NetLobbyDto.SkipSeedVote
+            {
+                Player = LocalPlayerNumber,
+                Action = NetLobbyDto.SkipSeedVote.Actions.Propose
+            };
+            await SendLobbyAsync(NetMessage.Create(NetMessage.Types.LobbySkipSeed, NetLobbyDto.ToJson(vote)))
+                .ConfigureAwait(true);
+            TryResolveSkipSeedConsensus();
+        }
+        catch (Exception ex)
+        {
+            SetStatus("Skip seed propose failed: " + ex.Message);
+        }
+    }
+
+    private async void BtnSkipSeedAccept_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_skipSeedConsensusActive || _gameStarting) return;
+        if (_skipSeedProposedBy == 0) return;
+        _skipSeedLocalAccept = true;
+        UpdateSkipSeedUi();
+        try
+        {
+            var vote = new NetLobbyDto.SkipSeedVote
+            {
+                Player = LocalPlayerNumber,
+                Action = NetLobbyDto.SkipSeedVote.Actions.Accept
+            };
+            await SendLobbyAsync(NetMessage.Create(NetMessage.Types.LobbySkipSeed, NetLobbyDto.ToJson(vote)))
+                .ConfigureAwait(true);
+            TryResolveSkipSeedConsensus();
+        }
+        catch (Exception ex)
+        {
+            SetStatus("Skip seed accept failed: " + ex.Message);
+        }
+    }
+
+    private async void BtnSkipSeedDecline_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_skipSeedConsensusActive || _gameStarting) return;
+        _skipSeedLocalAccept = false;
+        UpdateSkipSeedUi();
+        SetStatus("Manual seed selected.");
+        try
+        {
+            var vote = new NetLobbyDto.SkipSeedVote
+            {
+                Player = LocalPlayerNumber,
+                Action = NetLobbyDto.SkipSeedVote.Actions.Decline
+            };
+            await SendLobbyAsync(NetMessage.Create(NetMessage.Types.LobbySkipSeed, NetLobbyDto.ToJson(vote)))
+                .ConfigureAwait(true);
+            TryResolveSkipSeedConsensus();
+        }
+        catch (Exception ex)
+        {
+            SetStatus("Skip seed decline failed: " + ex.Message);
+        }
+    }
+
+    private void ApplyPeerSkipSeedVote(NetLobbyDto.SkipSeedVote vote)
+    {
+        if (_gameStarting) return;
+        if (!_skipSeedConsensusActive)
+            BeginSkipSeedConsensus();
+
+        string action = vote.Action ?? "";
+        if (string.Equals(action, NetLobbyDto.SkipSeedVote.Actions.Propose, StringComparison.OrdinalIgnoreCase))
+        {
+            if (_skipSeedProposedBy == 0)
+                _skipSeedProposedBy = vote.Player;
+            _skipSeedPeerAccept = true;
+        }
+        else if (string.Equals(action, NetLobbyDto.SkipSeedVote.Actions.Accept, StringComparison.OrdinalIgnoreCase))
+        {
+            _skipSeedPeerAccept = true;
+            if (_skipSeedProposedBy == 0)
+                _skipSeedProposedBy = vote.Player;
+        }
+        else if (string.Equals(action, NetLobbyDto.SkipSeedVote.Actions.Decline, StringComparison.OrdinalIgnoreCase))
+        {
+            _skipSeedPeerAccept = false;
+        }
+
+        UpdateSkipSeedUi();
+        TryResolveSkipSeedConsensus();
+    }
+
+    private void TryResolveSkipSeedConsensus()
+    {
+        if (!_skipSeedConsensusActive || _gameStarting) return;
+        if (!IsHost) return; // Host alone decides and broadcasts StartGame
+
+        // Decline / any false → manual seed
+        if (_skipSeedLocalAccept == false || _skipSeedPeerAccept == false)
+        {
+            SetStatus("Skip declined — starting with manual seed…");
+            _ = TryHostSendStartGameAsync(skipSeedPhase: false);
+            return;
+        }
+
+        // Both accepted (propose counts as accept for proposer)
+        if (_skipSeedLocalAccept == true && _skipSeedPeerAccept == true && _skipSeedProposedBy != 0)
+        {
+            SetStatus("Both accepted — Skip seed phase…");
+            _ = TryHostSendStartGameAsync(skipSeedPhase: true);
+        }
+    }
+
+    private void StartSkipSeedTimeout()
+    {
+        StopSkipSeedTimeout();
+        _skipSeedTimeout = new DispatcherTimer { Interval = TimeSpan.FromSeconds(SkipSeedTimeoutSeconds) };
+        _skipSeedTimeout.Tick += (_, _) =>
+        {
+            StopSkipSeedTimeout();
+            if (_gameStarting || !_skipSeedConsensusActive) return;
+            SetStatus("Skip seed timeout — starting with manual seed.");
+            // Prefer decline (manual) over unclear skip
+            if (_skipSeedLocalAccept == null)
+                _skipSeedLocalAccept = false;
+            if (_skipSeedPeerAccept == null)
+                _skipSeedPeerAccept = false;
+            UpdateSkipSeedUi();
+            if (IsHost)
+                _ = TryHostSendStartGameAsync(skipSeedPhase: false);
+        };
+        _skipSeedTimeout.Start();
+    }
+
+    private void StopSkipSeedTimeout()
+    {
+        if (_skipSeedTimeout == null) return;
+        try { _skipSeedTimeout.Stop(); } catch { /* ignore */ }
+        _skipSeedTimeout = null;
+    }
+
     /// <summary>
     /// Hand ownership of the live NetServer/NetClient to NetPlaySession.
     /// Cancels lobby receive loop first so only one reader remains on the stream.
@@ -595,6 +840,11 @@ public partial class NetworkLobbyWindow : Window
         _peerReady = false;
         _peerDeckName = null;
         _peerDeckJson = null;
+        StopSkipSeedTimeout();
+        _skipSeedConsensusActive = false;
+        _skipSeedLocalAccept = null;
+        _skipSeedPeerAccept = null;
+        _skipSeedProposedBy = 0;
 
         if (statusMessage != null)
             SetStatus(statusMessage);
@@ -611,6 +861,8 @@ public partial class NetworkLobbyWindow : Window
         {
             LobbyPanel.Visibility = Visibility.Collapsed;
             BtnStartGame.IsEnabled = false;
+            if (SkipSeedPanel != null)
+                SkipSeedPanel.Visibility = Visibility.Collapsed;
         }
         if (Dispatcher.CheckAccess()) Apply();
         else Dispatcher.Invoke(Apply);

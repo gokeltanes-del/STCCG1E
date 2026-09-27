@@ -87,6 +87,33 @@
                                    Foreground="#CCC" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,4"/>
                         <TextBlock x:Name="LobbyReadyText" Text="You: not ready"
                                    Foreground="#AAA" FontSize="11" TextWrapping="Wrap"/>
+
+                        <!-- Skip seed phase consensus (after both Ready, before StartGame) -->
+                        <Border x:Name="SkipSeedPanel" Background="#1E2A1E" CornerRadius="4" Padding="10,8"
+                                BorderBrush="#2E7D32" BorderThickness="1" Margin="0,10,0,0"
+                                Visibility="Collapsed">
+                            <StackPanel>
+                                <TextBlock Text="Skip seed phase"
+                                           Foreground="#EEE" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                <TextBlock x:Name="SkipSeedStatusText"
+                                           Text="Both ready — propose skip or play manual seed."
+                                           Foreground="#AAA" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <Button x:Name="BtnSkipSeedPropose" Content="Skip seed phase"
+                                            Height="30" MinWidth="120" Margin="0,0,8,0" Cursor="Hand"
+                                            Background="#2E7D32" Foreground="White" BorderThickness="0"
+                                            Click="BtnSkipSeedPropose_Click"/>
+                                    <Button x:Name="BtnSkipSeedAccept" Content="Accept"
+                                            Height="30" MinWidth="72" Margin="0,0,8,0" Cursor="Hand"
+                                            Background="#0E639C" Foreground="White" BorderThickness="0"
+                                            Visibility="Collapsed" Click="BtnSkipSeedAccept_Click"/>
+                                    <Button x:Name="BtnSkipSeedDecline" Content="Manual seed"
+                                            Height="30" MinWidth="96" Cursor="Hand"
+                                            Background="#5A2A2A" Foreground="White" BorderThickness="0"
+                                            Click="BtnSkipSeedDecline_Click"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </Border>
 
