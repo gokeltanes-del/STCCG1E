@@ -8619,13 +8619,25 @@ public partial class TableWindow : Window
         }
 
         var lobby = new NetworkLobbyWindow { Owner = this };
+        // Stay in lobby after connect — NetPlaySession starts only on GameStarting (both ready).
         lobby.ConnectionChanged += (_, connected) =>
         {
             _networkLobbyConnected = connected;
-            if (connected)
-                TryStartNetSessionFromLobby(lobby);
             if (ModeNetwork?.IsChecked == true)
                 ApplySelectedGameMode();
+        };
+        lobby.GameStarting += (_, args) =>
+        {
+            try
+            {
+                OnLobbyGameStarting(lobby, args);
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = "Network start failed: " + ex.Message;
+                MessageBox.Show(this, "Network start failed:\n" + ex.Message, "Network Lobby",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         };
         lobby.Closed += (_, _) =>
         {
@@ -8675,6 +8687,39 @@ public partial class TableWindow : Window
         StatusText.Text = _netSession.IsHost
             ? "Network: Host session live — EngineAuthority authoritative."
             : "Network: Guest session live — actions sent to Host.";
+        if (ModeNetwork?.IsChecked == true)
+            ApplySelectedGameMode();
+    }
+
+    /// <summary>
+    /// Lobby GameStarting: both ready → DetachTransport → NetPlaySession → place decks from JSON.
+    /// netztauglich: decks arrive as JSON over StartGame, not local paths.
+    /// </summary>
+    private void OnLobbyGameStarting(NetworkLobbyWindow lobby, LobbyGameStartArgs args)
+    {
+        TryStartNetSessionFromLobby(lobby);
+        if (_netSession == null)
+            throw new InvalidOperationException("NetPlaySession did not start after lobby GameStarting.");
+
+        var deck1 = LoadAndLinkDeckFromJson(args.DeckP1Json);
+        var deck2 = LoadAndLinkDeckFromJson(args.DeckP2Json);
+        if (!string.IsNullOrWhiteSpace(args.DeckP1Name))
+            deck1.Name = args.DeckP1Name;
+        if (!string.IsNullOrWhiteSpace(args.DeckP2Name))
+            deck2.Name = args.DeckP2Name;
+
+        _loadedDeck = deck1;
+        PlaceDeckOnTable(deck1);
+        _loadedDeckOpp = deck2;
+        PlaceOpponentDeck(deck2);
+
+        StatusText.Text = _netSession.IsHost
+            ? $"Network: Host P1 — decks on table ({deck1.Name} vs {deck2.Name})."
+            : $"Network: Guest P2 — decks on table ({deck1.Name} vs {deck2.Name}).";
+        _session.Log.AddDebug(_session.TurnNumber, "Net",
+            $"Lobby start: P1={deck1.Name}, P2={deck2.Name}, role={(_netSession.IsHost ? "Host" : "Guest")}.");
+
+        try { lobby.Close(); } catch { /* ignore */ }
         if (ModeNetwork?.IsChecked == true)
             ApplySelectedGameMode();
     }
@@ -9344,6 +9389,20 @@ public partial class TableWindow : Window
     private Deck LoadAndLinkDeck(string path)
     {
         var deck = _deckService.Load(path);
+        LinkDeckEntries(deck);
+        return deck;
+    }
+
+    /// <summary>Load deck from .stdeck JSON text (network lobby StartGame payload).</summary>
+    private Deck LoadAndLinkDeckFromJson(string json)
+    {
+        var deck = _deckService.LoadFromJson(json);
+        LinkDeckEntries(deck);
+        return deck;
+    }
+
+    private void LinkDeckEntries(Deck deck)
+    {
         void Link(List<DeckEntry> list)
         {
             foreach (var entry in list)
@@ -9361,7 +9420,6 @@ public partial class TableWindow : Window
         Link(deck.SitePileCards);
         Link(deck.TribbleCards);
         Link(deck.SideCards);
-        return deck;
     }
 
     /// <summary>

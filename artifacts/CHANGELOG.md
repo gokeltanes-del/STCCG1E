@@ -1,3 +1,10 @@
+## 2026-09-27 — Network Lobby-Flow (Deck pick + Ready handshake + StartGame)
+
+- *netztauglich*: Lobby-Entscheidungen (Deck/Ready/Start) über JSON `NetMessage` auf demselben Framing; Host autoritativ für Start; Tisch-Übergang nutzt bestehendes `DetachTransport` → `NetPlaySession`; keine UI-only Regel für Spielstart.
+- *NetMessage.Types*: `LobbyDeck`, `LobbyReady`, `LobbyStatus`, `StartGame` + `Network/NetLobbyDto.cs` Payloads.
+- *NetworkLobbyWindow*: nach Handshake Lobby-Raum (Deck-Combo + Browse, Start game, Peer-Status); eigener Receive-Loop; Start erst wenn beide Ready; Event `GameStarting`.
+- *TableWindow*: `ConnectionChanged` startet **nicht** mehr sofort die Session; erst `GameStarting` → Detach + NetPlaySession + Decks aus JSON (`LoadAndLinkDeckFromJson` / `DeckService.LoadFromJson`) platzieren.
+- *Scope*: kein Choice/Timing (P4), keine Disconnect-Härtung (P5), keine PlayCard-UI-Nachzieher.
 ## 2026-09-27 — Network Phase 3 GameAction-Sync (Host authority + masked State)
 
 - *NetActionDto / NetStateMask / NetPlaySession*: JSON-DTO for GameAction (names only), fog-of-war mask for Guest (opp hand + private decks FaceDown/name cleared), session owns NetServer XOR NetClient after lobby with receive-loop + Dispatcher callbacks.

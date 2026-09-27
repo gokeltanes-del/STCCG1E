@@ -1,63 +1,100 @@
-﻿<Window x:Class="StarTrekCCG.NetworkLobbyWindow"
+<Window x:Class="StarTrekCCG.NetworkLobbyWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Network Lobby"
-        Height="340" Width="420"
+        Height="520" Width="440"
         WindowStartupLocation="CenterOwner"
         Background="#252528"
         ResizeMode="NoResize"
         Closing="Window_Closing">
-    <!-- Verb: network lobby host join -->
+    <!-- Verb: network lobby host join deck ready -->
     <Border Padding="24,20" Background="#252528">
-        <StackPanel>
-            <TextBlock Text="Network Lobby"
-                       Foreground="#EEE" FontSize="18" FontWeight="SemiBold"
-                       Margin="0,0,0,4"/>
-            <TextBlock Text="Host / Join / Localhost — connection only (no game sync)"
-                       Foreground="#888" FontSize="11" Margin="0,0,0,16"/>
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <TextBlock Text="Network Lobby"
+                           Foreground="#EEE" FontSize="18" FontWeight="SemiBold"
+                           Margin="0,0,0,4"/>
+                <TextBlock Text="Connect, pick decks, both Ready — Host starts when both ready"
+                           Foreground="#888" FontSize="11" Margin="0,0,0,16"/>
 
-            <Grid Margin="0,0,0,12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="110"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
+                <!-- Connect panel -->
+                <StackPanel x:Name="ConnectPanel">
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="110"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
 
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="Port"
-                           Foreground="#AAA" VerticalAlignment="Center" Margin="0,0,0,8"/>
-                <TextBox x:Name="PortBox" Grid.Row="0" Grid.Column="1"
-                         Text="7777" Height="28" Padding="6,3" Margin="0,0,0,8"
-                         Background="#1E1E22" Foreground="#EEE" BorderBrush="#3A3A48"/>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Port"
+                                   Foreground="#AAA" VerticalAlignment="Center" Margin="0,0,0,8"/>
+                        <TextBox x:Name="PortBox" Grid.Row="0" Grid.Column="1"
+                                 Text="7777" Height="28" Padding="6,3" Margin="0,0,0,8"
+                                 Background="#1E1E22" Foreground="#EEE" BorderBrush="#3A3A48"/>
 
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="Host address"
-                           Foreground="#AAA" VerticalAlignment="Center"/>
-                <TextBox x:Name="HostBox" Grid.Row="1" Grid.Column="1"
-                         Text="127.0.0.1" Height="28" Padding="6,3"
-                         Background="#1E1E22" Foreground="#EEE" BorderBrush="#3A3A48"/>
-            </Grid>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Host address"
+                                   Foreground="#AAA" VerticalAlignment="Center"/>
+                        <TextBox x:Name="HostBox" Grid.Row="1" Grid.Column="1"
+                                 Text="127.0.0.1" Height="28" Padding="6,3"
+                                 Background="#1E1E22" Foreground="#EEE" BorderBrush="#3A3A48"/>
+                    </Grid>
 
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="0,0,0,12">
-                <Button x:Name="BtnHost" Content="Host" Click="BtnHost_Click"
-                        Height="34" MinWidth="88" Margin="0,0,8,0" Cursor="Hand"
-                        Background="#0E639C" Foreground="White" BorderThickness="0"/>
-                <Button x:Name="BtnJoin" Content="Join" Click="BtnJoin_Click"
-                        Height="34" MinWidth="88" Margin="0,0,8,0" Cursor="Hand"
-                        Background="#0E639C" Foreground="White" BorderThickness="0"/>
-                <Button x:Name="BtnLocalhost" Content="Localhost" Click="BtnLocalhost_Click"
-                        Height="34" MinWidth="88" Margin="0,0,8,0" Cursor="Hand"
-                        Background="#3A3A48" Foreground="White" BorderThickness="0"/>
-                <Button x:Name="BtnDisconnect" Content="Disconnect" Click="BtnDisconnect_Click"
-                        Height="34" MinWidth="96" Cursor="Hand" IsEnabled="False"
-                        Background="#5A2A2A" Foreground="White" BorderThickness="0"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="0,0,0,12">
+                        <Button x:Name="BtnHost" Content="Host" Click="BtnHost_Click"
+                                Height="34" MinWidth="88" Margin="0,0,8,0" Cursor="Hand"
+                                Background="#0E639C" Foreground="White" BorderThickness="0"/>
+                        <Button x:Name="BtnJoin" Content="Join" Click="BtnJoin_Click"
+                                Height="34" MinWidth="88" Margin="0,0,8,0" Cursor="Hand"
+                                Background="#0E639C" Foreground="White" BorderThickness="0"/>
+                        <Button x:Name="BtnLocalhost" Content="Localhost" Click="BtnLocalhost_Click"
+                                Height="34" MinWidth="88" Margin="0,0,8,0" Cursor="Hand"
+                                Background="#3A3A48" Foreground="White" BorderThickness="0"/>
+                        <Button x:Name="BtnDisconnect" Content="Disconnect" Click="BtnDisconnect_Click"
+                                Height="34" MinWidth="96" Cursor="Hand" IsEnabled="False"
+                                Background="#5A2A2A" Foreground="White" BorderThickness="0"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Lobby room (after handshake) -->
+                <Border x:Name="LobbyPanel" Background="#1A1A1E" CornerRadius="4" Padding="12,10"
+                        BorderBrush="#3A3A48" BorderThickness="1" Margin="0,0,0,12"
+                        Visibility="Collapsed">
+                    <StackPanel>
+                        <TextBlock Text="Lobby room" Foreground="#EEE" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,8"/>
+
+                        <TextBlock Text="Your deck" Foreground="#AAA" FontSize="11" Margin="0,0,0,4"/>
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox x:Name="DeckCombo" Height="28" Margin="0,0,8,0"
+                                      Background="#1E1E22" Foreground="#EEE" BorderBrush="#3A3A48"
+                                      SelectionChanged="DeckCombo_SelectionChanged"/>
+                            <Button x:Name="BtnBrowseDeck" Grid.Column="1" Content="Browse…"
+                                    Height="28" MinWidth="72" Cursor="Hand" Click="BtnBrowseDeck_Click"
+                                    Background="#3A3A48" Foreground="White" BorderThickness="0"/>
+                        </Grid>
+
+                        <Button x:Name="BtnStartGame" Content="Start game" Click="BtnStartGame_Click"
+                                Height="34" HorizontalAlignment="Stretch" Margin="0,0,0,10" Cursor="Hand"
+                                Background="#0E639C" Foreground="White" BorderThickness="0" IsEnabled="False"/>
+
+                        <TextBlock x:Name="LobbyPeerText" Text="Waiting for opponent…"
+                                   Foreground="#CCC" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,4"/>
+                        <TextBlock x:Name="LobbyReadyText" Text="You: not ready"
+                                   Foreground="#AAA" FontSize="11" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Background="#1E1E22" CornerRadius="4" Padding="10,8" BorderBrush="#3A3A48" BorderThickness="1">
+                    <TextBlock x:Name="StatusText" Text="Disconnected"
+                               Foreground="#CCC" FontSize="12" TextWrapping="Wrap"/>
+                </Border>
             </StackPanel>
-
-            <Border Background="#1E1E22" CornerRadius="4" Padding="10,8" BorderBrush="#3A3A48" BorderThickness="1">
-                <TextBlock x:Name="StatusText" Text="Disconnected"
-                           Foreground="#CCC" FontSize="12" TextWrapping="Wrap"/>
-            </Border>
-        </StackPanel>
+        </ScrollViewer>
     </Border>
 </Window>

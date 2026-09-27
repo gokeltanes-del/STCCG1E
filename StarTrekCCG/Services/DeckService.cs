@@ -1,4 +1,4 @@
-﻿using StarTrekCCG.Models;
+using StarTrekCCG.Models;
 using System.IO;
 using System.Text.Json;
 
@@ -78,6 +78,29 @@ public class DeckService
         }
 
         // v1 → v2: flat side stays in SideCards (SideLegacy), user can move manually
+        EnsureLists(deck);
+        return deck;
+    }
+    /// <summary>
+    /// Load a deck from .stdeck JSON text (network lobby: deck content over the wire).
+    /// Same validation as <see cref="Load"/>.
+    /// </summary>
+    public Deck LoadFromJson(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            throw new InvalidDataException("Deck JSON is empty.");
+
+        var deck = JsonSerializer.Deserialize<Deck>(json, JsonOptions)
+                   ?? throw new InvalidDataException("The deck JSON could not be read.");
+
+        if (!string.Equals(deck.Format, FormatV1, StringComparison.Ordinal) &&
+            !string.Equals(deck.Format, FormatV2, StringComparison.Ordinal))
+        {
+            throw new InvalidDataException(
+                "This is not a valid Star Trek CCG deck file.\n\n" +
+                $"Expected format: {FormatV1} or {FormatV2}");
+        }
+
         EnsureLists(deck);
         return deck;
     }

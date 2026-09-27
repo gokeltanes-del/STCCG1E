@@ -19,6 +19,11 @@ public sealed class NetMessage
         public const string Action = "action";
         public const string State = "state";
         public const string Error = "error";
+        // Lobby room (pre-session): deck pick / ready / start
+        public const string LobbyDeck = "lobbyDeck";
+        public const string LobbyReady = "lobbyReady";
+        public const string LobbyStatus = "lobbyStatus";
+        public const string StartGame = "startGame";
     }
 
     [JsonPropertyName("type")]
