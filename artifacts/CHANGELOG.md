@@ -1,3 +1,10 @@
+## 2026-09-27 - Play Fly-in Nachzieher Ziel/Perspektive/Doppel (Pepsch-Video)
+
+- *Bugfix (Pepsch, Video nach Tip 034aec2)*: (1) Zielkoordinaten falsch — Ship/Event fliegen in leeren Spaceline-Raum/Ecke statt Outpost bzw. Core/TABLE; (2) P2-Play startet bei P1 von unterer Hand statt Gegner-Hand oben; (3) echte Karte am Ziel schon während Fly (Doppel); (4) Snap/Jump am Outpost (End≠Slot); (5) Mitte blanker schwarzer Rücken statt Face (Beverly P2); (6) Tempo ~4s zu langsam.
+- *Root cause*: Host `TargetNorm` ist Host-viewer-relativ und wurde auf Guest bevorzugt → falsche Y; `FindBorderForCard` sucht nur `TableCanvas` (TABLE-Events unsichtbar); Ghost nur Opacity-Ref ohne InstanceId → Rebuild zeigt Slot wieder; `endScale=1` statt Slot-Bounds; Face nur `card.FullImagePath` (oft leer nach Net-Stub); Timing 1.7+1.2+1.3s.
+- *Fix*: Landing **lokale** Slot-Bounds zuerst (`FindPlayFlyInSlotBorder` = Canvas + TABLE-Minis); Host-TargetNorm nur Fallback; `card.Controller` für Hand-Start viewer-relativ (kein Own-Strip-Fallback); Ghost `_playFlyInHiddenInstanceId` + Rebuild/AddCardToTable; End-Transform = Slot Center+Size; Face via DB-Prototype wie Hand-Reveal; Tempo ~1.0+0.7+0.9s (~2.6–2.8s). Network-First PlayReveal / Pipeline 034aec2 behalten.
+- *Scope*: TableWindow.xaml.cs. Tip-Hash 857ab9e. Basis 034aec2 / Docs 594c023. Kein Action-History; keine Gaps/Q-Net. Docs separat. Kein Push.
+
 ## 2026-09-27 - Play Fly-in sichtbar (Nachzieher-Fix)
 
 - *Bug (Pepsch)*: Nach Tip b1d5d3e kein Overlay — Animation startete nicht sichtbar (Host lokal + Guest).

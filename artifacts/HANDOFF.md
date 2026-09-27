@@ -9,7 +9,7 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 
 ## Jetzt aktiv ├ö├ç├Â Multiplayer / Network-Modus
 
-**Status:** Play Fly-in Fix sichtbar (DragLayer+BeginAnimation) getippt. **netztauglich.** StatusText `Fly-in: P# Name` zur Smoke-Bestätigung. Basis Nachzieher b1d5d3e / Docs fc8b5ca. Dual-EXE Smoke: Play → Fly sichtbar beide. **HOLD.**
+**Status:** Play Fly-in Nachzieher Ziel/Perspektive/Doppel getippt (857ab9e). **netztauglich.** Lokale Slot-Bounds; Controller-Hand; Ghost-InstanceId; Face-DB; Tempo ~2.6s. Basis 034aec2 / Docs 594c023. Dual-EXE Smoke: Pers@Outpost / Ship@Facility / Event Core — Start richtige Hand, Mitte Face, Ziel exakt, kein Doppel, schneller. **HOLD.**
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
 
 ### Architektur
@@ -24,11 +24,14 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 4. **Phase 4 — Dialoge/Timing:** ChoiceRequest / ChoiceResponse. → Tip e102b47.
 5. **Phase 5 ├ö├ç├Â HÔö£├▒rtung:** Disconnect, Reconnect, Abbruch.
 
-**Code-Stand (Data 2026-09-27):** Fly-in Fix 034aec2; Fly-in Nachzieher b1d5d3e; Play Fly-in 57c1a3e; Board-Sync 8322b68; Probe+Occupancy Fog b2dfaf7; Guest PlayCard 5da7c3b; Skip-Seed 7c040df. Kein Push durch Bots. **HOLD.**
+**Code-Stand (Data 2026-09-27):** Fly-in Nachzieher 857ab9e; Fly-in sichtbar 034aec2; Fly-in b1d5d3e; Play Fly-in 57c1a3e; Board-Sync 8322b68; Probe+Occupancy Fog b2dfaf7; Guest PlayCard 5da7c3b; Skip-Seed 7c040df. Kein Push durch Bots. **HOLD.**
 
 ---
 
 ## Zuletzt (kurz)
+
+- Play Fly-in Nachzieher Ziel/Perspektive/Doppel (Pepsch-Video): lokale Slot-Bounds (Canvas+TABLE); Controller-Hand; Ghost-InstanceId; End=Slot Size; Face-DB; Tempo ~2.6s. Tip-Hash 857ab9e. Pipeline 034aec2 erhalten. **HOLD.**
+
 
 - Play Fly-in sichtbar (Nachzieher-Fix): DragLayer + BeginAnimation; Storyboard/Collapsed-Canvas Root Cause; Debug StatusText. Tip-Hash 034aec2. Pipeline b1d5d3e erhalten. **HOLD.**
 
