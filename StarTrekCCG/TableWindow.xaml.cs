@@ -7528,6 +7528,9 @@ public partial class TableWindow : Window
                 LayoutSharedMissionCopies(cell, x);
             x += TableCardWidth;
         }
+        // Seed-under AbsoluteLeft must follow mission columns (badges already UpdateSeedBadge above).
+        // Without this, TryAlternate/ApplyPerspective leaves seed borders at drop/old X → neighbor overlap.
+        RelayoutSeedUnderMissions();
     }
 
     /// <summary>Missions in seed order, each Gaps/Q-Net spliced after its left-hand mission.</summary>
@@ -14316,13 +14319,17 @@ public partial class TableWindow : Window
         }
         if (!list.Contains(cardBorder))
             list.Add(cardBorder);
-        // Seeded under mission = face-down until encounter; owner UI may still show face-up.
+        // Seeded under mission = face-down until encounter; owner UI may still show face-up (strip/detail).
         if (cardBorder.Tag is Card seeded)
             seeded.FaceUp = false;
-        // Pin under mission column so Host AbsoluteLeft cannot clump orphans after viewer Relayout.
-        Canvas.SetLeft(cardBorder, Canvas.GetLeft(mission));
-        Canvas.SetTop(cardBorder, Canvas.GetTop(mission) + UnderMissionGap);
-        cardBorder.Visibility = Visibility.Collapsed;
+        // Mission-column pin (same TableCardWidth → centered on slot). Not drop mouse X / old AbsoluteLeft.
+        cardBorder.Width = TableCardWidth;
+        cardBorder.Height = TableCardHeight;
+        cardBorder.RenderTransform = Transform.Identity;
+        cardBorder.RenderTransformOrigin = new Point(0.5, 0.5);
+        PinSeedUnderMissionBorder(mission, cardBorder);
+        // Scrub Visible orphans / DragLayer copies of the same Card (drop ghost overlapping neighbor).
+        ScrubSeedUnderDuplicates(cardBorder);
         UpdateSeedBadge(mission);
         if (mission.Tag is Card m2 && cardBorder.Tag is Card s2)
             StatusText.Text = string.IsNullOrWhiteSpace(s2.Name)
@@ -17555,6 +17562,8 @@ public partial class TableWindow : Window
             if (b.Tag is not Card c || !ReferenceEquals(c, card)) continue;
             // Keep cards that are aboard a host stack (Rogue Borg tokens, etc.)
             if (_stackOnHost.Values.Any(list => list.Contains(b))) continue;
+            // Keep seed-under-mission borders (Collapsed pin); do not strip SeedUnder identity.
+            if (_seedUnderMission.Values.Any(list => list.Contains(b))) continue;
             TableCanvas.Children.Remove(b);
         }
         if (DragLayer != null)
@@ -29148,7 +29157,7 @@ public partial class TableWindow : Window
 
     private void ApplyPerspective()
     {
-        RelayoutMissionsOnSpaceline();
+        RelayoutMissionsOnSpaceline(); // includes RelayoutSeedUnderMissions
         RebuildPlayerZones();
         RebuildTablePermanentsPanel(); // viewer-relative P1/P2 TABLE panels + labels
         RefreshZoneCounts();
@@ -29270,22 +29279,84 @@ public partial class TableWindow : Window
         return null;
     }
 
-    /// <summary>After RelayoutMissions / ApplyGameSave: pin collapsed seed borders to mission column + badges.</summary>
+    /// <summary>
+    /// After RelayoutMissions / ApplyGameSave / ApplyPerspective: pin collapsed seed borders
+    /// to the mission column (centered AbsoluteLeft) + badges. Host and Guest identical.
+    /// </summary>
     private void RelayoutSeedUnderMissions()
     {
         foreach (var kv in _seedUnderMission.ToList())
         {
             var mission = kv.Key;
             if (mission.Tag is not Card || !TableCanvas.Children.Contains(mission)) continue;
-            double left = Canvas.GetLeft(mission);
-            double top = Canvas.GetTop(mission) + UnderMissionGap;
-            foreach (var sb in kv.Value)
+            foreach (var sb in kv.Value.ToList())
             {
-                Canvas.SetLeft(sb, left);
-                Canvas.SetTop(sb, top);
-                sb.Visibility = Visibility.Collapsed;
+                if (!TableCanvas.Children.Contains(sb)) continue;
+                sb.Width = TableCardWidth;
+                sb.Height = TableCardHeight;
+                sb.RenderTransform = Transform.Identity;
+                sb.RenderTransformOrigin = new Point(0.5, 0.5);
+                PinSeedUnderMissionBorder(mission, sb);
+                ScrubSeedUnderDuplicates(sb);
             }
             UpdateSeedBadge(mission);
+        }
+    }
+
+    /// <summary>
+    /// Seed-under slot: same X as mission (column center when widths match); Y under/over by owner
+    /// (viewer-relative, like docks) so Host/Guest layout mirrors. Always Collapsed on canvas
+    /// (fog; strip/detail show owner faces).
+    /// </summary>
+    private void PinSeedUnderMissionBorder(Border mission, Border seedBorder)
+    {
+        int owner = GetBorderOwner(seedBorder);
+        if (owner is not (1 or 2)) owner = 1;
+        double left = Canvas.GetLeft(mission) + DockSlotOffsetX(0);
+        // Stack depth among seeds for this owner under this mission (stable order).
+        int slot = 0;
+        if (_seedUnderMission.TryGetValue(mission, out var list))
+        {
+            foreach (var b in list)
+            {
+                if (ReferenceEquals(b, seedBorder)) break;
+                int o = GetBorderOwner(b);
+                if (o == 0) o = 1;
+                if (o == owner) slot++;
+            }
+        }
+        double top = Canvas.GetTop(mission) + DockSlotOffsetY(slot, owner);
+        Canvas.SetLeft(seedBorder, left);
+        Canvas.SetTop(seedBorder, top);
+        seedBorder.Visibility = Visibility.Collapsed;
+        Panel.SetZIndex(seedBorder, 5);
+    }
+
+    /// <summary>Remove Visible DragLayer / stray TableCanvas copies of a seeded card (keep seed border).</summary>
+    private void ScrubSeedUnderDuplicates(Border keep)
+    {
+        if (keep.Tag is not Card card) return;
+        if (DragLayer != null)
+        {
+            foreach (var b in DragLayer.Children.OfType<Border>().ToList())
+            {
+                if (b.Tag is Card c && ReferenceEquals(c, card))
+                    DragLayer.Children.Remove(b);
+            }
+        }
+        foreach (var b in TableCanvas.Children.OfType<Border>().ToList())
+        {
+            if (ReferenceEquals(b, keep)) continue;
+            if (b.Tag is not Card c || !ReferenceEquals(c, card)) continue;
+            // Keep other seed-under entries (multi-copy rare); remove free Visible orphans only.
+            bool seeded = _seedUnderMission.Values.Any(list => list.Contains(b));
+            if (seeded)
+            {
+                b.Visibility = Visibility.Collapsed;
+                continue;
+            }
+            if (_stackOnHost.Values.Any(list => list.Contains(b))) continue;
+            TableCanvas.Children.Remove(b);
         }
     }
 
