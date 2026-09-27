@@ -1,3 +1,11 @@
+## 2026-09-27 - Execute-Haenger P2 Guest Segment Sync (Network)
+
+- *Bugfix (Pepsch, Guest ~18:03)*: Nach Treaty Segment -> Execute (Orders); Sent EndTurn -> Error **End Play phase first.** Soft-Lock: Guest-UI Execute, Host-Engine noch Play.
+- *Ursache*: `OnSuccessfulHandPlay` rief `_session.AdvanceSegment()` lokal auf dem Guest nach Normal-Play (Treaty). Guest sandte EndTurn; Host `EngineAuthority` Deny weil Segment noch Play. Kein Host Action->Apply->Broadcast fuer Segment.
+- *Fix*: Network Guest skippt lokales AdvanceSegment (Segment nur via Host EndPhase + ApplyGameSave); Network Host BroadcastMaskedStateToGuest nach lokalem Advance; Host remapped Guest EndTurn bei Segment==Play zu EndPhase (Desync-Recovery). Artifact-Glow unberuehrt.
+- *netztauglich*: Decide EndPhase/EndTurn weiter Host EngineAuthority; Guest UI Segment aus ApplyGameSave.
+- *Scope*: TableWindow only; Docs separat. Kein Push.
+
 ## 2026-09-27 - Artifact Seed Glow ALL [P] (Nachzieher)
 
 - *Bugfix (Pepsch, nach 23044e0)*: Unter manchen Missionen kein Artifact-Snap/Glow (Stone of Gol); Glow zeigte nicht alle legalen [P].

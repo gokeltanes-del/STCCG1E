@@ -9,7 +9,7 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 
 ## Jetzt aktiv ├ö├ç├Â Multiplayer / Network-Modus
 
-**Status:** Artifact-Seed-Glow Nachzieher getippt (alle legalen [P]). **netztauglich.** Tip-Hash 041e059. Execute unveraendert / Smoke noch offen. Naechster: Pepsch Smoke Glow+Drop+Limit-Status+Execute. **HOLD.**
+**Status:** Execute-Haenger P2 (Guest Segment desync) getippt. **netztauglich.** Tip-Hash 9abb843. Naechster: Pepsch Dual-EXE Smoke Treaty/Pass Play -> Execute -> End EXECUTE -> Active P1. **HOLD.**
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
 
 ### Architektur
@@ -24,11 +24,13 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 4. **Phase 4 — Dialoge/Timing:** ChoiceRequest / ChoiceResponse. → Tip e102b47.
 5. **Phase 5 ├ö├ç├Â HÔö£├▒rtung:** Disconnect, Reconnect, Abbruch.
 
-**Code-Stand (Data 2026-09-27):** Artifact Glow ALL [P] 041e059; prior seed+EXECUTE 23044e0; Seed-under Layout edc79d7. Kein Push durch Bots. **HOLD.**
+**Code-Stand (Data 2026-09-27):** Guest Segment EndPlay/Execute 9abb843; Artifact Glow ALL [P] 041e059; prior seed+EXECUTE 23044e0. Kein Push durch Bots. **HOLD.**
 
 ---
 
 ## Zuletzt (kurz)
+
+- Execute-Haenger P2 (Guest Segment): OnSuccessfulHandPlay kein lokales AdvanceSegment auf Guest; Host Broadcast nach Advance; EndTurn-while-Play Remap->EndPhase. Tip-Hash 9abb843. **HOLD.**
 
 - Artifact Seed Glow ALL [P] (Nachzieher): CollectSites seed-before-PlayOn; gold glow; SeedUnderMissionSnapRange; DescribeSeedUnderDeny; ParseLocationIcons harden. Tip-Hash 041e059. Execute unveraendert / Smoke offen. **HOLD.**
 
