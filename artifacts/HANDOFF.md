@@ -9,7 +9,7 @@ Archiv der aufgeblähten Vorgängerdatei: `GROK_TEMP/HANDOFF_ARCHIVE_*.md`.
 
 ## Jetzt aktiv — Multiplayer / Network-Modus
 
-**Status:** Phase 3 Sync getippt — Host EngineAuthority + maskierter State an Gast. Tip-Hash PHASE3_TIP_PENDING.
+**Status:** Phase 3 Sync getippt — Host EngineAuthority + maskierter State an Gast. Tip-Hash df904b4.
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
 
 ### Architektur
@@ -20,17 +20,17 @@ Archiv der aufgeblähten Vorgängerdatei: `GROK_TEMP/HANDOFF_ARCHIVE_*.md`.
 ### Roadmap
 1. **Phase 1 — Transport:** `NetMessage`, `NetServer`, `NetClient` unter `StarTrekCCG/Network/`.
 2. **Phase 2 — Lobby/UI:** Host / Join / Localhost. → Tip `2aa9790`.
-3. **Phase 3 — Sync:** GameAction → Host EngineAuthority → maskierter State. → Tip PHASE3_TIP_PENDING.
+3. **Phase 3 — Sync:** GameAction → Host EngineAuthority → maskierter State. → Tip df904b4.
 4. **Phase 4 — Dialoge/Timing:** `ChoiceRequest` / `ChoiceResponse`.
 5. **Phase 5 — Härtung:** Disconnect, Reconnect, Abbruch.
 
-**Code-Stand (Data 2026-09-27):** Phase 3 Sync getippt; Tip-Hash PHASE3_TIP_PENDING. Vertikaler Schnitt: EndPhase/EndTurn. Working tree dirty (fremde Änderungen unberührt). Kein Push durch Bots.
+**Code-Stand (Data 2026-09-27):** Phase 3 Sync getippt; Tip-Hash df904b4. Vertikaler Schnitt: EndPhase/EndTurn. Working tree dirty (fremde Änderungen unberührt). Kein Push durch Bots.
 
 ---
 
 ## Zuletzt (kurz)
 
-- Network Phase 3 Sync getippt: NetActionDto/NetStateMask/NetPlaySession + TableWindow EndPhase/EndTurn. Tip-Hash PHASE3_TIP_PENDING.
+- Network Phase 3 Sync getippt: NetActionDto/NetStateMask/NetPlaySession + TableWindow EndPhase/EndTurn. Tip-Hash df904b4.
 - Network Phase 2 Lobby getippt: `NetworkLobbyWindow` + ModeNetwork-Anbindung. Tip-Hash `2aa9790`.
 - Network Phase 1 Scaffold getippt: `StarTrekCCG/Network/` (NetMessage/NetServer/NetClient). Tip-Hash `027f993`.
 - EXTRACT P2–P5 und viele Premiere-Tips: `CHANGELOG.md` (`EXTRACT_REST.md` fehlt lokal unter artifacts).
