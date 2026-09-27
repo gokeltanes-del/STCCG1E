@@ -10200,50 +10200,57 @@ public partial class TableWindow : Window
         if (card.Controller is not (1 or 2))
             card.Controller = player;
 
-        try
-        {
-            UpdateLayout();
-            DragLayer?.UpdateLayout();
-            TableCanvas?.UpdateLayout();
-        }
-        catch { /* layout */ }
-
-        TryGetPlayFlyInTargetNorm(card, out double? tnx, out double? tny);
-
-        // Host-local: show fly-in first (network IO must not delay or skip local paint).
-        // One Loaded tick lets RelayoutDockables / TABLE Rebuild settle before measuring the slot.
-        int pCap = player;
-        double? tnxCap = tnx, tnyCap = tny;
-        Card cardCap = card;
-        Dispatcher.BeginInvoke(new Action(() =>
-        {
-            ShowPlayFlyIn(cardCap, pCap, tnxCap, tnyCap);
-        }), System.Windows.Threading.DispatcherPriority.Loaded);
-
+        // Push board truth first so Guest can build borders before PlayReveal (layout may still settle).
         if (_gameMode == GameMode.Network && _netSession is { IsHost: true })
+        {
+            try { NotifyNetworkBoardChanged(); }
+            catch (Exception ex)
+            {
+                _session.Log.AddDebug(_session.TurnNumber, "Net", "PlayReveal pre-state failed: " + ex.Message);
+            }
+        }
+
+        // Measure + animate at Loaded: TargetNorm / slot bounds from CURRENT board after Relayout
+        // (never a pre-capture from before facility column moved / new match).
+        int pCap = player;
+        Card cardCap = card;
+        string? titleCap = title;
+        Dispatcher.BeginInvoke(new Action(() =>
         {
             try
             {
-                // Push board truth before reveal so Guest border exists for seamless land.
-                NotifyNetworkBoardChanged();
-                var dto = new NetPlayRevealDto
-                {
-                    Player = player,
-                    CardName = card.Name,
-                    CardSet = card.SetFolder,
-                    InstanceId = card.InstanceId,
-                    CardType = card.Type,
-                    Title = title ?? $"P{player} plays {card.Name}",
-                    TargetNormX = tnx,
-                    TargetNormY = tny
-                };
-                _ = _netSession.BroadcastPlayRevealAsync(dto);
+                UpdateLayout();
+                DragLayer?.UpdateLayout();
+                TableCanvas?.UpdateLayout();
             }
-            catch (Exception ex)
+            catch { /* layout */ }
+
+            TryGetPlayFlyInTargetNorm(cardCap, out double? tnxLive, out double? tnyLive);
+            ShowPlayFlyIn(cardCap, pCap, tnxLive, tnyLive);
+
+            if (_gameMode == GameMode.Network && _netSession is { IsHost: true })
             {
-                _session.Log.AddDebug(_session.TurnNumber, "Net", "PlayReveal broadcast failed: " + ex.Message);
+                try
+                {
+                    var dto = new NetPlayRevealDto
+                    {
+                        Player = pCap,
+                        CardName = cardCap.Name,
+                        CardSet = cardCap.SetFolder,
+                        InstanceId = cardCap.InstanceId,
+                        CardType = cardCap.Type,
+                        Title = titleCap ?? $"P{pCap} plays {cardCap.Name}",
+                        TargetNormX = tnxLive,
+                        TargetNormY = tnyLive
+                    };
+                    _ = _netSession.BroadcastPlayRevealAsync(dto);
+                }
+                catch (Exception ex)
+                {
+                    _session.Log.AddDebug(_session.TurnNumber, "Net", "PlayReveal broadcast failed: " + ex.Message);
+                }
             }
-        }
+        }), System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
     private void OnNetPlayRevealReceived(NetPlayRevealDto dto)
@@ -10290,10 +10297,30 @@ public partial class TableWindow : Window
         Card? card, int player, double? targetNormX, double? targetNormY, int attemptsLeft)
     {
         try { UpdateLayout(); } catch { /* */ }
-        Border? slot = card != null ? FindPlayFlyInSlotBorder(card) : null;
+        // Prefer land seat (host facility) so we do not start on pre-Relayout AbsoluteLeft.
+        Border? slot = card != null ? FindPlayFlyInLandBorder(card) : null;
         if (slot != null || attemptsLeft <= 0)
         {
-            ShowPlayFlyIn(card, player, targetNormX, targetNormY);
+            Card? cardCap = card;
+            int pCap = player;
+            // One more Loaded tick: Guest ScheduleRelayoutAfterLoadSettle may still be queued.
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                try
+                {
+                    UpdateLayout();
+                    DragLayer?.UpdateLayout();
+                    TableCanvas?.UpdateLayout();
+                }
+                catch { /* */ }
+                double? tnx = targetNormX, tny = targetNormY;
+                if (cardCap != null && TryGetPlayFlyInTargetNorm(cardCap, out var liveX, out var liveY))
+                {
+                    tnx = liveX;
+                    tny = liveY;
+                }
+                ShowPlayFlyIn(cardCap, pCap, tnx, tny);
+            }), System.Windows.Threading.DispatcherPriority.Loaded);
             return;
         }
         var t = new System.Windows.Threading.DispatcherTimer
@@ -10530,6 +10557,28 @@ public partial class TableWindow : Window
         _playFlyInHiddenInstanceId = 0;
     }
 
+    /// <summary>
+    /// Drop any in-flight fly-in / stale TargetNorm when board is wiped or Relayout moves facilities.
+    /// Personnel stack borders keep Host AbsoluteLeft until synced — never reuse pre-Relayout norms.
+    /// </summary>
+    private void InvalidatePlayFlyInTargets()
+    {
+        _playFlyInGen++;
+        _playFlyInHideTimer?.Stop();
+        _playFlyInHideTimer = null;
+        RestorePlayFlyInBoardGhost();
+        if (PlayFlyInCard != null)
+        {
+            PlayFlyInCard.BeginAnimation(UIElement.OpacityProperty, null);
+            PlayFlyInCard.BeginAnimation(Canvas.LeftProperty, null);
+            PlayFlyInCard.BeginAnimation(Canvas.TopProperty, null);
+            PlayFlyInCard.RenderTransform = Transform.Identity;
+            PlayFlyInCard.Visibility = Visibility.Collapsed;
+        }
+        if (PlayFlyInOverlay != null)
+            PlayFlyInOverlay.Visibility = Visibility.Collapsed;
+    }
+
     private void HidePlayFlyIn()
     {
         FinishPlayFlyInLand(_playFlyInGen);
@@ -10561,7 +10610,7 @@ public partial class TableWindow : Window
     }
 
     /// <summary>
-    /// Slot border for fly land: TableCanvas face OR TABLE-column mini (Core events).
+    /// Own board/TABLE border for ghost (may be Collapsed when stacked on a facility).
     /// </summary>
     private Border? FindPlayFlyInSlotBorder(Card card)
     {
@@ -10581,6 +10630,23 @@ public partial class TableWindow : Window
             }
         }
         return null;
+    }
+
+    /// <summary>
+    /// Landing seat after layout: stacked Personnel/Equipment → current host Facility/Ship bounds
+    /// (legal snap window). Never the collapsed child's pre-Relayout AbsoluteLeft from an old match.
+    /// Ships/Events: own visible face / TABLE mini.
+    /// </summary>
+    private Border? FindPlayFlyInLandBorder(Card card)
+    {
+        var own = FindPlayFlyInSlotBorder(card);
+        if (own == null) return null;
+        foreach (var kv in _stackOnHost)
+        {
+            if (kv.Value.Any(b => ReferenceEquals(b, own)))
+                return kv.Key;
+        }
+        return own;
     }
 
     private Point ResolvePlayFlyInHandCenter(int player, double ow, double oh)
@@ -10608,7 +10674,7 @@ public partial class TableWindow : Window
     }
 
     /// <summary>
-    /// Prefer LIVE local slot (viewer coords). Host TargetNorm only if no local border yet.
+    /// Prefer LIVE land seat after Relayout (host facility for stacked Pers/Eq). Host TargetNorm only if missing.
     /// Returns slot center + size for exact end snap (no jump).
     /// </summary>
     private bool TryResolvePlayFlyInSlot(
@@ -10619,7 +10685,8 @@ public partial class TableWindow : Window
         width = TableCardWidth;
         height = TableCardHeight;
 
-        Border? b = card != null ? FindPlayFlyInSlotBorder(card) : null;
+        // LIVE land seat (host facility after Relayout for stacked Pers/Eq) — never cached Norm.
+        Border? b = card != null ? FindPlayFlyInLandBorder(card) : null;
         FrameworkElement origin = (FrameworkElement?)DragLayer ?? (FrameworkElement?)PlayFlyInOverlay ?? (FrameworkElement)this;
         if (b != null)
         {
@@ -10653,7 +10720,7 @@ public partial class TableWindow : Window
     {
         tnx = null;
         tny = null;
-        var b = FindPlayFlyInSlotBorder(card);
+        var b = FindPlayFlyInLandBorder(card);
         if (b == null) return false;
         try
         {
@@ -13005,6 +13072,7 @@ public partial class TableWindow : Window
 
     private void ClearTableCards()
     {
+        InvalidatePlayFlyInTargets();
         var toRemove = TableCanvas.Children.OfType<Border>()
             .Where(b => b.Tag is Card)
             .ToList();
@@ -15320,10 +15388,14 @@ public partial class TableWindow : Window
             _stackOnHost[host] = list;
         }
 
-        if (!list.Contains(cardBorder))
+                if (!list.Contains(cardBorder))
             list.Add(cardBorder);
 
-        // Owner festhalten (wichtig für versteckte Stapel-Karten)
+        // Pin to live host seat so fly-in / InstanceId bounds track Relayout (not drop AbsoluteLeft).
+        Canvas.SetLeft(cardBorder, Canvas.GetLeft(host));
+        Canvas.SetTop(cardBorder, Canvas.GetTop(host));
+
+// Owner festhalten (wichtig für versteckte Stapel-Karten)
         if (!_borderOwner.TryGetValue(cardBorder, out int co) || co == 0)
         {
             int hostOwner = GetBorderOwner(host);
@@ -30236,6 +30308,8 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
 
     private void RelayoutAllDockables()
     {
+        // Cancel airborne fly-in: end point was measured against pre-Relayout facility bounds.
+        InvalidatePlayFlyInTargets();
         foreach (var m in _spacelineOrder)
         {
             if (m.Tag is Card c && IsLandableLocation(c))
@@ -30338,7 +30412,25 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
         else if (scowAt != null && ReferenceEquals(scowAt.Host, mission))
             PositionScowToken(mission);
 
+        // Keep collapsed stack cards on current host AbsoluteLeft/Top (fly-in InstanceId→bounds).
+        foreach (var dock in below.Concat(above))
+            SyncPlayFlyInStackedCardBounds(dock);
+
         EnsureBoardExtents();
+    }
+
+    private void SyncPlayFlyInStackedCardBounds(Border host)
+    {
+        if (!_stackOnHost.TryGetValue(host, out var list) || list.Count == 0) return;
+        double l = Canvas.GetLeft(host);
+        double t = Canvas.GetTop(host);
+        if (double.IsNaN(l)) l = 0;
+        if (double.IsNaN(t)) t = 0;
+        foreach (var child in list)
+        {
+            Canvas.SetLeft(child, l);
+            Canvas.SetTop(child, t);
+        }
     }
 
     private bool _fittingBoard;
