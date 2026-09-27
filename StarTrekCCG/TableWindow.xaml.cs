@@ -2703,36 +2703,36 @@ public partial class TableWindow : Window
 
         if (seedCount > 0 && seedList != null)
         {
-            bool reveal = _devRevealSeed || _seedPhaseActive;
-            bool showCount = _devShowSeedCounts || _seedPhaseActive || _devRevealSeed;
+            // Owner sees own seeded dilemmas/artifacts face-up; opponent sees face-down + count.
+            // Seed phase used to reveal ALL faces (Host saw Guest's Vulcan Stone of Gol) - wrong for Network.
+            bool showCount = _devShowSeedCounts || _seedPhaseActive || _devRevealSeed || _aidOwnSeedCounts;
+            int ownN = 0, oppN = 0;
+            foreach (var sb in seedList)
+            {
+                int o = GetBorderOwner(sb);
+                if (o == 0) o = 1;
+                if (o == ViewerPlayer) ownN++;
+                else oppN++;
+            }
             panel.Children.Add(new TextBlock
             {
-                Text = reveal
-                    ? $"Seed{(showCount ? $": {seedCount}" : "")}"
-                    : (showCount ? $"Seed {seedCount}" : "Seed"),
+                Text = showCount
+                    ? $"Seed: {seedCount}" + (ownN > 0 || oppN > 0 ? $" (you {ownN} / opp {oppN})" : "")
+                    : "Seed",
                 Foreground = new SolidColorBrush(Color.FromRgb(220, 180, 100)),
                 FontSize = 11,
                 FontWeight = FontWeights.SemiBold,
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(4, 0, 6, 0)
             });
-            if (reveal)
+            foreach (var seedBorder in seedList)
             {
-                foreach (var seedBorder in seedList)
-                {
-                    if (seedBorder.Tag is not Card sc) continue;
-                    panel.Children.Add(CreateMiniCard(sc));
-                }
-            }
-            else
-            {
-                int backs = showCount ? Math.Min(seedCount, 8) : 1;
-                var backCard = seedList.Select(b => b.Tag as Card).FirstOrDefault(c => c != null);
-                if (backCard != null)
-                {
-                    for (int i = 0; i < backs; i++)
-                        panel.Children.Add(CreateMiniCard(backCard, faceDown: true));
-                }
+                if (seedBorder.Tag is not Card sc) continue;
+                int o = GetBorderOwner(seedBorder);
+                if (o == 0) o = 1;
+                bool own = o == ViewerPlayer;
+                bool faceUp = _devRevealSeed || own;
+                panel.Children.Add(CreateMiniCard(sc, faceDown: !faceUp));
             }
         }
 
@@ -9648,24 +9648,28 @@ public partial class TableWindow : Window
         {
             SeedMissionFromNetNote(card, player, action.Note);
         }
-        else if (IsSeedableUnderMission(card) && action.Target != null)
+        else if (IsSeedableUnderMission(card) && (action.Target != null || !string.IsNullOrWhiteSpace(action.Note)))
         {
-            Border? missionBorder = AllMissionBorders()
-                .FirstOrDefault(b => b.Tag is Card mc && ReferenceEquals(mc, action.Target));
-            missionBorder ??= AllMissionBorders()
-                .FirstOrDefault(b => b.Tag is Card mc
-                    && string.Equals(mc.Name, action.Target.Name, StringComparison.OrdinalIgnoreCase));
+            Border? missionBorder = ResolveSeedUnderMissionTarget(action);
             if (missionBorder != null && missionBorder.Tag is Card mCard
                 && CanSeedCardUnderMission(card, mCard).ok)
             {
-                var border = AddCardToTable(card, Canvas.GetLeft(missionBorder), SpacelineY + 40, TableCardWidth);
-                AddSeedUnderMission(missionBorder, border);
-                SetBorderOwner(border, player);
+                var border = AddCardToTable(card, Canvas.GetLeft(missionBorder),
+                    Canvas.GetTop(missionBorder) + UnderMissionGap, TableCardWidth);
+                SetBorderOwner(border, player); // before AddSeed (artifact limits / badge owner)
+                if (!AddSeedUnderMission(missionBorder, border))
+                {
+                    if (TableCanvas.Children.Contains(border))
+                        TableCanvas.Children.Remove(border);
+                    (player == 1 ? _dilemmaSeedCards : _oppDilemmaSeedCards).Add(card);
+                    StatusText.Text = $"Net Seed: {card.Name} rejected under {mCard.Name} - returned to pile.";
+                }
             }
             else
             {
-                CommitCardToTable(card, player);
-                StatusText.Text = $"Net Seed: {card.Name} - no legal mission target on Host; table fallback.";
+                // Do NOT CommitCardToTable (would show Artifact face-up in TABLE / orphan on canvas).
+                (player == 1 ? _dilemmaSeedCards : _oppDilemmaSeedCards).Add(card);
+                StatusText.Text = $"Net Seed: {card.Name} - no legal mission target on Host; returned to pile.";
             }
         }
         else if (IsDoorwayCard(card))
@@ -11145,8 +11149,10 @@ public partial class TableWindow : Window
             if (!byId.TryGetValue(st.HostId, out var mission)) continue;
             foreach (var cid in st.ChildIds)
             {
-                if (byId.TryGetValue(cid, out var child))
-                    AddSeedUnderMission(mission, child);
+                if (!byId.TryGetValue(cid, out var child)) continue;
+                // Host already validated - force so Guest Mask stubs / CanSeed drift cannot
+                // leave Visible orphans at Host AbsoluteLeft (clumping / missing Stone of Gol).
+                AddSeedUnderMission(mission, child, force: true);
             }
         }
 
@@ -11325,6 +11331,7 @@ public partial class TableWindow : Window
         // Second pass: EnsureBoardExtents may have shifted SpacelineY mid-first-pass.
         RelayoutMissionsOnSpaceline();
         RelayoutAllDockables();
+        RelayoutSeedUnderMissions();
         ScheduleRelayoutAfterLoadSettle();
         // Scow Place during dilemma restore used pre-layout mission Left/Top — align to final column.
         var scowLoad = _attachedDilemmas.FirstOrDefault(d => d.Kind == DilemmaRules.PersistKind.Scow);
@@ -14197,9 +14204,13 @@ public partial class TableWindow : Window
         return SeedRules.CheckArtifactSeedLimits(seedCard, seeder, CollectSeededUnderMission(mission)).ok;
     }
 
-    private bool AddSeedUnderMission(Border mission, Border cardBorder)
+    /// <param name="force">
+    /// ApplyGameSave / Host-authoritative restore: skip CanSeed re-check so masked stubs and
+    /// already-validated network seeds stay under the mission (no Visible orphan at Host AbsoluteLeft).
+    /// </param>
+    private bool AddSeedUnderMission(Border mission, Border cardBorder, bool force = false)
     {
-        if (mission.Tag is Card mc && cardBorder.Tag is Card sc)
+        if (!force && mission.Tag is Card mc && cardBorder.Tag is Card sc)
         {
             var (ok, reason) = CanSeedCardUnderMission(sc, mc);
             if (!ok)
@@ -14229,10 +14240,18 @@ public partial class TableWindow : Window
         }
         if (!list.Contains(cardBorder))
             list.Add(cardBorder);
+        // Seeded under mission = face-down until encounter; owner UI may still show face-up.
+        if (cardBorder.Tag is Card seeded)
+            seeded.FaceUp = false;
+        // Pin under mission column so Host AbsoluteLeft cannot clump orphans after viewer Relayout.
+        Canvas.SetLeft(cardBorder, Canvas.GetLeft(mission));
+        Canvas.SetTop(cardBorder, Canvas.GetTop(mission) + UnderMissionGap);
         cardBorder.Visibility = Visibility.Collapsed;
         UpdateSeedBadge(mission);
         if (mission.Tag is Card m2 && cardBorder.Tag is Card s2)
-            StatusText.Text = $"Seeded {s2.Name} under {m2.Name}.";
+            StatusText.Text = string.IsNullOrWhiteSpace(s2.Name)
+                ? $"Seeded face-down under {m2.Name}."
+                : $"Seeded {s2.Name} under {m2.Name}.";
         return true;
     }
 
@@ -14255,14 +14274,16 @@ public partial class TableWindow : Window
             TableCanvas.Children.Add(badge);
         }
 
-        // Dev: full count. Player aid: only own seed cards. Seed phase: full for placement feedback.
+        // Dev / Seed phase: full stack depth (identical Host+Guest after ApplyGameSave).
+        // Player aid: own seeds only (ViewerPlayer - not ActivePlayer / Hotseat strip coords).
         int ownCount = 0;
         if (list != null)
         {
             foreach (var b in list)
             {
                 int o = GetBorderOwner(b);
-                if (o == 0 || o == _activePlayer) ownCount++;
+                if (o == 0) o = 1;
+                if (o == ViewerPlayer) ownCount++;
             }
         }
         bool showAll = _devShowSeedCounts || _seedPhaseActive;
@@ -14275,6 +14296,7 @@ public partial class TableWindow : Window
         else
             badge.Text = "";
         badge.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        // Always rebase to current mission AbsoluteLeft after Relayout / ApplyGameSave.
         Canvas.SetLeft(badge, Canvas.GetLeft(mission) + 8);
         Canvas.SetTop(badge, Canvas.GetTop(mission) + TableCardHeight + 3);
         Panel.SetZIndex(badge, 18);
@@ -28807,6 +28829,7 @@ public partial class TableWindow : Window
         {
             RelayoutMissionsOnSpaceline();
             RelayoutAllDockables();
+            RelayoutSeedUnderMissions();
         }), System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
@@ -29058,6 +29081,74 @@ public partial class TableWindow : Window
         _gameMode == GameMode.Hotseat || _gameMode == GameMode.Network || _netSession != null;
 
     /// <summary>Keep EngineAuthority ActivePlayer in sync during seed (UI may switch first).</summary>
+    /// <summary>
+    /// Host: map Guest SeedCard Target/Note to spaceline mission Border.
+    /// Prefers underInst:InstanceId (viewer-layout-independent); then ReferenceEquals; then name.
+    /// </summary>
+    private Border? ResolveSeedUnderMissionTarget(GameAction action)
+    {
+        string? note = action.Note;
+        if (!string.IsNullOrWhiteSpace(note)
+            && note.StartsWith("underInst:", StringComparison.OrdinalIgnoreCase)
+            && int.TryParse(note.AsSpan("underInst:".Length), out int inst)
+            && inst > 0)
+        {
+            var byInst = AllMissionBorders()
+                .FirstOrDefault(b => b.Tag is Card mc && mc.InstanceId == inst);
+            if (byInst != null) return byInst;
+        }
+
+        if (action.Target != null)
+        {
+            var byRef = AllMissionBorders()
+                .FirstOrDefault(b => b.Tag is Card mc && ReferenceEquals(mc, action.Target));
+            if (byRef != null) return byRef;
+            if (action.Target.InstanceId > 0)
+            {
+                var byTInst = AllMissionBorders()
+                    .FirstOrDefault(b => b.Tag is Card mc && mc.InstanceId == action.Target.InstanceId);
+                if (byTInst != null) return byTInst;
+            }
+            var byNameLegal = action.Card != null
+                ? AllMissionBorders()
+                    .FirstOrDefault(b => b.Tag is Card mc
+                        && string.Equals(mc.Name, action.Target.Name, StringComparison.OrdinalIgnoreCase)
+                        && CanSeedCardUnderMission(action.Card, mc).ok)
+                : null;
+            return byNameLegal
+                ?? AllMissionBorders()
+                    .FirstOrDefault(b => b.Tag is Card mc
+                        && string.Equals(mc.Name, action.Target.Name, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(action.TargetName))
+        {
+            return AllMissionBorders()
+                .FirstOrDefault(b => b.Tag is Card mc
+                    && string.Equals(mc.Name, action.TargetName, StringComparison.OrdinalIgnoreCase));
+        }
+        return null;
+    }
+
+    /// <summary>After RelayoutMissions / ApplyGameSave: pin collapsed seed borders to mission column + badges.</summary>
+    private void RelayoutSeedUnderMissions()
+    {
+        foreach (var kv in _seedUnderMission.ToList())
+        {
+            var mission = kv.Key;
+            if (mission.Tag is not Card || !TableCanvas.Children.Contains(mission)) continue;
+            double left = Canvas.GetLeft(mission);
+            double top = Canvas.GetTop(mission) + UnderMissionGap;
+            foreach (var sb in kv.Value)
+            {
+                Canvas.SetLeft(sb, left);
+                Canvas.SetTop(sb, top);
+                sb.Visibility = Visibility.Collapsed;
+            }
+            UpdateSeedBadge(mission);
+        }
+    }
+
     private void SyncSeedActiveToSession()
     {
         if (_activePlayer is 1 or 2)
@@ -29109,6 +29200,9 @@ public partial class TableWindow : Window
                 && CanSeedCardUnderMission(card, mc).ok)
             {
                 target = mc;
+                // Engine identity (not Guest AbsoluteLeft) so Host stacks under the same mission.
+                if (mc.InstanceId > 0)
+                    note = $"underInst:{mc.InstanceId}";
             }
             else
             {
@@ -29665,9 +29759,9 @@ public partial class TableWindow : Window
             }
         }
 
-        void AddStackMini(Card c, string? badge = null, Border? cardBorder = null)
+        void AddStackMini(Card c, string? badge = null, Border? cardBorder = null, bool faceDown = false)
         {
-            var mini = CreateMiniCard(c, faceDown: false);
+            var mini = CreateMiniCard(c, faceDown: faceDown);
             mini.Width = 72;
             mini.Height = 100;
             mini.Margin = new Thickness(3);
@@ -29781,26 +29875,49 @@ public partial class TableWindow : Window
                 AddStackMini(ac, "Revealed — acquired when mission is solved");
         }
 
-        // Remaining face-down seed under mission (count only unless Dev reveal)
+        // Remaining seed under mission: owner face-up; opponent face-down / count (Dev: all faces).
         if (_seedUnderMission.TryGetValue(host, out var seeds) && seeds.Count > 0)
         {
+            int ownHere = seeds.Count(sb =>
+            {
+                int o = GetBorderOwner(sb);
+                if (o == 0) o = 1;
+                return o == ViewerPlayer;
+            });
+            int oppHere = seeds.Count - ownHere;
             DetailStackCards.Children.Add(new TextBlock
             {
                 Text = _devRevealSeed
                     ? $"Seed remaining ({seeds.Count})"
-                    : $"Seed remaining: {seeds.Count(sb => sb.Tag is Card sc && (!_revealedUnderMission.TryGetValue(host, out var rv) || !rv.Contains(sc)))} face-down",
+                    : $"Seed under mission: {seeds.Count} (you {ownHere} face-up / opp {oppHere} face-down)",
                 Foreground = new SolidColorBrush(Color.FromRgb(180, 160, 100)),
                 FontSize = 11,
                 FontWeight = FontWeights.SemiBold,
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(4, 0, 6, 0)
             });
-            if (_devRevealSeed)
+            int oppBacks = 0;
+            foreach (var sbord in seeds)
             {
-                foreach (var sbord in seeds)
+                if (sbord.Tag is not Card sc) continue;
+                if (_revealedUnderMission.TryGetValue(host, out var rv) && rv.Contains(sc))
+                    continue;
+                int o = GetBorderOwner(sbord);
+                if (o == 0) o = 1;
+                bool own = o == ViewerPlayer;
+                if (_devRevealSeed || own)
+                    AddStackMini(sc, own ? "Your seed under mission" : "Seed under mission");
+                else
+                    oppBacks++;
+            }
+            // Opponent seeds: face-down backs only (no title) - count already in label above.
+            if (oppBacks > 0)
+            {
+                var back = seeds.Select(b => b.Tag as Card).FirstOrDefault(c => c != null);
+                if (back != null)
                 {
-                    if (sbord.Tag is Card sc)
-                        AddStackMini(sc, "Seed under mission");
+                    for (int i = 0; i < Math.Min(oppBacks, 8); i++)
+                        AddStackMini(back, "Opponent seed (face-down)", faceDown: true);
                 }
             }
         }

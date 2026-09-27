@@ -59,6 +59,26 @@ public static class NetStateMask
             }
         }
 
+        // Seed-under-mission: opponent dilemmas/artifacts stay FaceDown + nameless for Guest fog.
+        // Counts (SeedUnder ChildIds / Table rows) kept so stack depth matches Host.
+        if (clone.SeedUnder != null && clone.SeedUnder.Count > 0 && clone.Table != null)
+        {
+            var byId = clone.Table.ToDictionary(t => t.Id);
+            foreach (var st in clone.SeedUnder)
+            {
+                foreach (int cid in st.ChildIds)
+                {
+                    if (!byId.TryGetValue(cid, out var snap)) continue;
+                    if (snap.Owner != opponent) continue;
+                    snap.FaceUp = false;
+                    snap.Name = string.Empty;
+                    snap.Set = null;
+                    snap.Type = null;
+                    snap.Visible = false;
+                }
+            }
+        }
+
         return clone;
     }
 
