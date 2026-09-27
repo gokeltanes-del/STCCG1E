@@ -1,3 +1,92 @@
+## 2026-09-27 — Network Phase 1 Scaffold (Transport)
+
+- *TCP+JSON Transport-Scaffold*: `StarTrekCCG/Network/NetMessage.cs`, `NetServer.cs`, `NetClient.cs` — Envelope + Listen/Accept/Connect/Send/Receive; kein Lobby/UI, kein GameMode-Anbinden.
+
+## 2026-09-27 — Konzept & Handoff: Multiplayer-Modus (Architektur & Roadmap)
+
+- *Multiplayer-Architektur konzipiert*:
+  - Client-Server Modell (Host/Gast) über TCP-Sockets und JSON-Nachrichten (`System.Net.Sockets`).
+  - Unterstützung für LAN, Internet und 2 Instanzen auf demselben Rechner (Localhost).
+  - 5-Phasen-Roadmap in `HANDOFF.md` und `UEBERGABE_PROMPT.md` hinterlegt.
+  - Test-Erfolge von Pepsch (*Crystalline Entity*, *Iconian computer weapon*, *Vulcan Mindmeld* grün) erfasst.
+
+## 2026-09-26 — Bereinigung: Abschluss & Entfernung von CARD_TRACKER.md
+
+- *Löschung von `artifacts/CARD_TRACKER.md`*:
+  - Nach Abschluss der Karten-Einbindung wurde die Datei `CARD_TRACKER.md` planmäßig gelöscht.
+- *Entfernung aller Referenzen & Hinweise*:
+  - Bereinigung aller Erwähnungen, Spalten und Tabelleneinträge zu `CARD_TRACKER.md` und `CARD_TRACKER` in:
+    - `PROJECT.md` (Rolle Jadzia auf Karten-Status & Set-Abdeckung umgestellt, Tabellen bereinigt)
+    - `BOTS.md` (Aufgabenbeschreibungen von Captain, Spock, Seven, Jadzia und Prüfliste neutralisiert)
+    - `IMPLEMENT.md` (Statusabfragen und Ablauf bereinigt)
+    - `UEBERGABE_PROMPT.md` (Lesereihenfolge und Pflichten bereinigt)
+    - `EXTRACT_REST.md` (Verweise entfernt)
+    - `FEATURES.md` (P0-Rangfolge und Header bereinigt)
+    - `ONLINE_WORKFLOW.md` (Pflichtenliste bereinigt)
+    - `APPENDIX_A_COVERAGE.md` (Über 330 Fundstellen bereinigt)
+    - `GLOSSARY_COVERAGE.md` (Über 100 Spalten-/Statuszeilen bereinigt)
+    - `HANDOFF.md` (Statusbeschreibungen und Canon-Tabellen bereinigt)
+
+## 2026-09-26 — EXTRACT_REST: P5 (Battle-benachbarte Orchestrierung)
+
+- *P5-04 (Subspace Schism SyncSchismRound & Draw-Discard)*:
+  - In `GameSession.cs` die Schism-Zustände (`SchismUsedBy`, `SchismRound`, `SyncSchismRound()`, `IsSchismAvailable(player)`, `MarkSchismUsed(player)`) integriert. Bei Zugwechsel wird `SchismUsedBy` sauber zurückgesetzt.
+  - In `InterruptRules.cs` `DecideSubspaceSchismResponse` (`SubspaceSchismPlan`) implementiert (prüft Draw-Aktion, Verfügbarkeit und steuert Discard der gezogenen Karte sowie Ersatz-Draw).
+  - In `TableWindow.xaml.cs` `SyncSchismRound`, `SchismAvailable` und `MarkSchismUsed` an `GameSession` delegiert und die DrawCard-Abbruchauflösung an `InterruptRules.DecideSubspaceSchismResponse` angebunden.
+- *P5-03 (LegalResponsesFor & ApplyResponseEffect nach Rules)*:
+  - In `TimingRules.cs` `ResponseEvaluationContext`, `IsResponseItemLegal` und `DecideResponseEffect` (`ResponseEffectPlan`) implementiert.
+  - Ermittelt cancel/side-effects (Cancel-Target, CancelledBy, Tox Uthat Discard, Schism Mark, Escape Pod, Hail Fly-By) als reinen Regelplan ohne UI-Abhängigkeit.
+  - In `TableWindow.xaml.cs` `CollectAllLegalResponses` und `ApplyResponseEffect` auf `TimingRules.IsResponseItemLegal` und `TimingRules.DecideResponseEffect` umgestellt.
+- *P5-02 (ResolveTopOfStack Timing-Ablauf)*:
+  - In `TimingRules.cs` `DecideCancelledPlayCard` (`CancelledPlayCardPlan`) implementiert (ermittelt Destination `ReturnToHand` vs `Discard`, Energy-Vortex-Flag und Status/Log-Texte).
+  - In `TimingRules.cs` `ShouldExecuteResponsePlay` implementiert (entscheidet, ob eine Response als voller Interrupt aufgelöst werden muss oder an `SelfDestination` geht).
+  - In `TimingRules.cs` `DecideShipBattleCancel` und `DecidePersonnelBattleCancel` implementiert (Borg-EOT-Attacker-Schutz, Stopped-Flags).
+  - In `TableWindow.xaml.cs` `ResolveTopOfStack` verdünnt und an die neuen `TimingRules`-Methoden angebunden.
+- *P5-01 (TryResolveInterruptPlay Apply-Switch verdünnt)*:
+  - In `InterruptRules.cs` `CanPlayRogueBorg`, `CanPlayCrosis`, `IsLegalDisruptorOverloadTarget`, `DecideDisruptorOverloadVictim`, `IsLegalPalorToffCard`, `ParticleFountainPoints` und `DeathYellPoints` implementiert.
+  - In `InterruptShipEffectRules.cs` `CalculateTranswarpRange` implementiert.
+  - In `TableWindow.xaml.cs` `TryResolveInterruptPlay` bei Rogue Borg, Crosis, Disruptor Overload, Palor Toff, Particle Fountain, Death Yell und Transwarp an die Rules-Decide-Methoden angebunden.
+- *Verifikation & Mini-Tests*:
+  - In `TableWindow.xaml.cs` Schism-Reset auf `_session.SchismUsedBy` / `_session.SchismRound` korrigiert und `ship` Variablen-Scope in Crosis bereinigt.
+  - Vollständiger Roslyn-Kompilierdurchlauf aller C#-Dateien der Solution erfolgreich (0 Fehler).
+  - Mini-Tests `InterruptRules.VerifyP5InterruptRules()` und `TimingRules.VerifyP5TimingRules()` implementiert und in `ShipRules.VerifyShipRules()` eingehängt. Alle Tests bestehen (PASS).
+
+## 2026-09-26 — EXTRACT_REST: P3 (Event-Persist Apply) & P4 (Dilemma-Persist Apply)
+
+- *P3-R1 & P3-13 (Outpost & Spacedock Repair)*:
+  - In `DockingRules.cs` `IsRepairFacility(Card? c)` und `FacilityRepairsImmediatelyOnDock(bool facilityHasSpacedock)` ausgelagert.
+  - In `TableWindow.xaml.cs` `IsRepairFacility` und `TryDockShip` darauf umgestellt; `ProcessEndOfTurnRepairs` nutzt `EndOfTurnRestRules.DecideRepair` und Store `RepairTurns`.
+  - Mini-Test `DockingRules.VerifyDockingRules()` hinzugefügt.
+- *P3-01 & P3-03 (Thermal Deflectors & The Traveler)*:
+  - In `EventRules.cs` `HasThermalDeflectors` und `IsTravelerInPlay` als Engine-Prüfungen implementiert, die Store-Attachments und Tischkarten beider Spieler auswerten.
+  - In `TableWindow.xaml.cs` `HasThermalDeflectors()` und `IsTravelerInPlay()` auf `EventRules` umgestellt.
+- *P3-04 (Telepathic Alien Kidnappers)*:
+  - In `EventRules.cs` `KidnapperValidCardTypes` und `DecideKidnappers(string? namedType, Card? revealedCard)` als pure Regelentscheidung eingeführt.
+  - In `TableWindow.xaml.cs` `RunKidnappers` und `FinishKidnappers` auf die neuen `EventRules`-Definitionen umgestellt.
+- *P3-05 & P3-09 (Traveler Extra Draws & Atmospheric Ionization)*:
+  - In `BoardStore.cs` die Felder `PendingExtraDraws` und `IonizationBeamsThisTurnByPlayer` hinzugefügt und in `Clear()` integriert.
+  - In `EventRules.cs` `CanBeamUnderAtmosphericIonization(int plannedCount, int beamsThisTurnByController)` implementiert.
+  - In `TableWindow.xaml.cs` `CanBeamAtMission` und `NoteIonizationBeam` an `EventRules` und `BoardStore` angebunden.
+- *P3-06 & P3-07 (Neural Servo Device & Anti-Time Anomaly)*:
+  - In `EventRules.cs` `DecideNeuralServoRestoredOwner` und `IsPersonnelOwnedByPlayer` implementiert.
+  - In `TableWindow.xaml.cs` `RestoreNeuralServo` und `ApplyAntiTimeExpire` auf `EventRules` umgestellt.
+- *P3-08 (Distortion Field)*:
+  - In `EventRules.cs` `CanBeamThroughDistortionField(bool isDistortionFaceUp, bool hasPatternEnhancers)` implementiert.
+  - In `TableWindow.xaml.cs` Beaming-Prüfung in `CanBeamAtMission` darauf umgestellt.
+- *P3-10, P3-11 & P3-12 (Movement Hazards & Gaps Nullify)*:
+  - `MovementHazardRules.VerifyMovementHazardRules()` und `GapsNullifyRules.VerifyGapsNullifyRules()` als Mini-Tests implementiert.
+- *P3-15 & P3-16 (Cytherians Dest & Rogue Borg / Lore Returns)*:
+  - In `EndOfTurnRestRules.cs` `RogueBorgTotalStrength`, `RogueBorgIndividualStrength`, `CanRogueBorgStaffShip` und Mini-Test `VerifyEndOfTurnRestRules()` implementiert.
+  - In `TableWindow.xaml.cs` `ShipStaffedByRogueBorg`, `RogueBorgStrengthOn` und `RogueBorgStrengthEach` angebunden.
+  - `BoardAttachedDilemma.DestInstanceId` bei Cytherians-Zuweisung synchronisiert.
+- *P3-19 & P3-21 (Supernova & Red/Yellow Alert)*:
+  - In `EventRules.cs` `DecideSupernova`, `DecideSupernovaCardAction` und `CanPlayRedAlertUnderYellowAlert` implementiert.
+  - In `TableWindow.xaml.cs` `ApplySupernova` auf `EventRules.DecideSupernova` und `EventRules.DecideSupernovaCardAction` umgestellt.
+- *P4 (Dilemma-Persist Apply)*:
+  - Junior Officer, Nitrium/HyperAging/RemFatigue, Abduction, Phased, Cytherians, Edo Probe, Frame of Mind, Conundrum und Scow in `EXTRACT_REST.md` als ERLEDIGT markiert.
+- *Verifikation*:
+  - Alle neuen Mini-Tests (`DockingRules`, `EndOfTurnRestRules`, `MovementHazardRules`, `GapsNullifyRules`, `VerifyP3EventRules`) in `ShipRules.VerifyShipRules()` verankert und integriert.
+
 ## 2026-09-26 — EXTRACT_REST: P2 (Ship & Personnel Battle, Counter-Attack State & Escape Pod)
 
 - *P2-S7 (Counter-Attack State in BoardStore & BattleRules)*:
@@ -92,7 +181,7 @@
     - Detailstatus: Zeigt Countdown und anwesende Schiffe/Dilemmas im Detailblock an.
 - *The Juggler* (Premiere 142 U / 326 C):
   - Verifiziert und verbessert: Wählt Spieler aus (`AskPlayer`), mischt dessen Nachziehstapel per RNG neu und protokolliert dies detailliert im Log und der Statuszeile.
-  - In `CARD_TRACKER.md` als funktionierend (`working`) verifiziert.
+  - Als funktionierend (`working`) verifiziert.
 - Tests & Verifikation:
   - `InterruptRules.VerifyTemporalRiftDecide` implementiert und in `ShipRules.VerifyShipRules` integriert (alle Checks PASS).
   - `SpacelineLocationRules.VerifySpacelineLocationRules` validiert Zeitort- und Raumlinienregeln.
@@ -124,7 +213,7 @@
   - Bereinigt bei Abbruch oder Fehlern die Karte zusätzlich aus dem Ablagestapel (`_discardCards` / `_oppDiscardCards`), um doppelte Kartenreferenzen zu verhindern.
 - Tests & Verifikation:
   - `InterruptShipEffectRules.VerifyTachyonDecide` und `VerifyScanDecide` implementiert und in `ShipRules.VerifyShipRules` integriert (alle PASS).
-  - Status von *Q2* und *Subspace Schism* in `CARD_TRACKER.md` als funktionierend (`working`) verifiziert und dokumentiert.
+  - Status von *Q2* und *Subspace Schism* als funktionierend (`working`) verifiziert und dokumentiert.
   - `dotnet build` erfolgreich (0 Fehler).
 
 ## 2026-09-25 — Einheitliche On-Board Zielauswahl-Pipeline & Ship Seizure (136 C) Board-Pick
