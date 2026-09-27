@@ -6171,9 +6171,14 @@ public partial class TableWindow : Window
                  && (_seedPhaseActive || (_devPlaySeedFromHand && zref.ZoneName == "Hand" && !_seedPhaseActive)))
         {
             // Dilemma/Artifact unter legaler Mission (Seed-Phase oder Dev-Ausnahme)
+            // Verb: seed — FindNearestLegalSeedMission (not TrySnapToMission/nearest-any).
             CommitFloatingToCanvas(cardBorder, windowPos);
-            var targetMission = TrySnapToMission(cardBorder);
-            if (targetMission != null && targetMission.Tag is Card mc
+            double w = cardBorder.Width > 0 ? cardBorder.Width : TableCardWidth;
+            double h = cardBorder.Height > 0 ? cardBorder.Height : TableCardHeight;
+            double cx = Canvas.GetLeft(cardBorder) + w / 2.0;
+            double cy = Canvas.GetTop(cardBorder) + h / 2.0;
+            var targetMission = FindNearestLegalSeedMission(card, cx, cy, out double seedDist);
+            if (targetMission != null && seedDist <= ShipSnapRange && targetMission.Tag is Card mc
                 && CanSeedCardUnderMission(card, mc).ok)
             {
                 if (_devPlaySeedFromHand && !_seedPhaseActive && ArtifactRules.IsArtifact(card))
@@ -8918,11 +8923,21 @@ public partial class TableWindow : Window
             {
                 bool eotDraw = _endTurnAfterDrawStack
                     && _stack.Top?.Kind == TimingRules.ActionKind.DrawCard;
-                BtnEndTurn.IsEnabled = eotDraw;
-                if (eotDraw)
+                // Network: never disable End Turn for the active LocalPlayer during Play/Execute —
+                // a stuck response stack previously left "End EXECUTE" visible but IsEnabled=false (P2 hang).
+                bool netActiveEscape = _gameMode == GameMode.Network && _netSession != null
+                    && !_seedPhaseActive
+                    && _session.ActivePlayer == _netSession.LocalPlayer
+                    && _session.Segment is GameSession.TurnSegment.Play or GameSession.TurnSegment.Execute;
+                BtnEndTurn.IsEnabled = eotDraw || netActiveEscape;
+                if (eotDraw || netActiveEscape)
                 {
                     BtnEndTurn.Visibility = Visibility.Visible;
-                    BtnEndTurn.Content = "Finish turn / Pass (Space)";
+                    BtnEndTurn.Content = eotDraw
+                        ? "Finish turn / Pass (Space)"
+                        : _session.Segment == GameSession.TurnSegment.Play
+                            ? "End PLAY phase (Space)"
+                            : "End EXECUTE phase (Space)";
                 }
             }
             if (ActivePlayerText != null && ResponseIndicatorBadge?.Visibility != Visibility.Visible)
@@ -9568,6 +9583,14 @@ public partial class TableWindow : Window
         switch (action.Kind)
         {
             case GameActionKind.EndPhase:
+                // Verb: end-of-turn / network — clear stuck response stack so Guest End PLAY applies.
+                if (_stack.IsOpen
+                    && !string.Equals(action.Note, "SeedAdvance", StringComparison.OrdinalIgnoreCase))
+                {
+                    _stack.Clear();
+                    CloseResponseWindowUi();
+                    HideActionAnnounce();
+                }
                 if (_seedPhaseActive
                     && string.Equals(action.Note, "SeedAdvance", StringComparison.OrdinalIgnoreCase))
                 {
@@ -9582,12 +9605,19 @@ public partial class TableWindow : Window
                 }
                 _session.AdvanceSegment();
                 SyncSessionToUi();
-                OnTurnContextChanged(_session.StatusLine() + " — execute orders.");
+                OnTurnContextChanged(_session.StatusLine() + " - execute orders.");
                 ProcessIncomingMessageMoves(_session.ActivePlayer);
-                _session.Log.Add(_session.TurnNumber, $"P{action.Player}", "Net: End Play phase → Execute");
+                _session.Log.Add(_session.TurnNumber, $"P{action.Player}", "Net: End Play phase -> Execute");
                 return true;
 
             case GameActionKind.EndTurn:
+                // Verb: end-of-turn — Guest End EXECUTE must always flip on Host (clear stuck stack/flags).
+                if (_stack.IsOpen)
+                {
+                    _stack.Clear();
+                    CloseResponseWindowUi();
+                    HideActionAnnounce();
+                }
                 if (_seedPhaseActive)
                 {
                     FinishSeedPhaseAndDrawOpeningHand();
@@ -9599,7 +9629,14 @@ public partial class TableWindow : Window
                     StatusText.Text = "Net EndTurn: still in Play (Authorize should have caught).";
                     return false;
                 }
+                int beforePlayer = _session.ActivePlayer;
+                var beforeSeg = _session.Segment;
                 FinishExecuteAndEndTurn();
+                if (_session.ActivePlayer == beforePlayer && _session.Segment == beforeSeg)
+                {
+                    // Stuck EOT flags / re-entrancy: force flip so P2 is never trapped in EXECUTE.
+                    CompleteTurnChange();
+                }
                 _session.Log.Add(_session.TurnNumber, $"P{action.Player}", "Net: End turn");
                 return true;
 
@@ -9805,16 +9842,29 @@ public partial class TableWindow : Window
             StatusText.Text = "Resolve or cancel the pile interaction first.";
             return;
         }
+        // Verb: end-of-turn — Host resumes stuck EOT; Guest still sends EndTurn (Host apply+broadcast).
         if (_endTurnAfterDrawStack || _eotEndingInProgress)
         {
             if (_netSession.IsHost)
             {
                 ResumeEndOfTurnAfterDrawResponses();
                 BroadcastMaskedStateToGuest();
+                return;
             }
-            else
-                StatusText.Text = "Network: waiting for Host end-of-turn state…";
+            // Guest: do not soft-lock in EXECUTE — ask Host to flip.
+            var eotAction = GameAction.EndTurn(_netSession.LocalPlayer);
+            _ = SendGuestActionAsync(eotAction);
+            StatusText.Text = "Net: End turn (EOT resume) sent - waiting for Host...";
             return;
+        }
+
+        // Stuck response window during Play/Execute disables button UX; clear then advance (same Decide path).
+        if (_stack.IsOpen && _session.ActivePlayer == _netSession.LocalPlayer)
+        {
+            _stack.Clear();
+            CloseResponseWindowUi();
+            HideActionAnnounce();
+            UpdatePhaseControls();
         }
 
         bool endPhase = _session.Segment == GameSession.TurnSegment.Play;
@@ -9927,11 +9977,17 @@ public partial class TableWindow : Window
     /// Execute fertig: optional 1 Karte ziehen, dann Gegner (Play-Segment).
     /// SuppressEndOfTurnDraw für spätere Karteneffekte.
     /// </summary>
-    private void FinishExecuteAndEndTurn()
+        private void FinishExecuteAndEndTurn()
     {
-        // Already ending → FinishExecute finally owns the single flip; do not flip again here.
-        if (_eotEndingInProgress || _completingTurnChange)
+        // Network: stuck EOT flags must not no-op Guest EndTurn (P2 EXECUTE hang).
+        // If already ending, finish the flip instead of silent return.
+        if (_completingTurnChange)
             return;
+        if (_eotEndingInProgress)
+        {
+            ResumeEndOfTurnAfterDrawResponses();
+            return;
+        }
         _eotEndingInProgress = true;
         int p = _session.ActivePlayer;
         _endTurnFinishingPlayer = p;
@@ -12185,8 +12241,13 @@ public partial class TableWindow : Window
         else if (card != null && IsSeedableUnderMission(card)
                  && (_seedPhaseActive || _devPlaySeedFromHand))
         {
-            var targetMission = TrySnapToMission(cardBorder);
-            if (targetMission != null)
+            // Verb: seed — legal mission only (same Decide as Guest TrySubmitGuestNetworkSeed).
+            double w = cardBorder.Width > 0 ? cardBorder.Width : TableCardWidth;
+            double h = cardBorder.Height > 0 ? cardBorder.Height : TableCardHeight;
+            double cx = Canvas.GetLeft(cardBorder) + w / 2.0;
+            double cy = Canvas.GetTop(cardBorder) + h / 2.0;
+            var targetMission = FindNearestLegalSeedMission(card, cx, cy, out double seedDist);
+            if (targetMission != null && seedDist <= ShipSnapRange)
                 AddSeedUnderMission(targetMission, cardBorder);
         }
         else if (card != null && IsStackableCard(card))
@@ -13412,11 +13473,16 @@ public partial class TableWindow : Window
         bool seedNow = _seedPhaseActive || _devPlaySeedFromHand;
         if (seedNow && IsSeedableUnderMission(drag))
         {
+            // Verb: seed — every legal mission (layout pin must not narrow this list).
+            int seeder = _activePlayer is 1 or 2 ? _activePlayer : 1;
+            if (_netSession != null)
+                seeder = _netSession.LocalPlayer;
             foreach (var m in AllMissionBorders())
             {
                 if (m.Tag is not Card mc) continue;
                 var chk = CanSeedCardUnderMission(drag, mc);
                 if (!chk.ok) continue;
+                if (!MissionAllowsArtifactSeed(drag, seeder, m)) continue;
                 list.Add(new TargetSite(TargetSiteKind.LocationSlot, mc, mc, null, TargetWhy.Seed, chk.reason));
             }
             return list;
@@ -28787,19 +28853,23 @@ public partial class TableWindow : Window
         return nearest;
     }
 
+    // Verb: seed artifact — legal mission targets only (planet/space + artifact limits).
+    // Do not use nearest-any-mission: that forces artifacts onto one nearby illegal space
+    // (e.g. only Hunt for DNA Program accepted when drop center is nearer a [S] mission).
     private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, double centerY, out double distance)
     {
         Border? nearest = null;
         distance = double.MaxValue;
-        foreach (var m in TableCanvas.Children.OfType<Border>()
-                     .Where(b => b.Visibility == Visibility.Visible
-                                 && b != _hostHighlight
-                                 && b.Tag is Card c &&
-                                 string.Equals(c.Type, "Mission", StringComparison.OrdinalIgnoreCase)))
+        int seeder = _activePlayer is 1 or 2 ? _activePlayer : 1;
+        if (_netSession != null)
+            seeder = _netSession.LocalPlayer;
+        foreach (var m in AllMissionBorders())
         {
             if (m.Tag is not Card mc) continue;
+            if (m.Visibility != Visibility.Visible) continue;
             var (ok, _) = CanSeedCardUnderMission(seedCard, mc);
             if (!ok) continue;
+            if (!MissionAllowsArtifactSeed(seedCard, seeder, m)) continue;
             double w = m.Width > 0 ? m.Width : TableCardWidth;
             double ht = m.Height > 0 ? m.Height : TableCardHeight;
             double mx = Canvas.GetLeft(m) + w / 2.0;
@@ -28824,7 +28894,10 @@ public partial class TableWindow : Window
         double h = cardBorder.Height > 0 ? cardBorder.Height : TableCardHeight;
         double cx = Canvas.GetLeft(cardBorder) + w / 2.0;
         double cy = Canvas.GetTop(cardBorder) + h / 2.0;
-        var mission = FindNearestMission(cx, cy, out double dist);
+        // Verb: seed — dilemmas/artifacts snap to nearest LEGAL mission only.
+        Border? mission = IsSeedableUnderMission(card) && (_seedPhaseActive || _devPlaySeedFromHand)
+            ? FindNearestLegalSeedMission(card, cx, cy, out double dist)
+            : FindNearestMission(cx, cy, out dist);
         if (mission == null || dist > ShipSnapRange)
             return null;
 
