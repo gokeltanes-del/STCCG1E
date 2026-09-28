@@ -43,6 +43,13 @@ public sealed class NetPlayRevealDto
     [JsonPropertyName("targetNormY")]
     public double? TargetNormY { get; set; }
 
+    /// <summary>
+    /// Play-action target (ship/outpost/mission InstanceId) so Guest lands on the same seat
+    /// as Host even when the event card itself sits on TABLE or is not yet stacked.
+    /// </summary>
+    [JsonPropertyName("targetInstanceId")]
+    public int TargetInstanceId { get; set; }
+
     public string ToJson() => JsonSerializer.Serialize(this, JsonOptions);
 
     public static NetPlayRevealDto FromJson(string json)

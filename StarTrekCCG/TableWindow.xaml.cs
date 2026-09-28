@@ -4193,7 +4193,8 @@ public partial class TableWindow : Window
             if (!(_gameMode == GameMode.Network && _netSession is { IsGuest: true }))
                 NotifyPlayReveal(card, controller, isResponse
                     ? $"P{controller} Response: {card.Name}"
-                    : $"P{controller} plays {card.Name}");
+                    : $"P{controller} plays {card.Name}",
+                    landTarget: target);
         }
 
         // SEARCH: Rule: 7.4.3.0.2; Glossary: responses / just; Verb: interrupt-play stack response nullify
@@ -9939,21 +9940,67 @@ public partial class TableWindow : Window
         }
         else if (IsTablePermanentType(card) || EventRules.IsEvent(card) || CardKinds.IsObjective(card))
         {
-            // TABLE column events/objectives — skip response stack (P4); Commit is board truth.
-            if (EventBelongsOnTableColumn(card) || IsTablePermanentType(card))
+            // Plays-on-host events (Bynars/Spacedock/…): attach to Target/underInst — never TABLE-first.
+            // IsTablePermanentType(Event)=true would otherwise always CommitCardToTable and fly-in lands TABLE.
+            bool hostedEvent = EventRules.IsEvent(card) && EventRules.PlaysOnHost(card);
+            bool hasHostHint = action.Target != null
+                || (!string.IsNullOrWhiteSpace(action.Note)
+                    && action.Note!.StartsWith("underInst:", StringComparison.OrdinalIgnoreCase));
+            if (hostedEvent && hasHostHint)
             {
+                Border? host = ResolvePlayHostTarget(action, player)
+                    ?? ResolveSeedUnderMissionTarget(action);
+                if (host == null && action.Target?.InstanceId > 0)
+                    host = FindBorderByInstanceId(action.Target.InstanceId);
+                if (host == null && !string.IsNullOrWhiteSpace(action.Note)
+                    && action.Note!.StartsWith("underInst:", StringComparison.OrdinalIgnoreCase)
+                    && int.TryParse(action.Note.AsSpan("underInst:".Length), out int hostInst)
+                    && hostInst > 0)
+                {
+                    host = FindBorderByInstanceId(hostInst);
+                }
+                if (host != null)
+                {
+                    _eventPreferredHost = host;
+                    // TryResolveEventPlay always returns true (even on bounce-to-hand).
+                    TryResolveEventPlay(card, player);
+                    bool bounced = _handCards.Contains(card) || _oppHandCards.Contains(card);
+                    if (!bounced)
+                    {
+                        bool hasMini = false;
+                        foreach (var kv in _stackOnHost)
+                        {
+                            if (kv.Value.Any(b => b.Tag is Card sc
+                                && (ReferenceEquals(sc, card)
+                                    || (card.InstanceId > 0 && sc.InstanceId == card.InstanceId))))
+                            {
+                                hasMini = true;
+                                break;
+                            }
+                        }
+                        if (!hasMini)
+                            AttachCardToHost(card, host, player);
+                        placed = true;
+                        StatusText.Text =
+                            $"Net: P{player} {card.Name} on {(host.Tag as Card)?.Name ?? "host"}.";
+                    }
+                    // else: auth/unique bounce restored hand — fall through to !placed return.
+                }
+            }
+            else if (EventBelongsOnTableColumn(card)
+                     || (IsTablePermanentType(card) && !hostedEvent))
+            {
+                // TABLE column events/objectives — skip response stack (P4); Commit is board truth.
                 CommitCardToTable(card, player);
                 placed = true;
                 StatusText.Text = $"Net: P{player} {card.Name} on TABLE.";
             }
-            else if (action.Target != null || (!string.IsNullOrWhiteSpace(action.Note)
-                     && action.Note!.StartsWith("underInst:", StringComparison.OrdinalIgnoreCase)))
+            else if (hasHostHint)
             {
                 Border? host = ResolvePlayHostTarget(action, player)
                     ?? ResolveSeedUnderMissionTarget(action);
                 if (host != null)
                 {
-                    // Hosted event: attach via Commit path with preferred host when possible.
                     _eventPreferredHost = host;
                     CommitCardToTable(card, player);
                     placed = true;
@@ -10193,7 +10240,7 @@ public partial class TableWindow : Window
     /// Host broadcasts PlayReveal after Apply; Guest only animates on receive (never before Host apply).
     /// Landing prefers LOCAL slot bounds (viewer-relative); Host TargetNorm is fallback only.
     /// </summary>
-    private void NotifyPlayReveal(Card card, int player, string? title = null)
+    private void NotifyPlayReveal(Card card, int player, string? title = null, Card? landTarget = null)
     {
         if (card == null) return;
         if (player is not (1 or 2)) player = _activePlayer;
@@ -10212,9 +10259,12 @@ public partial class TableWindow : Window
 
         // Measure + animate at Loaded: TargetNorm / slot bounds from CURRENT board after Relayout
         // (never a pre-capture from before facility column moved / new match).
+        // Land seat = Play-Action target InstanceId (ship/outpost) when present — Host/Guest equal.
         int pCap = player;
         Card cardCap = card;
         string? titleCap = title;
+        int landInstCap = ResolvePlayFlyInTargetInstanceId(card, landTarget);
+        EnsurePlayFlyInCardArt(cardCap);
         Dispatcher.BeginInvoke(new Action(() =>
         {
             try
@@ -10225,8 +10275,12 @@ public partial class TableWindow : Window
             }
             catch { /* layout */ }
 
-            TryGetPlayFlyInTargetNorm(cardCap, out double? tnxLive, out double? tnyLive);
-            ShowPlayFlyIn(cardCap, pCap, tnxLive, tnyLive);
+            EnsurePlayFlyInCardArt(cardCap);
+            int landInst = landInstCap > 0
+                ? landInstCap
+                : ResolvePlayFlyInTargetInstanceId(cardCap, null);
+            TryGetPlayFlyInTargetNorm(cardCap, landInst, out double? tnxLive, out double? tnyLive);
+            ShowPlayFlyIn(cardCap, pCap, tnxLive, tnyLive, landInst);
 
             if (_gameMode == GameMode.Network && _netSession is { IsHost: true })
             {
@@ -10241,7 +10295,8 @@ public partial class TableWindow : Window
                         CardType = cardCap.Type,
                         Title = titleCap ?? $"P{pCap} plays {cardCap.Name}",
                         TargetNormX = tnxLive,
-                        TargetNormY = tnyLive
+                        TargetNormY = tnyLive,
+                        TargetInstanceId = landInst
                     };
                     _ = _netSession.BroadcastPlayRevealAsync(dto);
                 }
@@ -10264,7 +10319,8 @@ public partial class TableWindow : Window
             card = _db.AllCards.FirstOrDefault(c =>
                 string.Equals(c.Name, dto.CardName, StringComparison.OrdinalIgnoreCase)
                 && (string.IsNullOrWhiteSpace(dto.CardSet)
-                    || string.Equals(c.Set, dto.CardSet, StringComparison.OrdinalIgnoreCase)));
+                    || string.Equals(c.Set, dto.CardSet, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(c.SetFolder, dto.CardSet, StringComparison.OrdinalIgnoreCase)));
         }
         if (card == null && !string.IsNullOrWhiteSpace(dto.CardName))
         {
@@ -10275,34 +10331,36 @@ public partial class TableWindow : Window
                 Type = dto.CardType,
                 InstanceId = dto.InstanceId
             };
-            if (_db != null)
-            {
-                var proto = _db.AllCards.FirstOrDefault(c =>
-                    string.Equals(c.Name, dto.CardName, StringComparison.OrdinalIgnoreCase));
-                if (proto != null)
-                    card.FullImagePath = proto.FullImagePath;
-            }
         }
+        // Face-art like Hand/Prototype BEFORE anim — Guest board stubs often lack FullImagePath.
+        EnsurePlayFlyInCardArt(card);
         int player = dto.Player is 1 or 2 ? dto.Player : 2;
+        int landInst = dto.TargetInstanceId > 0
+            ? dto.TargetInstanceId
+            : ResolvePlayFlyInTargetInstanceId(card, null);
         // Wait for prior State ApplyGameSave layout so local slot beats Host TargetNorm.
-        TryStartPlayFlyInWhenReady(card, player, dto.TargetNormX, dto.TargetNormY, attemptsLeft: 10);
+        TryStartPlayFlyInWhenReady(card, player, dto.TargetNormX, dto.TargetNormY, landInst, attemptsLeft: 10);
         _session.Log.AddDebug(_session.TurnNumber, "Net",
-            $"PlayReveal received: P{player} {dto.CardName}");
+            $"PlayReveal received: P{player} {dto.CardName}" +
+            (landInst > 0 ? $" landInst={landInst}" : ""));
     }
 
     /// <summary>
     /// Guest: retry briefly until local slot border exists (State may still be applying).
     /// </summary>
     private void TryStartPlayFlyInWhenReady(
-        Card? card, int player, double? targetNormX, double? targetNormY, int attemptsLeft)
+        Card? card, int player, double? targetNormX, double? targetNormY,
+        int targetInstanceId, int attemptsLeft)
     {
         try { UpdateLayout(); } catch { /* */ }
-        // Prefer land seat (host facility) so we do not start on pre-Relayout AbsoluteLeft.
-        Border? slot = card != null ? FindPlayFlyInLandBorder(card) : null;
+        EnsurePlayFlyInCardArt(card);
+        // Prefer Play-Action target ship/outpost; else land seat (host facility).
+        Border? slot = FindPlayFlyInLandBorder(card, targetInstanceId);
         if (slot != null || attemptsLeft <= 0)
         {
             Card? cardCap = card;
             int pCap = player;
+            int landCap = targetInstanceId;
             // One more Loaded tick: Guest ScheduleRelayoutAfterLoadSettle may still be queued.
             Dispatcher.BeginInvoke(new Action(() =>
             {
@@ -10313,13 +10371,17 @@ public partial class TableWindow : Window
                     TableCanvas?.UpdateLayout();
                 }
                 catch { /* */ }
+                EnsurePlayFlyInCardArt(cardCap);
+                int landInst = landCap > 0
+                    ? landCap
+                    : ResolvePlayFlyInTargetInstanceId(cardCap, null);
                 double? tnx = targetNormX, tny = targetNormY;
-                if (cardCap != null && TryGetPlayFlyInTargetNorm(cardCap, out var liveX, out var liveY))
+                if (cardCap != null && TryGetPlayFlyInTargetNorm(cardCap, landInst, out var liveX, out var liveY))
                 {
                     tnx = liveX;
                     tny = liveY;
                 }
-                ShowPlayFlyIn(cardCap, pCap, tnx, tny);
+                ShowPlayFlyIn(cardCap, pCap, tnx, tny, landInst);
             }), System.Windows.Threading.DispatcherPriority.Loaded);
             return;
         }
@@ -10330,7 +10392,7 @@ public partial class TableWindow : Window
         t.Tick += (_, _) =>
         {
             t.Stop();
-            TryStartPlayFlyInWhenReady(card, player, targetNormX, targetNormY, attemptsLeft - 1);
+            TryStartPlayFlyInWhenReady(card, player, targetNormX, targetNormY, targetInstanceId, attemptsLeft - 1);
         };
         t.Start();
     }
@@ -10340,7 +10402,9 @@ public partial class TableWindow : Window
     /// No dim, no name banner, 100% opacity + drop-shadow; overlay collapses on land (no fade).
     /// Tempo ~2.6–2.8s total (was ~4.2s).
     /// </summary>
-    private void ShowPlayFlyIn(Card? card, int player, double? targetNormX = null, double? targetNormY = null)
+    private void ShowPlayFlyIn(
+        Card? card, int player, double? targetNormX = null, double? targetNormY = null,
+        int targetInstanceId = 0)
     {
         if (PlayFlyInCard == null || DragLayer == null) return;
 
@@ -10361,26 +10425,10 @@ public partial class TableWindow : Window
             Panel.SetZIndex(DragLayer, 240);
             Panel.SetZIndex(PlayFlyInCard, 250);
 
-            if (PlayFlyInImage != null)
-            {
+            // Face MUST be loaded before anim starts (Guest stubs / race → black card otherwise).
+            EnsurePlayFlyInCardArt(card);
+            if (!TryLoadPlayFlyInFace(card) && PlayFlyInImage != null)
                 PlayFlyInImage.Source = null;
-                string? path = ResolvePlayFlyInImagePath(card);
-                if (!string.IsNullOrEmpty(path))
-                {
-                    try
-                    {
-                        var bmp = new BitmapImage();
-                        bmp.BeginInit();
-                        bmp.CacheOption = BitmapCacheOption.OnLoad;
-                        bmp.UriSource = new Uri(path, UriKind.Absolute);
-                        bmp.DecodePixelWidth = 480;
-                        bmp.EndInit();
-                        bmp.Freeze();
-                        PlayFlyInImage.Source = bmp;
-                    }
-                    catch { /* missing art */ }
-                }
-            }
 
             PlayFlyInCard.Width = TableCardWidth;
             PlayFlyInCard.Height = TableCardHeight;
@@ -10411,9 +10459,12 @@ public partial class TableWindow : Window
             double ow = DragLayer.ActualWidth > 1 ? DragLayer.ActualWidth : (ActualWidth > 1 ? ActualWidth : 1280);
             double oh = DragLayer.ActualHeight > 1 ? DragLayer.ActualHeight : (ActualHeight > 1 ? ActualHeight : 800);
 
+            int landInst = targetInstanceId > 0
+                ? targetInstanceId
+                : ResolvePlayFlyInTargetInstanceId(card, null);
             Point startPt = ResolvePlayFlyInHandCenter(player, ow, oh);
             Point mid = new Point(ow / 2.0, oh / 2.0);
-            TryResolvePlayFlyInSlot(card, targetNormX, targetNormY, mid, ow, oh,
+            TryResolvePlayFlyInSlot(card, targetNormX, targetNormY, mid, ow, oh, landInst,
                 out Point endPt, out double endW, out double endH);
 
             const double handScale = 68.0 / 100.0;
@@ -10609,6 +10660,75 @@ public partial class TableWindow : Window
         return null;
     }
 
+    /// <summary>Fill FullImagePath from DB prototype (Guest net stubs / masked saves).</summary>
+    private void EnsurePlayFlyInCardArt(Card? card)
+    {
+        if (card == null) return;
+        if (!string.IsNullOrEmpty(card.FullImagePath) && System.IO.File.Exists(card.FullImagePath))
+            return;
+        _ = ResolvePlayFlyInImagePath(card);
+    }
+
+    /// <summary>
+    /// Sync-load face into PlayFlyInImage before BeginAnimation. Does not clear Source on failure
+    /// mid-flight (avoids black flash). Returns true when Source is set.
+    /// </summary>
+    private bool TryLoadPlayFlyInFace(Card? card)
+    {
+        if (PlayFlyInImage == null) return false;
+        string? path = ResolvePlayFlyInImagePath(card);
+        if (string.IsNullOrEmpty(path)) return PlayFlyInImage.Source != null;
+        try
+        {
+            var bmp = new BitmapImage();
+            bmp.BeginInit();
+            bmp.CacheOption = BitmapCacheOption.OnLoad;
+            bmp.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
+            bmp.UriSource = new Uri(path, UriKind.Absolute);
+            bmp.DecodePixelWidth = 480;
+            bmp.EndInit();
+            if (bmp.CanFreeze) bmp.Freeze();
+            PlayFlyInImage.Source = bmp;
+            return true;
+        }
+        catch
+        {
+            return PlayFlyInImage.Source != null;
+        }
+    }
+
+    /// <summary>
+    /// Play-Action target InstanceId (ship/outpost/mission) for Host/Guest-equal land bounds.
+    /// </summary>
+    private int ResolvePlayFlyInTargetInstanceId(Card? card, Card? explicitTarget)
+    {
+        if (explicitTarget != null && explicitTarget.InstanceId > 0)
+            return explicitTarget.InstanceId;
+        if (_eventPreferredHost?.Tag is Card pref && pref.InstanceId > 0)
+            return pref.InstanceId;
+        if (card != null)
+        {
+            var ae = _attachedEvents.FirstOrDefault(e =>
+                e.Card != null
+                && (ReferenceEquals(e.Card, card)
+                    || (card.InstanceId > 0 && e.Card.InstanceId == card.InstanceId)));
+            if (ae?.Host?.Tag is Card hostCard && hostCard.InstanceId > 0)
+                return hostCard.InstanceId;
+            var own = FindPlayFlyInSlotBorder(card);
+            if (own != null)
+            {
+                foreach (var kv in _stackOnHost)
+                {
+                    if (kv.Value.Any(b => ReferenceEquals(b, own))
+                        && kv.Key.Tag is Card stackedHost
+                        && stackedHost.InstanceId > 0)
+                        return stackedHost.InstanceId;
+                }
+            }
+        }
+        return 0;
+    }
+
     /// <summary>
     /// Own board/TABLE border for ghost (may be Collapsed when stacked on a facility).
     /// </summary>
@@ -10633,12 +10753,24 @@ public partial class TableWindow : Window
     }
 
     /// <summary>
-    /// Landing seat after layout: stacked Personnel/Equipment → current host Facility/Ship bounds
-    /// (legal snap window). Never the collapsed child's pre-Relayout AbsoluteLeft from an old match.
-    /// Ships/Events: own visible face / TABLE mini.
+    /// Landing seat after layout: Play-Action target ship/outpost first (Event/Interrupt on ship);
+    /// else stacked Personnel/Equipment → current host Facility/Ship bounds (legal snap window).
+    /// Never the collapsed child's pre-Relayout AbsoluteLeft from an old match.
+    /// Ships/Events without target: own visible face / TABLE mini.
     /// </summary>
-    private Border? FindPlayFlyInLandBorder(Card card)
+    private Border? FindPlayFlyInLandBorder(Card? card, int targetInstanceId = 0)
     {
+        if (targetInstanceId <= 0 && card != null)
+            targetInstanceId = ResolvePlayFlyInTargetInstanceId(card, null);
+        if (targetInstanceId > 0)
+        {
+            var targetBorder = FindBorderByInstanceId(targetInstanceId)
+                ?? TableCanvas.Children.OfType<Border>()
+                    .FirstOrDefault(b => b.Tag is Card c && c.InstanceId == targetInstanceId);
+            if (targetBorder != null)
+                return targetBorder;
+        }
+        if (card == null) return null;
         var own = FindPlayFlyInSlotBorder(card);
         if (own == null) return null;
         foreach (var kv in _stackOnHost)
@@ -10679,14 +10811,15 @@ public partial class TableWindow : Window
     /// </summary>
     private bool TryResolvePlayFlyInSlot(
         Card? card, double? tnx, double? tny, Point mid, double ow, double oh,
+        int targetInstanceId,
         out Point center, out double width, out double height)
     {
         center = mid;
         width = TableCardWidth;
         height = TableCardHeight;
 
-        // LIVE land seat (host facility after Relayout for stacked Pers/Eq) — never cached Norm.
-        Border? b = card != null ? FindPlayFlyInLandBorder(card) : null;
+        // LIVE land seat: Play-Action target ship/outpost, else host facility after Relayout.
+        Border? b = FindPlayFlyInLandBorder(card, targetInstanceId);
         FrameworkElement origin = (FrameworkElement?)DragLayer ?? (FrameworkElement?)PlayFlyInOverlay ?? (FrameworkElement)this;
         if (b != null)
         {
@@ -10716,11 +10849,11 @@ public partial class TableWindow : Window
         return false;
     }
 
-    private bool TryGetPlayFlyInTargetNorm(Card card, out double? tnx, out double? tny)
+    private bool TryGetPlayFlyInTargetNorm(Card card, int targetInstanceId, out double? tnx, out double? tny)
     {
         tnx = null;
         tny = null;
-        var b = FindPlayFlyInLandBorder(card);
+        var b = FindPlayFlyInLandBorder(card, targetInstanceId);
         if (b == null) return false;
         try
         {
