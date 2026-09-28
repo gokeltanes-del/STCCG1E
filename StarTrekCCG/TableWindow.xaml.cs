@@ -9943,12 +9943,23 @@ public partial class TableWindow : Window
             // Plays-on-host events (Bynars/Spacedock/…): attach to Target/underInst — never TABLE-first.
             // IsTablePermanentType(Event)=true would otherwise always CommitCardToTable and fly-in lands TABLE.
             bool hostedEvent = EventRules.IsEvent(card) && EventRules.PlaysOnHost(card);
+            bool hasGapNote = !string.IsNullOrWhiteSpace(action.Note)
+                && action.Note!.StartsWith("gap:", StringComparison.OrdinalIgnoreCase);
             bool hasHostHint = action.Target != null
+                || hasGapNote
                 || (!string.IsNullOrWhiteSpace(action.Note)
                     && action.Note!.StartsWith("underInst:", StringComparison.OrdinalIgnoreCase));
             if (hostedEvent && hasHostHint)
             {
-                Border? host = ResolvePlayHostTarget(action, player)
+                Border? host = null;
+                Border? host2 = null;
+                // Gaps/Q-Net: Guest drop index → Host Apply (no Host ShowIndexPickDialog).
+                if (hasGapNote && TryParseGapNote(action.Note!, out int gapL, out int gapR))
+                {
+                    host = FindBorderByInstanceId(gapL);
+                    host2 = FindBorderByInstanceId(gapR);
+                }
+                host ??= ResolvePlayHostTarget(action, player)
                     ?? ResolveSeedUnderMissionTarget(action);
                 if (host == null && action.Target?.InstanceId > 0)
                     host = FindBorderByInstanceId(action.Target.InstanceId);
@@ -9962,6 +9973,7 @@ public partial class TableWindow : Window
                 if (host != null)
                 {
                     _eventPreferredHost = host;
+                    _eventPreferredHost2 = host2;
                     // TryResolveEventPlay always returns true (even on bounce-to-hand).
                     TryResolveEventPlay(card, player);
                     bool bounced = _handCards.Contains(card) || _oppHandCards.Contains(card);
@@ -10049,6 +10061,20 @@ public partial class TableWindow : Window
         UpdatePhaseControls();
         _session.Log.Add(_session.TurnNumber, $"P{player}", $"Net: Play {card.Name}");
         return true;
+    }
+
+    /// <summary>Guest Gaps/Q-Net Note: gap:leftInst:rightInst (mission endpoints).</summary>
+    private static bool TryParseGapNote(string note, out int leftInst, out int rightInst)
+    {
+        leftInst = 0;
+        rightInst = 0;
+        if (string.IsNullOrWhiteSpace(note)
+            || !note.StartsWith("gap:", StringComparison.OrdinalIgnoreCase))
+            return false;
+        var parts = note.AsSpan("gap:".Length).ToString().Split(':');
+        if (parts.Length < 2) return false;
+        return int.TryParse(parts[0], out leftInst) && leftInst > 0
+            && int.TryParse(parts[1], out rightInst) && rightInst > 0;
     }
 
     /// <summary>
@@ -10326,14 +10352,10 @@ public partial class TableWindow : Window
         Card? card = null;
         if (dto.InstanceId > 0)
             card = LookupCardByInstanceId(dto.InstanceId);
-        if (card == null && !string.IsNullOrWhiteSpace(dto.CardName) && _db != null)
-        {
-            card = _db.AllCards.FirstOrDefault(c =>
-                string.Equals(c.Name, dto.CardName, StringComparison.OrdinalIgnoreCase)
-                && (string.IsNullOrWhiteSpace(dto.CardSet)
-                    || string.Equals(c.Set, dto.CardSet, StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(c.SetFolder, dto.CardSet, StringComparison.OrdinalIgnoreCase)));
-        }
+        // Fog / pre-State: masked opp-hand stubs keep InstanceId with empty Name — no Face.
+        // Always prefer Catalog/Data art from DTO Name+Set (same path as Hand after ResolveCard).
+        if (card == null || string.IsNullOrWhiteSpace(card.Name))
+            card = BuildPlayRevealCardFromCatalog(dto) ?? card;
         if (card == null && !string.IsNullOrWhiteSpace(dto.CardName))
         {
             card = new Card
@@ -10344,17 +10366,55 @@ public partial class TableWindow : Window
                 InstanceId = dto.InstanceId
             };
         }
-        // Face-art like Hand/Prototype BEFORE anim — Guest board stubs often lack FullImagePath.
-        EnsurePlayFlyInCardArt(card);
+        EnsurePlayFlyInCardArt(card, dto.CardName, dto.CardSet);
         int player = dto.Player is 1 or 2 ? dto.Player : 2;
         int landInst = dto.TargetInstanceId > 0
             ? dto.TargetInstanceId
             : ResolvePlayFlyInTargetInstanceId(card, null);
         // Wait for prior State ApplyGameSave layout so local slot beats Host TargetNorm.
-        TryStartPlayFlyInWhenReady(card, player, dto.TargetNormX, dto.TargetNormY, landInst, attemptsLeft: 10);
+        TryStartPlayFlyInWhenReady(card, player, dto.TargetNormX, dto.TargetNormY, landInst, attemptsLeft: 10,
+            artName: dto.CardName, artSet: dto.CardSet);
         _session.Log.AddDebug(_session.TurnNumber, "Net",
             $"PlayReveal received: P{player} {dto.CardName}" +
             (landInst > 0 ? $" landInst={landInst}" : ""));
+    }
+
+    /// <summary>
+    /// Guest Face: Catalog Instantiate by DTO Name+Set (ignores fog stubs / missing FullImagePath).
+    /// Same art source as Hand after ResolveCard → CardFactory.Instantiate.
+    /// </summary>
+    private Card? BuildPlayRevealCardFromCatalog(NetPlayRevealDto dto)
+    {
+        if (dto == null || _db == null || string.IsNullOrWhiteSpace(dto.CardName))
+            return null;
+        Card? proto = FindCatalogPrototype(dto.CardName, dto.CardSet);
+        if (proto == null) return null;
+        int owner = dto.Player is 1 or 2 ? dto.Player : 0;
+        var inst = CardFactory.Instantiate(proto, owner);
+        if (dto.InstanceId > 0)
+        {
+            inst.InstanceId = dto.InstanceId;
+            CardFactory.NoteHighestId(dto.InstanceId);
+        }
+        if (!string.IsNullOrWhiteSpace(dto.CardType))
+            inst.Type = dto.CardType;
+        return inst;
+    }
+
+    private Card? FindCatalogPrototype(string? name, string? set)
+    {
+        if (_db == null || string.IsNullOrWhiteSpace(name)) return null;
+        Card? proto = null;
+        if (!string.IsNullOrWhiteSpace(set))
+        {
+            proto = _db.AllCards.FirstOrDefault(c =>
+                string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase)
+                && (string.Equals(c.SetFolder, set, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(c.Set, set, StringComparison.OrdinalIgnoreCase)));
+        }
+        proto ??= _db.AllCards.FirstOrDefault(c =>
+            string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
+        return proto;
     }
 
     /// <summary>
@@ -10362,10 +10422,11 @@ public partial class TableWindow : Window
     /// </summary>
     private void TryStartPlayFlyInWhenReady(
         Card? card, int player, double? targetNormX, double? targetNormY,
-        int targetInstanceId, int attemptsLeft)
+        int targetInstanceId, int attemptsLeft,
+        string? artName = null, string? artSet = null)
     {
         try { UpdateLayout(); } catch { /* */ }
-        EnsurePlayFlyInCardArt(card);
+        EnsurePlayFlyInCardArt(card, artName, artSet);
         // Prefer Play-Action target ship/outpost; else land seat (host facility).
         Border? slot = FindPlayFlyInLandBorder(card, targetInstanceId);
         if (slot != null || attemptsLeft <= 0)
@@ -10383,7 +10444,7 @@ public partial class TableWindow : Window
                     TableCanvas?.UpdateLayout();
                 }
                 catch { /* */ }
-                EnsurePlayFlyInCardArt(cardCap);
+                EnsurePlayFlyInCardArt(cardCap, artName, artSet);
                 int landInst = landCap > 0
                     ? landCap
                     : ResolvePlayFlyInTargetInstanceId(cardCap, null);
@@ -10393,7 +10454,7 @@ public partial class TableWindow : Window
                     tnx = liveX;
                     tny = liveY;
                 }
-                ShowPlayFlyIn(cardCap, pCap, tnx, tny, landInst);
+                ShowPlayFlyIn(cardCap, pCap, tnx, tny, landInst, artName, artSet);
             }), System.Windows.Threading.DispatcherPriority.Loaded);
             return;
         }
@@ -10404,7 +10465,8 @@ public partial class TableWindow : Window
         t.Tick += (_, _) =>
         {
             t.Stop();
-            TryStartPlayFlyInWhenReady(card, player, targetNormX, targetNormY, targetInstanceId, attemptsLeft - 1);
+            TryStartPlayFlyInWhenReady(card, player, targetNormX, targetNormY, targetInstanceId, attemptsLeft - 1,
+                artName, artSet);
         };
         t.Start();
     }
@@ -10416,7 +10478,7 @@ public partial class TableWindow : Window
     /// </summary>
     private void ShowPlayFlyIn(
         Card? card, int player, double? targetNormX = null, double? targetNormY = null,
-        int targetInstanceId = 0)
+        int targetInstanceId = 0, string? artName = null, string? artSet = null)
     {
         if (PlayFlyInCard == null || DragLayer == null) return;
 
@@ -10436,10 +10498,9 @@ public partial class TableWindow : Window
             }
             Panel.SetZIndex(DragLayer, 240);
             Panel.SetZIndex(PlayFlyInCard, 250);
-
-            // Face MUST be loaded before anim starts (Guest stubs / race → black card otherwise).
-            EnsurePlayFlyInCardArt(card);
-            if (!TryLoadPlayFlyInFace(card) && PlayFlyInImage != null)
+            // Face MUST be loaded before anim starts (Guest fog stubs / Catalog — black #111 otherwise).
+            EnsurePlayFlyInCardArt(card, artName, artSet);
+            if (!TryLoadPlayFlyInFace(card, artName, artSet) && PlayFlyInImage != null)
                 PlayFlyInImage.Source = null;
 
             PlayFlyInCard.Width = TableCardWidth;
@@ -10647,36 +10708,38 @@ public partial class TableWindow : Window
         FinishPlayFlyInLand(_playFlyInGen);
     }
 
-    /// <summary>Face-art path like Hand reveal: live zone card, then DB prototype.</summary>
-    private string? ResolvePlayFlyInImagePath(Card? card)
+    /// <summary>
+    /// Face-art path: Catalog/Data first (DTO Name+Set), then live zone, then card.FullImagePath.
+    /// Host→Guest PlayReveal must not depend on Host card object / fog stubs.
+    /// </summary>
+    private string? ResolvePlayFlyInImagePath(Card? card, string? nameHint = null, string? setHint = null)
     {
-        if (card == null) return null;
-        if (!string.IsNullOrEmpty(card.FullImagePath) && System.IO.File.Exists(card.FullImagePath))
-            return card.FullImagePath;
+        string? name = !string.IsNullOrWhiteSpace(nameHint) ? nameHint : card?.Name;
+        string? set = !string.IsNullOrWhiteSpace(setHint) ? setHint : card?.SetFolder;
 
-        // Same art source as Hand/TABLE strips (Guest P2 stubs often lack FullImagePath).
-        Card? live = FindLiveCardWithArt(card);
-        if (live != null)
-        {
-            card.FullImagePath = live.FullImagePath;
-            return live.FullImagePath;
-        }
-
-        if (_db == null || string.IsNullOrWhiteSpace(card.Name)) return null;
-        Card? proto = null;
-        if (!string.IsNullOrWhiteSpace(card.SetFolder))
-        {
-            proto = _db.AllCards.FirstOrDefault(c =>
-                string.Equals(c.Name, card.Name, StringComparison.OrdinalIgnoreCase)
-                && string.Equals(c.SetFolder ?? c.Set, card.SetFolder, StringComparison.OrdinalIgnoreCase));
-        }
-        proto ??= _db.AllCards.FirstOrDefault(c =>
-            string.Equals(c.Name, card.Name, StringComparison.OrdinalIgnoreCase));
+        // 1) Catalog/Data — same source Hand uses after ResolveCard → CardFactory.Instantiate.
+        Card? proto = FindCatalogPrototype(name, set);
         if (proto != null && !string.IsNullOrEmpty(proto.FullImagePath)
             && System.IO.File.Exists(proto.FullImagePath))
         {
-            card.FullImagePath = proto.FullImagePath;
+            if (card != null) card.FullImagePath = proto.FullImagePath;
             return proto.FullImagePath;
+        }
+
+        if (card != null
+            && !string.IsNullOrEmpty(card.FullImagePath)
+            && System.IO.File.Exists(card.FullImagePath))
+            return card.FullImagePath;
+
+        // 2) Live hand/board/discard copy (Guest own plays still in hand pre-State).
+        if (card != null)
+        {
+            Card? live = FindLiveCardWithArt(card);
+            if (live != null)
+            {
+                card.FullImagePath = live.FullImagePath;
+                return live.FullImagePath;
+            }
         }
         return null;
     }
@@ -10716,23 +10779,26 @@ public partial class TableWindow : Window
         return null;
     }
 
-    /// <summary>Fill FullImagePath from DB prototype (Guest net stubs / masked saves).</summary>
-    private void EnsurePlayFlyInCardArt(Card? card)
+    /// <summary>Fill FullImagePath from Catalog/Data (DTO hints) — Guest fog stubs / masked saves.</summary>
+    private void EnsurePlayFlyInCardArt(Card? card, string? nameHint = null, string? setHint = null)
     {
-        if (card == null) return;
-        if (!string.IsNullOrEmpty(card.FullImagePath) && System.IO.File.Exists(card.FullImagePath))
+        if (card == null && string.IsNullOrWhiteSpace(nameHint)) return;
+        if (card != null
+            && !string.IsNullOrEmpty(card.FullImagePath)
+            && System.IO.File.Exists(card.FullImagePath)
+            && string.IsNullOrWhiteSpace(nameHint))
             return;
-        _ = ResolvePlayFlyInImagePath(card);
+        _ = ResolvePlayFlyInImagePath(card, nameHint, setHint);
     }
 
     /// <summary>
     /// Sync-load face into PlayFlyInImage before BeginAnimation. Does not clear Source on failure
     /// mid-flight (avoids black flash). Returns true when Source is set.
     /// </summary>
-    private bool TryLoadPlayFlyInFace(Card? card)
+    private bool TryLoadPlayFlyInFace(Card? card, string? nameHint = null, string? setHint = null)
     {
         if (PlayFlyInImage == null) return false;
-        string? path = ResolvePlayFlyInImagePath(card);
+        string? path = ResolvePlayFlyInImagePath(card, nameHint, setHint);
         if (string.IsNullOrEmpty(path)) return PlayFlyInImage.Source != null;
         try
         {
@@ -31117,7 +31183,16 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
                 var er = EventRules.ResolvePlay(card);
                 var tk = EventRules.GetTargetKind(er);
                 var snapped = TrySnapEventTargetAt(tablePt.X, tablePt.Y, tk, owner, card);
-                if (snapped.host?.Tag is Card th)
+                if (tk == EventRules.TargetKind.GapBetweenMissions
+                    && snapped.host?.Tag is Card gl
+                    && snapped.host2?.Tag is Card gr
+                    && gl.InstanceId > 0 && gr.InstanceId > 0)
+                {
+                    // Guest chose the slot — Host Apply only (no Host slot-picker).
+                    target = gl;
+                    note = $"gap:{gl.InstanceId}:{gr.InstanceId}";
+                }
+                else if (snapped.host?.Tag is Card th)
                 {
                     target = th;
                     if (th.InstanceId > 0)
