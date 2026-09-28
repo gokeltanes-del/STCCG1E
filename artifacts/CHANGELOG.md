@@ -1,4 +1,10 @@
-﻿## 2026-09-28 - Q-Net second span no Extra-Width stack + SWB Face choice
+## 2026-09-28 - Spaceline span overlay subsystem (Option B)
+
+- *Auftrag (FREIGABE Option B)*: Analyse `GROK_TEMP/spaceline-span-sync-analysis.md` befolgen - eine Wahrheit: Order=Missionen; Spans=Overlay Endpoints; Capture ohne Spans; Relayout+PaintSpans; Seed/Index mission-only; BoardStore aus Paar. Kein Hybrid. TAK ab2e67a / Overlay a9af295 unangetastet. Kein Refactor C.
+- *Root cause*: Hybrid seit 5b043b0 - Relayout missions-only Paint, aber PlaceSpan/Pin inserteten Spans weiter in `_spacelineOrder` + `save.Spaceline`; Seed/IndexOfMission span-verseucht; Dual-EXE Float/Desync.
+- *Fix*: `SpacelineSpanRecord` + `PaintSpans`/`PurgeSpansFromSpacelineOrder`; PlaceSpan ohne Insert; Capture/Apply Spaceline mission-only; SyncBoard Barriers/Gaps nur aus AttachedEvent-Endpoints; `IndexOfMission`/Gaps/GetValid mission-only; `BuildSpacelineDisplayOrder` entfernt. SEARCH: Verb: plays-on spaceline-span; Glossary: adjacent.
+- *Scope*: TableWindow.xaml.cs. Tip-Hash 2d7acc7. Basis 5b043b0 / Docs 24cf19c. Overlay/TAK unberuehrt. Kein Push.
+## 2026-09-28 - Q-Net second span no Extra-Width stack + SWB Face choice
 
 - *Auftrag (FREIGABE)*: Tip fef7075 unzureichend - Dual-EXE: zweites Q-Net stackt auf erstem + grosses Horizontal-Loch; SWB Choice Text/schwarz statt Face. Soll: Gap=Mission-InstanceIds; Render Gap-Mid/SpacelineY; Span kein Extra-Width; SWB Face-Strip. TAK ab2e67a / Overlay a9af295 unangetastet.
 - *Root cause*: RelayoutMissionsOnSpaceline behandelte Q-Net/Gaps als volle Display-Spalten (TableCardWidth+MissionGap), Pin verschob Barrieren auf Gap-Mid → leeres Loch + optischer Stack; SpanEndpoints konnte Non-Mission-Hosts akzeptieren. SWB AskChoiceLocal erzeugte Fake-Cards Type=Choice ohne FullImagePath → Text/schwarz statt Face.

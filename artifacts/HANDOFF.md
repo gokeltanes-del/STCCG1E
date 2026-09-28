@@ -1,4 +1,4 @@
-﻿# HANDOFF ├ö├ç├Â STCCG 1E
+# HANDOFF ├ö├ç├Â STCCG 1E
 
 **Owner:** Captain Ôö¼├Ç **Stand:** 2026-09-28 Ôö¼├Ç **Ort:** Josef `C:\Dev\StarTrekCCG\StarTrekCCG`
 
@@ -9,7 +9,7 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 
 ## Jetzt aktiv ├ö├ç├Â Multiplayer / Network-Modus
 
-**Status:** Q-Net second-span no Extra-Width + SWB Face getippt (5b043b0). fef7075/ab2e67a/a9af295 Pipeline. **netztauglich.** Smoke: zwei Q-Nets getrennte Gaps; SWB Face-Strip. **HOLD.**
+**Status:** Span overlay subsystem Option B getippt (2d7acc7). Order=Missionen; Spans=PaintSpans Overlay Endpoints; Capture ohne Spans. Pipeline 5b043b0/ab2e67a/a9af295. **Smoke Dual-EXE: zwei Q-Nets verschiedene Gaps -> gleiche Spaceline P1=P2, kein Float/Extra-Width/Stack. HOLD.**
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
 
 ### Architektur
@@ -24,11 +24,12 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 4. **Phase 4 — Dialoge/Timing:** ChoiceRequest / ChoiceResponse. → Tip e102b47.
 5. **Phase 5 ├ö├ç├Â HÔö£├▒rtung:** Disconnect, Reconnect, Abbruch.
 
-**Code-Stand (Data 2026-09-28):** Q-Net Extra-Width+SWB Face 5b043b0; Span gap InstanceIds fef7075; TAK+SWB AskChoice ab2e67a; Span fly-in/gap 6acacd4; Span Y 0443f37; Responsive Overlays a9af295; Spaceline Attach Y + History RMB 3bc7e49; Action History Reihe acfb554; Face Catalog + Gaps Guest-Drop 5c29f7b; Guest/P2 Play-Pfad 591fba3. Kein Push durch Bots. **HOLD.**
+**Code-Stand (Data 2026-09-28):** Span overlay subsystem B 2d7acc7; Q-Net Extra-Width+SWB Face 5b043b0; Span gap InstanceIds fef7075; TAK+SWB AskChoice ab2e67a; Responsive Overlays a9af295. Kein Push durch Bots. **HOLD.**
 
 ---
 
 ## Zuletzt (kurz)
+- Span overlay subsystem (Option B): _spacelineOrder mission-only; PaintSpans Gap-Mid Endpoints; Capture Spaceline ohne Spans; BoardStore aus AE-Paar; Seed/Index mission-only; BuildSpacelineDisplayOrder weg. Tip-Hash 2d7acc7. Pipeline 5b043b0/ab2e67a/a9af295 erhalten. **HOLD.**
 - Q-Net second span no Extra-Width stack + SWB Face: Relayout missions-only columns; spans gap-mid Pin; AsMissionEndpointBorder; SWB hand→Face strip. Tip-Hash 5b043b0. Pipeline fef7075/ab2e67a/a9af295 erhalten. **HOLD.**
 - Spaceline span gap = mission InstanceIds + Host dock recover (Q-Net): HostInstanceId/Host2InstanceId; Apply/SpanEndpoints/DisplayOrder per InstanceId; EnsureBoardExtents deferred; PinDockables after span Relayout; Fly-in no Host TargetNorm for spans. Tip-Hash fef7075. Pipeline ab2e67a/a9af295 erhalten. **HOLD.**
 - TAK + SWB Choice via AskChoiceForPlayer (Owner-Fenster): RunKidnappers/PickHandCardToDiscard Phase-4 Gate; Host RNG+Discard/Reveal; kein KidnapOverlay PushFrame. Tip-Hash ab2e67a. Pipeline 6acacd4/a9af295 erhalten. **HOLD.**
