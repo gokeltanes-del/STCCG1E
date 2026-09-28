@@ -1243,14 +1243,23 @@ public partial class TableWindow : Window
             string tipText = string.IsNullOrWhiteSpace(entry.Card.Text)
                 ? ""
                 : ("\n\n" + entry.Card.Text);
-            mini.ToolTip = tipTitle + tipText + "\nClick = detail / text";
+            mini.ToolTip = tipTitle + tipText + "\nRight-click = zoom (hold)";
             var cardCap = entry.Card;
-            mini.MouseLeftButtonDown += (s, e) =>
+            // Pepsch: Recently played = board-card UX only (RMB hold zoom). No Click->Detail popup.
+            mini.MouseRightButtonDown += (s, e) =>
             {
                 HideMiniHover();
                 ShowCardDetail(cardCap);
-                OpenCardDetailPopup();
+                BeginHoldZoom(cardCap, s as IInputElement);
                 e.Handled = true;
+            };
+            mini.MouseRightButtonUp += (s, e) =>
+            {
+                if (_holdZoomActive)
+                {
+                    EndHoldZoom();
+                    e.Handled = true;
+                }
             };
             PlayHistoryStrip.Children.Add(mini);
         }
@@ -10071,7 +10080,11 @@ public partial class TableWindow : Window
                                 break;
                             }
                         }
-                        if (!hasMini)
+                        // Gaps/Q-Net live on the spaceline (PlaceSpanOnSpaceline) — never host-stack mini.
+                        // AttachCardToHost would save a viewer-Y duplicate and flip dock sides on Host.
+                        bool isGapSpan = EventRules.GetTargetKind(EventRules.ResolvePlay(card))
+                            == EventRules.TargetKind.GapBetweenMissions;
+                        if (!hasMini && !isGapSpan)
                             AttachCardToHost(card, host, player);
                         placed = true;
                         StatusText.Text =
@@ -10249,7 +10262,7 @@ public partial class TableWindow : Window
                 && CanSeedCardUnderMission(card, mCard).ok)
             {
                 var border = AddCardToTable(card, Canvas.GetLeft(missionBorder),
-                    Canvas.GetTop(missionBorder) + UnderMissionGap, TableCardWidth);
+                    Canvas.GetTop(missionBorder) + DockSlotOffsetY(0, player), TableCardWidth);
                 SetBorderOwner(border, player); // before AddSeed (artifact limits / badge owner)
                 if (!AddSeedUnderMission(missionBorder, border))
                 {
@@ -12585,7 +12598,8 @@ public partial class TableWindow : Window
                 Set = card.SetFolder,
                 Type = card.Type,
                 X = Canvas.GetLeft(b),
-                Y = Canvas.GetTop(b),
+                // Board-absolute Y (P1 below=+, P2 above=- from SpacelineYDefault). Sync must not store viewer-Y.
+                Y = ToBoardAbsoluteY(b),
                 Z = Panel.GetZIndex(b),
                 Owner = GetBorderOwner(b),
                 Visible = b.Visibility == Visibility.Visible,
@@ -12774,9 +12788,12 @@ public partial class TableWindow : Window
                 FaceUp = snap.FaceUp
             });
             if (card == null) continue;
-            var border = AddCardToTable(card, snap.X, snap.Y, TableCardWidth);
+            int snapOwner = snap.Owner is 1 or 2 ? snap.Owner : 1;
+            // Board-absolute save Y -> viewer-relative canvas Y (own side below spaceline).
+            double viewerY = FromBoardAbsoluteY(snap.Y, snapOwner);
+            var border = AddCardToTable(card, snap.X, viewerY, TableCardWidth);
             Panel.SetZIndex(border, snap.Z);
-            SetBorderOwner(border, snap.Owner is 1 or 2 ? snap.Owner : 1);
+            SetBorderOwner(border, snapOwner);
             if (!snap.Visible) border.Visibility = Visibility.Collapsed;
             if (snap.Hull > 0)
             {
@@ -30576,8 +30593,10 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
 
         if (IsDockableUnderMission(card))
         {
+            int ow = GetBorderOwner(cardBorder);
+            if (ow is not (1 or 2)) ow = _activePlayer is 1 or 2 ? _activePlayer : ViewerPlayer;
             Canvas.SetLeft(cardBorder, Canvas.GetLeft(mission));
-            Canvas.SetTop(cardBorder, Canvas.GetTop(mission) + UnderMissionGap);
+            Canvas.SetTop(cardBorder, Canvas.GetTop(mission) + DockSlotOffsetY(0, ow));
         }
 
         if (mission.Tag is Card missionCard)
@@ -30620,6 +30639,45 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
         int o = ownerPlayer is 1 or 2 ? ownerPlayer : 1;
         double sign = o == ViewerPlayer ? 1.0 : -1.0;
         return sign * UnderMissionGap * (slotIndexZeroBased + 1);
+    }
+
+    /// <summary>
+    /// Sync Y: board-absolute from SpacelineYDefault. P1 below = positive, P2 above = negative.
+    /// Independent of ViewerPlayer so Host/Guest Apply can map to viewer-relative canvas Y.
+    /// Missions/spans stay on the spaceline (SpacelineYDefault).
+    /// </summary>
+    private double ToBoardAbsoluteY(Border b)
+    {
+        double top = Canvas.GetTop(b);
+        if (double.IsNaN(top)) return SpacelineYDefault;
+        if (b.Tag is Card c && (IsMissionCard(c) || IsSpacelineSpanCard(c)
+            || CardKinds.IsTimeLocation(c) || ArtifactRules.IsTimeTravelPod(c)))
+            return SpacelineYDefault;
+        int owner = GetBorderOwner(b);
+        if (owner is not (1 or 2)) owner = 1;
+        double offset = top - SpacelineY;
+        if (double.IsNaN(offset)) offset = 0;
+        double absOff = Math.Abs(offset);
+        // Prefer owner side for magnitude when nearly on spaceline (collapsed stack minis).
+        if (absOff < 20) absOff = 0;
+        double boardSign = owner == 1 ? 1.0 : -1.0;
+        return SpacelineYDefault + boardSign * absOff;
+    }
+
+    /// <summary>
+    /// Load Y: board-absolute → viewer canvas (own side below current SpacelineY).
+    /// RelayoutAllDockables / RelayoutSeedUnderMissions still rebase docks/seeds afterward.
+    /// </summary>
+    private double FromBoardAbsoluteY(double boardY, int ownerPlayer)
+    {
+        int o = ownerPlayer is 1 or 2 ? ownerPlayer : 1;
+        double boardOffset = boardY - SpacelineYDefault;
+        if (double.IsNaN(boardOffset)) boardOffset = 0;
+        double absOff = Math.Abs(boardOffset);
+        // On-spaceline / mission / span (board Y ≈ SpacelineYDefault).
+        if (absOff < 20) return SpacelineY;
+        double viewerSign = o == ViewerPlayer ? 1.0 : -1.0;
+        return SpacelineY + viewerSign * absOff;
     }
 
     private int CountDockablesForOwner(Border mission, int ownerPlayer, Border? exclude = null)
@@ -30722,7 +30780,7 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
             // Ships above facilities; higher slot => higher Z so topmost stays clickable
             int z = DockSortKey(below[i]) == 0 ? 12 + i : 22 + i;
             Panel.SetZIndex(below[i], z);
-            SetBorderOwner(below[i], viewer); // preserve absolute owner (= viewer on bottom)
+            // Keep absolute Owner from place/seed/save — never rewrite from viewer side.
             _dockableAtMission[below[i]] = mission;
             SyncShipCombatVisuals(below[i]);
             UpdateHostBadge(below[i]);
@@ -30734,7 +30792,6 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
             Canvas.SetTop(above[i], missionTop + DockSlotOffsetY(i, opponent));
             int z = DockSortKey(above[i]) == 0 ? 12 + i : 22 + i;
             Panel.SetZIndex(above[i], z);
-            SetBorderOwner(above[i], opponent);
             _dockableAtMission[above[i]] = mission;
             SyncShipCombatVisuals(above[i]);
             UpdateHostBadge(above[i]);
