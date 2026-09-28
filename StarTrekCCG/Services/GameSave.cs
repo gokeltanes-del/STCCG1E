@@ -49,6 +49,14 @@ public sealed class GameSave
     [JsonPropertyName("spaceline")]
     public List<int> Spaceline { get; set; } = new();
 
+    /// <summary>
+    /// Mission-column InstanceIds in board order (left → right).
+    /// Authoritative Host→Guest spaceline. Spans are never entries.
+    /// Snap ids in <see cref="Spaceline"/> stay for older saves.
+    /// </summary>
+    [JsonPropertyName("spacelineInstanceIds")]
+    public List<int> SpacelineInstanceIds { get; set; } = new();
+
     [JsonPropertyName("attachedEvents")]
     public List<AttachedEventSnap> AttachedEvents { get; set; } = new();
 
@@ -136,8 +144,11 @@ public sealed class AttachedEventSnap
     public int Owner { get; set; }
     public int? HostId { get; set; }
     public int? Host2Id { get; set; }
-    /// <summary>Board-absolute mission InstanceIds for spaceline spans (Q-Net/Gaps). Prefer over HostId.</summary>
+    /// <summary>Board-absolute mission InstanceId (left endpoint). Prefer over save-local HostId.</summary>
+    [JsonPropertyName("hostInstanceId")]
     public int? HostInstanceId { get; set; }
+    /// <summary>Board-absolute mission InstanceId (right endpoint).</summary>
+    [JsonPropertyName("host2InstanceId")]
     public int? Host2InstanceId { get; set; }
     public int Countdown { get; set; }
     public bool FaceUp { get; set; } = true;
