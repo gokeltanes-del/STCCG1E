@@ -1,3 +1,9 @@
+﻿## 2026-09-28 - Spaceline span fly-in land + gap adjacency (Q-Net Nachzieher)
+
+- *Auftrag (FREIGABE)*: Tip 0443f37 unzureichend - Dual-EXE Stacks M5/M9 wirken vertikal vertauscht (rechts=Wahrheit); Q-Net optisch im Romulan-Stack statt Span in Spaceline-Luecke. landInst=39 fuer beide Q-Nets. Generisch Gaps/Q-Net/Spans.
+- *Root cause*: ResolvePlayFlyInTargetInstanceId lieferte ae.Host / stale _eventPreferredHost (Fly-in landet auf Mission/Facility-Stack); ListSameQuadrantGaps/PickAdjacentMission zaehlten Spans als Endpoints; PinSpacelineSpanCardsY nur Y, fehlte nach RelayoutAllDockables/ScheduleSettle.
+- *Fix*: Span landInst = eigene InstanceId; AttachCardToHost via IsSpacelineSpanCard; mission-only Gap-Paare; PickAdjacent laeuft an Spans vorbei; Pin gap-midpoint X fuer Barrieren + nach RelayoutAll/ScheduleSettle.
+- *Scope*: TableWindow.xaml.cs. Tip-Hash 6acacd4. Basis 0443f37 / Docs d307c09. Overlay a9af295 unberuehrt. Kein Push.
 ## 2026-09-28 - Spaceline Span Y always SpacelineY-centered (Q-Net Nachzieher)
 
 - *Auftrag (FREIGABE)*: Tip 3bc7e49 unzureichend — Dual-EXE P2 Q-Net: P2 (rechts) vertikal zentriert in Lücke OK; P1 (links) dünner Streifen am oberen Rand / massiver Y-Offset nach oben (Clipping), horizontal OK. Q-Net soll Spaceline-Y-zentriert sein, nicht Owner-Dock oben/unten. Generisch Gaps/Q-Net/Spaceline-Spans.
