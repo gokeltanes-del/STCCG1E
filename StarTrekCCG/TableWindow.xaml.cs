@@ -852,152 +852,84 @@ public partial class TableWindow : Window
     private System.Windows.Threading.DispatcherFrame? _kidnapFrame;
     private Border? _hoverPreview;
 
+    // SEARCH: Glossary: Telepathic Alien Kidnappers; Verb: AskChoiceForPlayer type-name EOT; Network-First Phase4
+    /// <summary>
+    /// EOT Kidnappers: Event-Owner names a type via AskChoiceForPlayer (netztauglich),
+    /// then Host RNG over absolute opponent hand + reveal/discard. No KidnapOverlay PushFrame
+    /// (legacy Host-window bug when Owner=P2 Guest).
+    /// </summary>
     private void RunKidnappers(int owner, Card source)
     {
         _kidnapOwner = owner;
         _kidnapNamedType = null;
         _kidnapResolved = false;
         _kidnapHand = (owner == 1 ? _oppHandCards : _handCards).ToList();
-        if (KidnapOverlay == null || _kidnapHand.Count == 0)
+        if (_kidnapHand.Count == 0)
         {
             StatusText.Text = "Kidnappers: opponent hand is empty.";
             return;
         }
 
-        KidnapTitle.Text = "Telepathic Alien Kidnappers";
-        KidnapHint.Text = "Name a card type. Then a random card is taken from the opponent's hand and revealed.";
-        if (BtnKidnapCancel != null)
+        // Draw-deck / hand types only (Compendium: missions & dilemmas seed, not drawn)
+        string[] types =
         {
-            BtnKidnapCancel.Content = "Cancel";
-            BtnKidnapCancel.Visibility = Visibility.Visible;
-        }
-        KidnapTypePanel.Children.Clear();
-        foreach (var t in new[]
-                 {
-                     // Draw-deck / hand types only (Compendium: missions & dilemmas seed, not drawn)
-                     "Personnel", "Ship", "Event", "Interrupt", "Equipment",
-                     "Doorway", "Artifact", "Facility"
-                 })
-        {
-            var btn = new Button
-            {
-                Content = t,
-                Margin = new Thickness(0, 0, 3, 3),
-                Padding = new Thickness(8, 4, 8, 4),
-                Tag = t
-            };
-            btn.Click += (_, _) =>
-            {
-                _kidnapNamedType = t;
-                foreach (var child in KidnapTypePanel.Children.OfType<Button>())
-                    child.Opacity = (string)child.Tag == t ? 1 : 0.45;
-                DrawRandomKidnapCard();
-            };
-            KidnapTypePanel.Children.Add(btn);
-        }
-
-        // Shuffle so even the back row is not in hand order
-        var rng = new Random();
-        _kidnapHand = _kidnapHand.OrderBy(_ => rng.Next()).ToList();
-        KidnapCardsPanel.Children.Clear();
-        foreach (var _ in _kidnapHand)
-        {
-            var face = new Border
-            {
-                Width = 70,
-                Height = 98,
-                Margin = new Thickness(4),
-                BorderBrush = new SolidColorBrush(Color.FromRgb(80, 80, 90)),
-                BorderThickness = new Thickness(1),
-                IsHitTestVisible = false
-            };
-            var img = new Image { Stretch = Stretch.Uniform };
-            if (_cardBackImage != null)
-                img.Source = _cardBackImage;
-            face.Child = img;
-            KidnapCardsPanel.Children.Add(face);
-        }
-
-        KidnapOverlay.Visibility = Visibility.Visible;
-        _kidnapFrame = new System.Windows.Threading.DispatcherFrame();
-        try { System.Windows.Threading.Dispatcher.PushFrame(_kidnapFrame); }
-        finally
-        {
-            _kidnapFrame = null;
-            KidnapOverlay.Visibility = Visibility.Collapsed;
-        }
-    }
-
-    private void DrawRandomKidnapCard()
-    {
-        if (_kidnapResolved) return;
-        if (string.IsNullOrEmpty(_kidnapNamedType) || _kidnapHand.Count == 0)
+            "Personnel", "Ship", "Event", "Interrupt", "Equipment",
+            "Doorway", "Artifact", "Facility"
+        };
+        string named = AskChoiceForPlayer(owner, source, "Telepathic Alien Kidnappers",
+            "Name a card type. Then a random card is taken from the opponent's hand and revealed.",
+            types);
+        if (string.IsNullOrWhiteSpace(named))
             return;
-        _kidnapResolved = true;
 
-        var rng = new Random();
-        int index = rng.Next(_kidnapHand.Count);
+        _kidnapNamedType = named;
+        _kidnapResolved = true;
+        int index = _autoSeedRng.Next(_kidnapHand.Count);
         FinishKidnappers(index);
     }
 
+    /// <summary>
+    /// Host-engine apply after type named: reveal one random opp-hand card; discard on type match.
+    /// UI via ShowCardReveal (no KidnapOverlay). Guest sees outcome via Broadcast after EOT.
+    /// </summary>
     private void FinishKidnappers(int index)
     {
         if (string.IsNullOrEmpty(_kidnapNamedType))
-        {
-            KidnapHint.Text = "Name a card type first.";
             return;
-        }
         if (index < 0 || index >= _kidnapHand.Count) return;
         var card = _kidnapHand[index];
         bool match = (card.Type ?? "").Contains(_kidnapNamedType, StringComparison.OrdinalIgnoreCase);
         var oppHand = _kidnapOwner == 1 ? _oppHandCards : _handCards;
-
-        KidnapCardsPanel.Children.Clear();
-        var revealed = CreateMiniCard(card, faceDown: false);
-        revealed.Width = 100;
-        revealed.Height = 140;
-        revealed.IsHitTestVisible = false;
-        KidnapCardsPanel.Children.Add(revealed);
 
         if (match)
         {
             oppHand.Remove(card);
             var disc = _kidnapOwner == 1 ? _oppDiscardCards : _discardCards;
             if (!disc.Contains(card)) disc.Add(card);
-            KidnapHint.Text =
-                $"Named {_kidnapNamedType}. Revealed: {card.Name} ({card.Type}). MATCH — discarded.";
             StatusText.Text = $"Kidnappers: named {_kidnapNamedType} — discarded {card.Name}.";
             _session.Log.Add(_session.TurnNumber, $"P{_kidnapOwner}",
                 $"Kidnappers named {_kidnapNamedType}, revealed {card.Name} — discarded");
+            ShowCardReveal(card, "Telepathic Alien Kidnappers",
+                $"Named {_kidnapNamedType}.\nRevealed: {card.Name} ({card.Type}).\nMATCH — discarded.",
+                RevealButtons.Ok);
         }
         else
         {
-            KidnapHint.Text =
-                $"Named {_kidnapNamedType}. Revealed: {card.Name} ({card.Type}). No match — stays in hand.";
             StatusText.Text =
                 $"Kidnappers: named {_kidnapNamedType}, revealed {card.Name} ({card.Type}) — no discard.";
             _session.Log.Add(_session.TurnNumber, $"P{_kidnapOwner}",
                 $"Kidnappers named {_kidnapNamedType}, revealed {card.Name} — no match");
+            ShowCardReveal(card, "Telepathic Alien Kidnappers",
+                $"Named {_kidnapNamedType}.\nRevealed: {card.Name} ({card.Type}).\nNo match — stays in hand.",
+                RevealButtons.Ok);
         }
         RefreshZoneCounts();
         RefreshHandStrips();
-
-        var ok = new Button
-        {
-            Content = "OK",
-            Padding = new Thickness(16, 6, 16, 6),
-            Margin = new Thickness(12, 0, 0, 0),
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        ok.Click += (_, _) =>
-        {
-            if (_kidnapFrame != null) _kidnapFrame.Continue = false;
-        };
-        KidnapCardsPanel.Children.Add(ok);
     }
 
     private void BtnKidnapCancel_Click(object sender, RoutedEventArgs e)
     {
+        // KidnapOverlay type/hand-pick paths retired (AskChoiceForPlayer). Keep handler for XAML wire-up.
         if (_handPickMandatory)
         {
             AutoPickHandCard();
@@ -1007,9 +939,11 @@ public partial class TableWindow : Window
         if (_kidnapFrame != null) _kidnapFrame.Continue = false;
     }
 
+    // SEARCH: Glossary: Static Warp Bubble; Verb: AskChoiceForPlayer hand-discard EOT; Network-First Phase4
     /// <summary>
-    /// Show the owner's hand as clickable images. Mandatory discard (SWB):
-    /// 10s timeout auto-picks and reveals the chosen card.
+    /// Owner discards one card from own hand via AskChoiceForPlayer (netztauglich).
+    /// Host never clicks a foreign hand; Guest Owner sees choice in own window.
+    /// Timeout/random already in AskChoiceForPlayer / AskChoiceRemoteOnHost.
     /// </summary>
     private Card? PickHandCardToDiscard(int owner, string title, string hint)
     {
@@ -1021,73 +955,34 @@ public partial class TableWindow : Window
             return hand[0];
         }
 
-        _handPickMandatory = true;
-        _handPickResult = null;
-        _handPickTimedOut = false;
-        _kidnapResolved = false;
-        _kidnapOwner = owner;
-        _kidnapHand = ShuffledCopy(hand);
-
-        KidnapTitle.Text = title;
-        KidnapHint.Text = hint + "  Click a card.  10s with no choice → one is chosen for you.";
-        KidnapTypePanel.Children.Clear();
-        KidnapCardsPanel.Children.Clear();
-        if (BtnKidnapCancel != null)
+        var labels = new string[hand.Count];
+        for (int i = 0; i < hand.Count; i++)
         {
-            BtnKidnapCancel.Content = "Let the game choose";
-            BtnKidnapCancel.Visibility = Visibility.Visible;
+            var c = hand[i];
+            labels[i] = c.InstanceId > 0
+                ? $"{i + 1}. {c.Name} #{c.InstanceId}"
+                : $"{i + 1}. {c.Name}";
         }
 
-        foreach (var c in _kidnapHand)
-        {
-            var mini = CreateMiniCard(c, faceDown: false);
-            mini.Width = 96;
-            mini.Height = 134;
-            Card cardRef = c;
-            mini.MouseLeftButtonDown += (_, ev) =>
-            {
-                if (_kidnapResolved) return;
-                _kidnapResolved = true;
-                _handPickResult = cardRef;
-                if (_kidnapFrame != null) _kidnapFrame.Continue = false;
-                ev.Handled = true;
-            };
-            KidnapCardsPanel.Children.Add(mini);
-        }
+        string pick = AskChoiceForPlayer(owner, null, title,
+            string.IsNullOrWhiteSpace(hint) ? "Discard one card from hand." : hint,
+            labels);
+        if (string.IsNullOrWhiteSpace(pick))
+            return null;
 
-        var timer = new System.Windows.Threading.DispatcherTimer
+        int idx = Array.IndexOf(labels, pick);
+        if (idx < 0)
         {
-            Interval = TimeSpan.FromSeconds(10)
-        };
-        timer.Tick += (_, _) =>
-        {
-            timer.Stop();
-            if (!_kidnapResolved)
-                AutoPickHandCard();
-        };
-        timer.Start();
-
-        KidnapOverlay.Visibility = Visibility.Visible;
-        _kidnapFrame = new System.Windows.Threading.DispatcherFrame();
-        try { System.Windows.Threading.Dispatcher.PushFrame(_kidnapFrame); }
-        finally
-        {
-            timer.Stop();
-            _kidnapFrame = null;
-            KidnapOverlay.Visibility = Visibility.Collapsed;
-            _handPickMandatory = false;
-            if (BtnKidnapCancel != null) BtnKidnapCancel.Content = "Cancel";
+            idx = Array.FindIndex(labels, l =>
+                string.Equals(l, pick, StringComparison.OrdinalIgnoreCase));
         }
+        if (idx < 0 || idx >= hand.Count)
+            return null;
 
-        var chosen = _handPickResult;
-        if (chosen != null)
-        {
-            string how = _handPickTimedOut ? "No choice in time — discarded" : "Discarded";
-            ShowCardReveal(chosen, title, $"{how}: {chosen.Name}.", RevealButtons.Ok);
-            _session.Log.Add(_session.TurnNumber, $"P{owner}",
-                $"Static Warp Bubble discarded {chosen.Name}"
-                + (_handPickTimedOut ? " (auto)" : ""));
-        }
+        var chosen = hand[idx];
+        ShowCardReveal(chosen, title, $"Discarded: {chosen.Name}.", RevealButtons.Ok);
+        _session.Log.Add(_session.TurnNumber, $"P{owner}",
+            $"Static Warp Bubble discarded {chosen.Name}");
         return chosen;
     }
 
@@ -1097,7 +992,7 @@ public partial class TableWindow : Window
         _kidnapResolved = true;
         _handPickTimedOut = true;
         if (_kidnapHand.Count > 0)
-            _handPickResult = _kidnapHand[new Random().Next(_kidnapHand.Count)];
+            _handPickResult = _kidnapHand[_autoSeedRng.Next(_kidnapHand.Count)];
         if (_kidnapFrame != null) _kidnapFrame.Continue = false;
     }
 
