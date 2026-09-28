@@ -1,3 +1,11 @@
+## 2026-09-28 - Spaceline Attach Y board-absolute + History RMB-only zoom
+
+- *Auftrag (FREIGABE)*: (1) Q-Net Symptom Dual-EXE: P2 spielt Q-Net -> horizontal ok, vertikal bei P1 falsch (Karten unter/ueber Mission gespiegelt); P2-Ansicht = Wahrheit. Fix generisch Spaceline-Attaches (Q-Net/Gaps/Plays-on-mission). (2) Action History Recently played: kein Click->Detail-Fenster; nur Right-Click Zoom wie Board-Karten.
+- *Root Y*: CaptureGameSave speicherte Host-viewer-Y; Guest Q-Net Host-Apply rief nach PlaceSpanOnSpaceline zusaetzlich AttachCardToHost (Collapsed-Mini-Duplikat); RelayoutDockablesUnderMission schrieb Owner aus Viewer-Seite neu -> vertikaler Flip auf P1.
+- *Fix Y*: ToBoardAbsoluteY/FromBoardAbsoluteY (P1 below=+/P2 above=-, viewer-unabhaengig Sync); Apply mappt board-absolut -> viewer-relativ; Gaps/Q-Net nie AttachCardToHost; Relayout behaelt absolute Owner; Seed/Snap DockSlotOffsetY.
+- *Fix History*: PlayHistoryStrip nur RMB BeginHoldZoom; kein LMB OpenCardDetailPopup.
+- *Scope*: TableWindow.xaml.cs. Tip-Hash 3bc7e49. Basis acfb554 / Docs df2dc85. Kein Push.
+
 ## 2026-09-28 - Action History Kartenreihe + Play-Detail-Popup weg
 
 - *Auftrag (FREIGABE Punkt 3)*: Action History drittes Fenster = horizontale Reihe zuletzt gespielter Karten (Face, Scroll); P1=Grün / P2=Blau; Klick = Detail/Text. Große zentrale Detail/Reveal-Popup beim Ausspielen (z.B. Interrupt Long-Range Scan mit OK) entfernen — Fly-in ersetzt Reveal; Nachlesen über History-Kartenreihe.
