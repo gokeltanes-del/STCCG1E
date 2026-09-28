@@ -7707,8 +7707,10 @@ public partial class TableWindow : Window
             }
             var cell = display[i];
             Canvas.SetTop(cell, SpacelineY);
+            // Spans / gap events: SpacelineY-centered + Identity — never owner face-rotate / dock offset.
             if (cell.Tag is Card spanCard && IsSpacelineSpanCard(spanCard))
             {
+                cell.RenderTransformOrigin = new Point(0.5, 0.5);
                 cell.RenderTransform = Transform.Identity;
                 Canvas.SetLeft(cell, x);
                 Panel.SetZIndex(cell, 9);
@@ -7747,6 +7749,8 @@ public partial class TableWindow : Window
         // Seed-under AbsoluteLeft must follow mission columns (badges already UpdateSeedBadge above).
         // Without this, TryAlternate/ApplyPerspective leaves seed borders at drop/old X → neighbor overlap.
         RelayoutSeedUnderMissions();
+        // Spans must stay SpacelineY-centered after dock Relayout/EnsureBoardExtents (never owner-dock Y).
+        PinSpacelineSpanCardsY();
     }
 
     /// <summary>Missions in seed order, each Gaps/Q-Net spliced after its left-hand mission.</summary>
@@ -12789,8 +12793,11 @@ public partial class TableWindow : Window
             });
             if (card == null) continue;
             int snapOwner = snap.Owner is 1 or 2 ? snap.Owner : 1;
-            // Board-absolute save Y -> viewer-relative canvas Y (own side below spaceline).
-            double viewerY = FromBoardAbsoluteY(snap.Y, snapOwner);
+            // Spaceline-row cards (missions/spans/time): always SpacelineY — never owner-dock FromBoardAbsoluteY.
+            // Other attaches: board-absolute save Y -> viewer-relative canvas Y (own side below spaceline).
+            double viewerY = IsSpacelineRowCard(card)
+                ? SpacelineY
+                : FromBoardAbsoluteY(snap.Y, snapOwner);
             var border = AddCardToTable(card, snap.X, viewerY, TableCardWidth);
             Panel.SetZIndex(border, snap.Z);
             SetBorderOwner(border, snapOwner);
@@ -13008,6 +13015,8 @@ public partial class TableWindow : Window
         DedupTablePermanents(_tablePermanentCards);
         DedupTablePermanents(_oppTablePermanentCards);
         RebuildTablePermanentsPanel();
+        // Spans from AttachedEvents must be in _spacelineOrder before Relayout (display order).
+        PinSpacelineSpanCardsY();
         // Load: pin by column (X) before any Relayout so save absolute Y cannot
         // orphan docks when mission Top jumps to SpacelineY (pixel Y-window miss).
         PinDockablesToSpacelineByColumn();
@@ -14325,10 +14334,20 @@ public partial class TableWindow : Window
 
     private static bool IsSpacelineSpanCard(Card c)
     {
+        if (c == null) return false;
+        // Name-first: Q-Net / Gaps are always spaceline-row (never owner-dock Y).
+        if (EventRules.IsQNet(c) || EventRules.IsGapsInNormalSpace(c)) return true;
         if (!EventRules.IsEvent(c)) return false;
         return EventRules.GetTargetKind(EventRules.ResolvePlay(c))
                == EventRules.TargetKind.GapBetweenMissions;
     }
+
+    /// <summary>Spaceline row: missions + gap spans + time locations. Always SpacelineY, never DockSlotOffsetY.</summary>
+    private static bool IsSpacelineRowCard(Card c) =>
+        IsMissionCard(c)
+        || IsSpacelineSpanCard(c)
+        || CardKinds.IsTimeLocation(c)
+        || ArtifactRules.IsTimeTravelPod(c);
 
     private string GetSpacelineQuadrant(Border b)
     {
@@ -19799,8 +19818,10 @@ public partial class TableWindow : Window
         border.ToolTip = (ev.Name ?? "Span") + "\nSpan event between missions";
         SetBorderOwner(border, owner);
         Panel.SetZIndex(border, 9);
+        border.RenderTransformOrigin = new Point(0.5, 0.5);
+        border.RenderTransform = Transform.Identity;
         _spacelineOrder.Insert(insert, border);
-        RelayoutMissionsOnSpaceline();
+        RelayoutMissionsOnSpaceline(); // pins span Top=SpacelineY (no owner-dock Y)
         StatusText.Text = $"{ev.Name} inserted on spaceline between {(left.Tag as Card)?.Name} and {(right.Tag as Card)?.Name}.";
         return border;
     }
@@ -30642,16 +30663,50 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
     }
 
     /// <summary>
+    /// Gaps/Q-Net (and any IsSpacelineSpanCard): force Top=SpacelineY + Identity.
+    /// Must run after RelayoutDockables/EnsureBoardExtents so owner-dock Y cannot stick on Host.
+    /// Also re-inserts orphaned span borders into _spacelineOrder from AttachedEvent endpoints.
+    /// </summary>
+    private void PinSpacelineSpanCardsY()
+    {
+        foreach (var ae in _attachedEvents)
+        {
+            if (ae.Kind is not (EventRules.Persist.QNet or EventRules.Persist.Gaps))
+                continue;
+            if (ae.Card == null) continue;
+            var span = FindBorderForCard(ae.Card)
+                ?? (ae.Card.InstanceId > 0 ? FindBorderByInstanceId(ae.Card.InstanceId) : null);
+            if (span == null || !TableCanvas.Children.Contains(span)) continue;
+            if (_spacelineOrder.Contains(span)) continue;
+            Border? left = ae.Host != null ? ResolveOnSpaceline(ae.Host) : null;
+            int insert = left != null ? _spacelineOrder.IndexOf(left) + 1 : _spacelineOrder.Count;
+            if (insert < 0) insert = _spacelineOrder.Count;
+            if (insert > _spacelineOrder.Count) insert = _spacelineOrder.Count;
+            _spacelineOrder.Insert(insert, span);
+        }
+
+        foreach (var b in TableCanvas.Children.OfType<Border>().ToList())
+        {
+            if (b.Visibility != Visibility.Visible) continue;
+            if (b.Tag is not Card c || !IsSpacelineSpanCard(c)) continue;
+            Canvas.SetTop(b, SpacelineY);
+            b.RenderTransformOrigin = new Point(0.5, 0.5);
+            b.RenderTransform = Transform.Identity;
+            if (Panel.GetZIndex(b) < 9)
+                Panel.SetZIndex(b, 9);
+        }
+    }
+
+    /// <summary>
     /// Sync Y: board-absolute from SpacelineYDefault. P1 below = positive, P2 above = negative.
     /// Independent of ViewerPlayer so Host/Guest Apply can map to viewer-relative canvas Y.
-    /// Missions/spans stay on the spaceline (SpacelineYDefault).
+    /// Missions/spans stay on the spaceline (SpacelineYDefault) — never owner-dock offset.
     /// </summary>
     private double ToBoardAbsoluteY(Border b)
     {
         double top = Canvas.GetTop(b);
         if (double.IsNaN(top)) return SpacelineYDefault;
-        if (b.Tag is Card c && (IsMissionCard(c) || IsSpacelineSpanCard(c)
-            || CardKinds.IsTimeLocation(c) || ArtifactRules.IsTimeTravelPod(c)))
+        if (b.Tag is Card c && IsSpacelineRowCard(c))
             return SpacelineYDefault;
         int owner = GetBorderOwner(b);
         if (owner is not (1 or 2)) owner = 1;
@@ -30717,7 +30772,12 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
             InvalidatePlayFlyInTargets();
         else
         {
-            _playFlyInBoardGhost = null;
+            // Keep fly-in alive, but never orphan board ghost at Opacity=0 (span would vanish / clip).
+            if (_playFlyInBoardGhost != null)
+            {
+                _playFlyInBoardGhost.Opacity = 1;
+                _playFlyInBoardGhost = null;
+            }
             _playFlyInHiddenInstanceId = 0;
         }
         foreach (var m in _spacelineOrder)
@@ -31020,7 +31080,7 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
 
     private void ApplyPerspective()
     {
-        RelayoutMissionsOnSpaceline(); // includes RelayoutSeedUnderMissions
+        RelayoutMissionsOnSpaceline(); // includes RelayoutSeedUnderMissions + PinSpacelineSpanCardsY
         RebuildPlayerZones();
         RebuildTablePermanentsPanel(); // viewer-relative P1/P2 TABLE panels + labels
         RefreshZoneCounts();
