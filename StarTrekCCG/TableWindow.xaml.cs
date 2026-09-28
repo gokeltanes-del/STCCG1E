@@ -21597,7 +21597,7 @@ public partial class TableWindow : Window
     }
 
     /// <summary>
-    /// Visual card picker in the card-detail overlay (horizontal scroll strip).
+    /// Visual card picker in the card-detail overlay (wrapping card strip).
     /// Click a mini to choose. Close / Esc / click outside = cancel (null).
     /// </summary>
     private Card? PickCardFromList(string prompt, IReadOnlyList<Card> pool, string title, Card? source = null)
