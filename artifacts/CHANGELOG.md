@@ -1,4 +1,10 @@
-﻿## 2026-09-28 - Spaceline span fly-in land + gap adjacency (Q-Net Nachzieher)
+## 2026-09-28 - TAK + SWB Choice via AskChoiceForPlayer (Owner-Fenster)
+
+- *Auftrag (FREIGABE Option A)*: Telepathic Alien Kidnappers Typ-Wahl und Static Warp Bubble Hand-Discard netztauglich ueber AskChoiceForPlayer; Random/Discard/Reveal Host-Engine + Broadcast. Kein Refactor C; Richtung B spaeter Inventar. Overlay a9af295 / Span 6acacd4 unangetastet.
+- *Root cause*: RunKidnappers / PickHandCardToDiscard oeffneten KidnapOverlay + Dispatcher.PushFrame lokal auf Host-UI-Thread (EOT nur Host via FinishExecuteAndEndTurn). Owner=P2 (Guest) -> Typ-/Hand-Buttons im P1-Fenster. Phase 4 (AskChoiceForPlayer / ChoiceRequest) existierte, war nicht verdrahtet.
+- *Fix*: TAK Typ-Wahl AskChoiceForPlayer(owner, ...); RNG + FinishKidnappers Reveal/Discard Host; ShowCardReveal statt Overlay. SWB Optionen = Owner-Hand Labels/InstanceIds via AskChoiceForPlayer; Host applyt Discard. SEARCH-Kommentare gesetzt.
+- *Scope*: TableWindow.xaml.cs. Tip-Hash ab2e67a. Basis 6acacd4 / Docs ba34d1c. Overlay/Span unberuehrt. Kein Push.
+## 2026-09-28 - Spaceline span fly-in land + gap adjacency (Q-Net Nachzieher)
 
 - *Auftrag (FREIGABE)*: Tip 0443f37 unzureichend - Dual-EXE Stacks M5/M9 wirken vertikal vertauscht (rechts=Wahrheit); Q-Net optisch im Romulan-Stack statt Span in Spaceline-Luecke. landInst=39 fuer beide Q-Nets. Generisch Gaps/Q-Net/Spans.
 - *Root cause*: ResolvePlayFlyInTargetInstanceId lieferte ae.Host / stale _eventPreferredHost (Fly-in landet auf Mission/Facility-Stack); ListSameQuadrantGaps/PickAdjacentMission zaehlten Spans als Endpoints; PinSpacelineSpanCardsY nur Y, fehlte nach RelayoutAllDockables/ScheduleSettle.
@@ -11,7 +17,7 @@
 - *Fix*: `IsSpacelineSpanCard` Name-first (Q-Net/Gaps) + `IsSpacelineRowCard`; ApplyGameSave erzwingt `SpacelineY` für Row-Karten (kein Owner-FromBoardAbsoluteY); `PinSpacelineSpanCardsY` nach Relayout/Apply (Top=SpacelineY+Identity, Orphans aus AttachedEvent); PlaceSpan Identity; soft-invalidate restored Ghost Opacity.
 - *Scope*: TableWindow.xaml.cs. Tip-Hash 0443f37. Basis a9af295 / Docs 3be0892. Overlay unberührt. Kein Push.
 
-﻿## 2026-09-28 - Responsive Detail/Choice-Overlays (Fensterbreite)
+## 2026-09-28 - Responsive Detail/Choice-Overlays (Fensterbreite)
 
 - *Auftrag (FREIGABE)*: Overlay TAK u.a. Detail/Choice-Anzeigen an Fensterbreite anpassen; bei wenig Platz Typ-Buttons und Kartenreihen umbrechen statt Clip/Overflow. Generisch, kein TAK-Hack.
 - *Root cause*: Feste `Width` (Kidnap 920 / History 880 / Team 560) und CardDetail `MinWidth=720` groesser als schmales Viewport; ScrollViewer Horizontal=Auto mass WrapPanel mit Infinity -> keine zweite Zeile.
@@ -179,7 +185,7 @@
 - *netztauglich / UI+Restore*: Sync-Authority (Guest ActionHost ApplyBroadcast) unveraendert. `AddSeedUnderMission(force)` + FaceUp=false + Pin an Mission-X; ApplyGameSave force + `RelayoutSeedUnderMissions`; Guest Note `underInst:InstanceId`; Host `ResolveSeedUnderMissionTarget`; FillHostStrip/Detail owner-only face-up; `NetStateMask` cleared Opponent-SeedUnder Table-Identitaet (Counts bleiben).
 - *Scope*: kein P5 Disconnect; kein Push.
 
-﻿## 2026-09-27 - Network P2 Mission-Seed Insert-Index + Slot-Hover
+## 2026-09-27 - Network P2 Mission-Seed Insert-Index + Slot-Hover
 
 - *Bugfix (Pepsch, Screenshot)*: P2 (Guest) legt Khitomer zwischen Wormhole Negotiations und Avert Disaster → landet rechts am Ende; Slot-Rahmen da, Hover mit Karte in Hand leuchtet nicht.
 - *Ursache*: (1) Guest `TrySubmitGuestNetworkSeed` sandte Mission ohne Note; Host `TryApplyNetSeedCard` nutzte `AutoSeedMission` (Zufalls-X) — ba2ee6f Partial ohne after:Name. (2) `ShowMissionSlotPreviews` zeichnete alle Slots gleich dim; MouseMove rief Preview ohne hoverDropX — kein Hot-Slot wie sonstige Snap-Targets.
@@ -659,7 +665,7 @@
 - Opens only after actual death/Results (HC/battle batch deferred); Amanda nullify before Results → no trigger.
 - No Death-Yell ad-hoc; no Battle Stage-2 misuse.
 
-﻿## 2026-09-23 — Interrupt-Play Responses before Results (HC / Stage 2)
+## 2026-09-23 — Interrupt-Play Responses before Results (HC / Stage 2)
 
 - Root: `BeginPlayCardStack` called `ApplyResponseEffect` (HC kills) before `OpenResponseWindow` — Amanda saw Results already done.
 - Fix (shared, not HC-only): Initiation = Push; Responses open; Results in `ResolveTopOfStack` (`ApplyResponseEffect` + `TryResolveInterruptPlay`). Armbands/Hugh pattern; HC kills only via `Effect.HonorChallenge` after nullify window.
