@@ -9,7 +9,7 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 
 ## Jetzt aktiv ├ö├ç├Â Multiplayer / Network-Modus
 
-**Status:** TAK+SWB AskChoiceForPlayer getippt (ab2e67a). Span fly-in/gap 6acacd4 + Overlay a9af295 HOLD. **netztauglich.** P2 TAK Typ-Wahl / SWB Hand-Pick im Owner-Fenster (Phase 4). Dual-EXE Smoke offen. **HOLD.**
+**Status:** Span gap=mission-InstanceIds + Host dock recover getippt (fef7075). TAK ab2e67a + Overlay a9af295 HOLD. **netztauglich.** Dual-EXE Smoke: P1+P2 Q-Net gleiche Luecke Row-Center. **HOLD.**
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
 
 ### Architektur
@@ -24,11 +24,12 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 4. **Phase 4 — Dialoge/Timing:** ChoiceRequest / ChoiceResponse. → Tip e102b47.
 5. **Phase 5 ├ö├ç├Â HÔö£├▒rtung:** Disconnect, Reconnect, Abbruch.
 
-**Code-Stand (Data 2026-09-28):** TAK+SWB AskChoice ab2e67a; Span fly-in/gap 6acacd4; Span Y 0443f37; Responsive Overlays a9af295; Spaceline Attach Y + History RMB 3bc7e49; Action History Reihe acfb554; Face Catalog + Gaps Guest-Drop 5c29f7b; Guest/P2 Play-Pfad 591fba3. Kein Push durch Bots. **HOLD.**
+**Code-Stand (Data 2026-09-28):** Span gap InstanceIds + Host dock fef7075; TAK+SWB AskChoice ab2e67a; Span fly-in/gap 6acacd4; Span Y 0443f37; Responsive Overlays a9af295; Spaceline Attach Y + History RMB 3bc7e49; Action History Reihe acfb554; Face Catalog + Gaps Guest-Drop 5c29f7b; Guest/P2 Play-Pfad 591fba3. Kein Push durch Bots. **HOLD.**
 
 ---
 
 ## Zuletzt (kurz)
+- Spaceline span gap = mission InstanceIds + Host dock recover (Q-Net): HostInstanceId/Host2InstanceId; Apply/SpanEndpoints/DisplayOrder per InstanceId; EnsureBoardExtents deferred; PinDockables after span Relayout; Fly-in no Host TargetNorm for spans. Tip-Hash fef7075. Pipeline ab2e67a/a9af295 erhalten. **HOLD.**
 - TAK + SWB Choice via AskChoiceForPlayer (Owner-Fenster): RunKidnappers/PickHandCardToDiscard Phase-4 Gate; Host RNG+Discard/Reveal; kein KidnapOverlay PushFrame. Tip-Hash ab2e67a. Pipeline 6acacd4/a9af295 erhalten. **HOLD.**
 - Spaceline span fly-in land + gap adjacency (Q-Net Nachzieher): landInst=own InstanceId; IsSpacelineSpanCard Attach-Guard; mission-only ListSameQuadrantGaps; PickAdjacent past spans; Pin gap-X barriers + after RelayoutAll. Tip-Hash 6acacd4. Pipeline a9af295 erhalten. **HOLD.**
 - Spaceline Span Y SpacelineY-centered (Q-Net Nachzieher): IsSpacelineRowCard; Apply erzwingt SpacelineY; PinSpacelineSpanCardsY; Ghost Opacity soft-invalidate. Tip-Hash 0443f37. Pipeline a9af295 erhalten. **HOLD.**

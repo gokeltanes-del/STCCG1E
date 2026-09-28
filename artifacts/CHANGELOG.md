@@ -1,3 +1,9 @@
+﻿## 2026-09-28 - Spaceline span gap = mission InstanceIds + Host dock recover (Q-Net)
+
+- *Auftrag (FREIGABE)*: Tip 6acacd4 unzureichend — Dual-EXE Screenshot: RECHTS (P2) 2 Q-Nets Row-Center OK + Facility unter Mission; LINKS (P1) Spaceline horizontal versetzt/clipped, nur 1 Q-Net + purple Highlight, Facility oben-links clipped. Soll: Gap = zwei Mission-InstanceIds; Render Row-Center gleich auf jedem Client. Generisch Spans. TAK ab2e67a / Overlay a9af295 unangetastet.
+- *Root cause*: 6acacd4 pinte Span-Y/X und landInst=own, aber (1) CaptureGameSave speicherte Span-Endpoints nur als ephemeral save-local HostId (nicht Mission-InstanceIds); (2) Host-Lokal-Relayout nach PlaceSpan rief EnsureBoardExtents mitten in der Mission-Schleife und pinte Docks nie per Spalte (Guest ApplyGameSave schon via PinDockablesToSpacelineByColumn) — orphan Facility top-left → Extents-Shift → Spaceline clipped / 2. Q-Net weg; (3) Fly-in TargetNorm vom Host ist viewer-fenster-relativ.
+- *Fix*: AttachedEventSnap HostInstanceId/Host2InstanceId board-absolut; Apply/SpanEndpoints/BuildSpacelineDisplayOrder per InstanceId; EnsureBoardExtents deferred + einmal am Ende; PinDockablesToSpacelineByColumn nach Span-Relayout (Host=Guest); Pin stellt Opacity wieder her; Fly-in ignoriert Host-TargetNorm fuer Spans.
+- *Scope*: GameSave.cs + TableWindow.xaml.cs. Tip-Hash fef7075. Basis ab2e67a / Docs 2e20f8e. Overlay a9af295 unberuehrt. Kein Push.
 ## 2026-09-28 - TAK + SWB Choice via AskChoiceForPlayer (Owner-Fenster)
 
 - *Auftrag (FREIGABE Option A)*: Telepathic Alien Kidnappers Typ-Wahl und Static Warp Bubble Hand-Discard netztauglich ueber AskChoiceForPlayer; Random/Discard/Reveal Host-Engine + Broadcast. Kein Refactor C; Richtung B spaeter Inventar. Overlay a9af295 / Span 6acacd4 unangetastet.
