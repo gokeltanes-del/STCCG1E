@@ -9,7 +9,7 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 
 ## Jetzt aktiv ├ö├ç├Â Multiplayer / Network-Modus
 
-**Status:** Play Fly-in Event/Interrupt Target + P2 Face getippt (f005c71). **netztauglich.** TargetInstanceId → Live-Bounds; Face vor Anim; Net PlaysOnHost attach. Basis df1259e / Docs 74dede6. Dual-EXE Smoke: P2 Bynars/Spacedock auf Schiff → Fly zum Schiff; P2 Face sichtbar. **HOLD.**
+**Status:** Guest/P2 Play-Pfad TAK+Interrupt Fly-in+Face getippt (591fba3). **netztauglich.** Host TryApply Events→TryResolveEventPlay (TAK Persist); Soft-Invalidate Fly-in bei ApplyGameSave/Relayout; Live-Zone Art. Basis f005c71 / Docs b8828fb. Dual-EXE Smoke: P2 Interrupt Schiff+Board Face; P2 TAK; P1 unverändert. **HOLD.**
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
 
 ### Architektur
@@ -24,11 +24,14 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 4. **Phase 4 — Dialoge/Timing:** ChoiceRequest / ChoiceResponse. → Tip e102b47.
 5. **Phase 5 ├ö├ç├Â HÔö£├▒rtung:** Disconnect, Reconnect, Abbruch.
 
-**Code-Stand (Data 2026-09-28):** Fly-in Event/Interrupt Target+Face f005c71; Fly-in Ziel stale df1259e; Fly-in Nachzieher 857ab9e; Fly-in sichtbar 034aec2; Fly-in b1d5d3e; Play Fly-in 57c1a3e; Board-Sync 8322b68; Probe+Occupancy Fog b2dfaf7; Guest PlayCard 5da7c3b; Skip-Seed 7c040df. Kein Push durch Bots. **HOLD.**
+**Code-Stand (Data 2026-09-28):** Guest/P2 Play-Pfad 591fba3; Fly-in Event/Interrupt Target+Face f005c71; Fly-in Ziel stale df1259e; Fly-in Nachzieher 857ab9e; Fly-in sichtbar 034aec2; Fly-in b1d5d3e; Play Fly-in 57c1a3e; Board-Sync 8322b68; Probe+Occupancy Fog b2dfaf7; Guest PlayCard 5da7c3b; Skip-Seed 7c040df. Kein Push durch Bots. **HOLD.**
 
 ---
 
 ## Zuletzt (kurz)
+- Guest/P2 Play-Pfad (TAK Persist + Interrupt Fly-in + Face): Net Events→TryResolveEventPlay; ClearTable/Relayout Soft-Invalidate; FindLiveCardWithArt+Discard Lookup. Tip-Hash 591fba3. Pipeline f005c71 erhalten. **HOLD.**
+
+
 - Play Fly-in Event/Interrupt Target + P2 Face: TargetInstanceId Live-Bounds Host/Guest; Face vor Anim; Net PlaysOnHost attach (nicht TABLE). Tip-Hash f005c71. Pipeline df1259e erhalten. **HOLD.**
 
 

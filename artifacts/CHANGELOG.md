@@ -1,3 +1,14 @@
+## 2026-09-28 - Guest/P2 Play-Pfad TAK Persist + Interrupt Fly-in + Face
+
+- *Bugfix (Pepsch Dual-EXE Host=P1 Guest=P2)*: (1) Interrupt auf Schiff/Board → kein Fly-in; (2) Telepathic Alien Kidnappers als P2 tot, P1 ok; (3) viele P2 Fly-ins schwarz/Face fehlt.
+- *Root cause A–D*:
+  - A) Guest Action-only + Host TryApply+State grundsätzlich ok; TABLE-Events gingen Commit-only (kein gemeinsamer Resolve-Pfad).
+  - B) Interrupt PlayReveal feuert (BeginPlayCardStack/NotifyPlayReveal; Respond synced); Guest-Kill durch ClearTableCards/RelayoutAllDockables → InvalidatePlayFlyInTargets (State/Relayout-Race nach PlayReveal).
+  - C) Face: Stub ohne FullImagePath; Lookup ohne Discard; Background #111 → schwarz wenn Source null.
+  - D) P2 TAK: Host TryApplyNetPlayCard CommitCardToTable ohne TryResolveEventPlay → Persist.Kidnappers nie registriert (P1 Stack→TryResolveEventPlay ok).
+- *Fix*: Net Events via TryResolveEventPlay (TAK Persist/Instant); Soft-Invalidate (Ghost-only) bei ApplyGameSave/Relayout wenn Fly-in aktiv; FindLiveCardWithArt + Discard/OOP in Lookup; Face gleiche Source wie Hand.
+- *Scope*: TableWindow.xaml.cs. Tip-Hash 591fba3. Basis f005c71 / Docs b8828fb. Kein Action-History; keine Gaps/Q-Net. Docs separat. Kein Push.
+
 ## 2026-09-28 - Play Fly-in Event/Interrupt Target + P2 Face
 
 - *Bugfix (Pepsch, nach Tip df1259e)*: Event/Interrupt auf Spielziel (Bynars/Spacedock auf Schiff) — P1 ok, **P2 landet TABLE** rechts statt am Target-Ship/Slot; manchmal P2 einfliegende Karte **schwarz** (Face nicht geladen).
