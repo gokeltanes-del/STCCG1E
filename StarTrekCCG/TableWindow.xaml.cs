@@ -10086,9 +10086,8 @@ public partial class TableWindow : Window
                         }
                         // Gaps/Q-Net live on the spaceline (PlaceSpanOnSpaceline) — never host-stack mini.
                         // AttachCardToHost would save a viewer-Y duplicate and flip dock sides on Host.
-                        bool isGapSpan = EventRules.GetTargetKind(EventRules.ResolvePlay(card))
-                            == EventRules.TargetKind.GapBetweenMissions;
-                        if (!hasMini && !isGapSpan)
+                        // Verb: plays-on spaceline-span — name-first IsSpacelineSpanCard (not ResolvePlay-only).
+                        if (!hasMini && !IsSpacelineSpanCard(card))
                             AttachCardToHost(card, host, player);
                         placed = true;
                         StatusText.Text =
@@ -10924,6 +10923,11 @@ public partial class TableWindow : Window
     /// </summary>
     private int ResolvePlayFlyInTargetInstanceId(Card? card, Card? explicitTarget)
     {
+        // SEARCH: Verb: plays-on spaceline-span; Glossary: adjacent
+        // Spaceline spans (Q-Net/Gaps): land on own face in the gap — never Host mission/facility
+        // or stale _eventPreferredHost (landInst collision across plays).
+        if (card != null && IsSpacelineSpanCard(card))
+            return card.InstanceId > 0 ? card.InstanceId : 0;
         if (explicitTarget != null && explicitTarget.InstanceId > 0)
             return explicitTarget.InstanceId;
         if (_eventPreferredHost?.Tag is Card pref && pref.InstanceId > 0)
@@ -10934,6 +10938,9 @@ public partial class TableWindow : Window
                 e.Card != null
                 && (ReferenceEquals(e.Card, card)
                     || (card.InstanceId > 0 && e.Card.InstanceId == card.InstanceId)));
+            // Span Host/Host2 are gap endpoints (missions) — not fly-in land seats.
+            if (ae != null && ae.Kind is EventRules.Persist.QNet or EventRules.Persist.Gaps)
+                return card.InstanceId > 0 ? card.InstanceId : 0;
             if (ae?.Host?.Tag is Card hostCard && hostCard.InstanceId > 0)
                 return hostCard.InstanceId;
             var own = FindPlayFlyInSlotBorder(card);
@@ -19665,16 +19672,31 @@ public partial class TableWindow : Window
         return pairs[idx].left;
     }
 
-    /// <summary>View only — midpoint paint + fallback if BoardStore has no locations yet.</summary>
+    /// <summary>View only — midpoint paint + fallback if BoardStore has no locations yet.
+    /// Consecutive MISSIONS only (skip Q-Net/Gaps spans already in _spacelineOrder).</summary>
     private List<(Border left, Border right)> ListSameQuadrantGaps()
     {
+        var missions = _spacelineOrder
+            .Where(b => b.Tag is Card c && IsMissionCard(c))
+            .ToList();
         var list = new List<(Border, Border)>();
-        for (int i = 0; i + 1 < _spacelineOrder.Count; i++)
+        for (int i = 0; i + 1 < missions.Count; i++)
         {
-            var a = _spacelineOrder[i];
-            var b = _spacelineOrder[i + 1];
+            var a = missions[i];
+            var b = missions[i + 1];
             if (a.Tag is not Card ca || b.Tag is not Card cb) continue;
             if (GetNativeQuadrant(ca) != GetNativeQuadrant(cb)) continue;
+            // Must be adjacent on spaceline (no other mission between; spans OK between).
+            int ia = _spacelineOrder.IndexOf(a);
+            int ib = _spacelineOrder.IndexOf(b);
+            if (ia < 0 || ib < 0 || ib <= ia) continue;
+            bool missionBetween = false;
+            for (int k = ia + 1; k < ib; k++)
+            {
+                if (_spacelineOrder[k].Tag is Card mid && IsMissionCard(mid))
+                { missionBetween = true; break; }
+            }
+            if (missionBetween) continue;
             list.Add((a, b));
         }
         return list;
@@ -20498,14 +20520,19 @@ public partial class TableWindow : Window
         if (idx < 0) return null;
         string q = GetNativeQuadrant(fromCard);
         var options = new List<Border>();
-        if (idx + 1 < _spacelineOrder.Count
-            && _spacelineOrder[idx + 1].Tag is Card r
-            && GetNativeQuadrant(r) == q)
-            options.Add(_spacelineOrder[idx + 1]);
-        if (idx - 1 >= 0
-            && _spacelineOrder[idx - 1].Tag is Card l
-            && GetNativeQuadrant(l) == q)
-            options.Add(_spacelineOrder[idx - 1]);
+        // Walk past spaceline spans (Q-Net/Gaps) to the next/prev mission.
+        for (int j = idx + 1; j < _spacelineOrder.Count; j++)
+        {
+            if (_spacelineOrder[j].Tag is not Card r || !IsMissionCard(r)) continue;
+            if (GetNativeQuadrant(r) == q) options.Add(_spacelineOrder[j]);
+            break;
+        }
+        for (int j = idx - 1; j >= 0; j--)
+        {
+            if (_spacelineOrder[j].Tag is not Card l || !IsMissionCard(l)) continue;
+            if (GetNativeQuadrant(l) == q) options.Add(_spacelineOrder[j]);
+            break;
+        }
         if (options.Count == 0)
         {
             StatusText.Text = "No same-quadrant adjacent mission (cannot place Gaps/Q-Net at quadrant edge).";
@@ -30663,9 +30690,10 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
     }
 
     /// <summary>
-    /// Gaps/Q-Net (and any IsSpacelineSpanCard): force Top=SpacelineY + Identity.
+    /// Gaps/Q-Net (and any IsSpacelineSpanCard): force Top=SpacelineY + Identity + gap X.
     /// Must run after RelayoutDockables/EnsureBoardExtents so owner-dock Y cannot stick on Host.
     /// Also re-inserts orphaned span borders into _spacelineOrder from AttachedEvent endpoints.
+    /// SEARCH: Verb: plays-on spaceline-span; Glossary: adjacent
     /// </summary>
     private void PinSpacelineSpanCardsY()
     {
@@ -30694,6 +30722,24 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
             b.RenderTransform = Transform.Identity;
             if (Panel.GetZIndex(b) < 9)
                 Panel.SetZIndex(b, 9);
+
+            // Barrier spans (Q-Net): gap-midpoint X. Landable Gaps keep display-column X (docks).
+            if (IsLandableLocation(c)) continue;
+            var (leftEp, rightEp) = SpanEndpoints(b);
+            if (leftEp != null && rightEp != null)
+            {
+                double lx = Canvas.GetLeft(leftEp);
+                double rx = Canvas.GetLeft(rightEp);
+                if (!double.IsNaN(lx) && !double.IsNaN(rx))
+                {
+                    double lw = leftEp.Width > 1 ? leftEp.Width : TableCardWidth;
+                    // Center span in the visual gap between left card right-edge and right card left-edge.
+                    double gapLeft = Math.Min(lx + lw, rx);
+                    double gapRight = Math.Max(lx + lw, rx);
+                    double mid = (gapLeft + gapRight) / 2.0 - TableCardWidth / 2.0;
+                    Canvas.SetLeft(b, mid);
+                }
+            }
         }
     }
 
@@ -30785,6 +30831,8 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
             if (m.Tag is Card c && IsLandableLocation(c))
                 RelayoutDockablesUnderMission(m);
         }
+        // Spans: SpacelineY + gap X after dock EnsureBoardExtents (never owner-dock).
+        PinSpacelineSpanCardsY();
     }
 
     /// <summary>After measure/arrange settle, rebase dock Y from final mission Tops only.</summary>
@@ -30795,6 +30843,7 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
             RelayoutMissionsOnSpaceline();
             RelayoutAllDockables();
             RelayoutSeedUnderMissions();
+            PinSpacelineSpanCardsY();
         }), System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
