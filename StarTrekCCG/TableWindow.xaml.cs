@@ -530,6 +530,93 @@ public partial class TableWindow : Window
         return true;
     }
 
+    // Dual-EXE spaceline diagnosis. Enable: env STCCG_DUMP_SPACELINE=1
+    // or flip DumpSpacelineTruthEnabled. Writes DebugLog + GROK_TEMP\spaceline-truth-*.txt.
+    private static bool DumpSpacelineTruthEnabled =
+        string.Equals(Environment.GetEnvironmentVariable("STCCG_DUMP_SPACELINE"), "1", StringComparison.Ordinal);
+
+    private void DumpSpacelineTruth(string tag)
+    {
+        if (!DumpSpacelineTruthEnabled) return;
+        try
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"=== DumpSpacelineTruth [{tag}] {DateTime.Now:HH:mm:ss.fff} role={(_netSession?.IsHost == true ? "Host" : _netSession?.IsGuest == true ? "Guest" : "Solo")} ===");
+            sb.Append("MissionColumns:");
+            foreach (var b in _spacelineOrder)
+            {
+                if (b.Tag is not Card c) continue;
+                if (IsSpacelineSpanCard(c) || !IsSpacelineColumnCard(c)) continue;
+                double x = Canvas.GetLeft(b);
+                sb.Append($" | {c.Name}#{c.InstanceId}@x={(double.IsNaN(x) ? "?" : x.ToString("0"))}");
+            }
+            sb.AppendLine();
+            sb.AppendLine($"_spacelineOrder.Count={_spacelineOrder.Count} (raw, may include purged spans)");
+            sb.AppendLine(FormatLiveSpacelineSnapshot());
+            foreach (var ae in _attachedEvents)
+            {
+                if (ae.Kind is not (EventRules.Persist.QNet or EventRules.Persist.Gaps)) continue;
+                int? lid = ColumnInstanceId(ae.Host);
+                int? rid = ColumnInstanceId(ae.Host2);
+                int cid = ae.Card?.InstanceId ?? 0;
+                string cn = ae.Card?.Name ?? "?";
+                sb.AppendLine($"Span {ae.Kind} card={cn}#{cid} SpanInstanceId={cid} landInst={cid} HostInst={lid} Host2Inst={rid} bindOk={TryBindSpanEndpoints(ae, out _, out _)}");
+            }
+            foreach (var b in TableCanvas.Children.OfType<Border>())
+            {
+                if (b.Tag is not Card c || !IsSpacelineSpanCard(c)) continue;
+                if (b.Visibility != Visibility.Visible) continue;
+                double x = Canvas.GetLeft(b);
+                var (l, r) = SpanEndpoints(b);
+                int li = (l?.Tag as Card)?.InstanceId ?? 0;
+                int ri = (r?.Tag as Card)?.InstanceId ?? 0;
+                sb.AppendLine($"PaintSpan {c.Name}#{c.InstanceId} midX={(double.IsNaN(x) ? "?" : x.ToString("0.0"))} epL={li} epR={ri} SpanInstanceId={c.InstanceId}");
+            }
+            string text = sb.ToString();
+            DebugLog.Engine(_session.TurnNumber, _activePlayer, text.Replace(Environment.NewLine, " || "));
+            _session.Log.AddDebug(_session.TurnNumber, "Net", $"DumpSpacelineTruth[{tag}] " + text.Replace(Environment.NewLine, " | "));
+            try
+            {
+                string repoTemp = System.IO.Path.GetFullPath(System.IO.Path.Combine(
+                    AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "GROK_TEMP"));
+                if (!System.IO.Directory.Exists(repoTemp))
+                    repoTemp = @"C:\Dev\StarTrekCCG\StarTrekCCG\GROK_TEMP";
+                System.IO.Directory.CreateDirectory(repoTemp);
+                string file = System.IO.Path.Combine(repoTemp,
+                    $"spaceline-truth-{tag.Replace(' ', '_')}-{DateTime.Now:HHmmss}.txt");
+                System.IO.File.WriteAllText(file, text);
+            }
+            catch { /* dump file best-effort */ }
+        }
+        catch (Exception ex)
+        {
+            _session.Log.AddDebug(_session.TurnNumber, "Net", "DumpSpacelineTruth failed: " + ex.Message);
+        }
+    }
+
+    /// <summary>Live MissionIds + span overlays in NetSpacelineSnapshot shape (spans never columns).</summary>
+    private string FormatLiveSpacelineSnapshot()
+    {
+        var ids = new List<int>();
+        foreach (var b in _spacelineOrder)
+        {
+            if (b.Tag is not Card c) continue;
+            if (IsSpacelineSpanCard(c) || !IsSpacelineColumnCard(c)) continue;
+            if (c.InstanceId > 0) ids.Add(c.InstanceId);
+        }
+        var sb = new System.Text.StringBuilder();
+        sb.Append("NetSpacelineSnapshot MissionIds=[").Append(string.Join(",", ids)).Append(']');
+        foreach (var ae in _attachedEvents)
+        {
+            if (ae.Kind is not (EventRules.Persist.QNet or EventRules.Persist.Gaps)) continue;
+            int sid = ae.Card?.InstanceId ?? 0;
+            int? left = ColumnInstanceId(ae.Host);
+            int? right = ColumnInstanceId(ae.Host2);
+            sb.Append($" || SpanInstanceId={sid} Kind={ae.Kind} Left={left} Right={right} landInst={sid}");
+        }
+        return sb.ToString();
+    }
+
     private IEnumerable<SpacelineSpanRecord> EnumerateSpacelineSpans()
     {
         foreach (var ae in _attachedEvents)
@@ -574,11 +661,28 @@ public partial class TableWindow : Window
         if (existing != null) store.AttachedDilemmas.Remove(existing);
     }
 
+    /// <summary>
+    /// Same card instance only. A second Q-Net/Gaps with its own InstanceId must not
+    /// replace the first (name is not identity).
+    /// </summary>
+    private static bool SameEventCard(Card? a, Card? b)
+    {
+        if (a == null || b == null) return false;
+        if (ReferenceEquals(a, b)) return true;
+        return a.InstanceId > 0 && a.InstanceId == b.InstanceId;
+    }
+
     private void AddAttachedEvent(AttachedEvent e)
     {
+        // Replace only this instance. A different SpanInstanceId stays in the list.
+        if (e.Card != null)
+            _attachedEvents.RemoveAll(old => SameEventCard(old.Card, e.Card));
         _attachedEvents.Add(e);
         var store = BoardStore.Current;
-        var existing = store.AttachedEvents.FirstOrDefault(x => ReferenceEquals(x.Card, e.Card));
+        var existing = store.AttachedEvents.FirstOrDefault(x =>
+            e.Card != null
+                ? SameEventCard(x.Card, e.Card)
+                : ReferenceEquals(x.Card, e.Card));
         if (existing != null) store.AttachedEvents.Remove(existing);
         int? hostId = (e.Host?.Tag as Card)?.InstanceId;
         int? host2Id = (e.Host2?.Tag as Card)?.InstanceId;
@@ -7178,10 +7282,17 @@ public partial class TableWindow : Window
     private Card? ResolveAttachedEventCard(CardRef? r, int owner)
     {
         if (r == null) return null;
+        // Known InstanceId: that copy only. Never name-FirstOrDefault another Q-Net already in play.
+        if (r.InstanceId > 0)
+        {
+            var byInst = LookupCardByInstanceId(r.InstanceId);
+            if (byInst != null) return byInst;
+        }
         var pool = owner == 2 ? _oppTablePermanentCards : _tablePermanentCards;
-        var existing = pool.FirstOrDefault(c =>
-            string.Equals(c.Name, r.Name, StringComparison.OrdinalIgnoreCase)
-            && (r.InstanceId == 0 || c.InstanceId == 0 || c.InstanceId == r.InstanceId));
+        var existing = r.InstanceId > 0
+            ? null
+            : pool.FirstOrDefault(c =>
+                string.Equals(c.Name, r.Name, StringComparison.OrdinalIgnoreCase));
         return existing ?? ResolveCard(r);
     }
 
@@ -7846,6 +7957,7 @@ public partial class TableWindow : Window
         }
         RelayoutGapsDockables();
         PaintSpans();
+        DumpSpacelineTruth("PostRelayout");
         EnsureBoardExtents();
     }
 
@@ -7886,6 +7998,98 @@ public partial class TableWindow : Window
         if (b == null) return null;
         b = ResolveOnSpaceline(b);
         return IsMissionEndpointBorder(b) ? b : null;
+    }
+
+    private static bool IsNetSpanKind(string? kind) =>
+        string.Equals(kind, nameof(EventRules.Persist.QNet), StringComparison.OrdinalIgnoreCase)
+        || string.Equals(kind, nameof(EventRules.Persist.Gaps), StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Span overlay from NetSpacelineSnapshot. Card is the canvas copy with SpanInstanceId
+    /// (never a same-name table card). Endpoints are Left/Right mission InstanceIds.
+    /// Non-span fields (owner, countdown, face, espionage) come from the matching AttachedEvent.
+    /// </summary>
+    private void ApplyNetSpanFromSnapshot(
+        NetSpacelineSpanSnap span,
+        List<AttachedEventSnap>? events,
+        Dictionary<int, Border> byId)
+    {
+        if (span.SpanInstanceId <= 0) return;
+        AttachedEventSnap? meta = null;
+        if (events != null)
+        {
+            foreach (var ev in events)
+            {
+                if (ev.Card != null && ev.Card.InstanceId == span.SpanInstanceId)
+                {
+                    meta = ev;
+                    break;
+                }
+            }
+        }
+
+        Card? card = null;
+        foreach (var b in byId.Values)
+        {
+            if (b.Tag is Card c && c.InstanceId == span.SpanInstanceId)
+            {
+                card = c;
+                break;
+            }
+        }
+        if (card == null && meta?.Card != null && !string.IsNullOrWhiteSpace(meta.Card.Name))
+        {
+            card = ResolveCard(new CardRef
+            {
+                Name = meta.Card.Name,
+                Set = meta.Card.Set,
+                Type = meta.Card.Type,
+                InstanceId = span.SpanInstanceId,
+                Owner = meta.Owner is 1 or 2 ? meta.Owner : meta.Card.Owner,
+                Controller = meta.Card.Controller,
+                FaceUp = meta.FaceUp
+            });
+            if (card != null)
+            {
+                int faceOwner = meta.Owner is 1 or 2 ? meta.Owner : 1;
+                var border = AddCardToTable(card, 40, SpacelineY, TableCardWidth);
+                SetBorderOwner(border, faceOwner);
+                Panel.SetZIndex(border, 9);
+            }
+        }
+        if (card == null) return;
+
+        EventRules.Persist kind;
+        if (!Enum.TryParse(span.Kind, out kind)
+            || kind is not (EventRules.Persist.QNet or EventRules.Persist.Gaps))
+        {
+            if (meta != null && Enum.TryParse(meta.Kind, out EventRules.Persist fromAe)
+                && fromAe is EventRules.Persist.QNet or EventRules.Persist.Gaps)
+                kind = fromAe;
+            else
+                kind = EventRules.Persist.QNet;
+        }
+
+        Border? left = span.LeftMissionId > 0 ? FindSpacelineColumnByInstance(span.LeftMissionId) : null;
+        Border? right = span.RightMissionId > 0 ? FindSpacelineColumnByInstance(span.RightMissionId) : null;
+        int owner = meta?.Owner ?? (card.OwnerPlayer is 1 or 2 ? card.OwnerPlayer : 0);
+        AddAttachedEvent(new AttachedEvent
+        {
+            Card = card,
+            Kind = kind,
+            Owner = owner,
+            Host = left,
+            Host2 = right,
+            Countdown = meta?.Countdown ?? 0,
+            FaceUp = meta?.FaceUp ?? true,
+            EspionageAs = meta?.EspionageAs,
+            EspionageOn = meta?.EspionageOn,
+            TurnScope = meta != null && Enum.TryParse(meta.TurnScope, out TimingRules.TurnScope ts)
+                ? ts : TimingRules.TurnScope.EveryTurn,
+            PhasePoint = meta != null && Enum.TryParse(meta.PhasePoint, out TimingRules.TurnPhasePoint pp)
+                ? pp : TimingRules.TurnPhasePoint.EndOfTurn,
+            ScopePlayer = meta?.ScopePlayer
+        });
     }
 
     /// <summary>
@@ -9844,6 +10048,7 @@ public partial class TableWindow : Window
                 $"{(_seedPhaseActive ? "SEED " + _seedSubPhase : _session.Segment.ToString())}).";
             _session.Log.AddDebug(_session.TurnNumber, "Net",
                 $"ApplyGameSave from Host (active P{_activePlayer}, seed={_seedPhaseActive}).");
+            DumpSpacelineTruth("GuestPostApply");
             RefreshActionHistory();
         }
         catch (Exception ex)
@@ -9869,8 +10074,32 @@ public partial class TableWindow : Window
             return;
         }
 
+        // PlayCard/Respond: card comes only from the acting player's hand.
+        // FromDto name fallback must not keep a TableCanvas hit (Q-Net #268).
+        Card? seededPlay = null;
+        void DiscardUnusedSeed()
+        {
+            if (seededPlay == null) return;
+            _handCards.Remove(seededPlay);
+            _oppHandCards.Remove(seededPlay);
+            seededPlay = null;
+        }
+
+        if (action.Kind is GameActionKind.PlayCard or GameActionKind.Respond)
+        {
+            var fromDto = action.Card;
+            action = BindNetPlayFromHand(action, dto, out seededPlay);
+            if (fromDto != null && IsTableOrInPlayCard(fromDto)
+                && (action.Card == null || !ReferenceEquals(action.Card, fromDto)))
+            {
+                _session.Log.AddDebug(_session.TurnNumber, "Net",
+                    $"LookupPlayFromHand refused in-play {fromDto.Name}#{fromDto.InstanceId} (table name hit).");
+            }
+        }
+
         if (action.Kind == GameActionKind.PlayCard && action.Card == null)
         {
+            DiscardUnusedSeed();
             _ = _netSession.SendErrorAsync($"PlayCard: card '{dto.CardName}' not found on Host.");
             return;
         }
@@ -9887,6 +10116,7 @@ public partial class TableWindow : Window
         }
         if (action.Kind == GameActionKind.PlayCard && action.Player != _session.ActivePlayer)
         {
+            DiscardUnusedSeed();
             _ = _netSession.SendErrorAsync(
                 $"PlayCard: not your turn (active P{_session.ActivePlayer}, you P{action.Player}).");
             return;
@@ -9941,6 +10171,7 @@ public partial class TableWindow : Window
         var auth = AuthorizePlay(action);
         if (!auth.Ok)
         {
+            DiscardUnusedSeed();
             _ = _netSession.SendErrorAsync(auth.Message);
             StatusText.Text = "Net DENY: " + auth.Message;
             return;
@@ -9967,7 +10198,11 @@ public partial class TableWindow : Window
             or GameActionKind.InitiateShipBattle
             or GameActionKind.Respond;
 
-    /// <summary>Resolve card by name/set from hand or table for Host FromDto.</summary>
+    /// <summary>
+    /// Name/set fallback for Host FromDto targets, seed piles, and in-play Fly/Beam.
+    /// PlayCard and Respond do not keep this result for the played card — that path
+    /// is <see cref="ResolveNetPlayFromHand"/> and must not FirstOrDefault a table card.
+    /// </summary>
     private Card? LookupCardForNetAction(string? name, string? set)
     {
         if (string.IsNullOrWhiteSpace(name)) return null;
@@ -9992,6 +10227,101 @@ public partial class TableWindow : Window
         hit ??= pools.FirstOrDefault(c =>
             string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
         return hit;
+    }
+
+    /// <summary>
+    /// PlayCard / Respond card slot. Hand of <paramref name="dto"/>.Player only.
+    /// InstanceId in that hand wins. Name never walks TableCanvas or the other hand.
+    /// Guest inject id missing on Host seeds a new hand card (fresh InstanceId).
+    /// </summary>
+    private GameAction BindNetPlayFromHand(GameAction action, NetActionDto dto, out Card? seeded)
+    {
+        seeded = null;
+        int player = dto.Player is 1 or 2 ? dto.Player : action.Player;
+        var played = ResolveNetPlayFromHand(player, dto, out string source);
+        if (played == null && player is 1 or 2 && !string.IsNullOrWhiteSpace(dto.CardName))
+        {
+            played = SeedFreshHandCard(player, dto.CardName!, dto.CardSet);
+            if (played != null)
+            {
+                seeded = played;
+                source = "seed-fresh";
+            }
+        }
+        int wantId = dto.InstanceIds is { Length: > 0 } ? dto.InstanceIds[0] : 0;
+        _session.Log.AddDebug(_session.TurnNumber, "Net",
+            $"LookupPlayFromHand source={source} player=P{player} name={dto.CardName} wantInst={wantId} hit=#{played?.InstanceId ?? 0}");
+        return new GameAction
+        {
+            Kind = action.Kind,
+            Player = action.Player,
+            Card = played,
+            Target = action.Target,
+            Target2 = action.Target2,
+            TargetName = action.TargetName,
+            Note = action.Note
+        };
+    }
+
+    private Card? ResolveNetPlayFromHand(int player, NetActionDto dto, out string source)
+    {
+        source = "miss";
+        var hand = player == 1 ? _handCards : player == 2 ? _oppHandCards : null;
+        if (hand == null) return null;
+        int wantId = dto.InstanceIds is { Length: > 0 } ? dto.InstanceIds[0] : 0;
+        if (wantId > 0)
+        {
+            var byId = hand.FirstOrDefault(c => c.InstanceId == wantId && !IsTableOrInPlayCard(c));
+            if (byId != null)
+            {
+                source = "hand-instance";
+                return byId;
+            }
+        }
+        if (!string.IsNullOrWhiteSpace(dto.CardName))
+        {
+            Card? byName = null;
+            if (!string.IsNullOrWhiteSpace(dto.CardSet))
+            {
+                byName = hand.FirstOrDefault(c =>
+                    string.Equals(c.Name, dto.CardName, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(c.SetFolder, dto.CardSet, StringComparison.OrdinalIgnoreCase)
+                    && !IsTableOrInPlayCard(c));
+            }
+            byName ??= hand.FirstOrDefault(c =>
+                string.Equals(c.Name, dto.CardName, StringComparison.OrdinalIgnoreCase)
+                && !IsTableOrInPlayCard(c));
+            if (byName != null)
+            {
+                source = "hand-name";
+                return byName;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>True when this object (or its InstanceId) is already on the table. Not a hand-only copy.</summary>
+    private bool IsTableOrInPlayCard(Card c)
+    {
+        foreach (var b in TableCanvas.Children.OfType<Border>())
+        {
+            if (b.Tag is Card t && (ReferenceEquals(t, c) || (c.InstanceId > 0 && t.InstanceId == c.InstanceId)))
+                return true;
+        }
+        bool Hit(List<Card> list) => list.Any(t =>
+            ReferenceEquals(t, c) || (c.InstanceId > 0 && t.InstanceId == c.InstanceId));
+        return Hit(_tablePermanentCards) || Hit(_oppTablePermanentCards);
+    }
+
+    /// <summary>Host-side copy for a Guest inject the Host has never seen. Fresh InstanceId, never a table card.</summary>
+    private Card? SeedFreshHandCard(int player, string name, string? set)
+    {
+        var proto = FindCatalogPrototype(name, set);
+        if (proto == null || player is not (1 or 2)) return null;
+        var inst = CardFactory.Instantiate(proto, player);
+        var hand = player == 2 ? _oppHandCards : _handCards;
+        if (!hand.Contains(inst)) hand.Add(inst);
+        return inst;
     }
 
     /// <summary>
@@ -10616,8 +10946,7 @@ public partial class TableWindow : Window
         TryStartPlayFlyInWhenReady(card, player, dto.TargetNormX, dto.TargetNormY, landInst, attemptsLeft: 10,
             artName: dto.CardName, artSet: dto.CardSet);
         _session.Log.AddDebug(_session.TurnNumber, "Net",
-            $"PlayReveal received: P{player} {dto.CardName}" +
-            (landInst > 0 ? $" landInst={landInst}" : ""));
+            $"PlayReveal received: P{player} {dto.CardName} inst={dto.InstanceId} landInst={landInst}");
     }
 
     /// <summary>
@@ -12833,6 +13162,28 @@ public partial class TableWindow : Window
                 ScopePlayer = ev.ScopePlayer
             });
         }
+
+        // Pepsch B: mission columns + span overlays. Spans are never MissionIds.
+        var spanSnaps = new List<NetSpacelineSpanSnap>();
+        foreach (var ae in save.AttachedEvents)
+        {
+            if (!IsNetSpanKind(ae.Kind)) continue;
+            int sid = ae.Card?.InstanceId ?? 0;
+            if (sid <= 0) continue;
+            spanSnaps.Add(new NetSpacelineSpanSnap
+            {
+                SpanInstanceId = sid,
+                Kind = ae.Kind ?? "",
+                LeftMissionId = ae.HostInstanceId ?? 0,
+                RightMissionId = ae.Host2InstanceId ?? 0
+            });
+        }
+        save.SpacelineSnapshot = new NetSpacelineSnapshot
+        {
+            MissionIds = save.SpacelineInstanceIds.ToArray(),
+            Spans = spanSnaps.ToArray()
+        };
+
         foreach (var d in _attachedDilemmas)
         {
             var heldIds = new List<int>();
@@ -12856,6 +13207,28 @@ public partial class TableWindow : Window
 
         foreach (var e in _session.Log.Entries)
             save.Log.Add(new LogSnap { Utc = e.Utc, Turn = e.Turn, Actor = e.Actor, Text = e.Text });
+
+        if (DumpSpacelineTruthEnabled)
+        {
+            var wire = new System.Text.StringBuilder();
+            wire.Append("WIRE SpacelineInstanceIds=[").Append(string.Join(",", save.SpacelineInstanceIds ?? new List<int>())).Append(']');
+            wire.Append(" SpacelineSnapIds=[").Append(string.Join(",", save.Spaceline ?? new List<int>())).Append(']');
+            var snap = save.SpacelineSnapshot;
+            wire.Append(" SNAP MissionIds=[").Append(string.Join(",", snap?.MissionIds ?? Array.Empty<int>())).Append(']');
+            if (snap?.Spans != null)
+            {
+                foreach (var sp in snap.Spans)
+                    wire.Append($" || SNAP SpanInstanceId={sp.SpanInstanceId} Kind={sp.Kind} Left={sp.LeftMissionId} Right={sp.RightMissionId} landInst={sp.SpanInstanceId}");
+            }
+            foreach (var ae in save.AttachedEvents ?? new List<AttachedEventSnap>())
+            {
+                if (!IsNetSpanKind(ae.Kind)) continue;
+                wire.Append($" || AE {ae.Kind} card={ae.Card?.Name}#{ae.Card?.InstanceId} hostInst={ae.HostInstanceId} host2Inst={ae.Host2InstanceId}");
+            }
+            DebugLog.Engine(_session.TurnNumber, _activePlayer, wire.ToString());
+            _session.Log.AddDebug(_session.TurnNumber, "Net", wire.ToString());
+            DumpSpacelineTruth("HostCapture");
+        }
 
         return save;
     }
@@ -13025,7 +13398,24 @@ public partial class TableWindow : Window
         // Authoritative order: mission InstanceIds. Never walk TableCanvas / byId insertion
         // order — that reintroduced shared copies and (when a span failed the name check)
         // span cards as extra columns, so Guest ≠ Host.
-        if (save.SpacelineInstanceIds != null)
+        // When NetSpacelineSnapshot is present it is the only column source (no canvas fallback).
+        bool snapshotAuthoritative = save.SpacelineSnapshot != null;
+        if (snapshotAuthoritative)
+        {
+            var missionIds = save.SpacelineSnapshot!.MissionIds;
+            if (missionIds != null)
+            {
+                foreach (var iid in missionIds)
+                {
+                    if (iid <= 0) continue;
+                    var m = byId.Values.FirstOrDefault(b =>
+                        b.Tag is Card c && c.InstanceId == iid
+                        && IsSpacelineColumnCard(c) && !IsSpacelineSpanCard(c));
+                    TryAddRestoredColumn(m);
+                }
+            }
+        }
+        else if (save.SpacelineInstanceIds != null)
         {
             foreach (var iid in save.SpacelineInstanceIds)
             {
@@ -13035,7 +13425,7 @@ public partial class TableWindow : Window
                 TryAddRestoredColumn(m);
             }
         }
-        if (_spacelineOrder.Count == 0)
+        if (!snapshotAuthoritative && _spacelineOrder.Count == 0)
         {
             foreach (var id in save.Spaceline)
             {
@@ -13044,10 +13434,10 @@ public partial class TableWindow : Window
                 TryAddRestoredColumn(m);
             }
         }
-        if (_spacelineOrder.Count == 0)
+        if (!snapshotAuthoritative && _spacelineOrder.Count == 0)
         {
-            // Last resort: visible mission columns by saved board X.
-            // Same-X copies (shared unique mission) are one column. Spans are not columns.
+            // Last resort for saves with no snapshot and no InstanceIds.
+            // Network Apply with SpacelineSnapshot never uses canvas order.
             var cols = byId.Values
                 .Where(b => b.Visibility == Visibility.Visible
                     && b.Tag is Card c && IsSpacelineColumnCard(c) && !IsSpacelineSpanCard(c))
@@ -13071,6 +13461,9 @@ public partial class TableWindow : Window
 
         foreach (var ev in save.AttachedEvents)
         {
+            // Span geometry comes from NetSpacelineSnapshot. Keep non-span fields only.
+            if (snapshotAuthoritative && IsNetSpanKind(ev.Kind))
+                continue;
             var card = ResolveAttachedEventCard(ev.Card, ev.Owner);
             if (card == null) continue;
             if (!Enum.TryParse(ev.Kind, out EventRules.Persist kind))
@@ -13095,6 +13488,15 @@ public partial class TableWindow : Window
                     ? pp : TimingRules.TurnPhasePoint.EndOfTurn,
                 ScopePlayer = ev.ScopePlayer
             });
+        }
+        if (snapshotAuthoritative)
+        {
+            var spans = save.SpacelineSnapshot!.Spans;
+            if (spans != null)
+            {
+                foreach (var span in spans)
+                    ApplyNetSpanFromSnapshot(span, save.AttachedEvents, byId);
+            }
         }
         foreach (var d in save.AttachedDilemmas)
         {

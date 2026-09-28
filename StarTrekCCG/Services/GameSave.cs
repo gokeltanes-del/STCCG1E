@@ -57,6 +57,14 @@ public sealed class GameSave
     [JsonPropertyName("spacelineInstanceIds")]
     public List<int> SpacelineInstanceIds { get; set; } = new();
 
+    /// <summary>
+    /// Host→Guest spaceline truth (Pepsch B). MissionIds are columns left→right.
+    /// Spans are overlay only and are never MissionIds. When set, network Apply
+    /// builds order and span overlays from this snapshot and does not walk canvas X.
+    /// </summary>
+    [JsonPropertyName("spacelineSnapshot")]
+    public NetSpacelineSnapshot? SpacelineSnapshot { get; set; }
+
     [JsonPropertyName("attachedEvents")]
     public List<AttachedEventSnap> AttachedEvents { get; set; } = new();
 
@@ -182,6 +190,36 @@ public sealed class StackWindowSnap
     public int ResponsePlayer { get; set; }
     public int ConsecutivePasses { get; set; }
     public List<StackItemSnap> Items { get; set; } = new();
+}
+
+/// <summary>
+/// Dedicated spaceline payload. Nested on <see cref="GameSave"/> so Dual-EXE
+/// state broadcast carries it without a second message type.
+/// </summary>
+public sealed class NetSpacelineSnapshot
+{
+    /// <summary>Mission / time-location column InstanceIds, left → right. Never spans.</summary>
+    [JsonPropertyName("missionIds")]
+    public int[] MissionIds { get; set; } = Array.Empty<int>();
+
+    [JsonPropertyName("spans")]
+    public NetSpacelineSpanSnap[] Spans { get; set; } = Array.Empty<NetSpacelineSpanSnap>();
+}
+
+public sealed class NetSpacelineSpanSnap
+{
+    [JsonPropertyName("spanInstanceId")]
+    public int SpanInstanceId { get; set; }
+
+    /// <summary>QNet or Gaps.</summary>
+    [JsonPropertyName("kind")]
+    public string Kind { get; set; } = "";
+
+    [JsonPropertyName("leftMissionId")]
+    public int LeftMissionId { get; set; }
+
+    [JsonPropertyName("rightMissionId")]
+    public int RightMissionId { get; set; }
 }
 
 public sealed class StackItemSnap
