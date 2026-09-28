@@ -1,6 +1,6 @@
 # HANDOFF ├ö├ç├Â STCCG 1E
 
-**Owner:** Captain Ôö¼├Ç **Stand:** 2026-09-27 Ôö¼├Ç **Ort:** Josef `C:\Dev\StarTrekCCG\StarTrekCCG`
+**Owner:** Captain Ôö¼├Ç **Stand:** 2026-09-28 Ôö¼├Ç **Ort:** Josef `C:\Dev\StarTrekCCG\StarTrekCCG`
 
 Nur aktueller BrÔö£ÔòØckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.md` (Jadzia), `FEATURES.md` (Seven), Coverage.
 Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF_ARCHIVE_*.md`.
@@ -9,7 +9,7 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 
 ## Jetzt aktiv ├ö├ç├Â Multiplayer / Network-Modus
 
-**Status:** Play Fly-in Ziel stale (Outpost Relayout/Neuspield) getippt (df1259e). **netztauglich.** Land=Host-Facility nach Layout; Stack-Bounds sync; TargetNorm at Loaded; Invalidate on Clear/RelayoutAll. Basis 857ab9e / Docs fd8450b. Dual-EXE Smoke: neues Spiel Outpost woanders → Pers landet exakt am aktuellen Outpost. **HOLD.**
+**Status:** Play Fly-in Event/Interrupt Target + P2 Face getippt (f005c71). **netztauglich.** TargetInstanceId → Live-Bounds; Face vor Anim; Net PlaysOnHost attach. Basis df1259e / Docs 74dede6. Dual-EXE Smoke: P2 Bynars/Spacedock auf Schiff → Fly zum Schiff; P2 Face sichtbar. **HOLD.**
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
 
 ### Architektur
@@ -24,11 +24,14 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 4. **Phase 4 — Dialoge/Timing:** ChoiceRequest / ChoiceResponse. → Tip e102b47.
 5. **Phase 5 ├ö├ç├Â HÔö£├▒rtung:** Disconnect, Reconnect, Abbruch.
 
-**Code-Stand (Data 2026-09-27):** Fly-in Ziel stale df1259e; Fly-in Nachzieher 857ab9e; Fly-in sichtbar 034aec2; Fly-in b1d5d3e; Play Fly-in 57c1a3e; Board-Sync 8322b68; Probe+Occupancy Fog b2dfaf7; Guest PlayCard 5da7c3b; Skip-Seed 7c040df. Kein Push durch Bots. **HOLD.**
+**Code-Stand (Data 2026-09-28):** Fly-in Event/Interrupt Target+Face f005c71; Fly-in Ziel stale df1259e; Fly-in Nachzieher 857ab9e; Fly-in sichtbar 034aec2; Fly-in b1d5d3e; Play Fly-in 57c1a3e; Board-Sync 8322b68; Probe+Occupancy Fog b2dfaf7; Guest PlayCard 5da7c3b; Skip-Seed 7c040df. Kein Push durch Bots. **HOLD.**
 
 ---
 
 ## Zuletzt (kurz)
+- Play Fly-in Event/Interrupt Target + P2 Face: TargetInstanceId Live-Bounds Host/Guest; Face vor Anim; Net PlaysOnHost attach (nicht TABLE). Tip-Hash f005c71. Pipeline df1259e erhalten. **HOLD.**
+
+
 
 - Play Fly-in Ziel stale (Outpost Relayout/Neuspield): Land=Host-Facility nach Layout; Stack AbsoluteLeft sync; TargetNorm at Loaded; Invalidate Clear/RelayoutAll. Tip-Hash df1259e. Pipeline 857ab9e erhalten. **HOLD.**
 

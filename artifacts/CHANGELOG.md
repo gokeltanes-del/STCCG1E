@@ -1,3 +1,10 @@
+## 2026-09-28 - Play Fly-in Event/Interrupt Target + P2 Face
+
+- *Bugfix (Pepsch, nach Tip df1259e)*: Event/Interrupt auf Spielziel (Bynars/Spacedock auf Schiff) — P1 ok, **P2 landet TABLE** rechts statt am Target-Ship/Slot; manchmal P2 einfliegende Karte **schwarz** (Face nicht geladen).
+- *Root cause*: Net TryApplyNetPlayCard behandelte jedes Event als TABLE wegen IsTablePermanentType(Event)==true (Hosted-Branch unerreichbar); Fly-in Land nur eigene Slot/TABLE-Bounds, kein Play-Action Target; Guest Face oft Stub ohne FullImagePath / Source=null vor Anim.
+- *Fix*: NetPlayRevealDto.TargetInstanceId; Land = Target-InstanceId → aktuelle Bounds (Host/Guest gleich); EnsurePlayFlyInCardArt + TryLoadPlayFlyInFace vor BeginAnimation; Net PlaysOnHost via TryResolveEventPlay/AttachCardToHost. Network-First PlayReveal beibehalten. Pipeline df1259e erhalten.
+- *Scope*: NetPlayRevealDto + TableWindow.xaml.cs. Tip-Hash f005c71. Basis df1259e / Docs 74dede6. Kein Action-History; keine Gaps/Q-Net. Docs separat. Kein Push.
+
 ## 2026-09-27 - Play Fly-in Ziel stale (Outpost nach Relayout/Neuspield)
 
 - *Bugfix (Pepsch, nach Tip 857ab9e)*: Personnel fliegen zum **alten Outpost-Punkt vom vorigen Spiel**; Ziel folgt nicht dem aktuellen legalen Snap-Fenster / Facility-Bounds nach Relayout.
