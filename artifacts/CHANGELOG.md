@@ -1,3 +1,9 @@
+﻿## 2026-09-28 - Responsive Detail/Choice-Overlays (Fensterbreite)
+
+- *Auftrag (FREIGABE)*: Overlay TAK u.a. Detail/Choice-Anzeigen an Fensterbreite anpassen; bei wenig Platz Typ-Buttons und Kartenreihen umbrechen statt Clip/Overflow. Generisch, kein TAK-Hack.
+- *Root cause*: Feste `Width` (Kidnap 920 / History 880 / Team 560) und CardDetail `MinWidth=720` groesser als schmales Viewport; ScrollViewer Horizontal=Auto mass WrapPanel mit Infinity -> keine zweite Zeile.
+- *Fix*: Overlay-Innenrahmen `Width`->`MaxWidth` + `Margin=12`; CardDetail MinWidth entfernt; Reveal-Buttons `WrapPanel`; `DetailStackCards` und `KidnapCardsPanel` ScrollViewer `HorizontalScrollBarVisibility=Disabled` damit WrapPanel wrappt.
+- *Scope*: TableWindow.xaml (+ Kommentar PickCardFromList). Kein Span-Y / PlaceSpan / CaptureGameSave / Sync. Tip-Hash a9af295. Basis 3bc7e49 / Docs e589a78. Kein Push.
 ## 2026-09-28 - Spaceline Attach Y board-absolute + History RMB-only zoom
 
 - *Auftrag (FREIGABE)*: (1) Q-Net Symptom Dual-EXE: P2 spielt Q-Net -> horizontal ok, vertikal bei P1 falsch (Karten unter/ueber Mission gespiegelt); P2-Ansicht = Wahrheit. Fix generisch Spaceline-Attaches (Q-Net/Gaps/Plays-on-mission). (2) Action History Recently played: kein Click->Detail-Fenster; nur Right-Click Zoom wie Board-Karten.
