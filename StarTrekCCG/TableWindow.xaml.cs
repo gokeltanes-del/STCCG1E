@@ -964,6 +964,7 @@ public partial class TableWindow : Window
                 : $"{i + 1}. {c.Name}";
         }
 
+        // Labels carry #InstanceId so AskChoiceLocal / Guest can map to Face hand cards (not text/black squares).
         string pick = AskChoiceForPlayer(owner, null, title,
             string.IsNullOrWhiteSpace(hint) ? "Discard one card from hand." : hint,
             labels);
@@ -976,10 +977,17 @@ public partial class TableWindow : Window
             idx = Array.FindIndex(labels, l =>
                 string.Equals(l, pick, StringComparison.OrdinalIgnoreCase));
         }
+        if (idx < 0)
+        {
+            int id = ParseInstanceIdFromChoiceLabel(pick);
+            if (id > 0)
+                idx = hand.ToList().FindIndex(c => c.InstanceId == id);
+        }
         if (idx < 0 || idx >= hand.Count)
             return null;
 
         var chosen = hand[idx];
+        // Result = normal Face preview (same Reveal strip as other card outcomes).
         ShowCardReveal(chosen, title, $"Discarded: {chosen.Name}.", RevealButtons.Ok);
         _session.Log.Add(_session.TurnNumber, $"P{owner}",
             $"Static Warp Bubble discarded {chosen.Name}");
@@ -2189,7 +2197,31 @@ public partial class TableWindow : Window
     {
         string picked;
         bool timed;
-        if (clean.Length == 2)
+        Card? pickedCard = null;
+
+        // SWB / hand-discard: options labeled with InstanceId map to real hand cards → Face strip (not text/black).
+        // TAK type-name choices do not map and keep YesNo / label path.
+        var handMapped = TryMapChoiceOptionsToHandCards(decidingPlayer, clean);
+        if (handMapped != null)
+        {
+            var cardPick = PickCardFromList(
+                string.IsNullOrWhiteSpace(prompt) ? "Click a card to choose." : prompt,
+                handMapped, title, card);
+            timed = cardPick == null;
+            if (cardPick != null)
+            {
+                pickedCard = cardPick;
+                int idx = handMapped.IndexOf(cardPick);
+                picked = (idx >= 0 && idx < clean.Length) ? clean[idx] : clean[0];
+            }
+            else
+            {
+                int ri = _autoSeedRng.Next(clean.Length);
+                picked = clean[ri];
+                pickedCard = handMapped[ri];
+            }
+        }
+        else if (clean.Length == 2)
         {
             string body = string.IsNullOrWhiteSpace(prompt) ? $"Choose one:" : prompt;
             var ans = ShowCardReveal(card, title, body, RevealButtons.YesNo,
@@ -2207,13 +2239,67 @@ public partial class TableWindow : Window
             picked = cardPick?.Name ?? clean[_autoSeedRng.Next(clean.Length)];
         }
 
-        string how = timed ? "No answer in time — random choice" : "Chosen";
+        string how = timed ? "No answer in time - random choice" : "Chosen";
         _session.Log.Add(_session.TurnNumber, $"P{decidingPlayer}",
             $"{title}: {picked}" + (timed ? " (timeout, random)" : ""));
         StatusText.Text = $"{title}: {picked}";
         if (timed)
-            AnnounceChoiceResult(card, title, $"{how}:\n{picked}");
+            AnnounceChoiceResult(pickedCard ?? card, title, $"{how}:\n{picked}");
         return picked;
+    }
+
+    /// <summary>
+    /// Map AskChoice option labels (e.g. "1. Name #InstanceId") onto the deciding player's hand cards.
+    /// Returns null when options are not a full unique hand-card set (e.g. TAK type names).
+    /// </summary>
+    private List<Card>? TryMapChoiceOptionsToHandCards(int decidingPlayer, string[] options)
+    {
+        if (options == null || options.Length == 0) return null;
+        var hand = decidingPlayer == 1 ? _handCards : _oppHandCards;
+        if (hand == null || hand.Count == 0) return null;
+
+        var mapped = new List<Card>(options.Length);
+        var used = new HashSet<Card>();
+        foreach (var opt in options)
+        {
+            if (string.IsNullOrWhiteSpace(opt)) return null;
+            Card? hit = null;
+            int id = ParseInstanceIdFromChoiceLabel(opt);
+            if (id > 0)
+                hit = hand.FirstOrDefault(c => c.InstanceId == id);
+            if (hit == null)
+            {
+                string name = StripChoiceLabelPrefix(opt);
+                if (!string.IsNullOrWhiteSpace(name))
+                    hit = hand.FirstOrDefault(c =>
+                        string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
+            }
+            if (hit == null || !used.Add(hit)) return null;
+            mapped.Add(hit);
+        }
+        return mapped.Count == options.Length ? mapped : null;
+    }
+
+    private static int ParseInstanceIdFromChoiceLabel(string label)
+    {
+        if (string.IsNullOrWhiteSpace(label)) return 0;
+        int hash = label.LastIndexOf('#');
+        if (hash < 0 || hash + 1 >= label.Length) return 0;
+        var digits = new string(label[(hash + 1)..].TakeWhile(char.IsDigit).ToArray());
+        return int.TryParse(digits, out int id) ? id : 0;
+    }
+
+    /// <summary>Strip "1. " index and " #123" instance suffix from an AskChoice hand label.</summary>
+    private static string StripChoiceLabelPrefix(string label)
+    {
+        string s = label.Trim();
+        int dot = s.IndexOf('.');
+        if (dot > 0 && dot < 4 && s.Take(dot).All(char.IsDigit))
+            s = s[(dot + 1)..].Trim();
+        int hash = s.LastIndexOf('#');
+        if (hash > 0)
+            s = s[..hash].Trim();
+        return s;
     }
 
     /// <summary>
@@ -7571,7 +7657,15 @@ public partial class TableWindow : Window
             dockByMission[m] = GetDockablesUnderMission(m).ToList();
         }
 
-        var display = BuildSpacelineDisplayOrder();
+        // Columns = missions / time locations ONLY.
+        // Spaceline spans (Q-Net/Gaps) must NOT consume Extra-Width columns — they overlay at gap-mid via PinSpacelineSpanCardsY.
+        // SEARCH: Verb: plays-on spaceline-span; Glossary: adjacent
+        var display = _spacelineOrder
+            .Where(b => b.Tag is Card c && (
+                IsMissionCard(c)
+                || CardKinds.IsTimeLocation(c)
+                || ArtifactRules.IsTimeTravelPod(c)))
+            .ToList();
         if (display.Count == 0) return;
 
         double width = 0;
@@ -7602,18 +7696,7 @@ public partial class TableWindow : Window
             }
             var cell = display[i];
             Canvas.SetTop(cell, SpacelineY);
-            // Spans / gap events: SpacelineY-centered + Identity — never owner face-rotate / dock offset.
-            if (cell.Tag is Card spanCard && IsSpacelineSpanCard(spanCard))
-            {
-                cell.RenderTransformOrigin = new Point(0.5, 0.5);
-                cell.RenderTransform = Transform.Identity;
-                Canvas.SetLeft(cell, x);
-                Panel.SetZIndex(cell, 9);
-            }
-            else
-            {
-                ApplyMissionFaceVisual(cell, x);
-            }
+            ApplyMissionFaceVisual(cell, x);
             if (cell.Tag is Card oc && IsLandableLocation(oc))
             {
                 if (IsMissionCard(oc))
@@ -7623,7 +7706,6 @@ public partial class TableWindow : Window
                     // Pin before Relayout (same contract as RelocateShipAlongSpaceline): after
                     // mission Top jumps to SpacelineY, save absolute Y can fall outside the
                     // pixel Y-window; Pin+Pixel must still find every dock for baseline Y.
-                    // Gaps: ships on the span follow the span column (Host panel sticks via Relayout).
                     foreach (var d in docks)
                     {
                         Canvas.SetLeft(d, x);
@@ -7659,7 +7741,10 @@ public partial class TableWindow : Window
         EnsureBoardExtents();
     }
 
-    /// <summary>Missions in seed order, each Gaps/Q-Net spliced after its left-hand mission.</summary>
+    /// <summary>
+    /// Missions in seed order with Gaps/Q-Net spliced after left-hand mission (diagnostic / adjacency).
+    /// RelayoutMissionsOnSpaceline columns use missions only — spans overlay at gap-mid (no Extra-Width).
+    /// </summary>
     private List<Border> BuildSpacelineDisplayOrder()
     {
         var missions = _spacelineOrder
@@ -7710,7 +7795,7 @@ public partial class TableWindow : Window
             Border? a = ae.Host != null ? ResolveOnSpaceline(ae.Host) : null;
             Border? b = ae.Host2 != null ? ResolveOnSpaceline(ae.Host2) : null;
             // BoardStore InstanceIds if Border refs went stale after Relayout/Clear.
-            if (a == null || !_spacelineOrder.Contains(a))
+            if (a == null || !_spacelineOrder.Contains(a) || !IsMissionEndpointBorder(a))
             {
                 var be = BoardStore.Current.AttachedEvents.FirstOrDefault(x =>
                     x.Card != null && card != null
@@ -7721,8 +7806,8 @@ public partial class TableWindow : Window
                 if (be?.Host2InstanceId is int hid2 && hid2 > 0)
                     b = FindBorderByInstanceId(hid2) ?? b;
             }
-            if (a != null) a = ResolveOnSpaceline(a);
-            if (b != null) b = ResolveOnSpaceline(b);
+            a = AsMissionEndpointBorder(a);
+            b = AsMissionEndpointBorder(b);
             if (a != null && b != null)
                 return NormalizeSpanEndpointOrder(a, b);
         }
@@ -7745,6 +7830,21 @@ public partial class TableWindow : Window
         int ib = _spacelineOrder.IndexOf(b);
         if (ia >= 0 && ib >= 0 && ib < ia) return (b, a);
         return (a, b);
+    }
+
+    /// <summary>Gap endpoints are missions (or time locations) only — never another spaceline span.</summary>
+    private static bool IsMissionEndpointBorder(Border? b) =>
+        b?.Tag is Card c && (
+            IsMissionCard(c)
+            || CardKinds.IsTimeLocation(c)
+            || ArtifactRules.IsTimeTravelPod(c));
+
+    /// <summary>Resolve to spaceline mission endpoint; rejects Q-Net/Gaps so a second span cannot dock on the first.</summary>
+    private Border? AsMissionEndpointBorder(Border? b)
+    {
+        if (b == null) return null;
+        b = ResolveOnSpaceline(b);
+        return IsMissionEndpointBorder(b) ? b : null;
     }
 
     /// <summary>ApplyGameSave: span Host/Host2 from board-absolute InstanceId, else save-local HostId.</summary>
@@ -19813,19 +19913,30 @@ public partial class TableWindow : Window
 
     private Border PlaceSpanOnSpaceline(Card ev, Border left, Border right, int owner)
     {
-        left = ResolveOnSpaceline(left);
-        right = ResolveOnSpaceline(right);
+        left = AsMissionEndpointBorder(left) ?? ResolveOnSpaceline(left);
+        right = AsMissionEndpointBorder(right) ?? ResolveOnSpaceline(right);
+        // Second span must not treat an existing span as an endpoint / dock host.
+        if (!IsMissionEndpointBorder(left) || !IsMissionEndpointBorder(right))
+        {
+            StatusText.Text = $"{ev.Name}: gap endpoints must be missions.";
+        }
         int i1 = _spacelineOrder.IndexOf(left);
         int i2 = _spacelineOrder.IndexOf(right);
         if (i1 < 0) i1 = 0;
         if (i2 < 0) i2 = Math.Min(i1 + 1, _spacelineOrder.Count);
-        int insert = Math.Min(i1, i2) + 1;
+        if (i2 < i1) { int t = i1; i1 = i2; i2 = t; var tb = left; left = right; right = tb; }
+        // Insert just before right mission (after any spans already in this gap) — still no Extra-Width column.
+        int insert = i2;
         if (insert < 0) insert = 0;
         if (insert > _spacelineOrder.Count) insert = _spacelineOrder.Count;
 
         double guessX = Canvas.GetLeft(left);
         if (double.IsNaN(guessX)) guessX = 40;
-        guessX += TableCardWidth + MissionGap;
+        double rightX = Canvas.GetLeft(right);
+        if (!double.IsNaN(rightX))
+            guessX = (guessX + TableCardWidth + rightX) / 2.0 - TableCardWidth / 2.0;
+        else
+            guessX += TableCardWidth + MissionGap;
         var border = AddCardToTable(ev, guessX, SpacelineY, TableCardWidth);
         border.BorderBrush = new SolidColorBrush(Color.FromRgb(180, 120, 220));
         border.BorderThickness = new Thickness(2);
@@ -30684,7 +30795,7 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
     /// <summary>
     /// Spaceline spans (Q-Net/Gaps): render from gap endpoints (mission InstanceIds) only.
     /// Y = SpacelineY (row center) on EVERY client — never owner-dock, never viewer-mirror of span Y.
-    /// X = midpoint between the two endpoint missions (barriers); Gaps keep display-column for docks.
+    /// X = midpoint between the two endpoint missions (all spans; never Extra-Width layout columns).
     /// SEARCH: Verb: plays-on spaceline-span; Glossary: adjacent
     /// </summary>
     private void PinSpacelineSpanCardsY()
@@ -30699,16 +30810,20 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
             if (span == null || !TableCanvas.Children.Contains(span)) continue;
             if (_spacelineOrder.Contains(span)) continue;
             Border? left = ae.Host != null ? ResolveOnSpaceline(ae.Host) : null;
-            if (left == null || !_spacelineOrder.Contains(left))
+            if (left == null || !_spacelineOrder.Contains(left) || !IsMissionEndpointBorder(left))
             {
                 var be = BoardStore.Current.AttachedEvents.FirstOrDefault(x =>
                     x.Card != null && (ReferenceEquals(x.Card, ae.Card)
                         || (ae.Card.InstanceId > 0 && x.Card.InstanceId == ae.Card.InstanceId)));
                 if (be?.HostInstanceId is int hid && hid > 0)
                     left = FindBorderByInstanceId(hid);
-                if (left != null) left = ResolveOnSpaceline(left);
             }
+            left = AsMissionEndpointBorder(left);
+            // Insert after left mission (never after/on another span). Existing spans in gap stay; Pin sets shared mid X.
             int insert = left != null ? _spacelineOrder.IndexOf(left) + 1 : _spacelineOrder.Count;
+            while (insert < _spacelineOrder.Count
+                   && _spacelineOrder[insert].Tag is Card sc && IsSpacelineSpanCard(sc))
+                insert++;
             if (insert < 0) insert = _spacelineOrder.Count;
             if (insert > _spacelineOrder.Count) insert = _spacelineOrder.Count;
             _spacelineOrder.Insert(insert, span);
@@ -30726,8 +30841,8 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
             if (Panel.GetZIndex(b) < 9)
                 Panel.SetZIndex(b, 9);
 
-            // Barrier spans (Q-Net): gap-midpoint X from mission endpoints. Gaps keep column X (docks).
-            if (IsLandableLocation(c)) continue;
+            // All spaceline spans (Q-Net/Gaps): gap-midpoint X from mission endpoints only.
+            // Never a layout column with Extra-Width — docks under Gaps follow this mid X after Pin.
             var (leftEp, rightEp) = SpanEndpoints(b);
             if (leftEp != null && rightEp != null)
             {
