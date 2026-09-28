@@ -583,6 +583,17 @@ public partial class TableWindow : Window
     private int _playFlyInGen;
     /// <summary>InstanceId of board/TABLE card hidden while fly-in overlay is airborne (anti-double).</summary>
     private int _playFlyInHiddenInstanceId;
+
+    /// <summary>Last played cards for Action History strip (Host PlayReveal + Guest receive).</summary>
+    private sealed class PlayHistoryEntry
+    {
+        public int Player;
+        public Card Card = null!;
+        public string? Title;
+        public DateTime Utc;
+    }
+    private readonly List<PlayHistoryEntry> _playHistory = new();
+    private const int MaxPlayHistory = 40;
     /// <summary>True while personnel/ship battle dice are resolving (Armbands forbidden).</summary>
     private bool _adversariesInCombat;
     // SEARCH: Glossary: actions - "just" / just after; AppA: Klingon Death Yell; Verb: JustAfter(KlingonWithHonorDied)
@@ -1176,6 +1187,75 @@ public partial class TableWindow : Window
     }
 
 
+    private void RecordPlayHistory(Card? card, int player, string? title = null)
+    {
+        if (card == null) return;
+        if (player is not (1 or 2)) player = _activePlayer;
+        EnsurePlayFlyInCardArt(card);
+        // Snapshot identity/art so later fog/discard does not blank the strip Face.
+        var snap = new Card
+        {
+            Name = card.Name,
+            Type = card.Type,
+            Text = card.Text,
+            SetFolder = card.SetFolder,
+            FullImagePath = card.FullImagePath,
+            InstanceId = card.InstanceId,
+            Controller = player,
+            Affiliation = card.Affiliation,
+            Class = card.Class,
+            Icons = card.Icons,
+            IntegrityOrRange = card.IntegrityOrRange,
+            CunningOrWeapons = card.CunningOrWeapons,
+            StrengthOrShields = card.StrengthOrShields,
+            Points = card.Points,
+            Characteristics = card.Characteristics,
+            CurrentAffiliation = card.CurrentAffiliation
+        };
+        _playHistory.Add(new PlayHistoryEntry
+        {
+            Player = player,
+            Card = snap,
+            Title = title ?? $"P{player} plays {card.Name}",
+            Utc = DateTime.UtcNow
+        });
+        if (_playHistory.Count > MaxPlayHistory)
+            _playHistory.RemoveRange(0, _playHistory.Count - MaxPlayHistory);
+        if (HistoryOverlay != null && HistoryOverlay.Visibility == Visibility.Visible)
+            RefreshPlayHistoryStrip();
+    }
+
+    private void RefreshPlayHistoryStrip()
+    {
+        if (PlayHistoryStrip == null) return;
+        PlayHistoryStrip.Children.Clear();
+        foreach (var entry in _playHistory)
+        {
+            var mini = CreateMiniCard(entry.Card, faceDown: false);
+            // P1 = green, P2 = blue (same accents as ThinkTray blink).
+            Color accent = entry.Player == 1
+                ? Color.FromRgb(40, 180, 90)
+                : Color.FromRgb(60, 120, 220);
+            mini.BorderBrush = new SolidColorBrush(accent);
+            mini.BorderThickness = new Thickness(3);
+            mini.Margin = new Thickness(4, 2, 4, 2);
+            string tipTitle = entry.Title ?? entry.Card.Name ?? "";
+            string tipText = string.IsNullOrWhiteSpace(entry.Card.Text)
+                ? ""
+                : ("\n\n" + entry.Card.Text);
+            mini.ToolTip = tipTitle + tipText + "\nClick = detail / text";
+            var cardCap = entry.Card;
+            mini.MouseLeftButtonDown += (s, e) =>
+            {
+                HideMiniHover();
+                ShowCardDetail(cardCap);
+                OpenCardDetailPopup();
+                e.Handled = true;
+            };
+            PlayHistoryStrip.Children.Add(mini);
+        }
+    }
+
     private void RefreshActionHistory()
     {
         if (ActionHistoryList == null) return;
@@ -1188,6 +1268,7 @@ public partial class TableWindow : Window
                 ActionHistoryList.Items.Add(line);
             if (ActionHistoryList.Items.Count > 0)
                 ActionHistoryList.ScrollIntoView(ActionHistoryList.Items[^1]);
+            RefreshPlayHistoryStrip();
             RefreshLegalMovesPanel();
         }
         finally
@@ -10303,6 +10384,7 @@ public partial class TableWindow : Window
         string? titleCap = title;
         int landInstCap = ResolvePlayFlyInTargetInstanceId(card, landTarget);
         EnsurePlayFlyInCardArt(cardCap);
+        RecordPlayHistory(cardCap, pCap, titleCap);
         Dispatcher.BeginInvoke(new Action(() =>
         {
             try
@@ -10368,6 +10450,7 @@ public partial class TableWindow : Window
         }
         EnsurePlayFlyInCardArt(card, dto.CardName, dto.CardSet);
         int player = dto.Player is 1 or 2 ? dto.Player : 2;
+        RecordPlayHistory(card, player, dto.Title);
         int landInst = dto.TargetInstanceId > 0
             ? dto.TargetInstanceId
             : ResolvePlayFlyInTargetInstanceId(card, null);
@@ -18733,9 +18816,6 @@ public partial class TableWindow : Window
             return true;
         }
 
-        ShowCardReveal(card, "Interrupt",
-            (card.Text ?? "") + "\n\n→ " + r.Message, RevealButtons.Ok, card.Name);
-
         switch (r.Effect)
         {
             case InterruptRules.Effect.RogueBorg:
@@ -18947,8 +19027,11 @@ public partial class TableWindow : Window
                     {
                         if (b.Tag is not Card sc || !IsShipCard(sc)) continue;
                         var aboard = GetAllCardsOnHost(b, GetBorderOwner(b) == 0 ? 1 : GetBorderOwner(b));
-                        ShowCardReveal(sc, "Long-Range Scan",
-                            string.Join("\n", aboard.Select(c => c.Name)), RevealButtons.Ok);
+                        string aboardLine = string.Join(", ", aboard.Select(c => c.Name));
+                        if (string.IsNullOrWhiteSpace(aboardLine)) aboardLine = "(empty)";
+                        StatusText.Text = $"Long-Range Scan: {sc.Name} — {aboardLine}";
+                        _session.Log.Add(_session.TurnNumber, $"P{controller}",
+                            $"Long-Range Scan aboard {sc.Name}: {aboardLine}");
                         break;
                     }
                     break;

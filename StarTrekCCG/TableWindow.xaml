@@ -283,7 +283,7 @@
                                 </Border>
                             </Border>
                             <Border x:Name="HistoryOverlay" Visibility="Collapsed" Background="#CC0A0A0F" Panel.ZIndex="210">
-                                <Border HorizontalAlignment="Center" VerticalAlignment="Center" Background="#252530" BorderBrush="#6A6A80" BorderThickness="1" CornerRadius="10" Padding="16" Width="820" MaxHeight="900">
+                                <Border HorizontalAlignment="Center" VerticalAlignment="Center" Background="#252530" BorderBrush="#6A6A80" BorderThickness="1" CornerRadius="10" Padding="16" Width="880" MinHeight="720" MaxHeight="960">
                                     <DockPanel>
                                         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
                                             <Button DockPanel.Dock="Right" Content="Copy" Click="BtnHistoryCopy_Click" Padding="10,4" Margin="6,0,0,0"/>
@@ -291,11 +291,18 @@
                                             <Button DockPanel.Dock="Right" Content="Close" Click="BtnHistoryClose_Click" Padding="10,4"/>
                                             <TextBlock Text="Action History" Foreground="#FFE082" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
                                         </DockPanel>
+                                        <!-- Third pane: last played cards (Face). Network: same row via PlayReveal Host broadcast. -->
+                                        <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0" LastChildFill="True">
+                                            <TextBlock DockPanel.Dock="Top" Text="Recently played (click = detail / text)" Foreground="#FFE082" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Height="118">
+                                                <StackPanel x:Name="PlayHistoryStrip" Orientation="Horizontal"/>
+                                            </ScrollViewer>
+                                        </DockPanel>
                                         <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0" LastChildFill="True">
                                             <TextBlock DockPanel.Dock="Top" Text="Legal moves (engine)" Foreground="#9CDCFE" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                                            <ListBox x:Name="LegalMovesList" Height="150" Background="#14141C" BorderThickness="0" Foreground="#CE9178" FontSize="12" FontFamily="Consolas"/>
+                                            <ListBox x:Name="LegalMovesList" Height="140" Background="#14141C" BorderThickness="0" Foreground="#CE9178" FontSize="12" FontFamily="Consolas"/>
                                         </DockPanel>
-                                        <ListBox x:Name="ActionHistoryList" Background="#1A1A22" BorderThickness="0" Foreground="#B5CEA8" FontSize="12" FontFamily="Consolas" SelectionMode="Extended"/>
+                                        <ListBox x:Name="ActionHistoryList" MinHeight="280" Background="#1A1A22" BorderThickness="0" Foreground="#B5CEA8" FontSize="12" FontFamily="Consolas" SelectionMode="Extended"/>
                                     </DockPanel>
                                 </Border>
                             </Border>
