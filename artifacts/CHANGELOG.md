@@ -1,3 +1,10 @@
+## 2026-09-28 - Spaceline Span Y always SpacelineY-centered (Q-Net Nachzieher)
+
+- *Auftrag (FREIGABE)*: Tip 3bc7e49 unzureichend — Dual-EXE P2 Q-Net: P2 (rechts) vertikal zentriert in Lücke OK; P1 (links) dünner Streifen am oberen Rand / massiver Y-Offset nach oben (Clipping), horizontal OK. Q-Net soll Spaceline-Y-zentriert sein, nicht Owner-Dock oben/unten. Generisch Gaps/Q-Net/Spaceline-Spans.
+- *Root cause*: Board-absolute Dock-Y (3bc7e49) reicht nicht für Span-Zeile — `IsSpacelineSpanCard` nur ResolvePlay; Apply `FromBoardAbsoluteY(owner)` für Nicht-Row; orphan Spans fehlen in `_spacelineOrder` nach Load; Relayout soft-invalidate orphaned Fly-in-Ghost bei Opacity=0; Host PlaceSpan/Relayout ohne harten SpacelineY-Pin nach Dock/EnsureBoardExtents.
+- *Fix*: `IsSpacelineSpanCard` Name-first (Q-Net/Gaps) + `IsSpacelineRowCard`; ApplyGameSave erzwingt `SpacelineY` für Row-Karten (kein Owner-FromBoardAbsoluteY); `PinSpacelineSpanCardsY` nach Relayout/Apply (Top=SpacelineY+Identity, Orphans aus AttachedEvent); PlaceSpan Identity; soft-invalidate restored Ghost Opacity.
+- *Scope*: TableWindow.xaml.cs. Tip-Hash 0443f37. Basis a9af295 / Docs 3be0892. Overlay unberührt. Kein Push.
+
 ﻿## 2026-09-28 - Responsive Detail/Choice-Overlays (Fensterbreite)
 
 - *Auftrag (FREIGABE)*: Overlay TAK u.a. Detail/Choice-Anzeigen an Fensterbreite anpassen; bei wenig Platz Typ-Buttons und Kartenreihen umbrechen statt Clip/Overflow. Generisch, kein TAK-Hack.

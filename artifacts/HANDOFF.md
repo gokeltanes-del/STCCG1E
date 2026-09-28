@@ -9,7 +9,7 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 
 ## Jetzt aktiv ├ö├ç├Â Multiplayer / Network-Modus
 
-**Status:** Responsive Detail/Choice-Overlays getippt (a9af295). Spaceline Attach Y + History RMB (3bc7e49) HOLD. **netztauglich.** Q-Net/Gaps/Plays-on Sync Y board-absolut / Render viewer-relativ; History-Strip nur RMB Zoom (kein Click-Detail). Action History Reihe acfb554 + Face/Gaps 5c29f7b HOLD. Basis acfb554 / Docs df2dc85. Dual-EXE Smoke: P2 Q-Net beide gleiche Mission-Seite; History ohne Click-Popup. **HOLD.**
+**Status:** Span Y Spaceline-centered Nachzieher getippt (0443f37). Responsive Overlays a9af295 + Attach Y 3bc7e49 HOLD. **netztauglich.** Q-Net/Gaps immer SpacelineY (kein Owner-Dock); PinSpacelineSpanCardsY. Dual-EXE Smoke: P2 Q-Net bei P1 und P2 vertikal zentriert in Lücke. **HOLD.**
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
 
 ### Architektur
@@ -24,11 +24,12 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 4. **Phase 4 — Dialoge/Timing:** ChoiceRequest / ChoiceResponse. → Tip e102b47.
 5. **Phase 5 ├ö├ç├Â HÔö£├▒rtung:** Disconnect, Reconnect, Abbruch.
 
-**Code-Stand (Data 2026-09-28):** Responsive Overlays a9af295; Spaceline Attach Y + History RMB 3bc7e49; Action History Reihe acfb554; Face Catalog + Gaps Guest-Drop 5c29f7b; Guest/P2 Play-Pfad 591fba3; Fly-in Event/Interrupt Target+Face f005c71; Fly-in Ziel stale df1259e; Fly-in Nachzieher 857ab9e; Fly-in sichtbar 034aec2; Fly-in b1d5d3e; Play Fly-in 57c1a3e; Board-Sync 8322b68; Probe+Occupancy Fog b2dfaf7; Guest PlayCard 5da7c3b; Skip-Seed 7c040df. Kein Push durch Bots. **HOLD.**
+**Code-Stand (Data 2026-09-28):** Span Y Spaceline-centered 0443f37; Responsive Overlays a9af295; Spaceline Attach Y + History RMB 3bc7e49; Action History Reihe acfb554; Face Catalog + Gaps Guest-Drop 5c29f7b; Guest/P2 Play-Pfad 591fba3; Fly-in Event/Interrupt Target+Face f005c71; Fly-in Ziel stale df1259e; Fly-in Nachzieher 857ab9e; Fly-in sichtbar 034aec2; Fly-in b1d5d3e; Play Fly-in 57c1a3e; Board-Sync 8322b68; Probe+Occupancy Fog b2dfaf7; Guest PlayCard 5da7c3b; Skip-Seed 7c040df. Kein Push durch Bots. **HOLD.**
 
 ---
 
 ## Zuletzt (kurz)
+- Spaceline Span Y SpacelineY-centered (Q-Net Nachzieher): IsSpacelineRowCard; Apply erzwingt SpacelineY; PinSpacelineSpanCardsY; Ghost Opacity soft-invalidate. Tip-Hash 0443f37. Pipeline a9af295 erhalten. **HOLD.**
 - Responsive Detail/Choice-Overlays (Fensterbreite): MaxWidth+Margin statt fester Width/MinWidth; WrapPanel Typ-Buttons/Karten; ScrollViewer H=Disabled. Tip-Hash a9af295. Pipeline 3bc7e49 erhalten. **HOLD.**
 - Spaceline Attach Y board-absolute + History RMB-only zoom: Sync Y P1+/P2-; kein Gaps AttachCardToHost; Relayout Owner absolut; History nur RMB Zoom. Tip-Hash 3bc7e49. Pipeline acfb554 erhalten. **HOLD.**
 
