@@ -198,9 +198,17 @@ public sealed class StackWindowSnap
 /// </summary>
 public sealed class NetSpacelineSnapshot
 {
-    /// <summary>Mission / time-location column InstanceIds, left → right. Never spans.</summary>
+    /// <summary>Mission / time-location column InstanceIds, left → right. Spans are not repeated here.</summary>
     [JsonPropertyName("missionIds")]
     public int[] MissionIds { get; set; } = Array.Empty<int>();
+
+    /// <summary>
+    /// Full column sequence, left → right, missions and spans interleaved
+    /// (Mission | Span | Mission …). When non-empty, Apply builds _spacelineOrder
+    /// from this list and does not walk canvas X.
+    /// </summary>
+    [JsonPropertyName("columnInstanceIds")]
+    public int[] ColumnInstanceIds { get; set; } = Array.Empty<int>();
 
     [JsonPropertyName("spans")]
     public NetSpacelineSpanSnap[] Spans { get; set; } = Array.Empty<NetSpacelineSpanSnap>();
