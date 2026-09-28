@@ -1,4 +1,11 @@
-﻿## 2026-09-28 - Spaceline span gap = mission InstanceIds + Host dock recover (Q-Net)
+﻿## 2026-09-28 - Q-Net second span no Extra-Width stack + SWB Face choice
+
+- *Auftrag (FREIGABE)*: Tip fef7075 unzureichend - Dual-EXE: zweites Q-Net stackt auf erstem + grosses Horizontal-Loch; SWB Choice Text/schwarz statt Face. Soll: Gap=Mission-InstanceIds; Render Gap-Mid/SpacelineY; Span kein Extra-Width; SWB Face-Strip. TAK ab2e67a / Overlay a9af295 unangetastet.
+- *Root cause*: RelayoutMissionsOnSpaceline behandelte Q-Net/Gaps als volle Display-Spalten (TableCardWidth+MissionGap), Pin verschob Barrieren auf Gap-Mid → leeres Loch + optischer Stack; SpanEndpoints konnte Non-Mission-Hosts akzeptieren. SWB AskChoiceLocal erzeugte Fake-Cards Type=Choice ohne FullImagePath → Text/schwarz statt Face.
+- *Fix*: Relayout-Spalten nur Missionen/Time; alle Spaceline-Spans overlay Gap-Mid (Pin); AsMissionEndpointBorder (nie Span-auf-Span); PlaceSpan vor rechter Mission. SWB: TryMapChoiceOptionsToHandCards → PickCardFromList Face; Result ShowCardReveal Face. TAK Typ-YesNo unveraendert.
+- *Scope*: TableWindow.xaml.cs. Tip-Hash 5b043b0. Basis fef7075 / Docs 53481c3. Overlay/TAK unberuehrt. Kein Push.
+
+## 2026-09-28 - Spaceline span gap = mission InstanceIds + Host dock recover (Q-Net)
 
 - *Auftrag (FREIGABE)*: Tip 6acacd4 unzureichend — Dual-EXE Screenshot: RECHTS (P2) 2 Q-Nets Row-Center OK + Facility unter Mission; LINKS (P1) Spaceline horizontal versetzt/clipped, nur 1 Q-Net + purple Highlight, Facility oben-links clipped. Soll: Gap = zwei Mission-InstanceIds; Render Row-Center gleich auf jedem Client. Generisch Spans. TAK ab2e67a / Overlay a9af295 unangetastet.
 - *Root cause*: 6acacd4 pinte Span-Y/X und landInst=own, aber (1) CaptureGameSave speicherte Span-Endpoints nur als ephemeral save-local HostId (nicht Mission-InstanceIds); (2) Host-Lokal-Relayout nach PlaceSpan rief EnsureBoardExtents mitten in der Mission-Schleife und pinte Docks nie per Spalte (Guest ApplyGameSave schon via PinDockablesToSpacelineByColumn) — orphan Facility top-left → Extents-Shift → Spaceline clipped / 2. Q-Net weg; (3) Fly-in TargetNorm vom Host ist viewer-fenster-relativ.
