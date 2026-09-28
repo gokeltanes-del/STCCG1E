@@ -1,3 +1,9 @@
+## 2026-09-28 - Action History Kartenreihe + Play-Detail-Popup weg
+
+- *Auftrag (FREIGABE Punkt 3)*: Action History drittes Fenster = horizontale Reihe zuletzt gespielter Karten (Face, Scroll); P1=Grün / P2=Blau; Klick = Detail/Text. Große zentrale Detail/Reveal-Popup beim Ausspielen (z.B. Interrupt Long-Range Scan mit OK) entfernen — Fly-in ersetzt Reveal; Nachlesen über History-Kartenreihe.
+- *Fix*: HistoryOverlay höher (MinHeight 720); `PlayHistoryStrip` unten; `RecordPlayHistory` an `NotifyPlayReveal` (Host/Solo) + `OnNetPlayRevealReceived` (Guest) — Network-First gleiche Reihe ohne neues Net-Message. Interrupt-Splash `ShowCardReveal(card,"Interrupt",…OK)` entfernt; Long-Range-Scan-Ergebnis → StatusText+Log (kein modal OK). Fly-in unverändert.
+- *Scope*: TableWindow.xaml + TableWindow.xaml.cs. Tip-Hash acfb554. Basis 5c29f7b / Docs 1720a73. Keine Gaps/Q-Net. Docs separat. Kein Push.
+
 ## 2026-09-28 - Host->Guest PlayReveal Face Catalog + Gaps Guest-Drop
 - *Bugfix (Pepsch Dual-EXE Host=P1 Guest=P2)*: (1) P1 Pers/Eq/Event -> P2 Fly-in Face schwarz; P2->beide Face OK. (2) P2 Gaps Drop -> Slot-Picker auf Host statt Guest-Slot Apply.
 - *Root Face*: PlayReveal Lookup by InstanceId trifft vor State oft maskierte Opp-Hand-Stubs (Name="", kein FullImagePath); Source=null -> Background #111 schwarz. P2-Play OK weil Karte noch in Guest-Hand mit Art.
