@@ -9,7 +9,7 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 
 ## Jetzt aktiv ├ö├ç├Â Multiplayer / Network-Modus
 
-**Status:** Guest/P2 Play-Pfad TAK+Interrupt Fly-in+Face getippt (591fba3). **netztauglich.** Host TryApply Events→TryResolveEventPlay (TAK Persist); Soft-Invalidate Fly-in bei ApplyGameSave/Relayout; Live-Zone Art. Basis f005c71 / Docs b8828fb. Dual-EXE Smoke: P2 Interrupt Schiff+Board Face; P2 TAK; P1 unverändert. **HOLD.**
+**Status:** Host->Guest Face Catalog + Gaps Guest-Drop getippt (5c29f7b). **netztauglich.** PlayReveal Face aus Catalog/Data (nicht Fog-Stub); Gaps gap:left:right -> Host Apply ohne Picker. Basis 591fba3 / Docs 96d4f42. Dual-EXE Smoke: P1 Pers/Eq/Event->P2 Face; P2 Gaps Drop Slot ohne P1-Picker; P2->P1 unveraendert. **HOLD.**
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
 
 ### Architektur
@@ -24,11 +24,13 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 4. **Phase 4 — Dialoge/Timing:** ChoiceRequest / ChoiceResponse. → Tip e102b47.
 5. **Phase 5 ├ö├ç├Â HÔö£├▒rtung:** Disconnect, Reconnect, Abbruch.
 
-**Code-Stand (Data 2026-09-28):** Guest/P2 Play-Pfad 591fba3; Fly-in Event/Interrupt Target+Face f005c71; Fly-in Ziel stale df1259e; Fly-in Nachzieher 857ab9e; Fly-in sichtbar 034aec2; Fly-in b1d5d3e; Play Fly-in 57c1a3e; Board-Sync 8322b68; Probe+Occupancy Fog b2dfaf7; Guest PlayCard 5da7c3b; Skip-Seed 7c040df. Kein Push durch Bots. **HOLD.**
+**Code-Stand (Data 2026-09-28):** Face Catalog + Gaps Guest-Drop 5c29f7b; Guest/P2 Play-Pfad 591fba3; Fly-in Event/Interrupt Target+Face f005c71; Fly-in Ziel stale df1259e; Fly-in Nachzieher 857ab9e; Fly-in sichtbar 034aec2; Fly-in b1d5d3e; Play Fly-in 57c1a3e; Board-Sync 8322b68; Probe+Occupancy Fog b2dfaf7; Guest PlayCard 5da7c3b; Skip-Seed 7c040df. Kein Push durch Bots. **HOLD.**
 
 ---
 
 ## Zuletzt (kurz)
+- Host->Guest PlayReveal Face Catalog + Gaps Guest-Drop: Catalog/DTO Face (Fog-Stub-Race); gap:leftInst:rightInst Host Apply ohne Picker. Tip-Hash 5c29f7b. Pipeline 591fba3 erhalten. **HOLD.**
+
 - Guest/P2 Play-Pfad (TAK Persist + Interrupt Fly-in + Face): Net Events→TryResolveEventPlay; ClearTable/Relayout Soft-Invalidate; FindLiveCardWithArt+Discard Lookup. Tip-Hash 591fba3. Pipeline f005c71 erhalten. **HOLD.**
 
 

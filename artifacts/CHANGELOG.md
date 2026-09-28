@@ -1,3 +1,10 @@
+## 2026-09-28 - Host->Guest PlayReveal Face Catalog + Gaps Guest-Drop
+- *Bugfix (Pepsch Dual-EXE Host=P1 Guest=P2)*: (1) P1 Pers/Eq/Event -> P2 Fly-in Face schwarz; P2->beide Face OK. (2) P2 Gaps Drop -> Slot-Picker auf Host statt Guest-Slot Apply.
+- *Root Face*: PlayReveal Lookup by InstanceId trifft vor State oft maskierte Opp-Hand-Stubs (Name="", kein FullImagePath); Source=null -> Background #111 schwarz. P2-Play OK weil Karte noch in Guest-Hand mit Art.
+- *Root Gaps*: Guest Note nur underInst:leftMission; Host PickGapEndpoint ohne Host2 -> ShowIndexPickDialog auf Host-UI. Placement-Choice darf nicht auf Zuschauer/Host aufgehen.
+- *Fix*: Catalog Instantiate + DTO Name+Set Face (gleicher Pfad wie Hand nach ResolveCard); ResolvePlayFlyInImagePath Catalog-first; Guest gap:leftInst:rightInst -> Host preferred Host+Host2 Apply, kein Picker.
+- *Scope*: TableWindow.xaml.cs. Tip-Hash 5c29f7b. Basis 591fba3 / Docs 96d4f42. Kein Action-History. Docs separat. Kein Push.
+
 ## 2026-09-28 - Guest/P2 Play-Pfad TAK Persist + Interrupt Fly-in + Face
 
 - *Bugfix (Pepsch Dual-EXE Host=P1 Guest=P2)*: (1) Interrupt auf Schiff/Board → kein Fly-in; (2) Telepathic Alien Kidnappers als P2 tot, P1 ok; (3) viele P2 Fly-ins schwarz/Face fehlt.
