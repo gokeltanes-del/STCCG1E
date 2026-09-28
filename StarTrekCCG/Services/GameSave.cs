@@ -136,6 +136,9 @@ public sealed class AttachedEventSnap
     public int Owner { get; set; }
     public int? HostId { get; set; }
     public int? Host2Id { get; set; }
+    /// <summary>Board-absolute mission InstanceIds for spaceline spans (Q-Net/Gaps). Prefer over HostId.</summary>
+    public int? HostInstanceId { get; set; }
+    public int? Host2InstanceId { get; set; }
     public int Countdown { get; set; }
     public bool FaceUp { get; set; } = true;
     public string? EspionageAs { get; set; }
