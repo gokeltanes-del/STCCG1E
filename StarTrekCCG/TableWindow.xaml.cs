@@ -424,6 +424,61 @@ public partial class TableWindow : Window
 
     private readonly List<AttachedEvent> _attachedEvents = new();
 
+    /// <summary>
+    /// Overlay span truth (Q-Net / Gaps): endpoints = mission InstanceIds. Not an _spacelineOrder slot.
+    /// SEARCH: Verb: plays-on spaceline-span; Glossary: adjacent
+    /// </summary>
+    private readonly record struct SpacelineSpanRecord(
+        Card Card, int LeftMissionId, int RightMissionId, EventRules.Persist Kind);
+
+    /// <summary>Spaceline columns only - missions / time locations / Time Travel Pod. Never Q-Net/Gaps.</summary>
+    private static bool IsSpacelineColumnCard(Card c) =>
+        c != null && (
+            IsMissionCard(c)
+            || CardKinds.IsTimeLocation(c)
+            || ArtifactRules.IsTimeTravelPod(c));
+
+    private List<Border> GetSpacelineColumns() =>
+        _spacelineOrder.Where(b => b.Tag is Card c && IsSpacelineColumnCard(c)).ToList();
+
+    /// <summary>Hygiene: spans are overlay only - never remain in mission order.</summary>
+    private void PurgeSpansFromSpacelineOrder()
+    {
+        for (int i = _spacelineOrder.Count - 1; i >= 0; i--)
+        {
+            if (_spacelineOrder[i].Tag is Card c && IsSpacelineSpanCard(c))
+                _spacelineOrder.RemoveAt(i);
+        }
+    }
+
+    private IEnumerable<SpacelineSpanRecord> EnumerateSpacelineSpans()
+    {
+        foreach (var ae in _attachedEvents)
+        {
+            if (ae.Kind is not (EventRules.Persist.QNet or EventRules.Persist.Gaps))
+                continue;
+            if (ae.Card == null) continue;
+            Border? left = ae.Host != null ? AsMissionEndpointBorder(ae.Host) : null;
+            Border? right = ae.Host2 != null ? AsMissionEndpointBorder(ae.Host2) : null;
+            if (left == null || right == null)
+            {
+                var be = BoardStore.Current.AttachedEvents.FirstOrDefault(x =>
+                    x.Card != null && (ReferenceEquals(x.Card, ae.Card)
+                        || (ae.Card.InstanceId > 0 && x.Card.InstanceId == ae.Card.InstanceId)));
+                if (left == null && be?.HostInstanceId is int hid && hid > 0)
+                    left = AsMissionEndpointBorder(FindBorderByInstanceId(hid));
+                if (right == null && be?.Host2InstanceId is int hid2 && hid2 > 0)
+                    right = AsMissionEndpointBorder(FindBorderByInstanceId(hid2));
+            }
+            if (left == null || right == null) continue;
+            (left, right) = NormalizeSpanEndpointOrder(left, right);
+            int lid = (left.Tag as Card)?.InstanceId ?? 0;
+            int rid = (right.Tag as Card)?.InstanceId ?? 0;
+            if (lid <= 0 || rid <= 0) continue;
+            yield return new SpacelineSpanRecord(ae.Card, lid, rid, ae.Kind);
+        }
+    }
+
     private void AddAttachedDilemma(AttachedDilemma d)
     {
         _attachedDilemmas.Add(d);
@@ -1545,32 +1600,15 @@ public partial class TableWindow : Window
             store.Spaceline.Add(loc);
         }
 
-        // Gaps / Q-Net: AttachedEvent Host+Host2 is the rule source (span card
-        // may be missing from _spacelineOrder after load or a drag path).
+        // Gaps / Q-Net Barriers/Span locations: ONLY from AttachedEvent endpoint pair
+        // (same HostInstanceId/Host2InstanceId truth as PaintSpans). Never from order slots.
+        // SEARCH: Verb: plays-on spaceline-span; Glossary: adjacent
         var placedSpanIds = new HashSet<int>();
         foreach (var ae in _attachedEvents)
         {
             if (ae.Kind is not (EventRules.Persist.Gaps or EventRules.Persist.QNet))
                 continue;
             PlaceAttachedSpan(store, ae, placedSpanIds);
-        }
-
-        foreach (var cell in _spacelineOrder)
-        {
-            if (cell.Tag is not Card sc || !IsSpacelineSpanCard(sc)) continue;
-            if (sc.InstanceId > 0 && placedSpanIds.Contains(sc.InstanceId)) continue;
-            var ends = SpanEndpoints(cell);
-            var fake = new AttachedEvent
-            {
-                Card = sc,
-                Kind = EventRules.IsQNet(sc)
-                    ? EventRules.Persist.QNet
-                    : EventRules.Persist.Gaps,
-                Owner = GetBorderOwner(cell),
-                Host = ends.left,
-                Host2 = ends.right
-            };
-            PlaceAttachedSpan(store, fake, placedSpanIds);
         }
 
         // E3/E3b: UI dicts remain mirrors; copy RangeLeft / Stopped / Cloak / Dock / Hull onto fresh wraps.
@@ -7406,6 +7444,7 @@ public partial class TableWindow : Window
     /// </summary>
     private List<int> GetValidSpacelineInsertIndices(string quadrant, string? region)
     {
+        PurgeSpansFromSpacelineOrder();
         var indices = new List<int>();
         int n = _spacelineOrder.Count;
 
@@ -7644,28 +7683,30 @@ public partial class TableWindow : Window
     /// </summary>
     private void RelayoutMissionsOnSpaceline()
     {
+        PurgeSpansFromSpacelineOrder();
         if (_spacelineOrder.Count == 0) return;
 
-        // Snapshot dockables by OLD mission X before missions move (otherwise they
-        // stay at the previous column when a location is inserted).
+        // Snapshot dockables by OLD column X before missions move.
         var dockByMission = new Dictionary<Border, List<Border>>();
-        foreach (var m in _spacelineOrder)
+        foreach (var m in GetSpacelineColumns())
         {
-            // Gaps span is landable: ships docked there must move with Relayout
-            // (same pin contract as missions) or Host action panel lags mid-column.
             if (m.Tag is not Card mc || !IsLandableLocation(mc)) continue;
             dockByMission[m] = GetDockablesUnderMission(m).ToList();
         }
+        // Gaps overlays are landable mid-gap - snapshot by span border (not order).
+        foreach (var ae in _attachedEvents)
+        {
+            if (ae.Kind != EventRules.Persist.Gaps || ae.Card == null) continue;
+            var span = FindBorderForCard(ae.Card)
+                ?? (ae.Card.InstanceId > 0 ? FindBorderByInstanceId(ae.Card.InstanceId) : null);
+            if (span == null || !TableCanvas.Children.Contains(span)) continue;
+            if (!dockByMission.ContainsKey(span))
+                dockByMission[span] = GetDockablesUnderMission(span).ToList();
+        }
 
-        // Columns = missions / time locations ONLY.
-        // Spaceline spans (Q-Net/Gaps) must NOT consume Extra-Width columns — they overlay at gap-mid via PinSpacelineSpanCardsY.
+        // Columns = missions / time / pod ONLY. Spans = PaintSpans overlay (no Extra-Width).
         // SEARCH: Verb: plays-on spaceline-span; Glossary: adjacent
-        var display = _spacelineOrder
-            .Where(b => b.Tag is Card c && (
-                IsMissionCard(c)
-                || CardKinds.IsTimeLocation(c)
-                || ArtifactRules.IsTimeTravelPod(c)))
-            .ToList();
+        var display = GetSpacelineColumns();
         if (display.Count == 0) return;
 
         double width = 0;
@@ -7703,17 +7744,12 @@ public partial class TableWindow : Window
                     UpdateSeedBadge(cell);
                 if (dockByMission.TryGetValue(cell, out var docks))
                 {
-                    // Pin before Relayout (same contract as RelocateShipAlongSpaceline): after
-                    // mission Top jumps to SpacelineY, save absolute Y can fall outside the
-                    // pixel Y-window; Pin+Pixel must still find every dock for baseline Y.
                     foreach (var d in docks)
                     {
                         Canvas.SetLeft(d, x);
                         _dockableAtMission[d] = cell;
                     }
                 }
-                // Defer EnsureBoardExtents: mid-loop shift desyncs SpacelineY vs already-placed cells
-                // and orphans docks (Host P1 facility top-left / spaceline clipped — Dual-EXE).
                 RelayoutDockablesUnderMission(cell, ensureExtents: false);
             }
             if (_missionSolvedLabels.TryGetValue(cell, out var solvedLbl))
@@ -7725,64 +7761,20 @@ public partial class TableWindow : Window
                 LayoutSharedMissionCopies(cell, x);
             x += TableCardWidth;
         }
-        // Seed-under AbsoluteLeft must follow mission columns (badges already UpdateSeedBadge above).
-        // Without this, TryAlternate/ApplyPerspective leaves seed borders at drop/old X → neighbor overlap.
         RelayoutSeedUnderMissions();
-        // Spans: Row-Center from gap endpoints (mission InstanceIds) — never owner-dock / viewer-Y.
-        PinSpacelineSpanCardsY();
-        // Recover docks orphaned when span insert shifted columns (Host local path; Guest Apply already pins).
+        PaintSpans();
         PinDockablesToSpacelineByColumn();
-        foreach (var m in _spacelineOrder)
+        foreach (var m in GetSpacelineColumns())
         {
             if (m.Tag is Card c && IsLandableLocation(c))
                 RelayoutDockablesUnderMission(m, ensureExtents: false);
         }
-        PinSpacelineSpanCardsY();
+        RelayoutGapsDockables();
+        PaintSpans();
         EnsureBoardExtents();
     }
 
-    /// <summary>
-    /// Missions in seed order with Gaps/Q-Net spliced after left-hand mission (diagnostic / adjacency).
-    /// RelayoutMissionsOnSpaceline columns use missions only — spans overlay at gap-mid (no Extra-Width).
-    /// </summary>
-    private List<Border> BuildSpacelineDisplayOrder()
-    {
-        var missions = _spacelineOrder
-            .Where(b => b.Tag is Card c && (
-                IsMissionCard(c)
-                || CardKinds.IsTimeLocation(c)
-                || ArtifactRules.IsTimeTravelPod(c)))
-            .ToList();
-        var spans = _spacelineOrder
-            .Where(b => b.Tag is Card c && IsSpacelineSpanCard(c))
-            .ToList();
-        var used = new HashSet<Border>();
-        var display = new List<Border>();
-        for (int i = 0; i < missions.Count; i++)
-        {
-            display.Add(missions[i]);
-            foreach (var span in spans)
-            {
-                if (!used.Add(span)) continue;
-                var (left, right) = SpanEndpoints(span);
-                bool afterThis = left != null && SameSpacelineMission(left, missions[i]);
-                if (!afterThis && right != null && i + 1 < missions.Count
-                    && SameSpacelineMission(right, missions[i + 1])
-                    && (left == null || MissionOrderIndex(left) <= i))
-                    afterThis = true;
-                if (!afterThis)
-                {
-                    used.Remove(span);
-                    continue;
-                }
-                display.Add(span);
-            }
-        }
-        foreach (var span in spans)
-            if (used.Add(span))
-                display.Add(span);
-        return display;
-    }
+
 
     private (Border? left, Border? right) SpanEndpoints(Border span)
     {
@@ -7826,8 +7818,8 @@ public partial class TableWindow : Window
     /// <summary>Left = lower spaceline index. Gap endpoints are mission InstanceIds, board-absolute.</summary>
     private (Border left, Border right) NormalizeSpanEndpointOrder(Border a, Border b)
     {
-        int ia = _spacelineOrder.IndexOf(a);
-        int ib = _spacelineOrder.IndexOf(b);
+        int ia = MissionOrderIndex(a);
+        int ib = MissionOrderIndex(b);
         if (ia >= 0 && ib >= 0 && ib < ia) return (b, a);
         return (a, b);
     }
@@ -7889,12 +7881,7 @@ public partial class TableWindow : Window
 
     private int MissionOrderIndex(Border mission)
     {
-        var missions = _spacelineOrder
-            .Where(b => b.Tag is Card c && (
-                IsMissionCard(c)
-                || CardKinds.IsTimeLocation(c)
-                || ArtifactRules.IsTimeTravelPod(c)))
-            .ToList();
+        var missions = GetSpacelineColumns();
         for (int i = 0; i < missions.Count; i++)
             if (SameSpacelineMission(missions[i], mission)) return i;
         return -1;
@@ -12726,8 +12713,11 @@ public partial class TableWindow : Window
                 ChildIds = kv.Value.Where(idOf.ContainsKey).Select(c => idOf[c]).ToList()
             });
         }
+        // Spaceline array = mission columns only. Spans travel via AttachedEvents + table snap.
+        // SEARCH: Verb: plays-on spaceline-span; Glossary: adjacent
         foreach (var m in _spacelineOrder)
         {
+            if (m.Tag is not Card mc || !IsSpacelineColumnCard(mc)) continue;
             if (idOf.TryGetValue(m, out int mid))
                 save.Spaceline.Add(mid);
         }
@@ -12950,6 +12940,8 @@ public partial class TableWindow : Window
         foreach (var id in save.Spaceline)
         {
             if (!byId.TryGetValue(id, out var m) || m.Tag is not Card mc) continue;
+            // Defense for older saves that still listed span snaps in Spaceline[].
+            if (IsSpacelineSpanCard(mc) || !IsSpacelineColumnCard(mc)) continue;
             _spacelineOrder.Add(m);
             string q = string.IsNullOrWhiteSpace(mc.Quadrant) ? "Alpha" : mc.Quadrant!;
             if (!_missionsByQuadrant.TryGetValue(q, out var list))
@@ -12963,7 +12955,8 @@ public partial class TableWindow : Window
         {
             foreach (var b in byId.Values)
             {
-                if (b.Tag is Card c && (c.Type ?? "").Contains("Mission", StringComparison.OrdinalIgnoreCase))
+                if (b.Tag is Card c && IsSpacelineColumnCard(c) && !IsSpacelineSpanCard(c)
+                    && (c.Type ?? "").Contains("Mission", StringComparison.OrdinalIgnoreCase))
                     _spacelineOrder.Add(b);
             }
         }
@@ -13113,8 +13106,8 @@ public partial class TableWindow : Window
         DedupTablePermanents(_tablePermanentCards);
         DedupTablePermanents(_oppTablePermanentCards);
         RebuildTablePermanentsPanel();
-        // Spans from AttachedEvents must be in _spacelineOrder before Relayout (display order).
-        PinSpacelineSpanCardsY();
+        // Spans overlay from AttachedEvents endpoints - never order slots.
+        PaintSpans();
         // Load: pin by column (X) before any Relayout so save absolute Y cannot
         // orphan docks when mission Top jumps to SpacelineY (pixel Y-window miss).
         PinDockablesToSpacelineByColumn();
@@ -14467,10 +14460,11 @@ public partial class TableWindow : Window
         return "Alpha";
     }
 
+    /// <summary>Mission-column index only (spans are overlay, never counted).</summary>
     private int IndexOfMission(Border? mission)
     {
         if (mission == null) return -1;
-        return _spacelineOrder.IndexOf(mission);
+        return MissionOrderIndex(mission);
     }
 
     /// <summary>
@@ -18631,7 +18625,7 @@ public partial class TableWindow : Window
             RemoveAttachedEvent(ae);
         }
 
-        // Gaps / Q-Net are inserted into the spaceline as a visible card.
+        // Gaps / Q-Net are overlay table cards (not _spacelineOrder slots).
         var span = FindBorderForCard(ev);
         if (span != null)
         {
@@ -19768,6 +19762,7 @@ public partial class TableWindow : Window
     /// Consecutive MISSIONS only (skip Q-Net/Gaps spans already in _spacelineOrder).</summary>
     private List<(Border left, Border right)> ListSameQuadrantGaps()
     {
+        // Mission-only adjacency (spans are overlay, not between-slots).
         var missions = _spacelineOrder
             .Where(b => b.Tag is Card c && IsMissionCard(c))
             .ToList();
@@ -19778,17 +19773,6 @@ public partial class TableWindow : Window
             var b = missions[i + 1];
             if (a.Tag is not Card ca || b.Tag is not Card cb) continue;
             if (GetNativeQuadrant(ca) != GetNativeQuadrant(cb)) continue;
-            // Must be adjacent on spaceline (no other mission between; spans OK between).
-            int ia = _spacelineOrder.IndexOf(a);
-            int ib = _spacelineOrder.IndexOf(b);
-            if (ia < 0 || ib < 0 || ib <= ia) continue;
-            bool missionBetween = false;
-            for (int k = ia + 1; k < ib; k++)
-            {
-                if (_spacelineOrder[k].Tag is Card mid && IsMissionCard(mid))
-                { missionBetween = true; break; }
-            }
-            if (missionBetween) continue;
             list.Add((a, b));
         }
         return list;
@@ -19920,16 +19904,15 @@ public partial class TableWindow : Window
         {
             StatusText.Text = $"{ev.Name}: gap endpoints must be missions.";
         }
-        int i1 = _spacelineOrder.IndexOf(left);
-        int i2 = _spacelineOrder.IndexOf(right);
-        if (i1 < 0) i1 = 0;
-        if (i2 < 0) i2 = Math.Min(i1 + 1, _spacelineOrder.Count);
-        if (i2 < i1) { int t = i1; i1 = i2; i2 = t; var tb = left; left = right; right = tb; }
-        // Insert just before right mission (after any spans already in this gap) — still no Extra-Width column.
-        int insert = i2;
-        if (insert < 0) insert = 0;
-        if (insert > _spacelineOrder.Count) insert = _spacelineOrder.Count;
+        int i1 = MissionOrderIndex(left);
+        int i2 = MissionOrderIndex(right);
+        if (i1 >= 0 && i2 >= 0 && i2 < i1)
+        {
+            var tb = left; left = right; right = tb;
+        }
 
+        // Overlay only - NEVER Insert into _spacelineOrder (mission columns stay mission-only).
+        // SEARCH: Verb: plays-on spaceline-span; Glossary: adjacent
         double guessX = Canvas.GetLeft(left);
         if (double.IsNaN(guessX)) guessX = 40;
         double rightX = Canvas.GetLeft(right);
@@ -19940,14 +19923,13 @@ public partial class TableWindow : Window
         var border = AddCardToTable(ev, guessX, SpacelineY, TableCardWidth);
         border.BorderBrush = new SolidColorBrush(Color.FromRgb(180, 120, 220));
         border.BorderThickness = new Thickness(2);
-        border.ToolTip = (ev.Name ?? "Span") + "\nSpan event between missions";
+        border.ToolTip = (ev.Name ?? "Span") + "\nSpan overlay between missions";
         SetBorderOwner(border, owner);
         Panel.SetZIndex(border, 9);
         border.RenderTransformOrigin = new Point(0.5, 0.5);
         border.RenderTransform = Transform.Identity;
-        _spacelineOrder.Insert(insert, border);
-        RelayoutMissionsOnSpaceline(); // pins span Top=SpacelineY (no owner-dock Y)
-        StatusText.Text = $"{ev.Name} inserted on spaceline between {(left.Tag as Card)?.Name} and {(right.Tag as Card)?.Name}.";
+        RelayoutMissionsOnSpaceline(); // PaintSpans at end
+        StatusText.Text = $"{ev.Name} on spaceline between {(left.Tag as Card)?.Name} and {(right.Tag as Card)?.Name}.";
         return border;
     }
 
@@ -30793,41 +30775,13 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
     }
 
     /// <summary>
-    /// Spaceline spans (Q-Net/Gaps): render from gap endpoints (mission InstanceIds) only.
-    /// Y = SpacelineY (row center) on EVERY client — never owner-dock, never viewer-mirror of span Y.
-    /// X = midpoint between the two endpoint missions (all spans; never Extra-Width layout columns).
+    /// Overlay paint for Q-Net/Gaps: SpacelineY + gap-mid X from mission endpoints.
+    /// Never inserts into _spacelineOrder (mission-only columns).
     /// SEARCH: Verb: plays-on spaceline-span; Glossary: adjacent
     /// </summary>
-    private void PinSpacelineSpanCardsY()
+    private void PaintSpans()
     {
-        foreach (var ae in _attachedEvents)
-        {
-            if (ae.Kind is not (EventRules.Persist.QNet or EventRules.Persist.Gaps))
-                continue;
-            if (ae.Card == null) continue;
-            var span = FindBorderForCard(ae.Card)
-                ?? (ae.Card.InstanceId > 0 ? FindBorderByInstanceId(ae.Card.InstanceId) : null);
-            if (span == null || !TableCanvas.Children.Contains(span)) continue;
-            if (_spacelineOrder.Contains(span)) continue;
-            Border? left = ae.Host != null ? ResolveOnSpaceline(ae.Host) : null;
-            if (left == null || !_spacelineOrder.Contains(left) || !IsMissionEndpointBorder(left))
-            {
-                var be = BoardStore.Current.AttachedEvents.FirstOrDefault(x =>
-                    x.Card != null && (ReferenceEquals(x.Card, ae.Card)
-                        || (ae.Card.InstanceId > 0 && x.Card.InstanceId == ae.Card.InstanceId)));
-                if (be?.HostInstanceId is int hid && hid > 0)
-                    left = FindBorderByInstanceId(hid);
-            }
-            left = AsMissionEndpointBorder(left);
-            // Insert after left mission (never after/on another span). Existing spans in gap stay; Pin sets shared mid X.
-            int insert = left != null ? _spacelineOrder.IndexOf(left) + 1 : _spacelineOrder.Count;
-            while (insert < _spacelineOrder.Count
-                   && _spacelineOrder[insert].Tag is Card sc && IsSpacelineSpanCard(sc))
-                insert++;
-            if (insert < 0) insert = _spacelineOrder.Count;
-            if (insert > _spacelineOrder.Count) insert = _spacelineOrder.Count;
-            _spacelineOrder.Insert(insert, span);
-        }
+        PurgeSpansFromSpacelineOrder();
 
         foreach (var b in TableCanvas.Children.OfType<Border>().ToList())
         {
@@ -30841,8 +30795,6 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
             if (Panel.GetZIndex(b) < 9)
                 Panel.SetZIndex(b, 9);
 
-            // All spaceline spans (Q-Net/Gaps): gap-midpoint X from mission endpoints only.
-            // Never a layout column with Extra-Width — docks under Gaps follow this mid X after Pin.
             var (leftEp, rightEp) = SpanEndpoints(b);
             if (leftEp != null && rightEp != null)
             {
@@ -30860,6 +30812,22 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
             }
         }
     }
+
+    /// <summary>Gaps are landable overlay locations - rebase dockables after PaintSpans mid-X.</summary>
+    private void RelayoutGapsDockables()
+    {
+        foreach (var ae in _attachedEvents)
+        {
+            if (ae.Kind != EventRules.Persist.Gaps || ae.Card == null) continue;
+            var span = FindBorderForCard(ae.Card)
+                ?? (ae.Card.InstanceId > 0 ? FindBorderByInstanceId(ae.Card.InstanceId) : null);
+            if (span == null || !TableCanvas.Children.Contains(span)) continue;
+            RelayoutDockablesUnderMission(span, ensureExtents: false);
+        }
+    }
+
+    /// <summary>Legacy name - Option B overlay paint (no order Insert).</summary>
+    private void PinSpacelineSpanCardsY() => PaintSpans();
 
     /// <summary>
     /// Sync Y: board-absolute from SpacelineYDefault. P1 below = positive, P2 above = negative.
