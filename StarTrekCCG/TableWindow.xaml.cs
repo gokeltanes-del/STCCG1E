@@ -9987,10 +9987,22 @@ public partial class TableWindow : Window
                     // else: auth/unique bounce restored hand — fall through to !placed return.
                 }
             }
+            else if (EventRules.IsEvent(card))
+            {
+                // Same path as Host stack resolve: TryResolveEventPlay registers Persist
+                // (Telepathic Alien Kidnappers etc.) and handles Instant discard - not Commit-only.
+                TryResolveEventPlay(card, player);
+                bool bounced = _handCards.Contains(card) || _oppHandCards.Contains(card);
+                if (!bounced)
+                {
+                    placed = true;
+                    StatusText.Text = $"Net: P{player} {card.Name} played (event).";
+                }
+            }
             else if (EventBelongsOnTableColumn(card)
                      || (IsTablePermanentType(card) && !hostedEvent))
             {
-                // TABLE column events/objectives — skip response stack (P4); Commit is board truth.
+                // Objectives / non-event TABLE permanents - Commit is board truth.
                 CommitCardToTable(card, player);
                 placed = true;
                 StatusText.Text = $"Net: P{player} {card.Name} on TABLE.";
@@ -10635,12 +10647,21 @@ public partial class TableWindow : Window
         FinishPlayFlyInLand(_playFlyInGen);
     }
 
-    /// <summary>Face-art path like Hand reveal: card path or DB prototype.</summary>
+    /// <summary>Face-art path like Hand reveal: live zone card, then DB prototype.</summary>
     private string? ResolvePlayFlyInImagePath(Card? card)
     {
         if (card == null) return null;
         if (!string.IsNullOrEmpty(card.FullImagePath) && System.IO.File.Exists(card.FullImagePath))
             return card.FullImagePath;
+
+        // Same art source as Hand/TABLE strips (Guest P2 stubs often lack FullImagePath).
+        Card? live = FindLiveCardWithArt(card);
+        if (live != null)
+        {
+            card.FullImagePath = live.FullImagePath;
+            return live.FullImagePath;
+        }
+
         if (_db == null || string.IsNullOrWhiteSpace(card.Name)) return null;
         Card? proto = null;
         if (!string.IsNullOrWhiteSpace(card.SetFolder))
@@ -10656,6 +10677,41 @@ public partial class TableWindow : Window
         {
             card.FullImagePath = proto.FullImagePath;
             return proto.FullImagePath;
+        }
+        return null;
+    }
+
+    /// <summary>Find a live hand/board/discard copy with loadable FullImagePath (Guest Face).</summary>
+    private Card? FindLiveCardWithArt(Card card)
+    {
+        bool PathOk(Card c) =>
+            !string.IsNullOrEmpty(c.FullImagePath) && System.IO.File.Exists(c.FullImagePath);
+
+        if (card.InstanceId > 0)
+        {
+            foreach (var b in TableCanvas.Children.OfType<Border>())
+            {
+                if (b.Tag is Card c && c.InstanceId == card.InstanceId && PathOk(c))
+                    return c;
+            }
+        }
+
+        IEnumerable<Card> pools = _handCards
+            .Concat(_oppHandCards)
+            .Concat(_tablePermanentCards)
+            .Concat(_oppTablePermanentCards)
+            .Concat(_discardCards).Concat(_oppDiscardCards)
+            .Concat(_outOfPlayP1).Concat(_outOfPlayP2);
+        if (card.InstanceId > 0)
+        {
+            var byId = pools.FirstOrDefault(c => c.InstanceId == card.InstanceId && PathOk(c));
+            if (byId != null) return byId;
+        }
+        if (!string.IsNullOrWhiteSpace(card.Name))
+        {
+            return pools.FirstOrDefault(c =>
+                PathOk(c)
+                && string.Equals(c.Name, card.Name, StringComparison.OrdinalIgnoreCase));
         }
         return null;
     }
@@ -10902,6 +10958,8 @@ public partial class TableWindow : Window
             .Concat(_oppHandCards)
             .Concat(_tablePermanentCards)
             .Concat(_oppTablePermanentCards)
+            .Concat(_discardCards).Concat(_oppDiscardCards)
+            .Concat(_outOfPlayP1).Concat(_outOfPlayP2)
             .Concat(_missionSeedCards).Concat(_oppMissionSeedCards)
             .Concat(_dilemmaSeedCards).Concat(_oppDilemmaSeedCards)
             .Concat(_facilitySeedCards).Concat(_oppFacilitySeedCards)
@@ -13205,7 +13263,10 @@ public partial class TableWindow : Window
 
     private void ClearTableCards()
     {
-        InvalidatePlayFlyInTargets();
+        // Soft: drop ghost refs only. Full Invalidate kills Guest PlayReveal mid-flight
+        // when ApplyGameSave/Relayout races BroadcastPlayReveal (Interrupt + P2 plays).
+        _playFlyInBoardGhost = null;
+        _playFlyInHiddenInstanceId = 0;
         var toRemove = TableCanvas.Children.OfType<Border>()
             .Where(b => b.Tag is Card)
             .ToList();
@@ -30441,8 +30502,17 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
 
     private void RelayoutAllDockables()
     {
-        // Cancel airborne fly-in: end point was measured against pre-Relayout facility bounds.
-        InvalidatePlayFlyInTargets();
+        // Cancel airborne fly-in only when idle. Active PlayReveal must survive ApplyGameSave
+        // ScheduleRelayoutAfterLoadSettle (Guest Interrupt / P2 Face otherwise vanishes).
+        bool flyActive = _playFlyInHideTimer != null
+            || (PlayFlyInCard != null && PlayFlyInCard.Visibility == Visibility.Visible);
+        if (!flyActive)
+            InvalidatePlayFlyInTargets();
+        else
+        {
+            _playFlyInBoardGhost = null;
+            _playFlyInHiddenInstanceId = 0;
+        }
         foreach (var m in _spacelineOrder)
         {
             if (m.Tag is Card c && IsLandableLocation(c))
