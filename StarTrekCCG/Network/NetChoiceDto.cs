@@ -25,6 +25,10 @@ public sealed class NetChoiceDto
         public const string ResponsePass = "responsePass";
         /// <summary>OK / Yes-No card reveal. Guest displays; Host already decided the text.</summary>
         public const string Reveal = "reveal";
+        /// <summary>Watcher sees an encountered dilemma/artifact. No reply. The attempter clicks.</summary>
+        public const string RevealMirror = "revealMirror";
+        /// <summary>Hide the watcher encounter face.</summary>
+        public const string RevealMirrorClose = "revealMirrorClose";
     }
 
     [JsonPropertyName("correlationId")]
@@ -62,10 +66,6 @@ public sealed class NetChoiceDto
 
     [JsonPropertyName("subtitle")]
     public string? Subtitle { get; set; }
-
-    /// <summary>Mission column InstanceId. Seed-reveal fly-in starts there. 0 = no origin.</summary>
-    [JsonPropertyName("originInstanceId")]
-    public int OriginInstanceId { get; set; }
 
     [JsonPropertyName("timeoutMs")]
     public int? TimeoutMs { get; set; }
