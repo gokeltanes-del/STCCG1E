@@ -1,3 +1,10 @@
+## 2026-09-29 - AttemptMission: Scow tow follows the ship
+
+- *Auftrag*: Pepsch Dual-EXE nach dem Token-Fix. Tractor Beam trifft die Scow, der Flug von Wormhole Negotiations nach Investigate Shattered Space nimmt nur das Schiff mit. Die Scow bleibt an der alten Mission, auf beiden Fenstern. Tow muss mitfliegen, auf der Seite von `EncounteredBy`, ohne Schatten. Hotseat-Tow bleibt. Shared Faces, Mission-solved und Dialog-Close bleiben. Kein Seed-Fly-in.
+- *Ist vorher*: Tow lebte nur in `_scowTowShip`. Guest-Klick hat das lokal gesetzt und nicht an den Host geschickt. Guest-Fly laeuft auf dem Host, der den Tow nicht kannte. `SyncTowedScowAfterShipMove` lief ins Leere. Der Broadcast hatte die Scow weiter an der alten Mission. Apply hat den lokalen Tow geloescht und den Token dorthin zurueckgesetzt. Das Weglassen des Tokens aus `save.Table` war der Schatten-Fix, nicht die Ursache: eine Table-Zeile wuerde die zweite Karte zurueckbringen.
+- *Fix*: Tow steht auf `AttachedDilemmaSnap.TowShipInstanceId` (InstanceId des ziehenden Schiffs, 0 = nicht im Tow). Token bleibt aus `save.Table`. Guest schickt `GameAction.TowScow` (Schiff, Scow). Host macht dasselbe `CompleteTractorAttach` und broadcastet. Fly haengt weiter an `SyncTowedScowAfterShipMove`, sobald der Host `_scowTowShip` hat. Apply setzt den Zeiger nach `PlaceScowToken` neu (`Place` raeumt den Token, nicht den Tow) und legt ihn mit `PositionScowOnTowShip` an die Mission des Schiffs, Seite `EncounteredBy`. Hotseat nimmt den Guest-Ausstieg nicht.
+- *Scope*: TableWindow.xaml.cs, GameAction.cs, GameSave.cs. Kein Push master.
+
 ## 2026-09-29 - AttemptMission: host mirror closes; Scow/Borg on encounterer side
 
 - *Auftrag*: Pepsch Dual-EXE. P2 trifft Radioactive Garbage Scow. Der Host-Spiegel "FAILED - attempt ends / Guest acknowledges" bleibt haengen. Zusaetzlich ein Schatten der Dilemma-Karte auf der anderen Spaceline-Seite, und auf P1 an der falschen Stelle. Scow und Borg Ship gehoeren auf die Seite des Spielers, der sie getroffen hat, auf beiden Fenstern, nur einmal. Shared Faces, Mission-solved beide, kein Seed-Fly-in. Hotseat-Layout unveraendert.

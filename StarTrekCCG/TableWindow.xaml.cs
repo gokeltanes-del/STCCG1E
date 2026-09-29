@@ -10601,7 +10601,7 @@ public partial class TableWindow : Window
             return;
         }
         if (action.Kind is GameActionKind.Fly or GameActionKind.Beam or GameActionKind.InitiateShipBattle
-            or GameActionKind.AttemptMission)
+            or GameActionKind.AttemptMission or GameActionKind.TowScow)
         {
             if (action.Player != _session.ActivePlayer)
             {
@@ -10685,7 +10685,8 @@ public partial class TableWindow : Window
             or GameActionKind.Beam
             or GameActionKind.InitiateShipBattle
             or GameActionKind.AttemptMission
-            or GameActionKind.Respond;
+            or GameActionKind.Respond
+            or GameActionKind.TowScow;
 
     /// <summary>
     /// Name/set fallback for Host FromDto targets, seed piles, and in-play Fly/Beam.
@@ -10899,6 +10900,9 @@ public partial class TableWindow : Window
 
             case GameActionKind.Fly:
                 return TryApplyNetFly(action);
+
+            case GameActionKind.TowScow:
+                return TryApplyNetTowScow(action);
 
             case GameActionKind.Beam:
                 return TryApplyNetBeam(action);
@@ -12431,6 +12435,19 @@ public partial class TableWindow : Window
         _session.Log.Add(_session.TurnNumber, $"P{action.Player}",
             $"Net: Fly {ship.Name} -> {dest.Name}");
         return true;
+    }
+
+    /// <summary>Host: guest Tractor Beam attach. Same CompleteTractorAttach as a local click.</summary>
+    private bool TryApplyNetTowScow(GameAction action)
+    {
+        if (action.Card == null) return false;
+        var shipBorder = FindBorderForCard(action.Card) ?? FindBorderByInstanceId(action.Card.InstanceId);
+        if (shipBorder == null)
+        {
+            StatusText.Text = "Net Tow: ship not on the table.";
+            return false;
+        }
+        return CompleteTractorAttach(shipBorder);
     }
 
 
@@ -14004,7 +14021,10 @@ public partial class TableWindow : Window
                 HostId = d.Host != null && idOf.TryGetValue(d.Host, out int hid) ? hid : 0,
                 Countdown = d.Countdown,
                 HeldIds = heldIds,
-                EncounteredBy = d.EncounteredBy is 1 or 2 ? d.EncounteredBy : 0
+                EncounteredBy = d.EncounteredBy is 1 or 2 ? d.EncounteredBy : 0,
+                TowShipInstanceId = d.Kind == DilemmaRules.PersistKind.Scow
+                    && _scowTowShip?.Tag is Card towShip && towShip.InstanceId > 0
+                    ? towShip.InstanceId : 0
             });
         }
 
@@ -14065,6 +14085,7 @@ public partial class TableWindow : Window
         _revealedArtifactsUnderMission.Clear(); _revealedUnderMission.Clear();
         RemoveBorgShipToken();
         RemoveScowToken();
+        _scowTowShip = null;
         _solvedMissions.Clear(); _missionSolver.Clear();
         _hullDamagePercent.Clear(); _stoppedBorders.Clear();
         _dockedAt.Clear(); _cloakedShips.Clear();
@@ -14357,11 +14378,28 @@ public partial class TableWindow : Window
                     }
                 }
             }
+            Border? towShip = null;
+            if (kind == DilemmaRules.PersistKind.Scow && d.TowShipInstanceId > 0)
+            {
+                towShip = byId.Values.FirstOrDefault(b =>
+                    b.Tag is Card c && c.InstanceId == d.TowShipInstanceId && IsShipCard(c));
+                if (towShip != null)
+                {
+                    attached.Host = towShip;
+                    host = towShip;
+                }
+            }
             AddAttachedDilemma(attached);
             if (kind == DilemmaRules.PersistKind.Scow)
             {
+                // PlaceScowToken rebuilds the face. Tow is the ship id, not the token border.
                 PlaceScowToken(card, host);
                 RemoveStrayDilemmaCardBorder(card);
+                if (towShip != null)
+                {
+                    _scowTowShip = towShip;
+                    PositionScowOnTowShip(towShip);
+                }
             }
             if (kind == DilemmaRules.PersistKind.BorgShip)
             {
@@ -14465,6 +14503,8 @@ public partial class TableWindow : Window
             RemoveStrayDilemmaCardBorder(scowLoad.Card);
             if (_scowToken == null)
                 PlaceScowToken(scowLoad.Card, scowLoad.Host);
+            if (_scowTowShip != null)
+                PositionScowOnTowShip(_scowTowShip);
             else
                 PositionScowToken(scowLoad.Host);
         }
@@ -14807,6 +14847,7 @@ public partial class TableWindow : Window
         _revealedUnderMission.Clear();
         RemoveBorgShipToken();
         RemoveScowToken();
+        _scowTowShip = null;
         _missionsByQuadrant.Clear();
         _spacelineOrder.Clear();
         ClearMissionSlotPreviews();
@@ -26817,7 +26858,6 @@ public partial class TableWindow : Window
                 TableCanvas.Children.Remove(_scowToken);
             _scowToken = null;
         }
-        _scowTowShip = null;
     }
 
     private AttachedDilemma? FindScowAtMission(Border? mission)
@@ -26923,6 +26963,15 @@ public partial class TableWindow : Window
             ClearCardActionUi();
             return true;
         }
+        // Guest intent only. Host applies and the masked save carries TowShipInstanceId.
+        if (_gameMode == GameMode.Network && _netSession is { IsGuest: true })
+        {
+            var act = GameAction.TowScow(_netSession.LocalPlayer, ship, scow.Card);
+            ClearCardActionUi();
+            _ = SendGuestActionAsync(act);
+            StatusText.Text = $"Net: Tractor Beam {ship.Name} sent — waiting for Host…";
+            return true;
+        }
         // Host = towing ship while attached: no mission AttemptBlocked until EOT drop.
         scow.Host = shipBorder;
         _scowTowShip = shipBorder;
@@ -26934,6 +26983,8 @@ public partial class TableWindow : Window
         _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
             $"Tractor Beam: {shipName} towing Radioactive Garbage Scow (until EOT).");
         StatusText.Text = $"{shipName} towing Scow. Fly normally (Scow follows). EOT: Scow lands at current mission.";
+        if (_gameMode == GameMode.Network && _netSession is { IsHost: true })
+            NotifyNetworkBoardChanged();
         return true;
     }
 

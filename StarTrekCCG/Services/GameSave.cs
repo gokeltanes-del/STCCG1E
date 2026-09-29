@@ -198,6 +198,8 @@ public sealed class AttachedDilemmaSnap
     public int Countdown { get; set; }
     /// <summary>Player who encountered the dilemma (1 or 2). 0 on older saves.</summary>
     public int EncounteredBy { get; set; }
+    /// <summary>Ship InstanceId towing a Scow. 0 = not towing. The token itself is not a table row.</summary>
+    public int TowShipInstanceId { get; set; }
     public List<int> HeldIds { get; set; } = new();
 }
 

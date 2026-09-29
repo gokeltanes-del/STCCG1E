@@ -26,7 +26,9 @@ public enum GameActionKind
     FlipHiddenAgenda,
     PlayTactic,
     BuildSite,
-    SeedCard
+    SeedCard,
+    /// <summary>Attach Radioactive Garbage Scow to a ship (Tractor Beam). Not a move.</summary>
+    TowScow
 }
 
 /// <summary>
@@ -68,6 +70,7 @@ public sealed class GameAction
                 GameActionKind.ChooseTarget => $"{who}: Choose {tgt}",
                 GameActionKind.Beam => $"{who}: Beam" + (tgt.Length > 0 ? $" → {tgt}" : ""),
                 GameActionKind.Fly => $"{who}: Fly" + (tgt.Length > 0 ? $" → {tgt}" : ""),
+                GameActionKind.TowScow => $"{who}: Tow Scow with {card}",
                 GameActionKind.AttemptMission when Target2 != null => $"{who}: Attempt {tgt} ({Target2.Name})",
                 GameActionKind.AttemptMission => $"{who}: Attempt {tgt}",
                 GameActionKind.EncounterDilemma => $"{who}: Encounter {card}" + (tgt.Length > 0 ? $" at {tgt}" : ""),
@@ -146,6 +149,15 @@ public sealed class GameAction
             Kind = GameActionKind.FlipHiddenAgenda,
             Player = player,
             Card = card
+        };
+
+    public static GameAction TowScow(int player, Card ship, Card scow) =>
+        new()
+        {
+            Kind = GameActionKind.TowScow,
+            Player = player,
+            Card = ship,
+            Target = scow
         };
 
     public static GameAction Fly(int player, Card ship, Card? destinationMission = null) =>
