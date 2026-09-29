@@ -2089,7 +2089,7 @@ public partial class TableWindow : Window
             StatusText.Text = "No face-down Hidden Agenda on your TABLE.";
             return;
         }
-        var pick = downs.Count == 1 ? downs[0] : PickCardFromList("Flip Hidden Agenda", downs, "Hidden Agenda");
+        var pick = downs.Count == 1 ? downs[0] : PickCardForPlayer(_activePlayer, "Flip Hidden Agenda", downs, "Hidden Agenda");
         if (pick != null)
             TryFlipHiddenAgenda(pick, _activePlayer);
     }
@@ -2217,7 +2217,7 @@ public partial class TableWindow : Window
 
         Card? taken;
         if (choose)
-            taken = PickCardFromList("Take from Q's Tent", tent, "Q's Tent");
+            taken = PickCardForPlayer(player, "Take from Q's Tent", tent, "Q's Tent", doorway);
         else
             taken = tent.Count == 0 ? null : tent[new Random().Next(tent.Count)];
 
@@ -2291,10 +2291,12 @@ public partial class TableWindow : Window
 
         Card? taken = pool.Count == 1
             ? pool[0]
-            : PickCardFromList(
+            : PickCardForPlayer(
+                owner,
                 want != null ? $"Special Download {want}" : "Special Download — choose a card",
                 pool.Count > 0 ? pool : draw,
-                source.Name ?? "Special Download");
+                source.Name ?? "Special Download",
+                source);
         if (taken == null)
         {
             ShowPlayError("Special Download cancelled or no matching card.");
@@ -2773,15 +2775,17 @@ public partial class TableWindow : Window
             if (string.IsNullOrWhiteSpace(opt)) return null;
             Card? hit = null;
             int id = ParseInstanceIdFromChoiceLabel(opt);
-            if (id > 0)
-                hit = hand.FirstOrDefault(c => c.InstanceId == id);
-            if (hit == null)
-            {
-                string name = StripChoiceLabelPrefix(opt);
-                if (!string.IsNullOrWhiteSpace(name))
-                    hit = hand.FirstOrDefault(c =>
-                        string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
-            }
+        if (id > 0)
+            hit = hand.FirstOrDefault(c => c.InstanceId == id);
+        // A labeled copy that is not in hand must not name-match a different copy.
+        // Face mapping (catalog / table) handles "Name #id" for cards outside the hand.
+        if (hit == null && id <= 0)
+        {
+            string name = StripChoiceLabelPrefix(opt);
+            if (!string.IsNullOrWhiteSpace(name))
+                hit = hand.FirstOrDefault(c =>
+                    string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
+        }
             if (hit == null || !used.Add(hit)) return null;
             mapped.Add(hit);
         }
@@ -9735,7 +9739,8 @@ public partial class TableWindow : Window
             }
             Card? pick = draw.Count == 1
                 ? draw[0]
-                : PickCardFromList(
+                : PickCardForPlayer(
+                    winner,
                     $"Raise the Stakes ({i + 1}/{n}): pick 1 card from P{loser} draw to keep aside (out of play).",
                     draw.ToList(),
                     "Raise the Stakes — Keep");
@@ -12328,7 +12333,8 @@ public partial class TableWindow : Window
     {
         // Verb: attempt-mission
         // Rule: 7.2 — Host Apply is TryAttemptMission. Broadcast follows a successful return.
-        // Network: Guest-owned attempt UI is ChoiceRequest kind=reveal / choice. Opponent picks stay on the opponent.
+        // Network: Guest-owned attempt UI is ChoiceRequest kind=reveal / choice.
+        // Opponent card lists go to the opponent (Guest window when the opponent is the Guest).
         if (_netAttemptApplying || _resumeAttemptAfterEtaArmbands)
         {
             StatusText.Text = "Net Attempt: an attempt is already in progress.";
@@ -18501,9 +18507,11 @@ public partial class TableWindow : Window
                 ShipShields = ship != null ? BattleRules.GetShields(ship) : 0,
                 AttemptingPlayer = _activePlayer,
                 Hand = hand.ToList(),
-                // Verb: attempt-mission — attempter's card pick goes to that player. Opponent pick stays on the opponent.
+                // Verb: attempt-mission — each card list goes to the player who chooses.
+                // Guest answers on the Guest window. Host applies the mapped card.
                 PickYou = (prompt, pool) => PickAttemptOwnedCard(prompt, pool, "Choose a card", seedCard),
-                PickOpp = (prompt, pool) => PickCardFromList(prompt, pool, "Opponent chooses", seedCard),
+                PickOpp = (prompt, pool) => PickCardForPlayer(
+                    opponentOf(_activePlayer), prompt, pool, "Opponent chooses", seedCard),
                 // Rule: dilemma Yes/No — AskChoiceForPlayer (Guest answers on their turn).
                 Confirm = prompt =>
                 {
@@ -19047,7 +19055,8 @@ public partial class TableWindow : Window
                 else
                 {
                     var hostCards = legalHosts.Select(h => h.Tag as Card).Where(c => c != null).Cast<Card>().ToList();
-                    var pickHostCard = PickCardFromList(
+                    var pickHostCard = PickCardForPlayer(
+                        owner,
                         "Vulcan Mindmeld: choose location / host of your Mindmeld personnel",
                         hostCards, "Vulcan Mindmeld", card);
                     if (pickHostCard == null)
@@ -19116,7 +19125,8 @@ public partial class TableWindow : Window
                 if (pool.Count == 1)
                     chosen = pool[0];
                 else
-                    chosen = PickCardFromList(
+                    chosen = PickCardForPlayer(
+                        owner,
                         "Hugh: Borg Ship dilemma or Rogue Borg location.",
                         pool, "Hugh", card);
             }
@@ -19162,7 +19172,8 @@ public partial class TableWindow : Window
                 }
                 else
                 {
-                    target = PickCardFromList(
+                    target = PickCardForPlayer(
+                        owner,
                         devil ? "Nullify which card?" : "Nullify which Event in play?",
                         pool, card.Name ?? "Kevin", card);
                     if (target == null)
@@ -20563,7 +20574,8 @@ public partial class TableWindow : Window
                     var disc = controller == 1 ? _discardCards : _oppDiscardCards;
                     var hand = controller == 1 ? _handCards : _oppHandCards;
                     var pool = disc.Where(c => !ModifierRules.IsPersonnelCard(c)).ToList();
-                    var pick = PickCardFromList(
+                    var pick = PickCardForPlayer(
+                        controller,
                         "Click a non-Personnel card from your discard pile.",
                         pool, "Palor Toff", card);
                     if (pick != null)
@@ -20826,7 +20838,7 @@ public partial class TableWindow : Window
         var ships = TableCanvas.Children.OfType<Border>()
             .Where(b => b.Tag is Card sc && IsShipCard(sc) && GetBorderOwner(b) == owner)
             .ToList();
-        return PickBorderFromList(null, ships, "Choose ship");
+        return PickBorderForPlayer(owner, null, ships, "Choose ship");
     }
 
     private Border? PickAnyHostWithEquipment()
@@ -21176,7 +21188,7 @@ public partial class TableWindow : Window
 
         if (candidates.Count == 0) return null;
         if (candidates.Count == 1) return candidates[0];
-        return ShowTargetPickDialog(ev, candidates, "Choose target");
+        return PickBorderForPlayer(controller, ev, candidates, "Choose target");
     }
 
     private List<Border> CollectEventTargets(Card ev, int controller, EventRules.TargetKind tk, EventRules.Place place)
@@ -21251,11 +21263,6 @@ public partial class TableWindow : Window
             list.Add((a, b));
         }
         return list;
-    }
-
-    private Border? ShowTargetPickDialog(Card ev, List<Border> candidates, string title)
-    {
-        return PickBorderFromList(ev, candidates, title);
     }
 
     private int ShowIndexPickDialog(string title, List<string> labels)
@@ -22150,7 +22157,8 @@ public partial class TableWindow : Window
                 StatusText.Text = "Res-Q: Discard pile is empty.";
                 return;
             }
-            Card? pick = PickCardFromList(
+            Card? pick = PickCardForPlayer(
+                controller,
                 "Click a card from your discard pile to take into hand.",
                 disc.ToList(), "Res-Q", ev);
             pick ??= disc[^1];
@@ -22337,7 +22345,8 @@ public partial class TableWindow : Window
                 "Doorway", "Equipment", "Artifact", "Dilemma", "Mission"
             };
             var typeCards = types.Select(tn => new Card { Name = tn, Type = "Card type" }).ToList();
-            string chosen = PickCardFromList(
+            string chosen = PickCardForPlayer(
+                controller,
                 "Name a card type. All matching cards leave opponent's draw, shuffle, go to bottom.",
                 typeCards, "Thought Maker", art)?.Name ?? types[0];
             var oppDraw = controller == 1 ? _oppDrawCards : _drawCards;
@@ -22367,7 +22376,7 @@ public partial class TableWindow : Window
                 if (face != null && face.Tag is Card sc && IsShipCard(sc))
                     shipB = face;
             }
-            shipB ??= PickBorderFromList(art, anyShips, "Kurlan Naiskos: play on which ship? (any)");
+            shipB ??= PickBorderForPlayer(controller, art, anyShips, "Kurlan Naiskos: play on which ship? (any)");
             if (shipB == null)
             {
                 StatusText.Text = "Kurlan: no ship chosen → kept in hand.";
@@ -22451,7 +22460,8 @@ public partial class TableWindow : Window
                 || !choice.StartsWith("Download", StringComparison.OrdinalIgnoreCase))
                 break;
 
-            Card? pick = PickCardFromList(
+            Card? pick = PickCardForPlayer(
+                player,
                 "Click a card from your draw deck to download to hand.",
                 draw.ToList(),
                 "Betazoid Gift Box",
@@ -22862,7 +22872,7 @@ public partial class TableWindow : Window
             return false;
         }
         Card? taken = pool.Count == 1 ? pool[0]
-            : PickCardFromList($"Download {name}", pool, name);
+            : PickCardForPlayer(owner, $"Download {name}", pool, name);
         if (taken == null) return false;
         draw.Remove(taken);
         tent.Remove(taken);
@@ -22938,7 +22948,7 @@ public partial class TableWindow : Window
         }
         var target = oppShips.Count == 1
             ? oppShips[0]
-            : ShowTargetPickDialog(dilemma, oppShips, "Conundrum: chase which ship?");
+            : PickBorderForPlayer(_activePlayer, dilemma, oppShips, "Conundrum: chase which ship?");
         if (target == null) target = oppShips[0];
         _conundrumChase[ship] = target;
         StatusText.Text =
@@ -22957,7 +22967,8 @@ public partial class TableWindow : Window
         {
             for (int i = 0; i < 2 && skills.Count > 0; i++)
             {
-                var pick = PickCardFromList(
+                var pick = PickCardForPlayer(
+                    opponentOf(_activePlayer),
                     $"Frame of Mind: opponent chooses skill {i + 1} for {victim.Name}",
                     skills.Select(s => new Card { Name = s, Type = "Skill" }).ToList(),
                     "Choose skill");
@@ -23133,7 +23144,7 @@ public partial class TableWindow : Window
             ShowPlayError("Kevin Uxbridge: Convergence needs a spaceline location.");
             return;
         }
-        var loc = locs.Count == 1 ? locs[0] : ShowTargetPickDialog(card, locs, "Destroy events at which location?");
+        var loc = locs.Count == 1 ? locs[0] : PickBorderForPlayer(controller, card, locs, "Destroy events at which location?");
         if (loc == null) loc = locs[0];
         int n = 0;
         foreach (var e in _attachedEvents.Where(ae =>
@@ -23207,32 +23218,132 @@ public partial class TableWindow : Window
     }
 
     /// <summary>
-    /// Attempter's card pick. Hotseat / Host-owned: local strip.
-    /// Guest-owned attempt: ChoiceRequest labels "Name #id"; Guest picks; Host maps back to the pool.
+    /// Attempter's card pick. Same channel as any other card list:
+    /// the attempting player chooses (Guest window when that player is the Guest).
     /// </summary>
     private Card? PickAttemptOwnedCard(string prompt, IReadOnlyList<Card> pool, string title, Card? source)
     {
         if (pool == null || pool.Count == 0) return null;
-        if (!_attemptRemoteSurface || pool.Count <= 1)
-            return PickCardFromList(prompt, pool, title, source);
-
-        var labels = pool
-            .Select(c => $"{c.Name} #{c.InstanceId}")
-            .ToArray();
         int who = _attemptRemoteSurface && _attemptSurfacePlayer is 1 or 2
             ? _attemptSurfacePlayer
             : _activePlayer;
-        string pick = AskChoiceForPlayer(who, source, title, prompt, labels);
+        return PickCardForPlayer(who, prompt, pool, title, source);
+    }
+
+    /// <summary>
+    /// Card list for a known player. SEARCH: Verb: AskChoiceForPlayer card-list; Network-First.
+    /// Hotseat, SingleAi, and the Host's own choice stay on the local strip.
+    /// A Guest choice uses ChoiceRequest kind=choice. Labels are "Name #InstanceId"
+    /// (printed name only when the option is not a copy: a skill or a type name).
+    /// The Guest answers on their window. The Host maps the label onto this pool and applies it.
+    /// A pool that cannot be labeled uniquely stays on the Host. No invented ids.
+    /// </summary>
+    private Card? PickCardForPlayer(int decidingPlayer, string prompt, IReadOnlyList<Card> pool, string title, Card? source = null)
+    {
+        if (pool == null || pool.Count == 0) return null;
+        if (pool.Count == 1) return pool[0];
+
+        if (decidingPlayer is not (1 or 2))
+            decidingPlayer = _activePlayer is 1 or 2 ? _activePlayer : 1;
+
+        bool askGuest = _gameMode == GameMode.Network
+            && _netSession is { IsHost: true }
+            && decidingPlayer != _netSession.LocalPlayer;
+        if (!askGuest)
+            return PickCardFromList(prompt, pool, title, source);
+
+        if (!TryLabelCardListForRemote(pool, out var labels))
+        {
+            _session.Log.Add(_session.TurnNumber, "Net",
+                $"Card list '{title}' stays on Host (labels not unique for P{decidingPlayer}).");
+            StatusText.Text = $"{title}: choice stays on Host (options cannot be told apart remotely).";
+            return PickCardFromList(prompt, pool, title, source);
+        }
+
+        string pick = AskChoiceForPlayer(decidingPlayer, source, title, prompt, labels);
+        var mapped = MapChoiceLabelToPool(pick, pool);
+        if (mapped != null) return mapped;
+        _session.Log.AddDebug(_session.TurnNumber, "Net",
+            $"Card list '{title}' label '{pick}' missed the pool — using first legal card.");
+        return pool[0];
+    }
+
+    /// <summary>
+    /// Unique choice labels. InstanceId copies use "Name #id". Nameless copies use the type.
+    /// Options with no id (skills, type names) use the printed name. Duplicate labels fail.
+    /// </summary>
+    private static bool TryLabelCardListForRemote(IReadOnlyList<Card> pool, out string[] labels)
+    {
+        labels = Array.Empty<string>();
+        if (pool == null || pool.Count == 0) return false;
+        var built = new string[pool.Count];
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var seenIds = new HashSet<int>();
+        for (int i = 0; i < pool.Count; i++)
+        {
+            var c = pool[i];
+            if (c == null) return false;
+            string name = (c.Name ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(name))
+                name = string.IsNullOrWhiteSpace(c.Type) ? "Card" : c.Type.Trim();
+            string label;
+            if (c.InstanceId > 0)
+            {
+                if (!seenIds.Add(c.InstanceId)) return false;
+                label = $"{name} #{c.InstanceId}";
+            }
+            else
+            {
+                label = name;
+            }
+            if (!seen.Add(label)) return false;
+            built[i] = label;
+        }
+        labels = built;
+        return true;
+    }
+
+    private static Card? MapChoiceLabelToPool(string? pick, IReadOnlyList<Card> pool)
+    {
+        if (string.IsNullOrWhiteSpace(pick) || pool == null || pool.Count == 0) return null;
         int id = ParseInstanceIdFromChoiceLabel(pick);
         if (id > 0)
         {
-            var byId = pool.FirstOrDefault(c => c.InstanceId == id);
+            var byId = pool.FirstOrDefault(c => c != null && c.InstanceId == id);
             if (byId != null) return byId;
         }
         string name = StripChoiceLabelPrefix(pick);
-        return pool.FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase))
-            ?? pool.FirstOrDefault(c => string.Equals(c.Name, pick, StringComparison.OrdinalIgnoreCase))
-            ?? pool[0];
+        return pool.FirstOrDefault(c => c != null && string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase))
+            ?? pool.FirstOrDefault(c => c != null && string.Equals(c.Name, pick, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Board target expressed as its card. Guest chooser gets the card-list channel.
+    /// A border with no card cannot be labeled and stays on the Host strip.
+    /// </summary>
+    private Border? PickBorderForPlayer(int decidingPlayer, Card? source, IReadOnlyList<Border> candidates, string title)
+    {
+        if (candidates == null || candidates.Count == 0) return null;
+        if (candidates.Count == 1) return candidates[0];
+        var cards = new List<Card>(candidates.Count);
+        foreach (var b in candidates)
+        {
+            if (b?.Tag is not Card c)
+            {
+                if (_gameMode == GameMode.Network && _netSession is { IsHost: true }
+                    && decidingPlayer != _netSession.LocalPlayer)
+                {
+                    _session.Log.Add(_session.TurnNumber, "Net",
+                        $"Card list '{title}' stays on Host (a target has no card).");
+                    StatusText.Text = $"{title}: choice stays on Host (target has no card).";
+                }
+                return PickBorderFromList(source, candidates, title);
+            }
+            cards.Add(c);
+        }
+        var pick = PickCardForPlayer(decidingPlayer, "Click a card to choose.", cards, title, source);
+        if (pick == null) return null;
+        return candidates.FirstOrDefault(b => ReferenceEquals(b.Tag, pick));
     }
 
     /// <summary>
@@ -24094,7 +24205,7 @@ public partial class TableWindow : Window
         Border? chosenShip = null;
         if (choice.HasFlag(DilemmaRules.AlienParasitesControlChoice.OneShipAndCrew))
         {
-            chosenShip = PickBorderFromList(seedCard, shipsHere, $"P{opp}: which ship + crew?");
+            chosenShip = PickBorderForPlayer(opp, seedCard, shipsHere, $"P{opp}: which ship + crew?");
             if (chosenShip == null && shipsHere.Count > 0)
                 chosenShip = shipsHere[0];
             if (chosenShip == null)
@@ -26204,7 +26315,7 @@ public partial class TableWindow : Window
         Border dest = facilities[0];
         if (facilities.Count > 1)
         {
-            var pick = PickBorderFromList(card, facilities,
+            var pick = PickBorderForPlayer(shipCtrl, card, facilities,
                 $"P{shipCtrl}: choose your {need} facility on this spaceline.");
             if (pick != null) dest = pick;
         }
@@ -26602,7 +26713,7 @@ public partial class TableWindow : Window
             }
             hit = pool.Count == 1
                 ? pool[0]
-                : PickCardFromList("Nullify which card?", pool, card.Name, card);
+                : PickCardForPlayer(controller, "Nullify which card?", pool, card.Name, card);
         }
         if (hit == null) return;
 
@@ -28348,11 +28459,12 @@ public partial class TableWindow : Window
             }
         }
         if (ships.Count == 0) return;
-        if (ShowCardReveal(anti.Card, "Anti-Time Anomaly",
-                $"P{opp}: flip one ship at a Devron System face-down/face-up?",
-                RevealButtons.YesNo) != RevealAnswer.Yes)
+        string flip = AskChoiceForPlayer(opp, anti.Card, "Anti-Time Anomaly",
+            $"P{opp}: flip one ship at a Devron System face-down/face-up?",
+            "Yes", "No");
+        if (!flip.StartsWith("Yes", StringComparison.OrdinalIgnoreCase))
             return;
-        var pick = ships.Count == 1 ? ships[0] : ShowTargetPickDialog(anti.Card, ships, "Flip which ship?");
+        var pick = ships.Count == 1 ? ships[0] : PickBorderForPlayer(opp, anti.Card, ships, "Flip which ship?");
         if (pick == null) pick = ships[0];
         pick.Opacity = pick.Opacity < 0.9 ? 1.0 : 0.4;
         _session.Log.Add(_session.TurnNumber, $"P{opp}",
@@ -28928,9 +29040,10 @@ public partial class TableWindow : Window
         int totalMedAvailable = eligible.Sum(e => e.medSkill);
         if (totalMedAvailable < 2) return false;
 
-        if (ShowCardReveal(card, "Genetronic Replicator",
-                $"Save {card.Name} (stop 2 MEDICAL → hand)?",
-                RevealButtons.YesNo) != RevealAnswer.Yes)
+        string save = AskChoiceForPlayer(owner, card, "Genetronic Replicator",
+            $"Save {card.Name} (stop 2 MEDICAL → hand)?",
+            "Yes", "No");
+        if (!save.StartsWith("Yes", StringComparison.OrdinalIgnoreCase))
             return false;
 
         // Stop 2 MEDICAL
@@ -28948,7 +29061,7 @@ public partial class TableWindow : Window
             else
             {
                 var pickList = remainingPool.Select(r => r.border).ToList();
-                var pickedBorder = PickBorderFromList(card, pickList, "Genetronic Replicator: Choose MEDICAL to stop");
+                var pickedBorder = PickBorderForPlayer(owner, card, pickList, "Genetronic Replicator: Choose MEDICAL to stop");
                 chosen = remainingPool.FirstOrDefault(r => ReferenceEquals(r.border, pickedBorder));
                 if (chosen.border == null)
                     chosen = remainingPool[0];
@@ -29443,7 +29556,8 @@ public partial class TableWindow : Window
         {
             pool = draw.Concat(tent).Where(IsQIconCard).Distinct().ToList();
             if (pool.Count == 0) break;
-            var pick = PickCardFromList(
+            var pick = PickCardForPlayer(
+                opp,
                 $"Q: pick [Q] {taken + 1}/{want} atop Continuum.",
                 pool, $"Download Continuum (P{opp})", qCard);
             if (pick == null) break;
@@ -30424,7 +30538,8 @@ public partial class TableWindow : Window
         }
         Card? victimCard = victims.Count == 1
             ? (Card)victims[0].Tag!
-            : PickCardFromList(
+            : PickCardForPlayer(
+                controller,
                 "Ship Seizure: choose another empty exposed ship here to discard.",
                 victims.Select(b => (Card)b.Tag!).ToList(),
                 "Ship Seizure — discard ship",
@@ -30592,7 +30707,8 @@ public partial class TableWindow : Window
             else if (legalHosts.Count > 1)
             {
                 var hostCards = legalHosts.Select(h => h.Tag as Card).Where(c => c != null).Cast<Card>().ToList();
-                var pickHostCard = PickCardFromList(
+                var pickHostCard = PickCardForPlayer(
+                    controller,
                     "Vulcan Mindmeld: choose location / host of your Mindmeld personnel",
                     hostCards, "Vulcan Mindmeld", card);
                 if (pickHostCard != null)
@@ -30633,7 +30749,8 @@ public partial class TableWindow : Window
         }
         else
         {
-            mindmeldUser = PickCardFromList(
+            mindmeldUser = PickCardForPlayer(
+                controller,
                 "Vulcan Mindmeld: choose your Mindmeld personnel",
                 mindmeldCandidates, "Vulcan Mindmeld", card);
         }
@@ -30660,7 +30777,8 @@ public partial class TableWindow : Window
         }
         else
         {
-            skillDonor = PickCardFromList(
+            skillDonor = PickCardForPlayer(
+                controller,
                 $"Vulcan Mindmeld: choose other personnel whose skills {mindmeldUser.Name} gains",
                 otherPersonnel, "Vulcan Mindmeld — choose donor", card);
         }
@@ -31661,7 +31779,8 @@ public partial class TableWindow : Window
                 if (remaining.Count == 0) break;
                 Card? victim = remaining.Count == 1
                     ? remaining[0]
-                    : PickCardFromList(
+                    : PickCardForPlayer(
+                        controller,
                         $"Honor Challenge — {k.Name} (Honor) may kill opposing Treachery:",
                         remaining, "Honor Challenge");
                 if (victim == null) continue;
