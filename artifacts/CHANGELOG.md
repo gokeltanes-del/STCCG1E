@@ -1,3 +1,11 @@
+## 2026-09-29 - Guest Transwarp is a play, not a Respond
+
+- *Auftrag*: Pepsch als P2 (Guest), aktives P2, Drop auf das eigene Schiff Haakona. Die Karte verschwindet, liegt nicht auf dem Schiff und nicht im Ablagestapel. Mit Inspect opponent hands liegen beide Kopien oben in P1s Hand. Log: `Sent Respond to Host` dann `Error: No open stack.`
+- *Ursache*: Jeder Guest-Interrupt ging als `Respond`, auch ohne offenen Stack. Der Host lehnt das ab (`No open stack`) und wendet nichts an. Der Guest hatte die Karte beim Zug aus P2s Hand genommen und, weil sie in keiner Hand lag, in `_handCards` gelegt. Das ist P1. Kein Broadcast hat das korrigiert. Yes/No und der Host-Stapel aus 0101cf1 sind nicht der Pfad.
+- *Fix*: Ohne offenen Stack schickt der Guest `PlayCard`, nicht `Respond`. `Respond` nur, solange der Stack offen ist. Die Karte geht lokal zurueck in die Hand des Spielers (P2 = `_oppHandCards`), nicht in P1. Der Host spielt den Interrupt ueber denselben Stack wie Hotseat: Mini auf dem genannten Schiff, Owner P2, volle RANGE verdoppelt, Ablage am Ende des Zuges des Owners. Ein Interrupt darf ausserhalb des aktiven Spielers ankommen (bestehendes Anytime); ein Schiff nicht.
+- *Nach legalem Guest-Drop*: im Spiel auf dem Schiff, das der Drop genannt hat (Haakona), Owner P2. Beide Fenster nach dem Broadcast. Nicht in P1s Hand, nicht im Ablagestapel.
+- *Scope*: TableWindow.xaml.cs. Kein Push master. Yes/No bleibt beim Entscheider.
+
 ## 2026-09-29 - Transwarp Conduit stays on the ship
 
 - *Auftrag*: Pepsch nach Step 4. Transwarp Conduit (Premiere) auf ein Schiff gespielt verschwindet sofort. Kein Effekt, nicht im Ablagestapel, weg aus dem Spiel. Hotseat und Dual-EXE. Guest mutiert nicht. Yes/No aus c44c9c3 bleibt beim Entscheider.
