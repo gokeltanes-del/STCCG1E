@@ -6,9 +6,9 @@ Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.m
 
 ---
 
-## Jetzt aktiv â€” Multiplayer / Network-Modus
+## Jetzt aktiv — Schritt 1 Heartbeat
 
-**Status:** AttemptMission Guest→Host Apply getippt (`1194d42` merge). Dual-EXE Smoke HOLD. Phase-5 weiterhin offen. Spaceline Insert `8083785` Basis.
+**Status:** Schritt 1 Heartbeat getippt (5s Ping, 15s tot). Test offen. Nicht gruen.
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
 
 ### Architektur

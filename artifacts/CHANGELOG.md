@@ -1,3 +1,7 @@
+## 2026-09-29 - Socket keepalive heartbeat
+
+- Spielbar, nicht gruen: Host und Gast schicken alle 5s Ping ueber den Socket (bestehendes Ping/Pong). 15s ohne eingehendes Paket (Ping, Pong oder Spielnachricht) gilt die Verbindung als tot, derselbe Disconnect wie bei einem Socket-Fehler. Test offen. Host bleibt P1. Kein Reconnect.
+
 ## 2026-09-29 - Masked snapshot keeps Stopped, Held, RangeLeft, and reveal markers
 
 - *Auftrag*: Dual-EXE Step 9. Der maskierte Host-Snapshot muss Crew Stopped, Crew Held, Schiff RangeLeft und die Reveal-Marker hin und zurueck tragen. Beide Fenster denselben Stand. Hotseat Save/Load dieselben Felder. Der Guest rechnet sie nicht neu. Nur die Luecken.

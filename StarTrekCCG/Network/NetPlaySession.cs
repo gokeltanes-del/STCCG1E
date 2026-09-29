@@ -22,6 +22,10 @@ public sealed class NetPlaySession : IDisposable
     private SynchronizationContext? _sync;
     private bool _disposed;
     private long _seq;
+    private const int PingIntervalMs = 5000;
+    private const int DeadAfterMs = 15000;
+    private long _lastInboundTicks;
+    private int _deadReported;
 
     public SessionRole Role { get; }
     public int LocalPlayer { get; }
@@ -158,18 +162,33 @@ public sealed class NetPlaySession : IDisposable
 
     private async Task ReceiveLoopAsync(CancellationToken ct)
     {
+        Interlocked.Exchange(ref _lastInboundTicks, Environment.TickCount64);
+        _ = HeartbeatLoopAsync(ct);
         try
         {
-            while (!ct.IsCancellationRequested)
+            while (!ct.IsCancellationRequested && Volatile.Read(ref _deadReported) == 0)
             {
-                NetMessage msg;
-                if (_server != null)
-                    msg = await _server.ReceiveAsync(ct).ConfigureAwait(false);
-                else if (_client != null)
-                    msg = await _client.ReceiveAsync(ct).ConfigureAwait(false);
-                else
+                NetMessage? msg;
+                try
+                {
+                    msg = await ReceiveNextAsync(ct).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested || _disposed)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    if (ct.IsCancellationRequested || _disposed)
+                        break;
+                    ReportDead(ex.Message);
+                    break;
+                }
+
+                if (msg == null)
                     break;
 
+                Interlocked.Exchange(ref _lastInboundTicks, Environment.TickCount64);
                 HandleMessage(msg);
             }
         }
@@ -177,14 +196,79 @@ public sealed class NetPlaySession : IDisposable
         {
             // normal shutdown
         }
-        catch (EndOfStreamException ex)
+    }
+
+    /// <summary>
+    /// One framed read. No bytes for <see cref="DeadAfterMs"/> is a dead socket
+    /// (silent drop has no FIN/RST) and uses the same cleanup as a socket fault.
+    /// </summary>
+    private async Task<NetMessage?> ReceiveNextAsync(CancellationToken ct)
+    {
+        using var readCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        readCts.CancelAfter(DeadAfterMs);
+        try
         {
-            Post(() => Disconnected?.Invoke(ex.Message));
+            if (_server != null)
+                return await _server.ReceiveAsync(readCts.Token).ConfigureAwait(false);
+            if (_client != null)
+                return await _client.ReceiveAsync(readCts.Token).ConfigureAwait(false);
+            return null;
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            throw new TimeoutException("Connection timed out: no packet for 15s.");
+        }
+    }
+
+    /// <summary>
+    /// NAT keepalive. Ping is written on the socket every 5s. Any inbound packet
+    /// (Ping, Pong, or a game message) resets the 15s dead timer. Not a game rule.
+    /// </summary>
+    private async Task HeartbeatLoopAsync(CancellationToken ct)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(PingIntervalMs));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(ct).ConfigureAwait(false))
+            {
+                if (ct.IsCancellationRequested || _disposed || Volatile.Read(ref _deadReported) != 0)
+                    return;
+
+                var silent = Environment.TickCount64 - Interlocked.Read(ref _lastInboundTicks);
+                if (silent >= DeadAfterMs)
+                {
+                    ReportDead("Connection timed out: no packet for 15s.");
+                    return;
+                }
+
+                await SendRawAsync(
+                    NetMessage.Create(NetMessage.Types.Ping, seq: NextSeq()),
+                    ct).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // session shutdown
         }
         catch (Exception ex)
         {
-            Post(() => Disconnected?.Invoke(ex.Message));
+            if (ct.IsCancellationRequested || _disposed)
+                return;
+            ReportDead(ex.Message);
         }
+    }
+
+    /// <summary>Same cleanup a socket fault already uses: close the transport, raise Disconnected once.</summary>
+    private void ReportDead(string reason)
+    {
+        if (_disposed)
+            return;
+        if (Interlocked.Exchange(ref _deadReported, 1) != 0)
+            return;
+        try { _server?.Stop(); } catch { /* ignore */ }
+        try { _client?.Disconnect(); } catch { /* ignore */ }
+        var text = string.IsNullOrWhiteSpace(reason) ? "Connection lost." : reason;
+        Post(() => Disconnected?.Invoke(text));
     }
 
     private void HandleMessage(NetMessage msg)
@@ -294,7 +378,26 @@ public sealed class NetPlaySession : IDisposable
 
         if (string.Equals(msg.Type, NetMessage.Types.Ping, StringComparison.OrdinalIgnoreCase))
         {
-            _ = SendRawAsync(NetMessage.Create(NetMessage.Types.Pong, seq: NextSeq()));
+            _ = ReplyPongAsync();
+            return;
+        }
+
+        // Pong is inbound traffic only. It does not change game state.
+        if (string.Equals(msg.Type, NetMessage.Types.Pong, StringComparison.OrdinalIgnoreCase))
+            return;
+    }
+
+    private async Task ReplyPongAsync()
+    {
+        try
+        {
+            await SendRawAsync(NetMessage.Create(NetMessage.Types.Pong, seq: NextSeq())).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            if (_disposed)
+                return;
+            ReportDead(ex.Message);
         }
     }
 
