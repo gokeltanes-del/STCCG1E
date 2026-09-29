@@ -28,7 +28,12 @@ public enum GameActionKind
     BuildSite,
     SeedCard,
     /// <summary>Attach Radioactive Garbage Scow to a ship (Tractor Beam). Not a move.</summary>
-    TowScow
+    TowScow,
+    /// <summary>
+    /// Start a personnel battle. Card is the attacking host (ship or mission).
+    /// Target is the opposing host, or null when the Host must choose it.
+    /// </summary>
+    InitiatePersonnelBattle
 }
 
 /// <summary>
@@ -75,6 +80,8 @@ public sealed class GameAction
                 GameActionKind.AttemptMission => $"{who}: Attempt {tgt}",
                 GameActionKind.EncounterDilemma => $"{who}: Encounter {card}" + (tgt.Length > 0 ? $" at {tgt}" : ""),
                 GameActionKind.InitiateShipBattle => $"{who}: Ship battle" + (tgt.Length > 0 ? $" vs {tgt}" : ""),
+                GameActionKind.InitiatePersonnelBattle when tgt.Length > 0 => $"{who}: Personnel battle {card} vs {tgt}",
+                GameActionKind.InitiatePersonnelBattle => $"{who}: Personnel battle {card}",
                 GameActionKind.ActivateInPlay => $"{who}: Use {card}" + (tgt.Length > 0 ? $" ({tgt})" : ""),
                 GameActionKind.Download => $"{who}: Download {card}" + (tgt.Length > 0 ? $" → {tgt}" : ""),
                 GameActionKind.FlipHiddenAgenda => $"{who}: Flip {card}",
@@ -188,6 +195,18 @@ public sealed class GameAction
             Card = attacker,
             Target = defender,
             Note = note
+        };
+
+    /// <summary>
+    /// Personnel battle. Card is the attacking host. Target is the opposing host when already chosen.
+    /// </summary>
+    public static GameAction PersonnelBattle(int player, Card sourceHost, Card? targetHost = null) =>
+        new()
+        {
+            Kind = GameActionKind.InitiatePersonnelBattle,
+            Player = player,
+            Card = sourceHost,
+            Target = targetHost
         };
 
     public static GameAction Seed(int player, Card card, Card? mission = null, string? note = null) =>
