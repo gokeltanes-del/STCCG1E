@@ -1,3 +1,13 @@
+## 2026-09-29 - Choice timeout takes a fixed fallback
+
+- Spielbar, nicht gruen. Fristen unveraendert: Wahl 10s, Reveal Yes/No 10s, Reveal OK 20s, Antwortfenster 3s, Idle 60s, Grace 120s.
+- Timeout (Gast verbunden, keine Antwort) und Grace-Ende bei noch offener Abfrage: der Host setzt den Fallback selbst, dann maskierter Broadcast. Kein Zufall, keine leere Antwort, kein zweites Apply.
+- Kartenliste, Typname (Kidnappers), Ziel (Personnel battle, Schiff), Alien Parasites, Gaps-Ziel, Required-Move-Ziel, Hand-Discard: erste gueltige Option.
+- Yes/No (Dilemma, Interphase Generator, The Devil, Raise the Stakes, Genetronic, Anti-Time) und Return Fire / No: No.
+- Download Yellow Alert / Pass: Pass. Q-Download (0..n): 0. Q-Rearrange / Done: Done. Left/Right/Cancel: Cancel.
+- Reveal OK: OK (quittiert). Optionales Antwortfenster: Pass. Pflicht-Antwort: erste legale Karte, sonst Stack wird aufgeloest.
+- Hotseat-Kartenstreifen hat keine Uhr und bekommt keine. Klick-Abbruch ist kein Timeout. Test offen.
+
 ## 2026-09-29 - Guest drop pauses the same game
 
 - Spielbar, nicht gruen: Nach dem Heartbeat-Tod (~15s) bleibt dieselbe Partie offen. Host-Listener bleibt an (DropClient, kein Stop). 120s Grace, Choice- und Idle-Timer pausieren. Danach Disconnect wie bisher (Status, Brett bleibt, Listener zu). Token beim ersten Join, Resume nur P2 mit diesem Token. Reconnect sendet denselben maskierten GameSave (MaskForViewer, viewer 2). Hotseat unveraendert. Test offen.

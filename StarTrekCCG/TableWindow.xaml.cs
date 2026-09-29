@@ -89,6 +89,7 @@ public partial class TableWindow : Window
     private CancellationTokenSource? _netResumeAcceptCts;
     private string? _netGuestHost;
     private int _netGuestPort;
+    private bool _netGraceForceChoiceFallback;
     /// <summary>Phase 4: Host waits on Guest ChoiceResponse by correlationId.</summary>
     private readonly Dictionary<string, TaskCompletionSource<NetChoiceDto>> _pendingChoiceResponses = new();
     /// <summary>Guest: correlationId of inbound ChoiceRequest currently shown.</summary>
@@ -2598,7 +2599,7 @@ public partial class TableWindow : Window
         {
             _pendingChoiceResponses.Remove(corr);
             StatusText.Text = "Net attempt reveal send failed: " + ex.Message;
-            return yesNo ? (_autoSeedRng.Next(2) == 0 ? RevealAnswer.Yes : RevealAnswer.No) : RevealAnswer.Ok;
+            return yesNo ? DeterministicRevealAnswer(yes, no) : RevealAnswer.Ok;
         }
 
         // Encounter / Mission solved, or a shown/discarded card: Host paints the same face (no click).
@@ -2629,14 +2630,18 @@ public partial class TableWindow : Window
         if (!yesNo)
             return RevealAnswer.Ok;
 
-        string picked = result?.SelectedOption ?? "";
-        if (string.IsNullOrWhiteSpace(picked))
-            picked = _autoSeedRng.Next(2) == 0 ? yes : no;
-        if (!string.Equals(picked, yes, StringComparison.OrdinalIgnoreCase)
-            && !string.Equals(picked, no, StringComparison.OrdinalIgnoreCase))
-        {
-            picked = string.Equals(picked, "Yes", StringComparison.OrdinalIgnoreCase) ? yes : no;
-        }
+        bool clock = result == null || result.TimedOut == true;
+        string picked = clock ? "" : (result?.SelectedOption ?? "");
+        if (string.IsNullOrWhiteSpace(picked)
+            || (!string.Equals(picked, yes, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(picked, no, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(picked, "Yes", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(picked, "No", StringComparison.OrdinalIgnoreCase)))
+            picked = DeterministicChoiceFallback(new[] { yes, no });
+        if (string.Equals(picked, "Yes", StringComparison.OrdinalIgnoreCase))
+            picked = yes;
+        else if (string.Equals(picked, "No", StringComparison.OrdinalIgnoreCase))
+            picked = no;
         _session.Log.Add(_session.TurnNumber, $"P{who}", $"{title}: {picked}");
         return string.Equals(picked, yes, StringComparison.OrdinalIgnoreCase)
             ? RevealAnswer.Yes
@@ -2731,17 +2736,15 @@ public partial class TableWindow : Window
             ShowCardDetail(shown[0]);
 
         // Choice dialogs get 10s unless caller overrides.
-        // Timeout with no click: pick at random (not a hidden default).
-        if (choice)
-        {
-            if (autoCloseMs == null) autoCloseMs = 10000;
-            randomOnTimeout = true;
-        }
+        // Timeout closes the reveal: Ok, or No when that button exists.
+        if (choice && autoCloseMs == null)
+            autoCloseMs = 10000;
 
         System.Windows.Threading.DispatcherTimer? autoTimer = null;
         if (autoCloseMs is int ms && ms > 0)
         {
             var deadline = DateTime.UtcNow.AddMilliseconds(ms);
+            DateTime? graceAnchor = null;
             if (RevealTimerText != null)
                 RevealTimerText.Text = $"{ms / 1000.0:0}s remaining";
             autoTimer = new System.Windows.Threading.DispatcherTimer
@@ -2750,6 +2753,27 @@ public partial class TableWindow : Window
             };
             autoTimer.Tick += (_, _) =>
             {
+                if (_netGraceForceChoiceFallback)
+                {
+                    autoTimer.Stop();
+                    _netGraceForceChoiceFallback = false;
+                    if (_revealFrame != null && _revealAnswer == RevealAnswer.None)
+                    {
+                        _revealTimedOut = true;
+                        CloseReveal(choice ? DeterministicRevealAnswer(yesLabel, noLabel) : RevealAnswer.Ok);
+                    }
+                    return;
+                }
+                if (_netGraceActive)
+                {
+                    graceAnchor ??= DateTime.UtcNow;
+                    return;
+                }
+                if (graceAnchor != null)
+                {
+                    deadline += DateTime.UtcNow - graceAnchor.Value;
+                    graceAnchor = null;
+                }
                 double left = (deadline - DateTime.UtcNow).TotalSeconds;
                 if (RevealTimerText != null)
                     RevealTimerText.Text = left > 0 ? $"{left:0}s remaining" : "";
@@ -2758,14 +2782,7 @@ public partial class TableWindow : Window
                 if (_revealFrame != null && _revealAnswer == RevealAnswer.None)
                 {
                     _revealTimedOut = true;
-                    RevealAnswer def;
-                    if (choice && randomOnTimeout)
-                        def = _autoSeedRng.Next(2) == 0 ? RevealAnswer.Yes : RevealAnswer.No;
-                    else if (choice)
-                        def = autoDefault;
-                    else
-                        def = RevealAnswer.Ok;
-                    CloseReveal(def);
+                    CloseReveal(choice ? DeterministicRevealAnswer(yesLabel, noLabel) : RevealAnswer.Ok);
                 }
             };
             autoTimer.Start();
@@ -2936,6 +2953,38 @@ public partial class TableWindow : Window
     /// Guest does not start engine choices — only answers inbound ChoiceRequest.
     /// Host timeout: simulates random option locally if Guest does not answer (documented).
     /// </summary>
+    private static string DeterministicChoiceFallback(IReadOnlyList<string>? options)
+    {
+        if (options == null || options.Count == 0) return "";
+        for (int n = 0; n < options.Count; n++)
+        {
+            if (IsDeclineChoiceOption(options[n]))
+                return options[n];
+        }
+        return options[0] ?? "";
+    }
+
+    private static bool IsDeclineChoiceOption(string? option)
+    {
+        if (string.IsNullOrWhiteSpace(option)) return false;
+        string s = option.Trim();
+        return s.Equals("No", StringComparison.OrdinalIgnoreCase)
+            || s.Equals("Pass", StringComparison.OrdinalIgnoreCase)
+            || s.Equals("Done", StringComparison.OrdinalIgnoreCase)
+            || s.Equals("Cancel", StringComparison.OrdinalIgnoreCase)
+            || s.Equals("do nothing", StringComparison.OrdinalIgnoreCase)
+            || s.Equals("0", StringComparison.Ordinal);
+    }
+
+    private static RevealAnswer DeterministicRevealAnswer(string? yesLabel, string? noLabel)
+    {
+        string yes = string.IsNullOrWhiteSpace(yesLabel) ? "Yes" : yesLabel;
+        string no = string.IsNullOrWhiteSpace(noLabel) ? "No" : noLabel;
+        string pick = DeterministicChoiceFallback(new[] { yes, no });
+        return string.Equals(pick, yes, StringComparison.OrdinalIgnoreCase)
+            ? RevealAnswer.Yes
+            : RevealAnswer.No;
+    }
     private string AskChoiceForPlayer(int decidingPlayer, Card? card, string title, string prompt, params string[] options)
     {
         if (options == null || options.Length == 0) return "";
@@ -3021,13 +3070,19 @@ public partial class TableWindow : Window
             picked = cardPick?.Name ?? clean[_autoSeedRng.Next(clean.Length)];
         }
 
-        if (timed && !_choiceRandomIfUnanswered)
+        if (_revealTimedOut)
+        {
+            string fallback = DeterministicChoiceFallback(clean);
+            if (!string.IsNullOrEmpty(fallback))
+                picked = fallback;
+        }
+        else if (timed && !_choiceRandomIfUnanswered)
         {
             _session.Log.Add(_session.TurnNumber, $"P{decidingPlayer}", $"{title}: unanswered");
             StatusText.Text = $"{title}: no answer.";
             return "";
         }
-        string how = timed ? "No answer in time - random choice" : "Chosen";
+        string how = _revealTimedOut ? "No answer in time - fallback" : "Chosen";
         _session.Log.Add(_session.TurnNumber, $"P{decidingPlayer}",
             $"{title}: {picked}" + (timed ? " (timeout, random)" : ""));
         StatusText.Text = $"{title}: {picked}";
@@ -3163,57 +3218,35 @@ public partial class TableWindow : Window
         {
             _pendingChoiceResponses.Remove(corr);
             StatusText.Text = "Net ChoiceRequest send failed: " + ex.Message;
-            if (!_choiceRandomIfUnanswered)
-                return "";
-            return clean[_autoSeedRng.Next(clean.Length)];
+            return DeterministicChoiceFallback(clean);
         }
 
         var result = WaitForChoiceResponse(corr, tcs, timeoutMs);
         _pendingChoiceResponses.Remove(corr);
 
-        if (result != null && !string.IsNullOrWhiteSpace(result.SelectedOption))
+        if (result != null && result.TimedOut != true && !string.IsNullOrWhiteSpace(result.SelectedOption))
         {
-            if (result.TimedOut == true && !_choiceRandomIfUnanswered)
-            {
-                _session.Log.Add(_session.TurnNumber, $"P{decidingPlayer}", $"{title}: unanswered");
-                StatusText.Text = $"{title}: no answer.";
-                return "";
-            }
             string picked = result.SelectedOption!;
-            // Prefer exact match; else keep guest string if in list; else random.
             if (!clean.Contains(picked))
             {
                 var hit = clean.FirstOrDefault(o =>
                     string.Equals(o, picked, StringComparison.OrdinalIgnoreCase));
-                if (hit == null && !_choiceRandomIfUnanswered)
-                {
-                    _session.Log.Add(_session.TurnNumber, $"P{decidingPlayer}",
-                        $"{title}: unanswered — '{picked}' is not a destination");
-                    StatusText.Text = $"{title}: no answer.";
-                    return "";
-                }
-                picked = hit ?? clean[_autoSeedRng.Next(clean.Length)];
+                picked = hit ?? DeterministicChoiceFallback(clean);
             }
-            bool timed = result.TimedOut == true;
             _session.Log.Add(_session.TurnNumber, $"P{decidingPlayer}",
-                $"{title}: {picked}" + (timed ? " (remote timeout)" : " (remote)"));
+                $"{title}: {picked} (remote)");
             StatusText.Text = $"{title}: {picked}";
             return picked;
         }
 
-        // Host-side timeout simulation. Required-move does not invent a destination.
-        if (!_choiceRandomIfUnanswered)
-        {
-            _session.Log.Add(_session.TurnNumber, $"P{decidingPlayer}",
-                $"{title}: unanswered — ship stays");
-            StatusText.Text = $"{title}: no answer.";
-            return "";
-        }
-        string fallback = clean[_autoSeedRng.Next(clean.Length)];
+        string fallback = DeterministicChoiceFallback(clean);
         _session.Log.Add(_session.TurnNumber, $"P{decidingPlayer}",
-            $"{title}: {fallback} (Host timeout, random — Guest did not answer)");
-        StatusText.Text = $"{title}: {fallback} (timeout)";
-        AnnounceChoiceResult(card, title, $"No answer from P{decidingPlayer} in time — random choice:\n{fallback}");
+            $"{title}: {fallback} (Host timeout, fallback)");
+        StatusText.Text = string.IsNullOrEmpty(fallback)
+            ? $"{title}: no answer."
+            : $"{title}: {fallback} (timeout)";
+        if (!string.IsNullOrEmpty(fallback))
+            AnnounceChoiceResult(card, title, "No answer in time: " + fallback);
         return fallback;
     }
 
@@ -3235,6 +3268,13 @@ public partial class TableWindow : Window
             };
             timer.Tick += (_, _) =>
             {
+                if (_netGraceForceChoiceFallback)
+                {
+                    _netGraceForceChoiceFallback = false;
+                    timer.Stop();
+                    frame.Continue = false;
+                    return;
+                }
                 if (_netGraceActive)
                 {
                     pausedAt ??= DateTime.UtcNow;
@@ -5863,7 +5903,7 @@ public partial class TableWindow : Window
         {
             _pendingChoiceResponses.Remove(corr);
             StatusText.Text = "Net ResponseWindow send failed: " + ex.Message;
-            PassCurrentResponseWindow();
+            ApplyResponseTimeoutFallback();
             return;
         }
 
@@ -5884,14 +5924,14 @@ public partial class TableWindow : Window
             if (result == null)
                 _session.Log.Add(_session.TurnNumber, $"P{responder}",
                     "Pass (response) — Host timeout waiting for Guest");
-            PassCurrentResponseWindow();
+            ApplyResponseTimeoutFallback();
             if (!_stack.IsOpen)
                 BroadcastMaskedStateToGuest();
             return;
         }
 
         StatusText.Text = $"Net: unexpected response-window payload from P{responder} — treating as Pass.";
-        PassCurrentResponseWindow();
+        ApplyResponseTimeoutFallback();
         if (!_stack.IsOpen)
             BroadcastMaskedStateToGuest();
     }
@@ -5941,7 +5981,13 @@ public partial class TableWindow : Window
         };
         _responseWindowTimer.Tick += (_, _) =>
         {
-            if (_netGraceActive) return;
+            if (_netGraceActive && !_netGraceForceChoiceFallback) return;
+            if (_netGraceForceChoiceFallback)
+            {
+                _netGraceForceChoiceFallback = false;
+                ApplyResponseTimeoutFallback();
+                return;
+            }
             double left = (_responseWindowDeadlineUtc - DateTime.UtcNow).TotalSeconds;
             int secLeft = (int)Math.Ceiling(Math.Max(0, left));
             if (ThinkTrayCountdown != null && ThinkTrayBorder?.Visibility == Visibility.Visible)
@@ -5950,15 +5996,7 @@ public partial class TableWindow : Window
                     : $"{secLeft}s";
 
             if (left <= 0)
-            {
-                if (_stack.Top?.IsMandatory == true)
-                {
-                    // Mandatory responses cannot pass by timeout
-                    return;
-                }
-                StopResponseWindowTimer();
-                PassCurrentResponseWindow();
-            }
+                ApplyResponseTimeoutFallback();
         };
         _responseWindowTimer.Start();
 
@@ -6135,6 +6173,29 @@ public partial class TableWindow : Window
         else
             target = _stack.Top?.TargetCard ?? _stack.Top?.Card;
         BeginPlayCardStack(card, isResponse: true, target: target);
+    }
+
+    private void ApplyResponseTimeoutFallback()
+    {
+        if (_stack.Top?.IsMandatory == true)
+        {
+            var first = _currentLegalResponses.FirstOrDefault(item => item?.Card != null);
+            if (first != null)
+            {
+                _session.Log.Add(_session.TurnNumber, $"P{_stack.ResponsePlayer}",
+                    $"Mandatory response timeout: {first.Card.Name}");
+                StatusText.Text = $"Mandatory response timeout: {first.Card.Name}.";
+                ExecuteLegalResponse(first);
+                return;
+            }
+            _session.Log.Add(_session.TurnNumber, $"P{_stack.ResponsePlayer}",
+                "Mandatory response timeout: no legal card, stack resolves.");
+            CloseResponseWindowUi();
+            if (_stack.IsOpen)
+                ResolveEntireStack();
+            return;
+        }
+        PassCurrentResponseWindow();
     }
 
     private void PassCurrentResponseWindow()
@@ -10918,7 +10979,7 @@ public partial class TableWindow : Window
                     CorrelationId = dto.CorrelationId,
                     Kind = NetChoiceDto.Kinds.Choice,
                     TargetPlayer = dto.TargetPlayer,
-                    SelectedOption = requiredMoveAsk ? "" : (dto.Options?.FirstOrDefault() ?? ""),
+                    SelectedOption = requiredMoveAsk ? "" : DeterministicChoiceFallback(dto.Options),
                     TimedOut = true
                 });
             }
@@ -11007,7 +11068,14 @@ public partial class TableWindow : Window
         };
         _responseWindowTimer.Tick += (_, _) =>
         {
-            if (_netGraceActive) return;
+            if (_netGraceActive && !_netGraceForceChoiceFallback) return;
+            if (_netGraceForceChoiceFallback)
+            {
+                _netGraceForceChoiceFallback = false;
+                StopResponseWindowTimer();
+                SendGuestResponsePass(timedOut: true);
+                return;
+            }
             double left = (_responseWindowDeadlineUtc - DateTime.UtcNow).TotalSeconds;
             int secLeft = (int)Math.Ceiling(Math.Max(0, left));
             if (ThinkTrayCountdown != null && ThinkTrayBorder?.Visibility == Visibility.Visible)
@@ -11185,15 +11253,24 @@ public partial class TableWindow : Window
     private void EndNetReconnectGrace(bool expired)
     {
         if (!_netGraceActive && !expired) return;
+        bool forceFallback = expired && (
+            _pendingChoiceResponses.Count > 0
+            || _revealFrame != null
+            || _responseWindowTimer?.IsEnabled == true);
         _netGraceActive = false;
+        _netGraceForceChoiceFallback = forceFallback;
         _netGraceTimer?.Stop();
         try { _netResumeAcceptCts?.Cancel(); } catch { /* ignore */ }
-        ApplyNetGraceClockExtension();
-        if (!expired) return;
+        ApplyNetGraceClockExtension(skipResponse: forceFallback);
+        if (!expired)
+        {
+            _netGraceForceChoiceFallback = false;
+            return;
+        }
         _netSession?.AbandonAfterGrace();
     }
 
-    private void ApplyNetGraceClockExtension()
+    private void ApplyNetGraceClockExtension(bool skipResponse = false)
     {
         if (_netGraceStartedUtc == default) return;
         var paused = DateTime.UtcNow - _netGraceStartedUtc;
@@ -11201,7 +11278,7 @@ public partial class TableWindow : Window
         if (paused <= TimeSpan.Zero) return;
         if (_idleTurnDeadlineUtc == _idleDeadlineAtGraceStart && _idleTurnDeadlineUtc != default)
             _idleTurnDeadlineUtc += paused;
-        if (_responseWindowDeadlineUtc == _responseDeadlineAtGraceStart && _responseWindowDeadlineUtc != default)
+        if (!skipResponse && _responseWindowDeadlineUtc == _responseDeadlineAtGraceStart && _responseWindowDeadlineUtc != default)
             _responseWindowDeadlineUtc += paused;
     }
 
