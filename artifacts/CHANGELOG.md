@@ -1,3 +1,11 @@
+## 2026-09-29 - Card-list result names player, pick, and effect card
+
+- *Auftrag*: Pepsch. Beide Fenster zeigen die abgelegte Karte (Q-Net) nach Static Warp Bubble. Die Zeile war nur "Discarded: Q-Net." Der Satz soll den Spieler nennen, der gewaehlt hat, die gewaehlte Karte, die Karte die den Effekt ausloest, und wem diese Effektkarte gehoert. Dieselbe Zeile auf jedem Fenster, das das Ergebnis sehen darf. Gezeigt-gegen-verdeckt bleibt: TAK und SWB weiter auf beiden Fenstern; eine noch verdeckte Handkarte nicht beim Gegner. Hotseat unveraendert.
+- *Satz*: `FormatCardListResult`. Gleicher Owner: "Player 1's Telepathic Alien Kidnappers revealed Data — guessed Personnel, discarded." Anderer Owner: "Player 1 discarded Q-Net to Player 2's Static Warp Bubble." Fehlt der Owner: "Player 1 discarded Q-Net to Static Warp Bubble."
+- *Gleiche Form, Sichtbarkeit unveraendert*: Q's Tent, Special Download, Betazoid Gift Box, Frame of Mind (Waehler ist der Gegner des Versuchers; Seed-Owner nicht erfunden), Vulcan Mindmeld, Hidden Agenda ("Player 1 flipped … face up.", die Agenda ist die Karte selbst).
+- *Satz bleibt*: benannter Download (verursachende Karte steckt nicht in der Methode), Alien Parasites (Wahl ist Modus plus Schiff, Dilemma-Owner nicht sicher), `AnnounceChoiceResult` (Timeout; kann noch eine verdeckte Handkarte nennen, wird nicht gespiegelt). Picker ohne Ergebnis-Dialog unveraendert.
+- *Scope*: TableWindow.xaml.cs. Kein Push master.
+
 ## 2026-09-29 - Shown or discarded card result on both windows
 
 - *Auftrag*: Pepsch. Die Wahl fuer Static Warp Bubble und Telepathic Alien Kidnappers liegt auf dem richtigen Fenster. Die Meldung danach, welche Karte es war, nur auf P1. Ergebnis folgt der Karte: gezeigt oder abgelegt sehen beide; eine verdeckte Handkarte bleibt beim Spieler, der sie sehen darf. Gleicher Spiegel wie Attempt-Reveal: Entscheider hat OK, der andere sieht das Face ohne Klick. Hotseat unveraendert. Keine neue Kartenregel, wo gezeigt-gegen-verdeckt nicht schon feststeht.
