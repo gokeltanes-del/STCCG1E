@@ -1,3 +1,12 @@
+## 2026-09-29 - Personnel battle meet, Federation may not initiate
+
+- *Auftrag*: Pepsch nach dem Guest-Personnel-Battle. Zwei Premiere-Fehler. Gleicher Branch. Kein Push master. Hotseat gehorcht derselben Regel, nicht nur der Guest-Pfad.
+- *Abgelehnt*: Crew eines Schiffs gegen die Crew eines anderen Schiffs am selben Ort. Personnel Battle nur Away Team gegen Away Team auf derselben Planetenmission, oder Crews die schon auf demselben Schiff oder derselben Facility sind. Raummission ist kein Away-Team-Kampf. Kein Boarding, kein Beamen an Bord, kein neuer Karteneffekt.
+- *Abgelehnt*: Federation initiiert keinen Personnel Battle und keinen Ship Battle, auch nicht als Counter-Attack in der naechsten Runde. Ein frueherer Angriff setzt nur die Voraussetzung, Wartime Conditions spielen zu duerfen. Erlaubnis gibt nur diese Karte, solange sie wirklich im Spiel liegt, gegen die Affiliation die sie nennt. Borg bleibt die bestehende Ausnahme (7.4.1).
+- *Bleibt legal*: Nicht-Federation Away Team auf einem Planeten. Crews schon auf demselben Schiff oder derselben Facility, auch Facility-Menue "Attack crew…". Nicht-Federation Ship Battle, wenn die bisherigen Ship-Battle-Regeln ihn erlauben. Federation verteidigt und Return Fire in dem Kampf, den der Gegner schon geoeffnet hat. Ein neuer Angriff spaeter ist kein Return Fire.
+- *Netz unveraendert*: Guest schickt nur den angreifenden Host. Host entscheidet legal oder illegal. Oeffentliches Ergebnis eines Kampfes der startet auf beiden Fenstern, OK nur beim Angreifer. Eine abgelehnte Initiation ist nur die Statuszeile (Guest ueber den bestehenden Net-Error). Kein Stack, kein Glow, kein Dialog auf keinem Fenster.
+- *Scope*: BattleRules.cs, TableWindow.xaml.cs. Kein Push master.
+
 ## 2026-09-29 - InitiatePersonnelBattle: Guest intent, Host apply
 
 - *Auftrag*: P2 (Guest) startet einen Personnel Battle. Die Aktion geht an den Host. Der Host entscheidet und wendet an, dann maskierter Broadcast. Der Guest seedet und mutiert nicht lokal. UI des handelnden Guests auf dem Guest-Fenster. Der Host oeffnet diese Battle-UI nicht fuer einen Guest-Kampf. Beide sehen das oeffentliche Ergebnis. Ein Schritt ohne Kanal bleibt liegen und wird hier genannt. Hotseat unveraendert. Kein Push master.
