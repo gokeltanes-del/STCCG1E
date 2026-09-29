@@ -501,7 +501,7 @@ PDF p. 96–98. Keine `(13.x)`-Nummern.
 | UI | LegalMoves beide Sitze | ✅ | `CollectBoth` + off-turn Interrupts |
 | UI | PlayOn-Parser | 🟡 | Interrupts ja; Events noch Katalog-`Place` |
 | UI | Netz / KI | ❌ | Hybrid geplant |
-| UI | TableWindow extract P0-D1 / P0-E1 | ❌ | `EXTRACT_REST.md`; Welle 1 Slices 1–9 DONE; nächstes Ticket Captain Go |
+| UI | TableWindow extract P0-D1 / P0-E1 | ➖ | Extract-Liste entfernt 2026-09-28; Decide bleibt in `*Rules`, Apply am Tisch (`ENGINE.md`) |
 
 ---
 

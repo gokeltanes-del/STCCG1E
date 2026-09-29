@@ -6,11 +6,10 @@ Stand: 2026-09-19. Scope: Premiere; ➖ = nicht jetzt.
 ✅ spielbar · 🟡 Lücken · ❌ fehlt · ➖ später
 
 Ein A–Z-Tracker **aller** Glossary-Lemmata aus dem PDF. Das ist die einzige Glossary-Datei.
-Owners: **Seven** (Matrix + Checklist-Sync) + **Spock** (Ist/Soll + Quellen). Data only on Captain Go.
 
 Aktiver Dokumentenschwerpunkt: Control / Owner / Present (🟡).
 
-Spalten: **Lemma** · **Status** · **Checklist-§** · **Notes/Code** · **Spock source**.
+Spalten: **Lemma** · **Status** · **Checklist-§** · **Notes/Code** · **Quelle**.
 
 Lemmata im PDF: **1025** unique.
 
@@ -24,7 +23,7 @@ Diese Zeilen stehen in der Checkliste bzw. in Appendix-A-Beispielen, sind im PDF
 
 ## 0–9 / Symbole
 
-| Lemma | Status | Checklist-§ | Notes/Code | Spock source |
+| Lemma | Status | Checklist-§ | Notes/Code | Quelle |
 |-------|--------|-------------|------------|--------------|
 | '45 Dom Perignon | ❌ | — | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.104 | — |
 | -related | ❌ | 12.13 | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.104 | — |
@@ -37,7 +36,7 @@ Diese Zeilen stehen in der Checkliste bzw. in Appendix-A-Beispielen, sind im PDF
 
 ## A
 
-| Lemma | Status | Checklist-§ | Notes/Code | Spock source |
+| Lemma | Status | Checklist-§ | Notes/Code | Quelle |
 |-------|--------|-------------|------------|--------------|
 | A Fast Ship Would Be Nice | ❌ | — | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.104 | — |
 | Aamin Marritza | ❌ | 10.3 | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.104 | — |
@@ -123,7 +122,7 @@ Diese Zeilen stehen in der Checkliste bzw. in Appendix-A-Beispielen, sind im PDF
 
 ## B
 
-| Lemma | Status | Checklist-§ | Notes/Code | Spock source |
+| Lemma | Status | Checklist-§ | Notes/Code | Quelle |
 |-------|--------|-------------|------------|--------------|
 | B'Rel | ❌ | 10.3.0.11 | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.117 | — |
 | Bajoran | ❌ | — | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.117 | — |
@@ -177,7 +176,7 @@ Diese Zeilen stehen in der Checkliste bzw. in Appendix-A-Beispielen, sind im PDF
 
 ## C
 
-| Lemma | Status | Checklist-§ | Notes/Code | Spock source |
+| Lemma | Status | Checklist-§ | Notes/Code | Quelle |
 |-------|--------|-------------|------------|--------------|
 | Calamarain | ❌ | 7.6 | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.123 | — |
 | cancel | ❌ | — | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.123 | — |
@@ -258,7 +257,7 @@ Diese Zeilen stehen in der Checkliste bzw. in Appendix-A-Beispielen, sind im PDF
 
 ## D
 
-| Lemma | Status | Checklist-§ | Notes/Code | Spock source |
+| Lemma | Status | Checklist-§ | Notes/Code | Quelle |
 |-------|--------|-------------|------------|--------------|
 | D'Tan | ❌ | Karte | CARD_TRACKER unknown. · PDF p.133 | CARD_TRACKER |
 | Dabo | ❌ | — | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.133 | — |
@@ -333,7 +332,7 @@ Diese Zeilen stehen in der Checkliste bzw. in Appendix-A-Beispielen, sind im PDF
 
 ## E
 
-| Lemma | Status | Checklist-§ | Notes/Code | Spock source |
+| Lemma | Status | Checklist-§ | Notes/Code | Quelle |
 |-------|--------|-------------|------------|--------------|
 | E.M.H. Program | ❌ | — | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.142 | — |
 | each turn | ❌ | — | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.142 | — |
@@ -383,7 +382,7 @@ Diese Zeilen stehen in der Checkliste bzw. in Appendix-A-Beispielen, sind im PDF
 
 ## F
 
-| Lemma | Status | Checklist-§ | Notes/Code | Spock source |
+| Lemma | Status | Checklist-§ | Notes/Code | Quelle |
 |-------|--------|-------------|------------|--------------|
 | Five of Eleven (Cyber Drone) | ➖ | — | Borg-adjacent Glossary — Premiere-Scope unless already verdrahtet (Hugh/Borg Ship Dilemma) · PDF p.133 | — |
 | facility | ❌ | 2.10, 4.4, 4.4.1, 6.3 | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.148 | — |
@@ -418,7 +417,7 @@ Diese Zeilen stehen in der Checkliste bzw. in Appendix-A-Beispielen, sind im PDF
 
 ## G
 
-| Lemma | Status | Checklist-§ | Notes/Code | Spock source |
+| Lemma | Status | Checklist-§ | Notes/Code | Quelle |
 |-------|--------|-------------|------------|--------------|
 | game deck | ❌ | 3.0 | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.151 | — |
 | game text | ❌ | — | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.151 | — |
@@ -439,7 +438,7 @@ Diese Zeilen stehen in der Checkliste bzw. in Appendix-A-Beispielen, sind im PDF
 
 ## H
 
-| Lemma | Status | Checklist-§ | Notes/Code | Spock source |
+| Lemma | Status | Checklist-§ | Notes/Code | Quelle |
 |-------|--------|-------------|------------|--------------|
 | Hail | 🟡 | Karte | CARD_TRACKER working; Glossary/Errata-Feinheiten nicht separat auditiert. Pepsch green: fly-by; two-ship table drop + Detail red debuff; SI nullify. tips Data/`d551d2e`/`529874e`/`cffa908`/`56ca9f0`/`4bee6cf`. · PDF p.152 | CARD_TRACKER |
 | hand weapon | ❌ | 10.3 | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.152 | — |
@@ -486,7 +485,7 @@ Diese Zeilen stehen in der Checkliste bzw. in Appendix-A-Beispielen, sind im PDF
 
 ## I
 
-| Lemma | Status | Checklist-§ | Notes/Code | Spock source |
+| Lemma | Status | Checklist-§ | Notes/Code | Quelle |
 |-------|--------|-------------|------------|--------------|
 | I Do Not Take Orders From You! | ❌ | — | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.157 | — |
 | I Tried To Warn You | ❌ | — | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.157 | — |
@@ -533,7 +532,7 @@ Diese Zeilen stehen in der Checkliste bzw. in Appendix-A-Beispielen, sind im PDF
 
 ## J
 
-| Lemma | Status | Checklist-§ | Notes/Code | Spock source |
+| Lemma | Status | Checklist-§ | Notes/Code | Quelle |
 |-------|--------|-------------|------------|--------------|
 | Ja'rod | ❌ | — | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.162 | — |
 | Jake and Nog | ❌ | — | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.162 | — |
@@ -547,7 +546,7 @@ Diese Zeilen stehen in der Checkliste bzw. in Appendix-A-Beispielen, sind im PDF
 
 ## K
 
-| Lemma | Status | Checklist-§ | Notes/Code | Spock source |
+| Lemma | Status | Checklist-§ | Notes/Code | Quelle |
 |-------|--------|-------------|------------|--------------|
 | K'chiQ | ❌ | — | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.162 | — |
 | Kahlest | ❌ | — | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.162 | — |
@@ -573,7 +572,7 @@ Diese Zeilen stehen in der Checkliste bzw. in Appendix-A-Beispielen, sind im PDF
 
 ## L
 
-| Lemma | Status | Checklist-§ | Notes/Code | Spock source |
+| Lemma | Status | Checklist-§ | Notes/Code | Quelle |
 |-------|--------|-------------|------------|--------------|
 | La Forge Maneuver | ❌ | Karte | CARD_TRACKER unknown. · PDF p.164 | CARD_TRACKER |
 | Lack of Preparation | ❌ | — | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.165 | — |
@@ -604,7 +603,7 @@ Diese Zeilen stehen in der Checkliste bzw. in Appendix-A-Beispielen, sind im PDF
 
 ## M
 
-| Lemma | Status | Checklist-§ | Notes/Code | Spock source |
+| Lemma | Status | Checklist-§ | Notes/Code | Quelle |
 |-------|--------|-------------|------------|--------------|
 | Madam Pulaski | ❌ | — | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.167 | — |
 | Madred | ❌ | — | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.167 | — |
@@ -664,7 +663,7 @@ Diese Zeilen stehen in der Checkliste bzw. in Appendix-A-Beispielen, sind im PDF
 
 ## N
 
-| Lemma | Status | Checklist-§ | Notes/Code | Spock source |
+| Lemma | Status | Checklist-§ | Notes/Code | Quelle |
 |-------|--------|-------------|------------|--------------|
 | Nine of Eleven (Interlink Drone) | ➖ | 10.1.0.2 | Borg-adjacent Glossary — Premiere-Scope unless already verdrahtet (Hugh/Borg Ship Dilemma) · PDF p.160 | — |
 | Nine of Seventeen (Multiplexor Drone) | ➖ | 7.4.3 | Borg-adjacent Glossary — Premiere-Scope unless already verdrahtet (Hugh/Borg Ship Dilemma) · PDF p.174 | — |
@@ -696,7 +695,7 @@ Diese Zeilen stehen in der Checkliste bzw. in Appendix-A-Beispielen, sind im PDF
 
 ## O
 
-| Lemma | Status | Checklist-§ | Notes/Code | Spock source |
+| Lemma | Status | Checklist-§ | Notes/Code | Quelle |
 |-------|--------|-------------|------------|--------------|
 | O'Brien and Kira | ❌ | — | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.177 | — |
 | Obelisk of Masaka | ❌ | — | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.177 | — |
@@ -739,7 +738,7 @@ Diese Zeilen stehen in der Checkliste bzw. in Appendix-A-Beispielen, sind im PDF
 
 ## P
 
-| Lemma | Status | Checklist-§ | Notes/Code | Spock source |
+| Lemma | Status | Checklist-§ | Notes/Code | Quelle |
 |-------|--------|-------------|------------|--------------|
 | P'Chan | ❌ | — | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.181 | — |
 | Palor Toff: Alien Trader | ❌ | Karte | CARD_TRACKER unknown. · PDF p.181 | CARD_TRACKER |
@@ -795,7 +794,7 @@ Diese Zeilen stehen in der Checkliste bzw. in Appendix-A-Beispielen, sind im PDF
 
 ## Q
 
-| Lemma | Status | Checklist-§ | Notes/Code | Spock source |
+| Lemma | Status | Checklist-§ | Notes/Code | Quelle |
 |-------|--------|-------------|------------|--------------|
 | Q the Referee | ❌ | — | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.186 | — |
 | Q's Fantasy Women | ❌ | — | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.187 | — |
@@ -823,7 +822,7 @@ Diese Zeilen stehen in der Checkliste bzw. in Appendix-A-Beispielen, sind im PDF
 
 ## R
 
-| Lemma | Status | Checklist-§ | Notes/Code | Spock source |
+| Lemma | Status | Checklist-§ | Notes/Code | Quelle |
 |-------|--------|-------------|------------|--------------|
 | Radioactive Garbage Scow | 🟡 | Karte | CARD_TRACKER working; Glossary/Errata-Feinheiten nicht separat auditiert. Pepsch green: Tractor Beam attach -> offset hang -> Fly follow -> EOT drop. tips Data through `9cd104f` (a4e4e5d/bf7a394/558fc4e/2c6a3f9/9cd104f). Spock Tractor Soll. · PDF p.189 | CARD_TRACKER |
 | Rager | ❌ | — | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.189 | — |
@@ -886,7 +885,7 @@ Diese Zeilen stehen in der Checkliste bzw. in Appendix-A-Beispielen, sind im PDF
 
 ## S
 
-| Lemma | Status | Checklist-§ | Notes/Code | Spock source |
+| Lemma | Status | Checklist-§ | Notes/Code | Quelle |
 |-------|--------|-------------|------------|--------------|
 | Saavik | ❌ | — | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.195 | — |
 | Six of Seventeen (Sabotage Drone) | ➖ | — | Borg-adjacent Glossary — Premiere-Scope unless already verdrahtet (Hugh/Borg Ship Dilemma) · PDF p.195 | — |
@@ -999,7 +998,7 @@ Diese Zeilen stehen in der Checkliste bzw. in Appendix-A-Beispielen, sind im PDF
 
 ## T
 
-| Lemma | Status | Checklist-§ | Notes/Code | Spock source |
+| Lemma | Status | Checklist-§ | Notes/Code | Quelle |
 |-------|--------|-------------|------------|--------------|
 | The Art of Diplomacy | ❌ | — | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.112 | — |
 | The Artificial Intelligence | ❌ | — | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.113 | — |
@@ -1093,7 +1092,7 @@ Diese Zeilen stehen in der Checkliste bzw. in Appendix-A-Beispielen, sind im PDF
 
 ## U
 
-| Lemma | Status | Checklist-§ | Notes/Code | Spock source |
+| Lemma | Status | Checklist-§ | Notes/Code | Quelle |
 |-------|--------|-------------|------------|--------------|
 | U.S.S. Dauntless | ❌ | — | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.217 | — |
 | U.S.S. Enterprise-B | ❌ | — | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.217 | — |
@@ -1113,7 +1112,7 @@ Diese Zeilen stehen in der Checkliste bzw. in Appendix-A-Beispielen, sind im PDF
 
 ## V
 
-| Lemma | Status | Checklist-§ | Notes/Code | Spock source |
+| Lemma | Status | Checklist-§ | Notes/Code | Quelle |
 |-------|--------|-------------|------------|--------------|
 | V'Ger | ❌ | — | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.220 | — |
 | Valeris | ❌ | 7.9 | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.220 | — |
@@ -1138,7 +1137,7 @@ Diese Zeilen stehen in der Checkliste bzw. in Appendix-A-Beispielen, sind im PDF
 
 ## W
 
-| Lemma | Status | Checklist-§ | Notes/Code | Spock source |
+| Lemma | Status | Checklist-§ | Notes/Code | Quelle |
 |-------|--------|-------------|------------|--------------|
 | Wajahut | ❌ | — | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.221 | — |
 | walking | ❌ | 7.1.2 | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.222 | — |
@@ -1161,13 +1160,13 @@ Diese Zeilen stehen in der Checkliste bzw. in Appendix-A-Beispielen, sind im PDF
 
 ## X
 
-| Lemma | Status | Checklist-§ | Notes/Code | Spock source |
+| Lemma | Status | Checklist-§ | Notes/Code | Quelle |
 |-------|--------|-------------|------------|--------------|
 | Xindi | ❌ | — | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.224 | — |
 
 ## Y
 
-| Lemma | Status | Checklist-§ | Notes/Code | Spock source |
+| Lemma | Status | Checklist-§ | Notes/Code | Quelle |
 |-------|--------|-------------|------------|--------------|
 | you | ❌ | — | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.224 | — |
 | You Dirty Rat | ❌ | — | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.224 | — |
@@ -1178,7 +1177,7 @@ Diese Zeilen stehen in der Checkliste bzw. in Appendix-A-Beispielen, sind im PDF
 
 ## Z
 
-| Lemma | Status | Checklist-§ | Notes/Code | Spock source |
+| Lemma | Status | Checklist-§ | Notes/Code | Quelle |
 |-------|--------|-------------|------------|--------------|
 | zero | ❌ | — | Lemma im PDF; Status unbekannt (nicht grün markiert) · PDF p.224 | — |
 
@@ -1186,10 +1185,9 @@ Diese Zeilen stehen in der Checkliste bzw. in Appendix-A-Beispielen, sind im PDF
 
 ### Process
 
-1. Spock füllt Soll + Quellen für die aktive Welle.
-2. Seven markiert Status aus Checklist + bekannten `Game/*Rules` / HANDOFF (Data nur mit Captain Go).
+1. Soll und Quellen für die aktive Welle aus dem PDF füllen.
+2. Status aus Checklist, `Game/*Rules` und HANDOFF markieren.
 3. Passende `RULES_CHECKLIST.md`-Zellen syncen, wenn sich der Status ändert.
-4. Kein Engine-C# aus Seven.
 
 Status-Zählung Glossary: ✅ 6 · 🟡 56 · ❌ 896 · ➖ 67.
 

@@ -1,4 +1,24 @@
-## 2026-09-28 - Spaceline span overlay subsystem (Option B)
+## 2026-09-28 - Spaceline Insert: Q-Net/Gaps as columns (Dual-EXE)
+
+- Q-Net und Gaps sind eigene `_spacelineOrder`-Spalten zwischen den Endpunkt-Missionen (Mission | Span | Mission), nicht nur Gap-Mid-Overlay.
+- `InsertSpanColumn` / `EnsureSpanColumnsInOrder`. `GetSpacelineColumns` = nur Mission/Time/Pod als Endpunkte.
+- `NetSpacelineSnapshot.ColumnInstanceIds` = volle Spaltenfolge; `MissionIds` ohne Spans; Guest Apply aus Snapshot, kein Canvas-X.
+- Scope: `TableWindow.xaml.cs`, `GameSave.cs`. Tip-Hash `8083785`. Basis `b4aca0e`. Smoke Dual-EXE HOLD.
+
+
+
+- PlayCard löst nur aus der Hand des handelnden Spielers bzw. frischem Seed, nie über Table-Name (#268).
+- Host-Wahrheit: `MissionIds` + `Spans[{SpanInstanceId,Kind,Left,Right}]`. Guest Apply nur aus Snapshot.
+- `DumpSpacelineTruth` bleibt (`STCCG_DUMP_SPACELINE=1`). AskChoice-Pfade `ab2e67a` unverändert.
+- Scope: TableWindow + Network. Tip-Hash `b4aca0e`. Basis `563d3eb`.
+
+## 2026-09-28 - Dual-EXE spaceline Host↔Guest Capture/Apply (SpacelineInstanceIds)
+
+- Mission-Spalten-InstanceIds Host→Guest rund; Spans bleiben Overlay.
+- AskChoiceForPlayer / RunKidnappers / PickHandCardToDiscard unverändert (`ab2e67a`).
+- Tip-Hash `563d3eb`. Basis `2d7acc7`.
+
+
 
 - *Auftrag (FREIGABE Option B)*: Analyse `GROK_TEMP/spaceline-span-sync-analysis.md` befolgen - eine Wahrheit: Order=Missionen; Spans=Overlay Endpoints; Capture ohne Spans; Relayout+PaintSpans; Seed/Index mission-only; BoardStore aus Paar. Kein Hybrid. TAK ab2e67a / Overlay a9af295 unangetastet. Kein Refactor C.
 - *Root cause*: Hybrid seit 5b043b0 - Relayout missions-only Paint, aber PlaceSpan/Pin inserteten Spans weiter in `_spacelineOrder` + `save.Spaceline`; Seed/IndexOfMission span-verseucht; Dual-EXE Float/Desync.

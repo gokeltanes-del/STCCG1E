@@ -1,35 +1,33 @@
 # Compendium 2.7.4 — Features backlog
 
 Quelle: `rules/Compendium_Rulebook.pdf`. Ablauf: `IMPLEMENT.md`. Feinliste: `RULES_CHECKLIST.md`.
-Stand: 2026-09-19. Living list — **Seven owns ranking.**
+Stand: 2026-09-28. Living list. Netz ist aktiv (siehe `HANDOFF.md`); Premiere-Tracker bleibt parallel P0.
 
 ✅ spielbar (Pepsch green) · 🟡 CODED / ACTIVE / partial · ❌ offen · ➖ geparkt / später
 
-Siehe auch: `HANDOFF.md`, `PROJECT.md`, `CARD_TRACKER.md` (Jadzia), `EXTRACT_REST.md`.
+Siehe auch: `HANDOFF.md`, `PROJECT.md`, `CARD_TRACKER.md`.
 Status-Updates nur aus bekanntem Pepsch-green / HANDOFF — **kein DONE ohne Beleg.**
-Ranking (Pepsch/Captain 2026-09-19): **Premiere CARD_TRACKER-Welle ist P0-top**; Extract P0-D1/E1/S1 nachrangig, bis der Premiere-Tracker leer von unknown/partial ist.
+Ranking: Premiere unknown/partial zuerst, außer Pepsch öffnet ein Netz-Ticket.
 
 ---
 
-## P0 — Premiere wave zuerst (dann Extract / Smoke)
+## P0 — Premiere und Netz
 
 | § | Thema | Status | Code / Hinweis |
 |---|--------|--------|----------------|
-| 7.2 | Premiere Dilemma wave | 🟡 | **P0-top.** ACTIVE einzeln; Pause bei **#26 Q** bis Captain Go. Next unknown: Q; REM Fatigue skip/park. (RGS / Rebel / Sarjenka / Shaka / TCL already working in CARD_TRACKER — nicht neu grün markiert.) |
-| — | Premiere A card waves | 🟡 | **P0-top / Captain Go.** Aktive Premiere-Prio (nicht ➖). CARD_TRACKER unknown/partial zuerst; nicht in Extract-Commits mischen |
-| P0-D1 | TableWindow extract: `AttachedDilemma` → Board | ❌ | Nachrangig bis Premiere-Tracker leer von unknown/partial (Captain 2026-09-19). `EXTRACT_REST.md`; Welle 1 Slices 1–9 DONE |
-| P0-E1 | TableWindow extract: `AttachedEvent` → Board | ❌ | Nachrangig bis Premiere-Tracker leer von unknown/partial (Captain 2026-09-19). Persist/Battle ticketed (not deferred) |
-| P0-S1 | Dual-Run BoardStore abschließen | ❌ | Nachrangig bis Premiere-Tracker leer von unknown/partial (Captain 2026-09-19). EXTRACT_REST; nach ersten Persist-Ticks |
+| Netz | Host/Gast Dual-EXE | 🟡 | Aktiv `HANDOFF.md`. Tips bis `8083785` (Span-Spalten). Smoke zwei Q-Nets P1=P2 HOLD. |
+| 7.2 | Premiere Dilemma wave | 🟡 | **P0-top.** Pause bei **#26 Q** bis Pepsch freigibt. REM Fatigue skip/park. |
+| — | Premiere A card waves | 🟡 | CARD_TRACKER unknown/partial zuerst. |
 | UX | Status-UX / Stasis-Held / Detail | ✅ | DONE tip `bf1f2ab` |
 | UX / 7.2.2 | AT-Detail Effekt-Gruppen + Firestorm EFFECT | ✅ | Pepsch green 2026-09-12; Parasites-Strip `2976b61`; Stopped/Quarantined/Stasis `702f644`; Firestorm Overlay `87e297d` |
 | 7.1.1 | Artifact Beaming / Affiliation-Free | 🟡 | CODED `TreatyRules.CanOccupyHost` / `CardsCompatibleUnderTreaties`; Varon-T Karte Pepsch green 2026-09-12; **Beaming-smoke laut FEATURES weiter offen** |
 | 6.5.1 / 5 | Response Window (Hotseat UX) | 🟡 | CODED Silent Badge, Think Tray `[R]`, Pass Space, Presets 2s/3s/5s/10s; **Pepsch smoke still open** |
 | 7.2.2.3 | Dilemma Cure System | ✅ | DONE Pepsch green: Archer, Alien Abduction, Phased Matter 2026-09-13; Fix Team-Stop / Curable AttachContinue 7.2.2.3 & 7.2.6 |
 | 7.1.3 / 7.4 | Staffing/Fly/Battle Gaps G2–G7 | ✅ | DONE `2cd5bc8` |
-| 12.3 / 12.4 | Glossary/Compendium Control/Owner/Present | 🟡 | ACTIVE (Docs); Seven + Spock; Tracker nur `GLOSSARY_COVERAGE.md` |
-| — | Rule cites (Code + Detailfenster) | 🟡 | ACTIVE Pepsch 2026-09-18 Standing Practice; Decide/Apply mit Compendium-§ / Glossary-Lemma; Retrofit kein Big-Bang; Coverage bei Seven |
+| 12.3 / 12.4 | Glossary/Compendium Control/Owner/Present | 🟡 | ACTIVE (Docs); Tracker nur `GLOSSARY_COVERAGE.md` |
+| — | Rule cites (Code + Detailfenster) | 🟡 | ACTIVE Pepsch 2026-09-18 Standing Practice; Decide/Apply mit Compendium-§ / Glossary-Lemma; Retrofit kein Big-Bang; Coverage in den Statusdateien |
 | UX / 7.0.1 | Occupancy Badge UX | 🟡 | CODED tip `034ee39` (Pepsch lock, smoke pending). Host footer P1 cyan / P2 orange; Planet=Away Team, Ship/Outpost/Station=Crew; personnel only; dual badges; no glow. **DONE only after Pepsch green** |
-| 7.2.2 | Armus | ✅ | Pepsch green 2026-09-19 (Captain) |
+| 7.2.2 | Armus | ✅ | Pepsch green 2026-09-19  |
 | Glossary TCL | Temporal Causality Loop | ✅ | DONE Pepsch green `e88860e` (Glossary-treu, skip EOT / Compendium 8) |
 | UX / 7.1.4 | Dock vertikal (Ships+Outposts gleiche X-Spalte) | 🟡 | Handoff Sofort-Smoke; Korrektur nach 4a61fa1; nicht als Pepsch-green in FEATURES geführt |
 
@@ -40,8 +38,8 @@ Ranking (Pepsch/Captain 2026-09-19): **Premiere CARD_TRACKER-Welle ist P0-top**;
 | 7.2.2 / Microvirus | Microvirus Opp-Chooser / DNA-Filter | ➖ | Parked; Karte selbst CARD_TRACKER working (Pos+neg Choose OK) |
 | 7.2.2 / REM | REM Fatigue | ➖ | Parked; Pause der Dilemma-Welle |
 | 7.2.2.3 | Cure-Present-Scope (Ship) | ➖ | Parked; Ktarian ship-hosted cure already narrowed |
-| 7.2.2 / Parasites | Alien Parasites Hotseat-Chooser | ➖ | Parked Chooser; Neg Control green; **Control-Bug in Fix** (Captain 2026-09-19) |
-| 11.1 | Hugh vs Borg Ship (extract P1 / P4-H1) | ➖ | Hugh CanRespond Dilemma-only DONE; Borg Ship EOT still EXTRACT_REST |
+| 7.2.2 / Parasites | Alien Parasites Hotseat-Chooser | ➖ | Parked Chooser; Neg Control green; **Control-Bug in Fix** (2026-09-19) |
+| 11.1 | Hugh vs Borg Ship | ➖ | Hugh CanRespond Dilemma-only DONE; Borg-Ship-EOT weiter in `BorgShipRules` / EOT-Rest |
 | 7.10 | IM FindMission | ➖ | Parked |
 | UX / 7.2.5 | Mission Solved visuelle Kennzeichnung | ➖ | Pepsch 2026-09-19 später: Detailfenster-Text wer gelöst hat; Missionskarte ~1/3 vertikal Richtung lösendem Player. Kein Go. |
 | 7.1.5 | dump@Gaps | ➖ | Parked |
@@ -50,7 +48,7 @@ Ranking (Pepsch/Captain 2026-09-19): **Premiere CARD_TRACKER-Welle ist P0-top**;
 
 | § | Thema | Status | Code / Hinweis |
 |---|--------|--------|----------------|
-| 7.2.2 | Armus | ✅ | Pepsch green 2026-09-19 (Captain) |
+| 7.2.2 | Armus | ✅ | Pepsch green 2026-09-19  |
 | Glossary TCL | Temporal Causality Loop | ✅ | `e88860e` Pepsch green 2026-09-18 |
 | 7.2.2 | Impassable Door | ✅ | `be5062b` |
 | 10.2.7 | Hyper-Aging Quarantäne | ✅ | `46eab15` (Karte); allgemeine §10.2.7 weiter 🟡 |

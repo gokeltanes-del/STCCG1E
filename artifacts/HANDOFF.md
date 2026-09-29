@@ -1,34 +1,38 @@
-# HANDOFF ├ö├ç├Â STCCG 1E
+# HANDOFF — STCCG 1E
 
-**Owner:** Captain Ôö¼├Ç **Stand:** 2026-09-28 Ôö¼├Ç **Ort:** Josef `C:\Dev\StarTrekCCG\StarTrekCCG`
+**Stand:** 2026-09-28 · **Ort:** Josef `C:\Dev\StarTrekCCG\StarTrekCCG` · **GitHub `master`:** `8083785`
 
-Nur aktueller BrÔö£ÔòØckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.md` (Jadzia), `FEATURES.md` (Seven), Coverage.
-Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF_ARCHIVE_*.md`.
+Nur aktueller Brückenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.md`, `FEATURES.md`, Coverage.
 
 ---
 
-## Jetzt aktiv ├ö├ç├Â Multiplayer / Network-Modus
+## Jetzt aktiv — Multiplayer / Network-Modus
 
-**Status:** Span overlay subsystem Option B getippt (2d7acc7). Order=Missionen; Spans=PaintSpans Overlay Endpoints; Capture ohne Spans. Pipeline 5b043b0/ab2e67a/a9af295. **Smoke Dual-EXE: zwei Q-Nets verschiedene Gaps -> gleiche Spaceline P1=P2, kein Float/Extra-Width/Stack. HOLD.**
+**Status:** Spaceline Insert — Q-Net/Gaps als eigene Spalten auf `master` (`8083785`). Snapshot `ColumnInstanceIds` + `MissionIds` + `Spans`. Smoke Dual-EXE (zwei Q-Nets, gleiche Spaceline P1=P2) noch **HOLD**.
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
 
 ### Architektur
 - Client-Server: Host = P1 + autoritative Wahrheit; Gast = P2.
-- TCP + JSON, kein externes Netzwerk-Framework.
-- Nutzen: `GameAction`, `LegalMoves`, `EngineAuthority`, `GameSave`-JSON; Mode-Stub bereits in der UI.
+- TCP + JSON in `StarTrekCCG/Network/`.
+- Nutzen: `GameAction`, `LegalMoves`, `EngineAuthority`, `GameSave`-JSON.
 
 ### Roadmap
-1. **Phase 1 ├ö├ç├Â Transport:** `NetMessage`, `NetServer`, `NetClient` unter `StarTrekCCG/Network/`.
-2. **Phase 2 ├ö├ç├Â Lobby/UI:** Host / Join / Localhost. ├ö├Ñ├å Tip `2aa9790`.
-3. **Phase 3 ├ö├ç├Â Sync:** GameAction ├ö├Ñ├å Host EngineAuthority ├ö├Ñ├å maskierter State. ├ö├Ñ├å Tip df904b4.
-4. **Phase 4 — Dialoge/Timing:** ChoiceRequest / ChoiceResponse. → Tip e102b47.
-5. **Phase 5 ├ö├ç├Â HÔö£├▒rtung:** Disconnect, Reconnect, Abbruch.
+1. Phase 1 Transport: `NetMessage`, `NetServer`, `NetClient` — getippt.
+2. Phase 2 Lobby/UI: Host / Join / Localhost — getippt `2aa9790`.
+3. Phase 3 Sync: GameAction → Host EngineAuthority → maskierter State — getippt `df904b4`.
+4. Phase 4 Dialoge/Timing: ChoiceRequest / ChoiceResponse — getippt `e102b47`.
+5. Phase 5 Härtung: Disconnect, Reconnect, Abbruch — offen.
 
-**Code-Stand (Data 2026-09-28):** Span overlay subsystem B 2d7acc7; Q-Net Extra-Width+SWB Face 5b043b0; Span gap InstanceIds fef7075; TAK+SWB AskChoice ab2e67a; Responsive Overlays a9af295. Kein Push durch Bots. **HOLD.**
+### Letzte Tips auf `master` (2026-09-28)
+- Spaceline Insert: Q-Net/Gaps eigene `_spacelineOrder`-Spalten (Mission | Span | Mission). Snapshot `ColumnInstanceIds`. `InsertSpanColumn` / `EnsureSpanColumnsInOrder`. Tip `8083785`.
+- PlayCard nur aus Hand / frischem Seed; Host-Snapshot MissionIds + Spans. Tip `b4aca0e`.
+- Dual-EXE Spaceline Host↔Guest Capture/Apply. Tip `563d3eb`.
+- Span overlay Option B (älter, durch `8083785` überholt für Order). Tip `2d7acc7`.
 
 ---
 
 ## Zuletzt (kurz)
+
 - Span overlay subsystem (Option B): _spacelineOrder mission-only; PaintSpans Gap-Mid Endpoints; Capture Spaceline ohne Spans; BoardStore aus AE-Paar; Seed/Index mission-only; BuildSpacelineDisplayOrder weg. Tip-Hash 2d7acc7. Pipeline 5b043b0/ab2e67a/a9af295 erhalten. **HOLD.**
 - Q-Net second span no Extra-Width stack + SWB Face: Relayout missions-only columns; spans gap-mid Pin; AsMissionEndpointBorder; SWB hand→Face strip. Tip-Hash 5b043b0. Pipeline fef7075/ab2e67a/a9af295 erhalten. **HOLD.**
 - Spaceline span gap = mission InstanceIds + Host dock recover (Q-Net): HostInstanceId/Host2InstanceId; Apply/SpanEndpoints/DisplayOrder per InstanceId; EnsureBoardExtents deferred; PinDockables after span Relayout; Fly-in no Host TargetNorm for spans. Tip-Hash fef7075. Pipeline ab2e67a/a9af295 erhalten. **HOLD.**
@@ -99,23 +103,23 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 - Network Phase 3 Sync getippt: NetActionDto/NetStateMask/NetPlaySession + TableWindow EndPhase/EndTurn. Tip-Hash df904b4.
 - Network Phase 2 Lobby getippt: `NetworkLobbyWindow` + ModeNetwork-Anbindung. Tip-Hash `2aa9790`.
 - Network Phase 1 Scaffold getippt: `StarTrekCCG/Network/` (NetMessage/NetServer/NetClient). Tip-Hash `027f993`.
-- EXTRACT P2├ö├ç├┤P5 und viele Premiere-Tips: `CHANGELOG.md` (`EXTRACT_REST.md` fehlt lokal unter artifacts).
-- Tracker bleibt aktiv (Jadzia). Behauptete LÔö£├éschung vom 26.09. war falsch ├ö├ç├Â Datei und Docs-Verweise existieren weiter.
+- Ältere Extract- und Premiere-Tips: `CHANGELOG.md`. `EXTRACT_REST.md` ist entfernt.
+- Tracker bleibt aktiv. Datei und Docs-Verweise existieren weiter.
 
 ---
 
 ## Offen / Park
 
-### Karten (Tracker, Jadzia 2026-09-27)
+### Karten (Tracker 2026-09-27)
 - Premiere: ~108 `working` / 6 `partial` / 249 `unknown`.
-- Partials u. a.: *Vulcan Mindmeld*, *Crystalline Entity*, *Iconian Computer Weapon*, *Alien Probe*, *Escape Pod*, *Q* (Continuum-Park). CHANGELOG/alter HANDOFF hatten fÔö£ÔòØr die ersten drei ├ö├ç├ùPepsch grÔö£ÔòØn├ö├ç┬ú ├ö├ç├Â Tracker noch `partial`, bis Pepsch klar abnimmt.
+- Partials u. a.: *Vulcan Mindmeld*, *Crystalline Entity*, *Iconian Computer Weapon*, *Alien Probe*, *Escape Pod*, *Q* (Continuum-Park). Tracker bleibt `partial`, bis Pepsch klar abnimmt.
 
-### Park / Smoke (Seven + ONLINE_WORKFLOW)
+### Park / Smoke
 - Continuum / Q
 - Plays-on / Plays-as F3-Smoke
-- AI Freundes-Report Beaming; ETA `21b2d52` Retest; Artifact-Y Load intermittent
+- Freundes-Report Beaming; ETA `21b2d52` Retest; Artifact-Y Load intermittent
 - FEATURES Smoke offen: Beaming 7.1.1, Response-Window Hotseat, Occupancy Badge
-- FEATURES-Zeilen Extract P0-D1/E1/S1 sind veraltet vs. CHANGELOG (P0├ö├ç├┤P5 Tips) ├ö├ç├Â Seven zieht bei Gelegenheit nach
+- FEATURES-Zeilen Extract P0-D1/E1/S1 sind veraltet vs. CHANGELOG — bei Gelegenheit nachziehen
 
 ---
 

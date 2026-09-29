@@ -1,12 +1,12 @@
 # STCCG 1E ? Card Expansion Tracker
 
-Last updated: 2026-09-20 (Jadzia ? Pepsch green Energy Vortex + Incoming Messages) Scope: **Premiere** (`PR`) + **Alternate Universe** catalogued. **Priority: finish all unfinished Premiere cards first.** AU is logged only; not prioritized unless already wired. Owner: Jadzia Dax.
+Last updated: 2026-09-27 (GitHub `master` `b4aca0e`). Scope: **Premiere** (`PR`) + **Alternate Universe** catalogued. **Priority: finish unfinished Premiere cards; Netz-Fixes parallel nach HANDOFF.** AU is logged only; not prioritized unless already wired.
 
-## Priority (Captain / Pepsch 2026-09-19)
+## Priority (Pepsch 2026-09-19)
 
-1. **Premiere** `partial` ? Pepsch green/fail ? `working` or rework
-2. **Premiere** `unknown` / `not-started` ? assess + wire until `working`
-3. **AU** ? note only; no new AU work unless already in flight / Captain Go
+1. **Premiere** `partial` → Pepsch green/fail → `working` or rework
+2. **Premiere** `unknown` / `not-started` → assess + wire until `working`
+3. **AU** — note only; no new AU work unless already in flight / Freigabe
 
 ## Status legend
 
@@ -16,9 +16,9 @@ Last updated: 2026-09-20 (Jadzia ? Pepsch green Energy Vortex + Incoming Message
 | `not-started` | Known gap, no work yet |
 | `partial` | Some rules/UI wired, incomplete |
 | `working` | Playable / green tip confirmed |
-| `blocked` | Waiting on rules, extract, or Captain Go |
+| `blocked` | Waiting on rules, extract, or Freigabe |
 
-Columns: **Status** ? **Notes** ? **Source** (who / tip / date). Source tip: when Data/Spock/Seven/Captain report, update the row.
+Columns: **Status** · **Notes** · **Source** (Tip-Hash / Datum / Pepsch-green).
 
 ## Summary counts
 
