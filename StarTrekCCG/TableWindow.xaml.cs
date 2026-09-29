@@ -103,6 +103,8 @@ public partial class TableWindow : Window
     /// the Host window does not open them. Hotseat and a Host-owned attempt leave this false.
     /// </summary>
     private bool _attemptRemoteSurface;
+    /// <summary>Host is applying this guest's action. Info reveals belong on that window.</summary>
+    private int _infoRevealPlayer;
     /// <summary>Player who is attempting while <see cref="_attemptRemoteSurface"/> is set. 0 = none.</summary>
     private int _attemptSurfacePlayer;
     private readonly GameSession _session = new();
@@ -2487,6 +2489,42 @@ public partial class TableWindow : Window
     }
 
     /// <summary>
+    /// Ok or Yes/No that only the guest answers. Existing ChoiceRequest kind=reveal.
+    /// No host modal. Ack wait is WaitForChoiceResponse, not a second protocol.
+    /// </summary>
+    private bool TryRouteGuestInfoReveal(
+        int? surfacePlayer,
+        Card? card,
+        string title,
+        string body,
+        RevealButtons buttons,
+        string? subtitle,
+        string? yesLabel,
+        string? noLabel,
+        IReadOnlyList<Card>? faces,
+        out RevealAnswer answer)
+    {
+        answer = RevealAnswer.Ok;
+        if (_gameMode != GameMode.Network || _netSession is not { IsHost: true })
+            return false;
+        if (_guestHandlingInboundChoice)
+            return false;
+
+        int who = surfacePlayer is 1 or 2
+            ? surfacePlayer.Value
+            : (_infoRevealPlayer is 1 or 2
+                ? _infoRevealPlayer
+                : (_activePlayer is 1 or 2 ? _activePlayer : 0));
+        if (who is not (1 or 2) || who == _netSession.LocalPlayer)
+            return false;
+
+        answer = ShowRevealRemoteOnGuest(
+            card, title, body, buttons, subtitle, yesLabel, noLabel, who,
+            shareFace: false, faces: faces, privateToTarget: true);
+        return true;
+    }
+
+    /// <summary>
     /// Host → Guest ChoiceRequest kind=reveal. Guest draws the catalog face and clicks.
     /// Encountered dilemma/artifact, and Mission solved: Host paints the same face (no click).
     /// Other prompts stay on the attempter. Timeout: OK, or a random Yes/No.
@@ -2501,7 +2539,8 @@ public partial class TableWindow : Window
         string? noLabel = null,
         int targetPlayer = 0,
         bool shareFace = false,
-        IReadOnlyList<Card>? faces = null)
+        IReadOnlyList<Card>? faces = null,
+        bool privateToTarget = false)
     {
         if (_netSession is not { IsHost: true })
             return RevealAnswer.Ok;
@@ -2556,7 +2595,7 @@ public partial class TableWindow : Window
         // Encounter / Mission solved, or a shown/discarded card: Host paints the same face (no click).
         // Guest still clicks. A personnel-battle result with no deaths still shares the text.
         var watchFaces = faces ?? (card != null ? new[] { card } : Array.Empty<Card>());
-        if (shareFace || (card != null && IsWatcherSharedReveal(card, title)))
+        if (!privateToTarget && (shareFace || (card != null && IsWatcherSharedReveal(card, title))))
         {
             string audience = faces != null && faces.Count != 1
                 ? "Both players see this result. Guest acknowledges."
@@ -2616,6 +2655,13 @@ public partial class TableWindow : Window
         // Guest-owned attempt: this overlay belongs on the Guest. Host keeps applying.
         if (TryRouteAttemptReveal(surfacePlayer, card, title, body, buttons, subtitle, yesLabel, noLabel, out var routed))
             return routed;
+
+        // Outside an attempt: guest Ok / YesNo still belongs on the guest.
+        // Host does not open a modal and does not PushFrame here.
+        if (!_guestHandlingInboundChoice
+            && buttons is RevealButtons.Ok or RevealButtons.YesNo
+            && TryRouteGuestInfoReveal(surfacePlayer, card, title, body, buttons, subtitle, yesLabel, noLabel, faces, out var guestReveal))
+            return guestReveal;
 
         _revealCurrentCard = card;
         if (CardRevealOverlay == null)
@@ -2815,7 +2861,7 @@ public partial class TableWindow : Window
         bool mirrored = SendEncounterMirrorToGuest(card, title, body, mirrorSubtitle, open: true, publicResult: true);
         try
         {
-            ShowCardReveal(card, title, body, RevealButtons.Ok, subtitle);
+            ShowCardReveal(card, title, body, RevealButtons.Ok, subtitle, surfacePlayer: decidingPlayer);
         }
         finally
         {
@@ -2858,7 +2904,7 @@ public partial class TableWindow : Window
             primary, title, body, mirrorSubtitle, open: true, publicResult: true, faces: faces);
         try
         {
-            ShowCardReveal(primary, title, body, RevealButtons.Ok, subtitle, faces: faces);
+            ShowCardReveal(primary, title, body, RevealButtons.Ok, subtitle, faces: faces, surfacePlayer: atkOwner);
         }
         finally
         {
@@ -11146,7 +11192,19 @@ public partial class TableWindow : Window
             return;
         }
 
-        if (!TryApplyNetAuthorizedAction(action))
+        int previousRevealPlayer = _infoRevealPlayer;
+        if (action.Player is 1 or 2 && action.Player != _netSession.LocalPlayer)
+            _infoRevealPlayer = action.Player;
+        bool applied;
+        try
+        {
+            applied = TryApplyNetAuthorizedAction(action);
+        }
+        finally
+        {
+            _infoRevealPlayer = previousRevealPlayer;
+        }
+        if (!applied)
         {
             // AttemptMission denies set StatusText (no crew, affiliation, missing ship).
             string msg = "Host could not apply " + action.Kind;
@@ -13581,7 +13639,19 @@ public partial class TableWindow : Window
                 StatusText.Text = "Net DENY: " + auth.Message;
                 return;
             }
-            if (!TryApplyNetAuthorizedAction(action))
+            int previousRevealPlayer = _infoRevealPlayer;
+        if (action.Player is 1 or 2 && action.Player != _netSession.LocalPlayer)
+            _infoRevealPlayer = action.Player;
+        bool applied;
+        try
+        {
+            applied = TryApplyNetAuthorizedAction(action);
+        }
+        finally
+        {
+            _infoRevealPlayer = previousRevealPlayer;
+        }
+        if (!applied)
                 return;
             BroadcastMaskedStateToGuest();
             return;
@@ -21718,7 +21788,7 @@ public partial class TableWindow : Window
                         if (stack[^1].Tag is Card bottom)
                         {
                             string msg = "Bottom seed card under " + mc.Name + ":\n" + bottom.Name + "\n" + (bottom.Text ?? "");
-                            ShowCardReveal(bottom, "Scan", msg, RevealButtons.Ok);
+                            ShowCardReveal(bottom, "Scan", msg, RevealButtons.Ok, surfacePlayer: controller);
                         }
                         break;
                     }
@@ -29217,7 +29287,7 @@ public partial class TableWindow : Window
 
         ShowCardReveal(bottom, "Full Planet Scan",
             $"Bottom seed under {mc.Name} (first encounter):\n{bottom.Name}\n{bottom.Type}\n{bottom.Text}",
-            RevealButtons.Ok);
+            RevealButtons.Ok, surfacePlayer: controller);
         StatusText.Text = $"Full Planet Scan: examined {bottom.Name} under {mc.Name}. Computer Skill + Geology stopped.";
         _session.Log.Add(_session.TurnNumber, $"P{controller}",
             $"Full Planet Scan on {ship.Name} @ {mc.Name} → {bottom.Name}");

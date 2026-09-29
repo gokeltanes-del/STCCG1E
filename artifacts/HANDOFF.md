@@ -6,9 +6,9 @@ Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.m
 
 ---
 
-## Jetzt aktiv — Schritt 2 Gast-Snapshot
+## Jetzt aktiv — Schritt 3 Gast-Reveal
 
-**Status:** Schritt 1 Heartbeat committed (66420c6). Schritt 2 Gast-Snapshot getippt. Test offen. Nicht gruen.
+**Status:** Schritte 1-2 committed (66420c6, 8d54aed). Schritt 3 Gast-Ok-Reveal getippt. Test offen. Nicht gruen.
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
 
 ### Architektur

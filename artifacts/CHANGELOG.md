@@ -1,3 +1,7 @@
+## 2026-09-29 - Guest Ok reveal is not a host modal
+
+- Spielbar, nicht gruen: Ok/YesNo nur fuer den Gast geht als ChoiceRequest kind=reveal ins Gast-Fenster. Kein Host-Modal. Host-Ok bleibt lokal. Hotseat gleich. Test offen.
+
 ## 2026-09-29 - Guest snapshot hides log, deck names, face-down attachments
 
 - Spielbar, nicht gruen: Gast-Kopie filtert Log (geheime Namen und unrevealed Seeds als (hidden)). DeckName des Gegners leer, eigener bleibt. Verdeckte AttachedEvents und pN.table FaceUp false ohne Namen. Host-Log unveraendert. Test offen.
