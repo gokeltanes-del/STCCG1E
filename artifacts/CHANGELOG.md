@@ -1,3 +1,14 @@
+## 2026-09-29 - InitiatePersonnelBattle: Guest intent, Host apply
+
+- *Auftrag*: P2 (Guest) startet einen Personnel Battle. Die Aktion geht an den Host. Der Host entscheidet und wendet an, dann maskierter Broadcast. Der Guest seedet und mutiert nicht lokal. UI des handelnden Guests auf dem Guest-Fenster. Der Host oeffnet diese Battle-UI nicht fuer einen Guest-Kampf. Beide sehen das oeffentliche Ergebnis. Ein Schritt ohne Kanal bleibt liegen und wird hier genannt. Hotseat unveraendert. Kein Push master.
+- *Guest schickt*: `GameAction.InitiatePersonnelBattle`. `Card` = angreifender Host (eigenes Schiff oder Mission mit eigenem Away Team), InstanceId. `Target` bleibt leer. Kein Stack, kein Glow, kein lokales Resolve.
+- *Host*: `EngineAuthority` (Execute, aktiver Spieler, Host-Karte) dann `TryApplyNetPersonnelBattle`. Kraefte aus der echten Tabelle, `BattleRules.CanInitiatePersonnelAttack`, dasselbe `BeginPersonnelBattleStack` wie Hotseat. Danach maskierter Broadcast. Aufloesung (Stun/Tod/Stop) bleibt auf dem Host, zweiter Broadcast am Stack-Ende.
+- *Ziel*: Gegner-Belegung ist vernebelt. Der Guest kann das Ziel nicht sehen und nicht anklicken. Ein legales Ziel: Host nimmt es. Mehrere: Choice-Kanal `Name #InstanceId` auf dem Guest (`AskChoiceForPlayer`). Kein Glow auf dem Host.
+- *Ergebnis*: `ShowPublicCardResult`. Angreifer hat OK. Das andere Fenster sieht denselben Satz (Pairings, Killed, Stopped) ohne Klick. Abbruch-Satz im Netz genauso; Hotseat bleibt die Statuszeile. Deny des Guests ist ein OK-Dialog auf dem Guest (`kind=reveal`), kein MessageBox auf dem Host.
+- *Antwortfenster*: bleibt beim Antwortenden (Phase 4). Verteidiger P1 auf dem Host. Guest-Antwort weiter `kind=responseWindow`.
+- *Kein Kanal, nicht erfunden*: Brett-Klick auf ein vernebeltes Ziel (Glow wird nicht gespiegelt). Liste ohne eindeutige InstanceId: kein Kampf, kein Host-Picker. Belegung des Gegners bleibt zu (12.12 Stub). `ShowHostContents` nach dem Kampf oeffnet ausserhalb von Beam nichts. Klingon Right of Vengeance startet den Folgekampf weiter auf dem Host, wenn der Interrupt dort aufgeloest wird; das Ergebnis-Dialog nutzt denselben oeffentlichen Satz.
+- *Scope*: GameAction.cs, EngineAuthority.cs, TableWindow.xaml.cs. Kein Push master.
+
 ## 2026-09-29 - Card-list result names player, pick, and effect card
 
 - *Auftrag*: Pepsch. Beide Fenster zeigen die abgelegte Karte (Q-Net) nach Static Warp Bubble. Die Zeile war nur "Discarded: Q-Net." Der Satz soll den Spieler nennen, der gewaehlt hat, die gewaehlte Karte, die Karte die den Effekt ausloest, und wem diese Effektkarte gehoert. Dieselbe Zeile auf jedem Fenster, das das Ergebnis sehen darf. Gezeigt-gegen-verdeckt bleibt: TAK und SWB weiter auf beiden Fenstern; eine noch verdeckte Handkarte nicht beim Gegner. Hotseat unveraendert.

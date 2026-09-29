@@ -53,6 +53,9 @@ public static class EngineAuthority
             case GameActionKind.AttemptMission:
                 return EvaluateAttempt(state, action);
 
+            case GameActionKind.InitiatePersonnelBattle:
+                return EvaluatePersonnelBattle(state, action);
+
             case GameActionKind.PlayCard:
             case GameActionKind.Respond:
             case GameActionKind.ActivateInPlay:
@@ -244,6 +247,39 @@ public static class EngineAuthority
             Card = mission,
             Message = result.Message,
             TemplateId = "attempt"
+        });
+        return result;
+    }
+
+    // Verb: personnel-battle
+    // Rule: 7.4.2 — Execute segment, active player, attacking host present.
+    // Forces and the opposing host are decided on the Host table (BattleRules), not here.
+    private static ApplyResult EvaluatePersonnelBattle(GameState state, GameAction action)
+    {
+        if (state.SeedPhase)
+            return ApplyResult.Deny("Not during seed.", "personnel-battle", action.Player);
+        if (state.Segment != GameSession.TurnSegment.Execute)
+            return ApplyResult.Deny(
+                "Personnel battle is an Execute order.",
+                "personnel-battle", action.Player);
+        if (action.Player != state.ActivePlayer)
+            return ApplyResult.Deny(
+                "Only the active player may initiate a personnel battle.",
+                "personnel-battle", action.Player);
+        if (action.Card == null)
+            return ApplyResult.Deny("No attacking force host.", "personnel-battle", action.Player);
+
+        string where = action.Target != null ? $" vs {action.Target.Name}" : "";
+        string msg = $"Personnel battle {action.Card.Name}{where} authorized.";
+        var result = ApplyResult.OkResult(msg, "personnel-battle");
+        result.Events.Add(new GameEvent
+        {
+            Kind = GameEventKind.Info,
+            Player = action.Player,
+            Card = action.Card,
+            Target = action.Target,
+            Message = msg,
+            TemplateId = "personnel-battle"
         });
         return result;
     }

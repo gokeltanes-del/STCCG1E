@@ -6196,8 +6196,17 @@ public partial class TableWindow : Window
             {
                 StopPersonnelTeam(a.AttackerTeam);
                 StopPersonnelTeam(a.DefenderTeam);
-                StatusText.Text =
+                string cancelled =
                     $"Personnel Battle cancelled ({a.CancelledBy}) – forces stopped.";
+                StatusText.Text = cancelled;
+                // Hotseat keeps the status line. Network: both windows see the same sentence.
+                if (_gameMode == GameMode.Network && _netSession is { IsHost: true })
+                {
+                    var face = a.AttackerTeam?.OfType<Border>().Select(b => b.Tag).OfType<Card>().FirstOrDefault()
+                        ?? a.DefenderTeam?.OfType<Border>().Select(b => b.Tag).OfType<Card>().FirstOrDefault();
+                    if (face != null)
+                        ShowPublicCardResult(a.Controller, face, "Personnel Battle", cancelled);
+                }
                 return;
             }
 
@@ -6410,7 +6419,7 @@ public partial class TableWindow : Window
                 klingonStrengthDoubled: a.KlingonStrengthDoubled);
             if (!result.Ok)
             {
-                ShowPlayError(result.Reason);
+                ShowPersonnelBattleFault(atkOwner, result.Reason);
                 return;
             }
 
@@ -6468,8 +6477,13 @@ public partial class TableWindow : Window
             }
 
             _session.Log.Add(_session.TurnNumber, $"P{atkOwner}", result.LogSummary);
-            ShowCardReveal(atkCards.FirstOrDefault() ?? defCards.FirstOrDefault(),
-                "Personnel Battle", result.LogSummary, RevealButtons.Ok);
+            // Public result: the attacker has OK. The other window sees the same text and does not click.
+            // Hotseat stays a local ShowCardReveal (ShowPublicCardResult).
+            var battleFace = atkCards.FirstOrDefault() ?? defCards.FirstOrDefault();
+            if (battleFace != null)
+                ShowPublicCardResult(atkOwner, battleFace, "Personnel Battle", result.LogSummary);
+            else
+                ShowCardReveal(null, "Personnel Battle", result.LogSummary, RevealButtons.Ok);
             StatusText.Text = result.LogSummary.Replace('\n', ' ');
             if (a.AttackerHost is Border src && src.Tag is Card sc)
                 ShowHostContents(src, sc);
@@ -10666,6 +10680,7 @@ public partial class TableWindow : Window
             return;
         }
         if (action.Kind is GameActionKind.Fly or GameActionKind.Beam or GameActionKind.InitiateShipBattle
+            or GameActionKind.InitiatePersonnelBattle
             or GameActionKind.AttemptMission or GameActionKind.TowScow)
         {
             if (action.Player != _session.ActivePlayer)
@@ -10726,7 +10741,7 @@ public partial class TableWindow : Window
         {
             // AttemptMission denies set StatusText (no crew, affiliation, missing ship).
             string msg = "Host could not apply " + action.Kind;
-            if (action.Kind == GameActionKind.AttemptMission)
+            if (action.Kind is GameActionKind.AttemptMission or GameActionKind.InitiatePersonnelBattle)
             {
                 string detail = StatusText.Text?.Trim() ?? "";
                 if (detail.Length > 0)
@@ -10749,6 +10764,7 @@ public partial class TableWindow : Window
             or GameActionKind.Fly
             or GameActionKind.Beam
             or GameActionKind.InitiateShipBattle
+            or GameActionKind.InitiatePersonnelBattle
             or GameActionKind.AttemptMission
             or GameActionKind.Respond
             or GameActionKind.TowScow;
@@ -10883,6 +10899,7 @@ public partial class TableWindow : Window
     /// Apply EndPhase / EndTurn / Pass / Draw on Host after AuthorizePlay OK.
     /// PlayCard: Host TryApplyNetPlayCard (Ship/Personnel/Equipment/Event); interrupts = P4.
     /// AttemptMission: Host TryApplyNetAttemptMission (same TryAttemptMission path as Hotseat).
+    /// InitiatePersonnelBattle: Host TryApplyNetPersonnelBattle (same stack as Hotseat).
     /// </summary>
     private bool TryApplyNetAuthorizedAction(GameAction action)
     {
@@ -10974,6 +10991,9 @@ public partial class TableWindow : Window
 
             case GameActionKind.InitiateShipBattle:
                 return TryApplyNetShipBattle(action);
+
+            case GameActionKind.InitiatePersonnelBattle:
+                return TryApplyNetPersonnelBattle(action);
 
             case GameActionKind.AttemptMission:
                 return TryApplyNetAttemptMission(action);
@@ -12664,6 +12684,149 @@ public partial class TableWindow : Window
         BeginShipBattleStack(atkBorder, atkCard, defBorder, defCard, atkOwner, defOwner);
         StatusText.Text = $"Net: P{atkOwner} Ship Battle {atkCard.Name} vs {defCard.Name}.";
         return true;
+    }
+
+    /// <summary>
+    /// Host: apply Guest personnel battle. Guest sent the attacking host only.
+    /// Opposing occupancy is fogged, so this method picks the legal target (or asks
+    /// the Guest over the choice channel) and opens the same stack Hotseat uses.
+    /// </summary>
+    private bool TryApplyNetPersonnelBattle(GameAction action)
+    {
+        // Verb: personnel-battle
+        // Rule: 7.4.2 — Host Apply is BeginPersonnelBattleStack. Broadcast follows a successful return.
+        if (_seedPhaseActive || _session.Match != GameSession.MatchPhase.Play)
+        {
+            StatusText.Text = "Net PersonnelBattle ignored: not in Match Play.";
+            return false;
+        }
+        if (_session.Segment != GameSession.TurnSegment.Execute)
+        {
+            StatusText.Text = "Net PersonnelBattle ignored: not in Execute segment.";
+            return false;
+        }
+        if (action.Card == null)
+        {
+            StatusText.Text = "Net PersonnelBattle: attacking host missing.";
+            return false;
+        }
+
+        int atkOwner = action.Player is 1 or 2 ? action.Player : _session.ActivePlayer;
+        if (_session.ActivePlayer is 1 or 2)
+            _activePlayer = _session.ActivePlayer;
+
+        var source = FindBorderForCard(action.Card) ?? FindBorderByInstanceId(action.Card.InstanceId);
+        if (source == null)
+        {
+            ShowPersonnelBattleFault(atkOwner, "Personnel battle: attacking host is not on the table.");
+            return false;
+        }
+
+        var targets = ListPersonnelBattleTargets(source, atkOwner);
+        Border? target = null;
+        if (action.Target != null)
+        {
+            target = FindBorderForCard(action.Target) ?? FindBorderByInstanceId(action.Target.InstanceId);
+            if (target == null || !targets.Contains(target))
+            {
+                ShowPersonnelBattleFault(atkOwner, "Personnel battle: that force is not a legal target.");
+                return false;
+            }
+        }
+        else if (targets.Count == 1)
+        {
+            target = targets[0];
+        }
+        else if (targets.Count == 0)
+        {
+            ShowPersonnelBattleFault(atkOwner, "No opposing personnel at this location.");
+            return false;
+        }
+        else if (!TryPickPersonnelBattleTarget(atkOwner, source, targets, out target))
+        {
+            return false;
+        }
+
+        if (target == null)
+        {
+            ShowPersonnelBattleFault(atkOwner, "Personnel battle: no target host.");
+            return false;
+        }
+
+        if (!TryOpenPersonnelBattle(source, target, atkOwner, out string deny, out _))
+        {
+            if (deny.Length > 0)
+                ShowPersonnelBattleFault(atkOwner, deny);
+            return false;
+        }
+
+        string srcName = (source.Tag as Card)?.Name ?? "?";
+        string dstName = (target.Tag as Card)?.Name ?? "?";
+        StatusText.Text = $"Net: P{atkOwner} Personnel Battle {srcName} vs {dstName}.";
+        _session.Log.Add(_session.TurnNumber, $"P{atkOwner}",
+            $"Net: Personnel battle {srcName} vs {dstName}");
+        return true;
+    }
+
+    /// <summary>
+    /// Several opposing hosts. Guest picks over the existing choice channel
+    /// (Name #InstanceId). No board-click highlight on the Host.
+    /// A list without a unique InstanceId is not offered.
+    /// </summary>
+    private bool TryPickPersonnelBattleTarget(
+        int actor, Border source, List<Border> targets, out Border target)
+    {
+        target = null!;
+        var labels = new List<string>();
+        var byId = new Dictionary<int, Border>();
+        foreach (var t in targets)
+        {
+            if (t.Tag is not Card c || c.InstanceId <= 0)
+            {
+                ShowPersonnelBattleFault(actor,
+                    "Personnel battle: a target host has no InstanceId, so it was not offered.");
+                return false;
+            }
+            string label = $"{(string.IsNullOrWhiteSpace(c.Name) ? "Host" : c.Name)} #{c.InstanceId}";
+            if (labels.Contains(label, StringComparer.Ordinal) || !byId.TryAdd(c.InstanceId, t))
+            {
+                ShowPersonnelBattleFault(actor,
+                    "Personnel battle: target hosts are not uniquely labeled, so none was chosen.");
+                return false;
+            }
+            labels.Add(label);
+        }
+
+        string picked = AskChoiceForPlayer(
+            actor,
+            source.Tag as Card,
+            "Personnel battle",
+            "Choose the opposing force.",
+            labels.ToArray());
+        int id = ParseInstanceIdFromChoiceLabel(picked);
+        if (id <= 0 || !byId.TryGetValue(id, out var found))
+        {
+            ShowPersonnelBattleFault(actor, "Personnel battle: that choice did not match a target host.");
+            return false;
+        }
+        target = found;
+        return true;
+    }
+
+    /// <summary>
+    /// Rule deny for a personnel battle. Guest actor: OK dialog on the Guest, no Host MessageBox.
+    /// Hotseat and the Host's own battle keep ShowPlayError.
+    /// </summary>
+    private void ShowPersonnelBattleFault(int actor, string message)
+    {
+        if (_gameMode == GameMode.Network && _netSession is { IsHost: true }
+            && actor is 1 or 2 && actor != _netSession.LocalPlayer)
+        {
+            ShowRevealRemoteOnGuest(null, "Illegal action", message, RevealButtons.Ok, null, targetPlayer: actor);
+            StatusText.Text = message;
+            return;
+        }
+        ShowPlayError(message);
     }
 
 
@@ -18147,7 +18310,7 @@ public partial class TableWindow : Window
                             LogTractorWithheldIfReady(cardBorder, card, null);
                         AddBtn("Attack ship…", (_, _) => BeginAttackMode(cardBorder, card));
                     }
-                    if (CanOfferPersonnelBattleFromShip(cardBorder))
+                    if (CanOfferPersonnelBattleFromShip(cardBorder) || GuestMayOfferPersonnelBattle(cardBorder))
                         AddBtn("Attack crew…", (_, _) => BeginPersonnelAttackFromHost(cardBorder));
                     if (GetHullDamage(cardBorder) > 0 && GetHullDamage(cardBorder) < 100)
                         AddBtn("Repair status", (_, _) => ShowRepairStatus(cardBorder, card));
@@ -18223,7 +18386,8 @@ public partial class TableWindow : Window
                         if (o == _activePlayer && (IsCrewType(c) || (c.Type ?? "").Contains("personnel", StringComparison.OrdinalIgnoreCase)))
                             awayTeam.Add(c);
                     }
-                if (GetPersonnelBordersAtHost(cardBorder, opponentOf: _activePlayer).Count > 0)
+                if (GetPersonnelBordersAtHost(cardBorder, opponentOf: _activePlayer).Count > 0
+                    || GuestMayOfferPersonnelBattle(cardBorder))
                     AddBtn("Attack away team…", (_, _) => BeginPersonnelAttackFromHost(cardBorder));
                 AddBtn("Solvable missions?", (_, _) => HighlightSolvableMissions(awayTeam));
                 if (!_solvedMissions.Contains(cardBorder))
@@ -31462,6 +31626,17 @@ public partial class TableWindow : Window
         return BattleRules.CanOfferPersonnelBattle(myCrew.Count > 0, hasOppOnShip || hasOppOnPlanet);
     }
 
+    /// <summary>
+    /// Guest cannot see opposing occupancy (fog). Offer the order from own personnel.
+    /// The Host denies when no opposing force is actually present.
+    /// </summary>
+    private bool GuestMayOfferPersonnelBattle(Border hostBorder)
+    {
+        if (_gameMode != GameMode.Network || _netSession is not { IsGuest: true })
+            return false;
+        return GetPersonnelBordersAtHost(hostBorder, ownerFilter: _activePlayer).Count > 0;
+    }
+
     private void BeginPersonnelAttackFromHost(Border hostBorder)
     {
         if (_session.Segment != GameSession.TurnSegment.Execute)
@@ -31484,41 +31659,28 @@ public partial class TableWindow : Window
             return;
         }
 
+        // Verb: personnel-battle
+        // Rule: 7.4.2. Guest sends the force host only. No local stack, no target glow.
+        // Opposing cards are fogged, so a board click here would not see them.
+        if (_gameMode == GameMode.Network && _netSession is { IsGuest: true })
+        {
+            if (hostBorder.Tag is not Card hostCard)
+            {
+                ShowPlayError("No host for this personnel battle.");
+                return;
+            }
+            var act = GameAction.PersonnelBattle(_netSession.LocalPlayer, hostCard);
+            ClearCardActionUi();
+            _ = SendGuestActionAsync(act);
+            StatusText.Text = $"Net: Personnel battle ({hostCard.Name}) sent — waiting for Host…";
+            return;
+        }
+
         ClearTargetHighlights();
         _actionSourceHost = hostBorder;
         _cardActionMode = CardActionMode.PersonnelAttackPick;
 
-        var targets = new List<Border>();
-
-        // 1) Gegner-Personal auf demselben Host
-        foreach (var b in GetPersonnelBordersAtHost(hostBorder, opponentOf: _activePlayer))
-        {
-            // Highlight den Host (nicht einzelne gestapelte Karten)
-            if (!targets.Contains(hostBorder))
-                targets.Add(hostBorder);
-            break;
-        }
-
-        // 2) Location: Mission + Dockables
-        Border? mission = string.Equals((hostBorder.Tag as Card)?.Type, "Mission", StringComparison.OrdinalIgnoreCase)
-            ? hostBorder
-            : FindMissionForDockable(hostBorder);
-
-        if (mission != null)
-        {
-            if (!ReferenceEquals(mission, hostBorder)
-                && GetPersonnelBordersAtHost(mission, opponentOf: _activePlayer).Count > 0)
-                targets.Add(mission);
-
-            foreach (var dock in GetDockablesUnderMission(mission))
-            {
-                if (ReferenceEquals(dock, hostBorder)) continue;
-                if (GetPersonnelBordersAtHost(dock, opponentOf: _activePlayer).Count > 0)
-                    targets.Add(dock);
-            }
-        }
-
-        targets = targets.Distinct().ToList();
+        var targets = ListPersonnelBattleTargets(hostBorder, _activePlayer);
         foreach (var t in targets)
             AddTargetHighlight(t, Color.FromArgb(120, 220, 80, 40));
 
@@ -31535,6 +31697,36 @@ public partial class TableWindow : Window
             "Click host with opposing personnel. Right-click = cancel.";
     }
 
+    /// <summary>Hosts at this location that have opposing unstopped personnel. Same list the glow used.</summary>
+    private List<Border> ListPersonnelBattleTargets(Border hostBorder, int attacker)
+    {
+        var targets = new List<Border>();
+
+        // Gegner-Personal auf demselben Host — highlight the host, not each stacked card.
+        if (GetPersonnelBordersAtHost(hostBorder, opponentOf: attacker).Count > 0)
+            targets.Add(hostBorder);
+
+        Border? mission = string.Equals((hostBorder.Tag as Card)?.Type, "Mission", StringComparison.OrdinalIgnoreCase)
+            ? hostBorder
+            : FindMissionForDockable(hostBorder);
+
+        if (mission != null)
+        {
+            if (!ReferenceEquals(mission, hostBorder)
+                && GetPersonnelBordersAtHost(mission, opponentOf: attacker).Count > 0)
+                targets.Add(mission);
+
+            foreach (var dock in GetDockablesUnderMission(mission))
+            {
+                if (ReferenceEquals(dock, hostBorder)) continue;
+                if (GetPersonnelBordersAtHost(dock, opponentOf: attacker).Count > 0)
+                    targets.Add(dock);
+            }
+        }
+
+        return targets.Distinct().ToList();
+    }
+
     private bool CompletePersonnelAttack(Border targetHost)
     {
         var sourceHost = _actionSourceHost;
@@ -31544,7 +31736,31 @@ public partial class TableWindow : Window
             return true;
         }
 
-        // Forces müssen an derselben Location sein
+        if (!TryOpenPersonnelBattle(sourceHost, targetHost, _activePlayer, out string deny, out bool clearClickUi))
+        {
+            if (deny.Length > 0)
+                ShowPlayError(deny);
+            if (clearClickUi)
+                ClearCardActionUi();
+            return true;
+        }
+
+        if (_gameMode == GameMode.Network && _netSession is { IsHost: true })
+            NotifyNetworkBoardChanged();
+        ClearCardActionUi();
+        return true;
+    }
+
+    /// <summary>
+    /// Hotseat and Host: same location, leader, affiliation, then BeginPersonnelBattleStack.
+    /// clearClickUi is false only for a click that should stay in target-pick mode.
+    /// </summary>
+    private bool TryOpenPersonnelBattle(
+        Border sourceHost, Border targetHost, int atkOwner, out string deny, out bool clearClickUi)
+    {
+        deny = "";
+        clearClickUi = false;
+
         Border? srcMission = string.Equals((sourceHost.Tag as Card)?.Type, "Mission", StringComparison.OrdinalIgnoreCase)
             ? sourceHost
             : FindMissionForDockable(sourceHost);
@@ -31552,39 +31768,35 @@ public partial class TableWindow : Window
             ? targetHost
             : FindMissionForDockable(targetHost);
 
-        // Auf demselben Schiff ohne Mission-Bezug: ok wenn gleicher Host
         bool sameHost = ReferenceEquals(sourceHost, targetHost);
         bool sameLocation = sameHost
             || (srcMission != null && dstMission != null && ReferenceEquals(srcMission, dstMission));
 
         if (!sameLocation)
         {
-            ShowPlayError("Target must be at the same location.");
-            return true;
+            deny = "Target must be at the same location.";
+            return false;
         }
 
-        var atkBorders = GetPersonnelBordersAtHost(sourceHost, ownerFilter: _activePlayer);
-        var defBorders = GetPersonnelBordersAtHost(targetHost, opponentOf: _activePlayer);
+        var atkBorders = GetPersonnelBordersAtHost(sourceHost, ownerFilter: atkOwner);
+        var defBorders = GetPersonnelBordersAtHost(targetHost, opponentOf: atkOwner);
 
         // Wenn Ziel-Mission und Quelle-Schiff: Away Team des Gegners auf Mission
         if (defBorders.Count == 0 && !ReferenceEquals(sourceHost, targetHost))
-            defBorders = GetPersonnelBordersAtHost(targetHost, opponentOf: _activePlayer);
+            defBorders = GetPersonnelBordersAtHost(targetHost, opponentOf: atkOwner);
 
         if (atkBorders.Count == 0 || defBorders.Count == 0)
         {
-            ShowPlayError("One of the forces is empty (already stopped?).");
-            ClearCardActionUi();
-            return true;
+            deny = "One of the forces is empty (already stopped?).";
+            clearClickUi = true;
+            return false;
         }
 
-        int atkOwner = _activePlayer;
         int defOwner = CardOwner(defBorders[0]);
         if (defOwner == 0) defOwner = atkOwner == 1 ? 2 : 1;
 
         var atkCards = atkBorders.Select(b => (Card)b.Tag!).ToList();
         var defCards = defBorders.Select(b => (Card)b.Tag!).ToList();
-
-        // Present inkl. Equipment am jeweiligen Host (Modifier)
         var atkPresent = GetAllCardsOnHost(sourceHost, atkOwner);
         var defPresent = GetAllCardsOnHost(targetHost, defOwner);
 
@@ -31592,15 +31804,15 @@ public partial class TableWindow : Window
             atkCards, defCards, atkOwner, defOwner, _wartimeVsAffiliation);
         if (!check.Ok)
         {
-            ShowPlayError(check.Reason);
-            ClearCardActionUi();
-            return true;
+            deny = check.Reason;
+            clearClickUi = true;
+            return false;
         }
 
         BeginPersonnelBattleStack(
             sourceHost, targetHost, atkBorders, defBorders,
             atkPresent, defPresent, atkOwner, defOwner);
-        ClearCardActionUi();
+        clearClickUi = true;
         return true;
     }
 
