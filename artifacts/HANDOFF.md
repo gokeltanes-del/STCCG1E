@@ -6,9 +6,9 @@ Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.m
 
 ---
 
-## Jetzt aktiv — Schritt 3 Gast-Reveal
+## Jetzt aktiv — Schritt 4 Reconnect
 
-**Status:** Schritte 1-2 committed (66420c6, 8d54aed). Schritt 3 Gast-Ok-Reveal getippt. Test offen. Nicht gruen.
+**Status:** Schritte 1-3 committed (66420c6, 8d54aed, 81cc501). Schritt 4 Verbindungsabbruch pausiert und Reconnect getippt. Test offen. Nicht gruen.
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
 
 ### Architektur

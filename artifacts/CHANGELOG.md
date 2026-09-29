@@ -1,3 +1,7 @@
+## 2026-09-29 - Guest drop pauses the same game
+
+- Spielbar, nicht gruen: Nach dem Heartbeat-Tod (~15s) bleibt dieselbe Partie offen. Host-Listener bleibt an (DropClient, kein Stop). 120s Grace, Choice- und Idle-Timer pausieren. Danach Disconnect wie bisher (Status, Brett bleibt, Listener zu). Token beim ersten Join, Resume nur P2 mit diesem Token. Reconnect sendet denselben maskierten GameSave (MaskForViewer, viewer 2). Hotseat unveraendert. Test offen.
+
 ## 2026-09-29 - Guest Ok reveal is not a host modal
 
 - Spielbar, nicht gruen: Ok/YesNo nur fuer den Gast geht als ChoiceRequest kind=reveal ins Gast-Fenster. Kein Host-Modal. Host-Ok bleibt lokal. Hotseat gleich. Test offen.

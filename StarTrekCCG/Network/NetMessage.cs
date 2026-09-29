@@ -31,6 +31,10 @@ public sealed class NetMessage
         public const string ChoiceResponse = "choiceResponse";
         /// <summary>Host after successful hand/interrupt play: both clients show fly-in overlay.</summary>
         public const string PlayReveal = "playReveal";
+        /// <summary>Host to guest, once: resume token for this game. Not a game rule.</summary>
+        public const string Session = "session";
+        /// <summary>New socket, first message: same guest, same game.</summary>
+        public const string Resume = "resume";
     }
 
     [JsonPropertyName("type")]

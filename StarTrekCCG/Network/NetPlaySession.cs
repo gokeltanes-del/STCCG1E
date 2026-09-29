@@ -26,6 +26,9 @@ public sealed class NetPlaySession : IDisposable
     private const int DeadAfterMs = 15000;
     private long _lastInboundTicks;
     private int _deadReported;
+    private int _loopGeneration;
+    private string? _sessionToken;
+    public const int ReconnectGraceMs = 120_000;
 
     public SessionRole Role { get; }
     public int LocalPlayer { get; }
@@ -52,6 +55,12 @@ public sealed class NetPlaySession : IDisposable
 
     /// <summary>Transport fault / disconnect.</summary>
     public event Action<string>? Disconnected;
+
+    /// <summary>Socket died. The game stays up; the listener is still open on the host.</summary>
+    public event Action<string>? TransportLost;
+
+    /// <summary>Guest: resume token for this game. The value is not written to the game log.</summary>
+    public event Action<string>? SessionTokenReceived;
 
     private NetPlaySession(SessionRole role, int localPlayer, NetServer? server, NetClient? client)
     {
@@ -84,7 +93,115 @@ public sealed class NetPlaySession : IDisposable
             throw new InvalidOperationException("Receive loop already started.");
         _sync = sync ?? SynchronizationContext.Current;
         var ct = _cts.Token;
-        _receiveTask = Task.Run(() => ReceiveLoopAsync(ct), ct);
+        var generation = Volatile.Read(ref _loopGeneration);
+        _receiveTask = Task.Run(() => ReceiveLoopAsync(ct, generation), ct);
+    }
+
+    /// <summary>
+    /// After the same guest is back on a new socket. The previous loop must not
+    /// mark that socket dead.
+    /// </summary>
+    public void RestartReceiveLoop()
+    {
+        ThrowIfDisposed();
+        var generation = Interlocked.Increment(ref _loopGeneration);
+        Interlocked.Exchange(ref _deadReported, 0);
+        Interlocked.Exchange(ref _lastInboundTicks, Environment.TickCount64);
+        var ct = _cts.Token;
+        _receiveTask = Task.Run(() => ReceiveLoopAsync(ct, generation), ct);
+    }
+
+    /// <summary>Host, once per game. A reconnect does not mint a new token.</summary>
+    public Task IssueSessionTokenAsync(CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        if (!IsHost)
+            throw new InvalidOperationException("Only the host issues the session token.");
+        if (string.IsNullOrEmpty(_sessionToken))
+            _sessionToken = Guid.NewGuid().ToString("N");
+        var payload = JsonSerializer.Serialize(new { token = _sessionToken, player = 2 });
+        var msg = NetMessage.Create(NetMessage.Types.Session, payloadJson: payload, seq: NextSeq());
+        return SendRawAsync(msg, cancellationToken);
+    }
+
+    public enum ResumeResult { Accepted, Rejected, TimedOut, Cancelled }
+
+    /// <summary>
+    /// Block until a socket arrives, then read one resume message.
+    /// A mismatch drops that socket and leaves the listener up.
+    /// </summary>
+    public async Task<ResumeResult> AcceptSameGuestAsync(CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        if (_server is null)
+            throw new InvalidOperationException("Only the host accepts a resume.");
+        await _server.AcceptClientAsync(cancellationToken).ConfigureAwait(false);
+        using var readCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        readCts.CancelAfter(TimeSpan.FromSeconds(10));
+        try
+        {
+            var msg = await _server.ReceiveAsync(readCts.Token).ConfigureAwait(false);
+            if (IsMatchingResume(msg))
+                return ResumeResult.Accepted;
+            DropAcceptedClient();
+            return ResumeResult.Rejected;
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            DropAcceptedClient();
+            return ResumeResult.TimedOut;
+        }
+        catch (OperationCanceledException)
+        {
+            DropAcceptedClient();
+            return ResumeResult.Cancelled;
+        }
+        catch
+        {
+            DropAcceptedClient();
+            return ResumeResult.Rejected;
+        }
+    }
+
+    public void DropAcceptedClient()
+    {
+        try { _server?.DropClient(); } catch { /* ignore */ }
+    }
+
+    public bool HostListening => _server?.IsListening == true;
+
+    /// <summary>Grace elapsed. Same end as a transport fault: listener closes, Disconnected fires.</summary>
+    public void AbandonAfterGrace()
+    {
+        if (_disposed) return;
+        Interlocked.Increment(ref _loopGeneration);
+        try { _server?.Stop(); } catch { /* ignore */ }
+        try { _client?.Disconnect(); } catch { /* ignore */ }
+        Post(() => Disconnected?.Invoke("Reconnect grace ended (120s)."));
+    }
+
+    private bool IsMatchingResume(NetMessage msg)
+    {
+        if (!string.Equals(msg.Type, NetMessage.Types.Resume, StringComparison.OrdinalIgnoreCase))
+            return false;
+        if (string.IsNullOrWhiteSpace(msg.PayloadJson) || string.IsNullOrEmpty(_sessionToken))
+            return false;
+        try
+        {
+            using var doc = JsonDocument.Parse(msg.PayloadJson);
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("token", out var tok) || !root.TryGetProperty("player", out var pl))
+                return false;
+            if (pl.ValueKind != JsonValueKind.Number || pl.GetInt32() != 2)
+                return false;
+            var token = tok.GetString();
+            return !string.IsNullOrEmpty(token)
+                && string.Equals(token, _sessionToken, StringComparison.Ordinal);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     public Task BroadcastStateAsync(GameSave masked, CancellationToken cancellationToken = default)
@@ -160,13 +277,15 @@ public sealed class NetPlaySession : IDisposable
         return SendRawAsync(msg, cancellationToken);
     }
 
-    private async Task ReceiveLoopAsync(CancellationToken ct)
+    private async Task ReceiveLoopAsync(CancellationToken ct, int generation)
     {
         Interlocked.Exchange(ref _lastInboundTicks, Environment.TickCount64);
-        _ = HeartbeatLoopAsync(ct);
+        _ = HeartbeatLoopAsync(ct, generation);
         try
         {
-            while (!ct.IsCancellationRequested && Volatile.Read(ref _deadReported) == 0)
+            while (!ct.IsCancellationRequested
+                   && Volatile.Read(ref _deadReported) == 0
+                   && generation == Volatile.Read(ref _loopGeneration))
             {
                 NetMessage? msg;
                 try
@@ -181,15 +300,19 @@ public sealed class NetPlaySession : IDisposable
                 {
                     if (ct.IsCancellationRequested || _disposed)
                         break;
-                    ReportDead(ex.Message);
+                    if (generation != Volatile.Read(ref _loopGeneration))
+                        break;
+                    ReportDead(ex.Message, generation);
                     break;
                 }
 
                 if (msg == null)
                     break;
+                if (generation != Volatile.Read(ref _loopGeneration))
+                    break;
 
                 Interlocked.Exchange(ref _lastInboundTicks, Environment.TickCount64);
-                HandleMessage(msg);
+                HandleMessage(msg, generation);
             }
         }
         catch (OperationCanceledException)
@@ -224,7 +347,7 @@ public sealed class NetPlaySession : IDisposable
     /// NAT keepalive. Ping is written on the socket every 5s. Any inbound packet
     /// (Ping, Pong, or a game message) resets the 15s dead timer. Not a game rule.
     /// </summary>
-    private async Task HeartbeatLoopAsync(CancellationToken ct)
+    private async Task HeartbeatLoopAsync(CancellationToken ct, int generation)
     {
         using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(PingIntervalMs));
         try
@@ -233,11 +356,13 @@ public sealed class NetPlaySession : IDisposable
             {
                 if (ct.IsCancellationRequested || _disposed || Volatile.Read(ref _deadReported) != 0)
                     return;
+                if (generation != Volatile.Read(ref _loopGeneration))
+                    return;
 
                 var silent = Environment.TickCount64 - Interlocked.Read(ref _lastInboundTicks);
                 if (silent >= DeadAfterMs)
                 {
-                    ReportDead("Connection timed out: no packet for 15s.");
+                    ReportDead("Connection timed out: no packet for 15s.", generation);
                     return;
                 }
 
@@ -254,25 +379,56 @@ public sealed class NetPlaySession : IDisposable
         {
             if (ct.IsCancellationRequested || _disposed)
                 return;
-            ReportDead(ex.Message);
+            if (generation != Volatile.Read(ref _loopGeneration))
+                return;
+            ReportDead(ex.Message, generation);
         }
     }
 
-    /// <summary>Same cleanup a socket fault already uses: close the transport, raise Disconnected once.</summary>
-    private void ReportDead(string reason)
+    /// <summary>
+    /// Heartbeat death. Drop the socket once and raise TransportLost.
+    /// The host listener stays open. Disconnected is only after the grace period.
+    /// </summary>
+    private void ReportDead(string reason, int generation)
     {
         if (_disposed)
             return;
+        if (generation != Volatile.Read(ref _loopGeneration))
+            return;
         if (Interlocked.Exchange(ref _deadReported, 1) != 0)
             return;
-        try { _server?.Stop(); } catch { /* ignore */ }
-        try { _client?.Disconnect(); } catch { /* ignore */ }
+        try
+        {
+            if (_server != null)
+                _server.DropClient();
+            else
+                _client?.Disconnect();
+        }
+        catch { /* ignore */ }
         var text = string.IsNullOrWhiteSpace(reason) ? "Connection lost." : reason;
-        Post(() => Disconnected?.Invoke(text));
+        Post(() => TransportLost?.Invoke(text));
     }
 
-    private void HandleMessage(NetMessage msg)
+    private void HandleMessage(NetMessage msg, int generation)
     {
+        if (string.Equals(msg.Type, NetMessage.Types.Session, StringComparison.OrdinalIgnoreCase))
+        {
+            if (!IsGuest || string.IsNullOrWhiteSpace(msg.PayloadJson)) return;
+            try
+            {
+                using var doc = JsonDocument.Parse(msg.PayloadJson);
+                if (!doc.RootElement.TryGetProperty("token", out var tok)) return;
+                var token = tok.GetString();
+                if (string.IsNullOrWhiteSpace(token)) return;
+                Post(() => SessionTokenReceived?.Invoke(token));
+            }
+            catch (Exception ex)
+            {
+                Post(() => ErrorReceived?.Invoke("Bad session payload: " + ex.Message));
+            }
+            return;
+        }
+
         if (string.Equals(msg.Type, NetMessage.Types.Action, StringComparison.OrdinalIgnoreCase))
         {
             if (!IsHost) return;
@@ -378,7 +534,7 @@ public sealed class NetPlaySession : IDisposable
 
         if (string.Equals(msg.Type, NetMessage.Types.Ping, StringComparison.OrdinalIgnoreCase))
         {
-            _ = ReplyPongAsync();
+            _ = ReplyPongAsync(generation);
             return;
         }
 
@@ -387,7 +543,7 @@ public sealed class NetPlaySession : IDisposable
             return;
     }
 
-    private async Task ReplyPongAsync()
+    private async Task ReplyPongAsync(int generation)
     {
         try
         {
@@ -397,7 +553,9 @@ public sealed class NetPlaySession : IDisposable
         {
             if (_disposed)
                 return;
-            ReportDead(ex.Message);
+            if (generation != Volatile.Read(ref _loopGeneration))
+                return;
+            ReportDead(ex.Message, generation);
         }
     }
 

@@ -412,6 +412,7 @@
                                 <RadioButton x:Name="ModeSingle" Content="Singleplayer (AI)" IsEnabled="False" Foreground="#666" GroupName="GameMode"/>
                             </StackPanel>
                             <Button Content="Open lobby…" Click="OpenLobby_Click" Height="28" Margin="0,0,0,10" FontSize="12" Cursor="Hand" Background="#3A3A48" Foreground="White" BorderThickness="0"/>
+                            <Button Content="Reconnect" Click="Reconnect_Click" Height="28" Margin="0,0,0,10" FontSize="12" Cursor="Hand" Background="#3A3A48" Foreground="White" BorderThickness="0"/>
                             <Button Content="Load deck…" Click="MenuLoadDeck_Click" Height="36" Margin="0,0,0,8" Cursor="Hand" Background="#3A3A48" Foreground="White" BorderThickness="0"/>
                             <Button Content="Create deck (Builder)…" Click="WelcomeDeckBuilder_Click" Height="36" Cursor="Hand" Background="#3A3A48" Foreground="White" BorderThickness="0"/>
                         </StackPanel>

@@ -80,6 +80,15 @@ public partial class TableWindow : Window
     private NetworkLobbyWindow? _networkLobby;
     private bool _networkLobbyConnected;
     private NetPlaySession? _netSession;
+    private bool _netGraceActive;
+    private DateTime _netGraceUntilUtc;
+    private DateTime _netGraceStartedUtc;
+    private DateTime _idleDeadlineAtGraceStart;
+    private DateTime _responseDeadlineAtGraceStart;
+    private System.Windows.Threading.DispatcherTimer? _netGraceTimer;
+    private CancellationTokenSource? _netResumeAcceptCts;
+    private string? _netGuestHost;
+    private int _netGuestPort;
     /// <summary>Phase 4: Host waits on Guest ChoiceResponse by correlationId.</summary>
     private readonly Dictionary<string, TaskCompletionSource<NetChoiceDto>> _pendingChoiceResponses = new();
     /// <summary>Guest: correlationId of inbound ChoiceRequest currently shown.</summary>
@@ -3218,12 +3227,25 @@ public partial class TableWindow : Window
         System.Windows.Threading.DispatcherTimer? timer = null;
         if (timeoutMs > 0)
         {
+            var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+            DateTime? pausedAt = null;
             timer = new System.Windows.Threading.DispatcherTimer
             {
-                Interval = TimeSpan.FromMilliseconds(Math.Max(200, timeoutMs))
+                Interval = TimeSpan.FromMilliseconds(200)
             };
             timer.Tick += (_, _) =>
             {
+                if (_netGraceActive)
+                {
+                    pausedAt ??= DateTime.UtcNow;
+                    return;
+                }
+                if (pausedAt != null)
+                {
+                    deadline += DateTime.UtcNow - pausedAt.Value;
+                    pausedAt = null;
+                }
+                if (DateTime.UtcNow < deadline) return;
                 timer.Stop();
                 frame.Continue = false;
             };
@@ -5919,6 +5941,7 @@ public partial class TableWindow : Window
         };
         _responseWindowTimer.Tick += (_, _) =>
         {
+            if (_netGraceActive) return;
             double left = (_responseWindowDeadlineUtc - DateTime.UtcNow).TotalSeconds;
             int secLeft = (int)Math.Ceiling(Math.Max(0, left));
             if (ThinkTrayCountdown != null && ThinkTrayBorder?.Visibility == Visibility.Visible)
@@ -10604,24 +10627,25 @@ public partial class TableWindow : Window
         if (server != null)
             _netSession = NetPlaySession.CreateHost(server, localPlayer: 1);
         else if (client != null)
+        {
             _netSession = NetPlaySession.CreateGuest(client, localPlayer: 2);
+            _netGuestHost = (lobby.HostBox.Text ?? string.Empty).Trim();
+            if (!int.TryParse((lobby.PortBox.Text ?? string.Empty).Trim(), out _netGuestPort))
+                _netGuestPort = 0;
+        }
         else
         {
             StatusText.Text = "Network: connected but no transport to detach.";
             return;
         }
 
-        _netSession.ActionReceived += OnNetActionReceived;
-        _netSession.StateReceived += OnNetStateReceived;
-        _netSession.ErrorReceived += OnNetErrorReceived;
-        _netSession.Disconnected += OnNetDisconnected;
-        _netSession.ChoiceRequestReceived += OnNetChoiceRequestReceived;
-        _netSession.ChoiceResponseReceived += OnNetChoiceResponseReceived;
-        _netSession.PlayRevealReceived += OnNetPlayRevealReceived;
+        HookNetSession(_netSession);
 
         var sync = SynchronizationContext.Current
                    ?? new System.Windows.Threading.DispatcherSynchronizationContext(Dispatcher);
         _netSession.StartReceiveLoop(sync);
+        if (_netSession.IsHost)
+            _ = IssueHostSessionTokenAsync();
 
         _networkLobbyConnected = true;
         EnsureNetworkModeFromSession();
@@ -10983,6 +11007,7 @@ public partial class TableWindow : Window
         };
         _responseWindowTimer.Tick += (_, _) =>
         {
+            if (_netGraceActive) return;
             double left = (_responseWindowDeadlineUtc - DateTime.UtcNow).TotalSeconds;
             int secLeft = (int)Math.Ceiling(Math.Max(0, left));
             if (ThinkTrayCountdown != null && ThinkTrayBorder?.Visibility == Visibility.Visible)
@@ -11023,6 +11048,284 @@ public partial class TableWindow : Window
         {
             StatusText.Text = "Net Pass send failed: " + ex.Message;
         }
+    }
+
+    private void HookNetSession(NetPlaySession session)
+    {
+        session.ActionReceived += OnNetActionReceived;
+        session.StateReceived += OnNetStateReceived;
+        session.ErrorReceived += OnNetErrorReceived;
+        session.Disconnected += OnNetDisconnected;
+        session.ChoiceRequestReceived += OnNetChoiceRequestReceived;
+        session.ChoiceResponseReceived += OnNetChoiceResponseReceived;
+        session.PlayRevealReceived += OnNetPlayRevealReceived;
+        session.TransportLost += OnNetTransportLost;
+        session.SessionTokenReceived += OnNetSessionToken;
+    }
+
+    private void UnhookNetSession(NetPlaySession session)
+    {
+        session.ActionReceived -= OnNetActionReceived;
+        session.StateReceived -= OnNetStateReceived;
+        session.ErrorReceived -= OnNetErrorReceived;
+        session.Disconnected -= OnNetDisconnected;
+        session.ChoiceRequestReceived -= OnNetChoiceRequestReceived;
+        session.ChoiceResponseReceived -= OnNetChoiceResponseReceived;
+        session.PlayRevealReceived -= OnNetPlayRevealReceived;
+        session.TransportLost -= OnNetTransportLost;
+        session.SessionTokenReceived -= OnNetSessionToken;
+    }
+
+    private async Task IssueHostSessionTokenAsync()
+    {
+        var session = _netSession;
+        if (session is not { IsHost: true }) return;
+        try
+        {
+            await session.IssueSessionTokenAsync().ConfigureAwait(true);
+            _session.Log.AddDebug(_session.TurnNumber, "Net", "Session token issued to the guest.");
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = "Network: could not issue session token: " + ex.Message;
+        }
+    }
+
+    private void OnNetSessionToken(string token)
+    {
+        if (_netSession is not { IsGuest: true }) return;
+        SaveGuestResume(token);
+        _session.Log.AddDebug(_session.TurnNumber, "Net", "Guest session token stored for reconnect.");
+    }
+
+    private static string GuestResumePath =>
+        System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "StarTrekCCG",
+            "guest-session.json");
+
+    private void SaveGuestResume(string token)
+    {
+        if (string.IsNullOrWhiteSpace(token) || string.IsNullOrWhiteSpace(_netGuestHost) || _netGuestPort <= 0)
+            return;
+        var dir = System.IO.Path.GetDirectoryName(GuestResumePath);
+        if (!string.IsNullOrEmpty(dir))
+            Directory.CreateDirectory(dir);
+        var json = JsonSerializer.Serialize(new
+        {
+            token,
+            host = _netGuestHost,
+            port = _netGuestPort,
+            player = 2
+        });
+        File.WriteAllText(GuestResumePath, json);
+    }
+
+    private bool TryReadGuestResume(out string token, out string host, out int port)
+    {
+        token = "";
+        host = "";
+        port = 0;
+        try
+        {
+            if (!File.Exists(GuestResumePath)) return false;
+            using var doc = JsonDocument.Parse(File.ReadAllText(GuestResumePath));
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("player", out var player) || player.GetInt32() != 2)
+                return false;
+            token = root.GetProperty("token").GetString() ?? "";
+            host = root.GetProperty("host").GetString() ?? "";
+            port = root.GetProperty("port").GetInt32();
+            return token.Length > 0 && host.Length > 0 && port is > 0 and < 65536;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private void OnNetTransportLost(string reason)
+    {
+        if (_netGraceActive || _netSession == null) return;
+        BeginNetReconnectGrace(reason);
+    }
+
+    private void BeginNetReconnectGrace(string reason)
+    {
+        _netGraceActive = true;
+        _netGraceStartedUtc = DateTime.UtcNow;
+        _netGraceUntilUtc = _netGraceStartedUtc.AddMilliseconds(NetPlaySession.ReconnectGraceMs);
+        _idleDeadlineAtGraceStart = _idleTurnDeadlineUtc;
+        _responseDeadlineAtGraceStart = _responseWindowDeadlineUtc;
+        StatusText.Text = _netSession is { IsHost: true }
+            ? "Network: guest socket lost. Same game stays open for 120s."
+            : "Network: connection lost. Same game stays open for 120s.";
+        _session.Log.AddDebug(_session.TurnNumber, "Net", "Transport lost, grace 120s: " + reason);
+
+        _netGraceTimer ??= new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(1)
+        };
+        _netGraceTimer.Tick -= NetGraceTimer_Tick;
+        _netGraceTimer.Tick += NetGraceTimer_Tick;
+        if (!_netGraceTimer.IsEnabled)
+            _netGraceTimer.Start();
+
+        if (_netSession is { IsHost: true } session)
+            StartHostResumeAccept(session);
+    }
+
+    private void NetGraceTimer_Tick(object? sender, EventArgs e)
+    {
+        if (!_netGraceActive) return;
+        if (DateTime.UtcNow < _netGraceUntilUtc) return;
+        EndNetReconnectGrace(expired: true);
+    }
+
+    private void EndNetReconnectGrace(bool expired)
+    {
+        if (!_netGraceActive && !expired) return;
+        _netGraceActive = false;
+        _netGraceTimer?.Stop();
+        try { _netResumeAcceptCts?.Cancel(); } catch { /* ignore */ }
+        ApplyNetGraceClockExtension();
+        if (!expired) return;
+        _netSession?.AbandonAfterGrace();
+    }
+
+    private void ApplyNetGraceClockExtension()
+    {
+        if (_netGraceStartedUtc == default) return;
+        var paused = DateTime.UtcNow - _netGraceStartedUtc;
+        _netGraceStartedUtc = default;
+        if (paused <= TimeSpan.Zero) return;
+        if (_idleTurnDeadlineUtc == _idleDeadlineAtGraceStart && _idleTurnDeadlineUtc != default)
+            _idleTurnDeadlineUtc += paused;
+        if (_responseWindowDeadlineUtc == _responseDeadlineAtGraceStart && _responseWindowDeadlineUtc != default)
+            _responseWindowDeadlineUtc += paused;
+    }
+
+    private void StartHostResumeAccept(NetPlaySession session)
+    {
+        try { _netResumeAcceptCts?.Cancel(); } catch { /* ignore */ }
+        _netResumeAcceptCts = new CancellationTokenSource();
+        var token = _netResumeAcceptCts.Token;
+        _ = Task.Run(async () =>
+        {
+            while (!token.IsCancellationRequested)
+            {
+                NetPlaySession.ResumeResult result;
+                try
+                {
+                    result = await session.AcceptSameGuestAsync(token).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+                catch
+                {
+                    if (!session.HostListening || token.IsCancellationRequested)
+                        break;
+                    try { session.DropAcceptedClient(); } catch { /* ignore */ }
+                    try { await Task.Delay(300, token).ConfigureAwait(false); }
+                    catch { break; }
+                    continue;
+                }
+
+                if (result == NetPlaySession.ResumeResult.Accepted)
+                {
+                    _ = Dispatcher.BeginInvoke(new Action(() => CompleteGuestReconnect(session)));
+                    break;
+                }
+                if (result == NetPlaySession.ResumeResult.Cancelled)
+                    break;
+                if (result == NetPlaySession.ResumeResult.Rejected)
+                {
+                    _ = Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        if (_netGraceActive && ReferenceEquals(_netSession, session))
+                            StatusText.Text = "Network: resume rejected. Same game still waiting for P2.";
+                    }));
+                }
+            }
+        });
+    }
+
+    private void CompleteGuestReconnect(NetPlaySession session)
+    {
+        if (!ReferenceEquals(session, _netSession) || !_netGraceActive) return;
+        EndNetReconnectGrace(expired: false);
+        try
+        {
+            session.RestartReceiveLoop();
+            if (session.IsHost)
+            {
+                BroadcastMaskedStateToGuest();
+                StatusText.Text = "Network: guest reconnected. Masked snapshot sent.";
+                _session.Log.AddDebug(_session.TurnNumber, "Net",
+                    "Guest resumed the same game. MaskForViewer snapshot sent.");
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = "Network: resume failed: " + ex.Message;
+        }
+    }
+
+    private async void Reconnect_Click(object sender, RoutedEventArgs e)
+    {
+        if (_netSession is { IsHost: true })
+        {
+            StatusText.Text = "Network: host keeps this game. Waiting for the same guest.";
+            return;
+        }
+        if (!TryReadGuestResume(out var token, out var host, out var port))
+        {
+            StatusText.Text = "Network: no saved guest session to reconnect.";
+            return;
+        }
+
+        var client = new NetClient();
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            await client.ConnectAsync(host, port, cts.Token).ConfigureAwait(true);
+            var payload = JsonSerializer.Serialize(new { token, player = 2 });
+            await client.SendAsync(NetMessage.Create(NetMessage.Types.Resume, payloadJson: payload), cts.Token)
+                .ConfigureAwait(true);
+            ReplaceGuestSession(client);
+            StatusText.Text = "Network: reconnected. Waiting for the host snapshot.";
+        }
+        catch (Exception ex)
+        {
+            try { client.Dispose(); } catch { /* ignore */ }
+            StatusText.Text = "Network: reconnect failed: " + ex.Message;
+        }
+    }
+
+    private void ReplaceGuestSession(NetClient client)
+    {
+        var old = _netSession;
+        if (old != null)
+            UnhookNetSession(old);
+        ApplyNetGraceClockExtension();
+        _netGraceActive = false;
+        _netGraceTimer?.Stop();
+        try { _netResumeAcceptCts?.Cancel(); } catch { /* ignore */ }
+        _netSession = null;
+        try { old?.Dispose(); } catch { /* ignore */ }
+
+        _netSession = NetPlaySession.CreateGuest(client, localPlayer: 2);
+        HookNetSession(_netSession);
+        var sync = SynchronizationContext.Current
+                   ?? new System.Windows.Threading.DispatcherSynchronizationContext(Dispatcher);
+        _netSession.StartReceiveLoop(sync);
+        _networkLobbyConnected = true;
+        EnsureNetworkModeFromSession();
+        ApplySelectedGameMode();
+        _session.Log.AddDebug(_session.TurnNumber, "Net",
+            "Guest reconnect socket open. Waiting for host snapshot.");
     }
 
     private void OnNetDisconnected(string reason)
@@ -13698,6 +14001,7 @@ public partial class TableWindow : Window
     private void EnsureOnlineIdleTurnWatch()
     {
         if (_idleTurnEnding) return;
+        if (_netGraceActive) return;
         if (!OnlineIdleTurnApplies())
         {
             StopOnlineIdleTurnWatch();
@@ -13758,6 +14062,7 @@ public partial class TableWindow : Window
     private void OnlineIdleTurnTimer_Tick(object? sender, EventArgs e)
     {
         if (_idleTurnEnding) return;
+        if (_netGraceActive) return;
         if (!OnlineIdleTurnApplies())
         {
             StopOnlineIdleTurnWatch();

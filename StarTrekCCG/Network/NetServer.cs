@@ -57,6 +57,17 @@ public sealed class NetServer : IDisposable
     public Task<NetMessage> ReceiveAsync(CancellationToken cancellationToken = default)
         => ReadMessageAsync(GetStreamOrThrow(), cancellationToken);
 
+    /// <summary>
+    /// Close the accepted socket only. The listener stays up so the same game can accept again.
+    /// </summary>
+    public void DropClient()
+    {
+        try { _stream?.Close(); } catch { /* ignore */ }
+        try { _client?.Close(); } catch { /* ignore */ }
+        _stream = null;
+        _client = null;
+    }
+
     public void Stop()
     {
         try { _stream?.Close(); } catch { /* ignore */ }
