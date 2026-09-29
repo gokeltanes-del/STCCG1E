@@ -1207,7 +1207,8 @@ public partial class TableWindow : Window
 
     /// <summary>
     /// Host-engine apply after type named: reveal one random opp-hand card; discard on type match.
-    /// UI via ShowCardReveal (no KidnapOverlay). Guest sees outcome via Broadcast after EOT.
+    /// Printed: the pointed-at card must be shown, so both windows see that face.
+    /// The owner (deciding player) has OK. The other window has no button.
     /// </summary>
     private void FinishKidnappers(int index)
     {
@@ -1226,9 +1227,8 @@ public partial class TableWindow : Window
             StatusText.Text = $"Kidnappers: named {_kidnapNamedType} — discarded {card.Name}.";
             _session.Log.Add(_session.TurnNumber, $"P{_kidnapOwner}",
                 $"Kidnappers named {_kidnapNamedType}, revealed {card.Name} — discarded");
-            ShowCardReveal(card, "Telepathic Alien Kidnappers",
-                $"Named {_kidnapNamedType}.\nRevealed: {card.Name} ({card.Type}).\nMATCH — discarded.",
-                RevealButtons.Ok);
+            ShowPublicCardResult(_kidnapOwner, card, "Telepathic Alien Kidnappers",
+                $"Named {_kidnapNamedType}.\nRevealed: {card.Name} ({card.Type}).\nMATCH — discarded.");
         }
         else
         {
@@ -1236,9 +1236,8 @@ public partial class TableWindow : Window
                 $"Kidnappers: named {_kidnapNamedType}, revealed {card.Name} ({card.Type}) — no discard.";
             _session.Log.Add(_session.TurnNumber, $"P{_kidnapOwner}",
                 $"Kidnappers named {_kidnapNamedType}, revealed {card.Name} — no match");
-            ShowCardReveal(card, "Telepathic Alien Kidnappers",
-                $"Named {_kidnapNamedType}.\nRevealed: {card.Name} ({card.Type}).\nNo match — stays in hand.",
-                RevealButtons.Ok);
+            ShowPublicCardResult(_kidnapOwner, card, "Telepathic Alien Kidnappers",
+                $"Named {_kidnapNamedType}.\nRevealed: {card.Name} ({card.Type}).\nNo match — stays in hand.");
         }
         RefreshZoneCounts();
         RefreshHandStrips();
@@ -1268,7 +1267,8 @@ public partial class TableWindow : Window
         if (hand.Count == 0) return null;
         if (hand.Count == 1)
         {
-            ShowCardReveal(hand[0], title, $"Only card in hand — discarding {hand[0].Name}.", RevealButtons.Ok);
+            // The only legal card is discarded. Discard is public; the hand list was not shown.
+            ShowPublicCardResult(owner, hand[0], title, $"Only card in hand — discarding {hand[0].Name}.");
             return hand[0];
         }
 
@@ -1304,8 +1304,8 @@ public partial class TableWindow : Window
             return null;
 
         var chosen = hand[idx];
-        // Result = normal Face preview (same Reveal strip as other card outcomes).
-        ShowCardReveal(chosen, title, $"Discarded: {chosen.Name}.", RevealButtons.Ok);
+        // Hand pick stayed on the owner. Once discarded, the discard pile is public.
+        ShowPublicCardResult(owner, chosen, title, $"Discarded: {chosen.Name}.");
         _session.Log.Add(_session.TurnNumber, $"P{owner}",
             $"Static Warp Bubble discarded {chosen.Name}");
         return chosen;
@@ -2383,7 +2383,8 @@ public partial class TableWindow : Window
         string? subtitle,
         string? yesLabel = null,
         string? noLabel = null,
-        int targetPlayer = 0)
+        int targetPlayer = 0,
+        bool shareFace = false)
     {
         if (_netSession is not { IsHost: true })
             return RevealAnswer.Ok;
@@ -2414,9 +2415,13 @@ public partial class TableWindow : Window
 
         var tcs = new TaskCompletionSource<NetChoiceDto>(TaskCreationOptions.RunContinuationsAsynchronously);
         _pendingChoiceResponses[corr] = tcs;
-        StatusText.Text = $"P{who} attempt — {title} (Guest window)…";
+        StatusText.Text = shareFace
+            ? $"P{who} — {title} (both windows)…"
+            : $"P{who} attempt — {title} (Guest window)…";
         _session.Log.AddDebug(_session.TurnNumber, "Net",
-            $"Attempt reveal → P{who} corr={corr} '{title}'");
+            shareFace
+                ? $"Public result → P{who} corr={corr} '{title}'"
+                : $"Attempt reveal → P{who} corr={corr} '{title}'");
 
         bool mirrored = false;
         try
@@ -2430,11 +2435,11 @@ public partial class TableWindow : Window
             return yesNo ? (_autoSeedRng.Next(2) == 0 ? RevealAnswer.Yes : RevealAnswer.No) : RevealAnswer.Ok;
         }
 
-        // Verb: attempt-mission — encountered dilemma/artifact, and Mission solved, on both windows.
-        // Guest still clicks. Host buttons stay hidden.
-        if (IsWatcherSharedReveal(card, title))
+        // Encounter / Mission solved, or a shown/discarded card: Host paints the same face (no click).
+        // Guest still clicks.
+        if (card != null && (shareFace || IsWatcherSharedReveal(card, title)))
         {
-            ShowHostEncounterMirror(card!, title, body, subtitle,
+            ShowHostEncounterMirror(card, title, body, subtitle,
                 "Both players see this card. Guest acknowledges.");
             mirrored = true;
         }
@@ -2649,8 +2654,43 @@ public partial class TableWindow : Window
     private void AnnounceChoiceResult(Card? card, string title, string body)
     {
         StatusText.Text = body.Replace("\n", " ");
-        // No auto-timer — player confirms with OK
+        // No auto-timer — player confirms with OK.
+        // Stays on this window. A hidden hand label must not be mirrored from here.
         ShowCardReveal(card, title + " — Result", body, RevealButtons.Ok, null);
+    }
+
+    /// <summary>
+    /// Shown or discarded card. SEARCH: Verb: revealMirror; Glossary: Telepathic Alien Kidnappers; Static Warp Bubble.
+    /// Deciding player has OK. The other window sees the same face and does not click.
+    /// Hotseat / no session: local ShowCardReveal only.
+    /// </summary>
+    private void ShowPublicCardResult(int decidingPlayer, Card card, string title, string body)
+    {
+        if (_gameMode != GameMode.Network || _netSession is not { IsHost: true })
+        {
+            ShowCardReveal(card, title, body, RevealButtons.Ok);
+            return;
+        }
+        if (decidingPlayer is not (1 or 2))
+            decidingPlayer = _activePlayer is 1 or 2 ? _activePlayer : 1;
+
+        if (decidingPlayer != _netSession.LocalPlayer)
+        {
+            ShowRevealRemoteOnGuest(card, title, body, RevealButtons.Ok, card.Name,
+                targetPlayer: decidingPlayer, shareFace: true);
+            return;
+        }
+
+        bool mirrored = SendEncounterMirrorToGuest(card, title, body, card.Name, open: true, publicResult: true);
+        try
+        {
+            ShowCardReveal(card, title, body, RevealButtons.Ok);
+        }
+        finally
+        {
+            if (mirrored)
+                SendEncounterMirrorToGuest(null, "", "", null, open: false, wait: true, publicResult: true);
+        }
     }
 
     /// <summary>
@@ -10312,9 +10352,7 @@ public partial class TableWindow : Window
         if (string.Equals(kind, NetChoiceDto.Kinds.RevealMirror, StringComparison.OrdinalIgnoreCase))
         {
             var face = BuildNetChoiceFace(dto);
-            if (face == null
-                && string.Equals(dto.Title, "Mission solved", StringComparison.Ordinal)
-                && !string.IsNullOrWhiteSpace(dto.CardName))
+            if (face == null && !string.IsNullOrWhiteSpace(dto.CardName))
             {
                 face = new Card
                 {
@@ -11652,11 +11690,15 @@ public partial class TableWindow : Window
     /// Host attempt: show the encounter or Mission solved on the Guest without waiting for a click.
     /// Guest attempt does not use this — that player already has the interactive reveal.
     /// </summary>
-    private bool SendEncounterMirrorToGuest(Card? card, string title, string body, string? subtitle, bool open, bool wait = false)
+    private bool SendEncounterMirrorToGuest(
+        Card? card, string title, string body, string? subtitle, bool open, bool wait = false, bool publicResult = false)
     {
-        if (_gameMode != GameMode.Network || _netSession is not { IsHost: true } || _attemptRemoteSurface)
+        if (_gameMode != GameMode.Network || _netSession is not { IsHost: true })
             return false;
-        if (open && !IsWatcherSharedReveal(card, title))
+        // Guest attempt already owns the interactive reveal. Do not also push an encounter mirror.
+        if (_attemptRemoteSurface && !publicResult)
+            return false;
+        if (open && !publicResult && !IsWatcherSharedReveal(card, title))
             return false;
         if (!open && !_guestEncounterMirrorOpen)
             return false;
