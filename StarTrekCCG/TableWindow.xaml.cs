@@ -253,41 +253,25 @@ public partial class TableWindow : Window
     private bool _aidZoneCounts = true;
     private bool _aidSortHand = true;
 
-    // Response Window settings (hotseat / Options menu). Dual-EXE does not use these.
+    // Response Window settings (hotseat menu: 2/3/5s, Think 10s). Online prompts keep their own short timers.
     private int _responseDefaultDurationSec = 3;
     private int _responseThinkDurationSec = 10;
 
     /// <summary>
-    /// Dual-EXE choice, card-list, reveal, and response-window limit.
-    /// Pepsch: 60 seconds. Edit this one value to retune every online prompt.
-    /// Hotseat keeps <see cref="HotseatChoiceTimeoutMs"/> and the Options menu (2/3/5s, Think 10s).
+    /// Dual-EXE only. A turn with no player action ends after this long.
+    /// Prompts stay on their own timers (choice 10s, reveal Yes/No 10s, reveal OK 20s, response 3s).
+    /// Edit this one value to retune the idle turn.
     /// </summary>
-    private const int OnlinePromptTimeoutMs = 60_000;
+    private const int OnlineIdleTurnTimeoutMs = 60_000;
 
-    /// <summary>
-    /// Host waits this much longer than the guest UI timer so a timeout reply
-    /// arrives before the host applies its own timeout result.
-    /// </summary>
-    private const int OnlinePromptHostGraceMs = 500;
+    private System.Windows.Threading.DispatcherTimer? _idleTurnTimer;
+    private DateTime _idleTurnDeadlineUtc;
+    private int _idleTurnArmedForPlayer;
+    private int _idleTurnArmedTurnNumber;
+    private bool _idleTurnEnding;
+    /// <summary>Player clicked during the idle end's Play-phase prompts. Do not also end Execute.</summary>
+    private bool _idleTurnPlayerInterrupted;
 
-    private const int OnlinePromptHostWaitMs = OnlinePromptTimeoutMs + OnlinePromptHostGraceMs;
-
-    /// <summary>Hotseat Yes/No when nobody clicks. Not used for Dual-EXE prompts.</summary>
-    private const int HotseatChoiceTimeoutMs = 10_000;
-
-    private bool UseOnlinePromptTimer => _gameMode == GameMode.Network;
-
-    private int ResponseSilentSeconds =>
-        UseOnlinePromptTimer ? OnlinePromptTimeoutMs / 1000 : _responseDefaultDurationSec;
-
-    private int ResponseThinkSeconds =>
-        UseOnlinePromptTimer ? OnlinePromptTimeoutMs / 1000 : _responseThinkDurationSec;
-
-    /// <summary>
-    /// Guest UI duration. A positive TimeoutMs from the host wins; otherwise the shared constant.
-    /// </summary>
-    private static int OnlinePromptMilliseconds(int? fromHost) =>
-        fromHost is int t && t > 0 ? t : OnlinePromptTimeoutMs;
     private System.Windows.Threading.DispatcherTimer? _responseWindowTimer;
     private DateTime _responseWindowDeadlineUtc;
     private List<TimingRules.LegalResponseItem> _currentLegalResponses = new();
@@ -1023,6 +1007,7 @@ public partial class TableWindow : Window
     public TableWindow()
     {
         InitializeComponent();
+        PreviewMouseDown += (_, _) => NoteOnlineIdleActivity();
         Loaded += TableWindow_Loaded;
         _session.Log.Changed = () =>
         {
@@ -1038,6 +1023,7 @@ public partial class TableWindow : Window
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        NoteOnlineIdleActivity();
         if (e.OriginalSource is TextBox) return;
 
         Key key = e.Key == Key.System ? e.SystemKey : e.Key;
@@ -2508,7 +2494,6 @@ public partial class TableWindow : Window
     /// Host → Guest ChoiceRequest kind=reveal. Guest draws the catalog face and clicks.
     /// Encountered dilemma/artifact, and Mission solved: Host paints the same face (no click).
     /// Other prompts stay on the attempter. Timeout: OK, or a random Yes/No.
-    /// Limit is <see cref="OnlinePromptTimeoutMs"/>. Guest does not apply the result.
     /// </summary>
     private RevealAnswer ShowRevealRemoteOnGuest(
         Card? card,
@@ -2528,7 +2513,7 @@ public partial class TableWindow : Window
         bool yesNo = buttons == RevealButtons.YesNo;
         string yes = yesLabel ?? "Yes";
         string no = noLabel ?? "No";
-        int timeoutMs = OnlinePromptTimeoutMs;
+        int timeoutMs = yesNo ? 10000 : 20000;
         int who = targetPlayer is 1 or 2
             ? targetPlayer
             : (_attemptSurfacePlayer is 1 or 2 ? _attemptSurfacePlayer : (_activePlayer is 1 or 2 ? _activePlayer : 2));
@@ -2587,7 +2572,7 @@ public partial class TableWindow : Window
         NetChoiceDto? result;
         try
         {
-            result = WaitForChoiceResponse(corr, tcs, OnlinePromptHostWaitMs);
+            result = WaitForChoiceResponse(corr, tcs, timeoutMs + 500);
         }
         finally
         {
@@ -2694,12 +2679,11 @@ public partial class TableWindow : Window
         if (shown.Count == 1)
             ShowCardDetail(shown[0]);
 
-        // Hotseat choices close after HotseatChoiceTimeoutMs.
-        // Dual-EXE uses OnlinePromptTimeoutMs. Timeout with no click: random, not a hidden default.
+        // Choice dialogs get 10s unless caller overrides.
+        // Timeout with no click: pick at random (not a hidden default).
         if (choice)
         {
-            if (autoCloseMs == null)
-                autoCloseMs = UseOnlinePromptTimer ? OnlinePromptTimeoutMs : HotseatChoiceTimeoutMs;
+            if (autoCloseMs == null) autoCloseMs = 10000;
             randomOnTimeout = true;
         }
 
@@ -2996,8 +2980,7 @@ public partial class TableWindow : Window
         _session.Log.Add(_session.TurnNumber, $"P{decidingPlayer}",
             $"{title}: {picked}" + (timed ? " (timeout, random)" : ""));
         StatusText.Text = $"{title}: {picked}";
-        // Guest only replies. A second OK dialog would hold the prompt open after the host moved on.
-        if (timed && !_guestHandlingInboundChoice)
+        if (timed)
             AnnounceChoiceResult(pickedCard ?? card, title, $"{how}:\n{picked}");
         return picked;
     }
@@ -3091,15 +3074,14 @@ public partial class TableWindow : Window
 
     /// <summary>
     /// Host sends ChoiceRequest kind=choice to Guest and blocks on DispatcherFrame until
-    /// ChoiceResponse or timeout (<see cref="OnlinePromptTimeoutMs"/>).
-    /// Timeout: Host picks random option (Guest timer may also reply earlier). Guest does not apply it.
+    /// ChoiceResponse or timeout. Timeout: Host picks random option (Guest timer may also reply earlier).
     /// </summary>
     private string AskChoiceRemoteOnHost(int decidingPlayer, Card? card, string title, string prompt, string[] clean)
     {
         if (_netSession == null || !_netSession.IsHost) return AskChoiceLocal(decidingPlayer, card, title, prompt, clean);
 
         string corr = Guid.NewGuid().ToString("N");
-        int timeoutMs = OnlinePromptTimeoutMs;
+        int timeoutMs = 10000;
         var dto = new NetChoiceDto
         {
             CorrelationId = corr,
@@ -3135,7 +3117,7 @@ public partial class TableWindow : Window
             return clean[_autoSeedRng.Next(clean.Length)];
         }
 
-        var result = WaitForChoiceResponse(corr, tcs, OnlinePromptHostWaitMs);
+        var result = WaitForChoiceResponse(corr, tcs, timeoutMs);
         _pendingChoiceResponses.Remove(corr);
 
         if (result != null && !string.IsNullOrWhiteSpace(result.SelectedOption))
@@ -5787,7 +5769,7 @@ public partial class TableWindow : Window
         UpdatePhaseControls();
 
         string corr = Guid.NewGuid().ToString("N");
-        int timeoutMs = OnlinePromptTimeoutMs;
+        int timeoutMs = Math.Max(1000, _responseDefaultDurationSec * 1000);
         var names = legal.Select(i => i.Card?.Name).Where(n => !string.IsNullOrWhiteSpace(n)).Cast<string>().ToArray();
         var dto = new NetChoiceDto
         {
@@ -5820,7 +5802,7 @@ public partial class TableWindow : Window
             return;
         }
 
-        var result = WaitForChoiceResponse(corr, tcs, OnlinePromptHostWaitMs);
+        var result = WaitForChoiceResponse(corr, tcs, timeoutMs + 500);
         _pendingChoiceResponses.Remove(corr);
 
         if (result?.Passed == true || result == null)
@@ -5878,7 +5860,7 @@ public partial class TableWindow : Window
         UpdatePhaseControls();
 
         StopResponseWindowTimer();
-        _responseWindowDeadlineUtc = DateTime.UtcNow.AddSeconds(ResponseSilentSeconds);
+        _responseWindowDeadlineUtc = DateTime.UtcNow.AddSeconds(_responseDefaultDurationSec);
         _responseWindowTimer = new System.Windows.Threading.DispatcherTimer
         {
             Interval = TimeSpan.FromMilliseconds(100)
@@ -5929,7 +5911,7 @@ public partial class TableWindow : Window
             ThinkTrayTitle.Text = $"LEGAL RESPONSES (P{responder})";
         if (ThinkTrayCountdown != null)
         {
-            int sec = silentCountdown ? ResponseSilentSeconds : ResponseThinkSeconds;
+            int sec = silentCountdown ? _responseDefaultDurationSec : _responseThinkDurationSec;
             ThinkTrayCountdown.Text = $"{sec}s";
         }
         if (BtnThinkPass != null)
@@ -5953,7 +5935,7 @@ public partial class TableWindow : Window
         }
 
         _stack.State = TimingRules.ResponseWindowState.Think;
-        _responseWindowDeadlineUtc = DateTime.UtcNow.AddSeconds(ResponseThinkSeconds);
+        _responseWindowDeadlineUtc = DateTime.UtcNow.AddSeconds(_responseThinkDurationSec);
 
         if (ResponseIndicatorBadge != null)
             ResponseIndicatorBadge.Visibility = Visibility.Collapsed;
@@ -10289,6 +10271,7 @@ public partial class TableWindow : Window
 
     private void UpdatePhaseControls()
     {
+        EnsureOnlineIdleTurnWatch();
         UpdateTurnTints();
         if (PhaseLabel == null) return;
         if (_stack.IsOpen)
@@ -10707,7 +10690,7 @@ public partial class TableWindow : Window
         {
             var opts = dto.Options ?? Array.Empty<string>();
             bool yesNo = opts.Length >= 2;
-            int ms = OnlinePromptMilliseconds(dto.TimeoutMs);
+            int ms = dto.TimeoutMs is int t && t > 0 ? t : 20000;
             IReadOnlyList<Card>? many = dto.Faces != null ? BuildNetChoiceFaceList(dto) : null;
             Card? face = many != null
                 ? (many.Count == 1 ? many[0] : null)
@@ -10878,6 +10861,9 @@ public partial class TableWindow : Window
     private void OnNetChoiceResponseReceived(NetChoiceDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.CorrelationId)) return;
+        // A click during the idle end's existing prompt is an action. A timeout is not.
+        if (_idleTurnEnding && dto.TimedOut != true)
+            _idleTurnPlayerInterrupted = true;
         if (_pendingChoiceResponses.TryGetValue(dto.CorrelationId, out var tcs))
         {
             // Guest acknowledged a mirrored reveal. Drop the host watcher now.
@@ -10938,7 +10924,7 @@ public partial class TableWindow : Window
         StatusText.Text = $"Net: your response window — Pass or play response card via Action.";
 
         StopResponseWindowTimer();
-        int timeoutMs = OnlinePromptMilliseconds(dto.TimeoutMs);
+        int timeoutMs = dto.TimeoutMs ?? (_responseDefaultDurationSec * 1000);
         _responseWindowDeadlineUtc = DateTime.UtcNow.AddMilliseconds(timeoutMs);
         _responseWindowTimer = new System.Windows.Threading.DispatcherTimer
         {
@@ -11034,6 +11020,7 @@ public partial class TableWindow : Window
     private void OnNetActionReceived(NetActionDto dto)
     {
         if (_netSession == null || !_netSession.IsHost) return;
+        NoteOnlineIdleActivityFromNet();
 
         GameAction action;
         try
@@ -13546,6 +13533,169 @@ public partial class TableWindow : Window
         catch (Exception ex)
         {
             StatusText.Text = "Net send failed: " + ex.Message;
+        }
+    }
+
+    /// <summary>
+    /// Host clock for a Dual-EXE turn where nobody acts. Not a prompt timer and not a new phase.
+    /// </summary>
+    private bool OnlineIdleTurnApplies() =>
+        _gameMode == GameMode.Network
+        && _netSession is { IsHost: true }
+        && !_seedPhaseActive
+        && _session.Match == GameSession.MatchPhase.Play;
+
+    private bool OnlineIdleTurnBlockedByPrompt() =>
+        _stack.IsOpen
+        || _revealFrame != null
+        || _detailPickFrame != null
+        || _detailPickMode
+        || _pendingChoiceResponses.Count > 0
+        || _eotEndingInProgress
+        || _endTurnAfterDrawStack
+        || _completingTurnChange
+        || _inspectorMode == InspectorMode.OpponentPileInteract;
+
+    private void EnsureOnlineIdleTurnWatch()
+    {
+        if (_idleTurnEnding) return;
+        if (!OnlineIdleTurnApplies())
+        {
+            StopOnlineIdleTurnWatch();
+            return;
+        }
+
+        bool newTurn = _idleTurnArmedForPlayer != _session.ActivePlayer
+            || _idleTurnArmedTurnNumber != _session.TurnNumber;
+        if (newTurn)
+        {
+            _idleTurnArmedForPlayer = _session.ActivePlayer;
+            _idleTurnArmedTurnNumber = _session.TurnNumber;
+            _idleTurnDeadlineUtc = DateTime.UtcNow.AddMilliseconds(OnlineIdleTurnTimeoutMs);
+        }
+
+        _idleTurnTimer ??= new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(500)
+        };
+        _idleTurnTimer.Tick -= OnlineIdleTurnTimer_Tick;
+        _idleTurnTimer.Tick += OnlineIdleTurnTimer_Tick;
+        if (!_idleTurnTimer.IsEnabled)
+            _idleTurnTimer.Start();
+    }
+
+    private void StopOnlineIdleTurnWatch()
+    {
+        _idleTurnTimer?.Stop();
+        _idleTurnArmedForPlayer = 0;
+        _idleTurnArmedTurnNumber = 0;
+    }
+
+    /// <summary>Local host player clicked or typed on their own turn. Restarts the idle clock.</summary>
+    private void NoteOnlineIdleActivity()
+    {
+        if (!OnlineIdleTurnApplies()) return;
+        if (_netSession!.LocalPlayer != _session.ActivePlayer) return;
+        if (_idleTurnEnding)
+        {
+            _idleTurnPlayerInterrupted = true;
+            return;
+        }
+        _idleTurnDeadlineUtc = DateTime.UtcNow.AddMilliseconds(OnlineIdleTurnTimeoutMs);
+    }
+
+    /// <summary>Guest sent an action. The turn is not idle. Guest still does not apply it.</summary>
+    private void NoteOnlineIdleActivityFromNet()
+    {
+        if (!OnlineIdleTurnApplies()) return;
+        if (_idleTurnEnding)
+        {
+            _idleTurnPlayerInterrupted = true;
+            return;
+        }
+        _idleTurnDeadlineUtc = DateTime.UtcNow.AddMilliseconds(OnlineIdleTurnTimeoutMs);
+    }
+
+    private void OnlineIdleTurnTimer_Tick(object? sender, EventArgs e)
+    {
+        if (_idleTurnEnding) return;
+        if (!OnlineIdleTurnApplies())
+        {
+            StopOnlineIdleTurnWatch();
+            return;
+        }
+        // Choice, reveal, and response windows keep their own short timers.
+        if (OnlineIdleTurnBlockedByPrompt())
+        {
+            _idleTurnDeadlineUtc = DateTime.UtcNow.AddMilliseconds(OnlineIdleTurnTimeoutMs);
+            return;
+        }
+        if (DateTime.UtcNow < _idleTurnDeadlineUtc) return;
+        EndIdleTurnOnHost();
+    }
+
+    /// <summary>
+    /// Nobody acted. Host runs the existing End button: End Play (forfeit the card play),
+    /// then End Execute (draw and flip). Guest receives the broadcast and does not mutate.
+    /// </summary>
+    private void EndIdleTurnOnHost()
+    {
+        if (_idleTurnEnding || _netSession is not { IsHost: true }) return;
+        _idleTurnEnding = true;
+        _idleTurnPlayerInterrupted = false;
+        int who = _session.ActivePlayer is 1 or 2 ? _session.ActivePlayer : 1;
+        try
+        {
+            _session.Log.Add(_session.TurnNumber, $"P{who}",
+                $"Idle turn ({OnlineIdleTurnTimeoutMs / 1000}s) — no action, host ends the turn");
+            StatusText.Text = $"P{who} idle {OnlineIdleTurnTimeoutMs / 1000}s — ending the turn.";
+
+            if (_session.Segment == GameSession.TurnSegment.Play)
+            {
+                if (!TryApplyNetAuthorizedAction(GameAction.EndPhase(who)))
+                {
+                    _session.Log.Add(_session.TurnNumber, $"P{who}",
+                        "Idle turn: End Play phase did not apply");
+                    _idleTurnDeadlineUtc = DateTime.UtcNow.AddMilliseconds(OnlineIdleTurnTimeoutMs);
+                    return;
+                }
+            }
+
+            // Required-move and other existing prompts run inside End Play. A click there is an action.
+            if (_idleTurnPlayerInterrupted || OnlineIdleTurnBlockedByPrompt())
+            {
+                _session.Log.Add(_session.TurnNumber, $"P{who}",
+                    "Idle turn: Play phase ended; a prompt is open, Execute stays");
+                _idleTurnDeadlineUtc = DateTime.UtcNow.AddMilliseconds(OnlineIdleTurnTimeoutMs);
+                BroadcastMaskedStateToGuest();
+                return;
+            }
+
+            if (_session.Segment == GameSession.TurnSegment.Play)
+            {
+                _idleTurnDeadlineUtc = DateTime.UtcNow.AddMilliseconds(OnlineIdleTurnTimeoutMs);
+                return;
+            }
+
+            if (!TryApplyNetAuthorizedAction(GameAction.EndTurn(who)))
+            {
+                _session.Log.Add(_session.TurnNumber, $"P{who}",
+                    "Idle turn: End turn did not apply");
+                _idleTurnDeadlineUtc = DateTime.UtcNow.AddMilliseconds(OnlineIdleTurnTimeoutMs);
+                BroadcastMaskedStateToGuest();
+                return;
+            }
+
+            BroadcastMaskedStateToGuest();
+        }
+        finally
+        {
+            bool interrupted = _idleTurnPlayerInterrupted;
+            _idleTurnEnding = false;
+            _idleTurnPlayerInterrupted = false;
+            if (interrupted)
+                _idleTurnDeadlineUtc = DateTime.UtcNow.AddMilliseconds(OnlineIdleTurnTimeoutMs);
+            EnsureOnlineIdleTurnWatch();
         }
     }
 
@@ -24258,43 +24408,10 @@ public partial class TableWindow : Window
         if (BtnDetailBeamSelect != null) BtnDetailBeamSelect.Visibility = Visibility.Collapsed;
         CardDetailOverlay.Visibility = Visibility.Visible;
 
-        // Hotseat card lists stay open until a click. Dual-EXE closes with the shared prompt limit.
-        _revealTimedOut = false;
-        System.Windows.Threading.DispatcherTimer? autoTimer = null;
-        if (UseOnlinePromptTimer)
-        {
-            var deadline = DateTime.UtcNow.AddMilliseconds(OnlinePromptTimeoutMs);
-            string basePrompt = (string.IsNullOrWhiteSpace(prompt) ? "Click a card to choose." : prompt)
-                + "\nClick a card in the strip below.";
-            if (DetailStackStats != null)
-                DetailStackStats.Text = basePrompt + $"\n{OnlinePromptTimeoutMs / 1000}s remaining";
-            autoTimer = new System.Windows.Threading.DispatcherTimer
-            {
-                Interval = TimeSpan.FromMilliseconds(200)
-            };
-            autoTimer.Tick += (_, _) =>
-            {
-                double left = (deadline - DateTime.UtcNow).TotalSeconds;
-                if (DetailStackStats != null)
-                    DetailStackStats.Text = left > 0
-                        ? basePrompt + $"\n{left:0}s remaining"
-                        : basePrompt;
-                if (left > 0) return;
-                autoTimer.Stop();
-                if (_detailPickMode && _detailPickFrame != null)
-                {
-                    _revealTimedOut = true;
-                    CompleteDetailPick(null);
-                }
-            };
-            autoTimer.Start();
-        }
-
         _detailPickFrame = new System.Windows.Threading.DispatcherFrame();
         try { System.Windows.Threading.Dispatcher.PushFrame(_detailPickFrame); }
         finally
         {
-            autoTimer?.Stop();
             _detailPickFrame = null;
             _detailPickMode = false;
             if (CardDetailOverlay != null)
