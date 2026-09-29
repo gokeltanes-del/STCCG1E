@@ -1,3 +1,12 @@
+## 2026-09-29 - AttemptMission: both players see encountered cards
+
+- *Auftrag*: P2-Versuch: Dilemma- und Artifact-Faces auf beiden Fenstern, sobald sie wirklich aufgedeckt sind. Solved-Tag auch auf P2. Missions-Detail zeigt noch aktive aufgedeckte Dilemmas und Artifacts fuer beide. Unrevealed Seeds bleiben verdeckt. Fly-in von der Missions-Spalte in die Mitte, auf dem Fenster das die Karte zeigt.
+- *Ist vorher*: Guest-Reveal (`kind=reveal`) zeichnete nur auf P2. Host sah das Face nicht. `MarkMissionSolved` malte den Tag nur im Host-Prozess. `_revealedUnderMission` / `_revealedArtifactsUnderMission` waren RAM und wurden in Apply geleert; `NetStateMask` loeschte jede gegnerische Seed-Identitaet.
+- *Fix*: Encounter-Face (Dilemma/Artifact) malt der Host mit, ohne Klick; Guest bestaetigt weiter. `RevealedSeeds` / `RevealedArtifacts` (InstanceIds) in der Save. Mask laesst genau diese Ids stehen. Apply baut die Listen neu und malt `✓ S{player} +{points}` aus `SolvedBy` + `MissionRules.ParsePoints` (kein zweites Punkte-Gutschreiben). Fly-in nutzt `PlayFlyInCard`: Start = Missions-Border, Ende = Bildschirmmitte, kein Seed-Ghost. Guest-Art ist die Katalog-Face (`ClonePrinted`), dieselbe wie das Reveal. Kein Origin-Border → kein Fly-in, das Face bleibt im Panel.
+- *Regeln*: Bestehendes Detail (`Revealed — still under mission`, `Found artifacts`, Kommentar face-up for both) ist die Quelle. Keine neue Kartenregel. Eigene unrevealed Seeds bleiben fuer den Owner sichtbar; gegnerische unrevealed Seeds bleiben namenlos.
+- *Bleibt auf dem Host, absichtlich*: PickOpp und Alien Parasites wenn P1 entscheidet. The Devil wenn P1 die Karte hat. TTP-Schiffs-Klick ohne Remote-Kanal (Schiff bleibt). Solved-Tag und Detail-Liste auf dem Guest kommen mit dem maskierten Broadcast am Ende des Versuchs (oder ETA-Suspend), nicht mitten im Dialog.
+- *Scope*: TableWindow.xaml.cs, GameSave.cs, NetStateMask.cs, NetChoiceDto.cs. Hotseat-Legalitaet unveraendert. Kein Push master.
+
 ## 2026-09-29 - AttemptMission UI on the Guest window
 
 - *Auftrag*: Host bleibt die einzige Wahrheit. Wenn P2 versucht, gehoeren Prompts, Reveals und die Wahl des Versuchenden auf das Guest-Fenster. Host oeffnet diese Oberflaeche nicht.

@@ -2331,11 +2331,15 @@ public partial class TableWindow : Window
     }
 
     private Card? _revealCurrentCard;
+    /// <summary>Mission InstanceId for a Guest seed-reveal fly-in. 0 = use _attemptMission.</summary>
+    private int _revealFlyFromInstanceId;
+    private bool _hostEncounterMirrorOpen;
 
     /// <summary>
     /// Guest-owned mission attempt: send the reveal/deny to that player and wait.
     /// Returns false when this prompt stays on the local window (hotseat, Host's own attempt,
     /// or a step whose deciding player is the Host).
+    /// Encountered dilemma/artifact faces are also painted on the Host (no Host click).
     /// </summary>
     private bool TryRouteAttemptReveal(
         int? surfacePlayer,
@@ -2360,7 +2364,8 @@ public partial class TableWindow : Window
 
     /// <summary>
     /// Host → Guest ChoiceRequest kind=reveal. Guest draws the catalog face and clicks.
-    /// Host does not open CardRevealOverlay. Timeout: OK, or a random Yes/No.
+    /// Encountered dilemma/artifact: Host paints the same face (no click) and flies it in.
+    /// Other prompts stay Guest-only. Timeout: OK, or a random Yes/No.
     /// </summary>
     private RevealAnswer ShowRevealRemoteOnGuest(
         Card? card,
@@ -2379,6 +2384,9 @@ public partial class TableWindow : Window
         string no = noLabel ?? "No";
         int timeoutMs = yesNo ? 10000 : 20000;
         int who = _activePlayer is 1 or 2 ? _activePlayer : 2;
+        int originId = 0;
+        if (_attemptMission?.Tag is Card missionCard && missionCard.InstanceId > 0)
+            originId = missionCard.InstanceId;
         string corr = Guid.NewGuid().ToString("N");
         var dto = new NetChoiceDto
         {
@@ -2393,6 +2401,7 @@ public partial class TableWindow : Window
             CardSet = card?.SetFolder,
             CardType = card?.Type,
             InstanceId = card?.InstanceId ?? 0,
+            OriginInstanceId = originId,
             TimeoutMs = timeoutMs
         };
 
@@ -2402,6 +2411,7 @@ public partial class TableWindow : Window
         _session.Log.AddDebug(_session.TurnNumber, "Net",
             $"Attempt reveal → P{who} corr={corr} '{title}'");
 
+        bool mirrored = false;
         try
         {
             _ = _netSession.SendChoiceRequestAsync(dto);
@@ -2413,7 +2423,27 @@ public partial class TableWindow : Window
             return yesNo ? (_autoSeedRng.Next(2) == 0 ? RevealAnswer.Yes : RevealAnswer.No) : RevealAnswer.Ok;
         }
 
-        var result = WaitForChoiceResponse(corr, tcs, timeoutMs + 500);
+        // Verb: attempt-mission — encountered dilemma/artifact face on both windows.
+        // Guest still clicks. Host buttons stay hidden.
+        if (IsEncounterRevealCard(card))
+        {
+            Border? origin = originId > 0 ? FindBorderByInstanceId(originId) : _attemptMission;
+            if (origin != null)
+                ShowRevealFlyIn(card!, origin);
+            ShowHostEncounterMirror(card!, title, body, subtitle);
+            mirrored = true;
+        }
+
+        NetChoiceDto? result;
+        try
+        {
+            result = WaitForChoiceResponse(corr, tcs, timeoutMs + 500);
+        }
+        finally
+        {
+            if (mirrored)
+                HideHostEncounterMirror();
+        }
         _pendingChoiceResponses.Remove(corr);
 
         if (!yesNo)
@@ -2453,6 +2483,9 @@ public partial class TableWindow : Window
         // Guest-owned attempt: this overlay belongs on the Guest. Host keeps applying.
         if (TryRouteAttemptReveal(surfacePlayer, card, title, body, buttons, subtitle, yesLabel, noLabel, out var routed))
             return routed;
+
+        // Hotseat, Host-owned attempt, or Guest playing the Host's reveal.
+        MaybeFlyEncounterReveal(card);
 
         _revealCurrentCard = card;
         if (CardRevealOverlay == null)
@@ -9761,8 +9794,16 @@ public partial class TableWindow : Window
         }
         _edoContinuePenalty.Remove(missionBorder);
 
+        PaintMissionSolvedTag(missionBorder, player, points);
+    }
+
+    /// <summary>
+    /// Solved chrome only. Does not change score. ApplyGameSave uses this so the Guest
+    /// paints the same tag the Host painted in MarkMissionSolved.
+    /// </summary>
+    private void PaintMissionSolvedTag(Border missionBorder, int player, int points)
+    {
         missionBorder.Opacity = 0.7;
-        // Rahmen farblich nach Spieler
         missionBorder.BorderBrush = new SolidColorBrush(
             player == 1 ? Color.FromRgb(40, 180, 90) : Color.FromRgb(60, 120, 220));
         missionBorder.BorderThickness = new Thickness(3);
@@ -10184,6 +10225,7 @@ public partial class TableWindow : Window
             var opts = dto.Options ?? Array.Empty<string>();
             bool yesNo = opts.Length >= 2;
             int ms = dto.TimeoutMs is int t && t > 0 ? t : 20000;
+            _revealFlyFromInstanceId = dto.OriginInstanceId;
             Card? face = BuildNetChoiceFace(dto);
             var ans = ShowCardReveal(
                 face,
@@ -10225,6 +10267,7 @@ public partial class TableWindow : Window
         }
         finally
         {
+            _revealFlyFromInstanceId = 0;
             _guestHandlingInboundChoice = false;
             _guestActiveChoiceCorrelationId = null;
         }
@@ -11455,6 +11498,246 @@ public partial class TableWindow : Window
                 artName, artSet);
         };
         t.Start();
+    }
+
+    /// <summary>Dilemma or artifact actually encountered under a mission. Not a mission card, not a deny.</summary>
+    private static bool IsEncounterRevealCard(Card? card) =>
+        card != null && (
+            MissionRules.IsDilemma(card)
+            || MissionRules.IsArtifact(card)
+            || ArtifactRules.IsArtifact(card));
+
+    /// <summary>
+    /// Fly a real encounter face from the mission column to screen center.
+    /// Uses the play fly-in card. Does not ghost a seed (that would unhide it).
+    /// No origin border → no animation (the reveal panel still shows the face).
+    /// </summary>
+    private void MaybeFlyEncounterReveal(Card? card)
+    {
+        if (!IsEncounterRevealCard(card)) return;
+        Border? origin = null;
+        if (_revealFlyFromInstanceId > 0)
+            origin = FindBorderByInstanceId(_revealFlyFromInstanceId);
+        origin ??= _attemptMission;
+        if (origin == null) return;
+        ShowRevealFlyIn(card!, origin);
+    }
+
+    /// <summary>
+    /// Host sees the Guest's encounter face. Buttons stay hidden — the Guest clicks.
+    /// </summary>
+    private void ShowHostEncounterMirror(Card card, string title, string body, string? subtitle)
+    {
+        if (CardRevealOverlay == null) return;
+        RevealTitle.Text = title;
+        RevealSubtitle.Text = subtitle ?? card.Name ?? "";
+        RevealBody.Text = body;
+        if (RevealAudience != null)
+            RevealAudience.Text = "Both players see this card. Guest acknowledges.";
+        if (RevealTimerText != null) RevealTimerText.Text = "";
+        if (BtnRevealRespond != null) BtnRevealRespond.Visibility = Visibility.Collapsed;
+        if (BtnRevealPass != null) BtnRevealPass.Visibility = Visibility.Collapsed;
+        BtnRevealOk.Visibility = Visibility.Collapsed;
+        BtnRevealYes.Visibility = Visibility.Collapsed;
+        BtnRevealNo.Visibility = Visibility.Collapsed;
+        RevealImage.Source = null;
+        if (!string.IsNullOrEmpty(card.FullImagePath) && System.IO.File.Exists(card.FullImagePath))
+        {
+            try
+            {
+                var bmp = new BitmapImage();
+                bmp.BeginInit();
+                bmp.CacheOption = BitmapCacheOption.OnLoad;
+                bmp.UriSource = new Uri(card.FullImagePath, UriKind.Absolute);
+                bmp.DecodePixelWidth = 440;
+                bmp.EndInit();
+                RevealImage.Source = bmp;
+            }
+            catch { }
+        }
+        CardRevealOverlay.Visibility = Visibility.Visible;
+        _hostEncounterMirrorOpen = true;
+    }
+
+    private void HideHostEncounterMirror()
+    {
+        if (!_hostEncounterMirrorOpen) return;
+        _hostEncounterMirrorOpen = false;
+        if (CardRevealOverlay != null)
+            CardRevealOverlay.Visibility = Visibility.Collapsed;
+        if (RevealImage != null)
+            RevealImage.Source = null;
+        if (RevealAudience != null)
+            RevealAudience.Text = "";
+    }
+
+    /// <summary>
+    /// Same fly-in widget as a hand play, first leg only: spaceline column → screen center.
+    /// Card art is the real card (Host) or the catalog face already on <paramref name="card"/> (Guest).
+    /// </summary>
+    private void ShowRevealFlyIn(Card card, Border origin)
+    {
+        if (PlayFlyInCard == null || DragLayer == null) return;
+        try
+        {
+            _playFlyInHideTimer?.Stop();
+            _playFlyInHideTimer = null;
+            RestorePlayFlyInBoardGhost();
+            int gen = ++_playFlyInGen;
+
+            if (!ReferenceEquals(PlayFlyInCard.Parent, DragLayer) && PlayFlyInCard.Parent is Panel home)
+            {
+                home.Children.Remove(PlayFlyInCard);
+                DragLayer.Children.Add(PlayFlyInCard);
+            }
+            Panel.SetZIndex(DragLayer, 240);
+            Panel.SetZIndex(PlayFlyInCard, 250);
+            EnsurePlayFlyInCardArt(card);
+            if (!TryLoadPlayFlyInFace(card) && PlayFlyInImage != null)
+                PlayFlyInImage.Source = null;
+
+            PlayFlyInCard.Width = TableCardWidth;
+            PlayFlyInCard.Height = TableCardHeight;
+            PlayFlyInCard.Visibility = Visibility.Visible;
+            PlayFlyInCard.Opacity = 1;
+            PlayFlyInCard.BeginAnimation(UIElement.OpacityProperty, null);
+            PlayFlyInCard.BeginAnimation(Canvas.LeftProperty, null);
+            PlayFlyInCard.BeginAnimation(Canvas.TopProperty, null);
+            if (PlayFlyInOverlay != null)
+                PlayFlyInOverlay.Visibility = Visibility.Collapsed;
+            DragLayer.UpdateLayout();
+
+            double ow = DragLayer.ActualWidth > 1 ? DragLayer.ActualWidth : (ActualWidth > 1 ? ActualWidth : 1280);
+            double oh = DragLayer.ActualHeight > 1 ? DragLayer.ActualHeight : (ActualHeight > 1 ? ActualHeight : 800);
+            Point mid = new Point(ow / 2.0, oh / 2.0);
+            Point startPt = mid;
+            try
+            {
+                origin.UpdateLayout();
+                double bw = origin.ActualWidth > 1 ? origin.ActualWidth : (origin.Width > 1 ? origin.Width : TableCardWidth);
+                double bh = origin.ActualHeight > 1 ? origin.ActualHeight : (origin.Height > 1 ? origin.Height : TableCardHeight);
+                var tl = DragLayer.PointFromScreen(origin.PointToScreen(new Point(0, 0)));
+                var br = DragLayer.PointFromScreen(origin.PointToScreen(new Point(bw, bh)));
+                startPt = new Point((tl.X + br.X) / 2.0, (tl.Y + br.Y) / 2.0);
+            }
+            catch
+            {
+                // Layout not ready: skip the motion rather than invent a start point.
+                FinishPlayFlyInLand(gen);
+                return;
+            }
+
+            const double startScale = 1.0;
+            const double midScale = 3.5;
+            var tt = new TranslateTransform();
+            var st = new ScaleTransform(startScale, startScale);
+            PlayFlyInCard.RenderTransformOrigin = new Point(0.5, 0.5);
+            PlayFlyInCard.RenderTransform = new TransformGroup { Children = { st, tt } };
+            Canvas.SetLeft(PlayFlyInCard, startPt.X - TableCardWidth / 2.0);
+            Canvas.SetTop(PlayFlyInCard, startPt.Y - TableCardHeight / 2.0);
+
+            var easeOut = new QuadraticEase { EasingMode = EasingMode.EaseOut };
+            var d1 = TimeSpan.FromMilliseconds(1000);
+            var tEnd = d1 + TimeSpan.FromMilliseconds(450);
+            double dx = mid.X - startPt.X;
+            double dy = mid.Y - startPt.Y;
+
+            DoubleAnimationUsingKeyFrames Keys(params (TimeSpan at, double val, IEasingFunction? ease)[] keys)
+            {
+                var anim = new DoubleAnimationUsingKeyFrames { FillBehavior = FillBehavior.HoldEnd };
+                foreach (var (at, val, ease) in keys)
+                {
+                    var kf = new EasingDoubleKeyFrame(val, KeyTime.FromTimeSpan(at));
+                    if (ease != null) kf.EasingFunction = ease;
+                    anim.KeyFrames.Add(kf);
+                }
+                return anim;
+            }
+
+            tt.BeginAnimation(TranslateTransform.XProperty, Keys(
+                (TimeSpan.Zero, 0, null), (d1, dx, easeOut), (tEnd, dx, null)));
+            tt.BeginAnimation(TranslateTransform.YProperty, Keys(
+                (TimeSpan.Zero, 0, null), (d1, dy, easeOut), (tEnd, dy, null)));
+            st.BeginAnimation(ScaleTransform.ScaleXProperty, Keys(
+                (TimeSpan.Zero, startScale, null), (d1, midScale, easeOut), (tEnd, midScale, null)));
+            st.BeginAnimation(ScaleTransform.ScaleYProperty, Keys(
+                (TimeSpan.Zero, startScale, null), (d1, midScale, easeOut), (tEnd, midScale, null)));
+
+            _session.Log.AddDebug(_session.TurnNumber, "UI", $"Seed reveal fly-in: {card.Name}");
+
+            _playFlyInHideTimer = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = tEnd + TimeSpan.FromMilliseconds(80)
+            };
+            _playFlyInHideTimer.Tick += (_, _) =>
+            {
+                _playFlyInHideTimer?.Stop();
+                _playFlyInHideTimer = null;
+                if (gen != _playFlyInGen) return;
+                FinishPlayFlyInLand(gen);
+            };
+            _playFlyInHideTimer.Start();
+        }
+        catch (Exception ex)
+        {
+            _session.Log.AddDebug(_session.TurnNumber, "UI", "Seed reveal fly-in failed: " + ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Rebuild revealed-under / found-artifact lists from the save.
+    /// Cards with an empty name are still masked and are not shown as faces.
+    /// </summary>
+    private void RestoreRevealedUnderFromSave(GameSave save, Dictionary<int, Border> byId)
+    {
+        if (save.RevealedSeeds != null)
+        {
+            foreach (var snap in save.RevealedSeeds)
+            {
+                if (snap == null) continue;
+                var mission = FindBorderByCardInstance(byId, snap.MissionInstanceId);
+                var seed = FindBorderByCardInstance(byId, snap.CardInstanceId);
+                if (mission == null || seed?.Tag is not Card card) continue;
+                if (string.IsNullOrWhiteSpace(card.Name)) continue;
+                if (!_seedUnderMission.TryGetValue(mission, out var seeds) || !seeds.Contains(seed))
+                    continue;
+                if (!_revealedUnderMission.TryGetValue(mission, out var set))
+                {
+                    set = new HashSet<Card>();
+                    _revealedUnderMission[mission] = set;
+                }
+                set.Add(card);
+            }
+        }
+        if (save.RevealedArtifacts != null)
+        {
+            foreach (var snap in save.RevealedArtifacts)
+            {
+                if (snap == null) continue;
+                var mission = FindBorderByCardInstance(byId, snap.MissionInstanceId);
+                var seed = FindBorderByCardInstance(byId, snap.CardInstanceId);
+                if (mission == null || seed?.Tag is not Card card) continue;
+                if (string.IsNullOrWhiteSpace(card.Name)) continue;
+                if (!_revealedArtifactsUnderMission.TryGetValue(mission, out var list))
+                {
+                    list = new List<Card>();
+                    _revealedArtifactsUnderMission[mission] = list;
+                }
+                if (!list.Contains(card))
+                    list.Add(card);
+            }
+        }
+    }
+
+    private static Border? FindBorderByCardInstance(Dictionary<int, Border> byId, int instanceId)
+    {
+        if (instanceId <= 0) return null;
+        foreach (var b in byId.Values)
+        {
+            if (b.Tag is Card c && c.InstanceId == instanceId)
+                return b;
+        }
+        return null;
     }
 
     /// <summary>
@@ -13602,6 +13885,33 @@ public partial class TableWindow : Window
                 ChildIds = kv.Value.Where(idOf.ContainsKey).Select(c => idOf[c]).ToList()
             });
         }
+        // Verb: attempt-mission — revealed faces travel with the save. Unrevealed seeds do not.
+        foreach (var kv in _revealedUnderMission)
+        {
+            if (kv.Key.Tag is not Card mission || mission.InstanceId <= 0) continue;
+            foreach (var dil in RevealedStillUnderMission(kv.Key))
+            {
+                if (dil.InstanceId <= 0 || string.IsNullOrWhiteSpace(dil.Name)) continue;
+                save.RevealedSeeds.Add(new RevealedUnderSnap
+                {
+                    MissionInstanceId = mission.InstanceId,
+                    CardInstanceId = dil.InstanceId
+                });
+            }
+        }
+        foreach (var kv in _revealedArtifactsUnderMission)
+        {
+            if (kv.Key.Tag is not Card mission || mission.InstanceId <= 0) continue;
+            foreach (var art in kv.Value)
+            {
+                if (art.InstanceId <= 0 || string.IsNullOrWhiteSpace(art.Name)) continue;
+                save.RevealedArtifacts.Add(new RevealedUnderSnap
+                {
+                    MissionInstanceId = mission.InstanceId,
+                    CardInstanceId = art.InstanceId
+                });
+            }
+        }
         // Column sequence is Host→Guest truth (Mission|Span|Mission…).
         // SpacelineInstanceIds stays mission/time/pod only for older saves.
         // SEARCH: Verb: plays-on spaceline-span; Glossary: adjacent
@@ -13853,6 +14163,7 @@ public partial class TableWindow : Window
             {
                 _solvedMissions.Add(border);
                 _missionSolver[border] = snap.SolvedBy.Value;
+                PaintMissionSolvedTag(border, snap.SolvedBy.Value, MissionRules.ParsePoints(card));
             }
             byId[snap.Id] = border;
         }
@@ -13878,6 +14189,7 @@ public partial class TableWindow : Window
                 AddSeedUnderMission(mission, child, force: true);
             }
         }
+        RestoreRevealedUnderFromSave(save, byId);
 
         _spacelineOrder.Clear();
         _missionsByQuadrant.Clear();
