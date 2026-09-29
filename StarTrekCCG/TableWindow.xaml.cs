@@ -2334,6 +2334,8 @@ public partial class TableWindow : Window
 
     private Card? _revealCurrentCard;
     private bool _hostEncounterMirrorOpen;
+    /// <summary>Host sent a watcher face that the Guest has not been told to close.</summary>
+    private bool _guestEncounterMirrorOpen;
 
     /// <summary>
     /// Guest-owned mission attempt: send the reveal/deny to that player and wait.
@@ -2615,7 +2617,7 @@ public partial class TableWindow : Window
             CardRevealOverlay.Visibility = Visibility.Collapsed;
             RevealImage.Source = null;
             if (guestMirror)
-                SendEncounterMirrorToGuest(null, "", "", null, open: false);
+                SendEncounterMirrorToGuest(null, "", "", null, open: false, wait: true);
         }
 
         return _revealAnswer == RevealAnswer.None ? RevealAnswer.Ok : _revealAnswer;
@@ -10493,8 +10495,11 @@ public partial class TableWindow : Window
     {
         try
         {
+            // A host-attempt watcher face is not a modal. Applying board truth must not leave it up.
+            HideHostEncounterMirror();
             EnsureNetworkModeFromSession();
             ApplyGameSave(save);
+            HideHostEncounterMirror();
             // ApplyGameSave restores Session.ActivePlayer → _activePlayer; refresh seed banner/stack.
             UpdatePhaseControls();
             if (_seedPhaseActive)
@@ -11563,8 +11568,17 @@ public partial class TableWindow : Window
 
     private void HideHostEncounterMirror()
     {
-        if (!_hostEncounterMirrorOpen) return;
+        bool wasMirror = _hostEncounterMirrorOpen;
         _hostEncounterMirrorOpen = false;
+        // An interactive reveal owns the overlay until its own frame ends.
+        if (_revealFrame != null || _guestHandlingInboundChoice)
+            return;
+        // OK / Yes / No means a clickable reveal, not the watcher face.
+        bool clickable = BtnRevealOk?.Visibility == Visibility.Visible
+            || BtnRevealYes?.Visibility == Visibility.Visible
+            || BtnRevealNo?.Visibility == Visibility.Visible;
+        if (!wasMirror && clickable)
+            return;
         if (CardRevealOverlay != null)
             CardRevealOverlay.Visibility = Visibility.Collapsed;
         if (RevealImage != null)
@@ -11577,11 +11591,13 @@ public partial class TableWindow : Window
     /// Host attempt: show the encounter on the Guest without waiting for a click.
     /// Guest attempt does not use this — that player already has the interactive reveal.
     /// </summary>
-    private bool SendEncounterMirrorToGuest(Card? card, string title, string body, string? subtitle, bool open)
+    private bool SendEncounterMirrorToGuest(Card? card, string title, string body, string? subtitle, bool open, bool wait = false)
     {
         if (_gameMode != GameMode.Network || _netSession is not { IsHost: true } || _attemptRemoteSurface)
             return false;
         if (open && !IsEncounterRevealCard(card))
+            return false;
+        if (!open && !_guestEncounterMirrorOpen)
             return false;
         int guest = _netSession.LocalPlayer == 1 ? 2 : 1;
         var dto = new NetChoiceDto
@@ -11599,7 +11615,12 @@ public partial class TableWindow : Window
         };
         try
         {
-            _ = _netSession.SendChoiceRequestAsync(dto);
+            var send = _netSession.SendChoiceRequestAsync(dto);
+            if (wait)
+                send.GetAwaiter().GetResult();
+            else
+                _ = send;
+            _guestEncounterMirrorOpen = open;
             return true;
         }
         catch (Exception ex)
@@ -12539,6 +12560,9 @@ public partial class TableWindow : Window
         try
         {
             SyncSeedActiveToSession();
+            // Last watcher face has no following card to replace it. Close it before board truth.
+            if (_guestEncounterMirrorOpen)
+                SendEncounterMirrorToGuest(null, "", "", null, open: false, wait: true);
             var save = CaptureGameSave();
             var masked = NetStateMask.MaskForViewer(save, viewerPlayer: 2);
             _ = _netSession.BroadcastStateAsync(masked);

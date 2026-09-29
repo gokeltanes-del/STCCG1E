@@ -1,3 +1,10 @@
+## 2026-09-29 - AttemptMission: guest encounter mirror closes
+
+- *Auftrag*: Pepsch Dual-EXE. P1 (Host) loest: P2 sieht die Encounter-Faces. Die letzte Meldung bleibt auf P2 ("Artifact acquired / Kurlen Nimbus / Both players see this card. Host acknowledges."), auch nachdem der Versuch vorbei ist und P2 am Zug ist. Kein Dismiss. Spiegel zu, wenn der Host bestaetigt oder der Versuch endet. Ein spaeterer maskierter Broadcast darf den Dialog nicht stehen lassen. Shared Faces bleiben. Hotseat unveraendert.
+- *Ist vorher*: Zwischenkarten wirkten geschlossen, weil das naechste `revealMirror` dasselbe Overlay ueberschrieb. Die letzte Karte hat keinen Nachfolger. `revealMirrorClose` war fire-and-forget. `ApplyGameSave` fasst `CardRevealOverlay` nicht an.
+- *Fix*: Host wartet `revealMirrorClose`, wenn er OK klickt (`ShowCardReveal` finally). Vor dem maskierten Broadcast schickt der Host dasselbe Close noch einmal, falls das Spiegel-Flag noch steht, und wartet bis es auf der Leitung ist. Guest `OnNetStateReceived` ruft `HideHostEncounterMirror` vor und nach `ApplyGameSave` (kein interaktives Reveal, kein OK/Yes/No). `revealMirror` bleibt. Hotseat sendet kein Mirror.
+- *Scope*: TableWindow.xaml.cs. Kein Push master.
+
 ## 2026-09-29 - AttemptMission: solved dialog + encounter both ways
 
 - *Auftrag*: Seed-Fly-in fuer Dilemma/Artifact weg (Play-Fly-in bleibt). Mission-solved-Dialog auf das Fenster des Loesers, Text nennt den Loeser. Encounter-Faces in beide Richtungen, sobald die Karte wirklich aufgedeckt ist.
