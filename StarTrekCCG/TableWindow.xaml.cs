@@ -1219,26 +1219,24 @@ public partial class TableWindow : Window
         bool match = (card.Type ?? "").Contains(_kidnapNamedType, StringComparison.OrdinalIgnoreCase);
         var oppHand = _kidnapOwner == 1 ? _oppHandCards : _handCards;
 
+        string sentence = FormatCardListResult(
+            _kidnapOwner,
+            "revealed",
+            card.Name ?? "a card",
+            _kidnapOwner,
+            "Telepathic Alien Kidnappers",
+            match
+                ? $"guessed {_kidnapNamedType}, discarded"
+                : $"guessed {_kidnapNamedType}, no match, stays in hand");
         if (match)
         {
             oppHand.Remove(card);
             var disc = _kidnapOwner == 1 ? _oppDiscardCards : _discardCards;
             if (!disc.Contains(card)) disc.Add(card);
-            StatusText.Text = $"Kidnappers: named {_kidnapNamedType} — discarded {card.Name}.";
-            _session.Log.Add(_session.TurnNumber, $"P{_kidnapOwner}",
-                $"Kidnappers named {_kidnapNamedType}, revealed {card.Name} — discarded");
-            ShowPublicCardResult(_kidnapOwner, card, "Telepathic Alien Kidnappers",
-                $"Named {_kidnapNamedType}.\nRevealed: {card.Name} ({card.Type}).\nMATCH — discarded.");
         }
-        else
-        {
-            StatusText.Text =
-                $"Kidnappers: named {_kidnapNamedType}, revealed {card.Name} ({card.Type}) — no discard.";
-            _session.Log.Add(_session.TurnNumber, $"P{_kidnapOwner}",
-                $"Kidnappers named {_kidnapNamedType}, revealed {card.Name} — no match");
-            ShowPublicCardResult(_kidnapOwner, card, "Telepathic Alien Kidnappers",
-                $"Named {_kidnapNamedType}.\nRevealed: {card.Name} ({card.Type}).\nNo match — stays in hand.");
-        }
+        StatusText.Text = sentence;
+        _session.Log.Add(_session.TurnNumber, $"P{_kidnapOwner}", sentence);
+        ShowPublicCardResult(_kidnapOwner, card, "Telepathic Alien Kidnappers", sentence);
         RefreshZoneCounts();
         RefreshHandStrips();
     }
@@ -1261,14 +1259,17 @@ public partial class TableWindow : Window
     /// Host never clicks a foreign hand; Guest Owner sees choice in own window.
     /// Timeout/random already in AskChoiceForPlayer / AskChoiceRemoteOnHost.
     /// </summary>
-    private Card? PickHandCardToDiscard(int owner, string title, string hint)
+    private Card? PickHandCardToDiscard(int owner, string title, string hint, int effectOwner)
     {
         var hand = owner == 1 ? _handCards : _oppHandCards;
         if (hand.Count == 0) return null;
         if (hand.Count == 1)
         {
             // The only legal card is discarded. Discard is public; the hand list was not shown.
-            ShowPublicCardResult(owner, hand[0], title, $"Only card in hand — discarding {hand[0].Name}.");
+            string only = FormatCardListResult(owner, "discarded", hand[0].Name ?? "a card", effectOwner, title);
+            StatusText.Text = only;
+            _session.Log.Add(_session.TurnNumber, $"P{owner}", only);
+            ShowPublicCardResult(owner, hand[0], title, only);
             return hand[0];
         }
 
@@ -1305,9 +1306,10 @@ public partial class TableWindow : Window
 
         var chosen = hand[idx];
         // Hand pick stayed on the owner. Once discarded, the discard pile is public.
-        ShowPublicCardResult(owner, chosen, title, $"Discarded: {chosen.Name}.");
-        _session.Log.Add(_session.TurnNumber, $"P{owner}",
-            $"Static Warp Bubble discarded {chosen.Name}");
+        string sentence = FormatCardListResult(owner, "discarded", chosen.Name ?? "a card", effectOwner, title);
+        StatusText.Text = sentence;
+        _session.Log.Add(_session.TurnNumber, $"P{owner}", sentence);
+        ShowPublicCardResult(owner, chosen, title, sentence);
         return chosen;
     }
 
@@ -2232,9 +2234,10 @@ public partial class TableWindow : Window
         tent.Remove(taken);
         taken.FaceUp = true;
         if (!hand.Contains(taken)) hand.Add(taken);
-        ShowCardReveal(taken, "Q's Tent — downloaded",
-            $"{taken.Name} goes to P{player}'s hand (show opponent).",
-            RevealButtons.Ok, taken.Name);
+        string tentSentence = FormatCardListResult(
+            player, "downloaded", taken.Name ?? "a card", player, doorway.Name ?? "Q's Tent",
+            "no draw this turn");
+        ShowCardReveal(taken, "Q's Tent — downloaded", tentSentence, RevealButtons.Ok, taken.Name);
 
         if (choose)
             SendCardTo(doorway, player, TimingRules.Destination.Discard);
@@ -2246,11 +2249,10 @@ public partial class TableWindow : Window
 
         DownloadRules.MarkTentDownload(_session, player);
         _session.SuppressEndOfTurnDraw = true;
-        _session.Log.Add(_session.TurnNumber, $"P{player}",
-            $"Q's Tent download: {taken.Name}");
+        _session.Log.Add(_session.TurnNumber, $"P{player}", tentSentence);
         RefreshHandStrips();
         RefreshZoneCounts();
-        StatusText.Text = $"Q's Tent: {taken.Name} → hand. No draw this turn.";
+        StatusText.Text = tentSentence;
         return true;
     }
 
@@ -2309,14 +2311,13 @@ public partial class TableWindow : Window
         taken.FaceUp = true;
         if (!hand.Contains(taken)) hand.Add(taken);
         DownloadRules.MarkSpecialDownload(_session, owner, source);
-        ShowCardReveal(taken, "Special Download",
-            $"{source.Name} downloads {taken.Name} to hand.",
-            RevealButtons.Ok, taken.Name);
+        string downloadSentence = FormatCardListResult(
+            owner, "downloaded", taken.Name ?? "a card", owner, source.Name ?? "Special Download");
+        ShowCardReveal(taken, "Special Download", downloadSentence, RevealButtons.Ok, taken.Name);
         RefreshHandStrips();
         RefreshZoneCounts();
-        _session.Log.Add(_session.TurnNumber, $"P{owner}",
-            $"Special Download: {source.Name} → {taken.Name}");
-        StatusText.Text = $"Special Download: {taken.Name} → hand.";
+        _session.Log.Add(_session.TurnNumber, $"P{owner}", downloadSentence);
+        StatusText.Text = downloadSentence;
     }
 
     private void TryFlipHiddenAgenda(Card card, int owner)
@@ -2328,12 +2329,13 @@ public partial class TableWindow : Window
             return;
         }
         card.FaceUp = true;
-        ShowCardReveal(card, "Hidden Agenda flipped",
-            card.Text ?? card.Name ?? "Hidden Agenda",
-            RevealButtons.Ok, card.Name);
+        string flipped = owner is 1 or 2
+            ? $"Player {owner} flipped {card.Name} face up."
+            : $"Flipped {card.Name} face up.";
+        ShowCardReveal(card, "Hidden Agenda flipped", flipped, RevealButtons.Ok, card.Name);
         RebuildTablePermanentsPanel();
-        _session.Log.Add(_session.TurnNumber, $"P{owner}", $"Flipped Hidden Agenda: {card.Name}");
-        StatusText.Text = $"Flipped {card.Name} face-up.";
+        _session.Log.Add(_session.TurnNumber, $"P{owner}", flipped);
+        StatusText.Text = flipped;
     }
 
     private Card? _revealCurrentCard;
@@ -2648,6 +2650,26 @@ public partial class TableWindow : Window
             return;
         }
         CloseReveal(RevealAnswer.Ok);
+    }
+
+    /// <summary>
+    /// One sentence both windows share when they are allowed to see a card-list result.
+    /// Names the choosing player, the card they selected, and whose effect card caused it.
+    /// </summary>
+    private static string FormatCardListResult(
+        int actor, string verbPast, string selected, int effectOwner, string effectName, string? tail = null)
+    {
+        string who = actor is 1 or 2 ? $"Player {actor}" : "Player";
+        string pick = string.IsNullOrWhiteSpace(selected) ? "a card" : selected.Trim();
+        string effect = string.IsNullOrWhiteSpace(effectName) ? "that card" : effectName.Trim();
+        string sentence = effectOwner == actor && effectOwner is 1 or 2
+            ? $"{who}'s {effect} {verbPast} {pick}."
+            : effectOwner is 1 or 2
+                ? $"{who} {verbPast} {pick} to Player {effectOwner}'s {effect}."
+                : $"{who} {verbPast} {pick} to {effect}.";
+        if (string.IsNullOrWhiteSpace(tail))
+            return sentence;
+        return sentence.TrimEnd('.') + " — " + tail.Trim().TrimEnd('.') + ".";
     }
 
     /// <summary>Visible outcome after a timed/default or manual player choice.</summary>
@@ -22516,9 +22538,10 @@ public partial class TableWindow : Window
             if (!hand.Contains(pick))
                 hand.Add(pick);
             taken++;
-            ShowCardReveal(pick, "Betazoid Gift Box",
-                $"{pick.Name} downloaded to P{player}'s hand ({taken}/{acq.DownloadFromDraw}).",
-                RevealButtons.Ok, pick.Name);
+            string giftSentence = FormatCardListResult(
+                player, "downloaded", $"{pick.Name} ({taken}/{acq.DownloadFromDraw})",
+                player, "Betazoid Gift Box");
+            ShowCardReveal(pick, "Betazoid Gift Box", giftSentence, RevealButtons.Ok, pick.Name);
             _session.Log.Add(_session.TurnNumber, $"P{player}",
                 $"Gift Box download: {pick.Name}");
         }
@@ -23003,7 +23026,8 @@ public partial class TableWindow : Window
     {
         var skills = MissionRules.ParsePersonnelSkills(victim).Keys.ToList();
         var keep = new List<string>();
-        if (skills.Count <= 2)
+        bool chose = skills.Count > 2;
+        if (!chose)
             keep.AddRange(skills);
         else
         {
@@ -23021,11 +23045,13 @@ public partial class TableWindow : Window
         }
         victim.FramedOfMind = true;
         victim.FrameSkills = keep;
-        ShowCardReveal(victim, "Frame of Mind",
-            $"{victim.Name} is Non-Aligned 3-3-3 with only: {string.Join(", ", keep)}.\nCure with 3 Empathy present.",
-            RevealButtons.Ok, victim.Name);
-        _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
-            $"Frame of Mind on {victim.Name} ({string.Join("/", keep)})");
+        int chooser = opponentOf(_activePlayer);
+        string skillList = keep.Count == 0 ? "no skills" : string.Join(" and ", keep);
+        string frameSentence = chose && chooser is 1 or 2
+            ? $"Player {chooser} chose {skillList} for {victim.Name} on Frame of Mind."
+            : $"{victim.Name} keeps {skillList} under Frame of Mind.";
+        ShowCardReveal(victim, "Frame of Mind", frameSentence, RevealButtons.Ok, victim.Name);
+        _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}", frameSentence);
     }
 
     private void TryCureFrameOfMindAt(Border host)
@@ -29400,7 +29426,8 @@ public partial class TableWindow : Window
                 {
                     var pick = PickHandCardToDiscard(owner,
                         "Static Warp Bubble",
-                        "Discard one card from hand (end of turn, before you draw).");
+                        "Discard one card from hand (end of turn, before you draw).",
+                        e.Owner);
                     if (pick != null)
                     {
                         hand.Remove(pick);
@@ -30889,16 +30916,16 @@ public partial class TableWindow : Window
         });
 
         var copiedSummary = string.Join(", ", skillsToGrant.Select(kv => kv.Value > 1 ? $"{kv.Key}×{kv.Value}" : kv.Key));
-        StatusText.Text = $"Vulcan Mindmeld: {mindmeldUser.Name} gains {skillDonor.Name}'s skills ({copiedSummary}) until end of turn.";
-        _session.Log.Add(_session.TurnNumber, $"P{controller}",
-            $"Vulcan Mindmeld: {mindmeldUser.Name} gained skills from {skillDonor.Name} ({copiedSummary}) until end of turn.");
+        string meldSentence = FormatCardListResult(
+            controller,
+            "gave",
+            $"{mindmeldUser.Name} the skills of {skillDonor.Name} ({copiedSummary})",
+            controller,
+            "Vulcan Mindmeld");
+        StatusText.Text = meldSentence;
+        _session.Log.Add(_session.TurnNumber, $"P{controller}", meldSentence);
 
-        ShowCardReveal(card, "Vulcan Mindmeld",
-            $"Plays on your Mindmeld personnel: {mindmeldUser.Name}.\n\n"
-            + $"Gains all skills of {skillDonor.Name} until end of turn:\n"
-            + $"+ {copiedSummary}\n\n"
-            + "At end of turn, Vulcan Mindmeld is discarded.",
-            RevealButtons.Ok, card.Name);
+        ShowCardReveal(card, "Vulcan Mindmeld", meldSentence, RevealButtons.Ok, card.Name);
     }
 
     /// <summary>
