@@ -1,3 +1,10 @@
+## 2026-09-29 - AttemptMission: solved dialog + encounter both ways
+
+- *Auftrag*: Seed-Fly-in fuer Dilemma/Artifact weg (Play-Fly-in bleibt). Mission-solved-Dialog auf das Fenster des Loesers, Text nennt den Loeser. Encounter-Faces in beide Richtungen, sobald die Karte wirklich aufgedeckt ist.
+- *Ist vorher*: Fly-in von der Missions-Spalte. Dialog las `_activePlayer` beim Anzeigen. Nach einem EOT mitten im Modal (Banner danach P1 PLAY) stand "Player 1" auf dem Host, obwohl die Punkte an P2 gingen. Guest sah den Dialog nicht. Host-Versuch zeigte Encounters nur lokal; `kind=reveal` ging nur an den Guest, wenn der Guest klickt.
+- *Fix*: Solver wird bei `MarkMissionSolved` festgehalten und als `surfacePlayer` geroutet (nicht der spaetere `_activePlayer`). Guest-Versuch: Dialog auf P2, Text "Player 2". Host-Versuch: Dialog auf P1, Text "Player 1". Tag auf beiden bleibt. Encounter: Guest klickt, Host spiegelt ohne Klick. Host klickt, Guest bekommt `revealMirror` ohne Antwort und `revealMirrorClose` wenn der Host schliesst. Unrevealed Seeds und das Detail (noch aktive revealed Dilemmas + unacquired Artifacts) unveraendert.
+- *Scope*: TableWindow.xaml.cs, NetChoiceDto.cs. Hotseat ohne Fly-in und ohne Netz-Mirror. Kein Push master.
+
 ## 2026-09-29 - AttemptMission: both players see encountered cards
 
 - *Auftrag*: P2-Versuch: Dilemma- und Artifact-Faces auf beiden Fenstern, sobald sie wirklich aufgedeckt sind. Solved-Tag auch auf P2. Missions-Detail zeigt noch aktive aufgedeckte Dilemmas und Artifacts fuer beide. Unrevealed Seeds bleiben verdeckt. Fly-in von der Missions-Spalte in die Mitte, auf dem Fenster das die Karte zeigt.
