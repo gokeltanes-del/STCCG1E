@@ -2531,7 +2531,7 @@ public partial class TableWindow : Window
 
         IReadOnlyList<Card> shown = faces ?? (card != null ? new[] { card } : Array.Empty<Card>());
         _revealCurrentCard = shown.Count == 1 ? shown[0] : null;
-        ApplyRevealFaces(shown);
+        ApplyRevealFaces(shown, KilledPersonnelFaces(title, shown.Count));
 
         bool yesNo = buttons == RevealButtons.YesNo;
         bool playerPick = buttons == RevealButtons.PlayerPick;
@@ -5255,10 +5255,17 @@ public partial class TableWindow : Window
     }
 
     /// <summary>
-    /// One face uses the large frame. Several faces are the killed personnel, side by side.
-    /// None hides the frame so the dialog is text only.
+    /// Personnel Battle result faces are the people who died. The label sits above that row only.
     /// </summary>
-    private void ApplyRevealFaces(IReadOnlyList<Card> faces)
+    private static bool KilledPersonnelFaces(string? title, int faceCount) =>
+        faceCount > 0 && string.Equals(title, "Personnel Battle", StringComparison.Ordinal);
+
+    /// <summary>
+    /// One face uses the large frame. Several faces sit in a row.
+    /// None hides the frame so the dialog is text only.
+    /// <paramref name="killedPersonnel"/> paints a red frame on each of those faces and the label above them.
+    /// </summary>
+    private void ApplyRevealFaces(IReadOnlyList<Card> faces, bool killedPersonnel = false)
     {
         if (RevealFacesPanel != null)
             RevealFacesPanel.Children.Clear();
@@ -5266,19 +5273,36 @@ public partial class TableWindow : Window
             RevealImage.Source = null;
 
         var list = faces?.Where(c => c != null).ToList() ?? new List<Card>();
+        bool markDead = killedPersonnel && list.Count > 0;
+        if (RevealCasualtyLabel != null)
+            RevealCasualtyLabel.Visibility = markDead ? Visibility.Visible : Visibility.Collapsed;
+
+        var frameBrush = new SolidColorBrush(markDead
+            ? Color.FromRgb(0xFF, 0x3B, 0x30)
+            : Color.FromRgb(0x55, 0x55, 0x55));
+        var frameThickness = new Thickness(markDead ? 4 : 1);
+
         if (list.Count <= 1)
         {
             if (RevealFacesScroll != null)
                 RevealFacesScroll.Visibility = Visibility.Collapsed;
             if (RevealFaceFrame != null)
+            {
                 RevealFaceFrame.Visibility = list.Count == 1 ? Visibility.Visible : Visibility.Collapsed;
+                RevealFaceFrame.BorderBrush = frameBrush;
+                RevealFaceFrame.BorderThickness = frameThickness;
+            }
             if (list.Count == 1)
                 LoadRevealBitmap(list[0], RevealImage, 440);
             return;
         }
 
         if (RevealFaceFrame != null)
+        {
             RevealFaceFrame.Visibility = Visibility.Collapsed;
+            RevealFaceFrame.BorderBrush = new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x55));
+            RevealFaceFrame.BorderThickness = new Thickness(1);
+        }
         if (RevealFacesScroll != null)
             RevealFacesScroll.Visibility = Visibility.Visible;
         if (RevealFacesPanel == null)
@@ -5303,8 +5327,8 @@ public partial class TableWindow : Window
                 Width = 150,
                 Height = 210,
                 Margin = new Thickness(0, 0, 8, 0),
-                BorderBrush = new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x55)),
-                BorderThickness = new Thickness(1),
+                BorderBrush = frameBrush,
+                BorderThickness = frameThickness,
                 CornerRadius = new CornerRadius(4),
                 Background = new SolidColorBrush(Color.FromRgb(0x11, 0x11, 0x11)),
                 Child = img,
@@ -5323,7 +5347,13 @@ public partial class TableWindow : Window
         if (RevealFacesScroll != null)
             RevealFacesScroll.Visibility = Visibility.Collapsed;
         if (RevealFaceFrame != null)
+        {
             RevealFaceFrame.Visibility = Visibility.Collapsed;
+            RevealFaceFrame.BorderBrush = new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x55));
+            RevealFaceFrame.BorderThickness = new Thickness(1);
+        }
+        if (RevealCasualtyLabel != null)
+            RevealCasualtyLabel.Visibility = Visibility.Collapsed;
     }
 
     private static void LoadRevealBitmap(Card? card, Image? image, int decodeWidth)
@@ -11851,7 +11881,7 @@ public partial class TableWindow : Window
         BtnRevealYes.Visibility = Visibility.Collapsed;
         BtnRevealNo.Visibility = Visibility.Collapsed;
         _revealCurrentCard = shown.Count == 1 ? shown[0] : null;
-        ApplyRevealFaces(shown);
+        ApplyRevealFaces(shown, KilledPersonnelFaces(title, shown.Count));
         CardRevealOverlay.Visibility = Visibility.Visible;
         _hostEncounterMirrorOpen = true;
     }

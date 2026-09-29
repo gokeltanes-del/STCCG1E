@@ -207,14 +207,17 @@
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <Grid Grid.Column="0">
-                                            <Border x:Name="RevealFaceFrame" Width="220" Height="308" Margin="0,0,16,0" BorderBrush="#555" BorderThickness="1" CornerRadius="4" Background="#111" Cursor="Hand" ToolTip="Hold RMB = Large view" MouseRightButtonDown="RevealImage_MouseRightButtonDown" MouseRightButtonUp="RevealImage_MouseRightButtonUp">
-                                                <Image x:Name="RevealImage" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" MouseRightButtonDown="RevealImage_MouseRightButtonDown" MouseRightButtonUp="RevealImage_MouseRightButtonUp"/>
-                                            </Border>
-                                            <ScrollViewer x:Name="RevealFacesScroll" Visibility="Collapsed" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" MaxHeight="308" Margin="0,0,16,0">
-                                                <StackPanel x:Name="RevealFacesPanel" Orientation="Horizontal"/>
-                                            </ScrollViewer>
-                                        </Grid>
+                                        <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                            <TextBlock x:Name="RevealCasualtyLabel" Text="Personnel died" Visibility="Collapsed" Foreground="#FF3B30" FontSize="14" FontWeight="Bold" Margin="0,0,0,6"/>
+                                            <Grid>
+                                                <Border x:Name="RevealFaceFrame" Width="220" Height="308" BorderBrush="#555" BorderThickness="1" CornerRadius="4" Background="#111" Cursor="Hand" ToolTip="Hold RMB = Large view" MouseRightButtonDown="RevealImage_MouseRightButtonDown" MouseRightButtonUp="RevealImage_MouseRightButtonUp">
+                                                    <Image x:Name="RevealImage" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" MouseRightButtonDown="RevealImage_MouseRightButtonDown" MouseRightButtonUp="RevealImage_MouseRightButtonUp"/>
+                                                </Border>
+                                                <ScrollViewer x:Name="RevealFacesScroll" Visibility="Collapsed" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" MaxHeight="308">
+                                                    <StackPanel x:Name="RevealFacesPanel" Orientation="Horizontal"/>
+                                                </ScrollViewer>
+                                            </Grid>
+                                        </StackPanel>
                                         <DockPanel Grid.Column="1">
                                             <TextBlock DockPanel.Dock="Top" x:Name="RevealTitle" Foreground="#FFE082" FontSize="14" FontWeight="Bold" TextWrapping="Wrap" Margin="0,0,0,6"/>
                                             <TextBlock DockPanel.Dock="Top" x:Name="RevealSubtitle" Foreground="#9CDCFE" FontSize="12" Margin="0,0,0,8" TextWrapping="Wrap"/>

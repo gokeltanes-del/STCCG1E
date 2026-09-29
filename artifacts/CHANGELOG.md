@@ -1,3 +1,9 @@
+## 2026-09-29 - Personnel died label on casualty faces
+
+- *Auftrag*: Pepsch. Der Kampf stimmt. Jedes Face eines getoeteten Personals im Personnel-Battle-Ergebnis bekommt einen roten Rahmen, und darueber die englische Zeile "Personnel died". Nicht ueber dem ganzen Dialog, und nicht an einer Karte die nicht gestorben ist. Mehrere Tote: jeder Rahmen, die Zeile ueber dieser Reihe. Kein Toter: weiter kein Face und keine Zeile. Beide Fenster, Hotseat und Guest. OK und die Kampfregeln bleiben.
+- *Fix*: Die Zeile sitzt ueber der Face-Spalte. Ein Tod: der grosse Rahmen rot. Mehrere: jeder kleine Rahmen rot, eine Zeile darueber. Andere Reveals behalten den grauen Rahmen ohne diese Zeile.
+- *Scope*: TableWindow.xaml, TableWindow.xaml.cs. Kein Push master.
+
 ## 2026-09-29 - Personnel battle result shows who died
 
 - *Auftrag*: Pepsch. Der Kampf selbst stimmt (PERSONNEL BATTLE 5 vs 3, Data killed, Survivors stopped). Das grosse Face daneben war Koroth, und Koroth ist nicht der Tote. Ein Face nur fuer Personal, das in diesem Kampf wirklich gestorben ist. Mehrere Tote: jedes dieser Faces, kein Stellvertreter. Kein Toter: nur der Satz, kein Face. OK bleibt beim Angreifer. Das andere Fenster ohne Buttons, zu wenn der Angreifer bestaetigt. Hotseat und Guest. Wer einen Kampf initiieren darf, bleibt.
