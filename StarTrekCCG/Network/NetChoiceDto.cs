@@ -23,6 +23,8 @@ public sealed class NetChoiceDto
         public const string Choice = "choice";
         public const string ResponseWindow = "responseWindow";
         public const string ResponsePass = "responsePass";
+        /// <summary>OK / Yes-No card reveal. Guest displays; Host already decided the text.</summary>
+        public const string Reveal = "reveal";
     }
 
     [JsonPropertyName("correlationId")]
@@ -47,6 +49,19 @@ public sealed class NetChoiceDto
 
     [JsonPropertyName("cardName")]
     public string? CardName { get; set; }
+
+    /// <summary>Catalog set so the viewer can show a face without reading masked seeds.</summary>
+    [JsonPropertyName("cardSet")]
+    public string? CardSet { get; set; }
+
+    [JsonPropertyName("cardType")]
+    public string? CardType { get; set; }
+
+    [JsonPropertyName("instanceId")]
+    public int InstanceId { get; set; }
+
+    [JsonPropertyName("subtitle")]
+    public string? Subtitle { get; set; }
 
     [JsonPropertyName("timeoutMs")]
     public int? TimeoutMs { get; set; }

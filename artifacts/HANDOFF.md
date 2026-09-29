@@ -29,7 +29,7 @@ Archiv der aufgeblÔö£├▒hten VorgÔö£├▒ngerdatei: `GROK_TEMP/HANDOFF
 ---
 
 ## Zuletzt (kurz)
-- AttemptMission network: Guest sendet nur Intent (kein lokaler Versuch gegen maskierte Seeds). Host TryApplyNetAttemptMission = TryAttemptMission (Hotseat-Pfad) + BroadcastMaskedStateToGuest. Schiff = Target2. Yes/No = AskChoiceForPlayer. PickCardFromList / PersonnelBattle / KI / Phase-5 nicht angefasst. Basis 8083785. **HOLD Dual-EXE.**
+- AttemptMission UI: Guest sendet nur Intent. Host entscheidet und wendet an (TryAttemptMission). Prompts/Reveals/Wahl des Versuchenden laufen auf dem Guest (`ChoiceRequest` kind=reveal / choice, Katalog-Face). Host oeffnet diese Overlay nicht. Danach maskierter Broadcast. **Weiter auf dem Host:** PickOpp und Alien Parasites wenn P1 entscheidet; The Devil fuer P1. TTP-Schiffs-Klick hat keinen Remote-Kanal (nicht auf dem Host geoeffnet, Schiff bleibt). Hotseat unveraendert. **HOLD Dual-EXE.**
 - Span overlay subsystem (Option B): _spacelineOrder mission-only; PaintSpans Gap-Mid Endpoints; Capture Spaceline ohne Spans; BoardStore aus AE-Paar; Seed/Index mission-only; BuildSpacelineDisplayOrder weg. Tip-Hash 2d7acc7. Pipeline 5b043b0/ab2e67a/a9af295 erhalten. **HOLD.**
 - Q-Net second span no Extra-Width stack + SWB Face: Relayout missions-only columns; spans gap-mid Pin; AsMissionEndpointBorder; SWB hand→Face strip. Tip-Hash 5b043b0. Pipeline fef7075/ab2e67a/a9af295 erhalten. **HOLD.**
 - Spaceline span gap = mission InstanceIds + Host dock recover (Q-Net): HostInstanceId/Host2InstanceId; Apply/SpanEndpoints/DisplayOrder per InstanceId; EnsureBoardExtents deferred; PinDockables after span Relayout; Fly-in no Host TargetNorm for spans. Tip-Hash fef7075. Pipeline ab2e67a/a9af295 erhalten. **HOLD.**
