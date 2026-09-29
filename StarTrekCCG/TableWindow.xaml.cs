@@ -88,6 +88,11 @@ public partial class TableWindow : Window
     private bool _guestHandlingInboundChoice;
     /// <summary>Host: true while TryApplyNetAttemptMission is inside TryAttemptMission (including its modals).</summary>
     private bool _netAttemptApplying;
+    /// <summary>
+    /// Host: guest owns this attempt's prompts. Reveals/errors go out as ChoiceRequest;
+    /// the Host window does not open them. Hotseat and a Host-owned attempt leave this false.
+    /// </summary>
+    private bool _attemptRemoteSurface;
     private readonly GameSession _session = new();
     /// <summary>E1: last compact state: line so Capture does not flood the log.</summary>
     private string? _lastEngineStateLine;
@@ -2328,6 +2333,107 @@ public partial class TableWindow : Window
     private Card? _revealCurrentCard;
 
     /// <summary>
+    /// Guest-owned mission attempt: send the reveal/deny to that player and wait.
+    /// Returns false when this prompt stays on the local window (hotseat, Host's own attempt,
+    /// or a step whose deciding player is the Host).
+    /// </summary>
+    private bool TryRouteAttemptReveal(
+        int? surfacePlayer,
+        Card? card,
+        string title,
+        string body,
+        RevealButtons buttons,
+        string? subtitle,
+        string? yesLabel,
+        string? noLabel,
+        out RevealAnswer answer)
+    {
+        answer = RevealAnswer.Ok;
+        if (!_attemptRemoteSurface || _netSession is not { IsHost: true })
+            return false;
+        int who = surfacePlayer ?? _activePlayer;
+        if (who == _netSession.LocalPlayer)
+            return false;
+        answer = ShowRevealRemoteOnGuest(card, title, body, buttons, subtitle, yesLabel, noLabel);
+        return true;
+    }
+
+    /// <summary>
+    /// Host → Guest ChoiceRequest kind=reveal. Guest draws the catalog face and clicks.
+    /// Host does not open CardRevealOverlay. Timeout: OK, or a random Yes/No.
+    /// </summary>
+    private RevealAnswer ShowRevealRemoteOnGuest(
+        Card? card,
+        string title,
+        string body,
+        RevealButtons buttons,
+        string? subtitle,
+        string? yesLabel = null,
+        string? noLabel = null)
+    {
+        if (_netSession is not { IsHost: true })
+            return RevealAnswer.Ok;
+
+        bool yesNo = buttons == RevealButtons.YesNo;
+        string yes = yesLabel ?? "Yes";
+        string no = noLabel ?? "No";
+        int timeoutMs = yesNo ? 10000 : 20000;
+        int who = _activePlayer is 1 or 2 ? _activePlayer : 2;
+        string corr = Guid.NewGuid().ToString("N");
+        var dto = new NetChoiceDto
+        {
+            CorrelationId = corr,
+            Kind = NetChoiceDto.Kinds.Reveal,
+            TargetPlayer = who,
+            Title = title,
+            Prompt = body,
+            Subtitle = subtitle,
+            Options = yesNo ? new[] { yes, no } : new[] { "OK" },
+            CardName = card?.Name,
+            CardSet = card?.SetFolder,
+            CardType = card?.Type,
+            InstanceId = card?.InstanceId ?? 0,
+            TimeoutMs = timeoutMs
+        };
+
+        var tcs = new TaskCompletionSource<NetChoiceDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pendingChoiceResponses[corr] = tcs;
+        StatusText.Text = $"P{who} attempt — {title} (Guest window)…";
+        _session.Log.AddDebug(_session.TurnNumber, "Net",
+            $"Attempt reveal → P{who} corr={corr} '{title}'");
+
+        try
+        {
+            _ = _netSession.SendChoiceRequestAsync(dto);
+        }
+        catch (Exception ex)
+        {
+            _pendingChoiceResponses.Remove(corr);
+            StatusText.Text = "Net attempt reveal send failed: " + ex.Message;
+            return yesNo ? (_autoSeedRng.Next(2) == 0 ? RevealAnswer.Yes : RevealAnswer.No) : RevealAnswer.Ok;
+        }
+
+        var result = WaitForChoiceResponse(corr, tcs, timeoutMs + 500);
+        _pendingChoiceResponses.Remove(corr);
+
+        if (!yesNo)
+            return RevealAnswer.Ok;
+
+        string picked = result?.SelectedOption ?? "";
+        if (string.IsNullOrWhiteSpace(picked))
+            picked = _autoSeedRng.Next(2) == 0 ? yes : no;
+        if (!string.Equals(picked, yes, StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(picked, no, StringComparison.OrdinalIgnoreCase))
+        {
+            picked = string.Equals(picked, "Yes", StringComparison.OrdinalIgnoreCase) ? yes : no;
+        }
+        _session.Log.Add(_session.TurnNumber, $"P{who}", $"{title}: {picked}");
+        return string.Equals(picked, yes, StringComparison.OrdinalIgnoreCase)
+            ? RevealAnswer.Yes
+            : RevealAnswer.No;
+    }
+
+    /// <summary>
     /// Modal: große Karte + Text über dem Tisch. Blockiert bis Button.
     /// </summary>
     private RevealAnswer ShowCardReveal(
@@ -2340,8 +2446,14 @@ public partial class TableWindow : Window
         RevealAnswer autoDefault = RevealAnswer.No,
         string? yesLabel = null,
         string? noLabel = null,
-        bool randomOnTimeout = false)
+        bool randomOnTimeout = false,
+        int? surfacePlayer = null)
     {
+        // Verb: attempt-mission
+        // Guest-owned attempt: this overlay belongs on the Guest. Host keeps applying.
+        if (TryRouteAttemptReveal(surfacePlayer, card, title, body, buttons, subtitle, yesLabel, noLabel, out var routed))
+            return routed;
+
         _revealCurrentCard = card;
         if (CardRevealOverlay == null)
         {
@@ -2556,23 +2668,25 @@ public partial class TableWindow : Window
         // SWB / hand-discard: options labeled with InstanceId map to real hand cards → Face strip (not text/black).
         // TAK type-name choices do not map and keep YesNo / label path.
         var handMapped = TryMapChoiceOptionsToHandCards(decidingPlayer, clean);
-        if (handMapped != null)
+        var faceMapped = handMapped == null ? TryMapChoiceLabelsToFaceCards(clean) : null;
+        if (handMapped != null || faceMapped != null)
         {
+            var shown = handMapped ?? faceMapped!;
             var cardPick = PickCardFromList(
                 string.IsNullOrWhiteSpace(prompt) ? "Click a card to choose." : prompt,
-                handMapped, title, card);
+                shown, title, card);
             timed = cardPick == null;
             if (cardPick != null)
             {
                 pickedCard = cardPick;
-                int idx = handMapped.IndexOf(cardPick);
+                int idx = shown.IndexOf(cardPick);
                 picked = (idx >= 0 && idx < clean.Length) ? clean[idx] : clean[0];
             }
             else
             {
                 int ri = _autoSeedRng.Next(clean.Length);
                 picked = clean[ri];
-                pickedCard = handMapped[ri];
+                pickedCard = shown[ri];
             }
         }
         else if (clean.Length == 2)
@@ -2634,6 +2748,37 @@ public partial class TableWindow : Window
         return mapped.Count == options.Length ? mapped : null;
     }
 
+    /// <summary>
+    /// Attempt picks labeled "Name #InstanceId". Visible table card if it has a face;
+    /// otherwise the catalog print. Null unless every option has an id (TAK type names stay text).
+    /// </summary>
+    private List<Card>? TryMapChoiceLabelsToFaceCards(string[] options)
+    {
+        if (options == null || options.Length == 0) return null;
+        var mapped = new List<Card>(options.Length);
+        foreach (var opt in options)
+        {
+            int id = ParseInstanceIdFromChoiceLabel(opt);
+            if (id <= 0) return null;
+            string name = StripChoiceLabelPrefix(opt);
+            Card? face = null;
+            var live = LookupCardByInstanceId(id);
+            if (live != null
+                && !string.IsNullOrWhiteSpace(live.Name)
+                && !string.IsNullOrWhiteSpace(live.FullImagePath))
+                face = live;
+            else
+            {
+                var proto = FindCatalogPrototype(string.IsNullOrWhiteSpace(name) ? null : name, null);
+                if (proto == null) return null;
+                face = CardFactory.ClonePrinted(proto);
+                face.InstanceId = id;
+            }
+            mapped.Add(face);
+        }
+        return mapped.Count == options.Length ? mapped : null;
+    }
+
     private static int ParseInstanceIdFromChoiceLabel(string label)
     {
         if (string.IsNullOrWhiteSpace(label)) return 0;
@@ -2675,6 +2820,9 @@ public partial class TableWindow : Window
             Prompt = prompt,
             Options = clean,
             CardName = card?.Name,
+            CardSet = card?.SetFolder,
+            CardType = card?.Type,
+            InstanceId = card?.InstanceId ?? 0,
             TimeoutMs = timeoutMs
         };
 
@@ -4527,6 +4675,13 @@ public partial class TableWindow : Window
     private void ShowPlayError(string message)
     {
         StatusText.Text = message;
+        if (_attemptRemoteSurface && _netSession is { IsHost: true })
+        {
+            // Verb: attempt-mission — deny dialog is the Guest's. Host does not open a MessageBox.
+            ShowRevealRemoteOnGuest(null, "Illegal action", message, RevealButtons.Ok, null);
+            StatusText.Text = message;
+            return;
+        }
         try
         {
             MessageBox.Show(message, "Illegal action", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -10004,6 +10159,77 @@ public partial class TableWindow : Window
     }
 
 
+    /// <summary>Catalog face for a Host reveal/choice. Not a seed read and not added to any zone.</summary>
+    private Card? BuildNetChoiceFace(NetChoiceDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.CardName)) return null;
+        var proto = FindCatalogPrototype(dto.CardName, dto.CardSet);
+        if (proto == null) return null;
+        var face = CardFactory.ClonePrinted(proto);
+        if (dto.InstanceId > 0) face.InstanceId = dto.InstanceId;
+        if (!string.IsNullOrWhiteSpace(dto.CardType)) face.Type = dto.CardType;
+        return face;
+    }
+
+    /// <summary>
+    /// Guest plays an attempt reveal the Host already decided. Reply is only the button.
+    /// </summary>
+    private void HandleGuestAttemptReveal(NetChoiceDto dto)
+    {
+        if (_netSession == null) return;
+        _guestHandlingInboundChoice = true;
+        _guestActiveChoiceCorrelationId = dto.CorrelationId;
+        try
+        {
+            var opts = dto.Options ?? Array.Empty<string>();
+            bool yesNo = opts.Length >= 2;
+            int ms = dto.TimeoutMs is int t && t > 0 ? t : 20000;
+            Card? face = BuildNetChoiceFace(dto);
+            var ans = ShowCardReveal(
+                face,
+                dto.Title ?? "Attempt",
+                dto.Prompt ?? "",
+                yesNo ? RevealButtons.YesNo : RevealButtons.Ok,
+                dto.Subtitle ?? face?.Name,
+                autoCloseMs: ms,
+                yesLabel: yesNo ? opts[0] : null,
+                noLabel: yesNo ? opts[1] : null);
+            string picked = !yesNo
+                ? "OK"
+                : ans == RevealAnswer.Yes ? opts[0] : opts[1];
+            _ = _netSession.SendChoiceResponseAsync(new NetChoiceDto
+            {
+                CorrelationId = dto.CorrelationId,
+                Kind = NetChoiceDto.Kinds.Reveal,
+                TargetPlayer = dto.TargetPlayer,
+                SelectedOption = picked,
+                TimedOut = _revealTimedOut
+            });
+            StatusText.Text = $"Net: {dto.Title} → {picked}";
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = "Net attempt reveal failed: " + ex.Message;
+            try
+            {
+                _ = _netSession.SendChoiceResponseAsync(new NetChoiceDto
+                {
+                    CorrelationId = dto.CorrelationId,
+                    Kind = NetChoiceDto.Kinds.Reveal,
+                    TargetPlayer = dto.TargetPlayer,
+                    SelectedOption = dto.Options?.FirstOrDefault() ?? "OK",
+                    TimedOut = true
+                });
+            }
+            catch { /* ignore */ }
+        }
+        finally
+        {
+            _guestHandlingInboundChoice = false;
+            _guestActiveChoiceCorrelationId = null;
+        }
+    }
+
     /// <summary>Guest (or remote): Host asked for a choice / response-window pass.</summary>
     private void OnNetChoiceRequestReceived(NetChoiceDto dto)
     {
@@ -10023,6 +10249,13 @@ public partial class TableWindow : Window
             return;
         }
 
+        // kind=reveal: Guest draws the attempt step. No local seed walk, no state apply.
+        if (string.Equals(kind, NetChoiceDto.Kinds.Reveal, StringComparison.OrdinalIgnoreCase))
+        {
+            HandleGuestAttemptReveal(dto);
+            return;
+        }
+
         // kind=choice
         _guestHandlingInboundChoice = true;
         _guestActiveChoiceCorrelationId = dto.CorrelationId;
@@ -10031,7 +10264,7 @@ public partial class TableWindow : Window
             var opts = dto.Options ?? Array.Empty<string>();
             string picked = AskChoiceLocal(
                 dto.TargetPlayer,
-                null,
+                BuildNetChoiceFace(dto),
                 dto.Title ?? "Choice",
                 dto.Prompt ?? "",
                 opts.Length > 0 ? opts : new[] { "OK" });
@@ -11810,7 +12043,7 @@ public partial class TableWindow : Window
     {
         // Verb: attempt-mission
         // Rule: 7.2 — Host Apply is TryAttemptMission. Broadcast follows a successful return.
-        // Network: Yes/No inside the attempt uses AskChoiceForPlayer; card-list picks stay on Host.
+        // Network: Guest-owned attempt UI is ChoiceRequest kind=reveal / choice. Opponent picks stay on the opponent.
         if (_netAttemptApplying || _resumeAttemptAfterEtaArmbands)
         {
             StatusText.Text = "Net Attempt: an attempt is already in progress.";
@@ -17649,6 +17882,11 @@ public partial class TableWindow : Window
         }
 
         bool entered = false;
+        // Guest's attempt: prompts go to the Guest. Host still runs this method (rules + apply).
+        int surfaceOwner = _session.ActivePlayer is 1 or 2 ? _session.ActivePlayer : _activePlayer;
+        if (_gameMode == GameMode.Network && _netSession is { IsHost: true }
+            && surfaceOwner != _netSession.LocalPlayer)
+            _attemptRemoteSurface = true;
         try
         {
         mission = MissionPrintedFor(missionBorder, _activePlayer);
@@ -17799,7 +18037,9 @@ public partial class TableWindow : Window
                 _revealedUnderMission[missionBorder] = revealedSet;
             }
             revealedSet.Add(seedCard);
-            ShowCardDetail(seedCard);
+            // Guest-owned attempt: the dilemma face is the Guest reveal, not a Host detail popup.
+            if (!_attemptRemoteSurface)
+                ShowCardDetail(seedCard);
 
             if (TryNullifyEncounteredWindDancer(seedCard, missionBorder, seedStack))
                 continue;
@@ -17887,10 +18127,10 @@ public partial class TableWindow : Window
                 ShipShields = ship != null ? BattleRules.GetShields(ship) : 0,
                 AttemptingPlayer = _activePlayer,
                 Hand = hand.ToList(),
-                PickYou = (prompt, pool) => PickCardFromList(prompt, pool, "Choose a card", seedCard),
+                // Verb: attempt-mission — attempter's card pick goes to that player. Opponent pick stays on the opponent.
+                PickYou = (prompt, pool) => PickAttemptOwnedCard(prompt, pool, "Choose a card", seedCard),
                 PickOpp = (prompt, pool) => PickCardFromList(prompt, pool, "Opponent chooses", seedCard),
-                // Verb: attempt-mission
-                // Rule: dilemma Yes/No — AskChoiceForPlayer (Guest answers on their turn). Card lists stay PickCardFromList.
+                // Rule: dilemma Yes/No — AskChoiceForPlayer (Guest answers on their turn).
                 Confirm = prompt =>
                 {
                     string pick = AskChoiceForPlayer(
@@ -18139,7 +18379,8 @@ public partial class TableWindow : Window
         }
         finally
         {
-            // Network Host (own click or Guest action): Guest sees the attempt only via masked state.
+            _attemptRemoteSurface = false;
+            // After the Guest has clicked through the reveals: masked state is still the board truth.
             if (entered && _gameMode == GameMode.Network && _netSession is { IsHost: true })
                 NotifyNetworkBoardChanged();
         }
@@ -19294,7 +19535,8 @@ public partial class TableWindow : Window
                 "The Devil",
                 $"Wind Dancer just encountered at this mission.\nP{p}: play The Devil to nullify it?",
                 RevealButtons.YesNo,
-                "The Devil");
+                "The Devil",
+                surfacePlayer: p);
             if (ans != RevealAnswer.Yes) continue;
 
             hand.Remove(devil);
@@ -21893,7 +22135,7 @@ public partial class TableWindow : Window
         var ordered = new List<Card>();
         while (remaining.Count > 1)
         {
-            var pick = PickCardFromList(
+            var pick = PickAttemptOwnedCard(
                 "Choose next artifact to earn",
                 remaining,
                 "Artifact earn order",
@@ -22581,6 +22823,32 @@ public partial class TableWindow : Window
             _session.Log.Add(_session.TurnNumber, $"P{_session.ActivePlayer}",
                 "Red Alert: up to 5 personnel/equipment instead of normal card play");
         }
+    }
+
+    /// <summary>
+    /// Attempter's card pick. Hotseat / Host-owned: local strip.
+    /// Guest-owned attempt: ChoiceRequest labels "Name #id"; Guest picks; Host maps back to the pool.
+    /// </summary>
+    private Card? PickAttemptOwnedCard(string prompt, IReadOnlyList<Card> pool, string title, Card? source)
+    {
+        if (pool == null || pool.Count == 0) return null;
+        if (!_attemptRemoteSurface || pool.Count <= 1)
+            return PickCardFromList(prompt, pool, title, source);
+
+        var labels = pool
+            .Select(c => $"{c.Name} #{c.InstanceId}")
+            .ToArray();
+        string pick = AskChoiceForPlayer(_activePlayer, source, title, prompt, labels);
+        int id = ParseInstanceIdFromChoiceLabel(pick);
+        if (id > 0)
+        {
+            var byId = pool.FirstOrDefault(c => c.InstanceId == id);
+            if (byId != null) return byId;
+        }
+        string name = StripChoiceLabelPrefix(pick);
+        return pool.FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase))
+            ?? pool.FirstOrDefault(c => string.Equals(c.Name, pick, StringComparison.OrdinalIgnoreCase))
+            ?? pool[0];
     }
 
     /// <summary>
@@ -23972,6 +24240,14 @@ public partial class TableWindow : Window
             "Relocate an opponent's ship here now?",
             "Yes - pick opponent ship",
             "No - skip");
+        if (_attemptRemoteSurface && pick != null && pick.StartsWith("Yes", StringComparison.OrdinalIgnoreCase))
+        {
+            // No remote "click a ship" channel. Do not open the pick on the Host.
+            StatusText.Text = "Time Travel Pod: opponent-ship pick has no remote channel — ship not moved.";
+            _session.Log.Add(_session.TurnNumber, $"P{owner}",
+                "TTP opponent relocate skipped (no remote board-pick).");
+            return;
+        }
         if (pick != null && pick.StartsWith("Yes", StringComparison.OrdinalIgnoreCase))
         {
             int opp = opponentOf(owner);

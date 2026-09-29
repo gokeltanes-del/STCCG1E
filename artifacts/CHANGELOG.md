@@ -1,4 +1,12 @@
-﻿## 2026-09-29 - AttemptMission network (Guest intent, Host apply)
+## 2026-09-29 - AttemptMission UI on the Guest window
+
+- *Auftrag*: Host bleibt die einzige Wahrheit. Wenn P2 versucht, gehoeren Prompts, Reveals und die Wahl des Versuchenden auf das Guest-Fenster. Host oeffnet diese Oberflaeche nicht.
+- *Ist vorher*: TryApplyNetAttemptMission rief TryAttemptMission im Host-Prozess auf, inklusive ShowCardReveal / MessageBox. Guest sah nur den spaeteren Broadcast.
+- *Fix*: Waehrend eines Guest-Versuchs setzt der Host `_attemptRemoteSurface`. ShowCardReveal und ShowPlayError gehen als ChoiceRequest `kind=reveal` (Katalog-Face, kein Seed-Lesen). Yes/No und Kartenwahl des Versuchenden bleiben ChoiceRequest `kind=choice` (`Name #InstanceId`). Guest zeichnet nur und antwortet. Host wendet weiter an und broadcastet maskiert am Ende. Hotseat unveraendert (`_attemptRemoteSurface` false).
+- *Bleibt auf dem Host, absichtlich*: PickOpp (Gegner waehlt) und Alien-Parasites-Wahl, wenn der Entscheider P1 ist. The Devil, wenn P1 die Karte hat (`surfacePlayer`). Time Travel Pod: Yes/No geht an den Guest; der anschliessende Klick auf ein gegnerisches Schiff hat keinen Remote-Kanal und wird nicht auf dem Host geoeffnet (Schiff wird nicht versetzt).
+- *Scope*: TableWindow.xaml.cs, NetChoiceDto.cs. Basis AttemptMission-Branch. Kein Push master.
+
+## 2026-09-29 - AttemptMission network (Guest intent, Host apply)
 
 - *Auftrag*: AttemptMission netzfaehig. Guest laeuft den Versuch nicht lokal gegen maskierte Seeds. Host wertet echte Seeds / MissionRules / DilemmaRules ueber denselben TryAttemptMission-Pfad wie Hotseat. Danach maskierter Broadcast. Yes/No im Dilemma ueber AskChoiceForPlayer. Kein PickCardFromList-Refactor, kein PersonnelBattle, keine KI, keine Phase-5.
 - *Fix*: GameAction.AttemptMission(player, mission, attemptingShip?). NetActionDto InstanceIds bleiben [card, target, target2]. IsNetSyncKindSupported + TryApplyNetAttemptMission. Guest SendGuestActionAsync und return. SEARCH: Verb: attempt-mission; Rule: 7.2.
