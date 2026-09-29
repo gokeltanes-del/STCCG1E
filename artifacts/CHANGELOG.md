@@ -1,3 +1,12 @@
+## 2026-09-29 - Transwarp Conduit stays on the ship
+
+- *Auftrag*: Pepsch nach Step 4. Transwarp Conduit (Premiere) auf ein Schiff gespielt verschwindet sofort. Kein Effekt, nicht im Ablagestapel, weg aus dem Spiel. Hotseat und Dual-EXE. Guest mutiert nicht. Yes/No aus c44c9c3 bleibt beim Entscheider.
+- *Ursache*: Die Karte verlaesst die Hand beim Zug. `DiscardAfter` ist false (Ablage erst am Ende des Zuges des Owners). Der Effekt hat RANGE geschrieben und ein AttachedEvent angelegt, aber kein Stapel-Mini auf dem Schiff (anders als Crosis / Loss of Orbital Stability). `RemoveOrphanTableCopies` hat die lose Karte geloescht. Im Dual-EXE speichert `ColumnInstanceId` nur Missions-Spalten, und Apply bindet den Host nur als Span-Ende. Ein Schiff als Host wurde null. Die Karte lag in keiner Zone. c44c9c3 ruft Transwarp nicht an.
+- *Fix*: Legaler Drop auf ein Schiff: Mini im Schiffsstapel (im Spiel), volle RANGE verdoppelt (gedruckte RANGE mal zwei, schon verbrauchte RANGE bleibt verbraucht). Kein neuer Picker. Guest-Respond trifft dasselbe Schiff ueber InstanceId, ein alter `_interruptTargetHost` lenkt nicht um. Capture merkt die Schiffs-InstanceId nur fuer Nicht-Spans. Apply bindet den Host wieder an das Schiff. Ende des Owner-Zuges: bestehendes Discard, Mini weg vom Schiff. Verweigerter Drop (kein Schiff): zurueck auf die Hand.
+- *Naechster Schritt*: keine weitere Transwarp-Frage. Der Drop hat das Schiff gewaehlt. Status: RANGE verdoppelt. Das bestehende Antwortfenster bleibt, wenn jemand antworten darf.
+- *Smoke*: Hotseat — Drop auf ein Schiff, Karte im Stapel, RANGE verdoppelt, nicht im Ablagestapel, am Zugende dort. Dual-EXE (P1 Host, P2 Guest) — Guest schickt nur Respond; Host legt das Mini und broadcastet; beide Fenster zeigen die Karte auf dem Schiff. Yes/No von Interphase Generator, The Devil und Raise the Stakes unveraendert.
+- *Scope*: TableWindow.xaml.cs. Kein Push master.
+
 ## 2026-09-29 - ShowCardReveal Yes/No follows the deciding player
 
 - *Auftrag*: Dual-EXE Step 4. ShowCardReveal Yes/No geht durch `AskChoiceForPlayer`. P2 antwortet auf dem Guest, P1 auf dem Host. Hotseat bleibt das lokale Fenster. Der Host wendet die Antwort an. Der Guest mutiert nicht.
