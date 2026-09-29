@@ -1,3 +1,13 @@
+## 2026-09-29 - Masked snapshot keeps Stopped, Held, RangeLeft, and reveal markers
+
+- *Auftrag*: Dual-EXE Step 9. Der maskierte Host-Snapshot muss Crew Stopped, Crew Held, Schiff RangeLeft und die Reveal-Marker hin und zurueck tragen. Beide Fenster denselben Stand. Hotseat Save/Load dieselben Felder. Der Guest rechnet sie nicht neu. Nur die Luecken.
+- *Schon richtig*: Die Maske loescht bei einer verdeckten Karte Name, Set, Type und FaceUp. Stopped und RangeLeft bleiben auf derselben Tabellenzeile. HeldIds bleiben am Dilemma. RevealedSeeds und RevealedArtifacts bleiben die Listen und werden nicht geleert. Apply setzt Stopped per MarkStopped und RangeLeft per SetShipRangeLeft aus der Zeile. Dabei kein ComputeShipTurnRange. ResetShipRangesForTurn laeuft nicht in ApplyGameSave. Der Guest macht keinen eigenen Zugwechsel.
+- *Stopped*: Capture hat nur `_stoppedBorders` gelesen. IsBorderStopped zaehlt auch das Flag auf der Instanz. Die Save-Zeile und die Engine-Liste nehmen jetzt IsBorderStopped. Apply stoppt nicht zusaetzlich; es uebernimmt die Zeile.
+- *Held*: Fehlte die Snap-Id, wurde die InstanceId in HeldIds geschrieben. Load liest die Liste als Snap-Id und hat dann die falsche Zeile oder keine. Capture sucht die Zeile per Referenz, sonst per InstanceId, und speichert nur die Snap-Id. Load nimmt die Snap-Id, und nur wenn keine Zeile diese Zahl hat, die InstanceId aus einem aelteren Save. Ein leerer Name nach der Maske gilt nicht als dieselbe Held-Karte wie jede andere namenlose Karte.
+- *Reveal*: Ein schon gezeigtes Stack-Kind hat die Maske mitgeleert. Der Guest hat den Marker dann verworfen, weil der Name leer war. Gezeigte InstanceIds behalten Name, Set und Type, wie die Seeds unter der Mission. Die Listen selbst waren schon unmaskiert.
+- *Unveraendert*: Stack-Clear-Sequence, Wahl 10s, Reveal Yes/No 10s, Reveal OK 20s, Antwortfenster 3s, Idle 60s, RequiredMoveDestination, Download, FlipHiddenAgenda, Cloak, Yes/No, Transwarp-`PlayCard`. Kein Phase-5-Transport. Keine neuen Kartenregeln. Kein Push master.
+- *Scope*: TableWindow.xaml.cs, NetStateMask.cs.
+
 ## 2026-09-29 - Stack clear names the current sequence
 
 - *Auftrag*: Dual-EXE Step 8. Ein Stack-Clear auf Guest oder Host gilt nur, wenn er die aktuelle Sequence des Action-Stacks nennt. Ein spaeter oder veralteter Clear wischt einen neueren Stack nicht weg. Der Host bleibt die Wahrheit. Der Guest aendert sie nur, indem er einen passenden Broadcast anwendet.
