@@ -2833,8 +2833,11 @@ public partial class TableWindow : Window
         else if (clean.Length == 2)
         {
             string body = string.IsNullOrWhiteSpace(prompt) ? $"Choose one:" : prompt;
+            // Buttons stay on decidingPlayer. A Guest attempt must not steal a P1 Yes/No
+            // onto the Guest just because _attemptSurfacePlayer is P2.
             var ans = ShowCardReveal(card, title, body, RevealButtons.YesNo,
-                yesLabel: clean[0], noLabel: clean[1], randomOnTimeout: true);
+                yesLabel: clean[0], noLabel: clean[1], randomOnTimeout: true,
+                surfacePlayer: decidingPlayer);
             timed = _revealTimedOut;
             picked = ans == RevealAnswer.Yes ? clean[0] : clean[1];
         }
@@ -20292,15 +20295,17 @@ public partial class TableWindow : Window
         if (!CardIcons.IsIpgDilemma(seedCard)) return false;
         if (!InterphaseGeneratorPresentWithAttempt(missionBorder, present)) return false;
 
-        var ans = ShowCardReveal(
+        // Attempter answers. SEARCH: Verb: AskChoiceForPlayer Yes/No; Rule: [IPG] nullify.
+        // Host applies the discard. Guest draws the buttons and does not mutate.
+        string pick = AskChoiceForPlayer(
+            _activePlayer,
             seedCard,
             "Interphase Generator",
             $"{seedCard.Name} just encountered ([IPG]).\n"
             + "Interphase Generator is present with your attempting team.\n"
             + "Nullify this dilemma? (IG stays in play.)",
-            RevealButtons.YesNo,
-            seedCard.Name);
-        if (ans != RevealAnswer.Yes) return false;
+            "Yes", "No");
+        if (!string.Equals(pick, "Yes", StringComparison.OrdinalIgnoreCase)) return false;
 
         int seedOwner = 0;
         int ri = seedStack.FindLastIndex(b => b.Tag is Card c && ReferenceEquals(c, seedCard));
@@ -20364,14 +20369,15 @@ public partial class TableWindow : Window
             var hand = p == 1 ? _handCards : _oppHandCards;
             var devil = hand.FirstOrDefault(InterruptRules.IsDevil);
             if (devil == null) continue;
-            var ans = ShowCardReveal(
+            // Whoever holds the card answers. P2 on the Guest, P1 on the Host.
+            // SEARCH: Verb: AskChoiceForPlayer Yes/No; Glossary: The Devil nullify.
+            string pick = AskChoiceForPlayer(
+                p,
                 devil,
                 "The Devil",
                 $"Wind Dancer just encountered at this mission.\nP{p}: play The Devil to nullify it?",
-                RevealButtons.YesNo,
-                "The Devil",
-                surfacePlayer: p);
-            if (ans != RevealAnswer.Yes) continue;
+                "Yes", "No");
+            if (!string.Equals(pick, "Yes", StringComparison.OrdinalIgnoreCase)) continue;
 
             hand.Remove(devil);
             SendCardTo(devil, p, TimingRules.Destination.Discard);
@@ -21581,10 +21587,16 @@ public partial class TableWindow : Window
             }
             if (r.Persist == EventRules.Persist.RaiseStakes)
             {
-                // Opp chooses: controller wins NOW, OR event stays on table (cumulative).
-                if (ShowCardReveal(ev, "Raise the Stakes",
-                        $"P{3 - controller}: Concede — opponent (P{controller}) wins now?\n(No = Raise the Stakes stays on table.)",
-                        RevealButtons.YesNo) == RevealAnswer.Yes)
+                // Opponent of the player who played it chooses: win now, or the event stays.
+                // SEARCH: Verb: AskChoiceForPlayer Yes/No; Glossary: Raise the Stakes.
+                int opp = opponentOf(controller);
+                string concede = AskChoiceForPlayer(
+                    opp,
+                    ev,
+                    "Raise the Stakes",
+                    $"P{opp}: Concede — opponent (P{controller}) wins now?\n(No = Raise the Stakes stays on table.)",
+                    "Yes", "No");
+                if (string.Equals(concede, "Yes", StringComparison.OrdinalIgnoreCase))
                 {
                     // Does not stay on table — remove committed table copy, then win.
                     _tablePermanentCards.Remove(ev);
