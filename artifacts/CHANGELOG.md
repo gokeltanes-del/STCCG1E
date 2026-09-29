@@ -1,3 +1,12 @@
+## 2026-09-29 - Shown or discarded card result on both windows
+
+- *Auftrag*: Pepsch. Die Wahl fuer Static Warp Bubble und Telepathic Alien Kidnappers liegt auf dem richtigen Fenster. Die Meldung danach, welche Karte es war, nur auf P1. Ergebnis folgt der Karte: gezeigt oder abgelegt sehen beide; eine verdeckte Handkarte bleibt beim Spieler, der sie sehen darf. Gleicher Spiegel wie Attempt-Reveal: Entscheider hat OK, der andere sieht das Face ohne Klick. Hotseat unveraendert. Keine neue Kartenregel, wo gezeigt-gegen-verdeckt nicht schon feststeht.
+- *Regel*: TAK (Premiere): die gezeigte Karte aus der gegnerischen Hand sehen beide, Treffer (Ablage) und kein Treffer (bleibt in der Hand). SWB (Premiere): die Auswahl aus der verdeckten Hand bleibt beim Owner; nach dem Discard sehen beide die abgelegte Karte (Ablagestapel ist offen).
+- *Fix*: `ShowPublicCardResult`. Host-Entscheider: lokales OK plus `revealMirror`. Guest-Entscheider: `kind=reveal` mit OK, Host-Spiegel ohne Button. Schliesst mit dem bestehenden Close. Hand-Auswahl von SWB bleibt `AskChoiceForPlayer` (nicht gespiegelt).
+- *Beide Fenster*: Telepathic Alien Kidnappers (gezeigte Karte). Static Warp Bubble (Discard-Meldung, auch die einzige Handkarte).
+- *Meldung bleibt wie bisher* (kein gezeigt/verdeckt-Fakt in diesem Schritt): Q's Tent Download, Special Download, Betazoid Gift Box, benannter Download, Frame of Mind, Vulcan Mindmeld-Ergebnis, Hidden Agenda, Alien Parasites Control, `AnnounceChoiceResult` (Timeout; kann noch eine Handkarte nennen). Picker ohne Ergebnis-Dialog unveraendert (Hugh, Kevin/The Devil, Palor Toff, Res-Q, Thought Maker, Kurlan, Conundrum, Kevin Convergence, Incoming Message, Subspace Interference, Q-Continuum, Ship Seizure, Honor Challenge, eigenes Schiff, Event-Ziel, Raise the Stakes, Genetronic, Anti-Time).
+- *Scope*: TableWindow.xaml.cs. Kein Push master.
+
 ## 2026-09-29 - Guest card-list choices use the choice channel
 
 - *Auftrag*: PickCardFromList oeffnete auf dem Host, auch wenn der waehlende Spieler der Guest ist (Mindmeld, Dilemma-Picks, aehnliche Listen). Die Wahl des Guests soll ueber den bestehenden Choice-Kanal (NetChoiceDto kind=choice, dieselben "Name #InstanceId"-Labels wie Attempt-Kartenpicks) auf dem Guest-Fenster liegen. Antwort zurueck zum Host. Host wendet an und broadcastet maskiert wie bisher am Ende von Attempt / Stack. Host-eigene Wahl bleibt auf dem Host. Hotseat bleibt der lokale Strip. Keine neuen Kartenregeln.
