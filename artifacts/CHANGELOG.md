@@ -1,3 +1,14 @@
+## 2026-09-30 - Host opens its port with UPnP or PCP
+
+- Spielbar, nicht gruen. Echter Router-Test offen.
+- Host (nicht Localhost) nimmt den Port aus dem Lobby-Feld (Default 7777) und gibt ihn selbst frei. Kein Extra-Tool, kein NuGet, kein NAT-PMP.
+- Zuerst UPnP IGD: SSDP 239.255.255.250:1900, SOAP AddPortMapping TCP, Lease 7200s, bei Fehler 725 Lease 0. Danach PCP MAP v2 an das Gateway, UDP 5351, 1500ms.
+- HTTP nur an LAN-Adressen (keine Hostnamen, kein Redirect). Sonst nur SSDP und das Gateway. Kein Relay, kein Matchmaking.
+- Erfolg, blaue Zeile: Public {ip}:{port} (UPnP oder PCP). Unbekannte Adresse: address unknown.
+- Misserfolg: Host bleibt an. Port forward failed (...). Open TCP {port} on the router manually. Host is still listening.
+- Localhost: Localhost only. No router port forward.
+- Die Map haengt am Listener. Stop (Disconnect oder Grace-Ende) loescht sie (UPnP DeletePortMapping, PCP Lifetime 0). Loeschen wartet hoechstens 2s und haengt den Stop nicht auf. DropClient beim Reconnect laesst die Map stehen. Host bleibt P1.
+
 ## 2026-09-29 - Choice timeout takes a fixed fallback
 
 - Spielbar, nicht gruen. Fristen unveraendert: Wahl 10s, Reveal Yes/No 10s, Reveal OK 20s, Antwortfenster 3s, Idle 60s, Grace 120s.

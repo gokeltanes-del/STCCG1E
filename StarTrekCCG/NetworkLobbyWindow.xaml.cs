@@ -105,6 +105,10 @@ public partial class NetworkLobbyWindow : Window
             await _server.StartAsync(port, loopbackOnly, ct).ConfigureAwait(true);
             var mode = loopbackOnly ? "localhost (loopback)" : "any interface";
             SetStatus($"Listening on port {port} ({mode}) - waiting for guest.");
+            if (loopbackOnly)
+                SetNatStatus("Localhost only. No router port forward.");
+            else
+                await AnnouncePortForwardAsync(port, ct).ConfigureAwait(true);
 
             await _server.AcceptClientAsync(ct).ConfigureAwait(true);
             SetStatus("Guest connected - handshake.");
@@ -829,6 +833,7 @@ public partial class NetworkLobbyWindow : Window
 
         try { _server?.Dispose(); } catch { /* ignore */ }
         _server = null;
+        SetNatStatus("");
         try { _client?.Dispose(); } catch { /* ignore */ }
         _client = null;
 
@@ -881,6 +886,56 @@ public partial class NetworkLobbyWindow : Window
             HostBox.IsEnabled = !active;
         }
 
+        if (Dispatcher.CheckAccess())
+            Apply();
+        else
+            Dispatcher.Invoke(Apply);
+    }
+
+    private async Task AnnouncePortForwardAsync(int port, CancellationToken ct)
+    {
+        try
+        {
+            var lease = await NatPortForward.TryOpenAsync(port, ct).ConfigureAwait(true);
+            if (ct.IsCancellationRequested)
+            {
+                lease.Dispose();
+                return;
+            }
+            if (lease.Mapped && _server != null)
+            {
+                _server.HoldNatLease(lease);
+                var address = string.IsNullOrWhiteSpace(lease.ExternalAddress)
+                    ? "address unknown"
+                    : lease.ExternalAddress;
+                SetNatStatus($"Public {address}:{lease.ExternalPort} ({lease.Protocol}).");
+            }
+            else
+            {
+                lease.Dispose();
+                SetNatStatus(
+                    $"Port forward failed ({lease.Failure}). Open TCP {port} on the router manually. Host is still listening.");
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            SetNatStatus(
+                $"Port forward failed ({ex.Message}). Open TCP {port} on the router manually. Host is still listening.");
+        }
+    }
+
+    private void SetNatStatus(string text)
+    {
+        void Apply()
+        {
+            if (NatStatusText == null) return;
+            NatStatusText.Text = text ?? "";
+            NatStatusText.Margin = string.IsNullOrEmpty(text) ? new Thickness(0) : new Thickness(0, 6, 0, 0);
+        }
         if (Dispatcher.CheckAccess())
             Apply();
         else

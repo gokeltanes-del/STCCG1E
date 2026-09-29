@@ -19,6 +19,7 @@ public sealed class NetServer : IDisposable
     private TcpClient? _client;
     private NetworkStream? _stream;
     private readonly SemaphoreSlim _sendLock = new(1, 1);
+    private IDisposable? _natLease;
     private bool _disposed;
 
     public bool IsListening => _listener is not null;
@@ -68,8 +69,20 @@ public sealed class NetServer : IDisposable
         _client = null;
     }
 
+    /// <summary>Released when the listener stops. Idempotent.</summary>
+    public void HoldNatLease(IDisposable lease)
+    {
+        var previous = _natLease;
+        _natLease = lease;
+        if (!ReferenceEquals(previous, lease))
+        {
+            try { previous?.Dispose(); } catch { /* ignore */ }
+        }
+    }
+
     public void Stop()
     {
+        ReleaseNatLease();
         try { _stream?.Close(); } catch { /* ignore */ }
         try { _client?.Close(); } catch { /* ignore */ }
         try { _listener?.Stop(); } catch { /* ignore */ }
@@ -84,6 +97,13 @@ public sealed class NetServer : IDisposable
         _disposed = true;
         Stop();
         _sendLock.Dispose();
+    }
+
+    private void ReleaseNatLease()
+    {
+        var lease = _natLease;
+        _natLease = null;
+        try { lease?.Dispose(); } catch { /* ignore */ }
     }
 
     private NetworkStream GetStreamOrThrow()

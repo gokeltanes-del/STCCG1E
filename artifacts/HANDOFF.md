@@ -6,9 +6,9 @@ Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.m
 
 ---
 
-## Jetzt aktiv — Schritt 5 Choice-Fallback
+## Jetzt aktiv — Schritt 6 UPnP/PCP-Portfreigabe
 
-**Status:** Schritte 1-4 committed (66420c6, 8d54aed, 81cc501, a9df863). Schritt 5 Choice-Timeout-Fallback getippt. Test offen. Nicht gruen. Fallbacks: CHANGELOG 2026-09-29 Choice timeout.
+**Status:** Schritte 1-5 committed (66420c6, 8d54aed, 81cc501, a9df863, acae526). Schritt 6 UPnP/PCP-Portfreigabe getippt. Echter Router-Test offen. Nicht gruen. Details: CHANGELOG 2026-09-30 Port forward.
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
 
 ### Architektur

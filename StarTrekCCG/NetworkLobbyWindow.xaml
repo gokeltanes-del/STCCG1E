@@ -118,8 +118,12 @@
                 </Border>
 
                 <Border Background="#1E1E22" CornerRadius="4" Padding="10,8" BorderBrush="#3A3A48" BorderThickness="1">
-                    <TextBlock x:Name="StatusText" Text="Disconnected"
-                               Foreground="#CCC" FontSize="12" TextWrapping="Wrap"/>
+                    <StackPanel>
+                        <TextBlock x:Name="StatusText" Text="Disconnected"
+                                   Foreground="#CCC" FontSize="12" TextWrapping="Wrap"/>
+                        <TextBlock x:Name="NatStatusText" Text=""
+                                   Foreground="#8AB4F8" FontSize="12" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                    </StackPanel>
                 </Border>
             </StackPanel>
         </ScrollViewer>
