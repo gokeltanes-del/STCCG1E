@@ -4842,31 +4842,44 @@ public partial class TableWindow : Window
         int controller = controllerOverride
                          ?? (isResponse ? _stack.ResponsePlayer : _activePlayer);
 
-        // Network Guest interrupt: Action only (Respond) — Host TryApplyNetRespond + Broadcast.
-        // Avoids phantom hand/stack EndTurn wipe. Non-interrupt BeginPlayCardStack unchanged.
+        // Network Guest interrupt: intent only. Host applies and broadcasts.
+        // Hands are absolute: _handCards is P1, _oppHandCards is P2. Putting a P2
+        // card into _handCards is how Transwarp showed up in P1's hand.
         if (_gameMode == GameMode.Network && _netSession is { IsGuest: true }
-            && (InterruptRules.IsInterrupt(card) || TimingRules.IsInterrupt(card)
-                || ArtifactRules.IsPlaysAsInterruptFromHand(card)))
+            && IsNetHandInterrupt(card))
         {
-            // Card may already be removed from hand by drag — ensure Host opp-hand still has it? Host lookup uses InstanceId/name on Host copy.
-            // Keep/return Guest hand until ApplyGameSave removes it.
-            var hand = controller == 2 ? _oppHandCards : _handCards;
-            // Guest LocalPlayer is always 2; hand strip is bottom = own = _handCards after viewer flip?
-            // Use LocalPlayer hand list: Guest own cards live in _handCards (viewer-relative).
-            if (! _handCards.Contains(card) && !_oppHandCards.Contains(card))
-                _handCards.Add(card);
+            int player = _netSession.LocalPlayer is 1 or 2 ? _netSession.LocalPlayer : controller;
+            var own = player == 2 ? _oppHandCards : _handCards;
+            var other = player == 2 ? _handCards : _oppHandCards;
+            other.Remove(card);
+            if (!own.Contains(card))
+                own.Add(card);
             RefreshHandStrips();
             RefreshZoneCounts();
-            var act = GameAction.Respond(_netSession.LocalPlayer, card);
-            // Attach target via Note/Target — Respond factory only has card; rebuild with Target.
-            act = new GameAction
+
+            // Respond is only a reply to an open stack. A normal drop (no stack)
+            // is PlayCard. The host resolves it; this window does not.
+            if (isResponse)
             {
-                Kind = GameActionKind.Respond,
-                Player = _netSession.LocalPlayer,
-                Card = card,
-                Target = target
-            };
-            _ = SendGuestActionAsync(act);
+                if (!_stack.IsOpen)
+                {
+                    StatusText.Text = "Net: no open stack — interrupt stays in hand.";
+                    _session.Log.AddDebug(_session.TurnNumber, "Net",
+                        $"Respond not sent ({card.Name}): no open stack.");
+                    return;
+                }
+                _ = SendGuestActionAsync(new GameAction
+                {
+                    Kind = GameActionKind.Respond,
+                    Player = player,
+                    Card = card,
+                    Target = target
+                });
+                StatusText.Text = $"Net: Interrupt {card.Name} sent - waiting for Host...";
+                return;
+            }
+
+            _ = SendGuestActionAsync(GameAction.Play(player, card, target));
             StatusText.Text = $"Net: Interrupt {card.Name} sent - waiting for Host...";
             return;
         }
@@ -10901,7 +10914,8 @@ public partial class TableWindow : Window
                 $"SeedCard: not your turn (active P{_session.ActivePlayer}, you P{action.Player}).");
             return;
         }
-        if (action.Kind == GameActionKind.PlayCard && action.Player != _session.ActivePlayer)
+        if (action.Kind == GameActionKind.PlayCard && action.Player != _session.ActivePlayer
+            && !IsNetHandInterrupt(action.Card))
         {
             DiscardUnusedSeed();
             _ = _netSession.SendErrorAsync(
@@ -11128,7 +11142,7 @@ public partial class TableWindow : Window
 
     /// <summary>
     /// Apply EndPhase / EndTurn / Pass / Draw on Host after AuthorizePlay OK.
-    /// PlayCard: Host TryApplyNetPlayCard (Ship/Personnel/Equipment/Event); interrupts = P4.
+    /// PlayCard: Host TryApplyNetPlayCard. A hand interrupt uses TryApplyNetInterrupt.
     /// AttemptMission: Host TryApplyNetAttemptMission (same TryAttemptMission path as Hotseat).
     /// InitiatePersonnelBattle: Host TryApplyNetPersonnelBattle (same stack as Hotseat).
     /// </summary>
@@ -11241,7 +11255,7 @@ public partial class TableWindow : Window
     /// <summary>
     /// Host: apply Guest PlayCard authoritatively (Ship / Personnel / Equipment / Event).
     /// Guest keeps card in hand until Broadcast ApplyGameSave — no phantom local board.
-    /// Interrupts / response stack = P4 (not applied here).
+    /// A hand interrupt is TryApplyNetInterrupt (not a TABLE permanent, not P1's hand).
     /// </summary>
     private bool TryApplyNetPlayCard(GameAction action)
     {
@@ -11259,6 +11273,10 @@ public partial class TableWindow : Window
 
         var card = action.Card;
         int player = action.Player is 1 or 2 ? action.Player : 2;
+
+        // Interrupt is not a ship report and not a TABLE permanent. Same stack as hotseat.
+        if (IsNetHandInterrupt(card))
+            return TryApplyNetInterrupt(action, asResponse: false);
 
         // Remove from hand (Guest card lives in Host opp-hand when player==2).
         _handCards.Remove(card);
@@ -13061,28 +13079,58 @@ public partial class TableWindow : Window
     }
 
 
+    /// <summary>Interrupt or artifact played as an interrupt from hand.</summary>
+    private static bool IsNetHandInterrupt(Card? card) =>
+        card != null
+        && (InterruptRules.IsInterrupt(card)
+            || TimingRules.IsInterrupt(card)
+            || ArtifactRules.IsPlaysAsInterruptFromHand(card));
+
     /// <summary>
-    /// Host: apply Guest interrupt response / hand interrupt.
-    /// Opens BeginPlayCardStack; board truth follows Host resolve + Broadcast.
+    /// Host: apply a Guest interrupt. Respond only while a stack is open.
+    /// A normal play uses the same BeginPlayCardStack as hotseat (ship stack, not P1's hand).
     /// </summary>
     private bool TryApplyNetRespond(GameAction action)
     {
+        if (!_stack.IsOpen)
+        {
+            StatusText.Text = "Net: Respond refused — no open stack.";
+            _session.Log.AddDebug(_session.TurnNumber, "Net",
+                "Respond refused: no open stack.");
+            return false;
+        }
+        return TryApplyNetInterrupt(action, asResponse: true);
+    }
+
+    private bool TryApplyNetInterrupt(GameAction action, bool asResponse)
+    {
         if (action.Card == null) return false;
+        if (asResponse && !_stack.IsOpen) return false;
+
         var card = action.Card;
         int player = action.Player is 1 or 2 ? action.Player : 2;
+        Card? target = action.Target;
+
+        _interruptTargetHost = null;
+        if (target != null)
+        {
+            var host = FindBorderForCard(target);
+            if (host == null && target.InstanceId > 0)
+                host = FindBorderByInstanceId(target.InstanceId);
+            if (host != null)
+                _interruptTargetHost = host;
+        }
 
         _handCards.Remove(card);
         _oppHandCards.Remove(card);
         RefreshHandStrips();
         RefreshZoneCounts();
 
-        bool isResponse = _stack.IsOpen;
-        Card? target = action.Target;
-        BeginPlayCardStack(card, isResponse: isResponse, controllerOverride: player, target: target);
+        BeginPlayCardStack(card, isResponse: asResponse, controllerOverride: player, target: target);
         StatusText.Text = $"Net: P{player} Interrupt {card.Name}" +
             (target != null ? $" on {target.Name}" : "") + ".";
         _session.Log.Add(_session.TurnNumber, $"P{player}",
-            $"Net: Respond/Interrupt {card.Name}");
+            $"Net: {(asResponse ? "Respond" : "Play")} {card.Name}");
         return true;
     }
 
