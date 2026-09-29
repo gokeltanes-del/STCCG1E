@@ -150,6 +150,11 @@ public sealed class TableCardSnap
     public int InstanceId { get; set; }
     public int Controller { get; set; }
     public bool FaceUp { get; set; } = true;
+    /// <summary>
+    /// Ship is cloaked. Public, same row as Stopped.
+    /// Older saves omit it and load uncloaked.
+    /// </summary>
+    public bool Cloaked { get; set; }
 }
 
 public sealed class StackSnap

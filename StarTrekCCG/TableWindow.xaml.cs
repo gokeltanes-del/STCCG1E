@@ -89,6 +89,11 @@ public partial class TableWindow : Window
     /// <summary>Host: true while TryApplyNetAttemptMission is inside TryAttemptMission (including its modals).</summary>
     private bool _netAttemptApplying;
     /// <summary>
+    /// Host is applying a Guest Download, Flip Hidden Agenda, or Cloak.
+    /// A refusal is a status line. Hotseat and a Host click keep the dialog.
+    /// </summary>
+    private bool _netGuestOrderApplying;
+    /// <summary>
     /// Host: guest owns this attempt's prompts. Reveals/errors go out as ChoiceRequest;
     /// the Host window does not open them. Hotseat and a Host-owned attempt leave this false.
     /// </summary>
@@ -2183,8 +2188,55 @@ public partial class TableWindow : Window
         }
     }
 
+    /// <summary>
+    /// Refused Download, Flip, or Cloak.
+    /// Hotseat and a Host click keep the illegal-action dialog.
+    /// A Guest order the Host refuses is a status line: no dialog, no glow.
+    /// </summary>
+    private void ReportOrderRefusal(string message)
+    {
+        if (_netGuestOrderApplying)
+        {
+            NoteInitiationRefused(message);
+            return;
+        }
+        ShowPlayError(message);
+    }
+
+    /// <summary>Host click already applied. Guest orders broadcast from OnNetActionReceived.</summary>
+    private void PublishHostOrder()
+    {
+        if (_netGuestOrderApplying) return;
+        if (_gameMode == GameMode.Network && _netSession is { IsHost: true })
+            NotifyNetworkBoardChanged();
+    }
+
     private bool TryDownloadFromTent(Card doorway, Border? floating)
     {
+        // Verb: download
+        // Rule: 6.5.3 Q's Tent. Guest sends Download. Host applies this method.
+        if (_gameMode == GameMode.Network && _netSession is { IsGuest: true })
+        {
+            int who = _netSession.LocalPlayer is 1 or 2 ? _netSession.LocalPlayer : _activePlayer;
+            var own = who == 2 ? _oppHandCards : _handCards;
+            var other = who == 2 ? _handCards : _oppHandCards;
+            other.Remove(doorway);
+            if (!own.Contains(doorway)) own.Add(doorway);
+            if (floating != null)
+            {
+                if (DragLayer.Children.Contains(floating))
+                    DragLayer.Children.Remove(floating);
+                if (TableCanvas.Children.Contains(floating))
+                    TableCanvas.Children.Remove(floating);
+            }
+            RefreshHandStrips();
+            RefreshZoneCounts();
+            ClearCardActionUi();
+            _ = SendGuestActionAsync(GameAction.Download(who, doorway, note: "Q's Tent"));
+            StatusText.Text = "Net: Q's Tent download sent — waiting for Host…";
+            return true;
+        }
+
         int player = _activePlayer;
         var tent = player == 2 ? _oppQsTentCards : _qsTentCards;
         var auth = AuthorizePlay(new GameAction
@@ -2196,7 +2248,7 @@ public partial class TableWindow : Window
         });
         if (!auth.Ok)
         {
-            ShowPlayError(auth.Message);
+            ReportOrderRefusal(auth.Message);
             return false;
         }
         // Session-level once-per-turn (DownloadRules) stays the mark after success.
@@ -2227,6 +2279,11 @@ public partial class TableWindow : Window
         {
             if (!hand.Contains(doorway)) hand.Add(doorway);
             RefreshHandStrips();
+            if (_netGuestOrderApplying)
+            {
+                ReportOrderRefusal("No card taken.");
+                return false;
+            }
             ShowPlayError("No card taken.");
             return true;
         }
@@ -2237,7 +2294,7 @@ public partial class TableWindow : Window
         string tentSentence = FormatCardListResult(
             player, "downloaded", taken.Name ?? "a card", player, doorway.Name ?? "Q's Tent",
             "no draw this turn");
-        ShowCardReveal(taken, "Q's Tent — downloaded", tentSentence, RevealButtons.Ok, taken.Name);
+        ShowPublicCardResult(player, taken, "Q's Tent — downloaded", tentSentence, taken.Name);
 
         if (choose)
             SendCardTo(doorway, player, TimingRules.Destination.Discard);
@@ -2253,11 +2310,25 @@ public partial class TableWindow : Window
         RefreshHandStrips();
         RefreshZoneCounts();
         StatusText.Text = tentSentence;
+        PublishHostOrder();
         return true;
     }
 
-    private void TrySpecialDownload(Card source, int owner)
+    private bool TrySpecialDownload(Card source, int owner)
     {
+        // Verb: download
+        // Rule: 6.5.4 Special Download. Guest sends Download. Host applies this method.
+        if (_gameMode == GameMode.Network && _netSession is { IsGuest: true })
+        {
+            int who = _netSession.LocalPlayer is 1 or 2
+                ? _netSession.LocalPlayer
+                : (owner == 0 ? _activePlayer : owner);
+            ClearCardActionUi();
+            _ = SendGuestActionAsync(GameAction.Download(who, source, note: "Special Download"));
+            StatusText.Text = $"Net: Special Download ({source.Name}) sent — waiting for Host…";
+            return false;
+        }
+
         if (owner == 0) owner = _activePlayer;
         var auth = AuthorizePlay(new GameAction
         {
@@ -2268,8 +2339,8 @@ public partial class TableWindow : Window
         });
         if (!auth.Ok)
         {
-            ShowPlayError(auth.Message);
-            return;
+            ReportOrderRefusal(auth.Message);
+            return false;
         }
 
         string? want = DownloadRules.ParseSpecialDownloadName(source);
@@ -2301,8 +2372,8 @@ public partial class TableWindow : Window
                 source);
         if (taken == null)
         {
-            ShowPlayError("Special Download cancelled or no matching card.");
-            return;
+            ReportOrderRefusal("Special Download cancelled or no matching card.");
+            return false;
         }
 
         draw.Remove(taken);
@@ -2313,29 +2384,53 @@ public partial class TableWindow : Window
         DownloadRules.MarkSpecialDownload(_session, owner, source);
         string downloadSentence = FormatCardListResult(
             owner, "downloaded", taken.Name ?? "a card", owner, source.Name ?? "Special Download");
-        ShowCardReveal(taken, "Special Download", downloadSentence, RevealButtons.Ok, taken.Name);
+        ShowPublicCardResult(owner, taken, "Special Download", downloadSentence, taken.Name);
         RefreshHandStrips();
         RefreshZoneCounts();
         _session.Log.Add(_session.TurnNumber, $"P{owner}", downloadSentence);
         StatusText.Text = downloadSentence;
+        PublishHostOrder();
+        return true;
     }
 
-    private void TryFlipHiddenAgenda(Card card, int owner)
+    private bool TryFlipHiddenAgenda(Card card, int owner)
     {
+        // Verb: hidden-agenda
+        // Guest sends FlipHiddenAgenda. Host flips the real table card.
+        if (_gameMode == GameMode.Network && _netSession is { IsGuest: true })
+        {
+            int who = _netSession.LocalPlayer is 1 or 2 ? _netSession.LocalPlayer : owner;
+            _ = SendGuestActionAsync(GameAction.FlipHiddenAgenda(who, card));
+            StatusText.Text = $"Net: Flip {card.Name} sent — waiting for Host…";
+            return false;
+        }
+
+        if (owner == 0) owner = _activePlayer;
+        bool onP1 = _tablePermanentCards.Contains(card);
+        bool onP2 = _oppTablePermanentCards.Contains(card);
+        int lives = onP1 ? 1 : onP2 ? 2 : 0;
+        if (lives != owner)
+        {
+            ReportOrderRefusal("Hidden Agenda (face-down).");
+            return false;
+        }
+
         var auth = AuthorizePlay(GameAction.FlipHiddenAgenda(owner, card));
         if (!auth.Ok)
         {
-            ShowPlayError(auth.Message);
-            return;
+            ReportOrderRefusal(auth.Message);
+            return false;
         }
         card.FaceUp = true;
         string flipped = owner is 1 or 2
             ? $"Player {owner} flipped {card.Name} face up."
             : $"Flipped {card.Name} face up.";
-        ShowCardReveal(card, "Hidden Agenda flipped", flipped, RevealButtons.Ok, card.Name);
         RebuildTablePermanentsPanel();
+        ShowPublicCardResult(owner, card, "Hidden Agenda flipped", flipped, card.Name);
         _session.Log.Add(_session.TurnNumber, $"P{owner}", flipped);
         StatusText.Text = flipped;
+        PublishHostOrder();
+        return true;
     }
 
     private Card? _revealCurrentCard;
@@ -2680,27 +2775,28 @@ public partial class TableWindow : Window
     /// Deciding player has OK. The other window sees the same face and does not click.
     /// Hotseat / no session: local ShowCardReveal only.
     /// </summary>
-    private void ShowPublicCardResult(int decidingPlayer, Card card, string title, string body)
+    private void ShowPublicCardResult(int decidingPlayer, Card card, string title, string body, string? subtitle = null)
     {
         if (_gameMode != GameMode.Network || _netSession is not { IsHost: true })
         {
-            ShowCardReveal(card, title, body, RevealButtons.Ok);
+            ShowCardReveal(card, title, body, RevealButtons.Ok, subtitle);
             return;
         }
         if (decidingPlayer is not (1 or 2))
             decidingPlayer = _activePlayer is 1 or 2 ? _activePlayer : 1;
 
+        string? mirrorSubtitle = subtitle ?? card.Name;
         if (decidingPlayer != _netSession.LocalPlayer)
         {
-            ShowRevealRemoteOnGuest(card, title, body, RevealButtons.Ok, card.Name,
+            ShowRevealRemoteOnGuest(card, title, body, RevealButtons.Ok, mirrorSubtitle,
                 targetPlayer: decidingPlayer, shareFace: true);
             return;
         }
 
-        bool mirrored = SendEncounterMirrorToGuest(card, title, body, card.Name, open: true, publicResult: true);
+        bool mirrored = SendEncounterMirrorToGuest(card, title, body, mirrorSubtitle, open: true, publicResult: true);
         try
         {
-            ShowCardReveal(card, title, body, RevealButtons.Ok);
+            ShowCardReveal(card, title, body, RevealButtons.Ok, subtitle);
         }
         finally
         {
@@ -10924,7 +11020,8 @@ public partial class TableWindow : Window
         }
         if (action.Kind is GameActionKind.Fly or GameActionKind.Beam or GameActionKind.InitiateShipBattle
             or GameActionKind.InitiatePersonnelBattle
-            or GameActionKind.AttemptMission or GameActionKind.TowScow)
+            or GameActionKind.AttemptMission or GameActionKind.TowScow
+            or GameActionKind.Download or GameActionKind.FlipHiddenAgenda or GameActionKind.Cloak)
         {
             if (action.Player != _session.ActivePlayer)
             {
@@ -10986,7 +11083,10 @@ public partial class TableWindow : Window
             string msg = "Host could not apply " + action.Kind;
             if (action.Kind is GameActionKind.AttemptMission
                 or GameActionKind.InitiatePersonnelBattle
-                or GameActionKind.InitiateShipBattle)
+                or GameActionKind.InitiateShipBattle
+                or GameActionKind.Download
+                or GameActionKind.FlipHiddenAgenda
+                or GameActionKind.Cloak)
             {
                 string detail = StatusText.Text?.Trim() ?? "";
                 if (detail.Length > 0)
@@ -11012,7 +11112,10 @@ public partial class TableWindow : Window
             or GameActionKind.InitiatePersonnelBattle
             or GameActionKind.AttemptMission
             or GameActionKind.Respond
-            or GameActionKind.TowScow;
+            or GameActionKind.TowScow
+            or GameActionKind.Download
+            or GameActionKind.FlipHiddenAgenda
+            or GameActionKind.Cloak;
 
     /// <summary>
     /// Name/set fallback for Host FromDto targets, seed piles, and in-play Fly/Beam.
@@ -11145,6 +11248,7 @@ public partial class TableWindow : Window
     /// PlayCard: Host TryApplyNetPlayCard. A hand interrupt uses TryApplyNetInterrupt.
     /// AttemptMission: Host TryApplyNetAttemptMission (same TryAttemptMission path as Hotseat).
     /// InitiatePersonnelBattle: Host TryApplyNetPersonnelBattle (same stack as Hotseat).
+    /// Download / FlipHiddenAgenda / Cloak: Host runs the same method as the button.
     /// </summary>
     private bool TryApplyNetAuthorizedAction(GameAction action)
     {
@@ -11242,6 +11346,15 @@ public partial class TableWindow : Window
 
             case GameActionKind.AttemptMission:
                 return TryApplyNetAttemptMission(action);
+
+            case GameActionKind.Download:
+                return TryApplyNetDownload(action);
+
+            case GameActionKind.FlipHiddenAgenda:
+                return TryApplyNetFlipHiddenAgenda(action);
+
+            case GameActionKind.Cloak:
+                return TryApplyNetCloak(action);
 
             case GameActionKind.Respond:
                 return TryApplyNetRespond(action);
@@ -12931,6 +13044,119 @@ public partial class TableWindow : Window
     }
 
     /// <summary>
+    /// Host: Guest Download. Note selects Q's Tent or Special Download.
+    /// Same methods a local click uses. The Guest does not touch the deck.
+    /// </summary>
+    private bool TryApplyNetDownload(GameAction action)
+    {
+        // Verb: download
+        // Rule: 6.5.3 / 6.5.4 — Host Apply is TryDownloadFromTent or TrySpecialDownload.
+        if (action.Card == null)
+        {
+            StatusText.Text = "Net Download: card not found on Host.";
+            return false;
+        }
+        if (_seedPhaseActive || _session.Match != GameSession.MatchPhase.Play)
+        {
+            StatusText.Text = "Net Download ignored: not in Match Play.";
+            return false;
+        }
+        if (_session.ActivePlayer is 1 or 2)
+            _activePlayer = _session.ActivePlayer;
+
+        string note = action.Note ?? "";
+        bool tent = note.Contains("Tent", StringComparison.OrdinalIgnoreCase);
+        _netGuestOrderApplying = true;
+        try
+        {
+            if (tent)
+                return TryDownloadFromTent(action.Card, null);
+            return TrySpecialDownload(action.Card, action.Player is 1 or 2 ? action.Player : _activePlayer);
+        }
+        finally
+        {
+            _netGuestOrderApplying = false;
+        }
+    }
+
+    /// <summary>
+    /// Host: Guest flips their face-down Hidden Agenda. Same TryFlipHiddenAgenda as the table click.
+    /// </summary>
+    private bool TryApplyNetFlipHiddenAgenda(GameAction action)
+    {
+        // Verb: hidden-agenda
+        if (action.Card == null)
+        {
+            StatusText.Text = "Net Flip: card not found on Host.";
+            return false;
+        }
+        if (_seedPhaseActive || _session.Match != GameSession.MatchPhase.Play)
+        {
+            StatusText.Text = "Net Flip ignored: not in Match Play.";
+            return false;
+        }
+        if (_session.ActivePlayer is 1 or 2)
+            _activePlayer = _session.ActivePlayer;
+
+        int owner = action.Player is 1 or 2 ? action.Player : _activePlayer;
+        _netGuestOrderApplying = true;
+        try
+        {
+            return TryFlipHiddenAgenda(action.Card, owner);
+        }
+        finally
+        {
+            _netGuestOrderApplying = false;
+        }
+    }
+
+    /// <summary>
+    /// Host: Guest cloak or decloak. Note is the state to apply. Same checks as the button.
+    /// </summary>
+    private bool TryApplyNetCloak(GameAction action)
+    {
+        // Verb: cloak
+        // Rule: 7.6 — Host Apply is ApplyCloakChange. Broadcast carries Cloaked on the table row.
+        if (action.Card == null)
+        {
+            StatusText.Text = "Net Cloak: ship not found on Host.";
+            return false;
+        }
+        if (_seedPhaseActive || _session.Match != GameSession.MatchPhase.Play)
+        {
+            StatusText.Text = "Net Cloak ignored: not in Match Play.";
+            return false;
+        }
+        if (_session.Segment != GameSession.TurnSegment.Execute)
+        {
+            StatusText.Text = "Net Cloak ignored: not in Execute segment.";
+            return false;
+        }
+        if (_session.ActivePlayer is 1 or 2)
+            _activePlayer = _session.ActivePlayer;
+
+        var shipBorder = FindBorderForCard(action.Card) ?? FindBorderByInstanceId(action.Card.InstanceId);
+        if (shipBorder == null || shipBorder.Tag is not Card ship)
+        {
+            StatusText.Text = "Net Cloak: ship is not on the table.";
+            return false;
+        }
+
+        bool wantCloaked = string.Equals(action.Note, "decloak", StringComparison.OrdinalIgnoreCase)
+            ? false
+            : true;
+        _netGuestOrderApplying = true;
+        try
+        {
+            return ApplyCloakChange(shipBorder, ship, wantCloaked);
+        }
+        finally
+        {
+            _netGuestOrderApplying = false;
+        }
+    }
+
+    /// <summary>
     /// Host: apply Guest personnel battle. Guest sent the attacking host only.
     /// Opposing occupancy is fogged, so this method picks the legal target (or asks
     /// the Guest over the choice channel) and opens the same stack Hotseat uses.
@@ -14398,7 +14624,8 @@ public partial class TableWindow : Window
                 SolvedBy = _missionSolver.TryGetValue(b, out int sol) ? sol : null,
                 InstanceId = card.InstanceId,
                 Controller = card.Controller != 0 ? card.Controller : GetBorderOwner(b),
-                FaceUp = card.FaceUp
+                FaceUp = card.FaceUp,
+                Cloaked = IsShipCard(card) && IsShipCloaked(b)
             });
             next++;
         }
@@ -14707,6 +14934,7 @@ public partial class TableWindow : Window
                 UpdateDamageBadge(border, 0);
             }
             if (snap.Stopped) MarkStopped(border);
+            if (snap.Cloaked) SetShipCloaked(border, true);
             if (snap.RangeLeft.HasValue)
                 SetShipRangeLeft(border, card, snap.RangeLeft.Value);
             if (snap.RepairTurns > 0)
@@ -28146,12 +28374,7 @@ public partial class TableWindow : Window
                || blob.Contains("Non-Aligned", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool ShipHasCloakingDevice(Card ship)
-    {
-        string t = $"{ship.Text} {ship.Staff} {ship.Characteristics}";
-        return t.Contains("Cloaking Device", StringComparison.OrdinalIgnoreCase)
-               || t.Contains("[Cloak]", StringComparison.OrdinalIgnoreCase);
-    }
+    private static bool ShipHasCloakingDevice(Card ship) => ShipRules.HasCloakingDevice(ship);
 
     private bool IsShipCloaked(Border ship)
     {
@@ -28245,38 +28468,66 @@ public partial class TableWindow : Window
 
     private void ToggleCloak(Border shipBorder, Card ship)
     {
+        bool wantCloaked = !IsShipCloaked(shipBorder);
+        // Verb: cloak
+        // Rule: 7.6. Guest sends Cloak. Host applies the named state.
+        if (_gameMode == GameMode.Network && _netSession is { IsGuest: true })
+        {
+            int who = _netSession.LocalPlayer is 1 or 2 ? _netSession.LocalPlayer : _activePlayer;
+            ClearCardActionUi();
+            _ = SendGuestActionAsync(GameAction.Cloak(who, ship, wantCloaked));
+            StatusText.Text = $"Net: {(wantCloaked ? "Cloak" : "Decloak")} {ship.Name} sent — waiting for Host…";
+            return;
+        }
+        ApplyCloakChange(shipBorder, ship, wantCloaked);
+    }
+
+    /// <summary>
+    /// Same cloak checks the button already used. wantCloaked is the state to apply.
+    /// Hotseat still toggles. A Guest refusal is status only.
+    /// </summary>
+    private bool ApplyCloakChange(Border shipBorder, Card ship, bool wantCloaked)
+    {
+        if (wantCloaked == IsShipCloaked(shipBorder))
+        {
+            ReportOrderRefusal(wantCloaked
+                ? $"{ship.Name} is already cloaked."
+                : $"{ship.Name} is already decloaked.");
+            return false;
+        }
         if (IsCloakLocked(shipBorder))
         {
-            ShowPlayError($"{ship.Name} may not cloak (Tachyon Detection Grid).");
-            return;
+            ReportOrderRefusal($"{ship.Name} may not cloak (Tachyon Detection Grid).");
+            return false;
         }
         if (!ShipHasCloakingDevice(ship))
         {
-            ShowPlayError($"{ship.Name} has no Cloaking Device.");
-            return;
+            ReportOrderRefusal($"{ship.Name} has no Cloaking Device.");
+            return false;
         }
-        if (!IsShipCloaked(shipBorder) && IsTowingScow(shipBorder))
+        if (wantCloaked && IsTowingScow(shipBorder))
         {
-            ShowPlayError($"{ship.Name} may not cloak while towing Radioactive Garbage Scow (Glossary).");
-            return;
+            ReportOrderRefusal($"{ship.Name} may not cloak while towing Radioactive Garbage Scow (Glossary).");
+            return false;
         }
-        if (!IsShipCloaked(shipBorder) && ShipHasRequiredMove(shipBorder))
+        if (wantCloaked && ShipHasRequiredMove(shipBorder))
         {
-            ShowPlayError("Incoming Message: ship may not cloak (7.10).");
-            return;
+            ReportOrderRefusal("Incoming Message: ship may not cloak (7.10).");
+            return false;
         }
-        bool nowCloaked = !IsShipCloaked(shipBorder);
-        SetShipCloaked(shipBorder, nowCloaked);
-        StatusText.Text = nowCloaked
+        SetShipCloaked(shipBorder, wantCloaked);
+        StatusText.Text = wantCloaked
             ? $"{ship.Name} cloaks (exposed ships cannot be targeted the same way)."
             : $"{ship.Name} decloaks.";
         if (ship.InstanceId > 0)
             DebugLog.Move(_session.TurnNumber, _activePlayer,
-                $"cloak #{ship.InstanceId} cloaked={(nowCloaked ? 1 : 0)} source=instance");
+                $"cloak #{ship.InstanceId} cloaked={(wantCloaked ? 1 : 0)} source=instance");
         _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}",
-            $"{ship.Name} {(IsShipCloaked(shipBorder) ? "cloaked" : "decloaked")}.");
+            $"{ship.Name} {(wantCloaked ? "cloaked" : "decloaked")}.");
         UpdateHostBadge(shipBorder);
         ClearCardActionUi();
+        PublishHostOrder();
+        return true;
     }
 
     private int CountExposedShips(int player)

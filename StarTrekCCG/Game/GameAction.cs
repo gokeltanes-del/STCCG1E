@@ -33,7 +33,12 @@ public enum GameActionKind
     /// Start a personnel battle. Card is the attacking host (ship or mission).
     /// Target is the opposing host, or null when the Host must choose it.
     /// </summary>
-    InitiatePersonnelBattle
+    InitiatePersonnelBattle,
+    /// <summary>
+    /// Cloak or decloak a ship. Card is the ship.
+    /// Note is "cloak" or "decloak" so the Host applies that state, not a blind toggle.
+    /// </summary>
+    Cloak
 }
 
 /// <summary>
@@ -85,6 +90,9 @@ public sealed class GameAction
                 GameActionKind.ActivateInPlay => $"{who}: Use {card}" + (tgt.Length > 0 ? $" ({tgt})" : ""),
                 GameActionKind.Download => $"{who}: Download {card}" + (tgt.Length > 0 ? $" → {tgt}" : ""),
                 GameActionKind.FlipHiddenAgenda => $"{who}: Flip {card}",
+                GameActionKind.Cloak when string.Equals(Note, "decloak", StringComparison.OrdinalIgnoreCase)
+                    => $"{who}: Decloak {card}",
+                GameActionKind.Cloak => $"{who}: Cloak {card}",
                 GameActionKind.PlayTactic => $"{who}: Tactic {card}",
                 GameActionKind.BuildSite => $"{who}: Build site {card}" + (tgt.Length > 0 ? $" on {tgt}" : ""),
                 _ => $"{who}: {Kind}"
@@ -156,6 +164,16 @@ public sealed class GameAction
             Kind = GameActionKind.FlipHiddenAgenda,
             Player = player,
             Card = card
+        };
+
+    /// <summary>Cloak or decloak. Note tells the Host which state to apply.</summary>
+    public static GameAction Cloak(int player, Card ship, bool cloak) =>
+        new()
+        {
+            Kind = GameActionKind.Cloak,
+            Player = player,
+            Card = ship,
+            Note = cloak ? "cloak" : "decloak"
         };
 
     public static GameAction TowScow(int player, Card ship, Card scow) =>
