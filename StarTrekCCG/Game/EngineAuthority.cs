@@ -199,6 +199,9 @@ public static class EngineAuthority
         return result;
     }
 
+    // Verb: attempt-mission
+    // Rule: 7.2 — Execute segment, active player, mission not solved or attempt-blocked.
+    // Network: Hotseat and Host share this Decide. Guest does not apply.
     private static ApplyResult EvaluateAttempt(GameState state, GameAction action)
     {
         if (state.SeedPhase)

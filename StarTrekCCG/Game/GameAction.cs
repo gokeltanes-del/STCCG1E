@@ -68,6 +68,7 @@ public sealed class GameAction
                 GameActionKind.ChooseTarget => $"{who}: Choose {tgt}",
                 GameActionKind.Beam => $"{who}: Beam" + (tgt.Length > 0 ? $" → {tgt}" : ""),
                 GameActionKind.Fly => $"{who}: Fly" + (tgt.Length > 0 ? $" → {tgt}" : ""),
+                GameActionKind.AttemptMission when Target2 != null => $"{who}: Attempt {tgt} ({Target2.Name})",
                 GameActionKind.AttemptMission => $"{who}: Attempt {tgt}",
                 GameActionKind.EncounterDilemma => $"{who}: Encounter {card}" + (tgt.Length > 0 ? $" at {tgt}" : ""),
                 GameActionKind.InitiateShipBattle => $"{who}: Ship battle" + (tgt.Length > 0 ? $" vs {tgt}" : ""),
@@ -106,13 +107,18 @@ public sealed class GameAction
             Note = note
         };
 
-    public static GameAction AttemptMission(int player, Card mission) =>
+    /// <summary>
+    /// Mission attempt. Card and Target are the mission (<see cref="EngineAuthority"/>).
+    /// Target2 is the Attempting-Ship for a space mission; null on a planet.
+    /// </summary>
+    public static GameAction AttemptMission(int player, Card mission, Card? attemptingShip = null) =>
         new()
         {
             Kind = GameActionKind.AttemptMission,
             Player = player,
             Card = mission,
-            Target = mission
+            Target = mission,
+            Target2 = attemptingShip
         };
 
     public static GameAction EncounterDilemma(int player, Card dilemma, Card? mission = null) =>

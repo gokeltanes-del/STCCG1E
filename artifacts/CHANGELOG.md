@@ -1,3 +1,9 @@
+## 2026-09-29 - AttemptMission network (Guest intent, Host apply)
+
+- *Auftrag*: AttemptMission netzfaehig. Guest laeuft den Versuch nicht lokal gegen maskierte Seeds. Host wertet echte Seeds / MissionRules / DilemmaRules ueber denselben TryAttemptMission-Pfad wie Hotseat. Danach maskierter Broadcast. Yes/No im Dilemma ueber AskChoiceForPlayer. Kein PickCardFromList-Refactor, kein PersonnelBattle, keine KI, keine Phase-5.
+- *Fix*: GameAction.AttemptMission(player, mission, attemptingShip?). NetActionDto InstanceIds bleiben [card, target, target2]. IsNetSyncKindSupported + TryApplyNetAttemptMission. Guest SendGuestActionAsync und return. SEARCH: Verb: attempt-mission; Rule: 7.2.
+- *Scope*: GameAction.cs, NetActionDto.cs, EngineAuthority.cs, TableWindow.xaml.cs. Basis master 8083785. Karten nicht auf working. Kein Push master.
+
 ## 2026-09-28 - Spaceline span overlay subsystem (Option B)
 
 - *Auftrag (FREIGABE Option B)*: Analyse `GROK_TEMP/spaceline-span-sync-analysis.md` befolgen - eine Wahrheit: Order=Missionen; Spans=Overlay Endpoints; Capture ohne Spans; Relayout+PaintSpans; Seed/Index mission-only; BoardStore aus Paar. Kein Hybrid. TAK ab2e67a / Overlay a9af295 unangetastet. Kein Refactor C.

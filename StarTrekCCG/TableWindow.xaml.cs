@@ -86,6 +86,8 @@ public partial class TableWindow : Window
     private string? _guestActiveChoiceCorrelationId;
     /// <summary>Guest: true while handling inbound ChoiceRequest (do not start own engine choice).</summary>
     private bool _guestHandlingInboundChoice;
+    /// <summary>Host: true while TryApplyNetAttemptMission is inside TryAttemptMission (including its modals).</summary>
+    private bool _netAttemptApplying;
     private readonly GameSession _session = new();
     /// <summary>E1: last compact state: line so Capture does not flood the log.</summary>
     private string? _lastEngineStateLine;
@@ -10281,7 +10283,8 @@ public partial class TableWindow : Window
                 $"PlayCard: not your turn (active P{_session.ActivePlayer}, you P{action.Player}).");
             return;
         }
-        if (action.Kind is GameActionKind.Fly or GameActionKind.Beam or GameActionKind.InitiateShipBattle)
+        if (action.Kind is GameActionKind.Fly or GameActionKind.Beam or GameActionKind.InitiateShipBattle
+            or GameActionKind.AttemptMission)
         {
             if (action.Player != _session.ActivePlayer)
             {
@@ -10339,7 +10342,15 @@ public partial class TableWindow : Window
 
         if (!TryApplyNetAuthorizedAction(action))
         {
-            _ = _netSession.SendErrorAsync("Host could not apply " + action.Kind);
+            // AttemptMission denies set StatusText (no crew, affiliation, missing ship).
+            string msg = "Host could not apply " + action.Kind;
+            if (action.Kind == GameActionKind.AttemptMission)
+            {
+                string detail = StatusText.Text?.Trim() ?? "";
+                if (detail.Length > 0)
+                    msg = detail;
+            }
+            _ = _netSession.SendErrorAsync(msg);
             return;
         }
 
@@ -10356,6 +10367,7 @@ public partial class TableWindow : Window
             or GameActionKind.Fly
             or GameActionKind.Beam
             or GameActionKind.InitiateShipBattle
+            or GameActionKind.AttemptMission
             or GameActionKind.Respond;
 
     /// <summary>
@@ -10487,6 +10499,7 @@ public partial class TableWindow : Window
     /// <summary>
     /// Apply EndPhase / EndTurn / Pass / Draw on Host after AuthorizePlay OK.
     /// PlayCard: Host TryApplyNetPlayCard (Ship/Personnel/Equipment/Event); interrupts = P4.
+    /// AttemptMission: Host TryApplyNetAttemptMission (same TryAttemptMission path as Hotseat).
     /// </summary>
     private bool TryApplyNetAuthorizedAction(GameAction action)
     {
@@ -10575,6 +10588,9 @@ public partial class TableWindow : Window
 
             case GameActionKind.InitiateShipBattle:
                 return TryApplyNetShipBattle(action);
+
+            case GameActionKind.AttemptMission:
+                return TryApplyNetAttemptMission(action);
 
             case GameActionKind.Respond:
                 return TryApplyNetRespond(action);
@@ -11784,6 +11800,77 @@ public partial class TableWindow : Window
         if (instanceId <= 0) return null;
         return TableCanvas.Children.OfType<Border>()
             .FirstOrDefault(b => b.Tag is Card c && c.InstanceId == instanceId);
+    }
+
+    /// <summary>
+    /// Host: apply Guest AttemptMission. Same TryAttemptMission path Hotseat uses after authority
+    /// (real seed stack, MissionRules, DilemmaRules). Guest must not walk masked seeds.
+    /// </summary>
+    private bool TryApplyNetAttemptMission(GameAction action)
+    {
+        // Verb: attempt-mission
+        // Rule: 7.2 — Host Apply is TryAttemptMission. Broadcast follows a successful return.
+        // Network: Yes/No inside the attempt uses AskChoiceForPlayer; card-list picks stay on Host.
+        if (_netAttemptApplying || _resumeAttemptAfterEtaArmbands)
+        {
+            StatusText.Text = "Net Attempt: an attempt is already in progress.";
+            return false;
+        }
+        if (_seedPhaseActive || _session.Match != GameSession.MatchPhase.Play)
+        {
+            StatusText.Text = "Net Attempt ignored: not in Match Play.";
+            return false;
+        }
+        if (_session.Segment != GameSession.TurnSegment.Execute)
+        {
+            StatusText.Text = "Net Attempt ignored: not in Execute segment.";
+            return false;
+        }
+
+        var mission = action.Target ?? action.Card;
+        if (mission == null)
+        {
+            StatusText.Text = "Net Attempt: mission not found on Host.";
+            return false;
+        }
+
+        var missionBorder = FindBorderForCard(mission) ?? FindBorderByInstanceId(mission.InstanceId);
+        if (missionBorder == null || missionBorder.Tag is not Card missionCard)
+        {
+            StatusText.Text = "Net Attempt: mission border missing on Host.";
+            return false;
+        }
+
+        Border? shipBorder = null;
+        if (action.Target2 != null)
+        {
+            shipBorder = FindBorderForCard(action.Target2) ?? FindBorderByInstanceId(action.Target2.InstanceId);
+            if (shipBorder == null)
+            {
+                StatusText.Text = $"Net Attempt: attempting ship '{action.Target2.Name}' missing on Host.";
+                return false;
+            }
+        }
+
+        if (_session.ActivePlayer is 1 or 2)
+            _activePlayer = _session.ActivePlayer;
+
+        _netAttemptApplying = true;
+        try
+        {
+            bool entered = TryAttemptMission(missionBorder, missionCard, shipBorder);
+            if (entered)
+            {
+                _session.Log.Add(_session.TurnNumber, $"P{action.Player}",
+                    $"Net: Attempt {missionCard.Name}"
+                    + (shipBorder?.Tag is Card sc ? $" ({sc.Name})" : ""));
+            }
+            return entered;
+        }
+        finally
+        {
+            _netAttemptApplying = false;
+        }
     }
 
     /// <summary>
@@ -17440,7 +17527,7 @@ public partial class TableWindow : Window
                         && MissionRules.IsSpaceMission(mc)
                         && !_solvedMissions.Contains(mAt))
                     {
-                        AddBtn("Attempt mission (Space)", (_, _) => TryAttemptMission(mAt, mc, cardBorder));
+                        AddBtn("Attempt mission (Space)", (_, _) => { TryAttemptMission(mAt, mc, cardBorder); });
                     }
                 }
             }
@@ -17468,7 +17555,7 @@ public partial class TableWindow : Window
                     AddBtn("Attack away team…", (_, _) => BeginPersonnelAttackFromHost(cardBorder));
                 AddBtn("Solvable missions?", (_, _) => HighlightSolvableMissions(awayTeam));
                 if (!_solvedMissions.Contains(cardBorder))
-                    AddBtn("Attempt mission", (_, _) => TryAttemptMission(cardBorder, card));
+                    AddBtn("Attempt mission", (_, _) => { TryAttemptMission(cardBorder, card); });
             }
 
         }
@@ -17545,20 +17632,37 @@ public partial class TableWindow : Window
         UpdateDetailBeamSelectButton(_detailHost ?? _hostStripHost);
     }
 
-    private void TryAttemptMission(Border missionBorder, Card mission, Border? attemptingShipBorder = null)
+    private bool TryAttemptMission(Border missionBorder, Card mission, Border? attemptingShipBorder = null)
     {
+        // Verb: attempt-mission
+        // Rule: 7.2 mission attempt. Network Guest sends intent only — masked seeds are not the attempt.
+        // Host / Hotseat fall through into the same Apply (MissionRules + DilemmaRules).
+        if (_gameMode == GameMode.Network && _netSession is { IsGuest: true })
+        {
+            var missionCard = missionBorder.Tag as Card ?? mission;
+            Card? shipCard = attemptingShipBorder?.Tag as Card;
+            var act = GameAction.AttemptMission(_netSession.LocalPlayer, missionCard, shipCard);
+            ClearCardActionUi();
+            _ = SendGuestActionAsync(act);
+            StatusText.Text = $"Net: Attempt {missionCard.Name} sent — waiting for Host…";
+            return false;
+        }
+
+        bool entered = false;
+        try
+        {
         mission = MissionPrintedFor(missionBorder, _activePlayer);
-        var auth = AuthorizePlay(GameAction.AttemptMission(_activePlayer, mission));
+        var auth = AuthorizePlay(GameAction.AttemptMission(_activePlayer, mission, attemptingShipBorder?.Tag as Card));
         if (!auth.Ok)
         {
             ShowPlayError(auth.Message);
-            return;
+            return false;
         }
         if (_attachedDilemmas.Any(d =>
                 d.Kind == DilemmaRules.PersistKind.EdoProbe && ReferenceEquals(d.Host, missionBorder)))
         {
             ShowPlayError("Edo Probe: cannot attempt this mission until any player solves a different mission.");
-            return;
+            return false;
         }
         TryCureFrameOfMindAt(missionBorder);
 
@@ -17581,7 +17685,7 @@ public partial class TableWindow : Window
             {
                 ShowPlayError("Space mission attempt: select one Attempting-Ship (ship menu at this mission).");
                 _attemptMission = null;
-                return;
+                return false;
             }
             _attemptShip = attemptingShipBorder;
         }
@@ -17594,15 +17698,23 @@ public partial class TableWindow : Window
         if (team.Count == 0)
         {
             ShowPlayError("No unstopped away team / crew at this mission.");
-            return;
+            _attemptMission = null;
+            _attemptShip = null;
+            return false;
         }
 
         if (!MissionRules.TeamMatchesMissionAffiliation(mission, team, EspionageIconsOn(missionBorder, _activePlayer)))
         {
             string need = string.Join("/", MissionRules.ParseAffiliationTokens(mission.Affiliation));
             ShowPlayError($"Cannot attempt {mission.Name}: requires affiliation {need}.");
-            return;
+            _attemptMission = null;
+            _attemptShip = null;
+            return false;
         }
+
+        // Attempt has passed the pre-seed gates. Later returns are an applied attempt
+        // (dilemma, suspend, solve, or requirements miss) and must broadcast on Host.
+        entered = true;
 
         // Seed stack: last seeded = list end = encountered first (bottom → top).
         // Artifacts in that order are revealed face-up for both players, but only
@@ -17708,7 +17820,7 @@ public partial class TableWindow : Window
             {
                 ShowPlayError(encAuth.Message);
                 ClearCardActionUi();
-                return;
+                return true;
             }
 
             // Fresh team/present for this encounter (kills/stops/beams from prior seeds).
@@ -17762,7 +17874,7 @@ public partial class TableWindow : Window
                 StatusText.Text = $"{seedCard.Name} ([ETA]) — Armbands responses…";
                 _session.Log.Add(_session.TurnNumber, "sys",
                     $"[ETA] Armbands window for P{_activePlayer} ({seedCard.Name})");
-                return;
+                return true;
             }
 
             var dilResult = DilemmaRules.Resolve(new DilemmaRules.Ctx
@@ -17777,9 +17889,14 @@ public partial class TableWindow : Window
                 Hand = hand.ToList(),
                 PickYou = (prompt, pool) => PickCardFromList(prompt, pool, "Choose a card", seedCard),
                 PickOpp = (prompt, pool) => PickCardFromList(prompt, pool, "Opponent chooses", seedCard),
+                // Verb: attempt-mission
+                // Rule: dilemma Yes/No — AskChoiceForPlayer (Guest answers on their turn). Card lists stay PickCardFromList.
                 Confirm = prompt =>
-                    ShowCardReveal(seedCard, seedCard.Name ?? "Dilemma", prompt,
-                        RevealButtons.YesNo, "Your choice") == RevealAnswer.Yes,
+                {
+                    string pick = AskChoiceForPlayer(
+                        _activePlayer, seedCard, seedCard.Name ?? "Dilemma", prompt, "Yes", "No");
+                    return string.Equals(pick, "Yes", StringComparison.OrdinalIgnoreCase);
+                },
                 ThermalDeflectors = HasThermalDeflectors(),
                 AtOwnOutpost = GetDockablesUnderMission(missionBorder).Any(b =>
                     b.Tag is Card fc
@@ -17901,7 +18018,7 @@ public partial class TableWindow : Window
                     FinishExecuteAndEndTurn();
                 }
                 ClearCardActionUi();
-                return;
+                return true;
             }
 
             // Overcome: seed already removed in ApplyDilemmaResult
@@ -17917,7 +18034,7 @@ public partial class TableWindow : Window
             {
                 StopMissionAttemptTeam(missionBorder, mission, teamBorders);
                 ClearCardActionUi();
-                return;
+                return true;
             }
 
             teamBorders = CollectTeamBordersAtMission(missionBorder, mission, _attemptShip);
@@ -17926,7 +18043,7 @@ public partial class TableWindow : Window
             {
                 ShowPlayError("No personnel left in the attempt — mission ends.");
                 ClearCardActionUi();
-                return;
+                return true;
             }
         }
 
@@ -17947,7 +18064,7 @@ public partial class TableWindow : Window
                 "All dilemmas are clear, but mission requirements are not met:\n" + result.Reason
                 + "\n\nArtifacts remain under the mission until it is solved.",
                 RevealButtons.Ok, mission.Name);
-            return;
+            return true;
         }
 
         MarkMissionSolved(missionBorder, mission, _activePlayer, result.Points);
@@ -18018,6 +18135,14 @@ public partial class TableWindow : Window
         _attemptDiscards.Clear();
         ClearCardActionUi();
         OfferPendingTimeTravelPodOpponentRelocate();
+        return true;
+        }
+        finally
+        {
+            // Network Host (own click or Guest action): Guest sees the attempt only via masked state.
+            if (entered && _gameMode == GameMode.Network && _netSession is { IsHost: true })
+                NotifyNetworkBoardChanged();
+        }
     }
 
     /// <summary>Premiere-Interrupt-Effekte. true = erledigt (kein generisches Discard nötig).</summary>
