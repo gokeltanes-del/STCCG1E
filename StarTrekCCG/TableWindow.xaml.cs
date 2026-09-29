@@ -2386,7 +2386,8 @@ public partial class TableWindow : Window
         string? yesLabel = null,
         string? noLabel = null,
         int targetPlayer = 0,
-        bool shareFace = false)
+        bool shareFace = false,
+        IReadOnlyList<Card>? faces = null)
     {
         if (_netSession is not { IsHost: true })
             return RevealAnswer.Ok;
@@ -2408,10 +2409,11 @@ public partial class TableWindow : Window
             Prompt = body,
             Subtitle = subtitle,
             Options = yesNo ? new[] { yes, no } : new[] { "OK" },
-            CardName = card?.Name,
-            CardSet = card?.SetFolder,
-            CardType = card?.Type,
-            InstanceId = card?.InstanceId ?? 0,
+            CardName = faces != null ? (faces.Count == 1 ? faces[0].Name : null) : card?.Name,
+            CardSet = faces != null ? (faces.Count == 1 ? faces[0].SetFolder : null) : card?.SetFolder,
+            CardType = faces != null ? (faces.Count == 1 ? faces[0].Type : null) : card?.Type,
+            InstanceId = faces != null ? (faces.Count == 1 ? faces[0].InstanceId : 0) : card?.InstanceId ?? 0,
+            Faces = ToNetChoiceFaces(faces),
             TimeoutMs = timeoutMs
         };
 
@@ -2438,11 +2440,14 @@ public partial class TableWindow : Window
         }
 
         // Encounter / Mission solved, or a shown/discarded card: Host paints the same face (no click).
-        // Guest still clicks.
-        if (card != null && (shareFace || IsWatcherSharedReveal(card, title)))
+        // Guest still clicks. A personnel-battle result with no deaths still shares the text.
+        var watchFaces = faces ?? (card != null ? new[] { card } : Array.Empty<Card>());
+        if (shareFace || (card != null && IsWatcherSharedReveal(card, title)))
         {
-            ShowHostEncounterMirror(card, title, body, subtitle,
-                "Both players see this card. Guest acknowledges.");
+            string audience = faces != null && faces.Count != 1
+                ? "Both players see this result. Guest acknowledges."
+                : "Both players see this card. Guest acknowledges.";
+            ShowHostEncounterMirror(watchFaces, title, body, subtitle, audience);
             mirrored = true;
         }
 
@@ -2490,7 +2495,8 @@ public partial class TableWindow : Window
         string? yesLabel = null,
         string? noLabel = null,
         bool randomOnTimeout = false,
-        int? surfacePlayer = null)
+        int? surfacePlayer = null,
+        IReadOnlyList<Card>? faces = null)
     {
         // Verb: attempt-mission
         // Guest-owned attempt: this overlay belongs on the Guest. Host keeps applying.
@@ -2523,21 +2529,9 @@ public partial class TableWindow : Window
         if (BtnRevealPass != null) BtnRevealPass.Visibility = Visibility.Collapsed;
         _announceKind = AnnounceKind.Hidden;
 
-        RevealImage.Source = null;
-        if (card != null && !string.IsNullOrEmpty(card.FullImagePath) && System.IO.File.Exists(card.FullImagePath))
-        {
-            try
-            {
-                var bmp = new BitmapImage();
-                bmp.BeginInit();
-                bmp.CacheOption = BitmapCacheOption.OnLoad;
-                bmp.UriSource = new Uri(card.FullImagePath, UriKind.Absolute);
-                bmp.DecodePixelWidth = 440;
-                bmp.EndInit();
-                RevealImage.Source = bmp;
-            }
-            catch { }
-        }
+        IReadOnlyList<Card> shown = faces ?? (card != null ? new[] { card } : Array.Empty<Card>());
+        _revealCurrentCard = shown.Count == 1 ? shown[0] : null;
+        ApplyRevealFaces(shown);
 
         bool yesNo = buttons == RevealButtons.YesNo;
         bool playerPick = buttons == RevealButtons.PlayerPick;
@@ -2564,8 +2558,8 @@ public partial class TableWindow : Window
         _revealAnswer = RevealAnswer.None;
         _revealTimedOut = false;
         CardRevealOverlay.Visibility = Visibility.Visible;
-        if (card != null)
-            ShowCardDetail(card);
+        if (shown.Count == 1)
+            ShowCardDetail(shown[0]);
 
         // Choice dialogs get 10s unless caller overrides.
         // Timeout with no click: pick at random (not a hidden default).
@@ -2627,7 +2621,7 @@ public partial class TableWindow : Window
             _revealFrame = null;
             if (RevealTimerText != null) RevealTimerText.Text = "";
             CardRevealOverlay.Visibility = Visibility.Collapsed;
-            RevealImage.Source = null;
+            ClearRevealFaces();
             if (guestMirror)
                 SendEncounterMirrorToGuest(null, "", "", null, open: false, wait: true);
         }
@@ -2707,6 +2701,49 @@ public partial class TableWindow : Window
         try
         {
             ShowCardReveal(card, title, body, RevealButtons.Ok);
+        }
+        finally
+        {
+            if (mirrored)
+                SendEncounterMirrorToGuest(null, "", "", null, open: false, wait: true, publicResult: true);
+        }
+    }
+
+    /// <summary>
+    /// Personnel-battle result. Faces are only the personnel who died.
+    /// Several deaths show each of those faces. No deaths: the battle text alone.
+    /// The attacker has OK. The other window has no buttons and closes when the attacker acknowledges.
+    /// </summary>
+    private void ShowPersonnelBattleResult(int atkOwner, IReadOnlyList<Card> killed, string body)
+    {
+        const string title = "Personnel Battle";
+        var faces = killed?.Where(c => c != null).ToList() ?? new List<Card>();
+        string? subtitle = faces.Count > 1
+            ? string.Join(", ", faces.Select(c => c.Name).Where(n => !string.IsNullOrWhiteSpace(n)))
+            : null;
+        Card? primary = faces.Count == 1 ? faces[0] : null;
+
+        if (_gameMode != GameMode.Network || _netSession is not { IsHost: true })
+        {
+            ShowCardReveal(primary, title, body, RevealButtons.Ok, subtitle, faces: faces);
+            return;
+        }
+        if (atkOwner is not (1 or 2))
+            atkOwner = _activePlayer is 1 or 2 ? _activePlayer : 1;
+
+        string? mirrorSubtitle = subtitle ?? primary?.Name;
+        if (atkOwner != _netSession.LocalPlayer)
+        {
+            ShowRevealRemoteOnGuest(primary, title, body, RevealButtons.Ok, mirrorSubtitle,
+                targetPlayer: atkOwner, shareFace: true, faces: faces);
+            return;
+        }
+
+        bool mirrored = SendEncounterMirrorToGuest(
+            primary, title, body, mirrorSubtitle, open: true, publicResult: true, faces: faces);
+        try
+        {
+            ShowCardReveal(primary, title, body, RevealButtons.Ok, subtitle, faces: faces);
         }
         finally
         {
@@ -5196,7 +5233,103 @@ public partial class TableWindow : Window
     private void FillRevealImage(Card? card)
     {
         _revealCurrentCard = card;
-        RevealImage.Source = null;
+        ApplyRevealFaces(card != null ? new[] { card } : Array.Empty<Card>());
+    }
+
+    private static NetChoiceFace[]? ToNetChoiceFaces(IReadOnlyList<Card>? cards)
+    {
+        if (cards == null) return null;
+        var faces = new NetChoiceFace[cards.Count];
+        for (int i = 0; i < cards.Count; i++)
+        {
+            var c = cards[i];
+            faces[i] = new NetChoiceFace
+            {
+                Name = c?.Name,
+                Set = c?.SetFolder,
+                Type = c?.Type,
+                InstanceId = c?.InstanceId ?? 0
+            };
+        }
+        return faces;
+    }
+
+    /// <summary>
+    /// One face uses the large frame. Several faces are the killed personnel, side by side.
+    /// None hides the frame so the dialog is text only.
+    /// </summary>
+    private void ApplyRevealFaces(IReadOnlyList<Card> faces)
+    {
+        if (RevealFacesPanel != null)
+            RevealFacesPanel.Children.Clear();
+        if (RevealImage != null)
+            RevealImage.Source = null;
+
+        var list = faces?.Where(c => c != null).ToList() ?? new List<Card>();
+        if (list.Count <= 1)
+        {
+            if (RevealFacesScroll != null)
+                RevealFacesScroll.Visibility = Visibility.Collapsed;
+            if (RevealFaceFrame != null)
+                RevealFaceFrame.Visibility = list.Count == 1 ? Visibility.Visible : Visibility.Collapsed;
+            if (list.Count == 1)
+                LoadRevealBitmap(list[0], RevealImage, 440);
+            return;
+        }
+
+        if (RevealFaceFrame != null)
+            RevealFaceFrame.Visibility = Visibility.Collapsed;
+        if (RevealFacesScroll != null)
+            RevealFacesScroll.Visibility = Visibility.Visible;
+        if (RevealFacesPanel == null)
+            return;
+
+        foreach (var card in list)
+        {
+            var img = new Image
+            {
+                Stretch = Stretch.Uniform,
+                Width = 150,
+                Height = 210,
+                Tag = card,
+                ToolTip = "Hold RMB = Large view"
+            };
+            RenderOptions.SetBitmapScalingMode(img, BitmapScalingMode.HighQuality);
+            img.MouseRightButtonDown += RevealExtraFace_MouseRightButtonDown;
+            img.MouseRightButtonUp += RevealImage_MouseRightButtonUp;
+            LoadRevealBitmap(card, img, 300);
+            RevealFacesPanel.Children.Add(new Border
+            {
+                Width = 150,
+                Height = 210,
+                Margin = new Thickness(0, 0, 8, 0),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x55)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(4),
+                Background = new SolidColorBrush(Color.FromRgb(0x11, 0x11, 0x11)),
+                Child = img,
+                Tag = card,
+                ToolTip = card.Name
+            });
+        }
+    }
+
+    private void ClearRevealFaces()
+    {
+        if (RevealImage != null)
+            RevealImage.Source = null;
+        if (RevealFacesPanel != null)
+            RevealFacesPanel.Children.Clear();
+        if (RevealFacesScroll != null)
+            RevealFacesScroll.Visibility = Visibility.Collapsed;
+        if (RevealFaceFrame != null)
+            RevealFaceFrame.Visibility = Visibility.Collapsed;
+    }
+
+    private static void LoadRevealBitmap(Card? card, Image? image, int decodeWidth)
+    {
+        if (image == null) return;
+        image.Source = null;
         if (card == null || string.IsNullOrEmpty(card.FullImagePath) || !System.IO.File.Exists(card.FullImagePath))
             return;
         try
@@ -5205,11 +5338,22 @@ public partial class TableWindow : Window
             bmp.BeginInit();
             bmp.CacheOption = BitmapCacheOption.OnLoad;
             bmp.UriSource = new Uri(card.FullImagePath, UriKind.Absolute);
-            bmp.DecodePixelWidth = 440;
+            bmp.DecodePixelWidth = decodeWidth;
             bmp.EndInit();
-            RevealImage.Source = bmp;
+            image.Source = bmp;
         }
         catch { }
+    }
+
+    private void RevealExtraFace_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.Tag is Card card)
+        {
+            _revealCurrentCard = card;
+            ShowCardDetail(card);
+            BeginHoldZoom(card, fe);
+        }
+        e.Handled = true;
     }
 
     private void RevealImage_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
@@ -6199,14 +6343,9 @@ public partial class TableWindow : Window
                 string cancelled =
                     $"Personnel Battle cancelled ({a.CancelledBy}) – forces stopped.";
                 StatusText.Text = cancelled;
-                // Hotseat keeps the status line. Network: both windows see the same sentence.
+                // Hotseat keeps the status line. Network: both windows see the sentence, and no unrelated face.
                 if (_gameMode == GameMode.Network && _netSession is { IsHost: true })
-                {
-                    var face = a.AttackerTeam?.OfType<Border>().Select(b => b.Tag).OfType<Card>().FirstOrDefault()
-                        ?? a.DefenderTeam?.OfType<Border>().Select(b => b.Tag).OfType<Card>().FirstOrDefault();
-                    if (face != null)
-                        ShowPublicCardResult(a.Controller, face, "Personnel Battle", cancelled);
-                }
+                    ShowPersonnelBattleResult(a.Controller, Array.Empty<Card>(), cancelled);
                 return;
             }
 
@@ -6430,16 +6569,22 @@ public partial class TableWindow : Window
                 .ToList();
             bool klingonDiedInBattle = false;
             string? killedKlingonName = null;
+            var died = new List<Card>();
             void KillFrom(List<Border> borders, int owner)
             {
                 foreach (var b in borders.ToList())
                 {
                     if (b.Tag is not Card c) continue;
                     if (!killedSet.Contains(c.Name ?? "")) continue;
+                    bool holoBefore = CardIcons.IsHologram(c) && IsHologramDeactivated(c);
                     int countBefore = _oppDiscardCards.Count + _discardCards.Count;
                     DiscardPersonnelBorder(b, c, owner, allowGenetronicSave: true, alsoTargetedToDie: killedCards);
                     int countAfter = _oppDiscardCards.Count + _discardCards.Count;
-                    if (countAfter > countBefore && BattleRules.IsKlingonPersonnel(c))
+                    bool discarded = countAfter > countBefore;
+                    bool holoDied = CardIcons.IsHologram(c) && IsHologramDeactivated(c) && !holoBefore;
+                    if (discarded || holoDied)
+                        died.Add(c);
+                    if (discarded && BattleRules.IsKlingonPersonnel(c))
                     {
                         klingonDiedInBattle = true;
                         killedKlingonName ??= c.Name;
@@ -6477,13 +6622,9 @@ public partial class TableWindow : Window
             }
 
             _session.Log.Add(_session.TurnNumber, $"P{atkOwner}", result.LogSummary);
-            // Public result: the attacker has OK. The other window sees the same text and does not click.
-            // Hotseat stays a local ShowCardReveal (ShowPublicCardResult).
-            var battleFace = atkCards.FirstOrDefault() ?? defCards.FirstOrDefault();
-            if (battleFace != null)
-                ShowPublicCardResult(atkOwner, battleFace, "Personnel Battle", result.LogSummary);
-            else
-                ShowCardReveal(null, "Personnel Battle", result.LogSummary, RevealButtons.Ok);
+            // The old face was atkCards.FirstOrDefault(): the first personnel in the attacking
+            // force (stack order), not a random card and not the casualty. Koroth was that first card.
+            ShowPersonnelBattleResult(atkOwner, died, result.LogSummary);
             StatusText.Text = result.LogSummary.Replace('\n', ' ');
             if (a.AttackerHost is Border src && src.Tag is Card sc)
                 ShowHostContents(src, sc);
@@ -10301,6 +10442,32 @@ public partial class TableWindow : Window
         return face;
     }
 
+    /// <summary>Catalog faces for a personnel-battle result. Empty when nobody died.</summary>
+    private List<Card> BuildNetChoiceFaceList(NetChoiceDto dto)
+    {
+        var list = new List<Card>();
+        if (dto.Faces == null) return list;
+        foreach (var f in dto.Faces)
+        {
+            if (f == null || string.IsNullOrWhiteSpace(f.Name)) continue;
+            var one = BuildNetChoiceFace(new NetChoiceDto
+            {
+                CardName = f.Name,
+                CardSet = f.Set,
+                CardType = f.Type,
+                InstanceId = f.InstanceId
+            });
+            list.Add(one ?? new Card
+            {
+                Name = f.Name,
+                Type = f.Type ?? "",
+                SetFolder = f.Set,
+                InstanceId = f.InstanceId
+            });
+        }
+        return list;
+    }
+
     /// <summary>
     /// Guest plays an attempt reveal the Host already decided. Reply is only the button.
     /// </summary>
@@ -10314,7 +10481,10 @@ public partial class TableWindow : Window
             var opts = dto.Options ?? Array.Empty<string>();
             bool yesNo = opts.Length >= 2;
             int ms = dto.TimeoutMs is int t && t > 0 ? t : 20000;
-            Card? face = BuildNetChoiceFace(dto);
+            IReadOnlyList<Card>? many = dto.Faces != null ? BuildNetChoiceFaceList(dto) : null;
+            Card? face = many != null
+                ? (many.Count == 1 ? many[0] : null)
+                : BuildNetChoiceFace(dto);
             var ans = ShowCardReveal(
                 face,
                 dto.Title ?? "Attempt",
@@ -10323,7 +10493,8 @@ public partial class TableWindow : Window
                 dto.Subtitle ?? face?.Name,
                 autoCloseMs: ms,
                 yesLabel: yesNo ? opts[0] : null,
-                noLabel: yesNo ? opts[1] : null);
+                noLabel: yesNo ? opts[1] : null,
+                faces: many);
             string picked = !yesNo
                 ? "OK"
                 : ans == RevealAnswer.Yes ? opts[0] : opts[1];
@@ -10387,6 +10558,15 @@ public partial class TableWindow : Window
         }
         if (string.Equals(kind, NetChoiceDto.Kinds.RevealMirror, StringComparison.OrdinalIgnoreCase))
         {
+            if (dto.Faces != null)
+            {
+                var killed = BuildNetChoiceFaceList(dto);
+                string audience = killed.Count == 1
+                    ? "Both players see this card. Host acknowledges."
+                    : "Both players see this result. Host acknowledges.";
+                ShowHostEncounterMirror(killed, dto.Title ?? "Personnel Battle", dto.Prompt ?? "", dto.Subtitle, audience);
+                return;
+            }
             var face = BuildNetChoiceFace(dto);
             if (face == null && !string.IsNullOrWhiteSpace(dto.CardName))
             {
@@ -11651,34 +11831,27 @@ public partial class TableWindow : Window
     /// Watcher sees the encounter face. Buttons stay hidden — the attempter clicks.
     /// </summary>
     private void ShowHostEncounterMirror(Card card, string title, string body, string? subtitle, string? audience = null)
+        => ShowHostEncounterMirror(new[] { card }, title, body, subtitle, audience);
+
+    private void ShowHostEncounterMirror(IReadOnlyList<Card> faces, string title, string body, string? subtitle, string? audience = null)
     {
         if (CardRevealOverlay == null) return;
+        var shown = faces?.Where(c => c != null).ToList() ?? new List<Card>();
         RevealTitle.Text = title;
-        RevealSubtitle.Text = subtitle ?? card.Name ?? "";
+        RevealSubtitle.Text = subtitle ?? (shown.Count == 1 ? shown[0].Name ?? "" : "");
         RevealBody.Text = body;
         if (RevealAudience != null)
-            RevealAudience.Text = audience ?? "Both players see this card.";
+            RevealAudience.Text = audience ?? (shown.Count == 1
+                ? "Both players see this card."
+                : "Both players see this result.");
         if (RevealTimerText != null) RevealTimerText.Text = "";
         if (BtnRevealRespond != null) BtnRevealRespond.Visibility = Visibility.Collapsed;
         if (BtnRevealPass != null) BtnRevealPass.Visibility = Visibility.Collapsed;
         BtnRevealOk.Visibility = Visibility.Collapsed;
         BtnRevealYes.Visibility = Visibility.Collapsed;
         BtnRevealNo.Visibility = Visibility.Collapsed;
-        RevealImage.Source = null;
-        if (!string.IsNullOrEmpty(card.FullImagePath) && System.IO.File.Exists(card.FullImagePath))
-        {
-            try
-            {
-                var bmp = new BitmapImage();
-                bmp.BeginInit();
-                bmp.CacheOption = BitmapCacheOption.OnLoad;
-                bmp.UriSource = new Uri(card.FullImagePath, UriKind.Absolute);
-                bmp.DecodePixelWidth = 440;
-                bmp.EndInit();
-                RevealImage.Source = bmp;
-            }
-            catch { }
-        }
+        _revealCurrentCard = shown.Count == 1 ? shown[0] : null;
+        ApplyRevealFaces(shown);
         CardRevealOverlay.Visibility = Visibility.Visible;
         _hostEncounterMirrorOpen = true;
     }
@@ -11700,6 +11873,7 @@ public partial class TableWindow : Window
             CardRevealOverlay.Visibility = Visibility.Collapsed;
         if (RevealImage != null)
             RevealImage.Source = null;
+        ClearRevealFaces();
         if (RevealAudience != null)
             RevealAudience.Text = "";
     }
@@ -11724,8 +11898,7 @@ public partial class TableWindow : Window
             return;
         if (CardRevealOverlay != null)
             CardRevealOverlay.Visibility = Visibility.Collapsed;
-        if (RevealImage != null)
-            RevealImage.Source = null;
+        ClearRevealFaces();
         if (RevealAudience != null)
             RevealAudience.Text = "";
     }
@@ -11735,7 +11908,8 @@ public partial class TableWindow : Window
     /// Guest attempt does not use this — that player already has the interactive reveal.
     /// </summary>
     private bool SendEncounterMirrorToGuest(
-        Card? card, string title, string body, string? subtitle, bool open, bool wait = false, bool publicResult = false)
+        Card? card, string title, string body, string? subtitle, bool open, bool wait = false, bool publicResult = false,
+        IReadOnlyList<Card>? faces = null)
     {
         if (_gameMode != GameMode.Network || _netSession is not { IsHost: true })
             return false;
@@ -11755,10 +11929,11 @@ public partial class TableWindow : Window
             Title = open ? title : null,
             Prompt = open ? body : null,
             Subtitle = open ? subtitle : null,
-            CardName = card?.Name,
-            CardSet = card?.SetFolder,
-            CardType = card?.Type,
-            InstanceId = card?.InstanceId ?? 0
+            CardName = faces != null ? (faces.Count == 1 ? faces[0].Name : null) : card?.Name,
+            CardSet = faces != null ? (faces.Count == 1 ? faces[0].SetFolder : null) : card?.SetFolder,
+            CardType = faces != null ? (faces.Count == 1 ? faces[0].Type : null) : card?.Type,
+            InstanceId = faces != null ? (faces.Count == 1 ? faces[0].InstanceId : 0) : card?.InstanceId ?? 0,
+            Faces = ToNetChoiceFaces(faces)
         };
         try
         {

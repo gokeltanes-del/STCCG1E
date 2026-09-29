@@ -4,6 +4,22 @@ using System.Text.Json.Serialization;
 
 namespace StarTrekCCG.Network;
 
+/// <summary>One catalog face on a choice or reveal. Personnel battle may send several.</summary>
+public sealed class NetChoiceFace
+{
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("set")]
+    public string? Set { get; set; }
+
+    [JsonPropertyName("type")]
+    public string? Type { get; set; }
+
+    [JsonPropertyName("instanceId")]
+    public int InstanceId { get; set; }
+}
+
 /// <summary>
 /// Choice / response-window payloads over NetMessage framing (Phase 4).
 /// netztauglich: Host authoritative; Decide stays Engine/TimingRules; UI shows dialogs / waits / replies.
@@ -63,6 +79,13 @@ public sealed class NetChoiceDto
 
     [JsonPropertyName("instanceId")]
     public int InstanceId { get; set; }
+
+    /// <summary>
+    /// Personnel-battle casualties. Null keeps the single CardName face.
+    /// Empty means the result text has no card face. Several means those faces, not one stand-in.
+    /// </summary>
+    [JsonPropertyName("faces")]
+    public NetChoiceFace[]? Faces { get; set; }
 
     [JsonPropertyName("subtitle")]
     public string? Subtitle { get; set; }
