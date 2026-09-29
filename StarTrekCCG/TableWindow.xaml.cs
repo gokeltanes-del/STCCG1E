@@ -10741,7 +10741,9 @@ public partial class TableWindow : Window
         {
             // AttemptMission denies set StatusText (no crew, affiliation, missing ship).
             string msg = "Host could not apply " + action.Kind;
-            if (action.Kind is GameActionKind.AttemptMission or GameActionKind.InitiatePersonnelBattle)
+            if (action.Kind is GameActionKind.AttemptMission
+                or GameActionKind.InitiatePersonnelBattle
+                or GameActionKind.InitiateShipBattle)
             {
                 string detail = StatusText.Text?.Trim() ?? "";
                 if (detail.Length > 0)
@@ -12673,7 +12675,7 @@ public partial class TableWindow : Window
         var check = BattleRules.CanInitiateShipAttack(
             atkCard, crew, atkOwner, defCard, defOwner,
             GetHullDamage(atkBorder), IsBorderStopped(atkBorder),
-            _wartimeVsAffiliation, ShipStaffedByRogueBorg(atkBorder),
+            CardAllowsFederationInitiate(), ShipStaffedByRogueBorg(atkBorder),
             counterAttack: false);
         if (!check.Ok)
         {
@@ -12690,6 +12692,7 @@ public partial class TableWindow : Window
     /// Host: apply Guest personnel battle. Guest sent the attacking host only.
     /// Opposing occupancy is fogged, so this method picks the legal target (or asks
     /// the Guest over the choice channel) and opens the same stack Hotseat uses.
+    /// A refused initiation is status only: no stack, no glow, no dialog.
     /// </summary>
     private bool TryApplyNetPersonnelBattle(GameAction action)
     {
@@ -12718,7 +12721,7 @@ public partial class TableWindow : Window
         var source = FindBorderForCard(action.Card) ?? FindBorderByInstanceId(action.Card.InstanceId);
         if (source == null)
         {
-            ShowPersonnelBattleFault(atkOwner, "Personnel battle: attacking host is not on the table.");
+            NoteInitiationRefused("Personnel battle: attacking host is not on the table.");
             return false;
         }
 
@@ -12729,7 +12732,7 @@ public partial class TableWindow : Window
             target = FindBorderForCard(action.Target) ?? FindBorderByInstanceId(action.Target.InstanceId);
             if (target == null || !targets.Contains(target))
             {
-                ShowPersonnelBattleFault(atkOwner, "Personnel battle: that force is not a legal target.");
+                NoteInitiationRefused(BattleRules.PersonnelBattleMeetDenied);
                 return false;
             }
         }
@@ -12739,7 +12742,11 @@ public partial class TableWindow : Window
         }
         else if (targets.Count == 0)
         {
-            ShowPersonnelBattleFault(atkOwner, "No opposing personnel at this location.");
+            bool meet = source.Tag is Card hostCard
+                && BattleRules.CanPersonnelBattleMeet(hostCard, hostCard, true).Ok;
+            NoteInitiationRefused(!meet || OpposingPersonnelElsewhere(source, atkOwner)
+                ? BattleRules.PersonnelBattleMeetDenied
+                : "No opposing personnel aboard.");
             return false;
         }
         else if (!TryPickPersonnelBattleTarget(atkOwner, source, targets, out target))
@@ -12749,14 +12756,14 @@ public partial class TableWindow : Window
 
         if (target == null)
         {
-            ShowPersonnelBattleFault(atkOwner, "Personnel battle: no target host.");
+            NoteInitiationRefused("Personnel battle: no target host.");
             return false;
         }
 
         if (!TryOpenPersonnelBattle(source, target, atkOwner, out string deny, out _))
         {
             if (deny.Length > 0)
-                ShowPersonnelBattleFault(atkOwner, deny);
+                NoteInitiationRefused(deny);
             return false;
         }
 
@@ -12783,14 +12790,14 @@ public partial class TableWindow : Window
         {
             if (t.Tag is not Card c || c.InstanceId <= 0)
             {
-                ShowPersonnelBattleFault(actor,
+                NoteInitiationRefused(
                     "Personnel battle: a target host has no InstanceId, so it was not offered.");
                 return false;
             }
             string label = $"{(string.IsNullOrWhiteSpace(c.Name) ? "Host" : c.Name)} #{c.InstanceId}";
             if (labels.Contains(label, StringComparer.Ordinal) || !byId.TryAdd(c.InstanceId, t))
             {
-                ShowPersonnelBattleFault(actor,
+                NoteInitiationRefused(
                     "Personnel battle: target hosts are not uniquely labeled, so none was chosen.");
                 return false;
             }
@@ -12806,7 +12813,7 @@ public partial class TableWindow : Window
         int id = ParseInstanceIdFromChoiceLabel(picked);
         if (id <= 0 || !byId.TryGetValue(id, out var found))
         {
-            ShowPersonnelBattleFault(actor, "Personnel battle: that choice did not match a target host.");
+            NoteInitiationRefused("Personnel battle: that choice did not match a target host.");
             return false;
         }
         target = found;
@@ -12814,8 +12821,8 @@ public partial class TableWindow : Window
     }
 
     /// <summary>
-    /// Rule deny for a personnel battle. Guest actor: OK dialog on the Guest, no Host MessageBox.
-    /// Hotseat and the Host's own battle keep ShowPlayError.
+    /// Fault after a personnel battle has already opened (resolution).
+    /// A refused initiation uses NoteInitiationRefused: status only, no dialog.
     /// </summary>
     private void ShowPersonnelBattleFault(int actor, string message)
     {
@@ -18310,7 +18317,7 @@ public partial class TableWindow : Window
                             LogTractorWithheldIfReady(cardBorder, card, null);
                         AddBtn("Attack ship…", (_, _) => BeginAttackMode(cardBorder, card));
                     }
-                    if (CanOfferPersonnelBattleFromShip(cardBorder) || GuestMayOfferPersonnelBattle(cardBorder))
+                    if (CanOfferPersonnelBattleFromHost(cardBorder) || GuestMayOfferPersonnelBattle(cardBorder))
                         AddBtn("Attack crew…", (_, _) => BeginPersonnelAttackFromHost(cardBorder));
                     if (GetHullDamage(cardBorder) > 0 && GetHullDamage(cardBorder) < 100)
                         AddBtn("Repair status", (_, _) => ShowRepairStatus(cardBorder, card));
@@ -18371,6 +18378,8 @@ public partial class TableWindow : Window
                 AddBtn("Beam personnel…", (_, _) => BeginBeamMode(cardBorder));
                 int facOwner = GetBorderOwner(cardBorder);
                 if (facOwner == 0) facOwner = _activePlayer;
+                if (CanOfferPersonnelBattleFromHost(cardBorder) || GuestMayOfferPersonnelBattle(cardBorder))
+                    AddBtn("Attack crew…", (_, _) => BeginPersonnelAttackFromHost(cardBorder));
                 AddBtn("Solvable missions?", (_, _) => HighlightSolvableMissions(
                     GetAllCardsOnHost(cardBorder, facOwner)));
             }
@@ -18386,8 +18395,9 @@ public partial class TableWindow : Window
                         if (o == _activePlayer && (IsCrewType(c) || (c.Type ?? "").Contains("personnel", StringComparison.OrdinalIgnoreCase)))
                             awayTeam.Add(c);
                     }
-                if (GetPersonnelBordersAtHost(cardBorder, opponentOf: _activePlayer).Count > 0
-                    || GuestMayOfferPersonnelBattle(cardBorder))
+                if (MissionCountsAsPlanetCard(card)
+                    && (GetPersonnelBordersAtHost(cardBorder, opponentOf: _activePlayer).Count > 0
+                        || GuestMayOfferPersonnelBattle(cardBorder)))
                     AddBtn("Attack away team…", (_, _) => BeginPersonnelAttackFromHost(cardBorder));
                 AddBtn("Solvable missions?", (_, _) => HighlightSolvableMissions(awayTeam));
                 if (!_solvedMissions.Contains(cardBorder))
@@ -25557,7 +25567,8 @@ public partial class TableWindow : Window
                         "counter-attack: ARMED (next-turn window open)");
                     StatusText.Text =
                         $"Counter-Attack available this turn at the prior battle location " +
-                        $"(no Leader / no affiliation restriction; Match+WEAPONS still required).";
+                        $"(no Leader required; Match+WEAPONS still required. " +
+                        $"Federation still may not initiate a new attack).";
                 }
                 return;
             }
@@ -25570,6 +25581,31 @@ public partial class TableWindow : Window
         }
     }
 
+
+    /// <summary>
+    /// Affiliation Wartime Conditions may name, and only while that event is actually in play.
+    /// A prior attack sets <see cref="_wartimeVsAffiliation"/> so the event can be played.
+    /// That memory is not itself permission to initiate.
+    /// </summary>
+    private string? CardAllowsFederationInitiate()
+    {
+        bool cardInPlay = _attachedEvents.Any(e =>
+            e.Kind == EventRules.Persist.Wartime
+            || EventRules.IsWartimeConditions(e.Card));
+        if (!cardInPlay || string.IsNullOrEmpty(_wartimeVsAffiliation))
+            return null;
+        return _wartimeVsAffiliation;
+    }
+
+    /// <summary>
+    /// Refused battle initiation. Status and log only: no stack, no glow, no dialog, on either window.
+    /// Guest hears the same sentence through the existing net-error status.
+    /// </summary>
+    private void NoteInitiationRefused(string message)
+    {
+        StatusText.Text = message;
+        _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}", "Refused: " + message);
+    }
 
     private void BeginAttackMode(Border shipBorder, Card ship)
     {
@@ -25609,12 +25645,13 @@ public partial class TableWindow : Window
         }
 
         ClearTargetHighlights();
-        _actionSourceHost = shipBorder;
-        _cardActionMode = CardActionMode.AttackPickTarget;
 
         var enemies = new List<Border>();
+        int rawTargets = 0;
+        string? fedDeny = null;
         var counterTargetIds = BoardStore.Current.CounterAttack?.InvolvedOpponentInstanceIds
             ?? _pendingCounterAttack?.InvolvedOpponentIds;
+        string? fedPermission = CardAllowsFederationInitiate();
 
         foreach (var dock in GetDockablesUnderMission(mission))
         {
@@ -25630,21 +25667,40 @@ public partial class TableWindow : Window
                     counterAttackInvolvedTargetIds: counterTargetIds))
                 continue;
 
+            rawTargets++;
+            var gate = BattleRules.CanInitiateShipAttack(
+                ship, crew, owner, tc, o,
+                GetHullDamage(shipBorder), IsBorderStopped(shipBorder),
+                fedPermission, ShipStaffedByRogueBorg(shipBorder),
+                counterAttack: counter);
+            if (!gate.Ok)
+            {
+                if (BattleRules.IsFederationInitiateDenial(gate.Reason))
+                    fedDeny = gate.Reason;
+                continue;
+            }
+
             enemies.Add(dock);
         }
 
-        foreach (var e in enemies)
-            AddTargetHighlight(e, Color.FromArgb(120, 220, 60, 40));
-
         if (enemies.Count == 0)
         {
+            ClearTargetHighlights();
+            if (rawTargets > 0 && fedDeny != null)
+            {
+                NoteInitiationRefused(fedDeny);
+                return;
+            }
             ShowPlayError(counter
                 ? "Counter-Attack: no involved opponent ships/facilities still at this location."
                 : "No opposing ships/facilities at this location.");
-            _cardActionMode = CardActionMode.None;
-            ClearTargetHighlights();
             return;
         }
+
+        _actionSourceHost = shipBorder;
+        _cardActionMode = CardActionMode.AttackPickTarget;
+        foreach (var e in enemies)
+            AddTargetHighlight(e, Color.FromArgb(120, 220, 60, 40));
 
         string mode = counter ? "COUNTER-ATTACK" : "ATTACK";
         StatusText.Text =
@@ -25690,7 +25746,7 @@ public partial class TableWindow : Window
         var check = BattleRules.CanInitiateShipAttack(
             attackerShip, crew, atkOwner, targetCard, defOwner,
             GetHullDamage(attackerBorder), IsBorderStopped(attackerBorder),
-            _wartimeVsAffiliation, ShipStaffedByRogueBorg(attackerBorder),
+            CardAllowsFederationInitiate(), ShipStaffedByRogueBorg(attackerBorder),
             counterAttack: counter);
 
         if (check.Ok && ReportingRules.GetAffiliations(targetCard).Contains("FED"))
@@ -25705,7 +25761,10 @@ public partial class TableWindow : Window
 
         if (!check.Ok)
         {
-            ShowPlayError(check.Reason);
+            if (BattleRules.IsFederationInitiateDenial(check.Reason))
+                NoteInitiationRefused(check.Reason);
+            else
+                ShowPlayError(check.Reason);
             ClearCardActionUi();
             return true;
         }
@@ -31614,16 +31673,14 @@ public partial class TableWindow : Window
         return null;
     }
 
-    private bool CanOfferPersonnelBattleFromShip(Border shipBorder)
+    private bool CanOfferPersonnelBattleFromHost(Border hostBorder)
     {
-        var myCrew = GetPersonnelBordersAtHost(shipBorder, ownerFilter: _activePlayer);
-        // Gegner-Crew auf demselben Schiff
-        bool hasOppOnShip = GetPersonnelBordersAtHost(shipBorder, opponentOf: _activePlayer).Count > 0;
-        // Oder Away Team des Gegners auf Planet derselben Mission
-        var mission = FindMissionForDockable(shipBorder);
-        bool hasOppOnPlanet = mission?.Tag is Card mc && MissionCountsAsPlanetCard(mc)
-            && GetPersonnelBordersAtHost(mission, opponentOf: _activePlayer).Count > 0;
-        return BattleRules.CanOfferPersonnelBattle(myCrew.Count > 0, hasOppOnShip || hasOppOnPlanet);
+        if (hostBorder.Tag is not Card host) return false;
+        if (!BattleRules.CanPersonnelBattleMeet(host, host, sameHost: true).Ok)
+            return false;
+        var myCrew = GetPersonnelBordersAtHost(hostBorder, ownerFilter: _activePlayer);
+        bool hasOppAboard = GetPersonnelBordersAtHost(hostBorder, opponentOf: _activePlayer).Count > 0;
+        return BattleRules.CanOfferPersonnelBattle(myCrew.Count > 0, hasOppAboard);
     }
 
     /// <summary>
@@ -31635,6 +31692,29 @@ public partial class TableWindow : Window
         if (_gameMode != GameMode.Network || _netSession is not { IsGuest: true })
             return false;
         return GetPersonnelBordersAtHost(hostBorder, ownerFilter: _activePlayer).Count > 0;
+    }
+
+    /// <summary>
+    /// Premiere Federation may not open a personnel battle unless a card in play allows it.
+    /// Returns false when the force is not Federation, or when the card permission applies.
+    /// </summary>
+    private bool FederationMayNotInitiatePersonnel(Border source, Border target, int atkOwner, out string reason)
+    {
+        reason = "";
+        var atkBorders = GetPersonnelBordersAtHost(source, ownerFilter: atkOwner);
+        var defBorders = GetPersonnelBordersAtHost(target, opponentOf: atkOwner);
+        if (atkBorders.Count == 0 || defBorders.Count == 0)
+            return false;
+        int defOwner = CardOwner(defBorders[0]);
+        if (defOwner == 0) defOwner = atkOwner == 1 ? 2 : 1;
+        var check = BattleRules.CanInitiatePersonnelAttack(
+            atkBorders.Select(b => (Card)b.Tag!).ToList(),
+            defBorders.Select(b => (Card)b.Tag!).ToList(),
+            atkOwner, defOwner, CardAllowsFederationInitiate());
+        if (check.Ok || !BattleRules.IsFederationInitiateDenial(check.Reason))
+            return false;
+        reason = check.Reason;
+        return true;
     }
 
     private void BeginPersonnelAttackFromHost(Border hostBorder)
@@ -31676,55 +31756,70 @@ public partial class TableWindow : Window
             return;
         }
 
+        var targets = ListPersonnelBattleTargets(hostBorder, _activePlayer);
+        if (targets.Count == 0)
+        {
+            bool meet = hostBorder.Tag is Card hostCard
+                && BattleRules.CanPersonnelBattleMeet(hostCard, hostCard, true).Ok;
+            NoteInitiationRefused(!meet || OpposingPersonnelElsewhere(hostBorder, _activePlayer)
+                ? BattleRules.PersonnelBattleMeetDenied
+                : "No opposing personnel aboard.");
+            return;
+        }
+
+        if (FederationMayNotInitiatePersonnel(hostBorder, targets[0], _activePlayer, out string fedDeny))
+        {
+            NoteInitiationRefused(fedDeny);
+            return;
+        }
+
         ClearTargetHighlights();
         _actionSourceHost = hostBorder;
         _cardActionMode = CardActionMode.PersonnelAttackPick;
-
-        var targets = ListPersonnelBattleTargets(hostBorder, _activePlayer);
         foreach (var t in targets)
             AddTargetHighlight(t, Color.FromArgb(120, 220, 80, 40));
-
-        if (targets.Count == 0)
-        {
-            ShowPlayError("No opposing personnel at this location.");
-            _cardActionMode = CardActionMode.None;
-            ClearTargetHighlights();
-            return;
-        }
 
         StatusText.Text =
             $"PERSONNEL BATTLE: Force ({myForceBorders.Count}) – " +
             "Click host with opposing personnel. Right-click = cancel.";
     }
 
-    /// <summary>Hosts at this location that have opposing unstopped personnel. Same list the glow used.</summary>
+    /// <summary>
+    /// The attacking host itself, when opposing personnel are already aboard
+    /// and that host is a legal personnel-battle meet (same ship/facility, or a planet mission).
+    /// Another ship at the location is a ship battle, not a crew fight.
+    /// </summary>
     private List<Border> ListPersonnelBattleTargets(Border hostBorder, int attacker)
     {
         var targets = new List<Border>();
-
-        // Gegner-Personal auf demselben Host — highlight the host, not each stacked card.
+        if (hostBorder.Tag is not Card host) return targets;
+        if (!BattleRules.CanPersonnelBattleMeet(host, host, sameHost: true).Ok)
+            return targets;
         if (GetPersonnelBordersAtHost(hostBorder, opponentOf: attacker).Count > 0)
             targets.Add(hostBorder);
+        return targets;
+    }
 
+    /// <summary>
+    /// Opposing personnel at this spaceline location who are not aboard the attacking host.
+    /// They are not a personnel-battle target. Used only to name the refusal.
+    /// </summary>
+    private bool OpposingPersonnelElsewhere(Border hostBorder, int attacker)
+    {
         Border? mission = string.Equals((hostBorder.Tag as Card)?.Type, "Mission", StringComparison.OrdinalIgnoreCase)
             ? hostBorder
             : FindMissionForDockable(hostBorder);
-
-        if (mission != null)
+        if (mission == null) return false;
+        if (!ReferenceEquals(mission, hostBorder)
+            && GetPersonnelBordersAtHost(mission, opponentOf: attacker).Count > 0)
+            return true;
+        foreach (var dock in GetDockablesUnderMission(mission))
         {
-            if (!ReferenceEquals(mission, hostBorder)
-                && GetPersonnelBordersAtHost(mission, opponentOf: attacker).Count > 0)
-                targets.Add(mission);
-
-            foreach (var dock in GetDockablesUnderMission(mission))
-            {
-                if (ReferenceEquals(dock, hostBorder)) continue;
-                if (GetPersonnelBordersAtHost(dock, opponentOf: attacker).Count > 0)
-                    targets.Add(dock);
-            }
+            if (ReferenceEquals(dock, hostBorder)) continue;
+            if (GetPersonnelBordersAtHost(dock, opponentOf: attacker).Count > 0)
+                return true;
         }
-
-        return targets.Distinct().ToList();
+        return false;
     }
 
     private bool CompletePersonnelAttack(Border targetHost)
@@ -31739,7 +31834,13 @@ public partial class TableWindow : Window
         if (!TryOpenPersonnelBattle(sourceHost, targetHost, _activePlayer, out string deny, out bool clearClickUi))
         {
             if (deny.Length > 0)
-                ShowPlayError(deny);
+            {
+                if (deny == BattleRules.PersonnelBattleMeetDenied
+                    || BattleRules.IsFederationInitiateDenial(deny))
+                    NoteInitiationRefused(deny);
+                else
+                    ShowPlayError(deny);
+            }
             if (clearClickUi)
                 ClearCardActionUi();
             return true;
@@ -31769,6 +31870,15 @@ public partial class TableWindow : Window
             : FindMissionForDockable(targetHost);
 
         bool sameHost = ReferenceEquals(sourceHost, targetHost);
+        var meet = BattleRules.CanPersonnelBattleMeet(
+            sourceHost.Tag as Card, targetHost.Tag as Card, sameHost);
+        if (!meet.Ok)
+        {
+            deny = meet.Reason;
+            clearClickUi = false;
+            return false;
+        }
+
         bool sameLocation = sameHost
             || (srcMission != null && dstMission != null && ReferenceEquals(srcMission, dstMission));
 
@@ -31801,7 +31911,7 @@ public partial class TableWindow : Window
         var defPresent = GetAllCardsOnHost(targetHost, defOwner);
 
         var check = BattleRules.CanInitiatePersonnelAttack(
-            atkCards, defCards, atkOwner, defOwner, _wartimeVsAffiliation);
+            atkCards, defCards, atkOwner, defOwner, CardAllowsFederationInitiate());
         if (!check.Ok)
         {
             deny = check.Reason;

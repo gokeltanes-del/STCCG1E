@@ -201,7 +201,7 @@ public static class BattleRules
     /// Leader (OFFICER oder Leadership), WEAPONS &gt; 0, Matching Affiliation HARD (G1),
     /// nicht gestoppt, Affiliation-Restriktion grob. Full Cmd/Stf staffing icons not required.
     /// 
-    /// <paramref name="counterAttack"/> (G7): next-turn reply at same location vs involved/still-there opponents — no Leader, no affiliation restriction. Match+WEAPONS still required. Return Fire != Counter-Attack.</summary>
+    /// <paramref name="counterAttack"/> (G7): next-turn reply at same location vs involved/still-there opponents — no Leader. Match+WEAPONS still required. Federation still may not initiate. Other affiliation limits stay relaxed. Return Fire != Counter-Attack.</summary>
     public static AttackCheck CanInitiateShipAttack(
         Card attackerShip,
         IEnumerable<Card> crewOnBoard,
@@ -245,13 +245,13 @@ public static class BattleRules
             return new AttackCheck(false,
                 "Cannot initiate ship battle: no matching-affiliation personnel aboard (Treaty/NA does not count as Match). Leader+WEAPONS alone is not enough.");
         }
-        // G7: Counter-Attack relaxes affiliation restriction only (Fed may hit back).
-        if (!counterAttack)
-        {
-            var affCheck = CheckAffiliationAttackRestriction(attackerShip, crew, target, wartimeVs);
-            if (!affCheck.Ok)
-                return affCheck;
-        }
+        // Federation may not initiate, including next-turn Counter-Attack.
+        // Return Fire is CanReturnFire and is not an initiation.
+        // wartimeVs is permission from a card actually in play, not "was attacked earlier".
+        // Other affiliation limits stay relaxed on Counter-Attack only.
+        var affCheck = CheckAffiliationAttackRestriction(attackerShip, crew, target, wartimeVs);
+        if (!affCheck.Ok && (!counterAttack || IsFederationInitiateDenial(affCheck.Reason)))
+            return affCheck;
 
         return new AttackCheck(true, counterAttack ? "Counter-Attack allowed." : "Attack allowed.");
     }
@@ -322,9 +322,15 @@ public static class BattleRules
         return false;
     }
 
+    /// <summary>True when <paramref name="reason"/> is the Premiere Federation initiate ban.</summary>
+    public static bool IsFederationInitiateDenial(string? reason) =>
+        reason != null && reason.Contains("Federation may not initiate", StringComparison.Ordinal);
+
     /// <summary>
     /// Affiliation-Attack-Restrictions (Premiere-Kern, vereinfacht):
-    /// - Federation: nur gegen Borg (sonst blocken mit Hinweis)
+    /// - Federation: may not initiate except vs Borg, unless <paramref name="wartimeVs"/>
+    ///   is set because a card in play allows that defending affiliation.
+    ///   Being attacked earlier is not itself permission. Counter-Attack is still an initiation.
     /// - Die meisten: nicht gegen eigene Affiliation
     /// - Klingon / Non-Aligned: unrestricted (Premiere-relevant)
     /// </summary>
@@ -350,7 +356,7 @@ public static class BattleRules
         bool sameAff = forceAff.Overlaps(targetAff) && forceAff.Count > 0;
 
         // Federation force may not initiate battle except vs Borg,
-        // unless a card (e.g. Wartime Conditions) names the defending affiliation.
+        // unless the caller passes a defending affiliation that a card in play allows.
         // A Non-Aligned or Klingon card in the same force does not lift this.
         if (hasFed)
         {
@@ -511,6 +517,30 @@ public static class BattleRules
         if (tokens.Contains("KLI")) return true;
         string blob = ((c.Affiliation ?? "") + " " + (c.Text ?? ""));
         return blob.Contains("Klingon", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Two ships at one spaceline location do not fight crew against crew.
+    /// Personnel battle meets only as Away Team vs Away Team on the same planet mission,
+    /// or as crews already aboard the same ship or facility.
+    /// </summary>
+    public const string PersonnelBattleMeetDenied =
+        "Personnel battle is only an Away Team against an Away Team on the same planet, or crews already aboard the same ship or facility.";
+
+    public static AttackCheck CanPersonnelBattleMeet(Card? sourceHost, Card? targetHost, bool sameHost)
+    {
+        if (!sameHost || sourceHost == null || targetHost == null)
+            return new AttackCheck(false, PersonnelBattleMeetDenied);
+
+        if (IsShipOrFacility(sourceHost))
+            return new AttackCheck(true, "Crews already aboard the same ship or facility.");
+
+        string type = sourceHost.Type ?? "";
+        if (type.Contains("mission", StringComparison.OrdinalIgnoreCase)
+            && MissionRules.IsPlanetMission(sourceHost))
+            return new AttackCheck(true, "Away Teams on the same planet.");
+
+        return new AttackCheck(false, PersonnelBattleMeetDenied);
     }
 
     /// <summary>
@@ -1054,6 +1084,79 @@ public static class BattleRules
             return "Return fire must be executed";
         if (plan.ReturnFire?.Result != FireResult.Miss)
             return "Enterprise weapons 8 vs shields 8 must be Miss";
+
+        var fedShip = new Card
+        {
+            Name = "Enterprise", Type = "Ship", Affiliation = "Federation",
+            CunningOrWeapons = "8", StrengthOrShields = "9"
+        };
+        var romShip = new Card
+        {
+            Name = "D'deridex", Type = "Ship", Affiliation = "Romulan",
+            CunningOrWeapons = "9", StrengthOrShields = "8"
+        };
+        var borgShip = new Card
+        {
+            Name = "Borg Cube", Type = "Ship", Affiliation = "Borg",
+            CunningOrWeapons = "24", StrengthOrShields = "24"
+        };
+        var fedCrewInit = new List<Card>
+        {
+            new Card { Name = "Picard", Type = "Personnel", Class = "OFFICER", Affiliation = "Federation" }
+        };
+        var romCrewInit = new List<Card>
+        {
+            new Card { Name = "Tomalak", Type = "Personnel", Class = "OFFICER", Affiliation = "Romulan" }
+        };
+
+        var fedShipInit = CanInitiateShipAttack(fedShip, fedCrewInit, 1, romShip, 2, 0, false, wartimeVs: null);
+        if (fedShipInit.Ok)
+            return "Federation must not initiate a ship battle";
+        var fedLater = CanInitiateShipAttack(
+            fedShip, fedCrewInit, 1, romShip, 2, 0, false, wartimeVs: null, counterAttack: true);
+        if (fedLater.Ok)
+            return "Federation counter-attack is a new attack and must not initiate";
+        var fedVsBorg = CanInitiateShipAttack(fedShip, fedCrewInit, 1, borgShip, 2, 0, false, wartimeVs: null);
+        if (!fedVsBorg.Ok)
+            return "Federation vs Borg ship battle must stay legal: " + fedVsBorg.Reason;
+        var fedCard = CanInitiateShipAttack(fedShip, fedCrewInit, 1, romShip, 2, 0, false, wartimeVs: "ROM");
+        if (!fedCard.Ok)
+            return "A card in play that allows ROM must let Federation initiate: " + fedCard.Reason;
+        if (!CanReturnFire(fedShip, fedCrewInit).Ok)
+            return "Federation return fire inside a battle must stay legal";
+        var romShipInit = CanInitiateShipAttack(romShip, romCrewInit, 2, fedShip, 1, 0, false, wartimeVs: null);
+        if (!romShipInit.Ok)
+            return "Romulan ship battle must stay legal: " + romShipInit.Reason;
+
+        if (CanPersonnelBattleMeet(fedShip, romShip, sameHost: false).Ok)
+            return "Crews of two ships must not fight a personnel battle";
+        if (!CanPersonnelBattleMeet(fedShip, fedShip, sameHost: true).Ok)
+            return "Crews already aboard the same ship must be able to personnel-battle";
+        var outpost = new Card { Name = "Romulan Outpost", Type = "Facility", Affiliation = "Romulan" };
+        if (!CanPersonnelBattleMeet(outpost, outpost, sameHost: true).Ok)
+            return "Crews already aboard the same facility must be able to personnel-battle";
+        var planet = new Card { Name = "Survey", Type = "Mission", MissionDilemmaType = "[P]" };
+        var space = new Card { Name = "Patrol", Type = "Mission", MissionDilemmaType = "[S]" };
+        if (!CanPersonnelBattleMeet(planet, planet, sameHost: true).Ok)
+            return "Away Teams on the same planet must be able to personnel-battle";
+        if (CanPersonnelBattleMeet(space, space, sameHost: true).Ok)
+            return "A space mission is not an Away Team personnel battle";
+        if (CanPersonnelBattleMeet(fedShip, planet, sameHost: false).Ok)
+            return "A ship crew must not personnel-battle a planet Away Team";
+
+        var fedPersonnel = CanInitiatePersonnelAttack(fedCrewInit, romCrewInit, 1, 2, wartimeVs: null);
+        if (fedPersonnel.Ok)
+            return "Federation must not initiate a personnel battle";
+        var romPersonnel = CanInitiatePersonnelAttack(romCrewInit, fedCrewInit, 2, 1, wartimeVs: null);
+        if (!romPersonnel.Ok)
+            return "Non-Federation personnel battle must stay legal: " + romPersonnel.Reason;
+        var borgCrew = new List<Card>
+        {
+            new Card { Name = "Drone", Type = "Personnel", Class = "OFFICER", Affiliation = "Borg" }
+        };
+        var fedVsBorgCrew = CanInitiatePersonnelAttack(fedCrewInit, borgCrew, 1, 2, wartimeVs: null);
+        if (!fedVsBorgCrew.Ok)
+            return "Federation vs Borg personnel battle must stay legal: " + fedVsBorgCrew.Reason;
 
         return null;
     }
