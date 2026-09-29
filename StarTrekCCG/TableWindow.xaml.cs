@@ -5786,6 +5786,7 @@ public partial class TableWindow : Window
 
         var tcs = new TaskCompletionSource<NetChoiceDto>(TaskCreationOptions.RunContinuationsAsynchronously);
         _pendingChoiceResponses[corr] = tcs;
+        long windowSequence = _stack.Sequence;
         StatusText.Text = $"P{responder} response window… waiting for Guest.";
         _session.Log.AddDebug(_session.TurnNumber, "Net",
             $"ResponseWindow → P{responder} corr={corr} legal={legal.Count}");
@@ -5804,6 +5805,15 @@ public partial class TableWindow : Window
 
         var result = WaitForChoiceResponse(corr, tcs, timeoutMs + 500);
         _pendingChoiceResponses.Remove(corr);
+
+        // The wait pumps the dispatcher. A newer stack may have opened. This pass
+        // belongs to windowSequence and must not resolve that newer stack.
+        if (_stack.Sequence != windowSequence)
+        {
+            _session.Log.AddDebug(_session.TurnNumber, "Net",
+                $"Response pass ignored (named {windowSequence}, current {_stack.Sequence}).");
+            return;
+        }
 
         if (result?.Passed == true || result == null)
         {
@@ -10873,13 +10883,12 @@ public partial class TableWindow : Window
             return;
         }
 
-        // Late / unsolicited pass from Guest while Host already moved on.
-        if (dto.Passed == true && _netSession?.IsHost == true && _stack.IsOpen)
+        // The correlation is not the window the host is waiting on. It does not
+        // name the current stack, so it must not pass or resolve a newer one.
+        if (dto.Passed == true && _netSession?.IsHost == true)
         {
             _session.Log.AddDebug(_session.TurnNumber, "Net",
-                $"Late ChoiceResponse pass corr={dto.CorrelationId} — applying Pass if still open.");
-            if (_stack.ResponsePlayer != _netSession.LocalPlayer)
-                PassCurrentResponseWindow();
+                $"Stale ChoiceResponse pass ignored (corr={dto.CorrelationId}, sequence {_stack.Sequence}).");
         }
     }
 
@@ -10996,6 +11005,7 @@ public partial class TableWindow : Window
             HideHostEncounterMirror();
             EnsureNetworkModeFromSession();
             ApplyGameSave(save);
+            ApplyAuthoritativeStackWindow(save.Stack);
             HideHostEncounterMirror();
             // ApplyGameSave restores Session.ActivePlayer → _activePlayer; refresh seed banner/stack.
             UpdatePhaseControls();
@@ -11128,7 +11138,7 @@ public partial class TableWindow : Window
         {
             _session.Log.Add(_session.TurnNumber, $"P{action.Player}",
                 "Net: EndTurn remapped to EndPhase (Host still Play; Guest Segment desync recovery)");
-            action = GameAction.EndPhase(action.Player);
+            action = GameAction.EndPhase(action.Player, action.StackSequence);
         }
 
         var auth = AuthorizePlay(action);
@@ -11308,6 +11318,81 @@ public partial class TableWindow : Window
     }
 
     /// <summary>
+    /// Host: clear the open action stack only when <paramref name="action"/> names its sequence.
+    /// A closed stack is not a wipe. A missing or other id leaves the newer stack and refuses the End.
+    /// </summary>
+    private bool TryClearNamedStack(GameAction action)
+    {
+        if (!_stack.IsOpen)
+            return true;
+        if (action.StackSequence is not long named || !_stack.TryClear(named))
+        {
+            long current = _stack.Sequence;
+            string namedText = action.StackSequence is long n ? n.ToString() : "none";
+            _session.Log.Add(_session.TurnNumber, $"P{action.Player}",
+                $"Stale stack clear ignored (named {namedText}, current {current}).");
+            StatusText.Text = $"Net: stale stack clear ignored (named {namedText}, current {current}).";
+            return false;
+        }
+        CloseResponseWindowUi();
+        HideActionAnnounce();
+        _session.Log.AddDebug(_session.TurnNumber, "Net",
+            $"Stack clear applied (sequence {action.StackSequence}).");
+        return true;
+    }
+
+    /// <summary>
+    /// Guest: the host's stack window is the truth. A clear applies only when the
+    /// snapshot names the sequence this window already has. A lower sequence is stale
+    /// and does not wipe a newer stack. The guest does not open a stack here.
+    /// </summary>
+    private void ApplyAuthoritativeStackWindow(StackWindowSnap? snap)
+    {
+        if (_netSession is not { IsGuest: true } || snap == null)
+            return;
+        if (snap.Sequence < _stack.Sequence)
+        {
+            _session.Log.AddDebug(_session.TurnNumber, "Net",
+                $"Stale stack clear ignored (named {snap.Sequence}, current {_stack.Sequence}).");
+            return;
+        }
+        if (snap.Sequence == _stack.Sequence)
+        {
+            if (!snap.Open)
+            {
+                bool showing = _stack.IsOpen
+                    || _stack.State != TimingRules.ResponseWindowState.Closed
+                    || ThinkTrayBorder?.Visibility == Visibility.Visible;
+                bool cleared = _stack.TryClear(snap.Sequence);
+                if (cleared || showing)
+                {
+                    CloseResponseWindowUi();
+                    HideActionAnnounce();
+                    _guestActiveChoiceCorrelationId = null;
+                    _session.Log.AddDebug(_session.TurnNumber, "Net",
+                        $"Stack clear applied (sequence {snap.Sequence}).");
+                }
+            }
+            return;
+        }
+        // Newer generation. Remember its id. A closed snapshot means that generation
+        // is already over, so the previous local window is not a newer stack.
+        bool previousWindow = _stack.IsOpen
+            || _stack.State != TimingRules.ResponseWindowState.Closed
+            || ThinkTrayBorder?.Visibility == Visibility.Visible;
+        _stack.AdoptSequence(snap.Sequence);
+        if (!snap.Open && (previousWindow || _stack.IsOpen))
+        {
+            _stack.Clear();
+            CloseResponseWindowUi();
+            HideActionAnnounce();
+            _guestActiveChoiceCorrelationId = null;
+            _session.Log.AddDebug(_session.TurnNumber, "Net",
+                $"Stack window closed by newer state (sequence {snap.Sequence}).");
+        }
+    }
+
+    /// <summary>
     /// Apply EndPhase / EndTurn / Pass / Draw on Host after AuthorizePlay OK.
     /// PlayCard: Host TryApplyNetPlayCard. A hand interrupt uses TryApplyNetInterrupt.
     /// AttemptMission: Host TryApplyNetAttemptMission (same TryAttemptMission path as Hotseat).
@@ -11319,14 +11404,11 @@ public partial class TableWindow : Window
         switch (action.Kind)
         {
             case GameActionKind.EndPhase:
-                // Verb: end-of-turn / network — clear stuck response stack so Guest End PLAY applies.
-                if (_stack.IsOpen
-                    && !string.Equals(action.Note, "SeedAdvance", StringComparison.OrdinalIgnoreCase))
-                {
-                    _stack.Clear();
-                    CloseResponseWindowUi();
-                    HideActionAnnounce();
-                }
+                // A stuck response stack may be cleared so End PLAY can apply.
+                // Only when the action names the stack that is open now.
+                if (!string.Equals(action.Note, "SeedAdvance", StringComparison.OrdinalIgnoreCase)
+                    && !TryClearNamedStack(action))
+                    return false;
                 if (_seedPhaseActive
                     && string.Equals(action.Note, "SeedAdvance", StringComparison.OrdinalIgnoreCase))
                 {
@@ -11347,13 +11429,10 @@ public partial class TableWindow : Window
                 return true;
 
             case GameActionKind.EndTurn:
-                // Verb: end-of-turn — Guest End EXECUTE must always flip on Host (clear stuck stack/flags).
-                if (_stack.IsOpen)
-                {
-                    _stack.Clear();
-                    CloseResponseWindowUi();
-                    HideActionAnnounce();
-                }
+                // Guest End EXECUTE flips on the host. A stuck stack clears only
+                // when this action names the stack that is open now.
+                if (!TryClearNamedStack(action))
+                    return false;
                 if (_seedPhaseActive)
                 {
                     FinishSeedPhaseAndDrawOpeningHand();
@@ -13444,7 +13523,8 @@ public partial class TableWindow : Window
             _ = _netSession.BroadcastStateAsync(masked);
             _session.Log.AddDebug(_session.TurnNumber, "Net",
                 $"Broadcast masked GameSave to Guest (active P{save.Session.ActivePlayer}, " +
-                $"seed={save.Session.SeedPhaseActive}, table={save.Table.Count}, spaceline={save.Spaceline.Count}).");
+                $"seed={save.Session.SeedPhaseActive}, table={save.Table.Count}, spaceline={save.Spaceline.Count}, " +
+                $"stack={save.Stack?.Sequence}/{save.Stack?.Open}).");
         }
         catch (Exception ex)
         {
@@ -13478,25 +13558,18 @@ public partial class TableWindow : Window
                 return;
             }
             // Guest: do not soft-lock in EXECUTE — ask Host to flip.
-            var eotAction = GameAction.EndTurn(_netSession.LocalPlayer);
+            var eotAction = GameAction.EndTurn(_netSession.LocalPlayer, _stack.Sequence);
             _ = SendGuestActionAsync(eotAction);
             StatusText.Text = "Net: End turn (EOT resume) sent - waiting for Host...";
             return;
         }
 
-        // Stuck response window during Play/Execute disables button UX; clear then advance (same Decide path).
-        if (_stack.IsOpen && _session.ActivePlayer == _netSession.LocalPlayer)
-        {
-            _stack.Clear();
-            CloseResponseWindowUi();
-            HideActionAnnounce();
-            UpdatePhaseControls();
-        }
-
+        // The click names the current sequence and sends it. Neither window clears
+        // the stack here. The host clears only on a match, then broadcasts.
         bool endPhase = _session.Segment == GameSession.TurnSegment.Play;
         var action = endPhase
-            ? GameAction.EndPhase(_netSession.LocalPlayer)
-            : GameAction.EndTurn(_netSession.LocalPlayer);
+            ? GameAction.EndPhase(_netSession.LocalPlayer, _stack.Sequence)
+            : GameAction.EndTurn(_netSession.LocalPlayer, _stack.Sequence);
 
         if (_session.ActivePlayer != _netSession.LocalPlayer)
         {
@@ -13652,7 +13725,7 @@ public partial class TableWindow : Window
 
             if (_session.Segment == GameSession.TurnSegment.Play)
             {
-                if (!TryApplyNetAuthorizedAction(GameAction.EndPhase(who)))
+                if (!TryApplyNetAuthorizedAction(GameAction.EndPhase(who, _stack.Sequence)))
                 {
                     _session.Log.Add(_session.TurnNumber, $"P{who}",
                         "Idle turn: End Play phase did not apply");
@@ -13677,7 +13750,7 @@ public partial class TableWindow : Window
                 return;
             }
 
-            if (!TryApplyNetAuthorizedAction(GameAction.EndTurn(who)))
+            if (!TryApplyNetAuthorizedAction(GameAction.EndTurn(who, _stack.Sequence)))
             {
                 _session.Log.Add(_session.TurnNumber, $"P{who}",
                     "Idle turn: End turn did not apply");
@@ -14086,7 +14159,8 @@ public partial class TableWindow : Window
                 {
                     Kind = GameActionKind.EndTurn,
                     Player = _netSession.LocalPlayer,
-                    Note = "SeedFinish"
+                    Note = "SeedFinish",
+                    StackSequence = _stack.Sequence
                 };
                 _ = SendGuestActionAsync(action);
                 return;
@@ -14771,6 +14845,7 @@ public partial class TableWindow : Window
         save.Stack = new StackWindowSnap
         {
             Open = _stack.IsOpen,
+            Sequence = _stack.Sequence,
             ResponsePlayer = _stack.ResponsePlayer,
             ConsecutivePasses = _stack.ConsecutivePasses,
             Items = _stack.Items.Select(a => new StackItemSnap

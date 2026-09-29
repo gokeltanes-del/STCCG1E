@@ -222,6 +222,14 @@ public sealed class StackWindowSnap
     public int ResponsePlayer { get; set; }
     public int ConsecutivePasses { get; set; }
     public List<StackItemSnap> Items { get; set; } = new();
+
+    /// <summary>
+    /// Action-stack generation (<see cref="TimingRules.ActionStack.Sequence"/>).
+    /// A clear applies only when this equals the stack that is open now.
+    /// Older saves omit it and read as 0.
+    /// </summary>
+    [JsonPropertyName("sequence")]
+    public long Sequence { get; set; }
 }
 
 /// <summary>

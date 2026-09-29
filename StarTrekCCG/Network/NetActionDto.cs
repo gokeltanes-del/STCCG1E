@@ -42,6 +42,12 @@ public sealed class NetActionDto
     [JsonPropertyName("instanceIds")]
     public int[]? InstanceIds { get; set; }
 
+    /// <summary>
+    /// Action-stack generation an End names. Omitted means the message names no stack.
+    /// </summary>
+    [JsonPropertyName("stackSequence")]
+    public long? StackSequence { get; set; }
+
     public string ToJson() => JsonSerializer.Serialize(this, JsonOptions);
 
     public static NetActionDto FromJson(string json)
@@ -65,7 +71,8 @@ public sealed class NetActionDto
             TargetName = action.Target?.Name ?? action.TargetName,
             Target2Name = action.Target2?.Name,
             Note = action.Note,
-            InstanceIds = BuildInstanceIds(action)
+            InstanceIds = BuildInstanceIds(action),
+            StackSequence = action.StackSequence
         };
     }
 
@@ -123,7 +130,8 @@ public sealed class NetActionDto
             Target = target,
             Target2 = target2,
             TargetName = dto.TargetName,
-            Note = dto.Note
+            Note = dto.Note,
+            StackSequence = dto.StackSequence
         };
     }
 
