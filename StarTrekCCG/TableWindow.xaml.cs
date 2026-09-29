@@ -8693,6 +8693,22 @@ public partial class TableWindow : Window
     }
 
     /// <summary>
+    /// Ship, facility, or other non-column host already restored onto this save's table.
+    /// InstanceId first (stable across Host and Guest), then the save-local table id.
+    /// </summary>
+    private Border? ResolveBoardHostBorder(int? instanceId, int? saveLocalId, Dictionary<int, Border> byId)
+    {
+        if (instanceId is int iid && iid > 0)
+        {
+            var byInst = FindBorderByInstanceId(iid);
+            if (byInst != null) return byInst;
+        }
+        if (saveLocalId is int sid && byId.TryGetValue(sid, out var local))
+            return local;
+        return null;
+    }
+
+    /// <summary>
     /// ApplyGameSave: span endpoint = mission column in _spacelineOrder.
     /// InstanceId first. Save-local HostId only if that snap is itself a column
     /// (or its InstanceId is). Never the first canvas hit and never a name match.
@@ -14407,8 +14423,19 @@ public partial class TableWindow : Window
             // Viewer Y is not part of this pair.
             if (ev.Kind is EventRules.Persist.QNet or EventRules.Persist.Gaps)
                 TryBindSpanEndpoints(ev, out _, out _);
+            // Span endpoints stay mission-column InstanceIds (a ship must not become a gap).
+            // Any other host (Transwarp on a ship, and the same for other non-span attaches)
+            // keeps that card's InstanceId. ColumnInstanceId is null for a ship, and Apply
+            // was dropping the host, so the interrupt survived in neither a zone nor a stack.
             int? hostInst = ColumnInstanceId(ev.Host);
             int? host2Inst = ColumnInstanceId(ev.Host2);
+            if (ev.Kind is not (EventRules.Persist.QNet or EventRules.Persist.Gaps))
+            {
+                if (hostInst is null or <= 0 && ev.Host?.Tag is Card hostCard && hostCard.InstanceId > 0)
+                    hostInst = hostCard.InstanceId;
+                if (host2Inst is null or <= 0 && ev.Host2?.Tag is Card host2Card && host2Card.InstanceId > 0)
+                    host2Inst = host2Card.InstanceId;
+            }
             save.AttachedEvents.Add(new AttachedEventSnap
             {
                 Card = ToRef(ev.Card),
@@ -14761,6 +14788,13 @@ public partial class TableWindow : Window
             // Prefer board-absolute mission InstanceIds (span gap endpoints); fall back to save-local HostId.
             Border? host = ResolveSpanEndpointBorder(ev.HostInstanceId, ev.HostId, byId);
             Border? host2 = ResolveSpanEndpointBorder(ev.Host2InstanceId, ev.Host2Id, byId);
+            // Non-span hosts are ships and facilities. Span resolution returns null for those
+            // on purpose. Bind the card that is already on this save's table.
+            if (!IsNetSpanKind(ev.Kind))
+            {
+                host ??= ResolveBoardHostBorder(ev.HostInstanceId, ev.HostId, byId);
+                host2 ??= ResolveBoardHostBorder(ev.Host2InstanceId, ev.Host2Id, byId);
+            }
             AddAttachedEvent(new AttachedEvent
             {
                 Card = card,
@@ -21167,9 +21201,9 @@ public partial class TableWindow : Window
             case InterruptRules.Effect.Transwarp:
                 {
                     // Drop/stack target host — no ship picker (Pepsch: detail-picker worked, drop gate wrong).
-                    Border? shipB = _interruptTargetHost;
-                    if ((shipB == null || shipB.Tag is not Card) && target != null)
-                        shipB = FindBorderForCard(target);
+                    // Guest Respond sends the ship as Target, a different object than the host's border.
+                    // A stale _interruptTargetHost must not deny that drop or move it to another ship.
+                    Border? shipB = ResolveTranswarpShip(target);
                     bool hostIsShip = shipB != null && shipB.Tag is Card sc0 && IsShipCard(sc0);
                     var twDeny = InterruptShipEffectRules.TranswarpDeny(hostIsShip);
                     if (twDeny != null)
@@ -21177,10 +21211,13 @@ public partial class TableWindow : Window
                         ShowPlayError(twDeny);
                         var hand = controller == 1 ? _handCards : _oppHandCards;
                         if (!hand.Contains(card)) hand.Add(card);
+                        RefreshHandStrips();
+                        RefreshZoneCounts();
                         break;
                     }
                     if (shipB != null && shipB.Tag is Card sc)
                     {
+                        _interruptTargetHost = shipB;
                         int printed = BattleRules.EffectiveRange(sc, GetHullDamage(shipB));
                         int left = GetRemainingRange(shipB, sc);
                         int used = Math.Max(0, printed - left);
@@ -21202,6 +21239,16 @@ public partial class TableWindow : Window
                             Verb = "Discard",
                             Note = "Transwarp Conduit"
                         });
+                        // Plays on that ship until the owner's end of turn (same stack mini as
+                        // Crosis / Loss of Orbital Stability). DiscardAfter stays false, so the
+                        // card is not discarded now. A loose border is what RemoveOrphanTableCopies
+                        // deleted — the card then existed in no zone.
+                        var mini = CreateFloatingCard(card);
+                        mini.Visibility = Visibility.Collapsed;
+                        SetBorderOwner(mini, controller);
+                        if (!TableCanvas.Children.Contains(mini))
+                            TableCanvas.Children.Add(mini);
+                        AddCardToHostStack(shipB, mini);
                         StatusText.Text = $"Transwarp Conduit on {sc.Name}: full RANGE doubled this turn.";
                         _session.Log.Add(_session.TurnNumber, $"P{controller}",
                             $"Transwarp Conduit on {sc.Name}");
@@ -21258,6 +21305,24 @@ public partial class TableWindow : Window
         _session.Log.Add(_session.TurnNumber, $"P{controller}", $"Interrupt {card.Name}: {r.Effect}");
         RefreshZoneCounts();
         return true;
+    }
+
+    /// <summary>
+    /// Ship the drop or the stack target already names. No picker.
+    /// InstanceId covers a Guest Respond, whose Target is not the host's border object.
+    /// </summary>
+    private Border? ResolveTranswarpShip(Card? target)
+    {
+        Border? From(Card? c)
+        {
+            if (c == null) return null;
+            var b = FindBorderForCard(c);
+            if (b == null && c.InstanceId > 0)
+                b = FindBorderByInstanceId(c.InstanceId);
+            return b != null && b.Tag is Card sc && IsShipCard(sc) ? b : null;
+        }
+
+        return From(target) ?? From(_interruptTargetHost?.Tag as Card);
     }
 
     /// <summary>Remove any TableCanvas borders still showing this card (failed drops / zoom bugs).</summary>
@@ -29667,11 +29732,23 @@ public partial class TableWindow : Window
         ClearJustSolvedPlanet("end of turn");
         foreach (var e in _attachedEvents.ToList())
         {
-            if (EndOfTurnEventRules.ShouldDiscardTranswarp(
+            if (e.Card != null && EndOfTurnEventRules.ShouldDiscardTranswarp(
                     InterruptRules.IsTranswarpConduit(e.Card), e.Owner == owner))
             {
+                Card tw = e.Card;
+                if (e.Host != null)
+                {
+                    var mini = FindBorderForCard(tw);
+                    if (mini != null)
+                    {
+                        RemoveCardFromHostStack(e.Host, mini);
+                        if (TableCanvas.Children.Contains(mini))
+                            TableCanvas.Children.Remove(mini);
+                    }
+                    UpdateHostBadge(e.Host);
+                }
                 RemoveAttachedEvent(e);
-                SendCardTo(e.Card, e.Owner, TimingRules.Destination.Discard);
+                SendCardTo(tw, e.Owner, TimingRules.Destination.Discard);
                 continue;
             }
 
