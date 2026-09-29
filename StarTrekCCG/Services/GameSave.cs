@@ -196,6 +196,8 @@ public sealed class AttachedDilemmaSnap
     public string Kind { get; set; } = "";
     public int HostId { get; set; }
     public int Countdown { get; set; }
+    /// <summary>Player who encountered the dilemma (1 or 2). 0 on older saves.</summary>
+    public int EncounteredBy { get; set; }
     public List<int> HeldIds { get; set; } = new();
 }
 

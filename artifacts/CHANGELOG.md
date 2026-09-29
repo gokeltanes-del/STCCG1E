@@ -1,3 +1,10 @@
+## 2026-09-29 - AttemptMission: host mirror closes; Scow/Borg on encounterer side
+
+- *Auftrag*: Pepsch Dual-EXE. P2 trifft Radioactive Garbage Scow. Der Host-Spiegel "FAILED - attempt ends / Guest acknowledges" bleibt haengen. Zusaetzlich ein Schatten der Dilemma-Karte auf der anderen Spaceline-Seite, und auf P1 an der falschen Stelle. Scow und Borg Ship gehoeren auf die Seite des Spielers, der sie getroffen hat, auf beiden Fenstern, nur einmal. Shared Faces, Mission-solved beide, kein Seed-Fly-in. Hotseat-Layout unveraendert.
+- *Ist vorher*: Host-Watcher ging nur ueber `HideHostEncounterMirror` zu, und das brach ab, solange ein Choice-Frame lief. Die letzte Karte hatte keinen Nachfolger. Der Token wurde immer unter die Mission (P1-Seite) gesetzt und zusaetzlich als Table-Snap mitgesendet. Guest baute daraus eine zweite Karte auf der Gegenseite.
+- *Fix*: Guest-Ack ruft `ForceHideWatcherMirror` (sofort in der ChoiceResponse und im finally). Dasselbe am Attempt-Ende und vor dem Broadcast, wenn der Watcher noch offen ist. Klickbares OK/Yes/No bleibt. Token-Seite im Netz = `EncounteredBy` via `DockSlotOffsetY` (Hotseat weiter unter der Mission). Token nicht in `save.Table`. `RemoveStrayDilemmaCardBorder` auch fuer Scow.
+- *Scope*: TableWindow.xaml.cs, GameSave.cs. Kein Push master.
+
 ## 2026-09-29 - AttemptMission: Mission solved on both windows
 
 - *Auftrag*: Mission-solved-Dialog, der auf dem Loeser stimmt, soll wie Dilemma/Artifact auf beiden Fenstern stehen. Text nennt weiter den Loeser. Punkte nicht doppelt. Tag bleibt. Kein Seed-Fly-in. Guest-Spiegel schliesst weiter wie 09b6747. Hotseat unveraendert.
