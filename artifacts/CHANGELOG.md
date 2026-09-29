@@ -1,3 +1,7 @@
+## 2026-09-29 - Guest snapshot hides log, deck names, face-down attachments
+
+- Spielbar, nicht gruen: Gast-Kopie filtert Log (geheime Namen und unrevealed Seeds als (hidden)). DeckName des Gegners leer, eigener bleibt. Verdeckte AttachedEvents und pN.table FaceUp false ohne Namen. Host-Log unveraendert. Test offen.
+
 ## 2026-09-29 - Socket keepalive heartbeat
 
 - Spielbar, nicht gruen: Host und Gast schicken alle 5s Ping ueber den Socket (bestehendes Ping/Pong). 15s ohne eingehendes Paket (Ping, Pong oder Spielnachricht) gilt die Verbindung als tot, derselbe Disconnect wie bei einem Socket-Fehler. Test offen. Host bleibt P1. Kein Reconnect.

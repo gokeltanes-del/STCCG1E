@@ -103,8 +103,190 @@ public static class NetStateMask
         // Stopped, RangeLeft, HeldIds, and reveal lists stay on the snapshot.
         MaskOpponentStackOccupancy(clone, opponent, revealedIds);
 
+        // Clone only. Host save.Log / deck names / attachments stay intact.
+        MaskOpponentDeckName(clone, viewerPlayer);
+        MaskFaceDownAttachments(clone, opponent);
+        MaskLogSecrets(save, clone, viewerPlayer, opponent);
+
         return clone;
     }
+
+    /// <summary>
+    /// DeckNameP1 is player 1, DeckNameP2 is player 2. Viewer keeps their own name.
+    /// </summary>
+    private static void MaskOpponentDeckName(GameSave clone, int viewerPlayer)
+    {
+        if (viewerPlayer == 1)
+            clone.DeckNameP2 = null;
+        else
+            clone.DeckNameP1 = null;
+    }
+
+    /// <summary>
+    /// Face-down attachments lose printed identity. Face-up stays readable.
+    /// Hidden Agenda lives in p1.table / p2.table (FaceUp false), not only AttachedEvents.
+    /// Kind, host, and countdown stay so the guest still places the card.
+    /// </summary>
+    private static void MaskFaceDownAttachments(GameSave clone, int opponent)
+    {
+        if (clone.AttachedEvents != null)
+        {
+            foreach (var ev in clone.AttachedEvents)
+            {
+                if (ev == null || ev.FaceUp) continue;
+                if (ev.Owner is 1 or 2 && ev.Owner != opponent) continue;
+                if (ev.Card != null)
+                {
+                    ev.Card.Name = string.Empty;
+                    ev.Card.Set = null;
+                    ev.Card.Type = null;
+                    ev.Card.FaceUp = false;
+                }
+                ev.EspionageAs = null;
+                ev.EspionageOn = null;
+            }
+        }
+
+        if (clone.Zones == null) return;
+        string key = $"p{opponent}.table";
+        if (!clone.Zones.TryGetValue(key, out var list) || list == null) return;
+        for (int i = 0; i < list.Count; i++)
+        {
+            var card = list[i];
+            if (card == null || card.FaceUp) continue;
+            list[i] = MaskCardRef(card);
+        }
+    }
+
+    /// <summary>
+    /// Guest copy of the log only. Secret names are redacted; the host log is not written.
+    /// </summary>
+    private static void MaskLogSecrets(GameSave source, GameSave clone, int viewerPlayer, int opponent)
+    {
+        if (clone.Log == null || clone.Log.Count == 0) return;
+        var names = CollectSecretNames(source, viewerPlayer, opponent);
+        if (names.Count == 0) return;
+        foreach (var entry in clone.Log)
+        {
+            if (entry == null || string.IsNullOrEmpty(entry.Text)) continue;
+            entry.Text = RedactSecretNames(entry.Text, names);
+        }
+    }
+
+    private static List<string> CollectSecretNames(GameSave source, int viewerPlayer, int opponent)
+    {
+        var found = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        void Add(string? name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return;
+            string trimmed = name.Trim();
+            if (trimmed.Length < 2) return;
+            found.Add(trimmed);
+        }
+
+        bool probeHands = AlienProbeInPlay(source);
+        if (source.Zones != null)
+        {
+            foreach (var suffix in PrivateZoneSuffixes)
+            {
+                if (probeHands && suffix == "hand") continue;
+                string key = $"p{opponent}.{suffix}";
+                if (!source.Zones.TryGetValue(key, out var list) || list == null) continue;
+                foreach (var card in list)
+                    Add(card?.Name);
+            }
+
+            string tableKey = $"p{opponent}.table";
+            if (source.Zones.TryGetValue(tableKey, out var table) && table != null)
+            {
+                foreach (var card in table)
+                    if (card != null && !card.FaceUp)
+                        Add(card.Name);
+            }
+        }
+
+        var revealed = RevealedInstanceIds(source);
+        var hiddenIds = HiddenTableIds(source, opponent, revealed);
+        if (source.Table != null)
+        {
+            foreach (var snap in source.Table)
+            {
+                if (snap == null || snap.Owner != opponent) continue;
+                if (revealed.Contains(snap.InstanceId)) continue;
+                if (!snap.FaceUp || hiddenIds.Contains(snap.Id))
+                    Add(snap.Name);
+            }
+        }
+
+        if (source.AttachedEvents != null)
+        {
+            foreach (var ev in source.AttachedEvents)
+            {
+                if (ev == null || ev.FaceUp) continue;
+                if (ev.Owner is 1 or 2 && ev.Owner != opponent) continue;
+                Add(ev.Card?.Name);
+            }
+        }
+
+        Add(viewerPlayer == 1 ? source.DeckNameP2 : source.DeckNameP1);
+        return found.OrderByDescending(n => n.Length).ToList();
+    }
+
+    /// <summary>Unrevealed seed-under and fogged stack children (table snap ids).</summary>
+    private static HashSet<int> HiddenTableIds(GameSave source, int opponent, HashSet<int> revealed)
+    {
+        var ids = new HashSet<int>();
+        if (source.Table == null) return ids;
+        var byId = source.Table.ToDictionary(t => t.Id);
+
+        void Take(List<StackSnap>? stacks)
+        {
+            if (stacks == null) return;
+            foreach (var st in stacks)
+            {
+                if (st?.ChildIds == null) continue;
+                foreach (int cid in st.ChildIds)
+                {
+                    if (!byId.TryGetValue(cid, out var snap)) continue;
+                    if (snap.Owner != opponent) continue;
+                    if (revealed.Contains(snap.InstanceId)) continue;
+                    ids.Add(snap.Id);
+                }
+            }
+        }
+
+        Take(source.SeedUnder);
+        Take(source.Stacks);
+        return ids;
+    }
+
+    private static string RedactSecretNames(string text, List<string> namesLongestFirst)
+    {
+        foreach (var name in namesLongestFirst)
+        {
+            int start = 0;
+            while (start < text.Length)
+            {
+                int i = text.IndexOf(name, start, StringComparison.OrdinalIgnoreCase);
+                if (i < 0) break;
+                int end = i + name.Length;
+                bool left = i == 0 || !IsNameChar(text[i - 1]);
+                bool right = end >= text.Length || !IsNameChar(text[end]);
+                if (left && right)
+                {
+                    text = string.Concat(text.AsSpan(0, i), "(hidden)", text.AsSpan(end));
+                    start = i + "(hidden)".Length;
+                }
+                else
+                {
+                    start = i + 1;
+                }
+            }
+        }
+        return text;
+    }
+
+    private static bool IsNameChar(char c) => char.IsLetterOrDigit(c) || c == '\'' || c == '-';
 
     /// <summary>InstanceIds of seeds/artifacts already revealed under a mission.</summary>
     private static HashSet<int> RevealedInstanceIds(GameSave save)

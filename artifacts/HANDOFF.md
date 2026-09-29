@@ -6,9 +6,9 @@ Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.m
 
 ---
 
-## Jetzt aktiv — Schritt 1 Heartbeat
+## Jetzt aktiv — Schritt 2 Gast-Snapshot
 
-**Status:** Schritt 1 Heartbeat getippt (5s Ping, 15s tot). Test offen. Nicht gruen.
+**Status:** Schritt 1 Heartbeat committed (66420c6). Schritt 2 Gast-Snapshot getippt. Test offen. Nicht gruen.
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
 
 ### Architektur
