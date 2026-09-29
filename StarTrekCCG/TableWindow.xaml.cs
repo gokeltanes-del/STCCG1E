@@ -253,9 +253,41 @@ public partial class TableWindow : Window
     private bool _aidZoneCounts = true;
     private bool _aidSortHand = true;
 
-    // Response Window settings
+    // Response Window settings (hotseat / Options menu). Dual-EXE does not use these.
     private int _responseDefaultDurationSec = 3;
     private int _responseThinkDurationSec = 10;
+
+    /// <summary>
+    /// Dual-EXE choice, card-list, reveal, and response-window limit.
+    /// Pepsch: 60 seconds. Edit this one value to retune every online prompt.
+    /// Hotseat keeps <see cref="HotseatChoiceTimeoutMs"/> and the Options menu (2/3/5s, Think 10s).
+    /// </summary>
+    private const int OnlinePromptTimeoutMs = 60_000;
+
+    /// <summary>
+    /// Host waits this much longer than the guest UI timer so a timeout reply
+    /// arrives before the host applies its own timeout result.
+    /// </summary>
+    private const int OnlinePromptHostGraceMs = 500;
+
+    private const int OnlinePromptHostWaitMs = OnlinePromptTimeoutMs + OnlinePromptHostGraceMs;
+
+    /// <summary>Hotseat Yes/No when nobody clicks. Not used for Dual-EXE prompts.</summary>
+    private const int HotseatChoiceTimeoutMs = 10_000;
+
+    private bool UseOnlinePromptTimer => _gameMode == GameMode.Network;
+
+    private int ResponseSilentSeconds =>
+        UseOnlinePromptTimer ? OnlinePromptTimeoutMs / 1000 : _responseDefaultDurationSec;
+
+    private int ResponseThinkSeconds =>
+        UseOnlinePromptTimer ? OnlinePromptTimeoutMs / 1000 : _responseThinkDurationSec;
+
+    /// <summary>
+    /// Guest UI duration. A positive TimeoutMs from the host wins; otherwise the shared constant.
+    /// </summary>
+    private static int OnlinePromptMilliseconds(int? fromHost) =>
+        fromHost is int t && t > 0 ? t : OnlinePromptTimeoutMs;
     private System.Windows.Threading.DispatcherTimer? _responseWindowTimer;
     private DateTime _responseWindowDeadlineUtc;
     private List<TimingRules.LegalResponseItem> _currentLegalResponses = new();
@@ -2476,6 +2508,7 @@ public partial class TableWindow : Window
     /// Host → Guest ChoiceRequest kind=reveal. Guest draws the catalog face and clicks.
     /// Encountered dilemma/artifact, and Mission solved: Host paints the same face (no click).
     /// Other prompts stay on the attempter. Timeout: OK, or a random Yes/No.
+    /// Limit is <see cref="OnlinePromptTimeoutMs"/>. Guest does not apply the result.
     /// </summary>
     private RevealAnswer ShowRevealRemoteOnGuest(
         Card? card,
@@ -2495,7 +2528,7 @@ public partial class TableWindow : Window
         bool yesNo = buttons == RevealButtons.YesNo;
         string yes = yesLabel ?? "Yes";
         string no = noLabel ?? "No";
-        int timeoutMs = yesNo ? 10000 : 20000;
+        int timeoutMs = OnlinePromptTimeoutMs;
         int who = targetPlayer is 1 or 2
             ? targetPlayer
             : (_attemptSurfacePlayer is 1 or 2 ? _attemptSurfacePlayer : (_activePlayer is 1 or 2 ? _activePlayer : 2));
@@ -2554,7 +2587,7 @@ public partial class TableWindow : Window
         NetChoiceDto? result;
         try
         {
-            result = WaitForChoiceResponse(corr, tcs, timeoutMs + 500);
+            result = WaitForChoiceResponse(corr, tcs, OnlinePromptHostWaitMs);
         }
         finally
         {
@@ -2661,11 +2694,12 @@ public partial class TableWindow : Window
         if (shown.Count == 1)
             ShowCardDetail(shown[0]);
 
-        // Choice dialogs get 10s unless caller overrides.
-        // Timeout with no click: pick at random (not a hidden default).
+        // Hotseat choices close after HotseatChoiceTimeoutMs.
+        // Dual-EXE uses OnlinePromptTimeoutMs. Timeout with no click: random, not a hidden default.
         if (choice)
         {
-            if (autoCloseMs == null) autoCloseMs = 10000;
+            if (autoCloseMs == null)
+                autoCloseMs = UseOnlinePromptTimer ? OnlinePromptTimeoutMs : HotseatChoiceTimeoutMs;
             randomOnTimeout = true;
         }
 
@@ -2962,7 +2996,8 @@ public partial class TableWindow : Window
         _session.Log.Add(_session.TurnNumber, $"P{decidingPlayer}",
             $"{title}: {picked}" + (timed ? " (timeout, random)" : ""));
         StatusText.Text = $"{title}: {picked}";
-        if (timed)
+        // Guest only replies. A second OK dialog would hold the prompt open after the host moved on.
+        if (timed && !_guestHandlingInboundChoice)
             AnnounceChoiceResult(pickedCard ?? card, title, $"{how}:\n{picked}");
         return picked;
     }
@@ -3056,14 +3091,15 @@ public partial class TableWindow : Window
 
     /// <summary>
     /// Host sends ChoiceRequest kind=choice to Guest and blocks on DispatcherFrame until
-    /// ChoiceResponse or timeout. Timeout: Host picks random option (Guest timer may also reply earlier).
+    /// ChoiceResponse or timeout (<see cref="OnlinePromptTimeoutMs"/>).
+    /// Timeout: Host picks random option (Guest timer may also reply earlier). Guest does not apply it.
     /// </summary>
     private string AskChoiceRemoteOnHost(int decidingPlayer, Card? card, string title, string prompt, string[] clean)
     {
         if (_netSession == null || !_netSession.IsHost) return AskChoiceLocal(decidingPlayer, card, title, prompt, clean);
 
         string corr = Guid.NewGuid().ToString("N");
-        int timeoutMs = 10000;
+        int timeoutMs = OnlinePromptTimeoutMs;
         var dto = new NetChoiceDto
         {
             CorrelationId = corr,
@@ -3099,7 +3135,7 @@ public partial class TableWindow : Window
             return clean[_autoSeedRng.Next(clean.Length)];
         }
 
-        var result = WaitForChoiceResponse(corr, tcs, timeoutMs);
+        var result = WaitForChoiceResponse(corr, tcs, OnlinePromptHostWaitMs);
         _pendingChoiceResponses.Remove(corr);
 
         if (result != null && !string.IsNullOrWhiteSpace(result.SelectedOption))
@@ -5751,7 +5787,7 @@ public partial class TableWindow : Window
         UpdatePhaseControls();
 
         string corr = Guid.NewGuid().ToString("N");
-        int timeoutMs = Math.Max(1000, _responseDefaultDurationSec * 1000);
+        int timeoutMs = OnlinePromptTimeoutMs;
         var names = legal.Select(i => i.Card?.Name).Where(n => !string.IsNullOrWhiteSpace(n)).Cast<string>().ToArray();
         var dto = new NetChoiceDto
         {
@@ -5784,7 +5820,7 @@ public partial class TableWindow : Window
             return;
         }
 
-        var result = WaitForChoiceResponse(corr, tcs, timeoutMs + 500);
+        var result = WaitForChoiceResponse(corr, tcs, OnlinePromptHostWaitMs);
         _pendingChoiceResponses.Remove(corr);
 
         if (result?.Passed == true || result == null)
@@ -5842,7 +5878,7 @@ public partial class TableWindow : Window
         UpdatePhaseControls();
 
         StopResponseWindowTimer();
-        _responseWindowDeadlineUtc = DateTime.UtcNow.AddSeconds(_responseDefaultDurationSec);
+        _responseWindowDeadlineUtc = DateTime.UtcNow.AddSeconds(ResponseSilentSeconds);
         _responseWindowTimer = new System.Windows.Threading.DispatcherTimer
         {
             Interval = TimeSpan.FromMilliseconds(100)
@@ -5893,7 +5929,7 @@ public partial class TableWindow : Window
             ThinkTrayTitle.Text = $"LEGAL RESPONSES (P{responder})";
         if (ThinkTrayCountdown != null)
         {
-            int sec = silentCountdown ? _responseDefaultDurationSec : _responseThinkDurationSec;
+            int sec = silentCountdown ? ResponseSilentSeconds : ResponseThinkSeconds;
             ThinkTrayCountdown.Text = $"{sec}s";
         }
         if (BtnThinkPass != null)
@@ -5917,7 +5953,7 @@ public partial class TableWindow : Window
         }
 
         _stack.State = TimingRules.ResponseWindowState.Think;
-        _responseWindowDeadlineUtc = DateTime.UtcNow.AddSeconds(_responseThinkDurationSec);
+        _responseWindowDeadlineUtc = DateTime.UtcNow.AddSeconds(ResponseThinkSeconds);
 
         if (ResponseIndicatorBadge != null)
             ResponseIndicatorBadge.Visibility = Visibility.Collapsed;
@@ -10671,7 +10707,7 @@ public partial class TableWindow : Window
         {
             var opts = dto.Options ?? Array.Empty<string>();
             bool yesNo = opts.Length >= 2;
-            int ms = dto.TimeoutMs is int t && t > 0 ? t : 20000;
+            int ms = OnlinePromptMilliseconds(dto.TimeoutMs);
             IReadOnlyList<Card>? many = dto.Faces != null ? BuildNetChoiceFaceList(dto) : null;
             Card? face = many != null
                 ? (many.Count == 1 ? many[0] : null)
@@ -10902,7 +10938,7 @@ public partial class TableWindow : Window
         StatusText.Text = $"Net: your response window — Pass or play response card via Action.";
 
         StopResponseWindowTimer();
-        int timeoutMs = dto.TimeoutMs ?? (_responseDefaultDurationSec * 1000);
+        int timeoutMs = OnlinePromptMilliseconds(dto.TimeoutMs);
         _responseWindowDeadlineUtc = DateTime.UtcNow.AddMilliseconds(timeoutMs);
         _responseWindowTimer = new System.Windows.Threading.DispatcherTimer
         {
@@ -24222,10 +24258,43 @@ public partial class TableWindow : Window
         if (BtnDetailBeamSelect != null) BtnDetailBeamSelect.Visibility = Visibility.Collapsed;
         CardDetailOverlay.Visibility = Visibility.Visible;
 
+        // Hotseat card lists stay open until a click. Dual-EXE closes with the shared prompt limit.
+        _revealTimedOut = false;
+        System.Windows.Threading.DispatcherTimer? autoTimer = null;
+        if (UseOnlinePromptTimer)
+        {
+            var deadline = DateTime.UtcNow.AddMilliseconds(OnlinePromptTimeoutMs);
+            string basePrompt = (string.IsNullOrWhiteSpace(prompt) ? "Click a card to choose." : prompt)
+                + "\nClick a card in the strip below.";
+            if (DetailStackStats != null)
+                DetailStackStats.Text = basePrompt + $"\n{OnlinePromptTimeoutMs / 1000}s remaining";
+            autoTimer = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(200)
+            };
+            autoTimer.Tick += (_, _) =>
+            {
+                double left = (deadline - DateTime.UtcNow).TotalSeconds;
+                if (DetailStackStats != null)
+                    DetailStackStats.Text = left > 0
+                        ? basePrompt + $"\n{left:0}s remaining"
+                        : basePrompt;
+                if (left > 0) return;
+                autoTimer.Stop();
+                if (_detailPickMode && _detailPickFrame != null)
+                {
+                    _revealTimedOut = true;
+                    CompleteDetailPick(null);
+                }
+            };
+            autoTimer.Start();
+        }
+
         _detailPickFrame = new System.Windows.Threading.DispatcherFrame();
         try { System.Windows.Threading.Dispatcher.PushFrame(_detailPickFrame); }
         finally
         {
+            autoTimer?.Stop();
             _detailPickFrame = null;
             _detailPickMode = false;
             if (CardDetailOverlay != null)
