@@ -314,6 +314,8 @@ public partial class TableWindow : Window
         public Border? Dest { get; set; }
         /// <summary>Borg Ship: Bewegungsrichtung entlang der Spaceline (+1 oder -1).</summary>
         public int Direction { get; set; } = 1;
+        /// <summary>Player who encountered this dilemma (1 or 2). 0 = unknown.</summary>
+        public int EncounteredBy { get; set; }
         /// <summary>Personnel held in stasis by Abduction / Phased Matter etc. Quarantine: originals + joiners.</summary>
         public List<Card> Held { get; } = new();
         /// <summary>REM Fatigue: personnel present at encounter (kill on countdown 0). Joiners not listed.</summary>
@@ -2442,8 +2444,9 @@ public partial class TableWindow : Window
         }
         finally
         {
+            // Guest ack (or timeout) ends the watcher. Do not leave it up for a later turn.
             if (mirrored)
-                HideHostEncounterMirror();
+                ForceHideWatcherMirror();
         }
         _pendingChoiceResponses.Remove(corr);
 
@@ -10384,6 +10387,9 @@ public partial class TableWindow : Window
         if (string.IsNullOrWhiteSpace(dto.CorrelationId)) return;
         if (_pendingChoiceResponses.TryGetValue(dto.CorrelationId, out var tcs))
         {
+            // Guest acknowledged a mirrored reveal. Drop the host watcher now.
+            if (_hostEncounterMirrorOpen)
+                ForceHideWatcherMirror();
             tcs.TrySetResult(dto);
             return;
         }
@@ -11608,6 +11614,32 @@ public partial class TableWindow : Window
     }
 
     /// <summary>
+    /// Host watcher of a guest-owned reveal has no buttons. Collapse it when the guest
+    /// acknowledges, even if a choice-wait frame is still on the stack.
+    /// A clickable reveal (OK / Yes / No) that is not this watcher is left alone.
+    /// </summary>
+    private void ForceHideWatcherMirror()
+    {
+        bool marked = _hostEncounterMirrorOpen;
+        string audience = RevealAudience?.Text ?? "";
+        bool watcherText = audience.Contains("acknowledges", StringComparison.OrdinalIgnoreCase);
+        _hostEncounterMirrorOpen = false;
+        bool clickable = BtnRevealOk?.Visibility == Visibility.Visible
+            || BtnRevealYes?.Visibility == Visibility.Visible
+            || BtnRevealNo?.Visibility == Visibility.Visible;
+        if (!marked && !watcherText)
+            return;
+        if (clickable && !marked)
+            return;
+        if (CardRevealOverlay != null)
+            CardRevealOverlay.Visibility = Visibility.Collapsed;
+        if (RevealImage != null)
+            RevealImage.Source = null;
+        if (RevealAudience != null)
+            RevealAudience.Text = "";
+    }
+
+    /// <summary>
     /// Host attempt: show the encounter or Mission solved on the Guest without waiting for a click.
     /// Guest attempt does not use this — that player already has the interactive reveal.
     /// </summary>
@@ -12583,6 +12615,9 @@ public partial class TableWindow : Window
             // Last watcher face has no following card to replace it. Close it before board truth.
             if (_guestEncounterMirrorOpen)
                 SendEncounterMirrorToGuest(null, "", "", null, open: false, wait: true);
+            // Host watcher of a guest reveal: same rule. A later broadcast must not leave it up.
+            if (_hostEncounterMirrorOpen)
+                ForceHideWatcherMirror();
             var save = CaptureGameSave();
             var masked = NetStateMask.MaskForViewer(save, viewerPlayer: 2);
             _ = _netSession.BroadcastStateAsync(masked);
@@ -13810,6 +13845,9 @@ public partial class TableWindow : Window
         int next = 1;
         foreach (var b in tableBorders)
         {
+            // Scow / Borg Ship tokens are restored from AttachedDilemmas. A table row is a second copy.
+            if (ReferenceEquals(b, _scowToken) || ReferenceEquals(b, _borgShipToken))
+                continue;
             idOf[b] = next;
             var card = (Card)b.Tag!;
             save.Table.Add(new TableCardSnap
@@ -13965,7 +14003,8 @@ public partial class TableWindow : Window
                 Kind = d.Kind.ToString(),
                 HostId = d.Host != null && idOf.TryGetValue(d.Host, out int hid) ? hid : 0,
                 Countdown = d.Countdown,
-                HeldIds = heldIds
+                HeldIds = heldIds,
+                EncounteredBy = d.EncounteredBy is 1 or 2 ? d.EncounteredBy : 0
             });
         }
 
@@ -14294,7 +14333,8 @@ public partial class TableWindow : Window
                 Card = card,
                 Kind = kind,
                 Host = host,
-                Countdown = d.Countdown
+                Countdown = d.Countdown,
+                EncounteredBy = d.EncounteredBy is 1 or 2 ? d.EncounteredBy : 0
             };
             if (d.HeldIds != null && d.HeldIds.Count > 0)
             {
@@ -14319,9 +14359,15 @@ public partial class TableWindow : Window
             }
             AddAttachedDilemma(attached);
             if (kind == DilemmaRules.PersistKind.Scow)
+            {
                 PlaceScowToken(card, host);
+                RemoveStrayDilemmaCardBorder(card);
+            }
             if (kind == DilemmaRules.PersistKind.BorgShip)
+            {
                 PlaceBorgShipToken(card, host);
+                RemoveStrayDilemmaCardBorder(card);
+            }
         }
 
         var s = save.Session ?? new SessionSnap();
@@ -14416,6 +14462,7 @@ public partial class TableWindow : Window
         var scowLoad = _attachedDilemmas.FirstOrDefault(d => d.Kind == DilemmaRules.PersistKind.Scow);
         if (scowLoad?.Host != null)
         {
+            RemoveStrayDilemmaCardBorder(scowLoad.Card);
             if (_scowToken == null)
                 PlaceScowToken(scowLoad.Card, scowLoad.Host);
             else
@@ -18669,6 +18716,9 @@ public partial class TableWindow : Window
         {
             _attemptRemoteSurface = false;
             _attemptSurfacePlayer = 0;
+            // Guest-attempt watcher has no later card to replace it.
+            if (_hostEncounterMirrorOpen)
+                ForceHideWatcherMirror();
             // After the Guest has clicked through the reveals: masked state is still the board truth.
             if (entered && _gameMode == GameMode.Network && _netSession is { IsHost: true })
                 NotifyNetworkBoardChanged();
@@ -23490,7 +23540,10 @@ public partial class TableWindow : Window
                 Dest = r.Persist == DilemmaRules.PersistKind.Cytherians
                     ? ResolveFarEndMission(host)
                     : null,
-                Direction = r.Persist == DilemmaRules.PersistKind.BorgShip ? _borgShipDir : 1
+                Direction = r.Persist == DilemmaRules.PersistKind.BorgShip ? _borgShipDir : 1,
+                EncounteredBy = _attemptSurfacePlayer is 1 or 2
+                    ? _attemptSurfacePlayer
+                    : (_activePlayer is 1 or 2 ? _activePlayer : 1)
             };
             if (DilemmaRules.IsStasisPersist(r.Persist))
             {
@@ -23524,7 +23577,10 @@ public partial class TableWindow : Window
             if (r.Persist == DilemmaRules.PersistKind.TwoDim)
                 SyncTwoDimDisabledVisuals(host);
             if (r.Persist == DilemmaRules.PersistKind.Scow)
+            {
                 PlaceScowToken(seedCard, host);
+                RemoveStrayDilemmaCardBorder(seedCard);
+            }
             if (r.Persist == DilemmaRules.PersistKind.BorgShip)
             {
                 PlaceBorgShipToken(seedCard, host);
@@ -25763,7 +25819,8 @@ public partial class TableWindow : Window
             Countdown = a.Countdown,
             Host = newHost,
             Extra = a.Extra,
-            Direction = dir
+            Direction = dir,
+            EncounteredBy = a.EncounteredBy
         });
         PositionBorgShipToken(newHost);
         _session.Log.Add(_session.TurnNumber, "sys", plan.Message);
@@ -26586,6 +26643,9 @@ public partial class TableWindow : Window
         TableCanvas.Children.Add(token);
         Panel.SetZIndex(token, 40);
         _borgShipToken = token;
+        int who = DilemmaTokenEncounterer(token);
+        if (who is 1 or 2)
+            SetBorderOwner(token, who);
         PositionBorgShipToken(hostMission);
     }
 
@@ -26699,25 +26759,48 @@ public partial class TableWindow : Window
         TableCanvas.Children.Add(token);
         Panel.SetZIndex(token, 40);
         _scowToken = token;
+        int who = DilemmaTokenEncounterer(token);
+        if (who is 1 or 2)
+            SetBorderOwner(token, who);
         PositionScowToken(hostMission);
     }
 
+    /// <summary>Scow / Borg Ship: player who encountered it, if recorded.</summary>
+    private int DilemmaTokenEncounterer(Border token)
+    {
+        if (token.Tag is not Card card) return 0;
+        var attached = _attachedDilemmas.FirstOrDefault(d =>
+            (d.Kind == DilemmaRules.PersistKind.Scow || d.Kind == DilemmaRules.PersistKind.BorgShip)
+            && (ReferenceEquals(d.Card, card)
+                || (card.InstanceId > 0 && d.Card.InstanceId == card.InstanceId)));
+        return attached != null && attached.EncounteredBy is 1 or 2 ? attached.EncounteredBy : 0;
+    }
 
     /// <summary>
-    /// Dilemma spaceline token (Scow / Borg Ship): mission column, slot AFTER all dockables,
-    /// Z below ships/facilities. Never paint over ship artwork or steal ship clicks.
+    /// Dilemma spaceline token (Scow / Borg Ship): mission column, after that side's dockables,
+    /// Z below ships/facilities. Network: the encountering player's side on every window.
+    /// Hotseat/solo keeps the historical below-spaceline slot.
     /// </summary>
     private void PositionDilemmaTokenUnderMission(Border? token, Border hostMission, int zIndex = 8)
     {
         if (token == null) return;
         double left = Canvas.GetLeft(hostMission);
         double top = Canvas.GetTop(hostMission);
-        var others = GetDockablesUnderMission(hostMission, exclude: token);
-        int below = others.Count(b => Canvas.GetTop(b) > top + 20);
-        // P2 ships sit above the mission; keep dilemma tokens on the P1/below side so they
-        // do not share a slot with a dockable on either side.
+        if (double.IsNaN(left)) left = 0;
+        if (double.IsNaN(top)) top = SpacelineY;
         Canvas.SetLeft(token, left);
-        Canvas.SetTop(token, top + UnderMissionGap * (below + 1));
+        int encounterer = DilemmaTokenEncounterer(token);
+        if (_netSession != null && encounterer is 1 or 2)
+        {
+            int docks = CountDockablesForOwner(hostMission, encounterer, token);
+            Canvas.SetTop(token, top + DockSlotOffsetY(docks, encounterer));
+        }
+        else
+        {
+            var others = GetDockablesUnderMission(hostMission, exclude: token);
+            int below = others.Count(b => Canvas.GetTop(b) > top + 20);
+            Canvas.SetTop(token, top + UnderMissionGap * (below + 1));
+        }
         Panel.SetZIndex(token, zIndex);
     }
 
