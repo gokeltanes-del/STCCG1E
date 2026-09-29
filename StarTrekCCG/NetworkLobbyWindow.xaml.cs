@@ -1,5 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Net;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
+using System.Security.Cryptography;
+using System.Text;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -23,6 +28,9 @@ public partial class NetworkLobbyWindow : Window
 {
     private NetServer? _server;
     private NetClient? _client;
+    private MatchmakingClient? _mm;
+    private string? _matchPublicAddress;
+    private int _matchPublicPort;
     private CancellationTokenSource? _cts;
     private Task? _lobbyReceiveTask;
     private bool _busy;
@@ -74,6 +82,8 @@ public partial class NetworkLobbyWindow : Window
     {
         InitializeComponent();
         RefreshDeckList();
+        if (string.IsNullOrWhiteSpace(MmNameBox.Text))
+            MmNameBox.Text = Environment.UserName;
     }
 
     private async void BtnHost_Click(object sender, RoutedEventArgs e)
@@ -93,7 +103,13 @@ public partial class NetworkLobbyWindow : Window
         if (_busy) return;
         if (!TryParsePort(out var port)) return;
 
+        var keepPath = _localDeckPath;
+        var keepJson = _localDeckJson;
+        var keepName = _localDeckName;
         DisconnectInternal(null);
+        _localDeckPath = keepPath;
+        _localDeckJson = keepJson;
+        _localDeckName = keepName;
         _busy = true;
         SetBusyUi(true);
         _cts = new CancellationTokenSource();
@@ -109,6 +125,7 @@ public partial class NetworkLobbyWindow : Window
                 SetNatStatus("Localhost only. No router port forward.");
             else
                 await AnnouncePortForwardAsync(port, ct).ConfigureAwait(true);
+            await PublishMatchmakingAddressAsync(port).ConfigureAwait(true);
 
             await _server.AcceptClientAsync(ct).ConfigureAwait(true);
             SetStatus("Guest connected - handshake.");
@@ -156,7 +173,13 @@ public partial class NetworkLobbyWindow : Window
             return;
         }
 
+        var keepPath = _localDeckPath;
+        var keepJson = _localDeckJson;
+        var keepName = _localDeckName;
         DisconnectInternal(null);
+        _localDeckPath = keepPath;
+        _localDeckJson = keepJson;
+        _localDeckName = keepName;
         _busy = true;
         SetBusyUi(true);
         _cts = new CancellationTokenSource();
@@ -213,6 +236,8 @@ public partial class NetworkLobbyWindow : Window
 
         if (Dispatcher.CheckAccess()) Apply();
         else Dispatcher.Invoke(Apply);
+        if (!string.IsNullOrWhiteSpace(_localDeckJson))
+            _ = SendExistingDeckPickAsync();
     }
 
     private void StartLobbyReceiveLoop()
@@ -444,6 +469,7 @@ public partial class NetworkLobbyWindow : Window
             BtnStartGame.IsEnabled = true;
             UpdateLobbyUi();
             SetStatus($"Deck selected: {_localDeckName}");
+            await SendDeckHashIfAnyAsync().ConfigureAwait(true);
 
             if (IsConnected)
             {
@@ -548,6 +574,8 @@ public partial class NetworkLobbyWindow : Window
         catch { /* ignore */ }
 
         DeckCombo.ItemsSource = items;
+        if (MmDeckCombo != null)
+            MmDeckCombo.ItemsSource = items;
         if (items.Count > 0 && DeckCombo.SelectedIndex < 0)
             DeckCombo.SelectedIndex = -1; // user must pick explicitly
     }
@@ -833,6 +861,8 @@ public partial class NetworkLobbyWindow : Window
 
         try { _server?.Dispose(); } catch { /* ignore */ }
         _server = null;
+        _matchPublicAddress = null;
+        _matchPublicPort = 0;
         SetNatStatus("");
         try { _client?.Dispose(); } catch { /* ignore */ }
         _client = null;
@@ -905,6 +935,8 @@ public partial class NetworkLobbyWindow : Window
             if (lease.Mapped && _server != null)
             {
                 _server.HoldNatLease(lease);
+                _matchPublicAddress = string.IsNullOrWhiteSpace(lease.ExternalAddress) ? null : lease.ExternalAddress.Trim();
+                _matchPublicPort = lease.ExternalPort;
                 var address = string.IsNullOrWhiteSpace(lease.ExternalAddress)
                     ? "address unknown"
                     : lease.ExternalAddress;
@@ -912,6 +944,8 @@ public partial class NetworkLobbyWindow : Window
             }
             else
             {
+                _matchPublicAddress = null;
+                _matchPublicPort = 0;
                 lease.Dispose();
                 SetNatStatus(
                     $"Port forward failed ({lease.Failure}). Open TCP {port} on the router manually. Host is still listening.");
@@ -953,9 +987,256 @@ public partial class NetworkLobbyWindow : Window
 
     private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
     {
+        try { _mm?.Dispose(); } catch { /* ignore */ }
+        _mm = null;
         // If session took the transport, do not dispose the live socket.
         if (TransportDetached)
             return;
         DisconnectInternal(null);
+    }
+
+    private async void BtnMmConnect_Click(object sender, RoutedEventArgs e)
+    {
+        if (!TryParseLobbyService(MmServiceBox.Text, out var host, out var port))
+        {
+            SetMmState("Service must be host:port or ws://host:port/lobby.");
+            return;
+        }
+
+        var name = string.IsNullOrWhiteSpace(MmNameBox.Text) ? "Player" : MmNameBox.Text.Trim();
+        var mm = new MatchmakingClient();
+        mm.StateChanged += text => Dispatcher.BeginInvoke(() => SetMmState(text));
+        mm.PlayersChanged += text => Dispatcher.BeginInvoke(() => MmPlayersText.Text = text ?? "");
+        mm.ChatChanged += text => Dispatcher.BeginInvoke(() => MmChatLog.Text = text ?? "");
+        mm.AddressAnnounced += (announcedHost, announcedPort) =>
+            Dispatcher.BeginInvoke(() => SetMmState($"Host published {announcedHost}:{announcedPort}. Open direct game when ready."));
+        try
+        {
+            await mm.ConnectAsync(host, port, name).ConfigureAwait(true);
+            _mm?.Dispose();
+            _mm = mm;
+        }
+        catch (Exception ex)
+        {
+            mm.Dispose();
+            SetMmState("Matchmaking connect failed: " + ex.Message);
+        }
+    }
+
+    private async void BtnMmCreate_Click(object sender, RoutedEventArgs e)
+        => await RoomCommandAsync(join: false).ConfigureAwait(true);
+
+    private async void BtnMmJoin_Click(object sender, RoutedEventArgs e)
+        => await RoomCommandAsync(join: true).ConfigureAwait(true);
+
+    private async Task RoomCommandAsync(bool join)
+    {
+        if (_mm == null)
+        {
+            SetMmState("Connect to the service first.");
+            return;
+        }
+        if (!join && !TryParsePort(out _))
+            return;
+        try
+        {
+            if (join)
+                await _mm.JoinRoomAsync((MmRoomBox.Text ?? "").Trim()).ConfigureAwait(true);
+            else
+                await _mm.CreateRoomAsync((MmRoomBox.Text ?? "").Trim(), int.Parse((PortBox.Text ?? "").Trim(), System.Globalization.CultureInfo.InvariantCulture)).ConfigureAwait(true);
+            await SendDeckHashIfAnyAsync().ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            SetMmState(ex.Message);
+        }
+    }
+
+    private async void BtnMmRefresh_Click(object sender, RoutedEventArgs e)
+    {
+        if (_mm == null)
+        {
+            SetMmState("Connect to the service first.");
+            return;
+        }
+        try { await _mm.RefreshAsync().ConfigureAwait(true); }
+        catch (Exception ex) { SetMmState(ex.Message); }
+    }
+
+    private async void BtnMmChat_Click(object sender, RoutedEventArgs e)
+    {
+        if (_mm == null)
+        {
+            SetMmState("Connect to the service first.");
+            return;
+        }
+        var text = (MmChatBox.Text ?? "").Trim();
+        if (text.Length == 0)
+            return;
+        try
+        {
+            await _mm.SendChatAsync(text).ConfigureAwait(true);
+            MmChatBox.Text = "";
+        }
+        catch (Exception ex)
+        {
+            SetMmState(ex.Message);
+        }
+    }
+
+    private async void MmDeckCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (MmDeckCombo.SelectedItem is not DeckListItem item) return;
+        await ApplyLocalDeckAsync(item.Path, Path.GetFileNameWithoutExtension(item.Path)).ConfigureAwait(true);
+    }
+
+    private async void BtnMmPlay_Click(object sender, RoutedEventArgs e)
+    {
+        if (_mm is not { InRoom: true })
+        {
+            SetMmState("Create or join a room first. Host, Join, and Localhost above still work.");
+            return;
+        }
+
+        if (string.Equals(_mm.Role, "host", StringComparison.Ordinal))
+        {
+            await RunHostAsync(loopbackOnly: false).ConfigureAwait(true);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_mm.DirectHost) || _mm.DirectPort is < 1 or > 65535)
+        {
+            SetMmState("The host has not published an address yet.");
+            return;
+        }
+
+        HostBox.Text = _mm.DirectHost;
+        PortBox.Text = _mm.DirectPort.ToString();
+        await RunJoinAsync().ConfigureAwait(true);
+    }
+
+    private async Task PublishMatchmakingAddressAsync(int listenPort)
+    {
+        if (_mm is not { InRoom: true } || !string.Equals(_mm.Role, "host", StringComparison.Ordinal))
+            return;
+        try
+        {
+            string host;
+            int port;
+            if (IPAddress.TryParse(_matchPublicAddress, out var published)
+                && published.AddressFamily == AddressFamily.InterNetwork
+                && !published.Equals(IPAddress.Any)
+                && _matchPublicPort is > 0 and <= 65535)
+            {
+                host = published.ToString();
+                port = _matchPublicPort;
+            }
+            else
+            {
+                host = FirstLanIPv4() ?? "127.0.0.1";
+                port = listenPort;
+            }
+
+            await _mm.SendAddressAsync(host, port).ConfigureAwait(true);
+            SetMmState($"Published {host}:{port} to the room. Relay is not built.");
+        }
+        catch (Exception ex)
+        {
+            SetMmState("Could not publish the address (" + ex.Message + "). The host is still listening.");
+        }
+    }
+
+    private async Task SendDeckHashIfAnyAsync()
+    {
+        if (_mm is not { InRoom: true } || string.IsNullOrWhiteSpace(_localDeckJson) || string.IsNullOrWhiteSpace(_localDeckName))
+            return;
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(_localDeckJson))).ToLowerInvariant();
+        await _mm.SendDeckAsync(_localDeckName, hash).ConfigureAwait(true);
+    }
+
+    private async Task SendExistingDeckPickAsync()
+    {
+        if (!IsConnected || string.IsNullOrWhiteSpace(_localDeckName))
+            return;
+        try
+        {
+            var pick = new NetLobbyDto.DeckPick
+            {
+                Player = LocalPlayerNumber,
+                DeckName = _localDeckName
+            };
+            await SendLobbyAsync(NetMessage.Create(NetMessage.Types.LobbyDeck, NetLobbyDto.ToJson(pick)))
+                .ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            SetStatus("Deck announce failed: " + ex.Message);
+        }
+    }
+
+    private void SetMmState(string text)
+    {
+        void Apply()
+        {
+            if (MmStateText != null)
+                MmStateText.Text = text ?? "";
+        }
+        if (Dispatcher.CheckAccess()) Apply();
+        else Dispatcher.Invoke(Apply);
+    }
+
+    private static string? FirstLanIPv4()
+    {
+        foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
+        {
+            if (ni.OperationalStatus != OperationalStatus.Up)
+                continue;
+            if (ni.NetworkInterfaceType == NetworkInterfaceType.Loopback)
+                continue;
+            foreach (var address in ni.GetIPProperties().UnicastAddresses)
+            {
+                if (address.Address.AddressFamily != AddressFamily.InterNetwork)
+                    continue;
+                if (IPAddress.IsLoopback(address.Address) || address.Address.Equals(IPAddress.Any))
+                    continue;
+                return address.Address.ToString();
+            }
+        }
+        return null;
+    }
+
+    private static bool TryParseLobbyService(string? text, out string host, out int port)
+    {
+        host = "";
+        port = 0;
+        text = (text ?? "").Trim();
+        if (text.Length == 0)
+            return false;
+        if (text.Contains("://", StringComparison.Ordinal))
+        {
+            if (!Uri.TryCreate(text, UriKind.Absolute, out var uri))
+                return false;
+            if (!string.Equals(uri.Scheme, "ws", StringComparison.OrdinalIgnoreCase))
+                return false;
+            if (uri.AbsolutePath is not "/lobby" and not "/lobby/")
+                return false;
+            if (!string.IsNullOrEmpty(uri.UserInfo) || !string.IsNullOrEmpty(uri.Query) || !string.IsNullOrEmpty(uri.Fragment))
+                return false;
+            host = uri.Host;
+            port = uri.IsDefaultPort ? 7788 : uri.Port;
+        }
+        else
+        {
+            var colon = text.LastIndexOf(':');
+            if (colon <= 0 || colon == text.Length - 1)
+                return false;
+            host = text[..colon].Trim();
+            if (!int.TryParse(text[(colon + 1)..].Trim(), out port))
+                return false;
+        }
+
+        if (port is < 1 or > 65535 || host.Length == 0 || host.IndexOfAny(new[] { '/', ' ', '\\' }) >= 0)
+            return false;
+        return true;
     }
 }

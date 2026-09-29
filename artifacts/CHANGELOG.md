@@ -1,3 +1,11 @@
+## 2026-09-30 - In-memory matchmaking lobby
+
+- Spielbar, nicht gruen. Zweitrechner-Test offen. Relay ist nicht gebaut.
+- Dienst: dotnet run --project LobbyService/LobbyService.csproj -c Debug. Lauscht auf 0.0.0.0:7788, WebSocket ws://host:7788/lobby. Raeume nur im Speicher, Neustart leert sie. Kein Account, kein NuGet, kein URL-Fetch.
+- Nachrichten vom Client: hello, list, create, join, chat, deck (Name und SHA-256, kein Deck-JSON), address (nur der Host, IPv4), leave. Vom Dienst: welcome, rooms, room, error, gone.
+- Die WPF-Lobby kann den Dienst nutzen. Host, Join und Localhost bleiben. Open direct game startet den bestehenden Host oder traegt die durchgereichte Adresse in den bestehenden NetClient ein. Keine zweite Spielverbindung. Kein GameState auf dem Dienst.
+- Der Host veroeffentlicht nach dem Lauschen die oeffentliche Adresse, sonst die LAN-IPv4, und den Port. Deck-Inhalt geht nicht an den Dienst und nicht ins Log.
+
 ## 2026-09-30 - Host opens its port with UPnP or PCP
 
 - Spielbar, nicht gruen. Echter Router-Test offen.

@@ -6,9 +6,9 @@ Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.m
 
 ---
 
-## Jetzt aktiv — Schritt 6 UPnP/PCP-Portfreigabe
+## Jetzt aktiv — Schritt 7 Matchmaking-Lobby
 
-**Status:** Schritte 1-5 committed (66420c6, 8d54aed, 81cc501, a9df863, acae526). Schritt 6 UPnP/PCP-Portfreigabe getippt. Echter Router-Test offen. Nicht gruen. Details: CHANGELOG 2026-09-30 Port forward.
+**Status:** Schritte 1-6 committed (66420c6, 8d54aed, 81cc501, a9df863, acae526, 8005df4). Schritt 7 Matchmaking getippt. Relay nicht gebaut. Zweitrechner-Test offen. Nicht gruen. Start: dotnet run --project LobbyService/LobbyService.csproj -c Debug, Port 7788. Details: CHANGELOG 2026-09-30 Matchmaking.
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
 
 ### Architektur
