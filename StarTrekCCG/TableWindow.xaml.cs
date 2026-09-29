@@ -1788,11 +1788,7 @@ public partial class TableWindow : Window
             TentDownloadUsedP1 = DownloadRules.TentDownloadUsedThisTurn(_session, 1),
             TentDownloadUsedP2 = DownloadRules.TentDownloadUsedThisTurn(_session, 2),
             OncePerGameKeys = _session.OncePerGame.ToList(),
-            StoppedInstanceIds = _stoppedBorders
-                .Select(b => b.Tag is Card sc ? sc.InstanceId : 0)
-                .Where(id => id != 0)
-                .Distinct()
-                .ToList(),
+            StoppedInstanceIds = CaptureStoppedInstanceIds(),
             LoreStaffedShipIds = _borderOwner.Keys
                 .Where(b => b.Tag is Card sc
                             && sc.InstanceId > 0
@@ -14922,7 +14918,8 @@ public partial class TableWindow : Window
                 Owner = GetBorderOwner(b),
                 Visible = b.Visibility == Visibility.Visible,
                 Hull = IsShipCard(card) ? GetHullDamage(b) : _hullDamagePercent.GetValueOrDefault(b),
-                Stopped = _stoppedBorders.Contains(b),
+                // Instance Stopped counts even when this border is not in the UI set.
+                Stopped = IsBorderStopped(b),
                 RangeLeft = IsShipCard(card) ? GetRemainingRange(b, card) : (_shipRangeLeft.TryGetValue(b, out int rng) ? rng : null),
                 RepairTurns = IsShipCard(card) ? GetRepairTurns(b) : _repairTurnsAtOutpost.GetValueOrDefault(b),
                 SolvedBy = _missionSolver.TryGetValue(b, out int sol) ? sol : null,
@@ -15062,11 +15059,9 @@ public partial class TableWindow : Window
             var heldIds = new List<int>();
             foreach (var h in d.Held)
             {
-                var hb = FindBorderForCard(h);
-                if (hb != null && idOf.TryGetValue(hb, out int cid))
+                // Snap id only. An InstanceId in this list binds the wrong row on load.
+                if (h != null && TableSnapIdForCard(h, idOf) is int cid)
                     heldIds.Add(cid);
-                else if (h.InstanceId > 0)
-                    heldIds.Add(h.InstanceId);
             }
             save.AttachedDilemmas.Add(new AttachedDilemmaSnap
             {
@@ -15239,6 +15234,7 @@ public partial class TableWindow : Window
             }
             if (snap.Stopped) MarkStopped(border);
             if (snap.Cloaked) SetShipCloaked(border, true);
+            // Stored remainder. Do not call ComputeShipTurnRange on load or on the guest.
             if (snap.RangeLeft.HasValue)
                 SetShipRangeLeft(border, card, snap.RangeLeft.Value);
             if (snap.RepairTurns > 0)
@@ -15423,7 +15419,8 @@ public partial class TableWindow : Window
             {
                 foreach (int hid in d.HeldIds)
                 {
-                    if (byId.TryGetValue(hid, out var hb) && hb.Tag is Card hc)
+                    var hb = BorderForHeldId(hid, byId);
+                    if (hb?.Tag is Card hc)
                     {
                         attached.Held.Add(hc);
                         if (kind == DilemmaRules.PersistKind.Ktarian)
@@ -16831,6 +16828,26 @@ public partial class TableWindow : Window
             && BoardStore.Current.ById.TryGetValue(c.InstanceId, out var inst))
             return inst.Stopped || _stoppedBorders.Contains(border);
         return _stoppedBorders.Contains(border);
+    }
+
+    /// <summary>
+    /// Stopped crew and ships for the engine seed. Instance flag and the UI set both count.
+    /// </summary>
+    private List<int> CaptureStoppedInstanceIds()
+    {
+        var ids = new HashSet<int>();
+        foreach (var b in _borderOwner.Keys)
+        {
+            if (!IsBorderStopped(b)) continue;
+            if (b.Tag is Card c && c.InstanceId > 0)
+                ids.Add(c.InstanceId);
+        }
+        foreach (var b in _stoppedBorders)
+        {
+            if (b.Tag is Card c && c.InstanceId > 0)
+                ids.Add(c.InstanceId);
+        }
+        return ids.ToList();
     }
 
     private List<Card> GetCrewOnShip(Border shipBorder)
@@ -30775,8 +30792,7 @@ public partial class TableWindow : Window
     {
         bool inStasis = _attachedDilemmas.Any(d =>
             DilemmaRules.IsStasisPersist(d.Kind)
-            && d.Held.Any(h => ReferenceEquals(h, card)
-                               || string.Equals(h.Name, card.Name, StringComparison.OrdinalIgnoreCase)));
+            && d.Held.Any(h => SameHeldPersonnel(h, card)));
         card.InStasis = inStasis;
         if (card.InstanceId > 0 && BoardStore.Current.ById.TryGetValue(card.InstanceId, out var inst) && inst is PersonnelInstance pi)
             pi.InStasis = inStasis;
@@ -30972,14 +30988,11 @@ public partial class TableWindow : Window
         var store = BoardStore.Current;
         bool quarantined = store.AttachedDilemmas.Any(d =>
             DilemmaRules.IsQuarantinePersist(d.Kind)
-            && (d.Held.Any(h => ReferenceEquals(h, card)
-                                || (h.InstanceId > 0 && h.InstanceId == card.InstanceId)
-                                || string.Equals(h.Name, card.Name, StringComparison.OrdinalIgnoreCase))
+            && (d.Held.Any(h => SameHeldPersonnel(h, card))
                 || (d.HostInstanceId.HasValue && IsPersonnelOnHostId(card, d.HostInstanceId.Value))))
             || _attachedDilemmas.Any(d =>
                 DilemmaRules.IsQuarantinePersist(d.Kind)
-                && (d.Held.Any(h => ReferenceEquals(h, card)
-                                    || string.Equals(h.Name, card.Name, StringComparison.OrdinalIgnoreCase))
+                && (d.Held.Any(h => SameHeldPersonnel(h, card))
                     || IsPersonnelOnQuarantineHost(card, d.Host)));
         card.Quarantined = quarantined;
         if (card.InstanceId > 0 && store.ById.TryGetValue(card.InstanceId, out var inst) && inst is PersonnelInstance pi)
@@ -31034,14 +31047,10 @@ public partial class TableWindow : Window
         var store = BoardStore.Current;
         bool ktarian = store.AttachedDilemmas.Any(d =>
             d.Kind == DilemmaRules.PersistKind.Ktarian
-            && d.Held.Any(h => ReferenceEquals(h, card)
-                                || (h.InstanceId > 0 && h.InstanceId == card.InstanceId)
-                                || string.Equals(h.Name, card.Name, StringComparison.OrdinalIgnoreCase)))
+            && d.Held.Any(h => SameHeldPersonnel(h, card)))
             || _attachedDilemmas.Any(d =>
                 d.Kind == DilemmaRules.PersistKind.Ktarian
-                && d.Held.Any(h => ReferenceEquals(h, card)
-                                    || (h.InstanceId > 0 && h.InstanceId == card.InstanceId)
-                                    || string.Equals(h.Name, card.Name, StringComparison.OrdinalIgnoreCase)));
+                && d.Held.Any(h => SameHeldPersonnel(h, card)));
         bool twoDim = IsTwoDimEmpathyDisabledAboard(card);
         // Glossary hologram: deactivated (PersonnelInstance.HologramDeactivated) — not Ktarian wipe.
         bool holoDeact = IsHologramDeactivated(card);
@@ -31057,9 +31066,7 @@ public partial class TableWindow : Window
     {
         var ktarian = _attachedDilemmas.FirstOrDefault(d =>
             d.Kind == DilemmaRules.PersistKind.Ktarian
-            && d.Held.Any(h => ReferenceEquals(h, card)
-                                || (h.InstanceId > 0 && h.InstanceId == card.InstanceId)
-                                || string.Equals(h.Name, card.Name, StringComparison.OrdinalIgnoreCase)));
+            && d.Held.Any(h => SameHeldPersonnel(h, card)));
         if (ktarian != null) return ktarian;
         if (!IsTwoDimEmpathyDisabledAboard(card)) return null;
         var host = FindHostBorderForPersonnel(card);
@@ -31125,14 +31132,12 @@ public partial class TableWindow : Window
     private AttachedDilemma? FindStasisDilemmaForCard(Card card) =>
         _attachedDilemmas.FirstOrDefault(d =>
             DilemmaRules.IsStasisPersist(d.Kind)
-            && d.Held.Any(h => ReferenceEquals(h, card)
-                               || string.Equals(h.Name, card.Name, StringComparison.OrdinalIgnoreCase)));
+            && d.Held.Any(h => SameHeldPersonnel(h, card)));
 
     private AttachedDilemma? FindQuarantineDilemmaForCard(Card card) =>
         _attachedDilemmas.FirstOrDefault(d =>
             DilemmaRules.IsQuarantinePersist(d.Kind)
-            && (d.Held.Any(h => ReferenceEquals(h, card)
-                                || string.Equals(h.Name, card.Name, StringComparison.OrdinalIgnoreCase))
+            && (d.Held.Any(h => SameHeldPersonnel(h, card))
                 || IsPersonnelOnQuarantineHost(card, d.Host)));
 
     /// <summary>Anyone who joins a Hyper-Aging host becomes quarantined.</summary>
@@ -34918,6 +34923,54 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
                 return b;
         }
         return null;
+    }
+
+    /// <summary>
+    /// Save-local table row for a held crew card. Never the board InstanceId:
+    /// load looks HeldIds up as snap ids.
+    /// </summary>
+    private int? TableSnapIdForCard(Card card, Dictionary<Border, int> idOf)
+    {
+        var border = FindBorderForCard(card);
+        if (border != null && idOf.TryGetValue(border, out int byRef))
+            return byRef;
+        if (card.InstanceId <= 0) return null;
+        foreach (var kv in idOf)
+        {
+            if (kv.Key.Tag is Card c && c.InstanceId == card.InstanceId)
+                return kv.Value;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// HeldIds are snap ids. Older saves stored an InstanceId when the row was missing;
+    /// use that only when no row has this id.
+    /// </summary>
+    private static Border? BorderForHeldId(int hid, Dictionary<int, Border> byId)
+    {
+        if (hid <= 0) return null;
+        if (byId.TryGetValue(hid, out var bySnap))
+            return bySnap;
+        foreach (var b in byId.Values)
+        {
+            if (b.Tag is Card c && c.InstanceId == hid)
+                return b;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Held crew. A fogged card has an empty name; that must not match every other fogged card.
+    /// </summary>
+    private static bool SameHeldPersonnel(Card held, Card card)
+    {
+        if (held == null) return false;
+        if (ReferenceEquals(held, card)) return true;
+        if (held.InstanceId > 0 && held.InstanceId == card.InstanceId) return true;
+        if (string.IsNullOrWhiteSpace(held.Name) || string.IsNullOrWhiteSpace(card.Name))
+            return false;
+        return string.Equals(held.Name, card.Name, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string TrimDetail(string text, int max)

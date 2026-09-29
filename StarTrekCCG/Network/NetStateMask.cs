@@ -61,6 +61,7 @@ public static class NetStateMask
         var revealedIds = RevealedInstanceIds(clone);
 
         // Face-down table cards belonging to opponent: clear printed identity for viewer.
+        // Stopped and RangeLeft on the row stay.
         foreach (var snap in clone.Table)
         {
             if (snap.Owner == opponent && !snap.FaceUp)
@@ -76,6 +77,7 @@ public static class NetStateMask
         // Seed-under-mission: opponent dilemmas/artifacts stay FaceDown + nameless for Guest fog.
         // Counts (SeedUnder ChildIds / Table rows) kept so stack depth matches Host.
         // Revealed seeds keep name/set/type so the Guest detail can show the real face.
+        // Stopped and RangeLeft on the row stay. HeldIds and the reveal lists are not masked.
         if (clone.SeedUnder != null && clone.SeedUnder.Count > 0 && clone.Table != null)
         {
             var byId = clone.Table.ToDictionary(t => t.Id);
@@ -98,7 +100,8 @@ public static class NetStateMask
 
         // Occupancy / Away Team / docked ships: opponent-owned cards in host stacks are fogged.
         // Host ships/facilities/missions themselves stay named; stack children lose identity.
-        MaskOpponentStackOccupancy(clone, opponent);
+        // Stopped, RangeLeft, HeldIds, and reveal lists stay on the snapshot.
+        MaskOpponentStackOccupancy(clone, opponent, revealedIds);
 
         return clone;
     }
@@ -158,7 +161,7 @@ public static class NetStateMask
         !string.IsNullOrWhiteSpace(name)
         && name.Equals("Alien Probe", StringComparison.OrdinalIgnoreCase);
 
-    private static void MaskOpponentStackOccupancy(GameSave clone, int opponent)
+    private static void MaskOpponentStackOccupancy(GameSave clone, int opponent, HashSet<int> revealedIds)
     {
         if (clone.Stacks == null || clone.Stacks.Count == 0 || clone.Table == null)
             return;
@@ -170,7 +173,10 @@ public static class NetStateMask
             {
                 if (!byId.TryGetValue(cid, out var snap)) continue;
                 if (snap.Owner != opponent) continue;
-                // Personnel / equipment / docked ships / anything hosted — fog identity.
+                // Already shown. Keep the face so the reveal marker still resolves.
+                if (revealedIds.Contains(snap.InstanceId))
+                    continue;
+                // Printed identity only. Stopped and RangeLeft stay on this row.
                 snap.FaceUp = false;
                 snap.Name = string.Empty;
                 snap.Set = null;
