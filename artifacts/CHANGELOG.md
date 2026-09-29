@@ -1,3 +1,10 @@
+## 2026-09-29 - Personnel battle result shows who died
+
+- *Auftrag*: Pepsch. Der Kampf selbst stimmt (PERSONNEL BATTLE 5 vs 3, Data killed, Survivors stopped). Das grosse Face daneben war Koroth, und Koroth ist nicht der Tote. Ein Face nur fuer Personal, das in diesem Kampf wirklich gestorben ist. Mehrere Tote: jedes dieser Faces, kein Stellvertreter. Kein Toter: nur der Satz, kein Face. OK bleibt beim Angreifer. Das andere Fenster ohne Buttons, zu wenn der Angreifer bestaetigt. Hotseat und Guest. Wer einen Kampf initiieren darf, bleibt.
+- *Ursache, geprueft*: kein Zufall. `ResolvePendingPersonnelBattle` hat `atkCards.FirstOrDefault()` gezeigt, sonst die erste Karte der Verteidiger. Das ist die erste Karte der angreifenden Force in Stapelreihenfolge. Koroth stand dort vorn. Data stand in `Killed`.
+- *Fix*: `ShowPersonnelBattleResult`. Faces nur von Personal, das dieser Kampf wirklich entfernt hat (Discard, oder Hologramm deaktiviert). Genetronic-Rettung bleibt ohne Face. Mehrere Faces nebeneinander, auf beiden Fenstern (`faces` am Reveal). Kein Tod: Text, Rahmen zu. Abbruch im Netz ebenfalls ohne fremdes Face. Hotseat-Abbruch bleibt die Statuszeile.
+- *Scope*: TableWindow.xaml, TableWindow.xaml.cs, NetChoiceDto.cs. Kein Push master.
+
 ## 2026-09-29 - Personnel battle meet, Federation may not initiate
 
 - *Auftrag*: Pepsch nach dem Guest-Personnel-Battle. Zwei Premiere-Fehler. Gleicher Branch. Kein Push master. Hotseat gehorcht derselben Regel, nicht nur der Guest-Pfad.
