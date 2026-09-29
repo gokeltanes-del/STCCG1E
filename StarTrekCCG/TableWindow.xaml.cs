@@ -94,6 +94,11 @@ public partial class TableWindow : Window
     /// </summary>
     private bool _netGuestOrderApplying;
     /// <summary>
+    /// Other choices keep a random answer when nobody clicks.
+    /// Required-move sets this false so a blank or timed-out answer is not a destination.
+    /// </summary>
+    private bool _choiceRandomIfUnanswered = true;
+    /// <summary>
     /// Host: guest owns this attempt's prompts. Reveals/errors go out as ChoiceRequest;
     /// the Host window does not open them. Hotseat and a Host-owned attempt leave this false.
     /// </summary>
@@ -2947,6 +2952,12 @@ public partial class TableWindow : Window
             picked = cardPick?.Name ?? clean[_autoSeedRng.Next(clean.Length)];
         }
 
+        if (timed && !_choiceRandomIfUnanswered)
+        {
+            _session.Log.Add(_session.TurnNumber, $"P{decidingPlayer}", $"{title}: unanswered");
+            StatusText.Text = $"{title}: no answer.";
+            return "";
+        }
         string how = timed ? "No answer in time - random choice" : "Chosen";
         _session.Log.Add(_session.TurnNumber, $"P{decidingPlayer}",
             $"{title}: {picked}" + (timed ? " (timeout, random)" : ""));
@@ -3083,6 +3094,8 @@ public partial class TableWindow : Window
         {
             _pendingChoiceResponses.Remove(corr);
             StatusText.Text = "Net ChoiceRequest send failed: " + ex.Message;
+            if (!_choiceRandomIfUnanswered)
+                return "";
             return clean[_autoSeedRng.Next(clean.Length)];
         }
 
@@ -3091,12 +3104,25 @@ public partial class TableWindow : Window
 
         if (result != null && !string.IsNullOrWhiteSpace(result.SelectedOption))
         {
+            if (result.TimedOut == true && !_choiceRandomIfUnanswered)
+            {
+                _session.Log.Add(_session.TurnNumber, $"P{decidingPlayer}", $"{title}: unanswered");
+                StatusText.Text = $"{title}: no answer.";
+                return "";
+            }
             string picked = result.SelectedOption!;
             // Prefer exact match; else keep guest string if in list; else random.
             if (!clean.Contains(picked))
             {
                 var hit = clean.FirstOrDefault(o =>
                     string.Equals(o, picked, StringComparison.OrdinalIgnoreCase));
+                if (hit == null && !_choiceRandomIfUnanswered)
+                {
+                    _session.Log.Add(_session.TurnNumber, $"P{decidingPlayer}",
+                        $"{title}: unanswered — '{picked}' is not a destination");
+                    StatusText.Text = $"{title}: no answer.";
+                    return "";
+                }
                 picked = hit ?? clean[_autoSeedRng.Next(clean.Length)];
             }
             bool timed = result.TimedOut == true;
@@ -3106,7 +3132,14 @@ public partial class TableWindow : Window
             return picked;
         }
 
-        // Host-side timeout simulation.
+        // Host-side timeout simulation. Required-move does not invent a destination.
+        if (!_choiceRandomIfUnanswered)
+        {
+            _session.Log.Add(_session.TurnNumber, $"P{decidingPlayer}",
+                $"{title}: unanswered — ship stays");
+            StatusText.Text = $"{title}: no answer.";
+            return "";
+        }
         string fallback = clean[_autoSeedRng.Next(clean.Length)];
         _session.Log.Add(_session.TurnNumber, $"P{decidingPlayer}",
             $"{title}: {fallback} (Host timeout, random — Guest did not answer)");
@@ -10754,6 +10787,9 @@ public partial class TableWindow : Window
         // kind=choice
         _guestHandlingInboundChoice = true;
         _guestActiveChoiceCorrelationId = dto.CorrelationId;
+        bool requiredMoveAsk = string.Equals(dto.Title, "Required actions (7.10)", StringComparison.Ordinal);
+        if (requiredMoveAsk)
+            _choiceRandomIfUnanswered = false;
         try
         {
             var opts = dto.Options ?? Array.Empty<string>();
@@ -10770,10 +10806,12 @@ public partial class TableWindow : Window
                 Kind = NetChoiceDto.Kinds.Choice,
                 TargetPlayer = dto.TargetPlayer,
                 SelectedOption = picked,
-                TimedOut = _revealTimedOut
+                TimedOut = requiredMoveAsk ? string.IsNullOrEmpty(picked) : _revealTimedOut
             };
             _ = _netSession.SendChoiceResponseAsync(resp);
-            StatusText.Text = $"Net: answered choice '{dto.Title}' → {picked}";
+            StatusText.Text = string.IsNullOrEmpty(picked)
+                ? $"Net: no answer for '{dto.Title}'."
+                : $"Net: answered choice '{dto.Title}' → {picked}";
         }
         catch (Exception ex)
         {
@@ -10785,7 +10823,7 @@ public partial class TableWindow : Window
                     CorrelationId = dto.CorrelationId,
                     Kind = NetChoiceDto.Kinds.Choice,
                     TargetPlayer = dto.TargetPlayer,
-                    SelectedOption = dto.Options?.FirstOrDefault() ?? "",
+                    SelectedOption = requiredMoveAsk ? "" : (dto.Options?.FirstOrDefault() ?? ""),
                     TimedOut = true
                 });
             }
@@ -10795,6 +10833,8 @@ public partial class TableWindow : Window
         {
             _guestHandlingInboundChoice = false;
             _guestActiveChoiceCorrelationId = null;
+            if (requiredMoveAsk)
+                _choiceRandomIfUnanswered = true;
         }
     }
 
@@ -11084,6 +11124,7 @@ public partial class TableWindow : Window
             if (action.Kind is GameActionKind.AttemptMission
                 or GameActionKind.InitiatePersonnelBattle
                 or GameActionKind.InitiateShipBattle
+                or GameActionKind.Fly
                 or GameActionKind.Download
                 or GameActionKind.FlipHiddenAgenda
                 or GameActionKind.Cloak)
@@ -12855,6 +12896,8 @@ public partial class TableWindow : Window
             StatusText.Text = "Net Fly ignored: not in Execute segment.";
             return false;
         }
+        if (_session.ActivePlayer is 1 or 2)
+            _activePlayer = _session.ActivePlayer;
 
         var ship = action.Card;
         var dest = action.Target;
@@ -16610,7 +16653,8 @@ public partial class TableWindow : Window
     /// <summary>
     /// Execute: Schiff-Bewegung mit Staffing + RANGE. Bei Fehler Ursprung beibehalten.
     /// </summary>
-    private bool TryMoveShipWithRules(Border shipBorder, Card ship, Border? fromMission, Border toMission)
+    private bool TryMoveShipWithRules(Border shipBorder, Card ship, Border? fromMission, Border toMission,
+        Border? knownRequiredDest = null)
     {
         if (_seedPhaseActive) return true;
         if (_session.Match != GameSession.MatchPhase.Play)
@@ -16668,10 +16712,16 @@ public partial class TableWindow : Window
             return false;
         }
 
-        var imBlock = IncomingMessageMoveCheck(shipBorder, fromMission, toMission, uiFrom, uiTo);
+        var imBlock = IncomingMessageMoveCheck(shipBorder, fromMission, toMission, uiFrom, uiTo, knownRequiredDest);
         if (imBlock != null)
         {
-            ShowPlayError(imBlock);
+            // Owner was asked. A Guest ship does not open the dialog on the Host.
+            int moveOwner = RequiredMoveShipOwner(shipBorder);
+            if (_gameMode == GameMode.Network && _netSession is { IsHost: true }
+                && moveOwner != _netSession.LocalPlayer)
+                NoteInitiationRefused(imBlock);
+            else
+                ShowPlayError(imBlock);
             return false;
         }
 
@@ -26838,9 +26888,18 @@ public partial class TableWindow : Window
     private bool ShipHasRequiredMove(Border ship) => CollectRequiredMoveDests(ship).Count > 0;
 
     private string? IncomingMessageMoveCheck(Border ship, Border? fromMission, Border toMission,
-        int fromIdx, int toIdx)
+        int fromIdx, int toIdx, Border? knownRequiredDest = null)
     {
-        var dest = RequiredMoveDestination(ship);
+        Border? dest;
+        if (knownRequiredDest != null)
+            dest = knownRequiredDest;
+        else
+        {
+            var asked = RequiredMoveDestination(ship);
+            if (asked.Refused)
+                return "Required move: choose a destination.";
+            dest = asked.Dest;
+        }
         if (dest == null) return null;
         // E6: hop geometry on BoardStore Locations (same line / Span as Fly); paint list unused here.
         var line = FlyBoardLine(fromMission ?? dest);
@@ -26965,17 +27024,70 @@ public partial class TableWindow : Window
         return list;
     }
 
-    private Border? RequiredMoveDestination(Border ship)
+    /// <summary>
+    /// Who must fly this ship. Table owner, then controller, then printed owner.
+    /// Not the canvas side of this window — that side flips with the viewer.
+    /// </summary>
+    private int RequiredMoveShipOwner(Border ship)
+    {
+        if (_borderOwner.TryGetValue(ship, out int bordered) && bordered is 1 or 2)
+            return bordered;
+        if (ship.Tag is Card c)
+        {
+            if (c.Controller is 1 or 2) return c.Controller;
+            if (c.OwnerPlayer is 1 or 2) return c.OwnerPlayer;
+        }
+        return _activePlayer is 1 or 2 ? _activePlayer : 1;
+    }
+
+    /// <summary>
+    /// Several required actions: the ship owner picks the destination.
+    /// One destination: no question. Guest does not pick and does not invent one.
+    /// A blank or unmatched answer is refused (the ship stays). Hotseat still
+    /// falls back to the first destination, as before.
+    /// </summary>
+    private (Border? Dest, bool Refused) RequiredMoveDestination(Border ship)
     {
         var opts = CollectRequiredMoveDests(ship);
-        if (opts.Count == 0) return null;
-        if (opts.Count == 1) return opts[0].Dest;
-        string picked = AskChoice(null, "Required actions (7.10)",
-            "Several required actions apply. Resolve them in any order — pick one destination.",
-            opts.Select(o => o.Label + " → " + ((o.Dest.Tag as Card)?.Name ?? "?")).ToArray());
-        if (string.IsNullOrEmpty(picked)) return opts[0].Dest;
-        var hit = opts.FirstOrDefault(o => picked.StartsWith(o.Label, StringComparison.OrdinalIgnoreCase));
-        return hit.Dest ?? opts[0].Dest;
+        if (opts.Count == 0) return (null, false);
+        if (opts.Count == 1) return (opts[0].Dest, false);
+
+        // Rule: 7.10 — order of required actions is the ship owner's choice.
+        if (_gameMode == GameMode.Network && _netSession is { IsGuest: true })
+            return (null, true);
+
+        int shipOwner = RequiredMoveShipOwner(ship);
+        string[] labels = opts.Select(o =>
+            o.Label + " → " + ((o.Dest.Tag as Card)?.Name ?? "?")).ToArray();
+        bool network = _gameMode == GameMode.Network && _netSession != null;
+        _choiceRandomIfUnanswered = !network;
+        string picked;
+        try
+        {
+            picked = AskChoiceForPlayer(shipOwner, ship.Tag as Card, "Required actions (7.10)",
+                "Several required actions apply. Resolve them in any order — pick one destination.",
+                labels);
+        }
+        finally
+        {
+            _choiceRandomIfUnanswered = true;
+        }
+
+        int idx = -1;
+        if (!string.IsNullOrEmpty(picked))
+        {
+            idx = Array.FindIndex(labels, l =>
+                string.Equals(l, picked, StringComparison.OrdinalIgnoreCase));
+            if (idx < 0)
+                idx = opts.FindIndex(o =>
+                    picked.StartsWith(o.Label, StringComparison.OrdinalIgnoreCase));
+        }
+        if (idx < 0 || opts[idx].Dest == null)
+        {
+            if (network) return (null, true);
+            return (opts[0].Dest, false);
+        }
+        return (opts[idx].Dest, false);
     }
 
     private Border? IncomingMessageDestMission(AttachedEvent im)
@@ -26987,6 +27099,10 @@ public partial class TableWindow : Window
 
     private void ProcessIncomingMessageMoves(int player)
     {
+        // Guest draws the choice and the later broadcast. It does not move the ship.
+        if (_gameMode == GameMode.Network && _netSession is { IsGuest: true })
+            return;
+
         var ships = TableCanvas.Children.OfType<Border>()
             .Where(b => b.Tag is Card c && IsShipCard(c) && CollectRequiredMoveDests(b).Count > 0)
             .ToList();
@@ -26997,23 +27113,31 @@ public partial class TableWindow : Window
             if (o == 0) o = 1;
             if (o != player) continue;
 
-            if (IsShipDocked(shipB))
-            {
-                SetShipDockedAt(shipB, null);
-                _session.Log.Add(_session.TurnNumber, $"P{player}",
-                    $"{ship.Name} undocks (required move 7.10)");
-            }
-
+            bool undocked = false;
             int guard = 0;
             while (guard++ < 20 && GetRemainingRange(shipB, ship) > 0)
             {
                 var from = FindMissionForDockable(shipB);
-                var dest = RequiredMoveDestination(shipB);
+                var (dest, refused) = RequiredMoveDestination(shipB);
                 if (from == null || dest == null)
                 {
-                    _session.Log.Add(_session.TurnNumber, "sys",
-                        $"IM {ship.Name}: no from/dest (from={(from?.Tag as Card)?.Name ?? "—"})");
+                    if (refused)
+                    {
+                        StatusText.Text = $"Required move: {ship.Name} stays — no destination chosen.";
+                        _session.Log.Add(_session.TurnNumber, $"P{o}",
+                            $"IM {ship.Name}: destination unanswered — ship stays");
+                    }
+                    else
+                        _session.Log.Add(_session.TurnNumber, "sys",
+                            $"IM {ship.Name}: no from/dest (from={(from?.Tag as Card)?.Name ?? "—"})");
                     break;
+                }
+                if (!undocked && IsShipDocked(shipB))
+                {
+                    SetShipDockedAt(shipB, null);
+                    undocked = true;
+                    _session.Log.Add(_session.TurnNumber, $"P{player}",
+                        $"{ship.Name} undocks (required move 7.10)");
                 }
                 if (ReferenceEquals(from, dest))
                 {
@@ -27041,7 +27165,7 @@ public partial class TableWindow : Window
                         $"IM {ship.Name}: no UI face for {stepLoc.Label}");
                     break;
                 }
-                if (!TryMoveShipWithRules(shipB, ship, from, step))
+                if (!TryMoveShipWithRules(shipB, ship, from, step, dest))
                 {
                     _session.Log.Add(_session.TurnNumber, "sys",
                         $"IM hop failed {ship.Name} → {(step.Tag as Card)?.Name}: {StatusText.Text}");
