@@ -46,6 +46,19 @@ public sealed class GameSave
     [JsonPropertyName("seedUnder")]
     public List<StackSnap> SeedUnder { get; set; } = new();
 
+    /// <summary>
+    /// Dilemma seeds already encountered and still under the mission.
+    /// Unrevealed seeds are omitted. Both players may see these faces.
+    /// </summary>
+    [JsonPropertyName("revealedSeeds")]
+    public List<RevealedUnderSnap> RevealedSeeds { get; set; } = new();
+
+    /// <summary>
+    /// Artifacts revealed during an attempt and not yet acquired.
+    /// </summary>
+    [JsonPropertyName("revealedArtifacts")]
+    public List<RevealedUnderSnap> RevealedArtifacts { get; set; } = new();
+
     [JsonPropertyName("spaceline")]
     public List<int> Spaceline { get; set; } = new();
 
@@ -143,6 +156,16 @@ public sealed class StackSnap
 {
     public int HostId { get; set; }
     public List<int> ChildIds { get; set; } = new();
+}
+
+/// <summary>Mission column + card, both by board InstanceId (not save-local snap id).</summary>
+public sealed class RevealedUnderSnap
+{
+    [JsonPropertyName("missionInstanceId")]
+    public int MissionInstanceId { get; set; }
+
+    [JsonPropertyName("cardInstanceId")]
+    public int CardInstanceId { get; set; }
 }
 
 public sealed class AttachedEventSnap

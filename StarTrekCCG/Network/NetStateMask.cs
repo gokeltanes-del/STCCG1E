@@ -56,11 +56,17 @@ public static class NetStateMask
             clone.Zones[key] = list.Select(MaskCardRef).ToList();
         }
 
+        // Already encountered: dilemma still under the mission, or artifact not yet acquired.
+        // Those faces are public. Unrevealed seeds stay nameless.
+        var revealedIds = RevealedInstanceIds(clone);
+
         // Face-down table cards belonging to opponent: clear printed identity for viewer.
         foreach (var snap in clone.Table)
         {
             if (snap.Owner == opponent && !snap.FaceUp)
             {
+                if (revealedIds.Contains(snap.InstanceId))
+                    continue;
                 snap.Name = string.Empty;
                 snap.Set = null;
                 snap.Type = null;
@@ -69,6 +75,7 @@ public static class NetStateMask
 
         // Seed-under-mission: opponent dilemmas/artifacts stay FaceDown + nameless for Guest fog.
         // Counts (SeedUnder ChildIds / Table rows) kept so stack depth matches Host.
+        // Revealed seeds keep name/set/type so the Guest detail can show the real face.
         if (clone.SeedUnder != null && clone.SeedUnder.Count > 0 && clone.Table != null)
         {
             var byId = clone.Table.ToDictionary(t => t.Id);
@@ -78,6 +85,8 @@ public static class NetStateMask
                 {
                     if (!byId.TryGetValue(cid, out var snap)) continue;
                     if (snap.Owner != opponent) continue;
+                    if (revealedIds.Contains(snap.InstanceId))
+                        continue;
                     snap.FaceUp = false;
                     snap.Name = string.Empty;
                     snap.Set = null;
@@ -92,6 +101,25 @@ public static class NetStateMask
         MaskOpponentStackOccupancy(clone, opponent);
 
         return clone;
+    }
+
+    /// <summary>InstanceIds of seeds/artifacts already revealed under a mission.</summary>
+    private static HashSet<int> RevealedInstanceIds(GameSave save)
+    {
+        var ids = new HashSet<int>();
+        if (save.RevealedSeeds != null)
+        {
+            foreach (var r in save.RevealedSeeds)
+                if (r != null && r.CardInstanceId > 0)
+                    ids.Add(r.CardInstanceId);
+        }
+        if (save.RevealedArtifacts != null)
+        {
+            foreach (var r in save.RevealedArtifacts)
+                if (r != null && r.CardInstanceId > 0)
+                    ids.Add(r.CardInstanceId);
+        }
+        return ids;
     }
 
     /// <summary>Glossary Alien Probe on table / attached — both hands revealed.</summary>

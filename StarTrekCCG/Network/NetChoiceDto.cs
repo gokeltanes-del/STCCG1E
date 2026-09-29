@@ -63,6 +63,10 @@ public sealed class NetChoiceDto
     [JsonPropertyName("subtitle")]
     public string? Subtitle { get; set; }
 
+    /// <summary>Mission column InstanceId. Seed-reveal fly-in starts there. 0 = no origin.</summary>
+    [JsonPropertyName("originInstanceId")]
+    public int OriginInstanceId { get; set; }
+
     [JsonPropertyName("timeoutMs")]
     public int? TimeoutMs { get; set; }
 
