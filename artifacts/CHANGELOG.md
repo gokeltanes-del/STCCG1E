@@ -1,3 +1,8 @@
+﻿## 2026-09-29 - AttemptMission network (Guest intent, Host apply)
+
+- *Auftrag*: AttemptMission netzfaehig. Guest laeuft den Versuch nicht lokal gegen maskierte Seeds. Host wertet echte Seeds / MissionRules / DilemmaRules ueber denselben TryAttemptMission-Pfad wie Hotseat. Danach maskierter Broadcast. Yes/No im Dilemma ueber AskChoiceForPlayer. Kein PickCardFromList-Refactor, kein PersonnelBattle, keine KI, keine Phase-5.
+- *Fix*: GameAction.AttemptMission(player, mission, attemptingShip?). NetActionDto InstanceIds bleiben [card, target, target2]. IsNetSyncKindSupported + TryApplyNetAttemptMission. Guest SendGuestActionAsync und return. SEARCH: Verb: attempt-mission; Rule: 7.2.
+- *Scope*: GameAction.cs, NetActionDto.cs, EngineAuthority.cs, TableWindow.xaml.cs. Basis master 8083785 + Josef docs f044338. Karten nicht auf working. Kein Push master.
 ## 2026-09-28 - Spaceline Insert: Q-Net/Gaps as columns (Dual-EXE)
 
 - Q-Net und Gaps sind eigene `_spacelineOrder`-Spalten zwischen den Endpunkt-Missionen (Mission | Span | Mission), nicht nur Gap-Mid-Overlay.
@@ -7,18 +12,16 @@
 
 
 
-- PlayCard löst nur aus der Hand des handelnden Spielers bzw. frischem Seed, nie über Table-Name (#268).
+- PlayCard lÃ¶st nur aus der Hand des handelnden Spielers bzw. frischem Seed, nie Ã¼ber Table-Name (#268).
 - Host-Wahrheit: `MissionIds` + `Spans[{SpanInstanceId,Kind,Left,Right}]`. Guest Apply nur aus Snapshot.
-- `DumpSpacelineTruth` bleibt (`STCCG_DUMP_SPACELINE=1`). AskChoice-Pfade `ab2e67a` unverändert.
+- `DumpSpacelineTruth` bleibt (`STCCG_DUMP_SPACELINE=1`). AskChoice-Pfade `ab2e67a` unverÃ¤ndert.
 - Scope: TableWindow + Network. Tip-Hash `b4aca0e`. Basis `563d3eb`.
 
-## 2026-09-28 - Dual-EXE spaceline Host↔Guest Capture/Apply (SpacelineInstanceIds)
+## 2026-09-28 - Dual-EXE spaceline Hostâ†”Guest Capture/Apply (SpacelineInstanceIds)
 
-- Mission-Spalten-InstanceIds Host→Guest rund; Spans bleiben Overlay.
-- AskChoiceForPlayer / RunKidnappers / PickHandCardToDiscard unverändert (`ab2e67a`).
+- Mission-Spalten-InstanceIds Hostâ†’Guest rund; Spans bleiben Overlay.
+- AskChoiceForPlayer / RunKidnappers / PickHandCardToDiscard unverÃ¤ndert (`ab2e67a`).
 - Tip-Hash `563d3eb`. Basis `2d7acc7`.
-
-
 
 - *Auftrag (FREIGABE Option B)*: Analyse `GROK_TEMP/spaceline-span-sync-analysis.md` befolgen - eine Wahrheit: Order=Missionen; Spans=Overlay Endpoints; Capture ohne Spans; Relayout+PaintSpans; Seed/Index mission-only; BoardStore aus Paar. Kein Hybrid. TAK ab2e67a / Overlay a9af295 unangetastet. Kein Refactor C.
 - *Root cause*: Hybrid seit 5b043b0 - Relayout missions-only Paint, aber PlaceSpan/Pin inserteten Spans weiter in `_spacelineOrder` + `save.Spaceline`; Seed/IndexOfMission span-verseucht; Dual-EXE Float/Desync.
@@ -27,14 +30,14 @@
 ## 2026-09-28 - Q-Net second span no Extra-Width stack + SWB Face choice
 
 - *Auftrag (FREIGABE)*: Tip fef7075 unzureichend - Dual-EXE: zweites Q-Net stackt auf erstem + grosses Horizontal-Loch; SWB Choice Text/schwarz statt Face. Soll: Gap=Mission-InstanceIds; Render Gap-Mid/SpacelineY; Span kein Extra-Width; SWB Face-Strip. TAK ab2e67a / Overlay a9af295 unangetastet.
-- *Root cause*: RelayoutMissionsOnSpaceline behandelte Q-Net/Gaps als volle Display-Spalten (TableCardWidth+MissionGap), Pin verschob Barrieren auf Gap-Mid → leeres Loch + optischer Stack; SpanEndpoints konnte Non-Mission-Hosts akzeptieren. SWB AskChoiceLocal erzeugte Fake-Cards Type=Choice ohne FullImagePath → Text/schwarz statt Face.
-- *Fix*: Relayout-Spalten nur Missionen/Time; alle Spaceline-Spans overlay Gap-Mid (Pin); AsMissionEndpointBorder (nie Span-auf-Span); PlaceSpan vor rechter Mission. SWB: TryMapChoiceOptionsToHandCards → PickCardFromList Face; Result ShowCardReveal Face. TAK Typ-YesNo unveraendert.
+- *Root cause*: RelayoutMissionsOnSpaceline behandelte Q-Net/Gaps als volle Display-Spalten (TableCardWidth+MissionGap), Pin verschob Barrieren auf Gap-Mid â†’ leeres Loch + optischer Stack; SpanEndpoints konnte Non-Mission-Hosts akzeptieren. SWB AskChoiceLocal erzeugte Fake-Cards Type=Choice ohne FullImagePath â†’ Text/schwarz statt Face.
+- *Fix*: Relayout-Spalten nur Missionen/Time; alle Spaceline-Spans overlay Gap-Mid (Pin); AsMissionEndpointBorder (nie Span-auf-Span); PlaceSpan vor rechter Mission. SWB: TryMapChoiceOptionsToHandCards â†’ PickCardFromList Face; Result ShowCardReveal Face. TAK Typ-YesNo unveraendert.
 - *Scope*: TableWindow.xaml.cs. Tip-Hash 5b043b0. Basis fef7075 / Docs 53481c3. Overlay/TAK unberuehrt. Kein Push.
 
 ## 2026-09-28 - Spaceline span gap = mission InstanceIds + Host dock recover (Q-Net)
 
-- *Auftrag (FREIGABE)*: Tip 6acacd4 unzureichend — Dual-EXE Screenshot: RECHTS (P2) 2 Q-Nets Row-Center OK + Facility unter Mission; LINKS (P1) Spaceline horizontal versetzt/clipped, nur 1 Q-Net + purple Highlight, Facility oben-links clipped. Soll: Gap = zwei Mission-InstanceIds; Render Row-Center gleich auf jedem Client. Generisch Spans. TAK ab2e67a / Overlay a9af295 unangetastet.
-- *Root cause*: 6acacd4 pinte Span-Y/X und landInst=own, aber (1) CaptureGameSave speicherte Span-Endpoints nur als ephemeral save-local HostId (nicht Mission-InstanceIds); (2) Host-Lokal-Relayout nach PlaceSpan rief EnsureBoardExtents mitten in der Mission-Schleife und pinte Docks nie per Spalte (Guest ApplyGameSave schon via PinDockablesToSpacelineByColumn) — orphan Facility top-left → Extents-Shift → Spaceline clipped / 2. Q-Net weg; (3) Fly-in TargetNorm vom Host ist viewer-fenster-relativ.
+- *Auftrag (FREIGABE)*: Tip 6acacd4 unzureichend â€” Dual-EXE Screenshot: RECHTS (P2) 2 Q-Nets Row-Center OK + Facility unter Mission; LINKS (P1) Spaceline horizontal versetzt/clipped, nur 1 Q-Net + purple Highlight, Facility oben-links clipped. Soll: Gap = zwei Mission-InstanceIds; Render Row-Center gleich auf jedem Client. Generisch Spans. TAK ab2e67a / Overlay a9af295 unangetastet.
+- *Root cause*: 6acacd4 pinte Span-Y/X und landInst=own, aber (1) CaptureGameSave speicherte Span-Endpoints nur als ephemeral save-local HostId (nicht Mission-InstanceIds); (2) Host-Lokal-Relayout nach PlaceSpan rief EnsureBoardExtents mitten in der Mission-Schleife und pinte Docks nie per Spalte (Guest ApplyGameSave schon via PinDockablesToSpacelineByColumn) â€” orphan Facility top-left â†’ Extents-Shift â†’ Spaceline clipped / 2. Q-Net weg; (3) Fly-in TargetNorm vom Host ist viewer-fenster-relativ.
 - *Fix*: AttachedEventSnap HostInstanceId/Host2InstanceId board-absolut; Apply/SpanEndpoints/BuildSpacelineDisplayOrder per InstanceId; EnsureBoardExtents deferred + einmal am Ende; PinDockablesToSpacelineByColumn nach Span-Relayout (Host=Guest); Pin stellt Opacity wieder her; Fly-in ignoriert Host-TargetNorm fuer Spans.
 - *Scope*: GameSave.cs + TableWindow.xaml.cs. Tip-Hash fef7075. Basis ab2e67a / Docs 2e20f8e. Overlay a9af295 unberuehrt. Kein Push.
 ## 2026-09-28 - TAK + SWB Choice via AskChoiceForPlayer (Owner-Fenster)
@@ -51,10 +54,10 @@
 - *Scope*: TableWindow.xaml.cs. Tip-Hash 6acacd4. Basis 0443f37 / Docs d307c09. Overlay a9af295 unberuehrt. Kein Push.
 ## 2026-09-28 - Spaceline Span Y always SpacelineY-centered (Q-Net Nachzieher)
 
-- *Auftrag (FREIGABE)*: Tip 3bc7e49 unzureichend — Dual-EXE P2 Q-Net: P2 (rechts) vertikal zentriert in Lücke OK; P1 (links) dünner Streifen am oberen Rand / massiver Y-Offset nach oben (Clipping), horizontal OK. Q-Net soll Spaceline-Y-zentriert sein, nicht Owner-Dock oben/unten. Generisch Gaps/Q-Net/Spaceline-Spans.
-- *Root cause*: Board-absolute Dock-Y (3bc7e49) reicht nicht für Span-Zeile — `IsSpacelineSpanCard` nur ResolvePlay; Apply `FromBoardAbsoluteY(owner)` für Nicht-Row; orphan Spans fehlen in `_spacelineOrder` nach Load; Relayout soft-invalidate orphaned Fly-in-Ghost bei Opacity=0; Host PlaceSpan/Relayout ohne harten SpacelineY-Pin nach Dock/EnsureBoardExtents.
-- *Fix*: `IsSpacelineSpanCard` Name-first (Q-Net/Gaps) + `IsSpacelineRowCard`; ApplyGameSave erzwingt `SpacelineY` für Row-Karten (kein Owner-FromBoardAbsoluteY); `PinSpacelineSpanCardsY` nach Relayout/Apply (Top=SpacelineY+Identity, Orphans aus AttachedEvent); PlaceSpan Identity; soft-invalidate restored Ghost Opacity.
-- *Scope*: TableWindow.xaml.cs. Tip-Hash 0443f37. Basis a9af295 / Docs 3be0892. Overlay unberührt. Kein Push.
+- *Auftrag (FREIGABE)*: Tip 3bc7e49 unzureichend â€” Dual-EXE P2 Q-Net: P2 (rechts) vertikal zentriert in LÃ¼cke OK; P1 (links) dÃ¼nner Streifen am oberen Rand / massiver Y-Offset nach oben (Clipping), horizontal OK. Q-Net soll Spaceline-Y-zentriert sein, nicht Owner-Dock oben/unten. Generisch Gaps/Q-Net/Spaceline-Spans.
+- *Root cause*: Board-absolute Dock-Y (3bc7e49) reicht nicht fÃ¼r Span-Zeile â€” `IsSpacelineSpanCard` nur ResolvePlay; Apply `FromBoardAbsoluteY(owner)` fÃ¼r Nicht-Row; orphan Spans fehlen in `_spacelineOrder` nach Load; Relayout soft-invalidate orphaned Fly-in-Ghost bei Opacity=0; Host PlaceSpan/Relayout ohne harten SpacelineY-Pin nach Dock/EnsureBoardExtents.
+- *Fix*: `IsSpacelineSpanCard` Name-first (Q-Net/Gaps) + `IsSpacelineRowCard`; ApplyGameSave erzwingt `SpacelineY` fÃ¼r Row-Karten (kein Owner-FromBoardAbsoluteY); `PinSpacelineSpanCardsY` nach Relayout/Apply (Top=SpacelineY+Identity, Orphans aus AttachedEvent); PlaceSpan Identity; soft-invalidate restored Ghost Opacity.
+- *Scope*: TableWindow.xaml.cs. Tip-Hash 0443f37. Basis a9af295 / Docs 3be0892. Overlay unberÃ¼hrt. Kein Push.
 
 ## 2026-09-28 - Responsive Detail/Choice-Overlays (Fensterbreite)
 
@@ -72,8 +75,8 @@
 
 ## 2026-09-28 - Action History Kartenreihe + Play-Detail-Popup weg
 
-- *Auftrag (FREIGABE Punkt 3)*: Action History drittes Fenster = horizontale Reihe zuletzt gespielter Karten (Face, Scroll); P1=Grün / P2=Blau; Klick = Detail/Text. Große zentrale Detail/Reveal-Popup beim Ausspielen (z.B. Interrupt Long-Range Scan mit OK) entfernen — Fly-in ersetzt Reveal; Nachlesen über History-Kartenreihe.
-- *Fix*: HistoryOverlay höher (MinHeight 720); `PlayHistoryStrip` unten; `RecordPlayHistory` an `NotifyPlayReveal` (Host/Solo) + `OnNetPlayRevealReceived` (Guest) — Network-First gleiche Reihe ohne neues Net-Message. Interrupt-Splash `ShowCardReveal(card,"Interrupt",…OK)` entfernt; Long-Range-Scan-Ergebnis → StatusText+Log (kein modal OK). Fly-in unverändert.
+- *Auftrag (FREIGABE Punkt 3)*: Action History drittes Fenster = horizontale Reihe zuletzt gespielter Karten (Face, Scroll); P1=GrÃ¼n / P2=Blau; Klick = Detail/Text. GroÃŸe zentrale Detail/Reveal-Popup beim Ausspielen (z.B. Interrupt Long-Range Scan mit OK) entfernen â€” Fly-in ersetzt Reveal; Nachlesen Ã¼ber History-Kartenreihe.
+- *Fix*: HistoryOverlay hÃ¶her (MinHeight 720); `PlayHistoryStrip` unten; `RecordPlayHistory` an `NotifyPlayReveal` (Host/Solo) + `OnNetPlayRevealReceived` (Guest) â€” Network-First gleiche Reihe ohne neues Net-Message. Interrupt-Splash `ShowCardReveal(card,"Interrupt",â€¦OK)` entfernt; Long-Range-Scan-Ergebnis â†’ StatusText+Log (kein modal OK). Fly-in unverÃ¤ndert.
 - *Scope*: TableWindow.xaml + TableWindow.xaml.cs. Tip-Hash acfb554. Basis 5c29f7b / Docs 1720a73. Keine Gaps/Q-Net. Docs separat. Kein Push.
 
 ## 2026-09-28 - Host->Guest PlayReveal Face Catalog + Gaps Guest-Drop
@@ -85,73 +88,73 @@
 
 ## 2026-09-28 - Guest/P2 Play-Pfad TAK Persist + Interrupt Fly-in + Face
 
-- *Bugfix (Pepsch Dual-EXE Host=P1 Guest=P2)*: (1) Interrupt auf Schiff/Board → kein Fly-in; (2) Telepathic Alien Kidnappers als P2 tot, P1 ok; (3) viele P2 Fly-ins schwarz/Face fehlt.
-- *Root cause A–D*:
-  - A) Guest Action-only + Host TryApply+State grundsätzlich ok; TABLE-Events gingen Commit-only (kein gemeinsamer Resolve-Pfad).
-  - B) Interrupt PlayReveal feuert (BeginPlayCardStack/NotifyPlayReveal; Respond synced); Guest-Kill durch ClearTableCards/RelayoutAllDockables → InvalidatePlayFlyInTargets (State/Relayout-Race nach PlayReveal).
-  - C) Face: Stub ohne FullImagePath; Lookup ohne Discard; Background #111 → schwarz wenn Source null.
-  - D) P2 TAK: Host TryApplyNetPlayCard CommitCardToTable ohne TryResolveEventPlay → Persist.Kidnappers nie registriert (P1 Stack→TryResolveEventPlay ok).
+- *Bugfix (Pepsch Dual-EXE Host=P1 Guest=P2)*: (1) Interrupt auf Schiff/Board â†’ kein Fly-in; (2) Telepathic Alien Kidnappers als P2 tot, P1 ok; (3) viele P2 Fly-ins schwarz/Face fehlt.
+- *Root cause Aâ€“D*:
+  - A) Guest Action-only + Host TryApply+State grundsÃ¤tzlich ok; TABLE-Events gingen Commit-only (kein gemeinsamer Resolve-Pfad).
+  - B) Interrupt PlayReveal feuert (BeginPlayCardStack/NotifyPlayReveal; Respond synced); Guest-Kill durch ClearTableCards/RelayoutAllDockables â†’ InvalidatePlayFlyInTargets (State/Relayout-Race nach PlayReveal).
+  - C) Face: Stub ohne FullImagePath; Lookup ohne Discard; Background #111 â†’ schwarz wenn Source null.
+  - D) P2 TAK: Host TryApplyNetPlayCard CommitCardToTable ohne TryResolveEventPlay â†’ Persist.Kidnappers nie registriert (P1 Stackâ†’TryResolveEventPlay ok).
 - *Fix*: Net Events via TryResolveEventPlay (TAK Persist/Instant); Soft-Invalidate (Ghost-only) bei ApplyGameSave/Relayout wenn Fly-in aktiv; FindLiveCardWithArt + Discard/OOP in Lookup; Face gleiche Source wie Hand.
 - *Scope*: TableWindow.xaml.cs. Tip-Hash 591fba3. Basis f005c71 / Docs b8828fb. Kein Action-History; keine Gaps/Q-Net. Docs separat. Kein Push.
 
 ## 2026-09-28 - Play Fly-in Event/Interrupt Target + P2 Face
 
-- *Bugfix (Pepsch, nach Tip df1259e)*: Event/Interrupt auf Spielziel (Bynars/Spacedock auf Schiff) — P1 ok, **P2 landet TABLE** rechts statt am Target-Ship/Slot; manchmal P2 einfliegende Karte **schwarz** (Face nicht geladen).
+- *Bugfix (Pepsch, nach Tip df1259e)*: Event/Interrupt auf Spielziel (Bynars/Spacedock auf Schiff) â€” P1 ok, **P2 landet TABLE** rechts statt am Target-Ship/Slot; manchmal P2 einfliegende Karte **schwarz** (Face nicht geladen).
 - *Root cause*: Net TryApplyNetPlayCard behandelte jedes Event als TABLE wegen IsTablePermanentType(Event)==true (Hosted-Branch unerreichbar); Fly-in Land nur eigene Slot/TABLE-Bounds, kein Play-Action Target; Guest Face oft Stub ohne FullImagePath / Source=null vor Anim.
-- *Fix*: NetPlayRevealDto.TargetInstanceId; Land = Target-InstanceId → aktuelle Bounds (Host/Guest gleich); EnsurePlayFlyInCardArt + TryLoadPlayFlyInFace vor BeginAnimation; Net PlaysOnHost via TryResolveEventPlay/AttachCardToHost. Network-First PlayReveal beibehalten. Pipeline df1259e erhalten.
+- *Fix*: NetPlayRevealDto.TargetInstanceId; Land = Target-InstanceId â†’ aktuelle Bounds (Host/Guest gleich); EnsurePlayFlyInCardArt + TryLoadPlayFlyInFace vor BeginAnimation; Net PlaysOnHost via TryResolveEventPlay/AttachCardToHost. Network-First PlayReveal beibehalten. Pipeline df1259e erhalten.
 - *Scope*: NetPlayRevealDto + TableWindow.xaml.cs. Tip-Hash f005c71. Basis df1259e / Docs 74dede6. Kein Action-History; keine Gaps/Q-Net. Docs separat. Kein Push.
 
 ## 2026-09-27 - Play Fly-in Ziel stale (Outpost nach Relayout/Neuspield)
 
 - *Bugfix (Pepsch, nach Tip 857ab9e)*: Personnel fliegen zum **alten Outpost-Punkt vom vorigen Spiel**; Ziel folgt nicht dem aktuellen legalen Snap-Fenster / Facility-Bounds nach Relayout.
-- *Root cause*: Stack-Pers/Eq bleiben Collapsed mit Host-AbsoluteLeft (Drop/Save); TargetNorm wurde vor Relayout gecacht und als Fallback genutzt; Guest mass Slot vor ScheduleRelayoutAfterLoadSettle — Facility schon verschoben, Kind-Border stale.
+- *Root cause*: Stack-Pers/Eq bleiben Collapsed mit Host-AbsoluteLeft (Drop/Save); TargetNorm wurde vor Relayout gecacht und als Fallback genutzt; Guest mass Slot vor ScheduleRelayoutAfterLoadSettle â€” Facility schon verschoben, Kind-Border stale.
 - *Fix*: FindPlayFlyInLandBorder = Host-Facility/Ship nach Layout (Pers/Eq), sonst eigener Face/TABLE; SyncPlayFlyInStackedCardBounds bei Relayout + AddCardToHostStack; TargetNorm erst zur Animation (Loaded); InvalidatePlayFlyInTargets bei ClearTableCards / RelayoutAllDockables. Ship/Event unveraendert Live-Land-Bounds. Pipeline 857ab9e erhalten.
 - *Scope*: TableWindow.xaml.cs. Tip-Hash df1259e. Basis 857ab9e / Docs fd8450b. Kein Action-History; keine Gaps/Q-Net. Docs separat. Kein Push.
 
 ## 2026-09-27 - Play Fly-in Nachzieher Ziel/Perspektive/Doppel (Pepsch-Video)
 
-- *Bugfix (Pepsch, Video nach Tip 034aec2)*: (1) Zielkoordinaten falsch — Ship/Event fliegen in leeren Spaceline-Raum/Ecke statt Outpost bzw. Core/TABLE; (2) P2-Play startet bei P1 von unterer Hand statt Gegner-Hand oben; (3) echte Karte am Ziel schon während Fly (Doppel); (4) Snap/Jump am Outpost (End≠Slot); (5) Mitte blanker schwarzer Rücken statt Face (Beverly P2); (6) Tempo ~4s zu langsam.
-- *Root cause*: Host `TargetNorm` ist Host-viewer-relativ und wurde auf Guest bevorzugt → falsche Y; `FindBorderForCard` sucht nur `TableCanvas` (TABLE-Events unsichtbar); Ghost nur Opacity-Ref ohne InstanceId → Rebuild zeigt Slot wieder; `endScale=1` statt Slot-Bounds; Face nur `card.FullImagePath` (oft leer nach Net-Stub); Timing 1.7+1.2+1.3s.
-- *Fix*: Landing **lokale** Slot-Bounds zuerst (`FindPlayFlyInSlotBorder` = Canvas + TABLE-Minis); Host-TargetNorm nur Fallback; `card.Controller` für Hand-Start viewer-relativ (kein Own-Strip-Fallback); Ghost `_playFlyInHiddenInstanceId` + Rebuild/AddCardToTable; End-Transform = Slot Center+Size; Face via DB-Prototype wie Hand-Reveal; Tempo ~1.0+0.7+0.9s (~2.6–2.8s). Network-First PlayReveal / Pipeline 034aec2 behalten.
+- *Bugfix (Pepsch, Video nach Tip 034aec2)*: (1) Zielkoordinaten falsch â€” Ship/Event fliegen in leeren Spaceline-Raum/Ecke statt Outpost bzw. Core/TABLE; (2) P2-Play startet bei P1 von unterer Hand statt Gegner-Hand oben; (3) echte Karte am Ziel schon wÃ¤hrend Fly (Doppel); (4) Snap/Jump am Outpost (Endâ‰ Slot); (5) Mitte blanker schwarzer RÃ¼cken statt Face (Beverly P2); (6) Tempo ~4s zu langsam.
+- *Root cause*: Host `TargetNorm` ist Host-viewer-relativ und wurde auf Guest bevorzugt â†’ falsche Y; `FindBorderForCard` sucht nur `TableCanvas` (TABLE-Events unsichtbar); Ghost nur Opacity-Ref ohne InstanceId â†’ Rebuild zeigt Slot wieder; `endScale=1` statt Slot-Bounds; Face nur `card.FullImagePath` (oft leer nach Net-Stub); Timing 1.7+1.2+1.3s.
+- *Fix*: Landing **lokale** Slot-Bounds zuerst (`FindPlayFlyInSlotBorder` = Canvas + TABLE-Minis); Host-TargetNorm nur Fallback; `card.Controller` fÃ¼r Hand-Start viewer-relativ (kein Own-Strip-Fallback); Ghost `_playFlyInHiddenInstanceId` + Rebuild/AddCardToTable; End-Transform = Slot Center+Size; Face via DB-Prototype wie Hand-Reveal; Tempo ~1.0+0.7+0.9s (~2.6â€“2.8s). Network-First PlayReveal / Pipeline 034aec2 behalten.
 - *Scope*: TableWindow.xaml.cs. Tip-Hash 857ab9e. Basis 034aec2 / Docs 594c023. Kein Action-History; keine Gaps/Q-Net. Docs separat. Kein Push.
 
 ## 2026-09-27 - Play Fly-in sichtbar (Nachzieher-Fix)
 
-- *Bug (Pepsch)*: Nach Tip b1d5d3e kein Overlay — Animation startete nicht sichtbar (Host lokal + Guest).
-- *Root cause*: `Storyboard.SetTarget` auf Transform-Freezables ohne zuverlässigen Clock; `PlayFlyInOverlay` Canvas nach Collapsed oft ohne Layout/Koordinaten → Karte unsichtbar. Ghost Opacity 0 ohne sichtbare Overlay-Karte.
+- *Bug (Pepsch)*: Nach Tip b1d5d3e kein Overlay â€” Animation startete nicht sichtbar (Host lokal + Guest).
+- *Root cause*: `Storyboard.SetTarget` auf Transform-Freezables ohne zuverlÃ¤ssigen Clock; `PlayFlyInOverlay` Canvas nach Collapsed oft ohne Layout/Koordinaten â†’ Karte unsichtbar. Ghost Opacity 0 ohne sichtbare Overlay-Karte.
 - *Fix*: `PlayFlyInCard` auf immer gelayoutetes `DragLayer` reparenten; Pfad/Scale/Rotate via `BeginAnimation` (Hover-Preview-Muster); Host `ShowPlayFlyIn` vor Network-IO; Debug `StatusText`/GameLog `Fly-in: P# Name`. TargetNorm + PlayReveal-Pipeline erhalten.
 - *Scope*: TableWindow.xaml.cs. Tip-Hash 034aec2. Basis b1d5d3e / Docs fc8b5ca. Kein Action-History; keine Gaps/Q-Net. Docs separat. Kein Push.
 
-## 2026-09-27 - Play Fly-in Nachzieher (Hand→Mitte→Slot)
+## 2026-09-27 - Play Fly-in Nachzieher (Handâ†’Mitteâ†’Slot)
 
-- *Feature (Pepsch, Referenz-Video ausgewertet)*: Fly-in anpassen — Hand → Bildschirmmitte (~3–4× Board, 100% Opacity, Drop-Shadow) → Hold lesen → Mitte → Zielslot Board-Größe nahtlos. Gerader Pfad (linear/eased), Rotation aufrecht (Hand-Winkel→0°); kein Bogen, kein Tumble, kein Neon-Glow.
+- *Feature (Pepsch, Referenz-Video ausgewertet)*: Fly-in anpassen â€” Hand â†’ Bildschirmmitte (~3â€“4Ã— Board, 100% Opacity, Drop-Shadow) â†’ Hold lesen â†’ Mitte â†’ Zielslot Board-GrÃ¶ÃŸe nahtlos. Gerader Pfad (linear/eased), Rotation aufrecht (Hand-Winkelâ†’0Â°); kein Bogen, kein Tumble, kein Neon-Glow.
 - *UI*: kein Board-Dimmen, kein Name-Banner, kein Fullscreen-Overlay. Overlay = transparente Canvas + Karte mit DropShadow; landet und verschwindet ohne Fade.
-- *Timing*: Hand→Mitte ~1.7s, Hold ~1.2s, Mitte→Slot ~1.3s (gesamt ~4.2s).
-- *Netzwerk*: PlayReveal-Pipeline 57c1a3e behalten; `NetPlayRevealDto.TargetNormX/Y` für Landepunkt; Host `NotifyNetworkBoardChanged` vor BroadcastPlayReveal (Guest Border für Ghost/Land). Board-Karte Opacity 0 während Ani, Restore on land.
+- *Timing*: Handâ†’Mitte ~1.7s, Hold ~1.2s, Mitteâ†’Slot ~1.3s (gesamt ~4.2s).
+- *Netzwerk*: PlayReveal-Pipeline 57c1a3e behalten; `NetPlayRevealDto.TargetNormX/Y` fÃ¼r Landepunkt; Host `NotifyNetworkBoardChanged` vor BroadcastPlayReveal (Guest Border fÃ¼r Ghost/Land). Board-Karte Opacity 0 wÃ¤hrend Ani, Restore on land.
 - *Scope*: NetPlayRevealDto + TableWindow (+ XAML Overlay). Tip-Hash b1d5d3e. Basis 57c1a3e / Docs 642f53f. Kein Action-History; keine Gaps/Q-Net. Docs separat. Kein Push.
 
 ## 2026-09-27 - Play Fly-in Reveal (Network Hand/Interrupt)
 
 - *Feature (Pepsch, Freigabe Punkt 2)*: Beide Spieler sehen sofort welche Karte gespielt wurde (kurze Fly-in Overlay-Animation wie digitale CCGs). Gilt Play aus Hand (Ship/Pers/Eq/Event/Interrupt).
 - *Ursache*: Nach Guest PlayCard Host-apply / Board-Sync sah der Gegner oft nur Board-Diff ohne klares Card-Reveal; Guest durfte Animation nicht lokal vor Host-Apply zeigen (Desync).
-- *Fix*: `NetMessage.Types.PlayReveal` + `NetPlayRevealDto`; Host `BroadcastPlayRevealAsync` nach erfolgreichem Play (`OnSuccessfulHandPlay` / Interrupt `BeginPlayCardStack`); beide Clients `ShowPlayFlyIn` (Scale/Opacity, non-modal ~1.4s, Hover-Preview-Muster). Guest nur `OnNetPlayRevealReceived` — kein Fly-in in `TrySubmitGuestNetworkPlay`. Host `NotifyPlayReveal` pusht auch masked State (Host-local Play Sync).
+- *Fix*: `NetMessage.Types.PlayReveal` + `NetPlayRevealDto`; Host `BroadcastPlayRevealAsync` nach erfolgreichem Play (`OnSuccessfulHandPlay` / Interrupt `BeginPlayCardStack`); beide Clients `ShowPlayFlyIn` (Scale/Opacity, non-modal ~1.4s, Hover-Preview-Muster). Guest nur `OnNetPlayRevealReceived` â€” kein Fly-in in `TrySubmitGuestNetworkPlay`. Host `NotifyPlayReveal` pusht auch masked State (Host-local Play Sync).
 - *netztauglich*: Decide/Apply weiter Host; Animation Event nach Apply; Board-Sync Tip 8322b68 / Docs 665c014 nicht revertiert. Kein Action-History-Kartenreihe; keine Gaps/Q-Net P2 Spaceline.
 - *Scope*: Network (NetMessage/NetPlaySession/NetPlayRevealDto) + TableWindow (+ XAML Overlay). Tip-Hash 57c1a3e. Docs separat. Kein Push.
 
 ## 2026-09-27 - Board-Sync Multiplayer (Fly / Beam / Attack / Interrupt)
 
-- *Bugfix (Pepsch)*: P2 Fly / Ship-Attack / Beam nicht live bei P1; nach Rundenende Board auf P1-Stand (P2-Aktionen verloren); P1→P2 oft erst nach EndTurn; Interrupt-Effekte erreichen P2 nicht.
-- *Ursache*: Fly/Beam/InitiateShipBattle/Respond nicht in IsNetSyncKindSupported; Guest mutierte Board lokal (phantom). Host BroadcastMaskedStateToGuest nur bei EndPhase/EndTurn/Seed/PlayCard — Host-Board-Aktionen ohne sofortigen Sync; EndTurn-Broadcast Host-Save ohne Guest-Phantom → ApplyGameSave wischt P2.
-- *Fix*: Muster wie Seed/PlayCard 5da7c3b — Guest Action only (Fly click/drag, Beam CompleteBeamTo, ShipBattle, Interrupt BeginPlayCardStack→Respond); Host TryApplyNetFly/Beam/ShipBattle/Respond + Broadcast; Host NotifyNetworkBoardChanged nach lokalem Fly/Beam/Attack/Stack-Resolve; NetActionDto InstanceId-Lookup. Kein Fly-in Card-Effekt; keine Action-History drittes Fenster.
+- *Bugfix (Pepsch)*: P2 Fly / Ship-Attack / Beam nicht live bei P1; nach Rundenende Board auf P1-Stand (P2-Aktionen verloren); P1â†’P2 oft erst nach EndTurn; Interrupt-Effekte erreichen P2 nicht.
+- *Ursache*: Fly/Beam/InitiateShipBattle/Respond nicht in IsNetSyncKindSupported; Guest mutierte Board lokal (phantom). Host BroadcastMaskedStateToGuest nur bei EndPhase/EndTurn/Seed/PlayCard â€” Host-Board-Aktionen ohne sofortigen Sync; EndTurn-Broadcast Host-Save ohne Guest-Phantom â†’ ApplyGameSave wischt P2.
+- *Fix*: Muster wie Seed/PlayCard 5da7c3b â€” Guest Action only (Fly click/drag, Beam CompleteBeamTo, ShipBattle, Interrupt BeginPlayCardStackâ†’Respond); Host TryApplyNetFly/Beam/ShipBattle/Respond + Broadcast; Host NotifyNetworkBoardChanged nach lokalem Fly/Beam/Attack/Stack-Resolve; NetActionDto InstanceId-Lookup. Kein Fly-in Card-Effekt; keine Action-History drittes Fenster.
 - *netztauglich*: Decide Host EngineAuthority; Guest UI aus ApplyGameSave. Visibility Probe/Occupancy Fog b2dfaf7 / Docs b0e8faa erhalten.
 - *Scope*: TableWindow + GameAction.ShipBattle + NetActionDto. Docs separat. Kein Push.
 
 ## 2026-09-27 - Alien Probe Hand-Sync + Occupancy/AT Fog (Network Visibility)
 
-- *Bugfix (Pepsch)*: Alien Probe on table — P1 sah beide Haende, P2 sah P1-Hand nicht. Parallel Spock: Gegner-Occupancy (Schiff/Facility) und Planet-AT frei einsehbar.
+- *Bugfix (Pepsch)*: Alien Probe on table â€” P1 sah beide Haende, P2 sah P1-Hand nicht. Parallel Spock: Gegner-Occupancy (Schiff/Facility) und Planet-AT frei einsehbar.
 - *Ursache*: `NetStateMask.MaskForViewer` maskierte Opponent-Hand immer (kein Probe-Check); Stack-Kinder (Crew/AT/docked) behielten volle Identitaet im Guest-Save. UI `FillHostStrip`/`Detail` zeigte Occupancy face-up; Host-Strip-Hand absolut P1/P2 ohne Probe-Gate.
-- *Fix*: `NetStateMask` — bei Alien Probe (AttachedEvents Kind Probe / p*.table / Table-Name) Hand-Zonen unmasked; Opponent-Stack-Occupancy nameless/FaceDown. UI FogViewerPlayer (Network=LocalPlayer, Hotseat=ActivePlayer); FillHostStrip/Detail/Badge Occupancy face-down; 12.12 Looking-at-cards Stub (Status+Log). Host-Strip-Hand viewer-relativ + Probe/Hotseat reveal.
-- *netztauglich*: Host volle Wahrheit; Broadcast maskiert viewer-relativ; Host-UI gleiche Fog-Regel. Scope nur Probe-Hand + Occupancy/AT Fog — keine Ship/Facility Face-Visual-Umbauten darueber hinaus. 12.12 Ausnahmen MVP-Stub.
+- *Fix*: `NetStateMask` â€” bei Alien Probe (AttachedEvents Kind Probe / p*.table / Table-Name) Hand-Zonen unmasked; Opponent-Stack-Occupancy nameless/FaceDown. UI FogViewerPlayer (Network=LocalPlayer, Hotseat=ActivePlayer); FillHostStrip/Detail/Badge Occupancy face-down; 12.12 Looking-at-cards Stub (Status+Log). Host-Strip-Hand viewer-relativ + Probe/Hotseat reveal.
+- *netztauglich*: Host volle Wahrheit; Broadcast maskiert viewer-relativ; Host-UI gleiche Fog-Regel. Scope nur Probe-Hand + Occupancy/AT Fog â€” keine Ship/Facility Face-Visual-Umbauten darueber hinaus. 12.12 Ausnahmen MVP-Stub.
 - *Scope*: NetStateMask + TableWindow. Prior Tips 5da7c3b / 4a981ce erhalten. Docs separat. Kein Push.
 
 ## 2026-09-27 - Guest PlayCard Host-apply (P2 Play->Execute Hand-Wipe)
@@ -165,7 +168,7 @@
 ## 2026-09-27 - Multiplayer Skip seed phase (Network Lobby)
 
 - *Feature (Pepsch)*: Optional Auto-Seed wie Quick Game im Netz, wenn beide Skip seed phase akzeptieren.
-- *Flow*: Beide Ready → Lobby-Panel **Skip seed phase**; Propose → beide Accept → Host `AutoCompleteSeed`; Decline oder 45s-Timeout → manuelle Seed-Phase.
+- *Flow*: Beide Ready â†’ Lobby-Panel **Skip seed phase**; Propose â†’ beide Accept â†’ Host `AutoCompleteSeed`; Decline oder 45s-Timeout â†’ manuelle Seed-Phase.
 - *Technik*: `LobbySkipSeed` Vote (propose/accept/decline); `StartGame.skipSeedPhase`; Host allein Auto-Seed + Broadcast; Guest UI aus Sync. Tip 9abb843 (Guest Segment) erhalten.
 - *netztauglich*: Decide Host; Guest kein lokales AutoSeed.
 - *Scope*: NetMessage/NetLobbyDto + NetworkLobbyWindow + TableWindow OnLobbyGameStarting. Docs separat. Kein Push.
@@ -188,9 +191,9 @@
 
 ## 2026-09-27 - Artifact Seed Targets + P2 End EXECUTE (Network)
 
-- *Bugfix (Pepsch)*: (1) Artifact (Vulcan Stone of Gol) nur unter Hunt for DNA Program seedbar; (2) P2 Turn 1 steckt in EXECUTE — Space/Button tot.
-- *Ursache*: (1) Host-Drop `TrySnapToMission`/`FindNearestMission` nahm naechste beliebige Mission (oft [S]) → CanSeed deny; Target-Glow/`FindNearestLegalSeedMission` nicht durchgaengig. (2) Stuck Response-Stack liess End-Turn disabled bei Label „End EXECUTE“; Guest EOT-Flags soft-lockten ohne Host-Flip; FinishExecute Early-Return no-op bei Guest EndTurn.
-- *Fix*: Seed-Snap/Glow/Drop → `FindNearestLegalSeedMission` + `AllMissionBorders` + Artifact-Limits; Layout-Pin unveraendert. Network EndPhase/EndTurn clear stuck stack; Guest EOT sendet EndTurn; Host force `CompleteTurnChange` wenn Flip ausbleibt; UpdatePhaseControls `netActiveEscape`.
+- *Bugfix (Pepsch)*: (1) Artifact (Vulcan Stone of Gol) nur unter Hunt for DNA Program seedbar; (2) P2 Turn 1 steckt in EXECUTE â€” Space/Button tot.
+- *Ursache*: (1) Host-Drop `TrySnapToMission`/`FindNearestMission` nahm naechste beliebige Mission (oft [S]) â†’ CanSeed deny; Target-Glow/`FindNearestLegalSeedMission` nicht durchgaengig. (2) Stuck Response-Stack liess End-Turn disabled bei Label â€žEnd EXECUTEâ€œ; Guest EOT-Flags soft-lockten ohne Host-Flip; FinishExecute Early-Return no-op bei Guest EndTurn.
+- *Fix*: Seed-Snap/Glow/Drop â†’ `FindNearestLegalSeedMission` + `AllMissionBorders` + Artifact-Limits; Layout-Pin unveraendert. Network EndPhase/EndTurn clear stuck stack; Guest EOT sendet EndTurn; Host force `CompleteTurnChange` wenn Flip ausbleibt; UpdatePhaseControls `netActiveEscape`.
 - *netztauglich*: Decide weiter SeedRules/EngineAuthority; Apply Host+Broadcast.
 - *Scope*: Tip TableWindow only; Docs separat. Kein P5; kein Push; kein Projektordner-Cleanup.
 
@@ -205,15 +208,15 @@
 ## 2026-09-27 - Visual Seed-under-Mission Layout (Horga'hn column pin)
 
 - *Bugfix (Pepsch, Screenshot)*: Artifact (Horga'hn) nach Seed versetzt links/oben ueber Ziel-Mission, ueberlappt Nachbar-Mission; Badge "1" korrekt unter Slot.
-- *Ursache*: `RelayoutMissionsOnSpaceline` / `ApplyPerspective` (TryAlternate) verschoben Missionen + Badges, pinnten Seed-Borders aber nicht nach → AbsoluteLeft blieb Drop/alt; Visible-Orphans/DragLayer-Kopien moeglich; `RemoveOrphanTableCopies` konnte SeedUnder-Borders strippen.
+- *Ursache*: `RelayoutMissionsOnSpaceline` / `ApplyPerspective` (TryAlternate) verschoben Missionen + Badges, pinnten Seed-Borders aber nicht nach â†’ AbsoluteLeft blieb Drop/alt; Visible-Orphans/DragLayer-Kopien moeglich; `RemoveOrphanTableCopies` konnte SeedUnder-Borders strippen.
 - *Fix (Visual layout, Sync-Authority unveraendert)*: `RelayoutSeedUnderMissions` am Ende von `RelayoutMissionsOnSpaceline`; `PinSeedUnderMissionBorder` (Mission-Spalte + viewer-rel. DockSlotOffsetY); `ScrubSeedUnderDuplicates`; SeedUnder-Schutz in `RemoveOrphanTableCopies`. Host/Guest identisch.
 - *Scope*: Seed-under Layout only; kein P5; kein Push.
 
 ## 2026-09-27 - Network P2 Facility Seed docks Spaceline (not TABLE)
 
-- *Bugfix (Pepsch, Screenshot)*: P2 Facility Seed (Remote Supply Depot) landet in „P2 TABLE“ Sidebar statt unter gewählter Mission auf der Spaceline; beide Clients gleich (Engine-Wahrheit falsch). Nor von P1 lag korrekt unter Space-Mission. Status TURN 1 PLAY.
-- *Ursache*: Guest `TrySubmitGuestNetworkSeed` setzte Mission-Target für Facilities, aber Host `TryApplyNetSeedCard` hatte keinen Facility-Zweig → else `CommitCardToTable` → `_oppTablePermanentCards` (P2 TABLE). Dilemma/Artifact-Pfad (AddSeedUnderMission) und Host-lokaler Facility-Drop (DockSlot) waren ok; Events wie Q's Planet auf TABLE bleiben regelkonform (SeedRules Facility-Phase).
-- *netztauglich*: Host `TryApplyNetSeedCard` dockt Facility via `ResolveSeedUnderMissionTarget` + `CanSeedFacilityAtMission` + `AddCardToTable`/`RelayoutDockablesUnderMission` (wie AutoSeedFacility); illegal → zurück Facility-Pile. Guest Note `underInst:InstanceId` für Facilities; Resolve name-legal nutzt `CanSeedFacilityAtMission` für Facilities. Sync-Authority unverändert (Guest Action→Host Apply→Broadcast).
+- *Bugfix (Pepsch, Screenshot)*: P2 Facility Seed (Remote Supply Depot) landet in â€žP2 TABLEâ€œ Sidebar statt unter gewÃ¤hlter Mission auf der Spaceline; beide Clients gleich (Engine-Wahrheit falsch). Nor von P1 lag korrekt unter Space-Mission. Status TURN 1 PLAY.
+- *Ursache*: Guest `TrySubmitGuestNetworkSeed` setzte Mission-Target fÃ¼r Facilities, aber Host `TryApplyNetSeedCard` hatte keinen Facility-Zweig â†’ else `CommitCardToTable` â†’ `_oppTablePermanentCards` (P2 TABLE). Dilemma/Artifact-Pfad (AddSeedUnderMission) und Host-lokaler Facility-Drop (DockSlot) waren ok; Events wie Q's Planet auf TABLE bleiben regelkonform (SeedRules Facility-Phase).
+- *netztauglich*: Host `TryApplyNetSeedCard` dockt Facility via `ResolveSeedUnderMissionTarget` + `CanSeedFacilityAtMission` + `AddCardToTable`/`RelayoutDockablesUnderMission` (wie AutoSeedFacility); illegal â†’ zurÃ¼ck Facility-Pile. Guest Note `underInst:InstanceId` fÃ¼r Facilities; Resolve name-legal nutzt `CanSeedFacilityAtMission` fÃ¼r Facilities. Sync-Authority unverÃ¤ndert (Guest Actionâ†’Host Applyâ†’Broadcast).
 - *Scope*: P2/Guest Facility Seed Placement; kein PlayCard-UI (weiter deferred); kein Ship-Facility-Phase TABLE-Residual; kein P5; kein Push.
 
 ## 2026-09-27 - Network Seed-under-Mission Host/Guest Sync + Owner Face-up
@@ -226,22 +229,22 @@
 
 ## 2026-09-27 - Network P2 Mission-Seed Insert-Index + Slot-Hover
 
-- *Bugfix (Pepsch, Screenshot)*: P2 (Guest) legt Khitomer zwischen Wormhole Negotiations und Avert Disaster → landet rechts am Ende; Slot-Rahmen da, Hover mit Karte in Hand leuchtet nicht.
-- *Ursache*: (1) Guest `TrySubmitGuestNetworkSeed` sandte Mission ohne Note; Host `TryApplyNetSeedCard` nutzte `AutoSeedMission` (Zufalls-X) — ba2ee6f Partial ohne after:Name. (2) `ShowMissionSlotPreviews` zeichnete alle Slots gleich dim; MouseMove rief Preview ohne hoverDropX — kein Hot-Slot wie sonstige Snap-Targets.
-- *netztauglich*: Guest Note `after:`/`before:`/`insert:` (Nachbar-Name = Engine-Index, absolute L→R Spaceline); Host `SeedMissionFromNetNote` + `PlaceMissionOnSpaceline(..., forcedInsertIndex)`; Hover brightened nearest legal slot (Hotseat + Network). Sync Authority unverändert (Guest Action→Host Apply→Broadcast).
+- *Bugfix (Pepsch, Screenshot)*: P2 (Guest) legt Khitomer zwischen Wormhole Negotiations und Avert Disaster â†’ landet rechts am Ende; Slot-Rahmen da, Hover mit Karte in Hand leuchtet nicht.
+- *Ursache*: (1) Guest `TrySubmitGuestNetworkSeed` sandte Mission ohne Note; Host `TryApplyNetSeedCard` nutzte `AutoSeedMission` (Zufalls-X) â€” ba2ee6f Partial ohne after:Name. (2) `ShowMissionSlotPreviews` zeichnete alle Slots gleich dim; MouseMove rief Preview ohne hoverDropX â€” kein Hot-Slot wie sonstige Snap-Targets.
+- *netztauglich*: Guest Note `after:`/`before:`/`insert:` (Nachbar-Name = Engine-Index, absolute Lâ†’R Spaceline); Host `SeedMissionFromNetNote` + `PlaceMissionOnSpaceline(..., forcedInsertIndex)`; Hover brightened nearest legal slot (Hotseat + Network). Sync Authority unverÃ¤ndert (Guest Actionâ†’Host Applyâ†’Broadcast).
 - *Scope*: nur P2 Mission-Seed Index+Hover; kein Dilemma-Target-Umbau; kein Push.
 ## 2026-09-27 - Network UI Nachzieher Seed (Hand face-up / Mission Glow / Viewer-Orientierung)
 
-- *Bugfix (Pepsch, Screenshot)*: Guest eigene Missionen als Rücken außer Zug; Mission-Drop-Glow/Snap fehlte vs Hotseat; Spaceline auf P2-Instanz noch Host-orientiert (P2 auf dem Kopf).
-- *Ursache*: (1) `FillStrip` maskierte eigene private Zonen face-down wenn `!isActiveSide` (Hand ausgenommen, Missions nicht) — nach ApplyGameSave/Gegnerzug Rücken; (2) Seed-Highlight rief für Missionen nur leeres `HighlightPlayOnSites`, Slot-Glow hing allein am MouseMove; `snapOwner` noch `Opponent?2:1`; (3) `ApplyMissionFaceVisual` rotierte fest `face==2` statt ViewerPlayer-relativ.
-- *netztauglich / UI-only*: Sync-Pfad (Guest Action→Host Apply→Broadcast, ActivePlayer-Gate, session-first Notify) unverändert. `ownNetworkFaceUp` + Hand immer face-up für LocalPlayer; `ShowMissionSlotPreviews` im Seed-Highlight + `PlayerForStrip` snapOwner; Mission-Rotation `faceToward == ViewerPlayer`.
+- *Bugfix (Pepsch, Screenshot)*: Guest eigene Missionen als RÃ¼cken auÃŸer Zug; Mission-Drop-Glow/Snap fehlte vs Hotseat; Spaceline auf P2-Instanz noch Host-orientiert (P2 auf dem Kopf).
+- *Ursache*: (1) `FillStrip` maskierte eigene private Zonen face-down wenn `!isActiveSide` (Hand ausgenommen, Missions nicht) â€” nach ApplyGameSave/Gegnerzug RÃ¼cken; (2) Seed-Highlight rief fÃ¼r Missionen nur leeres `HighlightPlayOnSites`, Slot-Glow hing allein am MouseMove; `snapOwner` noch `Opponent?2:1`; (3) `ApplyMissionFaceVisual` rotierte fest `face==2` statt ViewerPlayer-relativ.
+- *netztauglich / UI-only*: Sync-Pfad (Guest Actionâ†’Host Applyâ†’Broadcast, ActivePlayer-Gate, session-first Notify) unverÃ¤ndert. `ownNetworkFaceUp` + Hand immer face-up fÃ¼r LocalPlayer; `ShowMissionSlotPreviews` im Seed-Highlight + `PlayerForStrip` snapOwner; Mission-Rotation `faceToward == ViewerPlayer`.
 - *Scope*: kein P5 Disconnect; kein Sync-Umbau; kein Push.
 
 ## 2026-09-27 - Network Guest->Host Seed Authority Loop
 
 - *Bugfix (Pepsch, Screenshot)*: P2 Mission auf Guest -> P1-Board blieb alt (Spaceline 2 vs 1; Zaehler 5 vs 6 left). Host->Guest nach f020183 ok.
-- *Ursache*: Guest Drop applyte lokal, dann TryAlternateSeedPlayer flipte _activePlayer P2->P1 *vor* NotifyNetworkAfterSeedPlacement. f020183-Gate _activePlayer != LocalPlayer skippte SendGuestActionAsync — Host bekam nie SeedCard.
-- *netztauglich*: Guest Seed-Pile-Drop = nur Action (TrySubmitGuestNetworkSeed → Host OnNetActionReceived → TryApplyNetSeedCard → BroadcastMaskedStateToGuest); kein lokales Guest-Board ohne Host-Wahrheit; Karte bleibt im Guest-Stapel bis ApplyGameSave. Notify-Gate entfernt (Fallback sendet immer LocalPlayer).
+- *Ursache*: Guest Drop applyte lokal, dann TryAlternateSeedPlayer flipte _activePlayer P2->P1 *vor* NotifyNetworkAfterSeedPlacement. f020183-Gate _activePlayer != LocalPlayer skippte SendGuestActionAsync â€” Host bekam nie SeedCard.
+- *netztauglich*: Guest Seed-Pile-Drop = nur Action (TrySubmitGuestNetworkSeed â†’ Host OnNetActionReceived â†’ TryApplyNetSeedCard â†’ BroadcastMaskedStateToGuest); kein lokales Guest-Board ohne Host-Wahrheit; Karte bleibt im Guest-Stapel bis ApplyGameSave. Notify-Gate entfernt (Fallback sendet immer LocalPlayer).
 - *Scope*: kein P5 Disconnect; kein Push.
 
 ## 2026-09-27 - Network Host->Guest Seed Sync (ActivePlayer + input gate)
@@ -255,111 +258,111 @@
 
 - *Bugfix (Pepsch)*: Beide Localhost-Instanzen zeigten P1-Ansicht (`SEED Player 1 (BOTTOM)`, `P1 Missions`); Guest sah P1-Missionen statt eigener.
 - *Ursache*: UI fest P1=unten/P2=oben; Network-Seed baute nur P1-Zonen; `ShowCurrentSeedStack` zeigte immer ActivePlayer-Stapel auf Hotseat-Layout; `ApplyPerspective` ohne Viewer-Spiegelung.
-- *netztauglich*: `ViewerPlayer` = `NetPlaySession.LocalPlayer`; Bottom-Strip/Zonen = LocalPlayer, Top = Gegner (`PlayerForStrip` / `GetZoneList` / `GetCardsForZone`); Fremd-Hand/Seed face-down (`FillStrip` + `NetStateMask`); Host-Broadcast nach Seed unverändert (`NotifyNetworkAfterSeedPlacement`); `CaptureGameSave.ActivePlayer` seed-aware; masked `ResolveCard`-Stubs halten Zählungen.
+- *netztauglich*: `ViewerPlayer` = `NetPlaySession.LocalPlayer`; Bottom-Strip/Zonen = LocalPlayer, Top = Gegner (`PlayerForStrip` / `GetZoneList` / `GetCardsForZone`); Fremd-Hand/Seed face-down (`FillStrip` + `NetStateMask`); Host-Broadcast nach Seed unverÃ¤ndert (`NotifyNetworkAfterSeedPlacement`); `CaptureGameSave.ActivePlayer` seed-aware; masked `ResolveCard`-Stubs halten ZÃ¤hlungen.
 - *Scope*: kein P5 Disconnect; kein Push.
-## 2026-09-27 — Network Seed/Mission Sync (Host broadcast)
+## 2026-09-27 â€” Network Seed/Mission Sync (Host broadcast)
 
-- *Bugfix (Pepsch/Captain)*: Nach Lobby+Start seedet P1 eine Mission — P2 sah nichts; beide spielten getrennt. Ursache: kein `BroadcastMaskedStateToGuest` nach Seed-Drop; Seed-Spielerwechsel nur Hotseat; `SeedCard` nicht in Net-Sync.
-- *netztauglich*: Seed/Mission über Host-Wahrheit + `BroadcastMaskedStateToGuest` / Guest `ApplyGameSave`; Seed-Spielerwechsel auch in Network; Guest-Seed via `GameAction.Seed` + Host `TryApplyNetSeedCard`.
-- *TableWindow*: `IsSeedMultiPlayerMode` öffnet Alternate/Sequential + Facility-Handoff für Network; `NotifyNetworkSeedChanged` / `NotifyNetworkAfterSeedPlacement` nach Seed-Tischänderungen; Initial-Broadcast in `OnLobbyGameStarting`; `SeedCard` in `IsNetSyncKindSupported` + Seed-Pile Lookup; Phase Next/Finish Network (`EndPhase` Note=`SeedAdvance`, `EndTurn` Note=`SeedFinish`).
-- *Partial*: Guest-Mission-Insert ohne Pixel/`after:Name` (Host `AutoSeedMission`); Dilemma-Target best-effort; Respond/PlayCard-UI unverändert.
+- *Bugfix (Pepsch/Captain)*: Nach Lobby+Start seedet P1 eine Mission â€” P2 sah nichts; beide spielten getrennt. Ursache: kein `BroadcastMaskedStateToGuest` nach Seed-Drop; Seed-Spielerwechsel nur Hotseat; `SeedCard` nicht in Net-Sync.
+- *netztauglich*: Seed/Mission Ã¼ber Host-Wahrheit + `BroadcastMaskedStateToGuest` / Guest `ApplyGameSave`; Seed-Spielerwechsel auch in Network; Guest-Seed via `GameAction.Seed` + Host `TryApplyNetSeedCard`.
+- *TableWindow*: `IsSeedMultiPlayerMode` Ã¶ffnet Alternate/Sequential + Facility-Handoff fÃ¼r Network; `NotifyNetworkSeedChanged` / `NotifyNetworkAfterSeedPlacement` nach Seed-TischÃ¤nderungen; Initial-Broadcast in `OnLobbyGameStarting`; `SeedCard` in `IsNetSyncKindSupported` + Seed-Pile Lookup; Phase Next/Finish Network (`EndPhase` Note=`SeedAdvance`, `EndTurn` Note=`SeedFinish`).
+- *Partial*: Guest-Mission-Insert ohne Pixel/`after:Name` (Host `AutoSeedMission`); Dilemma-Target best-effort; Respond/PlayCard-UI unverÃ¤ndert.
 - *Scope*: kein P5 Disconnect, kein PlayCard-UI voll, kein Push.
 
-## 2026-09-27 — Network Phase 4 ChoiceRequest/Response + Response-Fenster
+## 2026-09-27 â€” Network Phase 4 ChoiceRequest/Response + Response-Fenster
 
-- *netztauglich*: Wahlen/Response über `ChoiceRequest`/`ChoiceResponse` JSON auf bestehendem Framing; Host autoritativ; Decide bleibt Engine/TimingRules; TableWindow zeigt Dialoge / wartet / sendet Antwort; Sync nach Resolve weiter über Phase-3 State (`BroadcastStateAsync(MaskForViewer(2))`).
+- *netztauglich*: Wahlen/Response Ã¼ber `ChoiceRequest`/`ChoiceResponse` JSON auf bestehendem Framing; Host autoritativ; Decide bleibt Engine/TimingRules; TableWindow zeigt Dialoge / wartet / sendet Antwort; Sync nach Resolve weiter Ã¼ber Phase-3 State (`BroadcastStateAsync(MaskForViewer(2))`).
 - *NetMessage.Types*: `ChoiceRequest`, `ChoiceResponse` + `Network/NetChoiceDto.cs` (correlationId, kind `choice`|`responseWindow`|`responsePass`, targetPlayer, title/prompt/options, selectedOption/passed/timeoutMs).
 - *NetPlaySession*: `SendChoiceRequestAsync` / `SendChoiceResponseAsync`; Events `ChoiceRequestReceived` / `ChoiceResponseReceived`; HandleMessage-Routing.
-- *TableWindow AskChoiceForPlayer*: Hotseat lokal; Host+LocalPlayer lokal; Host+P2 → ChoiceRequest + DispatcherFrame-Wait; Host-Timeout = random option lokal (Guest-Timer kann früher antworten). Guest beantwortet inbound ChoiceRequest, startet keine eigene Engine-Wahl.
-- *Response-Fenster*: Host öffnet für remote Responder Warte-Status + `responseWindow`-Request (kein Pass-Timer für falschen Spieler); Guest ThinkTray/Pass → ChoiceResponse(passed); Host ruft `PassCurrentResponseWindow`. Respond-mit-Karte: Action-Pfad partial.
+- *TableWindow AskChoiceForPlayer*: Hotseat lokal; Host+LocalPlayer lokal; Host+P2 â†’ ChoiceRequest + DispatcherFrame-Wait; Host-Timeout = random option lokal (Guest-Timer kann frÃ¼her antworten). Guest beantwortet inbound ChoiceRequest, startet keine eigene Engine-Wahl.
+- *Response-Fenster*: Host Ã¶ffnet fÃ¼r remote Responder Warte-Status + `responseWindow`-Request (kein Pass-Timer fÃ¼r falschen Spieler); Guest ThinkTray/Pass â†’ ChoiceResponse(passed); Host ruft `PassCurrentResponseWindow`. Respond-mit-Karte: Action-Pfad partial.
 - *Verdrahtung*: Return Fire (defOwner), Gaps (nullifier), Q Continuum/rearrange (opp), Yellow Alert (who), Alien Parasites (opp).
 - *Scope*: kein P5 Disconnect; kein Push; TimingRules unangetastet.
 
-## 2026-09-27 — Network Lobby-Flow (Deck pick + Ready handshake + StartGame)
+## 2026-09-27 â€” Network Lobby-Flow (Deck pick + Ready handshake + StartGame)
 
-- *netztauglich*: Lobby-Entscheidungen (Deck/Ready/Start) über JSON `NetMessage` auf demselben Framing; Host autoritativ für Start; Tisch-Übergang nutzt bestehendes `DetachTransport` → `NetPlaySession`; keine UI-only Regel für Spielstart.
+- *netztauglich*: Lobby-Entscheidungen (Deck/Ready/Start) Ã¼ber JSON `NetMessage` auf demselben Framing; Host autoritativ fÃ¼r Start; Tisch-Ãœbergang nutzt bestehendes `DetachTransport` â†’ `NetPlaySession`; keine UI-only Regel fÃ¼r Spielstart.
 - *NetMessage.Types*: `LobbyDeck`, `LobbyReady`, `LobbyStatus`, `StartGame` + `Network/NetLobbyDto.cs` Payloads.
 - *NetworkLobbyWindow*: nach Handshake Lobby-Raum (Deck-Combo + Browse, Start game, Peer-Status); eigener Receive-Loop; Start erst wenn beide Ready; Event `GameStarting`.
-- *TableWindow*: `ConnectionChanged` startet **nicht** mehr sofort die Session; erst `GameStarting` → Detach + NetPlaySession + Decks aus JSON (`LoadAndLinkDeckFromJson` / `DeckService.LoadFromJson`) platzieren.
-- *Scope*: kein Choice/Timing (P4), keine Disconnect-Härtung (P5), keine PlayCard-UI-Nachzieher.
-## 2026-09-27 — Network Phase 3 GameAction-Sync (Host authority + masked State)
+- *TableWindow*: `ConnectionChanged` startet **nicht** mehr sofort die Session; erst `GameStarting` â†’ Detach + NetPlaySession + Decks aus JSON (`LoadAndLinkDeckFromJson` / `DeckService.LoadFromJson`) platzieren.
+- *Scope*: kein Choice/Timing (P4), keine Disconnect-HÃ¤rtung (P5), keine PlayCard-UI-Nachzieher.
+## 2026-09-27 â€” Network Phase 3 GameAction-Sync (Host authority + masked State)
 
 - *NetActionDto / NetStateMask / NetPlaySession*: JSON-DTO for GameAction (names only), fog-of-war mask for Guest (opp hand + private decks FaceDown/name cleared), session owns NetServer XOR NetClient after lobby with receive-loop + Dispatcher callbacks.
 - *Lobby DetachTransport*: `NetworkLobbyWindow` exposes IsHost/Server/Client; Closing does not dispose when transport detached to session.
-- *TableWindow vertical slice*: After lobby Connected → `NetPlaySession`; Host `ActionReceived` → `AuthorizePlay` → EndPhase/EndTurn apply + `CaptureGameSave` → `MaskForViewer(2)` → Broadcast; Guest End PLAY/End turn sends Action and `ApplyGameSave` on State. Live kinds: EndPhase, EndTurn (+ Pass/Draw/PlayCard authorize stubs). No ChoiceRequest (P4), no Disconnect harden (P5).
-## 2026-09-27 — Network Phase 2 Lobby (Host / Join / Localhost)
+- *TableWindow vertical slice*: After lobby Connected â†’ `NetPlaySession`; Host `ActionReceived` â†’ `AuthorizePlay` â†’ EndPhase/EndTurn apply + `CaptureGameSave` â†’ `MaskForViewer(2)` â†’ Broadcast; Guest End PLAY/End turn sends Action and `ApplyGameSave` on State. Live kinds: EndPhase, EndTurn (+ Pass/Draw/PlayCard authorize stubs). No ChoiceRequest (P4), no Disconnect harden (P5).
+## 2026-09-27 â€” Network Phase 2 Lobby (Host / Join / Localhost)
 
-- *Lobby-UI*: `StarTrekCCG/NetworkLobbyWindow.xaml` + `.xaml.cs` — Dark UI (#252528 / #0E639C), Port (Default 7777), Host-Adresse, Buttons Host / Join / Localhost / Disconnect.
-- *Flows*: Host → `NetServer.StartAsync` + `AcceptClientAsync` + Handshake → „Connected as Host (P1)“; Join → `NetClient.ConnectAsync` + Handshake → „Connected as Guest (P2)“; Localhost = Host mit `loopbackOnly=true`.
-- *TableWindow-Anbindung (minimal)*: `ModeNetwork` enabled; Status „Mode: Network (lobby|connected)“; Button „Open lobby…“ / Checked öffnet Lobby (`Show`). Kein GameMode-Spielstand-Sync, keine GameAction-Pipeline.
+- *Lobby-UI*: `StarTrekCCG/NetworkLobbyWindow.xaml` + `.xaml.cs` â€” Dark UI (#252528 / #0E639C), Port (Default 7777), Host-Adresse, Buttons Host / Join / Localhost / Disconnect.
+- *Flows*: Host â†’ `NetServer.StartAsync` + `AcceptClientAsync` + Handshake â†’ â€žConnected as Host (P1)â€œ; Join â†’ `NetClient.ConnectAsync` + Handshake â†’ â€žConnected as Guest (P2)â€œ; Localhost = Host mit `loopbackOnly=true`.
+- *TableWindow-Anbindung (minimal)*: `ModeNetwork` enabled; Status â€žMode: Network (lobby|connected)â€œ; Button â€žOpen lobbyâ€¦â€œ / Checked Ã¶ffnet Lobby (`Show`). Kein GameMode-Spielstand-Sync, keine GameAction-Pipeline.
 - *Scope*: Nur Connect/Listen/Accept/Handshake. Kein Engine-Sync.
-## 2026-09-27 — Network Phase 1 Scaffold (Transport)
+## 2026-09-27 â€” Network Phase 1 Scaffold (Transport)
 
-- *TCP+JSON Transport-Scaffold*: `StarTrekCCG/Network/NetMessage.cs`, `NetServer.cs`, `NetClient.cs` — Envelope + Listen/Accept/Connect/Send/Receive; kein Lobby/UI, kein GameMode-Anbinden.
+- *TCP+JSON Transport-Scaffold*: `StarTrekCCG/Network/NetMessage.cs`, `NetServer.cs`, `NetClient.cs` â€” Envelope + Listen/Accept/Connect/Send/Receive; kein Lobby/UI, kein GameMode-Anbinden.
 
-## 2026-09-27 — Konzept & Handoff: Multiplayer-Modus (Architektur & Roadmap)
+## 2026-09-27 â€” Konzept & Handoff: Multiplayer-Modus (Architektur & Roadmap)
 
 - *Multiplayer-Architektur konzipiert*:
-  - Client-Server Modell (Host/Gast) über TCP-Sockets und JSON-Nachrichten (`System.Net.Sockets`).
-  - Unterstützung für LAN, Internet und 2 Instanzen auf demselben Rechner (Localhost).
+  - Client-Server Modell (Host/Gast) Ã¼ber TCP-Sockets und JSON-Nachrichten (`System.Net.Sockets`).
+  - UnterstÃ¼tzung fÃ¼r LAN, Internet und 2 Instanzen auf demselben Rechner (Localhost).
   - 5-Phasen-Roadmap in `HANDOFF.md` und `UEBERGABE_PROMPT.md` hinterlegt.
-  - Test-Erfolge von Pepsch (*Crystalline Entity*, *Iconian computer weapon*, *Vulcan Mindmeld* grün) erfasst.
+  - Test-Erfolge von Pepsch (*Crystalline Entity*, *Iconian computer weapon*, *Vulcan Mindmeld* grÃ¼n) erfasst.
 
-## 2026-09-26 — Bereinigung: Abschluss & Entfernung von CARD_TRACKER.md
+## 2026-09-26 â€” Bereinigung: Abschluss & Entfernung von CARD_TRACKER.md
 
-- *Löschung von `artifacts/CARD_TRACKER.md`*:
-  - Nach Abschluss der Karten-Einbindung wurde die Datei `CARD_TRACKER.md` planmäßig gelöscht.
+- *LÃ¶schung von `artifacts/CARD_TRACKER.md`*:
+  - Nach Abschluss der Karten-Einbindung wurde die Datei `CARD_TRACKER.md` planmÃ¤ÃŸig gelÃ¶scht.
 - *Entfernung aller Referenzen & Hinweise*:
-  - Bereinigung aller Erwähnungen, Spalten und Tabelleneinträge zu `CARD_TRACKER.md` und `CARD_TRACKER` in:
+  - Bereinigung aller ErwÃ¤hnungen, Spalten und TabelleneintrÃ¤ge zu `CARD_TRACKER.md` und `CARD_TRACKER` in:
     - `PROJECT.md` (Rolle Jadzia auf Karten-Status & Set-Abdeckung umgestellt, Tabellen bereinigt)
-    - `BOTS.md` (Aufgabenbeschreibungen von Captain, Spock, Seven, Jadzia und Prüfliste neutralisiert)
+    - `BOTS.md` (Aufgabenbeschreibungen von Captain, Spock, Seven, Jadzia und PrÃ¼fliste neutralisiert)
     - `IMPLEMENT.md` (Statusabfragen und Ablauf bereinigt)
     - `UEBERGABE_PROMPT.md` (Lesereihenfolge und Pflichten bereinigt)
     - `EXTRACT_REST.md` (Verweise entfernt)
     - `FEATURES.md` (P0-Rangfolge und Header bereinigt)
     - `ONLINE_WORKFLOW.md` (Pflichtenliste bereinigt)
-    - `APPENDIX_A_COVERAGE.md` (Über 330 Fundstellen bereinigt)
-    - `GLOSSARY_COVERAGE.md` (Über 100 Spalten-/Statuszeilen bereinigt)
+    - `APPENDIX_A_COVERAGE.md` (Ãœber 330 Fundstellen bereinigt)
+    - `GLOSSARY_COVERAGE.md` (Ãœber 100 Spalten-/Statuszeilen bereinigt)
     - `HANDOFF.md` (Statusbeschreibungen und Canon-Tabellen bereinigt)
 
-## 2026-09-26 — EXTRACT_REST: P5 (Battle-benachbarte Orchestrierung)
+## 2026-09-26 â€” EXTRACT_REST: P5 (Battle-benachbarte Orchestrierung)
 
 - *P5-04 (Subspace Schism SyncSchismRound & Draw-Discard)*:
-  - In `GameSession.cs` die Schism-Zustände (`SchismUsedBy`, `SchismRound`, `SyncSchismRound()`, `IsSchismAvailable(player)`, `MarkSchismUsed(player)`) integriert. Bei Zugwechsel wird `SchismUsedBy` sauber zurückgesetzt.
-  - In `InterruptRules.cs` `DecideSubspaceSchismResponse` (`SubspaceSchismPlan`) implementiert (prüft Draw-Aktion, Verfügbarkeit und steuert Discard der gezogenen Karte sowie Ersatz-Draw).
-  - In `TableWindow.xaml.cs` `SyncSchismRound`, `SchismAvailable` und `MarkSchismUsed` an `GameSession` delegiert und die DrawCard-Abbruchauflösung an `InterruptRules.DecideSubspaceSchismResponse` angebunden.
+  - In `GameSession.cs` die Schism-ZustÃ¤nde (`SchismUsedBy`, `SchismRound`, `SyncSchismRound()`, `IsSchismAvailable(player)`, `MarkSchismUsed(player)`) integriert. Bei Zugwechsel wird `SchismUsedBy` sauber zurÃ¼ckgesetzt.
+  - In `InterruptRules.cs` `DecideSubspaceSchismResponse` (`SubspaceSchismPlan`) implementiert (prÃ¼ft Draw-Aktion, VerfÃ¼gbarkeit und steuert Discard der gezogenen Karte sowie Ersatz-Draw).
+  - In `TableWindow.xaml.cs` `SyncSchismRound`, `SchismAvailable` und `MarkSchismUsed` an `GameSession` delegiert und die DrawCard-AbbruchauflÃ¶sung an `InterruptRules.DecideSubspaceSchismResponse` angebunden.
 - *P5-03 (LegalResponsesFor & ApplyResponseEffect nach Rules)*:
   - In `TimingRules.cs` `ResponseEvaluationContext`, `IsResponseItemLegal` und `DecideResponseEffect` (`ResponseEffectPlan`) implementiert.
-  - Ermittelt cancel/side-effects (Cancel-Target, CancelledBy, Tox Uthat Discard, Schism Mark, Escape Pod, Hail Fly-By) als reinen Regelplan ohne UI-Abhängigkeit.
+  - Ermittelt cancel/side-effects (Cancel-Target, CancelledBy, Tox Uthat Discard, Schism Mark, Escape Pod, Hail Fly-By) als reinen Regelplan ohne UI-AbhÃ¤ngigkeit.
   - In `TableWindow.xaml.cs` `CollectAllLegalResponses` und `ApplyResponseEffect` auf `TimingRules.IsResponseItemLegal` und `TimingRules.DecideResponseEffect` umgestellt.
 - *P5-02 (ResolveTopOfStack Timing-Ablauf)*:
   - In `TimingRules.cs` `DecideCancelledPlayCard` (`CancelledPlayCardPlan`) implementiert (ermittelt Destination `ReturnToHand` vs `Discard`, Energy-Vortex-Flag und Status/Log-Texte).
-  - In `TimingRules.cs` `ShouldExecuteResponsePlay` implementiert (entscheidet, ob eine Response als voller Interrupt aufgelöst werden muss oder an `SelfDestination` geht).
+  - In `TimingRules.cs` `ShouldExecuteResponsePlay` implementiert (entscheidet, ob eine Response als voller Interrupt aufgelÃ¶st werden muss oder an `SelfDestination` geht).
   - In `TimingRules.cs` `DecideShipBattleCancel` und `DecidePersonnelBattleCancel` implementiert (Borg-EOT-Attacker-Schutz, Stopped-Flags).
-  - In `TableWindow.xaml.cs` `ResolveTopOfStack` verdünnt und an die neuen `TimingRules`-Methoden angebunden.
-- *P5-01 (TryResolveInterruptPlay Apply-Switch verdünnt)*:
+  - In `TableWindow.xaml.cs` `ResolveTopOfStack` verdÃ¼nnt und an die neuen `TimingRules`-Methoden angebunden.
+- *P5-01 (TryResolveInterruptPlay Apply-Switch verdÃ¼nnt)*:
   - In `InterruptRules.cs` `CanPlayRogueBorg`, `CanPlayCrosis`, `IsLegalDisruptorOverloadTarget`, `DecideDisruptorOverloadVictim`, `IsLegalPalorToffCard`, `ParticleFountainPoints` und `DeathYellPoints` implementiert.
   - In `InterruptShipEffectRules.cs` `CalculateTranswarpRange` implementiert.
   - In `TableWindow.xaml.cs` `TryResolveInterruptPlay` bei Rogue Borg, Crosis, Disruptor Overload, Palor Toff, Particle Fountain, Death Yell und Transwarp an die Rules-Decide-Methoden angebunden.
 - *Verifikation & Mini-Tests*:
   - In `TableWindow.xaml.cs` Schism-Reset auf `_session.SchismUsedBy` / `_session.SchismRound` korrigiert und `ship` Variablen-Scope in Crosis bereinigt.
-  - Vollständiger Roslyn-Kompilierdurchlauf aller C#-Dateien der Solution erfolgreich (0 Fehler).
-  - Mini-Tests `InterruptRules.VerifyP5InterruptRules()` und `TimingRules.VerifyP5TimingRules()` implementiert und in `ShipRules.VerifyShipRules()` eingehängt. Alle Tests bestehen (PASS).
+  - VollstÃ¤ndiger Roslyn-Kompilierdurchlauf aller C#-Dateien der Solution erfolgreich (0 Fehler).
+  - Mini-Tests `InterruptRules.VerifyP5InterruptRules()` und `TimingRules.VerifyP5TimingRules()` implementiert und in `ShipRules.VerifyShipRules()` eingehÃ¤ngt. Alle Tests bestehen (PASS).
 
-## 2026-09-26 — EXTRACT_REST: P3 (Event-Persist Apply) & P4 (Dilemma-Persist Apply)
+## 2026-09-26 â€” EXTRACT_REST: P3 (Event-Persist Apply) & P4 (Dilemma-Persist Apply)
 
 - *P3-R1 & P3-13 (Outpost & Spacedock Repair)*:
   - In `DockingRules.cs` `IsRepairFacility(Card? c)` und `FacilityRepairsImmediatelyOnDock(bool facilityHasSpacedock)` ausgelagert.
   - In `TableWindow.xaml.cs` `IsRepairFacility` und `TryDockShip` darauf umgestellt; `ProcessEndOfTurnRepairs` nutzt `EndOfTurnRestRules.DecideRepair` und Store `RepairTurns`.
-  - Mini-Test `DockingRules.VerifyDockingRules()` hinzugefügt.
+  - Mini-Test `DockingRules.VerifyDockingRules()` hinzugefÃ¼gt.
 - *P3-01 & P3-03 (Thermal Deflectors & The Traveler)*:
-  - In `EventRules.cs` `HasThermalDeflectors` und `IsTravelerInPlay` als Engine-Prüfungen implementiert, die Store-Attachments und Tischkarten beider Spieler auswerten.
+  - In `EventRules.cs` `HasThermalDeflectors` und `IsTravelerInPlay` als Engine-PrÃ¼fungen implementiert, die Store-Attachments und Tischkarten beider Spieler auswerten.
   - In `TableWindow.xaml.cs` `HasThermalDeflectors()` und `IsTravelerInPlay()` auf `EventRules` umgestellt.
 - *P3-04 (Telepathic Alien Kidnappers)*:
-  - In `EventRules.cs` `KidnapperValidCardTypes` und `DecideKidnappers(string? namedType, Card? revealedCard)` als pure Regelentscheidung eingeführt.
+  - In `EventRules.cs` `KidnapperValidCardTypes` und `DecideKidnappers(string? namedType, Card? revealedCard)` als pure Regelentscheidung eingefÃ¼hrt.
   - In `TableWindow.xaml.cs` `RunKidnappers` und `FinishKidnappers` auf die neuen `EventRules`-Definitionen umgestellt.
 - *P3-05 & P3-09 (Traveler Extra Draws & Atmospheric Ionization)*:
-  - In `BoardStore.cs` die Felder `PendingExtraDraws` und `IonizationBeamsThisTurnByPlayer` hinzugefügt und in `Clear()` integriert.
+  - In `BoardStore.cs` die Felder `PendingExtraDraws` und `IonizationBeamsThisTurnByPlayer` hinzugefÃ¼gt und in `Clear()` integriert.
   - In `EventRules.cs` `CanBeamUnderAtmosphericIonization(int plannedCount, int beamsThisTurnByController)` implementiert.
   - In `TableWindow.xaml.cs` `CanBeamAtMission` und `NoteIonizationBeam` an `EventRules` und `BoardStore` angebunden.
 - *P3-06 & P3-07 (Neural Servo Device & Anti-Time Anomaly)*:
@@ -367,7 +370,7 @@
   - In `TableWindow.xaml.cs` `RestoreNeuralServo` und `ApplyAntiTimeExpire` auf `EventRules` umgestellt.
 - *P3-08 (Distortion Field)*:
   - In `EventRules.cs` `CanBeamThroughDistortionField(bool isDistortionFaceUp, bool hasPatternEnhancers)` implementiert.
-  - In `TableWindow.xaml.cs` Beaming-Prüfung in `CanBeamAtMission` darauf umgestellt.
+  - In `TableWindow.xaml.cs` Beaming-PrÃ¼fung in `CanBeamAtMission` darauf umgestellt.
 - *P3-10, P3-11 & P3-12 (Movement Hazards & Gaps Nullify)*:
   - `MovementHazardRules.VerifyMovementHazardRules()` und `GapsNullifyRules.VerifyGapsNullifyRules()` als Mini-Tests implementiert.
 - *P3-15 & P3-16 (Cytherians Dest & Rogue Borg / Lore Returns)*:
@@ -382,20 +385,20 @@
 - *Verifikation*:
   - Alle neuen Mini-Tests (`DockingRules`, `EndOfTurnRestRules`, `MovementHazardRules`, `GapsNullifyRules`, `VerifyP3EventRules`) in `ShipRules.VerifyShipRules()` verankert und integriert.
 
-## 2026-09-26 — EXTRACT_REST: P2 (Ship & Personnel Battle, Counter-Attack State & Escape Pod)
+## 2026-09-26 â€” EXTRACT_REST: P2 (Ship & Personnel Battle, Counter-Attack State & Escape Pod)
 
 - *P2-S7 (Counter-Attack State in BoardStore & BattleRules)*:
-  - Datenmodell `BattleRules.CounterAttackOpportunity` eingeführt (`EligiblePlayer`, `LocationMissionInstanceId`, `InvolvedOpponentInstanceIds`, `Armed`).
+  - Datenmodell `BattleRules.CounterAttackOpportunity` eingefÃ¼hrt (`EligiblePlayer`, `LocationMissionInstanceId`, `InvolvedOpponentInstanceIds`, `Armed`).
   - Helper `BattleRules.IsArmedCounterAttackAt`, `BattleRules.IsCounterAttackTarget`, `BattleRules.RegisterCounterAttack` und `BattleRules.UpdateCounterAttackWindow` implementiert.
   - `BoardStore.CounterAttack` als Single Source of Truth auf der Engine-Seite angelegt und in `Clear()` integriert.
-  - In `TableWindow.xaml.cs` `IsArmedCounterAttackAt`, `IsCounterAttackTarget`, `RegisterCounterAttackOpportunity` und `UpdateCounterAttackWindow` so umgestellt, dass sie primär `BoardStore.Current.CounterAttack` und `BattleRules` nutzen.
+  - In `TableWindow.xaml.cs` `IsArmedCounterAttackAt`, `IsCounterAttackTarget`, `RegisterCounterAttackOpportunity` und `UpdateCounterAttackWindow` so umgestellt, dass sie primÃ¤r `BoardStore.Current.CounterAttack` und `BattleRules` nutzen.
 - *P2-S1 & P2-S2 (Ship Battle Zielwahl-Filter & Initiierung)*:
-  - In `BattleRules.cs` `CanShipInitiateBattleAtLocation` und `IsLegalShipAttackTarget` implementiert (prüft ungestoppt, ungedockt, ungetarnt, kein Required Move, WEAPONS > 0, Leader und Matching Affiliation).
+  - In `BattleRules.cs` `CanShipInitiateBattleAtLocation` und `IsLegalShipAttackTarget` implementiert (prÃ¼ft ungestoppt, ungedockt, ungetarnt, kein Required Move, WEAPONS > 0, Leader und Matching Affiliation).
   - In `TableWindow.xaml.cs` `BeginAttackMode` auf `BattleRules.CanShipInitiateBattleAtLocation` und `BattleRules.IsLegalShipAttackTarget` umgestellt.
 - *P2-S3 & P2-S4 (Ship Battle Plan & Return Fire Orchestrierung)*:
   - In `BattleRules.cs` `DecideReturnFireEligibility` und `ExecuteShipBattlePlan` (`ShipBattlePlan`) implementiert. Berechnet Open Fire, Rotation Damage, Return Fire Checks & Boni, Winner und Folgestatus komplett als Regelplan.
-  - In `TableWindow.xaml.cs` `AskReturnFireAndResolve` delegiert die Eignungsprüfung an `BattleRules.DecideReturnFireEligibility`.
-  - In `TableWindow.xaml.cs` `ResolveShipBattle` delegiert die Gefechtsauflösung vollständig an `BattleRules.ExecuteShipBattlePlan` und führt die Wirkungen (Damage, Stopped, Discard/Destroy, Reveal) aus dem Plan aus.
+  - In `TableWindow.xaml.cs` `AskReturnFireAndResolve` delegiert die EignungsprÃ¼fung an `BattleRules.DecideReturnFireEligibility`.
+  - In `TableWindow.xaml.cs` `ResolveShipBattle` delegiert die GefechtsauflÃ¶sung vollstÃ¤ndig an `BattleRules.ExecuteShipBattlePlan` und fÃ¼hrt die Wirkungen (Damage, Stopped, Discard/Destroy, Reveal) aus dem Plan aus.
 - *P2-S6, P2-E1 & P2-E2 (Destroy-Policy & Escape Pod Checks)*:
   - In `BattleRules.cs` `CanEscapePodRespond` ausgelagert.
   - In `InterruptRules.cs` `IsLegalEscapePodCrew` ausgelagert (filtert Nicht-Personal, Equipment und gefangenes Gegner-Personal heraus).
@@ -403,313 +406,313 @@
 - *P2-P1..P2-P4 (Personnel Battle)*:
   - In `BattleRules.cs` `CanOfferPersonnelBattle` ausgelagert; `CanOfferPersonnelBattleFromShip` in `TableWindow.xaml.cs` darauf umgestellt.
 - *Verifikation*:
-  - Neuer Mini-Test `BattleRules.VerifyBattleRulesPlan()` in `ShipRules.VerifyShipRules()` eingehängt und erfolgreich verifiziert (PASS).
+  - Neuer Mini-Test `BattleRules.VerifyBattleRulesPlan()` in `ShipRules.VerifyShipRules()` eingehÃ¤ngt und erfolgreich verifiziert (PASS).
 
-## 2026-09-26 — EXTRACT_REST: P0 (Persist-Modell & Dual-Run) & P1 (Borg Ship EOT)
+## 2026-09-26 â€” EXTRACT_REST: P0 (Persist-Modell & Dual-Run) & P1 (Borg Ship EOT)
 
 - *P0-D1 (`AttachedDilemma` aus Window nach Board)*:
-  - Datenmodell `BoardAttachedDilemma` in `StarTrekCCG/Game/Board/BoardAttachments.cs` eingeführt mit `HostInstanceId`, `DestInstanceId`, `Direction`, `Held` und `OriginalEncounter`.
+  - Datenmodell `BoardAttachedDilemma` in `StarTrekCCG/Game/Board/BoardAttachments.cs` eingefÃ¼hrt mit `HostInstanceId`, `DestInstanceId`, `Direction`, `Held` und `OriginalEncounter`.
   - `BoardStore.AttachedDilemmas` angelegt, in `Clear()` integriert und in `ToBoardPieces()` als Engine-Snapshot-Pieces (`PieceRole.DilemmaPersist`) serialisiert.
-  - In `TableWindow.xaml.cs` Helper `AddAttachedDilemma`, `RemoveAttachedDilemma` und `SyncAttachmentsToStore` verdrahtet. Alle `_attachedDilemmas.Add`/`Remove` umgestellt. `CaptureEngineState()` liest Dilemma-Attachments und Quarantäne-Zustand direkt aus dem Store.
+  - In `TableWindow.xaml.cs` Helper `AddAttachedDilemma`, `RemoveAttachedDilemma` und `SyncAttachmentsToStore` verdrahtet. Alle `_attachedDilemmas.Add`/`Remove` umgestellt. `CaptureEngineState()` liest Dilemma-Attachments und QuarantÃ¤ne-Zustand direkt aus dem Store.
 - *P0-E1 (`AttachedEvent` aus Window nach Board)*:
-  - Datenmodell `BoardAttachedEvent` in `StarTrekCCG/Game/Board/BoardAttachments.cs` eingeführt mit `HostInstanceId`, `Host2InstanceId`, `TurnScope`, `PhasePoint`, `ScopePlayer` etc.
+  - Datenmodell `BoardAttachedEvent` in `StarTrekCCG/Game/Board/BoardAttachments.cs` eingefÃ¼hrt mit `HostInstanceId`, `Host2InstanceId`, `TurnScope`, `PhasePoint`, `ScopePlayer` etc.
   - `BoardStore.AttachedEvents` angelegt, in `Clear()` integriert und in `ToBoardPieces()` als Engine-Snapshot-Pieces (`PieceRole.EventPersist`) serialisiert.
   - In `TableWindow.xaml.cs` Helper `AddAttachedEvent`, `RemoveAttachedEvent`, `RemoveAttachedEventsForCard` und EOT-Tick-Sync verdrahtet. Alle direkten Zugriffe auf `_attachedEvents.Add`/`Remove` umgestellt; `CaptureEngineState()` liest Store.
-- *P0-S1 (Dual-Run abschließen)*:
+- *P0-S1 (Dual-Run abschlieÃŸen)*:
   - `ShipInstance` in `StarTrekCCG/Game/Board/CardInstance.cs` um `RepairTurns` und `CloakLocked` erweitert.
-  - In `TableWindow.xaml.cs` Store als Single Source of Truth für Hull, Cloak, RepairTurns und CloakLocked etabliert: `GetRepairTurns`/`SetRepairTurns`, `IsCloakLocked`/`SetCloakLocked`, `IsShipCloaked`, `ApplyHullDamage`/`GetHullDamage` operieren auf Store-Instanzen. `ApplyUiStatusToStore` synchronisiert die Felder auf die Instanzen.
+  - In `TableWindow.xaml.cs` Store als Single Source of Truth fÃ¼r Hull, Cloak, RepairTurns und CloakLocked etabliert: `GetRepairTurns`/`SetRepairTurns`, `IsCloakLocked`/`SetCloakLocked`, `IsShipCloaked`, `ApplyHullDamage`/`GetHullDamage` operieren auf Store-Instanzen. `ApplyUiStatusToStore` synchronisiert die Felder auf die Instanzen.
 - *P1 (Borg Ship EOT)*:
   - `BorgShipRules.cs` in `StarTrekCCG/Game/BorgShipRules.cs` erstellt mit `Weapons = 24`, `Shields = 24`, `PointsOnDestroyed = 15`, `IsLegalTarget(...)`, `BorgWeaponsBonus(...)`, `BorgShieldsBonus(...)`, `DecideInitialDirection(...)` und `DecideMove(...)`.
   - In `TableWindow.xaml.cs`:
     - `StartBorgShipEotAttacks`: Ziele via `BorgShipRules.IsLegalTarget` gefiltert.
     - `AskReturnFireAndResolve`, `ResolveShipBattle`, `TryDestroyBorgShipInBattle`: Literal-24 und Hardcoded-15 durch `BorgShipRules`-Konstanten und Boni ersetzt.
-    - `FinishBorgShipEotMove`: Bewegungs- und Verlassens-Logik vollständig an `BorgShipRules.DecideMove(...)` delegiert.
-    - `_borgShipDir` / `Direction` in `BoardAttachedDilemma` und `AttachedDilemma` abgelegt; Initialrichtung über `BorgShipRules.DecideInitialDirection` ermittelt.
+    - `FinishBorgShipEotMove`: Bewegungs- und Verlassens-Logik vollstÃ¤ndig an `BorgShipRules.DecideMove(...)` delegiert.
+    - `_borgShipDir` / `Direction` in `BoardAttachedDilemma` und `AttachedDilemma` abgelegt; Initialrichtung Ã¼ber `BorgShipRules.DecideInitialDirection` ermittelt.
   - In `artifacts/EXTRACT_REST.md`: Abschnitte P0 (P0-D1, P0-E1, P0-S1) und P1 als ERLEDIGT markiert.
 
-## 2026-09-26 — Vulcan Mindmeld (144 U) Bugfix & Generisches Buried-Target-Peek-System
+## 2026-09-26 â€” Vulcan Mindmeld (144 U) Bugfix & Generisches Buried-Target-Peek-System
 
 - *ModifierRules & Vulcan Mindmeld Bugfix (Kein Stacking auf Engineer x2)*:
-  - Equipment-Skill-Grant-Regel (1E Glossar "Equipment" & "skills — modifying"): Equipment, das eine Fähigkeit verleiht ("gain [skill]"), verleiht diese nur an Personal, das diese Fähigkeit noch nicht besitzt. In `ModifierRules.ResolvePersonnel` wurde die Prüfung `if (skills.GetValueOrDefault(def.GrantedSkill) > 0) continue;` ergänzt, sodass Data (gedruckt `ENGINEER: 1` und `OFFICER`) bei anwesendem *Engineering Kit* nicht fälschlich `ENGINEER x 2` erhält.
-  - Classification-Filterung bei Skill-Kopieren: In `TableWindow.ApplyVulcanMindmeld` wird die gedruckte Classification des Donors (`MissionRules.PrintedClassificationParts(skillDonor)`, z. B. `OFFICER` bei Data) vor der Skill-Übertragung herausgefiltert, sodass nur reguläre Skills übertragen werden.
-  - Saubere Initialisierung temporärer Skills: `ModifierRules.GrantTemporarySkills` erzeugt stets ein frisches Dictionary, um Nebeneffekte durch Mehrfachaufrufe auszuschließen.
+  - Equipment-Skill-Grant-Regel (1E Glossar "Equipment" & "skills â€” modifying"): Equipment, das eine FÃ¤higkeit verleiht ("gain [skill]"), verleiht diese nur an Personal, das diese FÃ¤higkeit noch nicht besitzt. In `ModifierRules.ResolvePersonnel` wurde die PrÃ¼fung `if (skills.GetValueOrDefault(def.GrantedSkill) > 0) continue;` ergÃ¤nzt, sodass Data (gedruckt `ENGINEER: 1` und `OFFICER`) bei anwesendem *Engineering Kit* nicht fÃ¤lschlich `ENGINEER x 2` erhÃ¤lt.
+  - Classification-Filterung bei Skill-Kopieren: In `TableWindow.ApplyVulcanMindmeld` wird die gedruckte Classification des Donors (`MissionRules.PrintedClassificationParts(skillDonor)`, z. B. `OFFICER` bei Data) vor der Skill-Ãœbertragung herausgefiltert, sodass nur regulÃ¤re Skills Ã¼bertragen werden.
+  - Saubere Initialisierung temporÃ¤rer Skills: `ModifierRules.GrantTemporarySkills` erzeugt stets ein frisches Dictionary, um Nebeneffekte durch Mehrfachaufrufe auszuschlieÃŸen.
 - *Generisches Buried-Target-Peek- und Drop-System*:
   - Generische Erkennung verdeckter Ziele: `TargetQuery.IsCardTargetingBuried` erkennt neben *Vulcan Mindmeld* und *Disruptor Overload* per Regex alle Karten mit Zielformulierungen auf Personal, Equipment oder Mindmeld (`plays on ... personnel/equipment/mindmeld`).
-  - Erweiterung von `WantsBuriedPeek` und `CanTarget`: Ermöglicht Stack-Peek beim Draggen über Wirtselemente (Schiffe, Außenposten/Facilities, Planeten/Missionen mit Away Teams).
+  - Erweiterung von `WantsBuriedPeek` und `CanTarget`: ErmÃ¶glicht Stack-Peek beim Draggen Ã¼ber Wirtselemente (Schiffe, AuÃŸenposten/Facilities, Planeten/Missionen mit Away Teams).
   - Hover & Detailfenster-Anzeige (`IsLegalPeekTarget`, `BuriedLegalOn`, `FindHostUnderWindow`, `UpdatePeekSnapAt`):
-    - Beim Halten über einem Wirt mit legalen Zielen öffnet sich nach 1s Haltezeit das Detailfenster (`CardDetailOverlay`).
+    - Beim Halten Ã¼ber einem Wirt mit legalen Zielen Ã¶ffnet sich nach 1s Haltezeit das Detailfenster (`CardDetailOverlay`).
     - Legale Ziele im Stapel leuchten cyan auf (`Color.FromRgb(80, 220, 255)`).
-    - Beim Bewegen über das Mini rastet der Snap ein (`Color.FromRgb(40, 255, 120)` grün).
-    - SnapSite erzeugt für Play-On-Karten saubere Status-Meldungen (`Play on {hit.Name}`).
-  - Drop-Unterstützung für Hand- und entsperrte Sidedeck-Karten (`ZoneMini_MouseUp`):
-    - `isHandOrUnlockedSide` integriert (gilt für Hand und entsperrte Sidedecks wie *Q's Tent*).
-    - Bei Vulcan Mindmeld: Droppen auf ein Personal im Detailfenster übernimmt dieses direkt als `preselectedPersonnel` (überspringt den Auswahldialog für den Mindmeld-Anwender) und schließt das Detailfenster sauber.
-    - Bei Events: Ermittelt bei offenem Detailfenster das Ziel bzw. den Wirt (`_eventPreferredHost`), schließt das Detailfenster und platziert das Event regelkonform.
-    - Bei Disruptor Overload: Droppen auf ein konkretes Equipment zerstört dieses direkt (`RemoveEquipmentFromHost`).
+    - Beim Bewegen Ã¼ber das Mini rastet der Snap ein (`Color.FromRgb(40, 255, 120)` grÃ¼n).
+    - SnapSite erzeugt fÃ¼r Play-On-Karten saubere Status-Meldungen (`Play on {hit.Name}`).
+  - Drop-UnterstÃ¼tzung fÃ¼r Hand- und entsperrte Sidedeck-Karten (`ZoneMini_MouseUp`):
+    - `isHandOrUnlockedSide` integriert (gilt fÃ¼r Hand und entsperrte Sidedecks wie *Q's Tent*).
+    - Bei Vulcan Mindmeld: Droppen auf ein Personal im Detailfenster Ã¼bernimmt dieses direkt als `preselectedPersonnel` (Ã¼berspringt den Auswahldialog fÃ¼r den Mindmeld-Anwender) und schlieÃŸt das Detailfenster sauber.
+    - Bei Events: Ermittelt bei offenem Detailfenster das Ziel bzw. den Wirt (`_eventPreferredHost`), schlieÃŸt das Detailfenster und platziert das Event regelkonform.
+    - Bei Disruptor Overload: Droppen auf ein konkretes Equipment zerstÃ¶rt dieses direkt (`RemoveEquipmentFromHost`).
 - *Tests & Verifikation*:
-  - `InterruptRules.VerifyVulcanMindmeldDecide` um vollständigen Sarek/Data/Engineering Kit-Fall erweitert:
-    - Data behält `ENGINEER = 1` trotz anwesendem `Engineering Kit`.
-    - Sarek erhält via Mindmeld `ENGINEER = 1` (nicht 2), `Computer Skill = 2`, `Music = 1`, `Astrophysics = 1`, `Exobiology = 1`.
-    - Sarek behält seine eigenen Skills `Diplomacy = 3` und `Mindmeld = 1`.
-    - Sarek erhält kein `OFFICER`.
-    - Nach Expiry sind alle temporären Skills sauber bereinigt.
-  - In `ShipRules.VerifyShipRules` eingehängt und verifiziert.
+  - `InterruptRules.VerifyVulcanMindmeldDecide` um vollstÃ¤ndigen Sarek/Data/Engineering Kit-Fall erweitert:
+    - Data behÃ¤lt `ENGINEER = 1` trotz anwesendem `Engineering Kit`.
+    - Sarek erhÃ¤lt via Mindmeld `ENGINEER = 1` (nicht 2), `Computer Skill = 2`, `Music = 1`, `Astrophysics = 1`, `Exobiology = 1`.
+    - Sarek behÃ¤lt seine eigenen Skills `Diplomacy = 3` und `Mindmeld = 1`.
+    - Sarek erhÃ¤lt kein `OFFICER`.
+    - Nach Expiry sind alle temporÃ¤ren Skills sauber bereinigt.
+  - In `ShipRules.VerifyShipRules` eingehÃ¤ngt und verifiziert.
 
-## 2026-09-26 — Interrupt Temporal Rift (140 U) & The Juggler (142 U)
+## 2026-09-26 â€” Interrupt Temporal Rift (140 U) & The Juggler (142 U)
 
 - *SpacelineLocationRules* (Neue Architektur-Pipeline):
-  - Zentralisierte Klassifizierung und Pipeline für alle Arten von Spaceline-Locations geschaffen (`IsTimeLocation`, `IsSpacelineLocation`, `PlaysAsSpacelineLocation`, `IsLandableSpacelineLocation`, `IsDifferentTimeContinuum`).
-  - Standardisiert Karten, die als Spaceline Location fungieren (*Time Travel Pod*, *Temporal Rift*, zukünftige Zeit- und Raumlinienkarten).
-  - Verhindert reguläre Warp-Flüge zwischen Zeitorten und der regulären Raumlinie (`IsDifferentTimeContinuum`).
+  - Zentralisierte Klassifizierung und Pipeline fÃ¼r alle Arten von Spaceline-Locations geschaffen (`IsTimeLocation`, `IsSpacelineLocation`, `PlaysAsSpacelineLocation`, `IsLandableSpacelineLocation`, `IsDifferentTimeContinuum`).
+  - Standardisiert Karten, die als Spaceline Location fungieren (*Time Travel Pod*, *Temporal Rift*, zukÃ¼nftige Zeit- und Raumlinienkarten).
+  - Verhindert regulÃ¤re Warp-FlÃ¼ge zwischen Zeitorten und der regulÃ¤ren Raumlinie (`IsDifferentTimeContinuum`).
   - Vereinheitlichung in `TableWindow`: `IsLandableLocation`, `BuildSpacelineDisplayOrder`, `GetSpacelineQuadrant` und `IsWormholeLocation` greifen nun auf `SpacelineLocationRules` zu.
   - Dedizierte, wiederverwendbare Platzierungspipeline `PlaceSpacelineTimeLocation` geschaffen, die von `PlaceTimeTravelPod` und `PlaceTemporalRift` geteilt wird.
 - *Temporal Rift* (Premiere 140 U / 322 C):
   - Regelkonforme Umsetzung nach aktuellem Errata & Rulings:
     - Text: *"Plays on table as a universal space time location; relocate one of your exposed ships OR a dilemma here. Counts down only at the start of your turn. When nullified, return that ship or dilemma to its former location."*
     - Response- & Flucht-Sperre: `TimingRules.CanRespond` verbietet *Temporal Rift* als Antwort auf Kampf (`InitiateShipBattle`, `InitiatePersonnelBattle`) oder Dilemma-Begegnung (`EncounterDilemma`).
-    - Exposed-Bedingung: Nur exposed Schiffe (`ShipRules.IsShipExposed`: ungedockt, ungetarnt, unphased, nicht gelandet/getragen) können versetzt werden.
-    - Zielauswahl: Unterstützt Drag & Drop auf exposed Schiffe, On-Board-Auswahl via gelbem Glow (`BeginBoardPickShip`) oder Auswahl eines aktiven Dilemmas im Spiel.
-    - Dilemma-Relocate: Versetzt Dilemmas (inkl. Borg Ship / Scow Token) an den Zeitort und stellt sie bei Ablauf/Nullify an ihren vorherigen Wirtsort zurück.
-    - Timing & Countdown: Zählt nur zu Beginn des Zuges des Besitzers herunter (`ProcessTemporalRiftCountdowns` in `ProcessStartOfTurnTimedEffects`).
-    - Rückkehr: Bei Nullify (via Kevin Uxbridge o. Ä., `OnCardLeftPlay`) oder nach Ablauf von Countdown 2 kehrt das Schiff bzw. das Dilemma an den ursprünglichen Ort zurück.
-    - Immunität / Pausierung: Schaden und Countdowns von Schiffseffekten (z. B. *Plasma Fire*, *Warp Core Breach*) pausieren am Zeitort (`IsShipAtTimeLocation`).
+    - Exposed-Bedingung: Nur exposed Schiffe (`ShipRules.IsShipExposed`: ungedockt, ungetarnt, unphased, nicht gelandet/getragen) kÃ¶nnen versetzt werden.
+    - Zielauswahl: UnterstÃ¼tzt Drag & Drop auf exposed Schiffe, On-Board-Auswahl via gelbem Glow (`BeginBoardPickShip`) oder Auswahl eines aktiven Dilemmas im Spiel.
+    - Dilemma-Relocate: Versetzt Dilemmas (inkl. Borg Ship / Scow Token) an den Zeitort und stellt sie bei Ablauf/Nullify an ihren vorherigen Wirtsort zurÃ¼ck.
+    - Timing & Countdown: ZÃ¤hlt nur zu Beginn des Zuges des Besitzers herunter (`ProcessTemporalRiftCountdowns` in `ProcessStartOfTurnTimedEffects`).
+    - RÃ¼ckkehr: Bei Nullify (via Kevin Uxbridge o. Ã„., `OnCardLeftPlay`) oder nach Ablauf von Countdown 2 kehrt das Schiff bzw. das Dilemma an den ursprÃ¼nglichen Ort zurÃ¼ck.
+    - ImmunitÃ¤t / Pausierung: Schaden und Countdowns von Schiffseffekten (z. B. *Plasma Fire*, *Warp Core Breach*) pausieren am Zeitort (`IsShipAtTimeLocation`).
     - Detailstatus: Zeigt Countdown und anwesende Schiffe/Dilemmas im Detailblock an.
 - *The Juggler* (Premiere 142 U / 326 C):
-  - Verifiziert und verbessert: Wählt Spieler aus (`AskPlayer`), mischt dessen Nachziehstapel per RNG neu und protokolliert dies detailliert im Log und der Statuszeile.
+  - Verifiziert und verbessert: WÃ¤hlt Spieler aus (`AskPlayer`), mischt dessen Nachziehstapel per RNG neu und protokolliert dies detailliert im Log und der Statuszeile.
   - Als funktionierend (`working`) verifiziert.
 - Tests & Verifikation:
   - `InterruptRules.VerifyTemporalRiftDecide` implementiert und in `ShipRules.VerifyShipRules` integriert (alle Checks PASS).
   - `SpacelineLocationRules.VerifySpacelineLocationRules` validiert Zeitort- und Raumlinienregeln.
   - `dotnet build /p:EnableWindowsTargeting=true` erfolgreich (0 Fehler).
 
-## 2026-09-25 — Interrupt Scan (295 C) & Tachyon Detection Grid (318 U)
+## 2026-09-25 â€” Interrupt Scan (295 C) & Tachyon Detection Grid (318 U)
 
 - *Scan* (Premiere 295 C):
-  - Regelkonforme Implementierung als Gegenstück zu *Full Planet Scan* für Weltraummissionen:
-    - Timing-Gate: Spielbar zu Beginn des Zuges (`TimingRules.RequiresStartOfTurnWindow`, Segment 1, vor Ausspielen der regulären Karte).
+  - Regelkonforme Implementierung als GegenstÃ¼ck zu *Full Planet Scan* fÃ¼r Weltraummissionen:
+    - Timing-Gate: Spielbar zu Beginn des Zuges (`TimingRules.RequiresStartOfTurnWindow`, Segment 1, vor Ausspielen der regulÃ¤ren Karte).
     - Ziel: Eigenes Schiff an einer [S]-Mission (`!MissionCountsAsPlanetCard(mc)`) mit mindestens zwei gedruckten Staffing-Icons (`[Cmd]` / `[Stf]`).
-    - Kosten: Stoppen von ungestopptem `Computer Skill` und `Stellar Cartography` an Bord (bevorzugt zwei getrennte Crew-Mitglieder; unterstützt auch Einzelpersonal mit beiden Fähigkeiten).
+    - Kosten: Stoppen von ungestopptem `Computer Skill` und `Stellar Cartography` an Bord (bevorzugt zwei getrennte Crew-Mitglieder; unterstÃ¼tzt auch Einzelpersonal mit beiden FÃ¤higkeiten).
     - Effekt: Unterste Seed-Karte der Mission wird aufgedeckt (`ShowCardReveal`) und untersucht, Personal wird gestoppt, Karte wird abgelegt.
   - On-Board Picking & Snap-Glow:
-    - Bei Ausspielen ohne Drop-Ziel werden alle legalen Schiffe am Tisch ermittelt (`FindLegalScanShips`) und via `PickBoardTarget` mit grünem Glow hervorgehoben und direkt auf dem Tisch auswählbar gemacht.
+    - Bei Ausspielen ohne Drop-Ziel werden alle legalen Schiffe am Tisch ermittelt (`FindLegalScanShips`) und via `PickBoardTarget` mit grÃ¼nem Glow hervorgehoben und direkt auf dem Tisch auswÃ¤hlbar gemacht.
     - Drag & Drop Snap-Glow (`HostMatchesInterruptTargetForCard`, `GetLegalInterruptPlayHosts`) hebt nur eigene Schiffe an Space-Missions mit >=2 Staffing hervor.
 - *Tachyon Detection Grid* (Premiere 318 U):
   - Standardisierung & Korrektur auf offizielle Regeln:
     - Voraussetzung: Spieler muss mindestens 4 exposed Schiffe im Spiel kontrollieren (`CountExposedShips >= 4`).
-    - Exposed-Definition aus `ShipRules.IsShipExposed` verwendet: ungedockt, ungetarnt, unphased, nicht gelandet, nicht getragen. Getarnte oder gedockte Schiffe zählen nicht zu den 4 Schiffen.
+    - Exposed-Definition aus `ShipRules.IsShipExposed` verwendet: ungedockt, ungetarnt, unphased, nicht gelandet, nicht getragen. Getarnte oder gedockte Schiffe zÃ¤hlen nicht zu den 4 Schiffen.
     - Ziel: Ein beliebiges getarntes Schiff auf dem Tisch (Gegner oder eigenes).
     - Effekt: Schiff enttarnt sich sofort (`SetShipCloaked(host, false)`), selbst wenn es gestoppt ist oder sich in diesem Zug bereits getarnt hat.
-    - Cloak-Lock: Wirtschiff wird bis zum Ende des Zuges für erneutes Tarnen gesperrt (`_cloakLocked`, via `TurnExpiry`).
+    - Cloak-Lock: Wirtschiff wird bis zum Ende des Zuges fÃ¼r erneutes Tarnen gesperrt (`_cloakLocked`, via `TurnExpiry`).
   - Target-Selection Pipeline:
-    - Wenn nicht direkt auf ein getarntes Schiff abgelegt, werden alle getarnten Schiffe auf dem Tisch ermittelt. Bei mehreren Schiffen leuchtet `PickBoardTarget` mit violettem Glow für direkte Klick-Auswahl.
-    - Drag & Drop Snap-Glow hebt nur getarnte Schiffe hervor und wird sofort unterdrückt, falls der Spieler weniger als 4 exposed Schiffe besitzt.
+    - Wenn nicht direkt auf ein getarntes Schiff abgelegt, werden alle getarnten Schiffe auf dem Tisch ermittelt. Bei mehreren Schiffen leuchtet `PickBoardTarget` mit violettem Glow fÃ¼r direkte Klick-Auswahl.
+    - Drag & Drop Snap-Glow hebt nur getarnte Schiffe hervor und wird sofort unterdrÃ¼ckt, falls der Spieler weniger als 4 exposed Schiffe besitzt.
     - Pre-Stack Validierung in `CanPlayCardWithReason` verhindert illegales Ausspielen ohne 4 exposed Schiffe oder ohne getarnte Schiffe.
 - *ReturnInterruptToHand*:
-  - Bereinigt bei Abbruch oder Fehlern die Karte zusätzlich aus dem Ablagestapel (`_discardCards` / `_oppDiscardCards`), um doppelte Kartenreferenzen zu verhindern.
+  - Bereinigt bei Abbruch oder Fehlern die Karte zusÃ¤tzlich aus dem Ablagestapel (`_discardCards` / `_oppDiscardCards`), um doppelte Kartenreferenzen zu verhindern.
 - Tests & Verifikation:
   - `InterruptShipEffectRules.VerifyTachyonDecide` und `VerifyScanDecide` implementiert und in `ShipRules.VerifyShipRules` integriert (alle PASS).
   - Status von *Q2* und *Subspace Schism* als funktionierend (`working`) verifiziert und dokumentiert.
   - `dotnet build` erfolgreich (0 Fehler).
 
-## 2026-09-25 — Einheitliche On-Board Zielauswahl-Pipeline & Ship Seizure (136 C) Board-Pick
+## 2026-09-25 â€” Einheitliche On-Board Zielauswahl-Pipeline & Ship Seizure (136 C) Board-Pick
 
 - UX-Architektur & Einheitliche Pipeline:
-  - `PickBoardTarget` in `TableWindow.xaml.cs` als zentrale Pipeline für die direkte Auswahl von Karten/Objekten auf dem Spielfeld (Schiffe, Spaceline Locations, Außenposten/Facilities etc.) implementiert:
+  - `PickBoardTarget` in `TableWindow.xaml.cs` als zentrale Pipeline fÃ¼r die direkte Auswahl von Karten/Objekten auf dem Spielfeld (Schiffe, Spaceline Locations, AuÃŸenposten/Facilities etc.) implementiert:
     - Legale Ziele werden direkt auf dem `TableCanvas` mit einem animierten Halo/Glow hervorgehoben (`AddBoardTargetGlow`).
-    - Mauszeiger wechselt über Zielobjekten auf `Cursors.Hand`.
+    - Mauszeiger wechselt Ã¼ber Zielobjekten auf `Cursors.Hand`.
     - Das erste Ziel wird bei Bedarf automatisch in den sichtbaren Bildbereich gescrollt.
-    - Modale Interaktion via `DispatcherFrame`, sodass Karteneffekte synchron auf die getroffene Wahl warten können, ohne den UI-Thread zu blockieren.
-    - Ein Klick auf ein markiertes Ziel wählt es aus; Klick auf leere Tischfläche oder Rechtsklick bricht die Auswahl ab und setzt das Ziel auf `null`.
+    - Modale Interaktion via `DispatcherFrame`, sodass Karteneffekte synchron auf die getroffene Wahl warten kÃ¶nnen, ohne den UI-Thread zu blockieren.
+    - Ein Klick auf ein markiertes Ziel wÃ¤hlt es aus; Klick auf leere TischflÃ¤che oder Rechtsklick bricht die Auswahl ab und setzt das Ziel auf `null`.
     - Escape-Taste bricht die Auswahl ebenfalls sauber ab.
-    - Vollständiges Aufräumen aller Glow-Rechtecke und Wiederherstellen der ursprünglichen Mauszeiger im `finally`-Block.
+    - VollstÃ¤ndiges AufrÃ¤umen aller Glow-Rechtecke und Wiederherstellen der ursprÃ¼nglichen Mauszeiger im `finally`-Block.
   - `PickBorderFromList` modernisiert:
-    - Wenn die übergebenen Zielgrenzen (`candidates`) sichtbare Karten auf dem `TableCanvas` sind (z. B. Schiffe, Missionen, Einrichtungen), leitet `PickBorderFromList` automatisch an `PickBoardTarget` weiter, statt ein Detailfenster/Popup-Streifen (`PickCardFromList`) zu öffnen.
+    - Wenn die Ã¼bergebenen Zielgrenzen (`candidates`) sichtbare Karten auf dem `TableCanvas` sind (z. B. Schiffe, Missionen, Einrichtungen), leitet `PickBorderFromList` automatisch an `PickBoardTarget` weiter, statt ein Detailfenster/Popup-Streifen (`PickCardFromList`) zu Ã¶ffnen.
     - Nicht auf dem Tisch liegende Auswahlen (z. B. Personal in Crew-Stapeln bei *Genetronic Replicator*) nutzen weiterhin sicher die Scroll-Streifen-Detailansicht.
-  - `PickCardOnBoard`: Komfort-Methode zur Auflösung von `Card`-Listen auf dem Spielfeld in Border-Ziele für `PickBoardTarget`.
+  - `PickCardOnBoard`: Komfort-Methode zur AuflÃ¶sung von `Card`-Listen auf dem Spielfeld in Border-Ziele fÃ¼r `PickBoardTarget`.
 - Integration bei Karten:
   - *Ship Seizure* (136 C):
-    - Wählt das zu zerstörende leere, ungeschützte Schiff (`victim`) nicht mehr über ein Detailfenster (`PickCardFromList`), sondern lässt alle legalen Opfer am Ort auf dem Spielfeld mit bernsteinfarbenem Glow erstrahlen.
+    - WÃ¤hlt das zu zerstÃ¶rende leere, ungeschÃ¼tzte Schiff (`victim`) nicht mehr Ã¼ber ein Detailfenster (`PickCardFromList`), sondern lÃ¤sst alle legalen Opfer am Ort auf dem Spielfeld mit bernsteinfarbenem Glow erstrahlen.
     - Spieler klickt das Zielschiff direkt auf dem Spielplan an.
-    - Bei ungedropptem Ausspielen (z. B. Klick auf Ausspielen) werden auch die eigenen Schiffe mit Tractor Beam direkt auf dem Spielfeld grün markiert und zur Auswahl angeboten.
-    - Bei Abbruch (Rechtsklick) wandert *Ship Seizure* sauber auf die Hand zurück (`ReturnInterruptToHand`).
-  - *Incoming Message*: Auswahl der Ziel-Facility auf der Spaceline läuft nun über `PickBoardTarget` mit zyanfarbenem Glow direkt auf dem Tisch.
+    - Bei ungedropptem Ausspielen (z. B. Klick auf Ausspielen) werden auch die eigenen Schiffe mit Tractor Beam direkt auf dem Spielfeld grÃ¼n markiert und zur Auswahl angeboten.
+    - Bei Abbruch (Rechtsklick) wandert *Ship Seizure* sauber auf die Hand zurÃ¼ck (`ReturnInterruptToHand`).
+  - *Incoming Message*: Auswahl der Ziel-Facility auf der Spaceline lÃ¤uft nun Ã¼ber `PickBoardTarget` mit zyanfarbenem Glow direkt auf dem Tisch.
   - *Kurlan Naiskos*, *Alien Parasites*, *Kevin Uxbridge: Convergence* und `ShowTargetPickDialog` (*Conundrum*, *Anti-Matter Pod*, etc.): Nutzen via `PickBorderFromList` nun alle die einheitliche Board-Target-Pipeline.
-  - Drag-and-Drop Snap-Glow bleibt für das direkte Ziehen von Karten aus der Hand oder dem Side-Deck auf Hosts unverändert intakt.
+  - Drag-and-Drop Snap-Glow bleibt fÃ¼r das direkte Ziehen von Karten aus der Hand oder dem Side-Deck auf Hosts unverÃ¤ndert intakt.
 - Tests & Build:
   - `dotnet build` erfolgreich (0 Fehler, 2 bestehende Warnungen).
 
-## 2026-09-25 — Ship Rules Pipeline & Ship Seizure (136 C) Standardisierung
+## 2026-09-25 â€” Ship Rules Pipeline & Ship Seizure (136 C) Standardisierung
 
 - Architektur & Pipeline:
-  - `ShipRules.cs`: Zentrale, wiederverwendbare Pipeline für Ship-, Facility- und Site-Begriffe nach aktuellem Regelbuch/Glossar (Stand 1. Januar 2024) implementiert:
+  - `ShipRules.cs`: Zentrale, wiederverwendbare Pipeline fÃ¼r Ship-, Facility- und Site-Begriffe nach aktuellem Regelbuch/Glossar (Stand 1. Januar 2024) implementiert:
     - `exposed`: Ein Schiff ist exposed, wenn es ungedockt (`!isDocked`), ungetarnt (`!isCloaked`), unphased (`!isPhased`) und weder gelandet noch getragen ist (`!isLanded && !isCarried`).
-    - `occupied`: Ein Schiff, eine Einrichtung oder eine Site ist occupied, wenn mindestens ein Personnel an Bord ist (`aboard.Any(ModifierRules.IsPersonnelCard)`). Equipment oder Interrupts (z. B. Rogue Borg Tokens) allein machen einen Host gemäß Ruling vom 1. Jan. 2024 nicht occupied.
+    - `occupied`: Ein Schiff, eine Einrichtung oder eine Site ist occupied, wenn mindestens ein Personnel an Bord ist (`aboard.Any(ModifierRules.IsPersonnelCard)`). Equipment oder Interrupts (z. B. Rogue Borg Tokens) allein machen einen Host gemÃ¤ÃŸ Ruling vom 1. Jan. 2024 nicht occupied.
     - `unoccupied` / `empty`: Ein Schiff/Facility/Site ohne Personnel an Bord ist empty.
-    - `empty exposed ship`: Kombinierte Bedingung für leere und ungeschützte Schiffe.
-    - `your ship`: Prüfung auf Schiffsbesitz/Kontrolle (`shipOwner == player`).
+    - `empty exposed ship`: Kombinierte Bedingung fÃ¼r leere und ungeschÃ¼tzte Schiffe.
+    - `your ship`: PrÃ¼fung auf Schiffsbesitz/Kontrolle (`shipOwner == player`).
     - `tractor beam`: Erkennt Tractor Beam sowohl im Text als auch in den `Characteristics` eines Schiffes.
-    - `CanBeShipSeizureTractorHost`: Validiert das Wirtschiff für *Ship Seizure* (eigenes Schiff mit Tractor Beam).
+    - `CanBeShipSeizureTractorHost`: Validiert das Wirtschiff fÃ¼r *Ship Seizure* (eigenes Schiff mit Tractor Beam).
     - `CanBeShipSeizureVictim`: Validiert das Zielschiff (ein anderes Schiff am selben Ort, leer und exposed).
-    - `VerifyShipRules`: Umfassender Mini-Test für alle Permutationen, Grenzfälle und Rulings.
+    - `VerifyShipRules`: Umfassender Mini-Test fÃ¼r alle Permutationen, GrenzfÃ¤lle und Rulings.
 - Vereinheitlichung bestehender Karten & Mechaniken:
-  - `MovementRules.cs`: `ShipHasSpecialEquipment` prüft neben `Text` auch `ship.Characteristics`.
+  - `MovementRules.cs`: `ShipHasSpecialEquipment` prÃ¼ft neben `Text` auch `ship.Characteristics`.
   - `PlayOnRules.cs`: `Spec` um `TractorBeam` erweitert; `BuildSpecFromClause` erkennt "tractor beam" automatisch in Play-On-Klauseln.
-  - `TargetQuery.cs`: `HostFacts` um `HasTractorBeam` erweitert; `MatchPlayOnSpec` prüft `facts.HasTractorBeam`.
+  - `TargetQuery.cs`: `HostFacts` um `HasTractorBeam` erweitert; `MatchPlayOnSpec` prÃ¼ft `facts.HasTractorBeam`.
   - `TableWindow.xaml.cs`:
     - `IsShipExposed(Border ship)` delegiert direkt an `ShipRules.IsShipExposed(IsShipDocked(ship), IsShipCloaked(ship))`.
-    - `CountExposedShips` (*Tachyon Detection Grid*): Prüfte zuvor nur Cloak und ignorierte Docking; nun vereinheitlicht auf `IsShipExposed`.
-    - `DefenderExposed` (*Asteroid Sanctuary*): Prüfte zuvor nur Cloak; nun vereinheitlicht auf `IsShipExposed`.
-    - `CollectLegalSnapHosts`: Berücksichtigt `ShipRules.CanBeShipSeizureTractorHost` für Halos und Drop-Targets.
+    - `CountExposedShips` (*Tachyon Detection Grid*): PrÃ¼fte zuvor nur Cloak und ignorierte Docking; nun vereinheitlicht auf `IsShipExposed`.
+    - `DefenderExposed` (*Asteroid Sanctuary*): PrÃ¼fte zuvor nur Cloak; nun vereinheitlicht auf `IsShipExposed`.
+    - `CollectLegalSnapHosts`: BerÃ¼cksichtigt `ShipRules.CanBeShipSeizureTractorHost` fÃ¼r Halos und Drop-Targets.
     - `HostMatchesInterruptTargetForCard` & `HostMatchesPlayOn`: Nutzen `ShipRules.CanBeShipSeizureTractorHost` bzw. `ShipRules.HasTractorBeam`.
-    - `ApplyShipSeizure`: Validiert Tractor-Wirt mit `ShipRules.CanBeShipSeizureTractorHost`, filtert Opfer mit `ShipRules.CanBeShipSeizureVictim` und gibt den Interrupt bei illegalem Ziel oder Abbruch sauber auf die Hand zurück (`ReturnInterruptToHand`). Lokales Duplikat `IsShipSeizureExposed` entfernt.
-  - `InterruptRules.cs`: `IsLegalShipSeizureTractor` und `IsLegalShipSeizureVictim` an `ShipRules` angebunden; `VerifyShipSeizureDecide` führt `ShipRules.VerifyShipRules` aus.
+    - `ApplyShipSeizure`: Validiert Tractor-Wirt mit `ShipRules.CanBeShipSeizureTractorHost`, filtert Opfer mit `ShipRules.CanBeShipSeizureVictim` und gibt den Interrupt bei illegalem Ziel oder Abbruch sauber auf die Hand zurÃ¼ck (`ReturnInterruptToHand`). Lokales Duplikat `IsShipSeizureExposed` entfernt.
+  - `InterruptRules.cs`: `IsLegalShipSeizureTractor` und `IsLegalShipSeizureVictim` an `ShipRules` angebunden; `VerifyShipSeizureDecide` fÃ¼hrt `ShipRules.VerifyShipRules` aus.
 - Tests:
-  - `ShipRules.VerifyShipRules` und `InterruptRules.VerifyShipSeizureDecide` erfolgreich ausgeführt (PASS).
+  - `ShipRules.VerifyShipRules` und `InterruptRules.VerifyShipSeizureDecide` erfolgreich ausgefÃ¼hrt (PASS).
   - Projekt erfolgreich gebaut (`dotnet build`, 0 Fehler).
 
-## 2026-09-25 — Particle Fountain (132 C)
+## 2026-09-25 â€” Particle Fountain (132 C)
 
 - Feature: Premiere-Interrupt *Particle Fountain* (132 C) implementiert.
 - Gametext: *"Plays if your Away Team just solved a planet mission. If 2 ENGINEER in Away Team, score points. 5"*
 - Rulings & Regeln:
-  - Trigger: Spielt direkt im Anschluss an das Lösen einer Planeten-Mission durch das eigene Away Team. Nutzt die bestehende `MissionJustSolved` Action-/Response-Pipeline (analog zu *Alien Groupie*).
-  - Bedingung: Mindestens 2 ENGINEER im lösenden Away Team erforderlich. Effektive Fertigkeitslevel (`DilemmaRules.CountEffectiveSkill`) berücksichtigen gedruckte Fähigkeiten, Klassifikation und Ausrüstung (z. B. Engineering Kit, Engineering PADD).
+  - Trigger: Spielt direkt im Anschluss an das LÃ¶sen einer Planeten-Mission durch das eigene Away Team. Nutzt die bestehende `MissionJustSolved` Action-/Response-Pipeline (analog zu *Alien Groupie*).
+  - Bedingung: Mindestens 2 ENGINEER im lÃ¶senden Away Team erforderlich. Effektive Fertigkeitslevel (`DilemmaRules.CountEffectiveSkill`) berÃ¼cksichtigen gedruckte FÃ¤higkeiten, Klassifikation und AusrÃ¼stung (z. B. Engineering Kit, Engineering PADD).
   - Effekt: Verleiht dem ausspielenden Spieler sofort 5 Punkte (`_scoreP1 += 5` bzw. `_scoreP2 += 5`), aktualisiert das Scoreboard (`UpdateScoreDisplay()`), loggt das Ereignis und legt die Karte auf den Ablagestapel.
 - Implementierung:
-  - `InterruptRules.cs`: `IsParticleFountain(Card? c)` und Gate-Validierung `CanPlayParticleFountain(justSolvedPlanet, isOwnSolve, engineerCount)` hinzugefügt; Mini-Test `VerifyParticleFountainDecide` prüft alle Gates und Response-Fälle.
+  - `InterruptRules.cs`: `IsParticleFountain(Card? c)` und Gate-Validierung `CanPlayParticleFountain(justSolvedPlanet, isOwnSolve, engineerCount)` hinzugefÃ¼gt; Mini-Test `VerifyParticleFountainDecide` prÃ¼ft alle Gates und Response-FÃ¤lle.
   - `TimingRules.cs`: `Particle Fountain` in `IsCatalogResponse` aufgenommen; `CanRespond` validiert `ActionKind.MissionJustSolved`, eigene Mission, Planeten-Typ und 2 effektive ENGINEER.
   - `TableWindow.xaml.cs`:
     - `ResolveTopOfStack`: Erkennt `IsParticleFountain` als Stack-Response und leitet an `TryResolveInterruptPlay` weiter.
-    - `TryResolveInterruptPlay`: Schreibt 5 Punkte für `controller` gut, ruft `UpdateScoreDisplay()` auf und loggt die Wertung.
-    - `TryPlayInterruptFromHand`: Erlaubt das Ausspielen sowohl als direkte Stack-Response als auch während des offenen Just-Solved-Fensters mit 2-ENGINEER-Prüfung.
-    - `OpenMissionJustSolvedResponse` & `ArmJustSolvedPlanet`: Berücksichtigen auch Equipment-Karten im Away Team für `CountEffectiveSkill`.
-- Mini-Test: `VerifyParticleFountainDecide` erfolgreich ausgeführt (PASS).
+    - `TryResolveInterruptPlay`: Schreibt 5 Punkte fÃ¼r `controller` gut, ruft `UpdateScoreDisplay()` auf und loggt die Wertung.
+    - `TryPlayInterruptFromHand`: Erlaubt das Ausspielen sowohl als direkte Stack-Response als auch wÃ¤hrend des offenen Just-Solved-Fensters mit 2-ENGINEER-PrÃ¼fung.
+    - `OpenMissionJustSolvedResponse` & `ArmJustSolvedPlanet`: BerÃ¼cksichtigen auch Equipment-Karten im Away Team fÃ¼r `CountEffectiveSkill`.
+- Mini-Test: `VerifyParticleFountainDecide` erfolgreich ausgefÃ¼hrt (PASS).
 
-## 2026-09-24 — Near-Warp Transport (130 U) UI & Beaming-Mechanik-Refactoring
+## 2026-09-24 â€” Near-Warp Transport (130 U) UI & Beaming-Mechanik-Refactoring
 
-- UX/Mechanik: Interaktions-Flow für *Near-Warp Transport* (130 U) auf die reguläre Beam-Mechanik umgestellt:
+- UX/Mechanik: Interaktions-Flow fÃ¼r *Near-Warp Transport* (130 U) auf die regulÃ¤re Beam-Mechanik umgestellt:
   - Verwendet nun dieselbe Ansicht wie die normale Beam-Mechanik: Schiffsdetail-Overlay im Beam-Auswahlmodus (`ShowHostContents(shipB, sc, beamSelectMode: true)`).
   - Crew und Equipment an Bord des Schiffes werden mit Checkboxen angezeigt (`_hostStripBeam = true`, `_beamSelected`).
-  - Karten können durch Klick auf die Checkbox oder direkt durch Klick auf die Mini-Karte an-/abgewählt werden.
-  - Begrenzung auf maximal 6 Karten (gemäß Kartentext "up to six cards"): Bei Auswahl von mehr als 6 Karten wird die Auswahl verhindert und ein Hinweisdialog angezeigt.
+  - Karten kÃ¶nnen durch Klick auf die Checkbox oder direkt durch Klick auf die Mini-Karte an-/abgewÃ¤hlt werden.
+  - Begrenzung auf maximal 6 Karten (gemÃ¤ÃŸ Kartentext "up to six cards"): Bei Auswahl von mehr als 6 Karten wird die Auswahl verhindert und ein Hinweisdialog angezeigt.
   - Button "Select max (6)" / "Select none" im Detailfenster zur schnellen Auswahl.
-  - Schließen-Button im Detailfenster zeigt während Near-Warp Transport `"Beam Crew"` an; erfordert mindestens 1 ausgewählte Karte und schließt das Fenster für die Zielauswahl auf der Spaceline.
-  - Alle legalen Ziele auf benachbarten Spaceline-Locations (eigene Schiffe/Einrichtungen und Planetenoberflächen) werden simultan mit grünem Halo hervorgehoben.
-  - Zielwahl erfolgt direkt per Klick auf das hervorgehobene Ziel auf der Spaceline; Klick auf das Ausgangsschiff öffnet das Detailfenster zur Anpassung erneut; Rechtsklick/Leerklick bricht ab und nimmt die Karte zurück auf die Hand.
-  - Transport prüft Spaceline-Adjazenz, Verbot von Beamen ins freie All (7.1.1.0.1), Hindernisse (`CanBeamAtMission`), Verträge (`TreatyRules.CanOccupyHost`), Hologramme (`FilterHoloBeamAllowed`), heilt Dilemmata und aktualisiert Badges, Quarantäne und Logs.
+  - SchlieÃŸen-Button im Detailfenster zeigt wÃ¤hrend Near-Warp Transport `"Beam Crew"` an; erfordert mindestens 1 ausgewÃ¤hlte Karte und schlieÃŸt das Fenster fÃ¼r die Zielauswahl auf der Spaceline.
+  - Alle legalen Ziele auf benachbarten Spaceline-Locations (eigene Schiffe/Einrichtungen und PlanetenoberflÃ¤chen) werden simultan mit grÃ¼nem Halo hervorgehoben.
+  - Zielwahl erfolgt direkt per Klick auf das hervorgehobene Ziel auf der Spaceline; Klick auf das Ausgangsschiff Ã¶ffnet das Detailfenster zur Anpassung erneut; Rechtsklick/Leerklick bricht ab und nimmt die Karte zurÃ¼ck auf die Hand.
+  - Transport prÃ¼ft Spaceline-Adjazenz, Verbot von Beamen ins freie All (7.1.1.0.1), Hindernisse (`CanBeamAtMission`), VertrÃ¤ge (`TreatyRules.CanOccupyHost`), Hologramme (`FilterHoloBeamAllowed`), heilt Dilemmata und aktualisiert Badges, QuarantÃ¤ne und Logs.
 
-## 2026-09-24 — Fix: Compiler-Kompatibilität DetailStatusRules, EventRules & TableWindow (Loss of Orbital Stability)
+## 2026-09-24 â€” Fix: Compiler-KompatibilitÃ¤t DetailStatusRules, EventRules & TableWindow (Loss of Orbital Stability)
 
 - Bugfix (Build/Compiler): Visual Studio meldete 8 Compilerfehler beim Kompilieren von `TableWindow.xaml.cs`:
-  - `"DetailStatusRules" enthält keine Definition für "IsDebuff"` (2x)
-  - `"EventRules.Persist" enthält keine Definition für "LossOfOrbitalStability"` (2x)
-  - `Keine Überladung für die ToneForEvent-Methode nimmt 3 Argumente an` (4x)
+  - `"DetailStatusRules" enthÃ¤lt keine Definition fÃ¼r "IsDebuff"` (2x)
+  - `"EventRules.Persist" enthÃ¤lt keine Definition fÃ¼r "LossOfOrbitalStability"` (2x)
+  - `Keine Ãœberladung fÃ¼r die ToneForEvent-Methode nimmt 3 Argumente an` (4x)
 - Root Cause:
   - `TableWindow.xaml.cs` rief `DetailStatusRules.IsDebuff` und `DetailStatusRules.ToneForEvent(ae.Kind, ae.Countdown, ae.Card)` mit 3 Argumenten auf und setzte `Kind = EventRules.Persist.LossOfOrbitalStability`.
   - Wenn `TableWindow.xaml.cs` gegen die Standardversion von `DetailStatusRules.cs` und `EventRules.cs` kompiliert wurde (wo `LossOfOrbitalStability` als Interrupt nicht in `EventRules.Persist` existiert und `ToneForEvent` 2 Argumente hat), schlug der Build fehl.
 - Fix:
   - `TableWindow.xaml.cs`:
-    - Eigene private Hilfsmethoden `ToneForAttachedEvent(ae)` und `IsAttachedEffectDebuff(ae)` eingeführt, die `Loss of Orbital Stability` direkt über `InterruptRules.IsLossOfOrbitalStability(ae.Card)` erkennen und für Events den standardmäßigen 2-Argument-Aufruf `DetailStatusRules.ToneForEvent(ae.Kind, ae.Countdown)` bzw. `DetailStatusRules.ToneForEvent(ae.Kind, 0)` verwenden.
+    - Eigene private Hilfsmethoden `ToneForAttachedEvent(ae)` und `IsAttachedEffectDebuff(ae)` eingefÃ¼hrt, die `Loss of Orbital Stability` direkt Ã¼ber `InterruptRules.IsLossOfOrbitalStability(ae.Card)` erkennen und fÃ¼r Events den standardmÃ¤ÃŸigen 2-Argument-Aufruf `DetailStatusRules.ToneForEvent(ae.Kind, ae.Countdown)` bzw. `DetailStatusRules.ToneForEvent(ae.Kind, 0)` verwenden.
     - `ApplyLossOfOrbitalStability`: Verwendet wieder `Kind = EventRules.Persist.None` wie auf `master`.
-    - `FormatAttachedHostEffectLine`: Formatiert die Zusammenfassung für `Loss of Orbital Stability` direkt ohne Abhängigkeit von `EventRules.Persist.LossOfOrbitalStability`.
+    - `FormatAttachedHostEffectLine`: Formatiert die Zusammenfassung fÃ¼r `Loss of Orbital Stability` direkt ohne AbhÃ¤ngigkeit von `EventRules.Persist.LossOfOrbitalStability`.
   - `DetailStatusRules.cs`:
-    - Beide Überladungen von `ToneForEvent` bereitgestellt: `(EventRules.Persist kind, int countdown)` (2 Argumente) sowie `(EventRules.Persist kind, int countdown, Card? card)` (3 Argumente).
+    - Beide Ãœberladungen von `ToneForEvent` bereitgestellt: `(EventRules.Persist kind, int countdown)` (2 Argumente) sowie `(EventRules.Persist kind, int countdown, Card? card)` (3 Argumente).
     - `IsDebuff(EventRules.Persist kind)` und `IsDebuff(EventRules.Persist kind, Card? card = null)` bereitgestellt.
-    - Abhängigkeit von `EventRules.Persist.LossOfOrbitalStability` entfernt.
+    - AbhÃ¤ngigkeit von `EventRules.Persist.LossOfOrbitalStability` entfernt.
     - `VerifyLossOfOrbitalStabilityNegative`: Verwendet `EventRules.Persist.None`.
-- Ergebnis: Saubere Kompatibilität sowohl mit altem als auch neuem `DetailStatusRules`/`EventRules`, 0 Compilerfehler.
+- Ergebnis: Saubere KompatibilitÃ¤t sowohl mit altem als auch neuem `DetailStatusRules`/`EventRules`, 0 Compilerfehler.
 
-## 2026-09-24 — Near-Warp Transport (130 U)
+## 2026-09-24 â€” Near-Warp Transport (130 U)
 
 - Feature: Premiere-Interrupt *Near-Warp Transport* (130 U) implementiert.
 - Gametext: *"Plays to beam up to six cards (personnel and/or [Equipment]) from your exposed ship with transporters to an adjacent spaceline location (if possible)."*
 - Rulings & Regeln:
-  - *Glossary: exposed*: Ein Schiff ist exposed, wenn es ungedockt (`!IsShipDocked`), nicht getarnt (`!IsShipCloaked`), unphased und nicht gelandet/getragen ist. `IsShipExposed` in `TableWindow.xaml.cs` prüft nun sauber auf `!IsShipCloaked(ship) && !IsShipDocked(ship)`.
-  - *Glossary: adjacent*: Zwei Spaceline-Locations sind benachbart, wenn keine andere Location zwischen ihnen liegt — auch wenn eine Nicht-Location-Karte wie Q-Net dazwischen liegt. `GetAdjacentSpacelineLocations` filtert Spaceline-Span-Barrieren heraus.
-  - *Rulebook 7.1.1.0.2 Card-Activated Transport*: Q-Net blockiert Near-Warp Transport nicht, Hindernisse für Beaming (z. B. Distortion Field, Atmospheric Ionization) gelten jedoch weiterhin und werden über `CanBeamAtMission` geprüft.
+  - *Glossary: exposed*: Ein Schiff ist exposed, wenn es ungedockt (`!IsShipDocked`), nicht getarnt (`!IsShipCloaked`), unphased und nicht gelandet/getragen ist. `IsShipExposed` in `TableWindow.xaml.cs` prÃ¼ft nun sauber auf `!IsShipCloaked(ship) && !IsShipDocked(ship)`.
+  - *Glossary: adjacent*: Zwei Spaceline-Locations sind benachbart, wenn keine andere Location zwischen ihnen liegt â€” auch wenn eine Nicht-Location-Karte wie Q-Net dazwischen liegt. `GetAdjacentSpacelineLocations` filtert Spaceline-Span-Barrieren heraus.
+  - *Rulebook 7.1.1.0.2 Card-Activated Transport*: Q-Net blockiert Near-Warp Transport nicht, Hindernisse fÃ¼r Beaming (z. B. Distortion Field, Atmospheric Ionization) gelten jedoch weiterhin und werden Ã¼ber `CanBeamAtMission` geprÃ¼ft.
   - *Rulebook 7.1.1.0.1*: Beamen ins freie All an Space-Missionen ist verboten; an Space-Locations wird ein eigenes Schiff oder eine eigene Station als Ziel verlangt.
 - Implementierung:
-  - `InterruptRules.cs`: `IsNearWarpTransport` hinzugefügt; `GetPlayTarget` liefert `PlayTarget.OwnShip`; `Resolve` mappt auf `Kind.Instant`, `Effect.NearWarp`, `DiscardAfter: true`.
-  - `InterruptShipEffectRules.cs`: `NearWarpTransportDeny` mit Validierung für Schiff, Eignerschaft, Exposed-Status, Transporter, beamfähige Crew/Equipment und benachbarte Spaceline-Locations im selben Quadranten; Mini-Test `VerifyNearWarpTransportDecide`.
+  - `InterruptRules.cs`: `IsNearWarpTransport` hinzugefÃ¼gt; `GetPlayTarget` liefert `PlayTarget.OwnShip`; `Resolve` mappt auf `Kind.Instant`, `Effect.NearWarp`, `DiscardAfter: true`.
+  - `InterruptShipEffectRules.cs`: `NearWarpTransportDeny` mit Validierung fÃ¼r Schiff, Eignerschaft, Exposed-Status, Transporter, beamfÃ¤hige Crew/Equipment und benachbarte Spaceline-Locations im selben Quadranten; Mini-Test `VerifyNearWarpTransportDecide`.
   - `TargetQuery.cs`: `CanPlayOn` validiert `facts.IsShip`, `facts.Owner == player` und `facts.Exposed`.
   - `TableWindow.xaml.cs`:
     - `HostMatchesInterruptTargetForCard` und `CollectLegalSnapHosts` filtern auf eigene exposed Schiffe.
     - `ExecuteInterruptAction`: Behandelt `Effect.NearWarp` via `ApplyNearWarpTransport`.
-    - `ApplyNearWarpTransport`: Führt Kartenauswahl (bis zu 6 Personnel/Equipment), Wahl der benachbarten Spaceline-Location (links/rechts Dialog bei Verzweigung), Wahl des Ziel-Hosts (Planetenoberfläche oder eigenes Schiff/Einrichtung), Treaty- und Holo-Checks durch, führt den Transport durch und aktualisiert Badges, Visuals und Logs.
+    - `ApplyNearWarpTransport`: FÃ¼hrt Kartenauswahl (bis zu 6 Personnel/Equipment), Wahl der benachbarten Spaceline-Location (links/rechts Dialog bei Verzweigung), Wahl des Ziel-Hosts (PlanetenoberflÃ¤che oder eigenes Schiff/Einrichtung), Treaty- und Holo-Checks durch, fÃ¼hrt den Transport durch und aktualisiert Badges, Visuals und Logs.
 - Smoke: `GROK_TEMP/SMOKE_NEAR_WARP_TRANSPORT.md`. Tracker `working`.
 
-## 2026-09-24 — Loss of Orbital Stability (129 C) Debuff/Negative-Fix
+## 2026-09-24 â€” Loss of Orbital Stability (129 C) Debuff/Negative-Fix
 
-- Bugfix (UX/Classification): *Loss of Orbital Stability* wurde nach dem Anheften an ein Schiff im Schiffsdetail fälschlicherweise als "Positive" mit grünem Label und als "Event" angezeigt.
+- Bugfix (UX/Classification): *Loss of Orbital Stability* wurde nach dem Anheften an ein Schiff im Schiffsdetail fÃ¤lschlicherweise als "Positive" mit grÃ¼nem Label und als "Event" angezeigt.
 - Root Cause:
-  - `DetailStatusRules.ToneForEvent` lieferte bei `countdown > 0` pauschal `DetailStatusTone.Timer`, und für `Persist.None` `DetailStatusTone.Info`.
-  - In `TableWindow.xaml.cs` filterte `positiveEvents` auf `!= DetailStatusTone.Debuff`, wodurch der zerstörerische Interrupt unter "Positive" einsortiert und mit dem Präfix "Event" versehen wurde.
+  - `DetailStatusRules.ToneForEvent` lieferte bei `countdown > 0` pauschal `DetailStatusTone.Timer`, und fÃ¼r `Persist.None` `DetailStatusTone.Info`.
+  - In `TableWindow.xaml.cs` filterte `positiveEvents` auf `!= DetailStatusTone.Debuff`, wodurch der zerstÃ¶rerische Interrupt unter "Positive" einsortiert und mit dem PrÃ¤fix "Event" versehen wurde.
 - Fix:
-  - `EventRules.cs`: `EventRules.Persist.LossOfOrbitalStability` hinzugefügt und in `FormatHostEffectSummary` als `"ship has NO RANGE; destroyed at end of owner's next turn"` definiert.
-  - `DetailStatusRules.cs`: `IsDebuff` eingeführt, welches `LossOfOrbitalStability` sowie alle schädlichen persistierenden Effekte (`PlasmaFire`, `WarpCore`, `Baryon`, etc.) und per Card-Name erkennt. `ToneForEvent` priorisiert `IsDebuff` (liefert `DetailStatusTone.Debuff` / rot auch bei Countdown).
+  - `EventRules.cs`: `EventRules.Persist.LossOfOrbitalStability` hinzugefÃ¼gt und in `FormatHostEffectSummary` als `"ship has NO RANGE; destroyed at end of owner's next turn"` definiert.
+  - `DetailStatusRules.cs`: `IsDebuff` eingefÃ¼hrt, welches `LossOfOrbitalStability` sowie alle schÃ¤dlichen persistierenden Effekte (`PlasmaFire`, `WarpCore`, `Baryon`, etc.) und per Card-Name erkennt. `ToneForEvent` priorisiert `IsDebuff` (liefert `DetailStatusTone.Debuff` / rot auch bei Countdown).
   - `TableWindow.xaml.cs`:
     - `positiveEvents` und `negativeEvents` trennen sauber nach `DetailStatusRules.IsDebuff`.
-    - Mini-Karten und Statuszeilen erkennen `Interrupt` (zeigen `"Interrupt — countdown 1"` bzw. `"Interrupt (debuff)"` statt `"Event"`).
-    - `FormatAttachedHostEffectLine` unterstützt Interrupts und formatiert die Effektzusammenfassung.
+    - Mini-Karten und Statuszeilen erkennen `Interrupt` (zeigen `"Interrupt â€” countdown 1"` bzw. `"Interrupt (debuff)"` statt `"Event"`).
+    - `FormatAttachedHostEffectLine` unterstÃ¼tzt Interrupts und formatiert die Effektzusammenfassung.
     - `ApplyLossOfOrbitalStability` setzt `Kind = EventRules.Persist.LossOfOrbitalStability`.
-  - Tests: `DetailStatusRules.VerifyLossOfOrbitalStabilityNegative()` als Regressions-Check hinzugefügt.
+  - Tests: `DetailStatusRules.VerifyLossOfOrbitalStabilityNegative()` als Regressions-Check hinzugefÃ¼gt.
 
-## 2026-09-24 — Loss of Orbital Stability (129 C) Target-Fix
+## 2026-09-24 â€” Loss of Orbital Stability (129 C) Target-Fix
 
-- Bugfix (Targeting): *Loss of Orbital Stability* gab fälschlicherweise eine Planeten-Mission als Snap/Target an anstatt ein Schiff.
-- Root Cause: In `PlayOnRules.BuildSpecFromClause` wurde `planet`/`[p]` vor `ship` geprüft, wodurch Clauses wie `"a ship orbiting a [p]"` zu `Host.PlanetMission` statt `Host.Ship` evaluierten.
+- Bugfix (Targeting): *Loss of Orbital Stability* gab fÃ¤lschlicherweise eine Planeten-Mission als Snap/Target an anstatt ein Schiff.
+- Root Cause: In `PlayOnRules.BuildSpecFromClause` wurde `planet`/`[p]` vor `ship` geprÃ¼ft, wodurch Clauses wie `"a ship orbiting a [p]"` zu `Host.PlanetMission` statt `Host.Ship` evaluierten.
 - Fix:
   - `PlayOnRules.cs`: `c.Contains("ship")` vor `c.Contains("planet") || c.Contains("[p]")` priorisiert, sodass Schiffe mit Ortsangaben als `Host.Ship` geparst werden.
-  - `InterruptRules.cs`: `GetPlayTarget` liefert für *Loss of Orbital Stability* `PlayTarget.AnyShip`.
-  - `TargetQuery.cs`: `CanPlayOn` verifiziert für *Loss of Orbital Stability* `facts.IsShip` und `facts.IsOrbitingPlanet`. `HostFacts` um `IsOrbitingPlanet` erweitert.
-  - `TableWindow.xaml.cs`: `FactsFor` und `FactsForPrinted` berechnen `IsOrbitingPlanet`. `HostMatchesInterruptTargetForCard` und `CollectLegalSnapHosts` prüfen `IsShipOrbitingPlanet`.
+  - `InterruptRules.cs`: `GetPlayTarget` liefert fÃ¼r *Loss of Orbital Stability* `PlayTarget.AnyShip`.
+  - `TargetQuery.cs`: `CanPlayOn` verifiziert fÃ¼r *Loss of Orbital Stability* `facts.IsShip` und `facts.IsOrbitingPlanet`. `HostFacts` um `IsOrbitingPlanet` erweitert.
+  - `TableWindow.xaml.cs`: `FactsFor` und `FactsForPrinted` berechnen `IsOrbitingPlanet`. `HostMatchesInterruptTargetForCard` und `CollectLegalSnapHosts` prÃ¼fen `IsShipOrbitingPlanet`.
 - Smoke: `GROK_TEMP/SMOKE_LOSS_OF_ORBITAL_STABILITY.md` aktualisiert. Tracker `partial`.
 
-## 2026-09-24 — Loss of Orbital Stability (129 C)
+## 2026-09-24 â€” Loss of Orbital Stability (129 C)
 
 - Feature: Premiere-Interrupt *Loss of Orbital Stability* (129 C) implementiert.
 - Bedingung: Spielt auf ein Schiff im Orbit eines Planeten [P] (Glossary "in orbit": im Weltall, ungedockt, an einer Planeten-Mission; `InterruptShipEffectRules.LossOfOrbitalStabilityDeny`).
-- Soforteffekt: Zielschiff hat für den restlichen Zug keine Reichweite (`SetShipRangeLeft = 0`).
-- Schilde-Prüfung:
+- Soforteffekt: Zielschiff hat fÃ¼r den restlichen Zug keine Reichweite (`SetShipRangeLeft = 0`).
+- Schilde-PrÃ¼fung:
   - Falls effektive SHIELDS > 4: Interrupt wird sofort nach Reichweitenverlust auf den Discard gelegt.
-  - Falls effektive SHIELDS <= 4: Interrupt wird an das Schiff angehängt (`_attachedEvents`), und das Schiff wird am Ende des nächsten Zuges seines Eigners zerstört (`TimingRules.TurnScope.SpecificPlayerNextTurn` / `TurnPhasePoint.EndOfTurn` via `ProcessEndOfTurnEvents` / `DestroyShipOrFacility`).
+  - Falls effektive SHIELDS <= 4: Interrupt wird an das Schiff angehÃ¤ngt (`_attachedEvents`), und das Schiff wird am Ende des nÃ¤chsten Zuges seines Eigners zerstÃ¶rt (`TimingRules.TurnScope.SpecificPlayerNextTurn` / `TurnPhasePoint.EndOfTurn` via `ProcessEndOfTurnEvents` / `DestroyShipOrFacility`).
 - Smoke: `GROK_TEMP/SMOKE_LOSS_OF_ORBITAL_STABILITY.md`. Tracker `partial`. Kein Push.
 
-## 2026-09-24 — Klingon Right of Vengeance & Life-form Scan working (Pepsch green)
+## 2026-09-24 â€” Klingon Right of Vengeance & Life-form Scan working (Pepsch green)
 
-- *Klingon Right of Vengeance* (126 C) und *Life-form Scan* (127 U) im Probespiel verifiziert und grün gemeldet. Tracker auf working gesetzt.
+- *Klingon Right of Vengeance* (126 C) und *Life-form Scan* (127 U) im Probespiel verifiziert und grÃ¼n gemeldet. Tracker auf working gesetzt.
 
-## 2026-09-23 — Klingon Right of Vengeance (§ 7.4.2, § 7.4.4, Klasse B/A)
+## 2026-09-23 â€” Klingon Right of Vengeance (Â§ 7.4.2, Â§ 7.4.4, Klasse B/A)
 
 - Feature: Premiere-Interrupt *Klingon Right of Vengeance* (126 C) implementiert als `JustAfter(PersonnelBattleKlingonDied)`-Response.
-- Timing & Trigger: Öffnet sich unmittelbar nach einer Personnel Battle, in der mindestens ein Klingone gestorben und im Discard gelandet ist (Genetronic Save schließt Trigger aus; sequentiell nach ggf. anstehendem Death Yell).
-- Effekt: Entstoppt eigene Klingonen am Host (`UnstopBorder`), initiiert unmittelbaren Gegenangriff gegen die überlebenden Kombatanten der Gegenseite ("same opponents"). Bypasst Leader-Pflicht (§ 7.4.1 / `HasLeader`). Verdoppelt STRENGTH aller angreifenden Klingonen für diese Schlacht (`sa *= 2` bei Pairings und Live-STRENGTH).
+- Timing & Trigger: Ã–ffnet sich unmittelbar nach einer Personnel Battle, in der mindestens ein Klingone gestorben und im Discard gelandet ist (Genetronic Save schlieÃŸt Trigger aus; sequentiell nach ggf. anstehendem Death Yell).
+- Effekt: Entstoppt eigene Klingonen am Host (`UnstopBorder`), initiiert unmittelbaren Gegenangriff gegen die Ã¼berlebenden Kombatanten der Gegenseite ("same opponents"). Bypasst Leader-Pflicht (Â§ 7.4.1 / `HasLeader`). Verdoppelt STRENGTH aller angreifenden Klingonen fÃ¼r diese Schlacht (`sa *= 2` bei Pairings und Live-STRENGTH).
 - Smoke: `GROK_TEMP/SMOKE_KLINGON_RIGHT_OF_VENGEANCE.md`. Tracker partial. Kein Push.
 
-## 2026-09-23 — Death Yell after Escape Pod Pass (ResolveEntireStack drain)
+## 2026-09-23 â€” Death Yell after Escape Pod Pass (ResolveEntireStack drain)
 
-- Root: Plasma/WCB Destroy → Escape Pod ShipDestroyed Pass → ResolveEntireStack while-loop re-entered Destroy Results, TryFlushJustAfterDeathWindows opened JustAfter mid-loop, same loop immediately popped JustAfter as passed (~4838) → Yell UI never stayed open. Without Pod, Destroy runs inline (not under drain) → Yell OK.
-- Fix: ResolveEntireStack breaks when a new ActionKind.JustAfter is on top after ResolveTopOfStack (Escape Pod must not eat Yell; sequential 1 Yell/Klingon still works via TryFlush-after-Pass). Order: Destroy → Pod window → unresected die → Death-Yell window; rescue = no death = no Yell.
+- Root: Plasma/WCB Destroy â†’ Escape Pod ShipDestroyed Pass â†’ ResolveEntireStack while-loop re-entered Destroy Results, TryFlushJustAfterDeathWindows opened JustAfter mid-loop, same loop immediately popped JustAfter as passed (~4838) â†’ Yell UI never stayed open. Without Pod, Destroy runs inline (not under drain) â†’ Yell OK.
+- Fix: ResolveEntireStack breaks when a new ActionKind.JustAfter is on top after ResolveTopOfStack (Escape Pod must not eat Yell; sequential 1 Yell/Klingon still works via TryFlush-after-Pass). Order: Destroy â†’ Pod window â†’ unresected die â†’ Death-Yell window; rescue = no death = no Yell.
 - Smoke: GROK_TEMP/SMOKE_KLINGON_DEATH_YELL_ESCAPE_POD.md. Tracker stays partial. No push.
 
-## 2026-09-23 — Death Yell: ship/facility destroy→crew (WCB gap)
+## 2026-09-23 â€” Death Yell: ship/facility destroyâ†’crew (WCB gap)
 
-- Root: `3e140a1` enqueued JustAfter only from `DiscardPersonnelBorder`; `DestroyShipOrFacility` crew wipe discarded without Note → WCB/battle/Plasma/etc. Honor-Klingon deaths missed Death Yell.
-- Fix: after Destroy Results, note each dying personnel via `NoteHonorKlingonDeathForJustAfter` (batch `_deferJustAfterDeathFlush`); same for `DiscardShipSeizureVictim`. 1 Yell per Honor Klingon; Escape Pod survivors reloc’d before wipe → no note. `ActionKind.ShipDestroyed` stays Escape-Pod-only.
+- Root: `3e140a1` enqueued JustAfter only from `DiscardPersonnelBorder`; `DestroyShipOrFacility` crew wipe discarded without Note â†’ WCB/battle/Plasma/etc. Honor-Klingon deaths missed Death Yell.
+- Fix: after Destroy Results, note each dying personnel via `NoteHonorKlingonDeathForJustAfter` (batch `_deferJustAfterDeathFlush`); same for `DiscardShipSeizureVictim`. 1 Yell per Honor Klingon; Escape Pod survivors relocâ€™d before wipe â†’ no note. `ActionKind.ShipDestroyed` stays Escape-Pod-only.
 - Smoke: `GROK_TEMP/SMOKE_KLINGON_DEATH_YELL_WCB.md` (+ inventur `INVENTUR_DEATH_YELL_WCB_GAP.md`). Tracker partial until Pepsch green. No push.
 
-## 2026-09-23 — Klingon Death Yell / shared JustAfter
+## 2026-09-23 â€” Klingon Death Yell / shared JustAfter
 - Shared `TimingRules.ActionKind.JustAfter` + `JustAfterTrigger` + `IsJustAfter` (SoT/AtStartOfBattle-style gate).
 - First consumer: Klingon Death Yell = `JustAfter(KlingonWithHonorDied)`; either player; one Yell per such death; +5 to Yell controller.
-- Opens only after actual death/Results (HC/battle batch deferred); Amanda nullify before Results → no trigger.
+- Opens only after actual death/Results (HC/battle batch deferred); Amanda nullify before Results â†’ no trigger.
 - No Death-Yell ad-hoc; no Battle Stage-2 misuse.
 
-## 2026-09-23 — Interrupt-Play Responses before Results (HC / Stage 2)
+## 2026-09-23 â€” Interrupt-Play Responses before Results (HC / Stage 2)
 
-- Root: `BeginPlayCardStack` called `ApplyResponseEffect` (HC kills) before `OpenResponseWindow` — Amanda saw Results already done.
+- Root: `BeginPlayCardStack` called `ApplyResponseEffect` (HC kills) before `OpenResponseWindow` â€” Amanda saw Results already done.
 - Fix (shared, not HC-only): Initiation = Push; Responses open; Results in `ResolveTopOfStack` (`ApplyResponseEffect` + `TryResolveInterruptPlay`). Armbands/Hugh pattern; HC kills only via `Effect.HonorChallenge` after nullify window.
 - Smoke: `GROK_TEMP/SMOKE_HONOR_CHALLENGE_AT_START_OF_BATTLE.md` (Amanda-before-kill step). Tracker stays partial. No push.
-## 2026-09-23 — Honor Challenge (personnel Stage 2)
+## 2026-09-23 â€” Honor Challenge (personnel Stage 2)
 
 - Shared gate `TimingRules.IsAtStartOfBattle` / `IsBattleStageResponses` (per battle Stage 2; not SoT/EoT; ETA stays broader).
 - Honor Challenge: `CanRespond` only `InitiatePersonnelBattle`; TW apply kills without cancelling battle.
@@ -718,173 +721,173 @@
 
 ## 2026-09-22 - Quick Game: Artifacts stay under missions (no spaceline orphans)
 
-- Root: after `be7d6a7`, `AddSeedUnderMission` limit-fail left the card Visible at mission X/SpacelineY → looked like a spaceline node (Thought Maker / Interphase Generator).
+- Root: after `be7d6a7`, `AddSeedUnderMission` limit-fail left the card Visible at mission X/SpacelineY â†’ looked like a spaceline node (Thought Maker / Interphase Generator).
 - `AutoSeedDilemma` filters with artifact seed limits; sets owner before seed; on fail removes border and leftovers the card.
 - `AddSeedUnderMission` returns bool; helpers `CollectSeededUnderMission` / `MissionAllowsArtifactSeed`.
 - Smoke: `GROK_TEMP/SMOKE_QUICKGAME_ARTIFACT_SPACELINE.md` (Quick Game x3). No push.
 
-## 2026-09-22 — Multi-artifact earn (AT equipment + mis-seed)
+## 2026-09-22 â€” Multi-artifact earn (AT equipment + mis-seed)
 
 - Solver earns all legal artifacts after planet/space solve; chooses order when several.
 - Use-as-Equipment (e.g. Interphase Generator) joins solving Away Team/crew host (not orphaned).
-- Duplicate titles under one mission → mis-seed out-of-play; seed limit 1 artifact/player/mission.
+- Duplicate titles under one mission â†’ mis-seed out-of-play; seed limit 1 artifact/player/mission.
 - Smoke: `GROK_TEMP/SMOKE_MULTI_ARTIFACT_EARN_2026-09-22.md`. Partial until Pepsch green. No push.
 
-## 2026-09-22 — Pegasus Search OR + {Interphase Generator}
+## 2026-09-22 â€” Pegasus Search OR + {Interphase Generator}
 
 - MissionRules: OR-first requirement groups (7.2.5.0.3); AlternativeMet accepts {CardName} present.
 - Pegasus Search solvable with earned IG aboard attempting crew without skill path.
 - Smoke: `GROK_TEMP/SMOKE_PEGASUS_SEARCH_IG_2026-09-22.md`. Tracker partial until Pepsch green. No push.
 
-## 2026-09-22 — Atmospheric Ionization scope (planet/vicinity)
+## 2026-09-22 â€” Atmospheric Ionization scope (planet/vicinity)
 
 - Ionization limit only when origin or dest is planet surface (or landed-ship vicinity).
-- Free: Ship↔Ship (orbit), Outpost↔Ship, Space-Facility↔Ship.
+- Free: Shipâ†”Ship (orbit), Outpostâ†”Ship, Space-Facilityâ†”Ship.
 - Distortion / Pattern Enhancers unchanged.
 - Smoke: `GROK_TEMP/SMOKE_ATMOSPHERIC_IONIZATION_SCOPE_2026-09-22.md`. Tracker stays partial until Pepsch green. No push.
 
-## 2026-09-22 — ETA escapees owner + no battle-stop
+## 2026-09-22 â€” ETA escapees owner + no battle-stop
 
 - `CompleteBeamTo`: `SetBorderOwner(beamWho)`; track `_etaEscapeeBorders`.
 - `StopCrewOnHost`: skip ETA escapees; StackOnHost only remaining aboard (7.4.3 / 10.2.1).
 - `BeginBeamMode` error text distinguishes empty/owner/stopped.
 - Smoke: `GROK_TEMP/SMOKE_ETA_ESCAPEE_UNSTOPPED_2026-09-22.md`. No push.
 
-## 2026-09-22 — ETA T96 selection hold + battle defer
+## 2026-09-22 â€” ETA T96 selection hold + battle defer
 
 - `CompleteBeamTo`: keep checkbox selection; filter with `_beamModePlayer` / StackOnHost+GetCrewOnShip; Card-match fallback after detail refresh.
 - Ship battle `AskReturnFireAndResolve` deferred while `_etaBeamHoldsBattle` / BeamPickTarget; resume after beam complete/cancel.
 - Smoke: `GROK_TEMP/SMOKE_ETA_T96_SELECTION_2026-09-22.md`. No stop bypass. No push.
 
-## 2026-09-22 — ETA T94 Force-Host / beamPlayer
+## 2026-09-22 â€” ETA T94 Force-Host / beamPlayer
 
-- `IsBeamableFromHost`: ownership vs ETA controller / `_beamModePlayer` (not only `_activePlayer`) — fixes defender ETA in opponent turn.
+- `IsBeamableFromHost`: ownership vs ETA controller / `_beamModePlayer` (not only `_activePlayer`) â€” fixes defender ETA in opponent turn.
 - `HostHasBeamablePersonnel` / `BeginBeamMode`: `GetCrewOnShip` for facility/ship BoardStore crew.
 - `ResolveArmbandsBeamHost`: controller force Ship|Facility; never opponent (T94 Khazara).
 - Smoke: `GROK_TEMP/SMOKE_ETA_T94_FORCE_HOST_2026-09-22.md`. No stop bypass. No push.
 
-## 2026-09-22 — ETA Armbands Host/Crew (Facility + Load)
+## 2026-09-22 â€” ETA Armbands Host/Crew (Facility + Load)
 
-- `ResolveArmbandsBeamHost`: Facility/Outpost-Battle ohne Crew-Stack → Spieler-Schiff an derselben Mission mit beambarer Crew.
-- `BeginBeamMode`: Crew über `StackOnHost` (Load/SameHostShip), nicht nur Dictionary-Key.
+- `ResolveArmbandsBeamHost`: Facility/Outpost-Battle ohne Crew-Stack â†’ Spieler-Schiff an derselben Mission mit beambarer Crew.
+- `BeginBeamMode`: Crew Ã¼ber `StackOnHost` (Load/SameHostShip), nicht nur Dictionary-Key.
 - Kein Stop-Bypass (Spock). Smoke: `GROK_TEMP/SMOKE_ETA_NO_CREW_HOST_2026-09-22.md`. Kein Push.
 
-## 2026-09-21 — ETA Armbands Beam-Destination (response → BeginBeamMode)
+## 2026-09-21 â€” ETA Armbands Beam-Destination (response â†’ BeginBeamMode)
 
-- Response resolve: Emergency Transporter Armbands enters `TryResolveInterruptPlay` / EmergencyBeam even without TargetCard (was SendCardTo-only → no picker).
+- Response resolve: Emergency Transporter Armbands enters `TryResolveInterruptPlay` / EmergencyBeam even without TargetCard (was SendCardTo-only â†’ no picker).
 - `BeginBeamMode` destination filter uses `beamPlayer` (not `_activePlayer`) so ETA as non-active still lists own same-location targets.
-- Search comments Rule 7.1.1 / 7.1.1.0.2 / 7.4.2 / 10.2.1; Glossary ETA · equipment · battle; Verb BeginBeamMode · Beam · CanRespond.
+- Search comments Rule 7.1.1 / 7.1.1.0.2 / 7.4.2 / 10.2.1; Glossary ETA Â· equipment Â· battle; Verb BeginBeamMode Â· Beam Â· CanRespond.
 - Smoke: `GROK_TEMP/SMOKE_ETA_ARMBANDS_BEAM_DEST_2026-09-21.md`. Partial-escape stop-status parked. Kurlan/FPS untouched. No push.
 
-## 2026-09-21 — Kurlan ×3 S.A.M. (printed+Adds)×3
+## 2026-09-21 â€” Kurlan Ã—3 S.A.M. (printed+Adds)Ã—3
 
-- `BattleRules.AttributeAfterSam` / `AttributeBonusOverPrinted`: Rulebook §12.11 S.A.M. — (printed + adds) × Kurlan, not printed×k + adds.
+- `BattleRules.AttributeAfterSam` / `AttributeBonusOverPrinted`: Rulebook Â§12.11 S.A.M. â€” (printed + adds) Ã— Kurlan, not printedÃ—k + adds.
 - Ship battle Open Fire / Return Fire / predict bonuses use same Decide helper as UI `FormatShipEffectiveLine`.
-- Verify asserts (8+3)×3=33. Types route bfe0de9 untouched. Smoke: `GROK_TEMP/SMOKE_KURLAN_SAM_2026-09-21.md`. No push.
+- Verify asserts (8+3)Ã—3=33. Types route bfe0de9 untouched. Smoke: `GROK_TEMP/SMOKE_KURLAN_SAM_2026-09-21.md`. No push.
 
-## 2026-09-21 — Classification vs Skill Route (Kurlan Naiskos)
+## 2026-09-21 â€” Classification vs Skill Route (Kurlan Naiskos)
 
-- Shared Decide helper `MissionRules.PersonnelTypePresent` / `RequiresClassificationOnly`: without the word classification → Class box OR effective skill (incl. equipment grants via `EventRules.HasSkill`); with classification → Class box only.
+- Shared Decide helper `MissionRules.PersonnelTypePresent` / `RequiresClassificationOnly`: without the word classification â†’ Class box OR effective skill (incl. equipment grants via `EventRules.HasSkill`); with classification â†’ Class box only.
 - `ArtifactRules.KurlanFullyStaffed` uses that route (seven personnel types); one personnel may cover two types (Class+Skill).
 - `BattleRules.VerifyKurlanMultiplier` covers dual Class+Skill and Medical Kit MEDICAL grant.
-- Search comments Rule 10.1.0.1 / 10.1 / 10.3.0.5 / 2.7 / 2.8; Glossary personnel type · classification · skills · use (skills|equipment).
+- Search comments Rule 10.1.0.1 / 10.1 / 10.3.0.5 / 2.7 / 2.8; Glossary personnel type Â· classification Â· skills Â· use (skills|equipment).
 - Smoke: `GROK_TEMP/SMOKE_KURLAN_CLASS_SKILL_2026-09-21.md`. No push. FPS untouched. Continuum/Q parked. Plays on/as F3 unchanged.
 
-## 2026-09-21 — Docs: IMPLEMENT statt RULES/CODE_PLACEMENT
+## 2026-09-21 â€” Docs: IMPLEMENT statt RULES/CODE_PLACEMENT
 
-- Neue Canon-Trennung: `IMPLEMENT.md` (Ablauf), `ENGINE.md` + `TABLEWINDOW_INVENTORY.md` (Ist-Landkarte), Status nur in Seven/Jadzia/Extract, Log in Changelog, Brücke in Handoff.
-- `RULES.md` und `CODE_PLACEMENT.md` entfernt. Klasse A/B/C entfällt.
+- Neue Canon-Trennung: `IMPLEMENT.md` (Ablauf), `ENGINE.md` + `TABLEWINDOW_INVENTORY.md` (Ist-Landkarte), Status nur in Seven/Jadzia/Extract, Log in Changelog, BrÃ¼cke in Handoff.
+- `RULES.md` und `CODE_PLACEMENT.md` entfernt. Klasse A/B/C entfÃ¤llt.
 
-## 2026-09-17 — Hail (AU) + table UI chrome
+## 2026-09-17 â€” Hail (AU) + table UI chrome
 
-## 2026-09-18 — TwoDim: full Disabled for Empathy aboard (Spock)
+## 2026-09-18 â€” TwoDim: full Disabled for Empathy aboard (Spock)
 
 - Upgrade from Empathy skill-strip: Empathy personnel are Disabled while aboard TwoDim ship (live; clears when beamed off).
 - Disabled may beam (Glossary); IsBeamableFromHost no longer blocks Disabled.
 - Cure ENG+SCI + move-block unchanged. Visuals sync on attach/beam/cure.
 
 
-## 2026-09-18 — Two-Dimensional Creatures: Empathy disabled
+## 2026-09-18 â€” Two-Dimensional Creatures: Empathy disabled
 
 - While TwoDim persist on ship: Empathy stripped in ResolvePersonnel (Detail skills, Contents team sum, dilemma Skill(), CanSolve).
 - Move-block unchanged. Cure ENGINEER+SCIENCE unchanged. Detail debuff line when printed Empathy present.
 
 
-## 2026-09-18 — FINAL: IG after Resolve (Spock Glossary)
+## 2026-09-18 â€” FINAL: IG after Resolve (Spock Glossary)
 
-- Pepsch decided strict: reveal → Resolve (targets+conditions) → optional IG Yes/No → else effects.
+- Pepsch decided strict: reveal â†’ Resolve (targets+conditions) â†’ optional IG Yes/No â†’ else effects.
 - Reverted house UX (4cbac3d). May-nullify + IG kept + [IPG] icon path unchanged. No further order flips.
 
 
-## 2026-09-18 — HOLD: keep house UX IG pre-Resolve
+## 2026-09-18 â€” HOLD: keep house UX IG pre-Resolve
 
 - Restored Pepsch house UX (IG Yes/No before Resolve for all [IPG]); undid Glossary revert 17f468e.
 - No further IG-order changes until Pepsch picks strict vs house. Spock still flags Glossary conflict.
 
 
-## 2026-09-18 — HOLD: IG back to post-Resolve (Glossary)
+## 2026-09-18 â€” HOLD: IG back to post-Resolve (Glossary)
 
-- Reverted Pepsch pre-filter IG order (d32da9c). Strict Spock: Resolve (targets+conditions) → optional IG → else effects. Waiting Pepsch: strict vs house UX.
+- Reverted Pepsch pre-filter IG order (d32da9c). Strict Spock: Resolve (targets+conditions) â†’ optional IG â†’ else effects. Waiting Pepsch: strict vs house UX.
 
 
-## 2026-09-18 — IG nullify BEFORE Resolve for all [IPG]
+## 2026-09-18 â€” IG nullify BEFORE Resolve for all [IPG]
 
 - Pepsch: Interphase Generator Yes/No runs once at start of encounter handling for every IsIpgDilemma, before DilemmaRules.Resolve (before Rebel destroy-Equipment, filters, kills). Yes = discard dilemma + continue, IG kept. No = normal resolve.
 
 
-## 2026-09-18 — Mission badge strip + Rebel Encounter destroy-Equipment
+## 2026-09-18 â€” Mission badge strip + Rebel Encounter destroy-Equipment
 
 - Mission under-card status strip (Away/Eq/Art counts) removed; ship/facility badges unchanged; Rogue Borg badge kept.
 - Rebel Encounter: when STRENGTH not >44, offer destroy one Equipment present (Equipment type OR Artifact-as-Equipment via IsEquipmentCard). Destroy uses Discard so Overcome applies it. CollectPresentAtMission now includes Artifact-as-Equipment.
 
 
-## 2026-09-18 — Mission detail: revealed-still-under (no last-revealed)
+## 2026-09-18 â€” Mission detail: revealed-still-under (no last-revealed)
 
 - Removed "Last revealed under Mission" (could show discarded cards).
 - Detail shows all cards revealed under that mission that are still on the under-mission seed pile (visible to all). Face-down count excludes those.
 
 
-## 2026-09-18 — Interphase Generator: may-nullify after just-encountered (Spock)
+## 2026-09-18 â€” Interphase Generator: may-nullify after just-encountered (Spock)
 
 - Removed auto-nullify at reveal.
 - After `DilemmaRules.Resolve` (targets + conditions), if [IPG] and IG present with attempting AT/crew: Yes/No to nullify before results. IG kept. Scope = planet surface AT or attempting-ship crew only.
 
 
-## 2026-09-18 — Interphase Generator nullifies [IPG] dilemmas
+## 2026-09-18 â€” Interphase Generator nullifies [IPG] dilemmas
 
 - `CardIcons.HasIpg` / `IsIpgDilemma` from printed `[IPG]` tokens (no name list).
 - On mission attempt: if Interphase Generator is present with the attempting team, revealed [IPG] dilemmas are discarded and the attempt continues (before Resolve).
 
 
-## 2026-09-18 — Hail no-battle: Detail debuff (not under-card)
+## 2026-09-18 â€” Hail no-battle: Detail debuff (not under-card)
 
 - Removed under-card "Hail: no battle" flags.
 - Show as red **Debuff** line in card Detail status block (same place as Metaphasic / other host effects): "Hail: cannot battle X this turn".
 - Status line kept; cleared at EOT with the restriction. Table-drop path unchanged.
 
 
-## 2026-09-18 — Hail OR: table drop + no-battle flags
+## 2026-09-18 â€” Hail OR: table drop + no-battle flags
 
 - **Drop:** Hail `GetPlayTarget` = None before PlayOnRules (printed "Plays on any ship" was forcing ship host). Play onto empty table/play area like Jaglom, then mark two ships.
-- **Feedback:** after pair marked — status line + light "no battle" flags on both ships (partner name); cleared at EOT with the restriction.
+- **Feedback:** after pair marked â€” status line + light "no battle" flags on both ships (partner name); cleared at EOT with the restriction.
 
 
-## 2026-09-17 — Hail fly-by Pass: relocate after deferred move
+## 2026-09-17 â€” Hail fly-by Pass: relocate after deferred move
 
 - **Bug:** Pass / no Hail on `ShipFlyBy` spent RANGE and logged arrival, but left the ship token at the start (desync).
 - **Fix:** `CompletePendingHailFly` now `RelocateShipAlongSpaceline` + sync after rules apply. Hail-played stop path unchanged.
 
 
-## 2026-09-17 — Hail two-ship: spaceline click-mark (no Detail picker)
+## 2026-09-17 â€” Hail two-ship: spaceline click-mark (no Detail picker)
 
-- **Hail** OR-mode UX (Pepsch): play Hail to table (no ship drop target), then click two ships on the spaceline — each lights up; second click applies no-battle-this-turn and discards Hail. Fly-by path unchanged (`ShipFlyBy`).
+- **Hail** OR-mode UX (Pepsch): play Hail to table (no ship drop target), then click two ships on the spaceline â€” each lights up; second click applies no-battle-this-turn and discards Hail. Fly-by path unchanged (`ShipFlyBy`).
 - Replaces DetailWindow list picker for identical ships.
 
 
-- **Hail** (Alternate Universe interrupt, Spock Soll): fly-by response window (`ShipFlyBy`) when a ship span-passes a location with an opposing ship — play Hail to stop it there (no further move this turn, not game-stopped); discard Hail (no attach). OR one play selecting two ships — they cannot battle each other this turn (EOT clear). Subspace Interference still nullifies Hail on the stack.
+- **Hail** (Alternate Universe interrupt, Spock Soll): fly-by response window (`ShipFlyBy`) when a ship span-passes a location with an opposing ship â€” play Hail to stop it there (no further move this turn, not game-stopped); discard Hail (no attach). OR one play selecting two ships â€” they cannot battle each other this turn (EOT clear). Subspace Interference still nullifies Hail on the stack.
 - **UI:** removed inner `BoardInnerGlow` frame (outer `BoardFrameBorder` kept); ThinkTray chrome tightened (padding/margin/rail).
 
-﻿# Changelog
+ï»¿# Changelog
 
 Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
@@ -1051,73 +1054,73 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 ## 2026-09-13 (Fix - Save/Load Game State & Ship Hull Damage Persistence)
 
 **Engine & Save/Load (`TableWindow.xaml.cs`)**:
-- **Problem**: Bei Spielständen, in denen Schiffe unbeschädigt waren, konnte alter Rumpfschaden (`HullPercent`) aus `BoardStore.Current` oder früheren Spielzuständen fortbestehen und nach dem Laden fälschlicherweise Badges (z. B. 50% DMG) sowie Schadenswerte anzeigen.
-- **Lösung**:
-  - `BoardStore.Current.Clear()` wird am Anfang von `ApplyGameSave` ausgeführt, um alle veralteten Instanzen vor dem Neuaufbau zu verwerfen.
-  - Explizites Zurücksetzen für unbeschädigte Schiffe (`snap.Hull <= 0`): `SetHullDamagePercent(border, 0)` und `UpdateDamageBadge(border, 0)`.
+- **Problem**: Bei SpielstÃ¤nden, in denen Schiffe unbeschÃ¤digt waren, konnte alter Rumpfschaden (`HullPercent`) aus `BoardStore.Current` oder frÃ¼heren SpielzustÃ¤nden fortbestehen und nach dem Laden fÃ¤lschlicherweise Badges (z. B. 50% DMG) sowie Schadenswerte anzeigen.
+- **LÃ¶sung**:
+  - `BoardStore.Current.Clear()` wird am Anfang von `ApplyGameSave` ausgefÃ¼hrt, um alle veralteten Instanzen vor dem Neuaufbau zu verwerfen.
+  - Explizites ZurÃ¼cksetzen fÃ¼r unbeschÃ¤digte Schiffe (`snap.Hull <= 0`): `SetHullDamagePercent(border, 0)` und `UpdateDamageBadge(border, 0)`.
   - `SyncBoardFromTable(logDual: false)` wird am Ende von `ApplyGameSave` aufgerufen, um den `BoardStore` exakt mit dem rekonstruierten Spielstand zu synchronisieren.
-  - In `SaveGame`: `Hull` und `RangeLeft` erfassen über `GetHullDamage(b)` und `GetRemainingRange(b, card)` direkt die verbindlichen Instanz-Werte der Schiffe.
+  - In `SaveGame`: `Hull` und `RangeLeft` erfassen Ã¼ber `GetHullDamage(b)` und `GetRemainingRange(b, card)` direkt die verbindlichen Instanz-Werte der Schiffe.
 
 ---
 
 ## 2026-09-13 (Fix & Rule Implementation - Ktarian Game Dilemma Disabling & Cure)
 
 **Engine & Rules (DilemmaRules, TableWindow, BoardStore, CardInstance & Models)**:
-- **Glossary & Kartentext-Konformität (Ktarian Game)**:
+- **Glossary & Kartentext-KonformitÃ¤t (Ktarian Game)**:
   - Kartentext: *"Place on ship. Now and start of each turn, one personnel aboard (random selection) is disabled. Cure with CUNNING>30 OR any android."*
-  - Bisheriger Bug: Die Start-of-Turn-Logik verwendete fälschlicherweise `MarkStopped`, welches durch den regulären Rundenwechsel (`UnstopAllCards`) direkt zu Beginn der Runde wieder aufgehoben wurde. Zudem fehlte das initiale Deaktivieren einer Person beim Encounter ("Now") sowie ein echter "Disabled"-Zustand.
+  - Bisheriger Bug: Die Start-of-Turn-Logik verwendete fÃ¤lschlicherweise `MarkStopped`, welches durch den regulÃ¤ren Rundenwechsel (`UnstopAllCards`) direkt zu Beginn der Runde wieder aufgehoben wurde. Zudem fehlte das initiale Deaktivieren einer Person beim Encounter ("Now") sowie ein echter "Disabled"-Zustand.
   - Implementierung von echtem permanentem `Disabled`-Status:
     - `Card.cs`: `Disabled`-Flag und Einbeziehung in `IsLeaveBlocked`.
     - `CardInstance.cs`: `PersonnelInstance.Disabled` und `override bool IsLeaveBlocked => Quarantined || InStasis || Disabled;`.
-    - `MovementRules.cs`: Deaktiviertes oder in Stasis befindliches Personal zählt nicht mehr zu Staffing-Requirements (`IsShipStaffed`).
+    - `MovementRules.cs`: Deaktiviertes oder in Stasis befindliches Personal zÃ¤hlt nicht mehr zu Staffing-Requirements (`IsShipStaffed`).
     - `TableWindow.xaml.cs`:
-      - Neues `ApplyDisabledVisual` mit amber-orange Glow/Border und reduzierter Opazität.
-      - `ApplyKtarianDisable`: Wählt beim Encounter ("Now") und zu jedem Rundenbeginn ("Start of Turn") eine zufällige, noch nicht deaktivierte Person an Bord des Wirtsschiffs aus, markiert sie als `Disabled` und trägt sie in `attached.Held` ein.
-      - `ProcessStartOfTurnDilemmas`: Prüft zuerst die Heilung mit un-deaktiviertem Personal (CUNNING>30 oder Android). Falls nicht geheilt, wird eine weitere Person deaktiviert.
+      - Neues `ApplyDisabledVisual` mit amber-orange Glow/Border und reduzierter OpazitÃ¤t.
+      - `ApplyKtarianDisable`: WÃ¤hlt beim Encounter ("Now") und zu jedem Rundenbeginn ("Start of Turn") eine zufÃ¤llige, noch nicht deaktivierte Person an Bord des Wirtsschiffs aus, markiert sie als `Disabled` und trÃ¤gt sie in `attached.Held` ein.
+      - `ProcessStartOfTurnDilemmas`: PrÃ¼ft zuerst die Heilung mit un-deaktiviertem Personal (CUNNING>30 oder Android). Falls nicht geheilt, wird eine weitere Person deaktiviert.
       - `ClearStasisForDilemma`: Hebt beim Heilen von `Ktarian Game` den `Disabled`-Status aller betroffenen Personen auf, stellt die Visuals wieder her und leert `Held`.
-      - Mission-Versuche und Beamen: Deaktiviertes Personal ist vom Beamen ausgeschlossen und zählt nicht bei Missionsversuchen/Skills.
-      - UI Details & Gruppen: Deaktivierte Personen werden in der Detailansicht mit amber Status und unter der "Disabled"-Negativgruppe aufgeführt.
+      - Mission-Versuche und Beamen: Deaktiviertes Personal ist vom Beamen ausgeschlossen und zÃ¤hlt nicht bei Missionsversuchen/Skills.
+      - UI Details & Gruppen: Deaktivierte Personen werden in der Detailansicht mit amber Status und unter der "Disabled"-Negativgruppe aufgefÃ¼hrt.
       - Save/Load (`GameSave.cs`): `AttachedDilemmaSnap.HeldIds` speichert die betroffenen Karten-IDs, sodass der `Disabled`-Zustand auch nach Speichern und Laden exakt erhalten bleibt.
   - Unit-Tests:
-    - `DilemmaRules.VerifyKtarianGame`: Erweiterte Tests bezüglich CUNNING>30, Android, Nicht-Zählen von Held/Disabled-Personal bei Cure-Checks und `IsLeaveBlocked`-Verhalten.
-    - `DilemmaCureRules.VerifyDilemmaCureRules`: Zusätzliche Tests für Ktarian Game Heilung mit CUNNING>30, Android und Fehlschlag bei CUNNING<=30.
+    - `DilemmaRules.VerifyKtarianGame`: Erweiterte Tests bezÃ¼glich CUNNING>30, Android, Nicht-ZÃ¤hlen von Held/Disabled-Personal bei Cure-Checks und `IsLeaveBlocked`-Verhalten.
+    - `DilemmaCureRules.VerifyDilemmaCureRules`: ZusÃ¤tzliche Tests fÃ¼r Ktarian Game Heilung mit CUNNING>30, Android und Fehlschlag bei CUNNING<=30.
 
 ---
 
 ## 2026-09-13 (Fix & Rule Implementation - Portal Guard & Quarantine Interaction)
 
 **Engine & Rules (DilemmaRules, TableWindow, BoardStore & Models)**:
-- **Glossary & Kartentext-Konformität (Portal Guard & Hyper-Aging Quarantäne)**:
+- **Glossary & Kartentext-KonformitÃ¤t (Portal Guard & Hyper-Aging QuarantÃ¤ne)**:
   - Kartentext: *"Unless one Away Team member has CUNNING>7 or Honor, immediately beam entire Away Team off planet surface OR kills entire Away Team."*
-  - DRG: Wenn die Bedingung nicht erfüllt ist, muss das gesamte Away Team sofort vom Planeten gebeamt werden. Ist das Beamen erfolgreich, wird das Away Team gestoppt und das Dilemma verbleibt unter der Mission (`WallFailed`). Kann jedoch auch nur ein einziges Mitglied des Away Teams nicht beamen (z. B. wegen Quarantäne durch Hyper-Aging oder Stasis) oder existiert kein Schiff oder Facility vor Ort zum Hinbeamen, wird das **gesamte Away Team getötet**!
-- **Zentrale Kapselung von Quarantäne & Stasis**:
+  - DRG: Wenn die Bedingung nicht erfÃ¼llt ist, muss das gesamte Away Team sofort vom Planeten gebeamt werden. Ist das Beamen erfolgreich, wird das Away Team gestoppt und das Dilemma verbleibt unter der Mission (`WallFailed`). Kann jedoch auch nur ein einziges Mitglied des Away Teams nicht beamen (z. B. wegen QuarantÃ¤ne durch Hyper-Aging oder Stasis) oder existiert kein Schiff oder Facility vor Ort zum Hinbeamen, wird das **gesamte Away Team getÃ¶tet**!
+- **Zentrale Kapselung von QuarantÃ¤ne & Stasis**:
   - `Card.cs`: Laufzeit-Properties `Quarantined`, `InStasis` und `IsLeaveBlocked`.
   - `CardInstance.cs`: `PersonnelInstance` besitzt `Quarantined`, `InStasis` und `override bool IsLeaveBlocked => Quarantined || InStasis;`.
   - `Force.cs` (Away Team / Crew): `IsQuarantined`, `IsLeaveBlocked` und `CanBeamAway`.
-  - Synchronisation im `BoardStore` bei `ApplyUiStatusToStore` sowie beim Beitritt oder Anheften von Quarantäne-Dilemmas.
+  - Synchronisation im `BoardStore` bei `ApplyUiStatusToStore` sowie beim Beitritt oder Anheften von QuarantÃ¤ne-Dilemmas.
 - **Dilemma-Regeln & Beam-Verdrahtung**:
-  - `DilemmaRules.Ctx`: Übermittlung von `CanBeamOffPlanet` (prüft, ob das Team auf einem Planeten steht, kein Mitglied blockiert ist und ein eigenes Schiff bzw. eine Facility am Ort existiert).
-  - `DilemmaRules.DecidePortalGuard`: Berücksichtigt `canBeamOffPlanet`. Führt bei unerfülltem Filter und blockiertem Beamen zu `KillTeam = true` (alle Team-Mitglieder in `r.Kill`) und `BeamBackTeam = false`.
-  - `TableWindow.BeamBackAwayTeamToShipOrOutpost`: Verhindert das Beamen, sobald auch nur ein Team-Mitglied `IsCardLeaveBlocked` ist, und liefert einen booleschen Status zurück. Scheitert das Beamen bei Portal Guard, greift der Fallback und das gesamte Team wird verworfen (unter Berücksichtigung von Genetronic Replicator).
-  - `VerifyPortalGuard`: Ausführlicher Unit-Test mit Pass-, Fail-mit-Beam- und Fail-ohne-Beam-(Quarantäne/No-Dest)-Szenarien.
+  - `DilemmaRules.Ctx`: Ãœbermittlung von `CanBeamOffPlanet` (prÃ¼ft, ob das Team auf einem Planeten steht, kein Mitglied blockiert ist und ein eigenes Schiff bzw. eine Facility am Ort existiert).
+  - `DilemmaRules.DecidePortalGuard`: BerÃ¼cksichtigt `canBeamOffPlanet`. FÃ¼hrt bei unerfÃ¼lltem Filter und blockiertem Beamen zu `KillTeam = true` (alle Team-Mitglieder in `r.Kill`) und `BeamBackTeam = false`.
+  - `TableWindow.BeamBackAwayTeamToShipOrOutpost`: Verhindert das Beamen, sobald auch nur ein Team-Mitglied `IsCardLeaveBlocked` ist, und liefert einen booleschen Status zurÃ¼ck. Scheitert das Beamen bei Portal Guard, greift der Fallback und das gesamte Team wird verworfen (unter BerÃ¼cksichtigung von Genetronic Replicator).
+  - `VerifyPortalGuard`: AusfÃ¼hrlicher Unit-Test mit Pass-, Fail-mit-Beam- und Fail-ohne-Beam-(QuarantÃ¤ne/No-Dest)-Szenarien.
 
 ---
 
 ## 2026-09-13 (Fix - Genetronic Replicator Event & Target Exclusion Rules)
 
 **Engine & Rules (EventRules & TableWindow)**:
-- **Glossary & Kartentext-Konformität**: "When a personnel is targeted to die, you may stop 2 MEDICAL present (who are not also targeted to die) to return that personnel to hand instead."
-  - Das zu rettende Personal (Victim) und sämtliche weitere gleichzeitig zum Tod ausgewählte Personen (`alsoTargetedToDie`) dürfen nicht für die 2 geforderten MEDICAL-Punkte gezählt oder gestoppt werden (z. B. wenn Beverly Crusher mit 2 MEDICAL getötet wird, kann sie sich nicht selbst retten, sofern nicht mindestens 2 weitere ungestoppte MEDICAL-Fertigkeiten anwesend sind).
-  - Bereits gestoppte (`IsBorderStopped`) oder in Stasis befindliche (`IsCardInStasis`) Personen können nicht zum Zahlen der Rettungskosten gestoppt werden.
-  - Nur eigenes, ungestopptes Personal am selben Host mit MEDICAL-Fähigkeiten ist qualifiziert.
+- **Glossary & Kartentext-KonformitÃ¤t**: "When a personnel is targeted to die, you may stop 2 MEDICAL present (who are not also targeted to die) to return that personnel to hand instead."
+  - Das zu rettende Personal (Victim) und sÃ¤mtliche weitere gleichzeitig zum Tod ausgewÃ¤hlte Personen (`alsoTargetedToDie`) dÃ¼rfen nicht fÃ¼r die 2 geforderten MEDICAL-Punkte gezÃ¤hlt oder gestoppt werden (z. B. wenn Beverly Crusher mit 2 MEDICAL getÃ¶tet wird, kann sie sich nicht selbst retten, sofern nicht mindestens 2 weitere ungestoppte MEDICAL-Fertigkeiten anwesend sind).
+  - Bereits gestoppte (`IsBorderStopped`) oder in Stasis befindliche (`IsCardInStasis`) Personen kÃ¶nnen nicht zum Zahlen der Rettungskosten gestoppt werden.
+  - Nur eigenes, ungestopptes Personal am selben Host mit MEDICAL-FÃ¤higkeiten ist qualifiziert.
 - **Interaktive Auswahl**:
-  - Sind mehr als 2 MEDICAL-Fähigkeiten anwesend, kann der Spieler über `PickBorderFromList` interaktiv wählen, welche medizinischen Fachkräfte gestoppt werden sollen.
-  - Automatisches Stoppen, wenn die verfügbaren Kandidaten genau den Anforderungen entsprechen.
+  - Sind mehr als 2 MEDICAL-FÃ¤higkeiten anwesend, kann der Spieler Ã¼ber `PickBorderFromList` interaktiv wÃ¤hlen, welche medizinischen FachkrÃ¤fte gestoppt werden sollen.
+  - Automatisches Stoppen, wenn die verfÃ¼gbaren Kandidaten genau den Anforderungen entsprechen.
 - **Regel-Zentralisierung in `EventRules.cs`**:
-  - `GetPersonnelMedicalSkill`: Ermittelt effektive MEDICAL-Stufe (inklusive Ausrüstung wie Medical Kit).
+  - `GetPersonnelMedicalSkill`: Ermittelt effektive MEDICAL-Stufe (inklusive AusrÃ¼stung wie Medical Kit).
   - `IsEligibleForGenetronicStop`: Validiert Berechtigung einzelner Karten unter Ausschluss von Opfern und gestopptem Personal.
   - `GetAvailableGenetronicMedical` & `CanGenetronicSave`: Pure Decide-Logik.
-  - `VerifyGenetronicReplicator`: Vollständiger Regel-Unit-Test (Selbstrettungs-Ausschluss von Beverly Crusher, Ausschluss von gleichzeitig Getöteten, gestopptes Personal ignoriert, Fremdrettung mit Crusher/Toby Russell).
+  - `VerifyGenetronicReplicator`: VollstÃ¤ndiger Regel-Unit-Test (Selbstrettungs-Ausschluss von Beverly Crusher, Ausschluss von gleichzeitig GetÃ¶teten, gestopptes Personal ignoriert, Fremdrettung mit Crusher/Toby Russell).
 - **TableWindow Verdrahtung**:
   - `DiscardPersonnelBorder` akzeptiert jetzt `alsoTargetedToDie`.
   - Weitergabe von `alsoTargetedToDie` bei Dilemma-Kills (`ApplyDilemmaResult`, Crystalline Entity), Personnel Battles (`CompletePersonnelAttack`, Rogue Borg Battles), Artifact Kills (`Stone of Gol`) und EOT Countdown-Kills (`Hyper-Aging Quarantine`).
@@ -1128,12 +1131,12 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 ## 2026-09-13 (UI & Localization - Remove Duplicate 'Artifact verdient' & Full English Translation)
 
 **UI & Cleanup**:
-- **Artifact Acquire Reveal Cleanup**: Entfernen des redundanten "Artifact verdient" `ShowCardReveal`-Overlays beim Lösen einer Mission (`ApplyArtifactAcquire`). Es verbleibt ausschließlich die konsistente englische Einzelkarten-Meldung "Artifact acquired" in `ResolveMissionSolve`.
-- **Vollständige Lokalisierung auf Englisch**:
-  - `TableWindow.xaml` & `TableWindow.xaml.cs`: Sämtliche verbliebenen deutschen Texte, Tooltips, Statusmeldungen, Aktionshinweise, Fehlermeldungen und Dialoge auf Englisch übersetzt (z. B. Response-Badges, Think-Tray-Titel und Hinweise, Seed-Phasenmeldungen, Action-Stack-Status, Scan-Reveals).
+- **Artifact Acquire Reveal Cleanup**: Entfernen des redundanten "Artifact verdient" `ShowCardReveal`-Overlays beim LÃ¶sen einer Mission (`ApplyArtifactAcquire`). Es verbleibt ausschlieÃŸlich die konsistente englische Einzelkarten-Meldung "Artifact acquired" in `ResolveMissionSolve`.
+- **VollstÃ¤ndige Lokalisierung auf Englisch**:
+  - `TableWindow.xaml` & `TableWindow.xaml.cs`: SÃ¤mtliche verbliebenen deutschen Texte, Tooltips, Statusmeldungen, Aktionshinweise, Fehlermeldungen und Dialoge auf Englisch Ã¼bersetzt (z. B. Response-Badges, Think-Tray-Titel und Hinweise, Seed-Phasenmeldungen, Action-Stack-Status, Scan-Reveals).
   - `DeckBuilderWindow.xaml` & `DeckBuilderWindow.xaml.cs`: Lokalisierung aller Filter, Tab-Header ("Side legacy"), Tooltips und Meldungen auf Englisch.
-  - Game Rules (`DilemmaRules`, `InterruptRules`, `MovementRules`, `PlayRules`, `ReportingRules`, `SeedRules`, `TimingRules`, `ModifierRules`, `BattleRules`, `MissionRules`, `TreatyRules`): Übersetzung aller internen und spielerseitigen Fehlermeldungen, Check-Ergebnisse, Action-Stack-Zusammenfassungen und Prompt-Texte (z. B. "Which equipment?").
-  - Services & Models (`GameSession`, `DeckService`, `CardDatabase`, `ExpansionCatalog`): Übersetzung der Zugprotokolle (P1/P2 statt S1/S2), Phasenlabels, Datei-Ausnahmemeldungen und Katalog-Fallbacks.
+  - Game Rules (`DilemmaRules`, `InterruptRules`, `MovementRules`, `PlayRules`, `ReportingRules`, `SeedRules`, `TimingRules`, `ModifierRules`, `BattleRules`, `MissionRules`, `TreatyRules`): Ãœbersetzung aller internen und spielerseitigen Fehlermeldungen, Check-Ergebnisse, Action-Stack-Zusammenfassungen und Prompt-Texte (z. B. "Which equipment?").
+  - Services & Models (`GameSession`, `DeckService`, `CardDatabase`, `ExpansionCatalog`): Ãœbersetzung der Zugprotokolle (P1/P2 statt S1/S2), Phasenlabels, Datei-Ausnahmemeldungen und Katalog-Fallbacks.
 
 ---
 
@@ -1141,40 +1144,40 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 **Engine & Rules** - Trennung von Bedingung (Condition) und Heilung (Cure) & Stopp-Verhalten:
 - **Allgemeine Regel (Compendium 7.2.2.2, 7.2.2.3, 7.2.6 & Glossary)**:
-  - Ein Away Team / eine Crew wird durch ein Dilemma nur dann gestoppt, wenn eine Zugangsbedingung ("unless", "to get past", "cannot get past") fehlschlägt, der Kartentext dies explizit befiehlt ("Away Team is stopped"), oder niemand mehr übrig ist.
-  - Eine Heilungsanforderung ("Cure with...") ist ausdrücklich **keine** Zugangsbedingung. Weder das Heilen noch das Nicht-Heilen einer heilbaren Dilemma-Wirkung ohne Vorbedingung führt zum Abbruch der Mission oder zum Stoppen des restlichen Teams ("Failing to immediately meet a cure requirement does not cause mission failure").
+  - Ein Away Team / eine Crew wird durch ein Dilemma nur dann gestoppt, wenn eine Zugangsbedingung ("unless", "to get past", "cannot get past") fehlschlÃ¤gt, der Kartentext dies explizit befiehlt ("Away Team is stopped"), oder niemand mehr Ã¼brig ist.
+  - Eine Heilungsanforderung ("Cure with...") ist ausdrÃ¼cklich **keine** Zugangsbedingung. Weder das Heilen noch das Nicht-Heilen einer heilbaren Dilemma-Wirkung ohne Vorbedingung fÃ¼hrt zum Abbruch der Mission oder zum Stoppen des restlichen Teams ("Failing to immediately meet a cure requirement does not cause mission failure").
 - **Alien Abduction (PR 10 U)**:
-  - Bei Begegnung: Ziel mit höchstem CUNNING wird in Stasis gesetzt (kann eigene Fähigkeiten nicht zur Heilung beitragen).
-  - Wenn verbleibendes Away Team 3x Leadership hat: Sofort geheilt (`Fate.Overcome, StopTeam = false`), Dilemma abgeworfen, Versuch läuft mit vollem Team weiter.
-  - Wenn verbleibendes Away Team keine 3x Leadership hat: Dilemma wird an die Mission angehängt (`Fate.AttachAndContinue, StopTeam = false`), Opfer bleibt in Stasis. Das restliche ungestoppte Team setzt den Missionsversuch nahtlos fort!
-  - Bei Befreiung (Mission gelöst oder spätere Heilung): `ClearStasisForDilemma` ruft `UnstopBorder` auf, sodass die Person vollständig ungestoppt wieder zum Team stößt.
+  - Bei Begegnung: Ziel mit hÃ¶chstem CUNNING wird in Stasis gesetzt (kann eigene FÃ¤higkeiten nicht zur Heilung beitragen).
+  - Wenn verbleibendes Away Team 3x Leadership hat: Sofort geheilt (`Fate.Overcome, StopTeam = false`), Dilemma abgeworfen, Versuch lÃ¤uft mit vollem Team weiter.
+  - Wenn verbleibendes Away Team keine 3x Leadership hat: Dilemma wird an die Mission angehÃ¤ngt (`Fate.AttachAndContinue, StopTeam = false`), Opfer bleibt in Stasis. Das restliche ungestoppte Team setzt den Missionsversuch nahtlos fort!
+  - Bei Befreiung (Mission gelÃ¶st oder spÃ¤tere Heilung): `ClearStasisForDilemma` ruft `UnstopBorder` auf, sodass die Person vollstÃ¤ndig ungestoppt wieder zum Team stÃ¶ÃŸt.
 - **Konsistente Anwendung auf weitere Curable Dilemmas**:
-  - `Two-Dimensional Creatures`: Verwendet nun `AttachContinue` (`StopTeam = false`). Schiff kann sich nicht bewegen, aber Crew ist nicht gestoppt und Missionsversuch läuft weiter.
-  - `Tsiolkovsky Infection`: Verwendet nun `AttachContinue` (`StopTeam = false`). Personal verliert erste Fertigkeit, ist aber nicht gestoppt und Versuch läuft weiter.
+  - `Two-Dimensional Creatures`: Verwendet nun `AttachContinue` (`StopTeam = false`). Schiff kann sich nicht bewegen, aber Crew ist nicht gestoppt und Missionsversuch lÃ¤uft weiter.
+  - `Tsiolkovsky Infection`: Verwendet nun `AttachContinue` (`StopTeam = false`). Personal verliert erste Fertigkeit, ist aber nicht gestoppt und Versuch lÃ¤uft weiter.
   - `Frame of Mind`: Verwendet nun `AttachContinue` (`StopTeam = false`) mit Sofort-Heilung bei 3 Empathy im verbleibenden Team.
   - `Quantum Singularity Lifeforms` & `Rascals`: Auf `AttachContinue` umgestellt.
-  - `TryCureAttachedDilemmas` & `ProcessEndOfTurnDilemmas`: Schließen bei `a.Held.Count > 0` alle in Stasis gehaltenen Karten für Heilungs-Checks aus (Opfer können sich nicht selbst heilen).
+  - `TryCureAttachedDilemmas` & `ProcessEndOfTurnDilemmas`: SchlieÃŸen bei `a.Held.Count > 0` alle in Stasis gehaltenen Karten fÃ¼r Heilungs-Checks aus (Opfer kÃ¶nnen sich nicht selbst heilen).
 - **Automatisierte Regeltests**:
   - Neue Verifikationsmethoden: `VerifyAlienAbduction()`, `VerifyTwoDimensionalCreatures()`, `VerifyTsiolkovskyInfection()` in `DilemmaRules.cs`.
-  - Erweiterung von `VerifyDilemmaCureRules()` in `DilemmaCureRules.cs` um Blockade von Selbstheilung aus der Stasis und Heilungstests für TwoDim und Tsiolkovsky.
+  - Erweiterung von `VerifyDilemmaCureRules()` in `DilemmaCureRules.cs` um Blockade von Selbstheilung aus der Stasis und Heilungstests fÃ¼r TwoDim und Tsiolkovsky.
 
 ---
 
 ## 2026-09-13 (Retest Green - Archer, Alien Abduction, Phased Matter)
 
 **Retest (Pepsch green):**
-- **Archer (PR 14 C)**: Auswertung der höchsten Gesamtattribute, Tie-Break-Wahl durch den Gegner und Stop-Verhalten bei Nichterfüllung verifiziert und bestätigt.
-- **Alien Abduction (PR 10 U)**: Stasis-Handling und zentrales Cure-System (7.2.2.3) via 3 Leadership präsent oder Mission Completed verifiziert und bestätigt.
-- **Phased Matter (PR 42 C)**: Aufteilung des Away Teams, Stasis/Phasing der größeren Gruppe, Fortführung der kleineren Gruppe und Entphasen/Heilen durch unphased ENGINEER + SCIENCE am Ort bestätigt.
+- **Archer (PR 14 C)**: Auswertung der hÃ¶chsten Gesamtattribute, Tie-Break-Wahl durch den Gegner und Stop-Verhalten bei NichterfÃ¼llung verifiziert und bestÃ¤tigt.
+- **Alien Abduction (PR 10 U)**: Stasis-Handling und zentrales Cure-System (7.2.2.3) via 3 Leadership prÃ¤sent oder Mission Completed verifiziert und bestÃ¤tigt.
+- **Phased Matter (PR 42 C)**: Aufteilung des Away Teams, Stasis/Phasing der grÃ¶ÃŸeren Gruppe, FortfÃ¼hrung der kleineren Gruppe und Entphasen/Heilen durch unphased ENGINEER + SCIENCE am Ort bestÃ¤tigt.
 
 ---
 
 ## 2026-09-12 (Feat - Centralized Dilemma Cure System according to Rulebook 7.2.2.3)
 
 **Engine** - Dilemma Cure System (Compendium 7.2.2.3):
-- **Decide in Rules (`DilemmaCureRules`)**: Reine Regel-Engine für Dilemma-Heilung (`DecideCure` / `CanCure` / `VerifyDilemmaCureRules`). Trennung von Bedingung und Heilung: Zuerst werden die Bedingungen des Dilemmas ausgewertet/angehängt, danach wird der Cure-Check durchgeführt (anwendbar auf Alien Abduction, Menthar Booby Trap, Hyper-Aging, REM Fatigue, Nitrium Metal Parasites, Tsiolkovsky Infection, Two-Dimensional Creatures, Ktarian Game, Birth of "Junior", Frame of Mind).
-- **Zentraler Apply in `TableWindow`**: `TryCureAbductionsPresent` und fragmentierte Cure-Prüfungen wurden durch die zentrale Routine `TryCureAttachedDilemmas` ersetzt. Aufgerufen direkt nach Attachment in `ApplyDilemmaResult`, beim Lösen einer Mission in `ApplyMissionSolved` (für Heilen durch Mission Completed), sowie bei Crew-Änderungen (`AddCardToHostStack`, `BeamCardsToHostStack`) und Unstop zu Zugbeginn.
-- **Dilemma-Resolution Angleichung**: `DilemmaRules` für Menthar, Tsiolkovsky, Two-Dimensional Creatures und REM Fatigue nutzen `DilemmaCureRules.CanCure` konsistent.
+- **Decide in Rules (`DilemmaCureRules`)**: Reine Regel-Engine fÃ¼r Dilemma-Heilung (`DecideCure` / `CanCure` / `VerifyDilemmaCureRules`). Trennung von Bedingung und Heilung: Zuerst werden die Bedingungen des Dilemmas ausgewertet/angehÃ¤ngt, danach wird der Cure-Check durchgefÃ¼hrt (anwendbar auf Alien Abduction, Menthar Booby Trap, Hyper-Aging, REM Fatigue, Nitrium Metal Parasites, Tsiolkovsky Infection, Two-Dimensional Creatures, Ktarian Game, Birth of "Junior", Frame of Mind).
+- **Zentraler Apply in `TableWindow`**: `TryCureAbductionsPresent` und fragmentierte Cure-PrÃ¼fungen wurden durch die zentrale Routine `TryCureAttachedDilemmas` ersetzt. Aufgerufen direkt nach Attachment in `ApplyDilemmaResult`, beim LÃ¶sen einer Mission in `ApplyMissionSolved` (fÃ¼r Heilen durch Mission Completed), sowie bei Crew-Ã„nderungen (`AddCardToHostStack`, `BeamCardsToHostStack`) und Unstop zu Zugbeginn.
+- **Dilemma-Resolution Angleichung**: `DilemmaRules` fÃ¼r Menthar, Tsiolkovsky, Two-Dimensional Creatures und REM Fatigue nutzen `DilemmaCureRules.CanCure` konsistent.
 
 ---
 
@@ -1183,30 +1186,30 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 **UX / Hotseat Rules** - Response Window Umbau:
 - **Weg vom modalen Popup (`CardRevealOverlay`)**: Keine blockierenden modalen Vollbild-Dialoge mehr bei normalen Card Plays / Reaktionen.
 - **Stilles Window mit Banner-Hinweis**:
-  - Kurzes Standardzeitfenster (Default: 3s; konfigurierbar im Options-Menü auf 2s / 3s / 5s; Presets für Hotseat Standard 3s/10s und Test schnell 2s/10s).
-  - Wenn keine legale Response existiert: Sofortiges Schließen / Auto-Pass, der aktive Spieler kann ohne Verzögerung weiterspielen.
-  - Wenn legale Response existiert: Dezenter violettes Badge am Phase-Banner (`ActivePlayerBanner`): `⚡ Response möglich (P1/P2) · 3s` inkl. Hotkey-Hinweis `· [R] Details  [Space] Pass`.
+  - Kurzes Standardzeitfenster (Default: 3s; konfigurierbar im Options-MenÃ¼ auf 2s / 3s / 5s; Presets fÃ¼r Hotseat Standard 3s/10s und Test schnell 2s/10s).
+  - Wenn keine legale Response existiert: Sofortiges SchlieÃŸen / Auto-Pass, der aktive Spieler kann ohne VerzÃ¶gerung weiterspielen.
+  - Wenn legale Response existiert: Dezenter violettes Badge am Phase-Banner (`ActivePlayerBanner`): `âš¡ Response mÃ¶glich (P1/P2) Â· 3s` inkl. Hotkey-Hinweis `Â· [R] Details  [Space] Pass`.
 - **Think-Modus (Opt-in via [R] oder Klick auf Banner/Badge)**:
-  - Verlängert das Window auf 10s Countdown.
-  - Zeigt horizontal scrollbares `ThinkTray` über der Hand des Responders (P1 unten, P2 oben).
-  - Volle Handkartengröße mit Herkunfts-Badge (`HAND`, `TABLE`, etc.) und Kartendetails.
-  - Klick auf Karte führt Response sofort aus; [Space] oder Timeout führt Pass aus.
+  - VerlÃ¤ngert das Window auf 10s Countdown.
+  - Zeigt horizontal scrollbares `ThinkTray` Ã¼ber der Hand des Responders (P1 unten, P2 oben).
+  - Volle HandkartengrÃ¶ÃŸe mit Herkunfts-Badge (`HAND`, `TABLE`, etc.) und Kartendetails.
+  - Klick auf Karte fÃ¼hrt Response sofort aus; [Space] oder Timeout fÃ¼hrt Pass aus.
 - **Priority & Mandatory**:
-  - Optionale Responses: Zuerst nicht-aktiver Spieler, danach aktiver Spieler. Gewählte Response erzeugt neue Aktion auf dem Stack und neues Window für den Gegner.
-  - Mandatory / required Responses: Kein Pass per Timeout, Space-Pass deaktiviert, Fenster bleibt bis Karte gewählt wurde.
+  - Optionale Responses: Zuerst nicht-aktiver Spieler, danach aktiver Spieler. GewÃ¤hlte Response erzeugt neue Aktion auf dem Stack und neues Window fÃ¼r den Gegner.
+  - Mandatory / required Responses: Kein Pass per Timeout, Space-Pass deaktiviert, Fenster bleibt bis Karte gewÃ¤hlt wurde.
 
 ---
 
 ## 2026-09-12 (Fix - Artifact Beaming without Treaty & Retest Green: Hyper-Aging, Firestorm, Detail Groups)
 
-**Engine** - Artifact Beaming / Affiliation-Free: Artifacts (inkl. Varon-T Disruptor, Interphase Generator, Data's Head etc.) haben keine Affiliation-Sperre und benötigen keinen Treaty, um auf Schiffe/Facilities gebeamt oder dort platziert zu werden (analog zu Equipment). Decide: `TreatyRules.CanOccupyHost` / `CardsCompatibleUnderTreaties` / `ForceCompatible` erlauben Artifacts affiliationsfrei; `ReportingRules.AreCompatible` / `CheckReportRules` erweitert; `ModifierRules.IsEquipmentCard` um Data's Head ergänzt. Apply: Detailansicht `FillDetailStackSection` gruppiert Artifacts unter Equipment/Artifacts statt Personnel; Fehlermeldung bei Beam aktualisiert ("Equipment and Artifacts are unrestricted").
+**Engine** - Artifact Beaming / Affiliation-Free: Artifacts (inkl. Varon-T Disruptor, Interphase Generator, Data's Head etc.) haben keine Affiliation-Sperre und benÃ¶tigen keinen Treaty, um auf Schiffe/Facilities gebeamt oder dort platziert zu werden (analog zu Equipment). Decide: `TreatyRules.CanOccupyHost` / `CardsCompatibleUnderTreaties` / `ForceCompatible` erlauben Artifacts affiliationsfrei; `ReportingRules.AreCompatible` / `CheckReportRules` erweitert; `ModifierRules.IsEquipmentCard` um Data's Head ergÃ¤nzt. Apply: Detailansicht `FillDetailStackSection` gruppiert Artifacts unter Equipment/Artifacts statt Personnel; Fehlermeldung bei Beam aktualisiert ("Equipment and Artifacts are unrestricted").
 
 **Retest (Pepsch green):**
-- **Hyper-Aging**: Quarantäne auf Planet, Beam-Block für Quarantänisierte bestätigt.
-- **Firestorm**: INT<5 Kills und Versuch-Fortsetzung bestätigt.
-- **Dilemma-Continue Overlay**: Platzhalter-Header `EFFECT - attempt continues` (statt irreführendem `RELOCATED`) für Firestorm und nicht-relocate Dilemmas bestätigt (Love Interest bleibt `RELOCATED`).
-- **Detailansicht Debuff-Gruppierung**: Gruppierung von Stopped / Quarantined / Stasis mit Sammel-Header `DetailStatusRules.FormatEffectGroupHeader` ohne redundante Per-Card-Labels bestätigt.
-- **Varon-T Disruptor**: Looten auf Planet und STRENGTH ×2 für eigenes Personal bestätigt.
+- **Hyper-Aging**: QuarantÃ¤ne auf Planet, Beam-Block fÃ¼r QuarantÃ¤nisierte bestÃ¤tigt.
+- **Firestorm**: INT<5 Kills und Versuch-Fortsetzung bestÃ¤tigt.
+- **Dilemma-Continue Overlay**: Platzhalter-Header `EFFECT - attempt continues` (statt irrefÃ¼hrendem `RELOCATED`) fÃ¼r Firestorm und nicht-relocate Dilemmas bestÃ¤tigt (Love Interest bleibt `RELOCATED`).
+- **Detailansicht Debuff-Gruppierung**: Gruppierung von Stopped / Quarantined / Stasis mit Sammel-Header `DetailStatusRules.FormatEffectGroupHeader` ohne redundante Per-Card-Labels bestÃ¤tigt.
+- **Varon-T Disruptor**: Looten auf Planet und STRENGTH Ã—2 fÃ¼r eigenes Personal bestÃ¤tigt.
 
 ---
 
@@ -1281,28 +1284,28 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 ---
 ## 2026-09-06 (Feat - Iconian Computer Weapon Premiere)
 
-**Engine** - Iconian Computer Weapon (PR 29 C): Space — Unless SCIENCE present: Ship+Crew stopped (`EffectAndEnd`+`StopTeam`); reveal hand, discard ALL non-personnel (personnel stay); draw equal number from draw deck (`DrawForDiscarded` / Apply `DiscardNonPersonnelFromHand`+`DrawOneToHand`); else Overcome Continue. Always discard dilemma. No bonus points. Spock #13 Soll / DRG Iconian Computer Weapon (standalone). Decide: `DilemmaRules.IconianComputerWeapon` + `VerifyIconianComputerWeapon`.
+**Engine** - Iconian Computer Weapon (PR 29 C): Space â€” Unless SCIENCE present: Ship+Crew stopped (`EffectAndEnd`+`StopTeam`); reveal hand, discard ALL non-personnel (personnel stay); draw equal number from draw deck (`DrawForDiscarded` / Apply `DiscardNonPersonnelFromHand`+`DrawOneToHand`); else Overcome Continue. Always discard dilemma. No bonus points. Spock #13 Soll / DRG Iconian Computer Weapon (standalone). Decide: `DilemmaRules.IconianComputerWeapon` + `VerifyIconianComputerWeapon`.
 
 ---
 
 ## 2026-09-06 (Feat - Gravitic Mine Premiere)
 
-**Engine** - Gravitic Mine (PR 26 U): Space — Unless SCIENCE AND Navigation present: DamageShip (ApplyHullDamage +50 / Rotation badge) + Ship+Crew stopped (`EffectAndEnd`+`StopTeam`); else Overcome Continue. Always discard. No bonus points. Spock #12 Soll / DRG Gravitic Mine. Decide: `DilemmaRules.GraviticMine` + `VerifyGraviticMine`.
+**Engine** - Gravitic Mine (PR 26 U): Space â€” Unless SCIENCE AND Navigation present: DamageShip (ApplyHullDamage +50 / Rotation badge) + Ship+Crew stopped (`EffectAndEnd`+`StopTeam`); else Overcome Continue. Always discard. No bonus points. Spock #12 Soll / DRG Gravitic Mine. Decide: `DilemmaRules.GraviticMine` + `VerifyGraviticMine`.
 
 ---
 ## 2026-09-06 (Feat - Firestorm Premiere)
 
-**Engine** - Firestorm (PR 25 U): Planet — no Condition-Wall. Personnel with INT<5 after Enhancements (`Eff`) die; Rest Continue; dilemma discard (`EffectAndContinue`). Boundary INT==5 survives. Thermal Deflectors in play -> nullify/discard + Continue (`Overcome`). Spock #11 Soll / DRG Firestorm (TD/ETA != Conditions). Decide: `DilemmaRules.Firestorm` + `VerifyFirestorm`. PARK: ETA-Escape Response timing (UI thin).
+**Engine** - Firestorm (PR 25 U): Planet â€” no Condition-Wall. Personnel with INT<5 after Enhancements (`Eff`) die; Rest Continue; dilemma discard (`EffectAndContinue`). Boundary INT==5 survives. Thermal Deflectors in play -> nullify/discard + Continue (`Overcome`). Spock #11 Soll / DRG Firestorm (TD/ETA != Conditions). Decide: `DilemmaRules.Firestorm` + `VerifyFirestorm`. PARK: ETA-Escape Response timing (UI thin).
 
 ---
 ## 2026-09-06 (Feat - El-Adrel Creature Premiere)
 
-**Engine** - El-Adrel Creature (PR 23 U): Planet — Targets two strongest AT (Tie = Dilemma-Owner / `PickOpp`). Pass combined STR >16 → Overcome Continue + discard (no points). Fail → 1 of the two random killed; rest of AT stopped; discard (`EffectAndEnd`+`StopTeam`). Boundary STR==16 fails. Spock #10 Soll / DRG El-Adrel Creature. Decide: `DilemmaRules.ElAdrel` + `VerifyElAdrelCreature`.
+**Engine** - El-Adrel Creature (PR 23 U): Planet â€” Targets two strongest AT (Tie = Dilemma-Owner / `PickOpp`). Pass combined STR >16 â†’ Overcome Continue + discard (no points). Fail â†’ 1 of the two random killed; rest of AT stopped; discard (`EffectAndEnd`+`StopTeam`). Boundary STR==16 fails. Spock #10 Soll / DRG El-Adrel Creature. Decide: `DilemmaRules.ElAdrel` + `VerifyElAdrelCreature`.
 
 ---
 ## 2026-09-06 (Feat - Cytherians Premiere)
 
-**Engine** - Cytherians (PR 22 R): Space — Place on ship; Attempt ends; Crew **NOT** stopped (`AttachAndEnd` + `StopTeam=false`). Far end fixed once (TW `Dest` / `RequiredMoveRules.FarEndIndex` 12.6). Arrival → discard +15; ship destroy → discard (no points). No instant relocate. Spock #9 Soll / Glossary Cytherians + actions-required. Decide: `DilemmaRules.Cytherians` + `VerifyCytherians`. PARK: full LegalMoves-only-toward-far-end beyond existing `ShipHasRequiredMove` gates; Borg play-out no-points / Mission Debriefing if unclear.
+**Engine** - Cytherians (PR 22 R): Space â€” Place on ship; Attempt ends; Crew **NOT** stopped (`AttachAndEnd` + `StopTeam=false`). Far end fixed once (TW `Dest` / `RequiredMoveRules.FarEndIndex` 12.6). Arrival â†’ discard +15; ship destroy â†’ discard (no points). No instant relocate. Spock #9 Soll / Glossary Cytherians + actions-required. Decide: `DilemmaRules.Cytherians` + `VerifyCytherians`. PARK: full LegalMoves-only-toward-far-end beyond existing `ShipHasRequiredMove` gates; Borg play-out no-points / Mission Debriefing if unclear.
 
 ---
 ## 2026-09-06 (Feat - Crystalline Entity Premiere)
@@ -1312,17 +1315,17 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 ---
 ## 2026-09-06 (Feat - Cosmic String Fragment Premiere)
 
-**Engine** - Cosmic String Fragment (PR 20 U): Space — Unless Astrophysics OR ENGINEER OR Navigation present: destroy ship (everything aboard via Apply); else Overcome +5 Bonus-Area + Continue. Always discard dilemma. Fail -> EffectAndEnd+StopTeam+DestroyShip. Spock #7 Soll/DRG. Decide: `DilemmaRules.CosmicStringFragment` + `VerifyCosmicStringFragment`.
+**Engine** - Cosmic String Fragment (PR 20 U): Space â€” Unless Astrophysics OR ENGINEER OR Navigation present: destroy ship (everything aboard via Apply); else Overcome +5 Bonus-Area + Continue. Always discard dilemma. Fail -> EffectAndEnd+StopTeam+DestroyShip. Spock #7 Soll/DRG. Decide: `DilemmaRules.CosmicStringFragment` + `VerifyCosmicStringFragment`.
 
 ---
 ## 2026-09-06 (Feat - Chalnoth Premiere)
 
-**Engine** - Chalnoth (PR 19 U): Planet — Unless 3 SECURITY OR STRENGTH>40 present: opponent kills one Away Team member; else Overcome +5. Always discard dilemma. Fail -> EffectAndEnd+StopTeam. Spock #6 Soll/DRG (Points 5 Bonus-Area). Decide: `DilemmaRules.Chalnoth` + `VerifyChalnoth`.
+**Engine** - Chalnoth (PR 19 U): Planet â€” Unless 3 SECURITY OR STRENGTH>40 present: opponent kills one Away Team member; else Overcome +5. Always discard dilemma. Fail -> EffectAndEnd+StopTeam. Spock #6 Soll/DRG (Points 5 Bonus-Area). Decide: `DilemmaRules.Chalnoth` + `VerifyChalnoth`.
 
 ---
 ## 2026-09-06 (Feat - Birth of "Junior" Premiere)
 
-**Engine** - Birth of "Junior" (PR 17 U): Space — place on ship. Encounter: 3 ENGINEER → nullify Overcome (discard+Continue); else AttachAndContinue (crew not stopped; countdown 0, RANGE −1 only on your EOTs). Destroy when RANGE after countdown ≤0 via `EndOfTurnRestRules.JuniorDestroysShip`. Later cure 3 ENGINEER → discard (RANGE restores via host recalc). Spock/DRG/Glossary. Decide: `DilemmaRules.BirthOfJunior` + `VerifyBirthOfJunior`. Pup-disable ≠ 0 RANGE: PARK (no guess).
+**Engine** - Birth of "Junior" (PR 17 U): Space â€” place on ship. Encounter: 3 ENGINEER â†’ nullify Overcome (discard+Continue); else AttachAndContinue (crew not stopped; countdown 0, RANGE âˆ’1 only on your EOTs). Destroy when RANGE after countdown â‰¤0 via `EndOfTurnRestRules.JuniorDestroysShip`. Later cure 3 ENGINEER â†’ discard (RANGE restores via host recalc). Spock/DRG/Glossary. Decide: `DilemmaRules.BirthOfJunior` + `VerifyBirthOfJunior`. Pup-disable â‰  0 RANGE: PARK (no guess).
 
 ---
 ## 2026-09-06 (Feat - Armus: Skin Of Evil Premiere)
@@ -1338,7 +1341,7 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 ---
 ## 2026-09-06 (Feat - Ancient Computer Premiere)
 
-**Engine** - Ancient Computer (PR 13 R): Wall — pass 2 Computer Skill OR 3 SCIENCE OR 3 ENGINEER -> Overcome (discard+continue). Fail -> WallFailed + StopTeam (dilemma stays under mission). Matches printed Premiere text. Decide: `DilemmaRules.AncientComputer` + `VerifyAncientComputer`.
+**Engine** - Ancient Computer (PR 13 R): Wall â€” pass 2 Computer Skill OR 3 SCIENCE OR 3 ENGINEER -> Overcome (discard+continue). Fail -> WallFailed + StopTeam (dilemma stays under mission). Matches printed Premiere text. Decide: `DilemmaRules.AncientComputer` + `VerifyAncientComputer`.
 
 ---
 ## 2026-09-06 (Feat - Anaphasic Organism Premiere)
@@ -1348,7 +1351,7 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 ---
 ## 2026-09-06 (Feat - Alien Parasites #1a Pass/Fail + Beam-back)
 
-**Engine** - Alien Parasites #1a (Spock Soll): Pass INTEGRITY>32 → Overcome (discard + continue). Fail → WallFailed (dilemma stays under mission), StopTeam; planet Beam-back AT to ship/outpost then stop; Space stops crew+ship. No opponent control / hotseat / next-turn timer (PARK). Decide: `DilemmaRules.DecideAlienParasites` + `VerifyAlienParasites1a`; Apply: TW `BeamBackAwayTeamToShipOrOutpost`.
+**Engine** - Alien Parasites #1a (Spock Soll): Pass INTEGRITY>32 â†’ Overcome (discard + continue). Fail â†’ WallFailed (dilemma stays under mission), StopTeam; planet Beam-back AT to ship/outpost then stop; Space stops crew+ship. No opponent control / hotseat / next-turn timer (PARK). Decide: `DilemmaRules.DecideAlienParasites` + `VerifyAlienParasites1a`; Apply: TW `BeamBackAwayTeamToShipOrOutpost`.
 
 ---
 ## 2026-09-06 (Fix - Cloak opacity more transparent ~0.45)
@@ -1360,7 +1363,7 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 **UX** - Card detail: colored StatusBlock keeps Buff/Timer/Debuff once; ship path no longer dumps Events/Dilemmas into DetailIcons under staffing; Contents skips repeating RANGE/WEAPONS/SHIELDS + Modifiers. Stopped shows once as red Status line and explicit "Stopped" text under Negative. Cloak: Opacity 0.7 only (nebula overlay + black glow removed); decloak 1.0 / stopped stays 0.55.
 
-**Engine** - After walk/drag onto host: SyncBoardFromTable + TryCureAbductionsPresent (beam parity) so mission/dilemma skills see present crew immediately. Archer: HighestAttr ties → opponent choice (enhancements via Eff unchanged); fail still StopTeam + EffectAndEnd.
+**Engine** - After walk/drag onto host: SyncBoardFromTable + TryCureAbductionsPresent (beam parity) so mission/dilemma skills see present crew immediately. Archer: HighestAttr ties â†’ opponent choice (enhancements via Eff unchanged); fail still StopTeam + EffectAndEnd.
 
 ---
 ## 2026-09-06 (Fix - G7 Counter-Attack next turn)
@@ -1403,14 +1406,14 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 **UX** - Cloaked ships: `ApplyCloakVisual` sets card `Opacity = 0.55` (~50%) on cloak and restores on decloak (keeps 0.55 if still stopped). `ApplyStoppedVisual` unstop keeps cloak opacity. Nebula overlay/border unchanged. (`Opacity=0.55` near stopped path was stopped-only, not cloak.)
 
 ---
-## 2026-09-06 (Fix - G2 Treaty≠Matching Affiliation Fly)
+## 2026-09-06 (Fix - G2 Treatyâ‰ Matching Affiliation Fly)
 
-**Engine** - `MovementRules.HasMatchingAffiliation`: Matching Affiliation für Staffing = echte gemeinsame Affiliation mit dem Schiff. Treaty/NA-Kompatibilität zählt **nicht** als Match (Spock G2). Treaty-/NA-Personal darf weiterhin nur Staffing-Icons (Cmd/Stf) füllen, sobald Matching-Affiliation an Bord ist. Fly-Pfad (`IsShipStaffed` / `CanMoveShip`).
+**Engine** - `MovementRules.HasMatchingAffiliation`: Matching Affiliation fÃ¼r Staffing = echte gemeinsame Affiliation mit dem Schiff. Treaty/NA-KompatibilitÃ¤t zÃ¤hlt **nicht** als Match (Spock G2). Treaty-/NA-Personal darf weiterhin nur Staffing-Icons (Cmd/Stf) fÃ¼llen, sobald Matching-Affiliation an Bord ist. Fly-Pfad (`IsShipStaffed` / `CanMoveShip`).
 
 ---
 ## 2026-09-06 (Fix - Neural Servo Seiten-Sync)
 
-**UX** - Neural Servo Device: nach gültigem Play/Resolve (und EOT-Restore) Schiff sofort auf Controller-Seite neu legen (P1 unter / P2 über Mission) via `RelayoutDockablesUnderMission` — nicht erst nach Fly/Move. Helper `SyncDockableSideAfterOwnerChange` (wie Lore Returns).
+**UX** - Neural Servo Device: nach gÃ¼ltigem Play/Resolve (und EOT-Restore) Schiff sofort auf Controller-Seite neu legen (P1 unter / P2 Ã¼ber Mission) via `RelayoutDockablesUnderMission` â€” nicht erst nach Fly/Move. Helper `SyncDockableSideAfterOwnerChange` (wie Lore Returns).
 
 ---
 ## 2026-09-06 (Fix - Love Interest + Stasis/Abduction + Cloak nebula)
@@ -1426,7 +1429,7 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 **UX** - Damaged ships: red DMG badge only (no 180 flip). Outpost repair timer: `1 left` = clears end of **this** turn. Detail crew rows: Positive (green) / Negative (red) / Personnel / Equipment; last-dilemma mini removed (mission action `Show last revealed card under mission`). Stasis/Negativ glow **red**; Cloaked **black**; Buff green; Timer amber.
 
-**Engine** - `Fate.AttachAndContinue`: Nitrium (countdown **2**, cure 2 SCI|2 ENG) + Hyper-Aging (countdown **3**, cure SCI+MED×2) place without stop/fail; attempt continues. Encounter cure → Overcome (Hyper-Aging +5). RemFatigue unchanged. Menthar/Abduction etc. stay AttachAndEnd.
+**Engine** - `Fate.AttachAndContinue`: Nitrium (countdown **2**, cure 2 SCI|2 ENG) + Hyper-Aging (countdown **3**, cure SCI+MEDÃ—2) place without stop/fail; attempt continues. Encounter cure â†’ Overcome (Hyper-Aging +5). RemFatigue unchanged. Menthar/Abduction etc. stay AttachAndEnd.
 
 ---
 ## 2026-09-05 (Fix - Outpost repair leave-reset + Status UX)
@@ -1506,33 +1509,33 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 **Engine** - ApplyHugh uses DecideHugh; Fail restores Hugh to hand (no discard). Battle-cancel matches IsHughBattleSource (Borg Ship Dilemma or Rogue Borg). [C]
 
 ---
-## 2026-09-05 (Fix â€” Hugh Rogue ship host-match)
+## 2026-09-05 (Fix Ã¢â‚¬â€ Hugh Rogue ship host-match)
 
-**Engine** â€” Hugh HostMatches ships with Rogue Borg; Borg Ship Dilemma pool only when token/face visible (not mere Host attach). [C]
-
----
-
-## 2026-09-05 (Fix â€” WNOHGB PathBlocked wrap fallback)
-
-**Engine** â€” PathBlocked: prefer clear shorter wrap; if wrap arc Q-Net-blocked fall back to linear. Hazard walk uses WnohgbRules.UseWrapPath costs. [C]
+**Engine** Ã¢â‚¬â€ Hugh HostMatches ships with Rogue Borg; Borg Ship Dilemma pool only when token/face visible (not mere Host attach). [C]
 
 ---
 
-## 2026-09-05 (Fix â€” Kevin hand restore + Hugh Spock)
+## 2026-09-05 (Fix Ã¢â‚¬â€ WNOHGB PathBlocked wrap fallback)
 
-**Engine** â€” Kevin/Devil: miss returns to hand; multi Event uses picker (TABLE+attached). Hugh: Rogue Borg ship/location without detail-pick; Borg Ship = Dilemma only when revealed/present; no Borg-affiliation ships. [C]
-
----
-
-## 2026-09-05 (Fix â€” WNOHGB wrap path)
-
-**Engine** â€” WnohgbRules: ends adjacent for controller; hazard check uses wrap path (Q-Net no longer blocks Endâ†”End as if crossing the middle). Debug wnohgb wrap=. [C]
+**Engine** Ã¢â‚¬â€ PathBlocked: prefer clear shorter wrap; if wrap arc Q-Net-blocked fall back to linear. Hazard walk uses WnohgbRules.UseWrapPath costs. [C]
 
 ---
 
-## 2026-09-05 (Fix â€” Wormhole pair-check after drag)
+## 2026-09-05 (Fix Ã¢â‚¬â€ Kevin hand restore + Hugh Spock)
 
-**Engine** â€” Pair-start counts the Wormhole being played; drag removes it from hand before drop so a 2-copy hand no longer fails as count=1. [C]
+**Engine** Ã¢â‚¬â€ Kevin/Devil: miss returns to hand; multi Event uses picker (TABLE+attached). Hugh: Rogue Borg ship/location without detail-pick; Borg Ship = Dilemma only when revealed/present; no Borg-affiliation ships. [C]
+
+---
+
+## 2026-09-05 (Fix Ã¢â‚¬â€ WNOHGB wrap path)
+
+**Engine** Ã¢â‚¬â€ WnohgbRules: ends adjacent for controller; hazard check uses wrap path (Q-Net no longer blocks EndÃ¢â€ â€End as if crossing the middle). Debug wnohgb wrap=. [C]
+
+---
+
+## 2026-09-05 (Fix Ã¢â‚¬â€ Wormhole pair-check after drag)
+
+**Engine** Ã¢â‚¬â€ Pair-start counts the Wormhole being played; drag removes it from hand before drop so a 2-copy hand no longer fails as count=1. [C]
 
 ---
 
@@ -1548,358 +1551,358 @@ Nur spielbare / engine-relevante Schritte. Keine Chat-Metadaten.
 
 ---
 
-## 2026-09-05 (Extract Slice 2 â€” Wormhole pair)
+## 2026-09-05 (Extract Slice 2 Ã¢â‚¬â€ Wormhole pair)
 
-**Engine** â€” Wormhole pair gates in `InterruptRules` (`CanStartWormholePair` needs 2 in hand, `CanWormholeFirstOnShip`, `IsWormholeLocationCard`). Second-drop hit-test uses window rects; relocate syncs BoardStore. [C â€” Grundlage]
-
----
-
-## 2026-09-05 (Extract Slice 1 â€” MovementHazardRules)
-
-**Engine** â€” Q-Net/Tetryon check + Rift/Gaps after-move decisions live in `MovementHazardRules` (no WPF); TableWindow applies damage/discard/status. Gaps kill still only on Gaps location. [C â€” Grundlage]
+**Engine** Ã¢â‚¬â€ Wormhole pair gates in `InterruptRules` (`CanStartWormholePair` needs 2 in hand, `CanWormholeFirstOnShip`, `IsWormholeLocationCard`). Second-drop hit-test uses window rects; relocate syncs BoardStore. [C Ã¢â‚¬â€ Grundlage]
 
 ---
 
-## 2026-09-05 (Fix â€” Gaps kill only on Gaps location)
+## 2026-09-05 (Extract Slice 1 Ã¢â‚¬â€ MovementHazardRules)
 
-**Engine** â€” `ApplyEventAfterMove` Gaps random kill only when destination is the Gaps span (not Host/Host2 neighbor missions). Kill writes Action History + `gaps-kill` debug. [C â€” Grundlage]
-
----
-
-## 2026-09-04 (Foundation E6 â€” IM/Required-Move Locations)
-
-**Engine** â€” Incoming Message / required-move hops use `FlyBoardLine` + `Location.Span` (same as Fly); `MissionsOnSameSpaceline` remains paint. [C â€” Grundlage]
+**Engine** Ã¢â‚¬â€ Q-Net/Tetryon check + Rift/Gaps after-move decisions live in `MovementHazardRules` (no WPF); TableWindow applies damage/discard/status. Gaps kill still only on Gaps location. [C Ã¢â‚¬â€ Grundlage]
 
 ---
 
-## 2026-09-04 (Foundation E5 â€” LegalMoves-Fly Locations)
+## 2026-09-05 (Fix Ã¢â‚¬â€ Gaps kill only on Gaps location)
 
-**Engine** â€” `LegalMoves` Fly Collect uses `BoardStore` Location line via `EngineAuthority.FlyLineForPiece` (same as `CanMoveShip(Location[])` / `TryEvaluateFlyPath`); `OrderedMissions()` name list only as fallback. [C â€” Grundlage]
-
----
-
-## 2026-09-04 (Fix â€” E4 Unique/Persona by Owner)
-
-**Engine** â€” Unique/Enigma/Persona deny uses `BoardStore.InPlay(..., Owner)` (Glossary: restrict stays with owner under Lore/capture/commandeer). Opponent may still field their own copy. Log `unique deny â€¦ owner=`. [C â€” Grundlage]
+**Engine** Ã¢â‚¬â€ `ApplyEventAfterMove` Gaps random kill only when destination is the Gaps span (not Host/Host2 neighbor missions). Kill writes Action History + `gaps-kill` debug. [C Ã¢â‚¬â€ Grundlage]
 
 ---
 
-## 2026-09-04 (Foundation E4 â€” InPlay/Unique/Persona by instance)
+## 2026-09-04 (Foundation E6 Ã¢â‚¬â€ IM/Required-Move Locations)
 
-**Engine** â€” `BoardStore.InPlay` / `InPlayInstances` query spaceline+TABLE by Controller (Owner separate for Lore). `PlayRules`/Report unique deny by InstanceId+persona; log `unique deny Nebula #283 have=#240 controller=2`. Attempt/HiddenAgenda InstanceId-first. [C â€” Grundlage]
-
----
-
-## 2026-09-03 (Foundation E3b â€” Cloak + Dock + Hull on instance)
-
-**Engine** â€” `ShipInstance.Cloaked` / `DockedAtId` / `HullPercent` are source of truth; UI `_cloakedShips` / `_dockedAt` / `_hullDamagePercent` stay mirrors. [C â€” Grundlage]
+**Engine** Ã¢â‚¬â€ Incoming Message / required-move hops use `FlyBoardLine` + `Location.Span` (same as Fly); `MissionsOnSameSpaceline` remains paint. [C Ã¢â‚¬â€ Grundlage]
 
 ---
 
-## 2026-09-03 (Fix â€” Fly ship lookup by InstanceId)
+## 2026-09-04 (Foundation E5 Ã¢â‚¬â€ LegalMoves-Fly Locations)
 
-**Engine** â€” Fly resolves ship by InstanceId not name (two U.S.S. Nebula). Klasse C.
-
----
-
-## 2026-09-03 (Foundation E3 â€” RangeLeft + Stopped on instance)
-
-**Engine** â€” `ShipInstance.RangeLeft` + `CardInstance.Stopped` are source of truth for Capture/`ToGameState`/Overlay; UI `_shipRangeLeft` / `_stoppedBorders` stay mirrors (write-through + Sync copy). Log `range #id left=N source=instance` on Fly. Cloak/Dock/Hull deferred to E3b. Dual-run kept; E2 hang fix untouched. [C â€” Grundlage]
+**Engine** Ã¢â‚¬â€ `LegalMoves` Fly Collect uses `BoardStore` Location line via `EngineAuthority.FlyLineForPiece` (same as `CanMoveShip(Location[])` / `TryEvaluateFlyPath`); `OrderedMissions()` name list only as fallback. [C Ã¢â‚¬â€ Grundlage]
 
 ---
 
-## 2026-09-03 (Fix â€” E2 Beam hang)
+## 2026-09-04 (Fix Ã¢â‚¬â€ E4 Unique/Persona by Owner)
 
-**Engine** â€” Beam no longer freezes the WPF UI. Root cause: `Log.Changed` â†’ `RefreshActionHistory` â†’ `LegalMoves` fly-eval `DebugLog.Move` â†’ `HistorySink` â†’ `AddDebug` â†’ `Changed` again (dispatcher flood). E2 store-first made ships Staffed so Fly-eval ran after Beam's log. Guard + coalesce refresh; skip HistorySink while refreshing. E2 store-first Capture kept. [C]
-
----
-## 2026-09-02 (Foundation E2 â€” Capture store-first)
-
-**Engine** â€” `CaptureEngineState`: HostName/Staffed/Aboard from BoardStore Occupant when present; UI border crew/staff walks only as fallback, logged `state-fallback:` / `capture: source=store|fallback`. RangeLeft/Stopped still UI (E3). Dual-run kept. [C â€” Grundlage]
+**Engine** Ã¢â‚¬â€ Unique/Enigma/Persona deny uses `BoardStore.InPlay(..., Owner)` (Glossary: restrict stays with owner under Lore/capture/commandeer). Opponent may still field their own copy. Log `unique deny Ã¢â‚¬Â¦ owner=`. [C Ã¢â‚¬â€ Grundlage]
 
 ---
 
-## 2026-09-02 (Foundation E1 â€” ToGameState)
+## 2026-09-04 (Foundation E4 Ã¢â‚¬â€ InPlay/Unique/Persona by instance)
 
-**Engine** â€” `BoardStore.ToBoardPieces` / `ToGameState(GameStateSeed)`. Capture bevorzugt Store-Board + Crew, UI-Board nur wenn Spaceline leer (Seed). Status (RANGE/Stopped) Overlay. Log `state:` / `capture: source=store|fallback`. [C Â· Grundlage]
-
----
-
-## 2026-09-02 (Board Schritt 6 â€” AufrÃ¤umen)
-
-**Board** â€” tote Namenslisten-Helper weg; Dockables/IM als View markiert. [C]
+**Engine** Ã¢â‚¬â€ `BoardStore.InPlay` / `InPlayInstances` query spaceline+TABLE by Controller (Owner separate for Lore). `PlayRules`/Report unique deny by InstanceId+persona; log `unique deny Nebula #283 have=#240 controller=2`. Attempt/HiddenAgenda InstanceId-first. [C Ã¢â‚¬â€ Grundlage]
 
 ---
 
-## 2026-09-02 (Board Schritt 5 â€” Targeting vom Store)
+## 2026-09-03 (Foundation E3b Ã¢â‚¬â€ Cloak + Dock + Hull on instance)
 
-**Target** â€” Gaps/Q-Net-Paare und Play-on-Hosts aus `BoardStore.Locations` / Occupants. Kevin-Snap bleibt UI. [C Â· Grundlage]
+**Engine** Ã¢â‚¬â€ `ShipInstance.Cloaked` / `DockedAtId` / `HullPercent` are source of truth; UI `_cloakedShips` / `_dockedAt` / `_hullDamagePercent` stay mirrors. [C Ã¢â‚¬â€ Grundlage]
+
+---
+
+## 2026-09-03 (Fix Ã¢â‚¬â€ Fly ship lookup by InstanceId)
+
+**Engine** Ã¢â‚¬â€ Fly resolves ship by InstanceId not name (two U.S.S. Nebula). Klasse C.
+
+---
+
+## 2026-09-03 (Foundation E3 Ã¢â‚¬â€ RangeLeft + Stopped on instance)
+
+**Engine** Ã¢â‚¬â€ `ShipInstance.RangeLeft` + `CardInstance.Stopped` are source of truth for Capture/`ToGameState`/Overlay; UI `_shipRangeLeft` / `_stoppedBorders` stay mirrors (write-through + Sync copy). Log `range #id left=N source=instance` on Fly. Cloak/Dock/Hull deferred to E3b. Dual-run kept; E2 hang fix untouched. [C Ã¢â‚¬â€ Grundlage]
+
+---
+
+## 2026-09-03 (Fix Ã¢â‚¬â€ E2 Beam hang)
+
+**Engine** Ã¢â‚¬â€ Beam no longer freezes the WPF UI. Root cause: `Log.Changed` Ã¢â€ â€™ `RefreshActionHistory` Ã¢â€ â€™ `LegalMoves` fly-eval `DebugLog.Move` Ã¢â€ â€™ `HistorySink` Ã¢â€ â€™ `AddDebug` Ã¢â€ â€™ `Changed` again (dispatcher flood). E2 store-first made ships Staffed so Fly-eval ran after Beam's log. Guard + coalesce refresh; skip HistorySink while refreshing. E2 store-first Capture kept. [C]
+
+---
+## 2026-09-02 (Foundation E2 Ã¢â‚¬â€ Capture store-first)
+
+**Engine** Ã¢â‚¬â€ `CaptureEngineState`: HostName/Staffed/Aboard from BoardStore Occupant when present; UI border crew/staff walks only as fallback, logged `state-fallback:` / `capture: source=store|fallback`. RangeLeft/Stopped still UI (E3). Dual-run kept. [C Ã¢â‚¬â€ Grundlage]
+
+---
+
+## 2026-09-02 (Foundation E1 Ã¢â‚¬â€ ToGameState)
+
+**Engine** Ã¢â‚¬â€ `BoardStore.ToBoardPieces` / `ToGameState(GameStateSeed)`. Capture bevorzugt Store-Board + Crew, UI-Board nur wenn Spaceline leer (Seed). Status (RANGE/Stopped) Overlay. Log `state:` / `capture: source=store|fallback`. [C Ã‚Â· Grundlage]
+
+---
+
+## 2026-09-02 (Board Schritt 6 Ã¢â‚¬â€ AufrÃƒÂ¤umen)
+
+**Board** Ã¢â‚¬â€ tote Namenslisten-Helper weg; Dockables/IM als View markiert. [C]
+
+---
+
+## 2026-09-02 (Board Schritt 5 Ã¢â‚¬â€ Targeting vom Store)
+
+**Target** Ã¢â‚¬â€ Gaps/Q-Net-Paare und Play-on-Hosts aus `BoardStore.Locations` / Occupants. Kevin-Snap bleibt UI. [C Ã‚Â· Grundlage]
 
 ---
 
 ## 2026-09-02 (Fly-eval Log + Engine auf Board)
 
-**7.1.5** â€” Engine-Fly nutzt Board-Locations. Log `fly-eval` / `fly-mark` mit from/to/hops. [C]
+**7.1.5** Ã¢â‚¬â€ Engine-Fly nutzt Board-Locations. Log `fly-eval` / `fly-mark` mit from/to/hops. [C]
 
 ---
 
-## 2026-09-02 (Board Schritt 4 â€” Beam schreibt Force)
+## 2026-09-02 (Board Schritt 4 Ã¢â‚¬â€ Beam schreibt Force)
 
-**Board** â€” Add/Remove Host-Stapel schreibt `Force`. GetCrewOnShip = Board âˆª Stack. Fly-Staffing sieht frisch gebeamte Crew. [C Â· Grundlage]
+**Board** Ã¢â‚¬â€ Add/Remove Host-Stapel schreibt `Force`. GetCrewOnShip = Board Ã¢Ë†Âª Stack. Fly-Staffing sieht frisch gebeamte Crew. [C Ã‚Â· Grundlage]
 
 ---
 
-## 2026-09-02 (Board Schritt 3 â€” Fly liest Board)
+## 2026-09-02 (Board Schritt 3 Ã¢â‚¬â€ Fly liest Board)
 
-**7.1.5** â€” Fly-Highlight + RANGE aus `BoardStore.Locations` (Gaps-Span, Q-Net-Kante). Apply/Relayout unverÃ¤ndert. [C Â· Grundlage]
+**7.1.5** Ã¢â‚¬â€ Fly-Highlight + RANGE aus `BoardStore.Locations` (Gaps-Span, Q-Net-Kante). Apply/Relayout unverÃƒÂ¤ndert. [C Ã‚Â· Grundlage]
 
 ---
 
 ## 2026-09-02 (Board Sync Gaps/Q-Net)
 
-**Board** â€” Sync liest Gaps/Q-Net aus AttachedEvent (Host/Host2), nicht nur `_spacelineOrder`. [C]
+**Board** Ã¢â‚¬â€ Sync liest Gaps/Q-Net aus AttachedEvent (Host/Host2), nicht nur `_spacelineOrder`. [C]
 
 ---
 
-## 2026-09-02 (Board Schritt 2 â€” Sync)
+## 2026-09-02 (Board Schritt 2 Ã¢â‚¬â€ Sync)
 
-**Board** â€” SyncBoardFromTable nach Seed/Fly/Beam + Dev Dump Board. Gaps = Location, Q-Net = Barriere. UI bleibt Quelle. [C Â· Grundlage]
-
----
-
-## 2026-09-02 (Board Schritt 1 â€” leere Typen)
-
-**Board** â€” `Game/Board/`: Spaceline, Location, Occupant, Force, *Instance, BoardStore.Wrap. Dev-MenÃ¼ Dump Board. Kein Sync, kein Fly. [C Â· Grundlage]
+**Board** Ã¢â‚¬â€ SyncBoardFromTable nach Seed/Fly/Beam + Dev Dump Board. Gaps = Location, Q-Net = Barriere. UI bleibt Quelle. [C Ã‚Â· Grundlage]
 
 ---
 
-## 2026-09-02 (Board Schritt 0 â€” File-Logger)
+## 2026-09-02 (Board Schritt 1 Ã¢â‚¬â€ leere Typen)
 
-**Debug** â€” `Services/DebugLog.cs`: Session-Datei `Data/Logs/stccg-â€¦.txt`. ActionLog schreibt mit. KanÃ¤le Play/Move/Beam/Target/Board/Layout/Engine/Save. CheckTrace.Cmp nicht in die Datei. [C Â· Grundlage]
+**Board** Ã¢â‚¬â€ `Game/Board/`: Spaceline, Location, Occupant, Force, *Instance, BoardStore.Wrap. Dev-MenÃƒÂ¼ Dump Board. Kein Sync, kein Fly. [C Ã‚Â· Grundlage]
+
+---
+
+## 2026-09-02 (Board Schritt 0 Ã¢â‚¬â€ File-Logger)
+
+**Debug** Ã¢â‚¬â€ `Services/DebugLog.cs`: Session-Datei `Data/Logs/stccg-Ã¢â‚¬Â¦.txt`. ActionLog schreibt mit. KanÃƒÂ¤le Play/Move/Beam/Target/Board/Layout/Engine/Save. CheckTrace.Cmp nicht in die Datei. [C Ã‚Â· Grundlage]
 
 ---
 
 ## 2026-09-02 (Board-Modell Plan)
 
-**Docs** â€” `BOARD_MODEL.md`: Dual-Run Spaceline/Location/Occupant/Force; Schritt 0 File-Logger. Kein Code. [C]
+**Docs** Ã¢â‚¬â€ `BOARD_MODEL.md`: Dual-Run Spaceline/Location/Occupant/Force; Schritt 0 File-Logger. Kein Code. [C]
 
 ---
 
 ## 2026-09-02 (Targeting Step 4 + single-stack snap)
 
-**Peek** â€” 1 Event auf dem Host: OwningHost + Strip + Snap-Rahmen. [B Â· nullify]
+**Peek** Ã¢â‚¬â€ 1 Event auf dem Host: OwningHost + Strip + Snap-Rahmen. [B Ã‚Â· nullify]
 
-**Seed / Report** â€” TargetWhy.Seed / Report in CollectSitesForDrag, Glow Ã¼ber TargetSession. [B]
+**Seed / Report** Ã¢â‚¬â€ TargetWhy.Seed / Report in CollectSitesForDrag, Glow ÃƒÂ¼ber TargetSession. [B]
 
 ---
 
 ## 2026-09-02 (HasSkill freeze / Gaps click / span X)
 
-**HasSkill** â€” kein per-Token CheckTrace. [A]
+**HasSkill** Ã¢â‚¬â€ kein per-Token CheckTrace. [A]
 
-**Gaps-Fly** â€” Klick auf Landable; GameState.OrderedMissions enthÃ¤lt Span-Namen.
+**Gaps-Fly** Ã¢â‚¬â€ Klick auf Landable; GameState.OrderedMissions enthÃƒÂ¤lt Span-Namen.
 
-**Span-Anzeige** â€” keine P2-Rotation; nach Relayout in die LÃ¼cke.
+**Span-Anzeige** Ã¢â‚¬â€ keine P2-Rotation; nach Relayout in die LÃƒÂ¼cke.
 
 ---
 
 ## 2026-09-01 (Gaps location / IM wrap RANGE)
 
-**Gaps** â€” Landbare Location Span 4; Fly-Glow + Anker. Q-Net bleibt Barriere, kein Stop. Nach Insert Relayout Ã¼ber ActualWidth. Event nicht mehr auf den zwei Nachbar-Missionen. [A Â· Plays on spaceline]
+**Gaps** Ã¢â‚¬â€ Landbare Location Span 4; Fly-Glow + Anker. Q-Net bleibt Barriere, kein Stop. Nach Insert Relayout ÃƒÂ¼ber ActualWidth. Event nicht mehr auf den zwei Nachbar-Missionen. [A Ã‚Â· Plays on spaceline]
 
-**7.10 + WNOHGB** â€” KÃ¼rzester Hop, den das Schiff diese Runde zahlen kann; Wrap nur wenn RANGE reicht, sonst die andere Seite.
+**7.10 + WNOHGB** Ã¢â‚¬â€ KÃƒÂ¼rzester Hop, den das Schiff diese Runde zahlen kann; Wrap nur wenn RANGE reicht, sonst die andere Seite.
 
 ---
 
 ## 2026-09-01 (Lore NA attack / IM discard visual)
 
-**Lore / 7.4.1** â€” GetAffiliations achtet auf CurrentAffiliation (Commandeer = NA). Wartime nur nach gelungenem Angriff auf FED. [A]
+**Lore / 7.4.1** Ã¢â‚¬â€ GetAffiliations achtet auf CurrentAffiliation (Commandeer = NA). Wartime nur nach gelungenem Angriff auf FED. [A]
 
-**IM Arrival** â€” Mini vom Canvas, dann Discard (kein Stapel oben links). [A Â· 7.10]
+**IM Arrival** Ã¢â‚¬â€ Mini vom Canvas, dann Discard (kein Stapel oben links). [A Ã‚Â· 7.10]
 
 ---
 
 ## 2026-09-01 (TargetQuery PlayOn / Gaps / IM)
 
-**PlayOn** â€” Event-Ziele Ã¼ber TargetQuery.CanPlayOn (Lore / Neural / Plasma / Espionage / Schiff / Planet / Mission / Outpost). [B Â· Plays on]
+**PlayOn** Ã¢â‚¬â€ Event-Ziele ÃƒÂ¼ber TargetQuery.CanPlayOn (Lore / Neural / Plasma / Espionage / Schiff / Planet / Mission / Outpost). [B Ã‚Â· Plays on]
 
-**Gaps / Q-Net** â€” Site GapSpan, Glow zwischen den Missionen.
+**Gaps / Q-Net** Ã¢â‚¬â€ Site GapSpan, Glow zwischen den Missionen.
 
-**Incoming Message** â€” Schiff CanPlayOn; Facility CanImFacility + Glow + Place-Choose.
+**Incoming Message** Ã¢â‚¬â€ Schiff CanPlayOn; Facility CanImFacility + Glow + Place-Choose.
 
 ---
 
 ## 2026-09-01 (TargetQuery Nullify)
 
-**Targeting** â€” Game/TargetQuery.cs: eine Legal-Liste (Sites). Kevin/Devil: Glow â†’ 1s Peek â†’ Snap; Drop auf Schiff ohne Snap = Place-Choose der Events auf diesem Host. [B Â· nullify]
+**Targeting** Ã¢â‚¬â€ Game/TargetQuery.cs: eine Legal-Liste (Sites). Kevin/Devil: Glow Ã¢â€ â€™ 1s Peek Ã¢â€ â€™ Snap; Drop auf Schiff ohne Snap = Place-Choose der Events auf diesem Host. [B Ã‚Â· nullify]
 
-**ZurÃ¼ckgestellt:** Beam-Vollmodus, Battle-Zielwahl, Response-Stack, Netz/KI.
+**ZurÃƒÂ¼ckgestellt:** Beam-Vollmodus, Battle-Zielwahl, Response-Stack, Netz/KI.
 
 ---
 
 ## 2026-09-01 (Lore fly anchor / peek Run)
 
-**Fly after Lore** â€” FindMissionForDockable: IsMissionCard + Pin nach Relayout, damit Engine HostName hat. [A Â· 7.1.1]
+**Fly after Lore** Ã¢â‚¬â€ FindMissionForDockable: IsMissionCard + Pin nach Relayout, damit Engine HostName hat. [A Ã‚Â· 7.1.1]
 
-**Peek** â€” Parent-Walk vertrÃ¤gt Run (kein Visual). [UI]
+**Peek** Ã¢â‚¬â€ Parent-Walk vertrÃƒÂ¤gt Run (kein Visual). [UI]
 
 ---
 
 ## 2026-08-31 (Lore battle / Hugh mission / IM dock)
 
-**Lore Battle** â€” CanInitiateShipAttack akzeptiert Lore-Staffing statt Leader. [A Â· Lore Returns]
+**Lore Battle** Ã¢â‚¬â€ CanInitiateShipAttack akzeptiert Lore-Staffing statt Leader. [A Ã‚Â· Lore Returns]
 
-**Hugh** â€” Snap nur auf die Mission, nicht auf ein Schiff. Kill bleibt alle RB beider Seiten. [A Â· location]
+**Hugh** Ã¢â‚¬â€ Snap nur auf die Mission, nicht auf ein Schiff. Kill bleibt alle RB beider Seiten. [A Ã‚Â· location]
 
-**Kevin vs Lore Returns** â€” Nullify gibt das Schiff dem Owner zurÃ¼ck (Seite wechseln), RB self-controlling. [A Â· 7.8]
+**Kevin vs Lore Returns** Ã¢â‚¬â€ Nullify gibt das Schiff dem Owner zurÃƒÂ¼ck (Seite wechseln), RB self-controlling. [A Ã‚Â· 7.8]
 
-**IM Buruk** â€” Required move dockt ab; Hop-Fail im Log. History 2500 Zeilen / grÃ¶ÃŸeres Fenster. [A Â· 7.10]
+**IM Buruk** Ã¢â‚¬â€ Required move dockt ab; Hop-Fail im Log. History 2500 Zeilen / grÃƒÂ¶ÃƒÅ¸eres Fenster. [A Ã‚Â· 7.10]
 
 ---
 
 ## 2026-08-31 (Lore / Hugh / IM / Crosis)
 
-**Lore Returns** â€” Schiff staffed + Fly/Battle ohne Leader-Crew; Rogue Borg Planetâ†’Schiff beamen; Relayout auf Controller-Seite. [A Â· Lore Returns / 7.8]
+**Lore Returns** Ã¢â‚¬â€ Schiff staffed + Fly/Battle ohne Leader-Crew; Rogue Borg PlanetÃ¢â€ â€™Schiff beamen; Relayout auf Controller-Seite. [A Ã‚Â· Lore Returns / 7.8]
 
-**Hugh Location** â€” Ziel ist die Spaceline-Location (Mission oder Schiff dort), nicht ein einzelner Rogue-Borg-Token. Kill weiter alle RB an der Location. [A Â· Hugh / Glossary location]
+**Hugh Location** Ã¢â‚¬â€ Ziel ist die Spaceline-Location (Mission oder Schiff dort), nicht ein einzelner Rogue-Borg-Token. Kill weiter alle RB an der Location. [A Ã‚Â· Hugh / Glossary location]
 
-**Crosis Detail** â€” Interrupt nur einmal in der Leiste (nicht Stack + Attach). [UI]
+**Crosis Detail** Ã¢â‚¬â€ Interrupt nur einmal in der Leiste (nicht Stack + Attach). [UI]
 
-**Incoming Message Hop** â€” RANGE-Index = Missions derselben Spaceline; Wrap nur Controller; Schiff nach Authority umsetzen. [A Â· 7.10]
+**Incoming Message Hop** Ã¢â‚¬â€ RANGE-Index = Missions derselben Spaceline; Wrap nur Controller; Schiff nach Authority umsetzen. [A Ã‚Â· 7.10]
 
 ---
 
 ## 2026-08-31 (Probespiel)
 
-**Hugh / Rogue Borg** â€” Kill rÃ¤umt Host-Stapel + Token; Discard auf *Owner*-Pile (nicht Hugh-Spieler / Controller). [A Â· Hugh / Glossary discard pile]
+**Hugh / Rogue Borg** Ã¢â‚¬â€ Kill rÃƒÂ¤umt Host-Stapel + Token; Discard auf *Owner*-Pile (nicht Hugh-Spieler / Controller). [A Ã‚Â· Hugh / Glossary discard pile]
 
-**Kevin vs Static Warp Bubble** â€” SWB ist kein Treaty und kein [Shield]; Kevin darf nullify. Traveler: Transcendence bleibt der andere Nullifier. [A Â· Kevin / printed]
+**Kevin vs Static Warp Bubble** Ã¢â‚¬â€ SWB ist kein Treaty und kein [Shield]; Kevin darf nullify. Traveler: Transcendence bleibt der andere Nullifier. [A Ã‚Â· Kevin / printed]
 
-**Kevin-Snap im Host-Detail** â€” Overlay Ã¼berdeckt das Schiff nicht mehr den Mini-Snap; Rahmen folgt der Mini unter dem Cursor. [UI Â· Plays on]
+**Kevin-Snap im Host-Detail** Ã¢â‚¬â€ Overlay ÃƒÂ¼berdeckt das Schiff nicht mehr den Mini-Snap; Rahmen folgt der Mini unter dem Cursor. [UI Ã‚Â· Plays on]
 
-**WNOHGB** â€” Wrap nur fÃ¼r den Controller (eigene TABLE-Spalte), nicht fÃ¼r beide. [A Â· printed â€žYou mayâ€¦â€œ / 7.1.7]
+**WNOHGB** Ã¢â‚¬â€ Wrap nur fÃƒÂ¼r den Controller (eigene TABLE-Spalte), nicht fÃƒÂ¼r beide. [A Ã‚Â· printed Ã¢â‚¬Å¾You mayÃ¢â‚¬Â¦Ã¢â‚¬Å“ / 7.1.7]
 
-**Incoming Message UI** â€” Auto-Zug in Execute setzt das Schiff visuell hop-weise auf die nÃ¤chste Location (RANGE war schon abgezogen). [A Â· IM / 7.10]
+**Incoming Message UI** Ã¢â‚¬â€ Auto-Zug in Execute setzt das Schiff visuell hop-weise auf die nÃƒÂ¤chste Location (RANGE war schon abgezogen). [A Ã‚Â· IM / 7.10]
 
-**Beam in den Weltraum** â€” Kein Away-Team auf Space-Missionen (7.1.1.0.1). Planet-AT unverÃ¤ndert. Staffing-Fehler nennt jetzt leere Crew vs. Affiliation. [C Â· 7.1.1.0.1]
+**Beam in den Weltraum** Ã¢â‚¬â€ Kein Away-Team auf Space-Missionen (7.1.1.0.1). Planet-AT unverÃƒÂ¤ndert. Staffing-Fehler nennt jetzt leere Crew vs. Affiliation. [C Ã‚Â· 7.1.1.0.1]
 
-**Subspace Schism** â€” im Probespiel bestÃ¤tigt, von der Offenen-Liste.
+**Subspace Schism** Ã¢â‚¬â€ im Probespiel bestÃƒÂ¤tigt, von der Offenen-Liste.
 
 ---
 
 ## 2026-08-31
 
-**Mission OR / xN** â€” `Diplomacy x5 OR Honor x4` nicht mehr still Ã¼bersprungen. `+` = UND, `OR` = eine Alternative. Skill-Count exakt (kein StartsWith). [A Â· 7.2.5]
+**Mission OR / xN** Ã¢â‚¬â€ `Diplomacy x5 OR Honor x4` nicht mehr still ÃƒÂ¼bersprungen. `+` = UND, `OR` = eine Alternative. Skill-Count exakt (kein StartsWith). [A Ã‚Â· 7.2.5]
 
-**Battle-Overlay** â€” Ship/Personnel-Ergebnis + Return Fire Ã¼ber Reveal/AskChoice, nicht Windows-MessageBox. Destroy erst nach OK, damit Escape-Pod-Response offen bleibt. [UI Â· 7.4.3 / Escape Pod]
+**Battle-Overlay** Ã¢â‚¬â€ Ship/Personnel-Ergebnis + Return Fire ÃƒÂ¼ber Reveal/AskChoice, nicht Windows-MessageBox. Destroy erst nach OK, damit Escape-Pod-Response offen bleibt. [UI Ã‚Â· 7.4.3 / Escape Pod]
 
-**Espionage (PR 4)** â€” Nur Mission mit [On]-Icon. FÃ¼r den Besitzer zÃ¤hlt die Mission zusÃ¤tzlich als [As]. Discard beim LÃ¶sen (war schon da). [A Â· Espionage / 7.2]
+**Espionage (PR 4)** Ã¢â‚¬â€ Nur Mission mit [On]-Icon. FÃƒÂ¼r den Besitzer zÃƒÂ¤hlt die Mission zusÃƒÂ¤tzlich als [As]. Discard beim LÃƒÂ¶sen (war schon da). [A Ã‚Â· Espionage / 7.2]
 
-**Incoming Message Auto-Zug** â€” Beim Wechsel Playâ†’Execute: volle RANGE, hop-weise zur Facility. Fly nur in Execute (darum vorher tot). [A Â· IM / 7.10]
+**Incoming Message Auto-Zug** Ã¢â‚¬â€ Beim Wechsel PlayÃ¢â€ â€™Execute: volle RANGE, hop-weise zur Facility. Fly nur in Execute (darum vorher tot). [A Ã‚Â· IM / 7.10]
 
-**WNOHGB RANGE** â€” KÃ¼rzerer Ring-Pfad (nicht nur Endeâ†”Ende). Gaps-Span aus Text (`span 4`) zÃ¤hlt mit. `HasTableCard` nur TABLE-Spalte, nicht Attached Events. [A Â· 7.1.7]
+**WNOHGB RANGE** Ã¢â‚¬â€ KÃƒÂ¼rzerer Ring-Pfad (nicht nur EndeÃ¢â€ â€Ende). Gaps-Span aus Text (`span 4`) zÃƒÂ¤hlt mit. `HasTableCard` nur TABLE-Spalte, nicht Attached Events. [A Ã‚Â· 7.1.7]
 
-**Beam Affiliation** â€” Personnel nur auf kompatibles Schiff/Facility (Treaty/NA). Equipment frei. Planet-AT frei. [A Â· 7.1.1 / compatible]
+**Beam Affiliation** Ã¢â‚¬â€ Personnel nur auf kompatibles Schiff/Facility (Treaty/NA). Equipment frei. Planet-AT frei. [A Ã‚Â· 7.1.1 / compatible]
 
-**Data-Pfade** â€” `GamePaths.DecksRoot` / `SaveGamesRoot` (`Data/Decks`, `Data/SaveGames`). Dialoge starten dort. csproj: Content-Copy fÃ¼r beide Ordner.
+**Data-Pfade** Ã¢â‚¬â€ `GamePaths.DecksRoot` / `SaveGamesRoot` (`Data/Decks`, `Data/SaveGames`). Dialoge starten dort. csproj: Content-Copy fÃƒÂ¼r beide Ordner.
 
-**Icons** â€” `Assets/Icons/Icon_{Token}.png`, Text-Fallback. Staffing-Zeile + Host-Badge Icon-Counts.
+**Icons** Ã¢â‚¬â€ `Assets/Icons/Icon_{Token}.png`, Text-Fallback. Staffing-Zeile + Host-Badge Icon-Counts.
 
 ---
 
 ## 2026-08-30
 
-**Spacedock / Dock** â€” Schiff-MenÃ¼ Dock at [Facility] / Undock. Flag `_dockedAt`. Fly erst nach Undock. Spacedock am Outpost: Dock = volle Reparatur. [A Â· 7.1.4 / Spacedock]
+**Spacedock / Dock** Ã¢â‚¬â€ Schiff-MenÃƒÂ¼ Dock at [Facility] / Undock. Flag `_dockedAt`. Fly erst nach Undock. Spacedock am Outpost: Dock = volle Reparatur. [A Ã‚Â· 7.1.4 / Spacedock]
 
-**Yellow / Red Alert** â€” Yellow Alert verhindert Red Alert (Karte bleibt nicht auf TABLE). Bei Nullify von Red Alert: Download Yellow Alert (Draw / Tent). Personnel-SD unverÃ¤ndert. [A Â· Yellow Alert / 6.5.3]
+**Yellow / Red Alert** Ã¢â‚¬â€ Yellow Alert verhindert Red Alert (Karte bleibt nicht auf TABLE). Bei Nullify von Red Alert: Download Yellow Alert (Draw / Tent). Personnel-SD unverÃƒÂ¤ndert. [A Ã‚Â· Yellow Alert / 6.5.3]
 
-**Target snap (C)** â€” Eine Liste `CollectLegalSnapHosts`: Halo + Snap-Feld + Drop. Interrupts fielen vorher aus `UpdateSnapPreviewFromWindow`. Neue Karten: `PlayOnRules.Parse` oder ein Named Override. [C Â· Plays on]
+**Target snap (C)** Ã¢â‚¬â€ Eine Liste `CollectLegalSnapHosts`: Halo + Snap-Feld + Drop. Interrupts fielen vorher aus `UpdateSnapPreviewFromWindow`. Neue Karten: `PlayOnRules.Parse` oder ein Named Override. [C Ã‚Â· Plays on]
 
-**Wormhole** â€” Zwei Karten Pflicht. Erste nur auf eigenes **exposed** Schiff (`!cloaked`). Zweite nur auf Location (Mission / Time Location), Snap-Halo. Schiff dockt dort, wird gestoppt. Kein TABLE-Drop, keine Detail-Picker. [A Â· Wormhole / exposed]
+**Wormhole** Ã¢â‚¬â€ Zwei Karten Pflicht. Erste nur auf eigenes **exposed** Schiff (`!cloaked`). Zweite nur auf Location (Mission / Time Location), Snap-Halo. Schiff dockt dort, wird gestoppt. Kein TABLE-Drop, keine Detail-Picker. [A Ã‚Â· Wormhole / exposed]
 
 ---
 
 ## 2026-08-29
 
-**Shared unique missions** â€” Zweite Kopie derselben Unique-Mission (Quick Game, gleiche Decks) bleibt eine Location: unsichtbar, kein eigener Seed-Host. `AllMissionBorders` = nur Spaceline-Primaries. [C Â· unique and universal]
+**Shared unique missions** Ã¢â‚¬â€ Zweite Kopie derselben Unique-Mission (Quick Game, gleiche Decks) bleibt eine Location: unsichtbar, kein eigener Seed-Host. `AllMissionBorders` = nur Spaceline-Primaries. [C Ã‚Â· unique and universal]
 
-**Shared Face / 4.2.0.3** â€” Ein Stapel. Bild + Rotation = Zugspieler (dessen Drucktext). Attempt/Solve Ã¼ber `MissionPrintedFor`. Shared ist your mission und opponent's mission. Kein Mission-II, kein 4.3-Staging.
+**Shared Face / 4.2.0.3** Ã¢â‚¬â€ Ein Stapel. Bild + Rotation = Zugspieler (dessen Drucktext). Attempt/Solve ÃƒÂ¼ber `MissionPrintedFor`. Shared ist your mission und opponent's mission. Kein Mission-II, kein 4.3-Staging.
 
-**Lore Returns staff** â€” Host-Match `SameHostShip`; Schiff NA + Controller; Fly/Attack mit Rogue Borg ohne Officer. [A Â· 7.8 / Lore Returns]
+**Lore Returns staff** Ã¢â‚¬â€ Host-Match `SameHostShip`; Schiff NA + Controller; Fly/Attack mit Rogue Borg ohne Officer. [A Ã‚Â· 7.8 / Lore Returns]
 
-**Hugh** â€” [Bor]-Schiff, Borg-Ship-Dilemma, Rogue Borg. Response bricht Battle; Drop auf RB tÃ¶tet alle RB der Location; Drop auf Dilemma blockt den nÃ¤chsten Puls. [A Â· Hugh / 7.4.1.0.2]
+**Hugh** Ã¢â‚¬â€ [Bor]-Schiff, Borg-Ship-Dilemma, Rogue Borg. Response bricht Battle; Drop auf RB tÃƒÂ¶tet alle RB der Location; Drop auf Dilemma blockt den nÃƒÂ¤chsten Puls. [A Ã‚Â· Hugh / 7.4.1.0.2]
 
-**Mission-Drehung** â€” Nur Shared-Locations folgen dem Zugspieler.
+**Mission-Drehung** Ã¢â‚¬â€ Nur Shared-Locations folgen dem Zugspieler.
 
-**Horga'hn leave-play** â€” Effekt nur solange die Karte auf dem Tisch liegt. `OnCardLeftPlay` bei Discard/OOP/Hand. [B Â· in play]
+**Horga'hn leave-play** Ã¢â‚¬â€ Effekt nur solange die Karte auf dem Tisch liegt. `OnCardLeftPlay` bei Discard/OOP/Hand. [B Ã‚Â· in play]
 
-**Board extents** â€” Canvas wÃ¤chst mit gestapelten Schiffen; Spaceline rutscht nach unten wenn P2-Stapel Ã¼ber Y=0 ginge. Scrollbars Auto, Zoom-Min passt sich der FeldgrÃ¶ÃŸe an, RMB-Pan erreicht jede Karte.
+**Board extents** Ã¢â‚¬â€ Canvas wÃƒÂ¤chst mit gestapelten Schiffen; Spaceline rutscht nach unten wenn P2-Stapel ÃƒÂ¼ber Y=0 ginge. Scrollbars Auto, Zoom-Min passt sich der FeldgrÃƒÂ¶ÃƒÅ¸e an, RMB-Pan erreicht jede Karte.
 
-**Incoming Message** â€” Matching-Affiliation-Schiff (beliebiger Besitzer). Controller wÃ¤hlt eigene passende Facility auf **dieser** Spaceline (gleicher Quadrant). Bleibt am Schiff; nur Bewegung dorthin (7.10). Nullify bei Ankunft / keiner Facility. Subspace Interference im Spiel; Amanda nur just-played. [A Â· IM / 7.10 / 12.10]
+**Incoming Message** Ã¢â‚¬â€ Matching-Affiliation-Schiff (beliebiger Besitzer). Controller wÃƒÂ¤hlt eigene passende Facility auf **dieser** Spaceline (gleicher Quadrant). Bleibt am Schiff; nur Bewegung dorthin (7.10). Nullify bei Ankunft / keiner Facility. Subspace Interference im Spiel; Amanda nur just-played. [A Ã‚Â· IM / 7.10 / 12.10]
 
-**Required-move path** â€” KÃ¼rzester Weg auf derselben Spaceline (Quadrant). WNOHGB-Wrap wenn kÃ¼rzer. Cytherians-Far-End einmal fest (12.6). Mehrere Required Actions: Spieler wÃ¤hlt Reihenfolge. Conundrum nutzt denselben Pfad. [C Â· 7.10 / 12.6]
+**Required-move path** Ã¢â‚¬â€ KÃƒÂ¼rzester Weg auf derselben Spaceline (Quadrant). WNOHGB-Wrap wenn kÃƒÂ¼rzer. Cytherians-Far-End einmal fest (12.6). Mehrere Required Actions: Spieler wÃƒÂ¤hlt Reihenfolge. Conundrum nutzt denselben Pfad. [C Ã‚Â· 7.10 / 12.6]
 
-**Energy Vortex** â€” ZurÃ¼ck auf die Hand, Ersatz-Play erlaubt, **dieselbe Kopie** diesen Zug gesperrt. Andere Karte (auch gleicher Titel, andere Kopie) ok. [A Â· printed EV]
+**Energy Vortex** Ã¢â‚¬â€ ZurÃƒÂ¼ck auf die Hand, Ersatz-Play erlaubt, **dieselbe Kopie** diesen Zug gesperrt. Andere Karte (auch gleicher Titel, andere Kopie) ok. [A Ã‚Â· printed EV]
 
-**Subspace Schism** â€” Jeder Draw Ã¶ffnet 10s-Response wenn Schism auf einer Hand. Einmal/Zug. Discard der gezogenen, nÃ¤chste Karte ohne zweites Fenster. [A Â· printed Schism]
+**Subspace Schism** Ã¢â‚¬â€ Jeder Draw ÃƒÂ¶ffnet 10s-Response wenn Schism auf einer Hand. Einmal/Zug. Discard der gezogenen, nÃƒÂ¤chste Karte ohne zweites Fenster. [A Ã‚Â· printed Schism]
 
 ## 2026-08-27
 
-**Host-Detail** â€” Schiff: Special Equipment (Holodeck, Tractor Beam) oben bei den Stats; angehÃ¤ngte Events/Dilemmas darunter mit Live-Effekt statt Persist-Enum (`Event: Nutational Shields â€” SHIELDS +2 (1 ENGINEER aboard)`). `EventRules.FormatHostEffectSummary` / `DilemmaRules.FormatHostEffectSummary`. Personnel: keine doppelte Classification, kein Skill-Dump aus `card.Text`, Icons an die Classification-Stelle. Overlay: Kartenleiste unten mit horizontalem Scroll, mehr Text darÃ¼ber, Back + Select/Close rechts.
+**Host-Detail** Ã¢â‚¬â€ Schiff: Special Equipment (Holodeck, Tractor Beam) oben bei den Stats; angehÃƒÂ¤ngte Events/Dilemmas darunter mit Live-Effekt statt Persist-Enum (`Event: Nutational Shields Ã¢â‚¬â€ SHIELDS +2 (1 ENGINEER aboard)`). `EventRules.FormatHostEffectSummary` / `DilemmaRules.FormatHostEffectSummary`. Personnel: keine doppelte Classification, kein Skill-Dump aus `card.Text`, Icons an die Classification-Stelle. Overlay: Kartenleiste unten mit horizontalem Scroll, mehr Text darÃƒÂ¼ber, Back + Select/Close rechts.
 
-**Kartenwahl** â€” Keine Ja/Nein-Karte-fÃ¼r-Karte-Schleifen mehr. `PickCardFromList` / `PickBorderFromList` nutzen die Detail-Leiste (horizontal scroll). Umgestellt: Res-Q, Palor Toff, Wormhole, PickOwnShip, Stone of Gol, Thought Maker, Kurlan, Event-Target-Dialog, Dilemma-Picks.
+**Kartenwahl** Ã¢â‚¬â€ Keine Ja/Nein-Karte-fÃƒÂ¼r-Karte-Schleifen mehr. `PickCardFromList` / `PickBorderFromList` nutzen die Detail-Leiste (horizontal scroll). Umgestellt: Res-Q, Palor Toff, Wormhole, PickOwnShip, Stone of Gol, Thought Maker, Kurlan, Event-Target-Dialog, Dilemma-Picks.
 
-**Subspace Warp Rift** â€” Fly-by beide Richtungen; Schaden beim Weiterfliegen nach Ankunft im selben Zug. Tetryon analog. Kevin trifft Gaps-Span + Fallback-Galerie. `PickOption` fÃ¼r OR-Textwahlen.
+**Subspace Warp Rift** Ã¢â‚¬â€ Fly-by beide Richtungen; Schaden beim Weiterfliegen nach Ankunft im selben Zug. Tetryon analog. Kevin trifft Gaps-Span + Fallback-Galerie. `PickOption` fÃƒÂ¼r OR-Textwahlen.
 
-**Nullify / Devil / Rift-Badge** â€” Kevin/Devil nicht mehr als TABLE-Permanent ohne Ziel spielen. Nullify entfernt Span auf der Spaceline, Owner-Discard, Kevin OOP-Zone. Relayout behÃ¤lt Rotation + DMG-Badge am bewegten Schiff. Action History: Mehrfachauswahl + Ctrl+C.
+**Nullify / Devil / Rift-Badge** Ã¢â‚¬â€ Kevin/Devil nicht mehr als TABLE-Permanent ohne Ziel spielen. Nullify entfernt Span auf der Spaceline, Owner-Discard, Kevin OOP-Zone. Relayout behÃƒÂ¤lt Rotation + DMG-Badge am bewegten Schiff. Action History: Mehrfachauswahl + Ctrl+C.
 
 ## 2026-08-28
 
-**Horga'hn** â€” Flag folgt der Tischkarte (Hand-Play + Acquire). Extra Normal-Play bleibt im Play-Segment; sonst Extra-Draw am EOT aus dem Deck des Controllers. Devil lÃ¶scht nur den Owner-Flag. [A Â· 2.3.0.1]
+**Horga'hn** Ã¢â‚¬â€ Flag folgt der Tischkarte (Hand-Play + Acquire). Extra Normal-Play bleibt im Play-Segment; sonst Extra-Draw am EOT aus dem Deck des Controllers. Devil lÃƒÂ¶scht nur den Owner-Flag. [A Ã‚Â· 2.3.0.1]
 
-**The Devil / Wind Dancer** â€” Beim Encounter (vor Filter) Yes/No, wenn The Devil auf der Hand liegt. `EncounterDilemma` als Stack-Kind; CollectDevil sieht Last-Encounter. [A Â· 6.5.1 / Glossary nullify]
+**The Devil / Wind Dancer** Ã¢â‚¬â€ Beim Encounter (vor Filter) Yes/No, wenn The Devil auf der Hand liegt. `EncounterDilemma` als Stack-Kind; CollectDevil sieht Last-Encounter. [A Ã‚Â· 6.5.1 / Glossary nullify]
 
-**Stapel-Peek (UI)** â€” Kevin/Devil 2s Ã¼ber Schiff/Mission/Outpost mit legalem Ziel Ã¶ffnet Detail; legale Karten gold umrandet, Drop trifft die Mini.
+**Stapel-Peek (UI)** Ã¢â‚¬â€ Kevin/Devil 2s ÃƒÂ¼ber Schiff/Mission/Outpost mit legalem Ziel ÃƒÂ¶ffnet Detail; legale Karten gold umrandet, Drop trifft die Mini.
 
-**Warp Core Breach / â€žMay be nullified by SKILLâ€œ** â€” Nullify ist optional (Schiff-Button, auch gestoppt), nicht automatisch am EOT. `NullifyEventInPlay` rÃ¤umt Host-Stapel + Detail. ZerstÃ¶rung erst am EOT des *nÃ¤chsten* Controller-Zugs (Countdown 2 im laufenden Controller-Zug). Plasma Fire derselbe Discard-Pfad. [B Â· Glossary nullify / 7.10.0.1 / 8.1]
+**Warp Core Breach / Ã¢â‚¬Å¾May be nullified by SKILLÃ¢â‚¬Å“** Ã¢â‚¬â€ Nullify ist optional (Schiff-Button, auch gestoppt), nicht automatisch am EOT. `NullifyEventInPlay` rÃƒÂ¤umt Host-Stapel + Detail. ZerstÃƒÂ¶rung erst am EOT des *nÃƒÂ¤chsten* Controller-Zugs (Countdown 2 im laufenden Controller-Zug). Plasma Fire derselbe Discard-Pfad. [B Ã‚Â· Glossary nullify / 7.10.0.1 / 8.1]
 
-**AskChoice** â€” OR-Dialoge mit beschrifteten Buttons (z.B. Klingon / Romulan, nicht Yes/No). Timeout = gleichverteilt zufÃ¤llig + Result-Overlay. `AskPlayer` fÃ¼r P1/P2. Umgestellt: Dual-Affiliation-Report, Juggler, Traveler, Draw-3, Masaka, Q's Tent. `PickOption` nutzt dasselbe.
+**AskChoice** Ã¢â‚¬â€ OR-Dialoge mit beschrifteten Buttons (z.B. Klingon / Romulan, nicht Yes/No). Timeout = gleichverteilt zufÃƒÂ¤llig + Result-Overlay. `AskPlayer` fÃƒÂ¼r P1/P2. Umgestellt: Dual-Affiliation-Report, Juggler, Traveler, Draw-3, Masaka, Q's Tent. `PickOption` nutzt dasselbe.
 
-**PlayOnRules** â€” â€žPlays on â€¦â€œ-Parser (Ship/Outpost/Facility/Mission/Crew/Table + Own/Exposed/Occupied/Cloaked). Interrupt-Drop nutzt Spec; Schiff â‰  Outpost. Asteroid Sanctuary nur eigenes uncloaked Schiff.
+**PlayOnRules** Ã¢â‚¬â€ Ã¢â‚¬Å¾Plays on Ã¢â‚¬Â¦Ã¢â‚¬Å“-Parser (Ship/Outpost/Facility/Mission/Crew/Table + Own/Exposed/Occupied/Cloaked). Interrupt-Drop nutzt Spec; Schiff Ã¢â€°Â  Outpost. Asteroid Sanctuary nur eigenes uncloaked Schiff.
 
-**Fed Battle / Devil / LegalMoves** â€” Federation initiiert Battle nur vs Borg (NA/Kli im selben Force hebt das nicht); Wartime bleibt Ausnahme. The Devil = `nullify-inplay`. Off-turn-Interrupts erscheinen in LegalMoves. [C Â· Â§7.4.1 / 6.5.1]
+**Fed Battle / Devil / LegalMoves** Ã¢â‚¬â€ Federation initiiert Battle nur vs Borg (NA/Kli im selben Force hebt das nicht); Wartime bleibt Ausnahme. The Devil = `nullify-inplay`. Off-turn-Interrupts erscheinen in LegalMoves. [C Ã‚Â· Ã‚Â§7.4.1 / 6.5.1]
 
-**Prozess** â€” `RULES.md` = Fix-Protokoll Klasse A/B/C + Lookup Glossary/Errata. `RULES_CHECKLIST.md` = Compendium 2.7.4 auf x.x.x.
+**Prozess** Ã¢â‚¬â€ `RULES.md` = Fix-Protokoll Klasse A/B/C + Lookup Glossary/Errata. `RULES_CHECKLIST.md` = Compendium 2.7.4 auf x.x.x.
 
 ---
 
 ## 2026-08-26
 
-**LegalMoves** â€” `Collect(player)` nur dieser Sitz; Stack nur `ResponsePlayer`; `CollectBoth` fÃ¼r Netz/KI; Beam-VorschlÃ¤ge von Schiff, Facility und Mission.
+**LegalMoves** Ã¢â‚¬â€ `Collect(player)` nur dieser Sitz; Stack nur `ResponsePlayer`; `CollectBoth` fÃƒÂ¼r Netz/KI; Beam-VorschlÃƒÂ¤ge von Schiff, Facility und Mission.
 
-**Dual-Affiliation (6.3.3)** â€” `Card.CurrentAffiliation`, `DualAffiliationRules`, Mode-Skills (Rakal/DeSeve), Report wÃ¤hlt kompatiblen Mode, Switch zwischen Actions (nicht im Attempt, nicht inkompatibel an Bord).
+**Dual-Affiliation (6.3.3)** Ã¢â‚¬â€ `Card.CurrentAffiliation`, `DualAffiliationRules`, Mode-Skills (Rakal/DeSeve), Report wÃƒÂ¤hlt kompatiblen Mode, Switch zwischen Actions (nicht im Attempt, nicht inkompatibel an Bord).
 
-**AU Apply** â€” Yellow Alert (kill/prevent Red Alert, CUNN+1), Baryon RANGEâˆ’2 + SOT-Nullify, Klim kein EOT-Draw, Thermal vs Firestorm/Thought Fire/Plasma, Captain's Log / Lower Decks, Particle Scatter kein Planet-Beam, Intruder FF Rogue Borg &lt;3, Wartime nach Fed-Angriff. Interrupts: Kevin Convergence, Countermanda, Destroy Scow, Senior Staff Meeting.
+**AU Apply** Ã¢â‚¬â€ Yellow Alert (kill/prevent Red Alert, CUNN+1), Baryon RANGEÃ¢Ë†â€™2 + SOT-Nullify, Klim kein EOT-Draw, Thermal vs Firestorm/Thought Fire/Plasma, Captain's Log / Lower Decks, Particle Scatter kein Planet-Beam, Intruder FF Rogue Borg &lt;3, Wartime nach Fed-Angriff. Interrupts: Kevin Convergence, Countermanda, Destroy Scow, Senior Staff Meeting.
 
-**Dil Apply** â€” Edo Probe Lock oder âˆ’10 am Zugende; Conundrum chase; Frame of Mind 3-3-3 + 2 Skills, Cure 3 Empathy.
+**Dil Apply** Ã¢â‚¬â€ Edo Probe Lock oder Ã¢Ë†â€™10 am Zugende; Conundrum chase; Frame of Mind 3-3-3 + 2 Skills, Cure 3 Empathy.
 
-**PR Apply** â€” Neural Servo Control bis EOT; Distortion Unstop/RANGE/Away-Team; Tachyon + Cloak-Button; Anti-Time Shuffle beider Spieler; Sanctuary EOT-Discard.
+**PR Apply** Ã¢â‚¬â€ Neural Servo Control bis EOT; Distortion Unstop/RANGE/Away-Team; Tachyon + Cloak-Button; Anti-Time Shuffle beider Spieler; Sanctuary EOT-Discard.
 
-**Katalogtexte** â€” PR Events/Interrupts/Artifacts an Drucktext; Kevin OOP; Auto-Destruct CD=1, Groupie/Temporal Rift CD=2; Life-form Scan = Gegnerhand.
+**Katalogtexte** Ã¢â‚¬â€ PR Events/Interrupts/Artifacts an Drucktext; Kevin OOP; Auto-Destruct CD=1, Groupie/Temporal Rift CD=2; Life-form Scan = Gegnerhand.
 
-**Engine-Fundament** â€” `GameState` / `GameAction` / `EngineAuthority` / `EffectRegistry` / `CardEffectMap` Â· `SeedRules` (Cryo Space, Neutral Outpost NA, 3 AU) Â· `TurnExpiry` Â· Download/HA-Flip-Verben Â· LegalMoves Seed Â· Until-EOT nur finishing player Â· Stopped im Snapshot.
+**Engine-Fundament** Ã¢â‚¬â€ `GameState` / `GameAction` / `EngineAuthority` / `EffectRegistry` / `CardEffectMap` Ã‚Â· `SeedRules` (Cryo Space, Neutral Outpost NA, 3 AU) Ã‚Â· `TurnExpiry` Ã‚Â· Download/HA-Flip-Verben Ã‚Â· LegalMoves Seed Ã‚Â· Until-EOT nur finishing player Ã‚Â· Stopped im Snapshot.
 
 ---
 
-## 2026-08-21â€“25
+## 2026-08-21Ã¢â‚¬â€œ25
 
-Opponent-Pile-Inspector Â· Mission Owner-Orientation / asymmetric reqs Â· Crew-Interrupt-Ziele Â· Rogue Borg + Crosis + Lore Returns Â· TurnScope Â· Skill-Parser `Diplomacy x 2`.
+Opponent-Pile-Inspector Ã‚Â· Mission Owner-Orientation / asymmetric reqs Ã‚Â· Crew-Interrupt-Ziele Ã‚Â· Rogue Borg + Crosis + Lore Returns Ã‚Â· TurnScope Ã‚Â· Skill-Parser `Diplomacy x 2`.
 
 ---
 
 ## 2026-08-20
 
-`.stsave` JSON Â· Event-Targets / Gaps / Q-Net Â· TABLE volle rechte Spalte Â· Red Alert 5er-Play Â· Kidnappers Â· Host-Events bleiben am Ziel.
+`.stsave` JSON Ã‚Â· Event-Targets / Gaps / Q-Net Ã‚Â· TABLE volle rechte Spalte Ã‚Â· Red Alert 5er-Play Ã‚Â· Kidnappers Ã‚Â· Host-Events bleiben am Ziel.
 
 ---
 
@@ -1911,11 +1914,11 @@ Deck Builder EN, Inline-Move, `DeckPlacementRules`, Skill-Multifilter.
 
 ## 2026-08-18
 
-Ship Battle + Rotation Damage Â· Dilemmaâ†’Stopped Â· Repair Â· Equipment/Modifier Â· Treaties Â· Interrupt ActionStack Â· Premiere Dil/Art/Event/Interrupt-Kataloge Â· Card Reveal Â· Action History.
+Ship Battle + Rotation Damage Ã‚Â· DilemmaÃ¢â€ â€™Stopped Ã‚Â· Repair Ã‚Â· Equipment/Modifier Ã‚Â· Treaties Ã‚Â· Interrupt ActionStack Ã‚Â· Premiere Dil/Art/Event/Interrupt-Kataloge Ã‚Â· Card Reveal Ã‚Â· Action History.
 
 ---
 
-## 2026-08-16â€“17
+## 2026-08-16Ã¢â‚¬â€œ17
 
 Phase-2-Tisch: Seed-Phasen, Hotseat feste Spaceline, Report/Staff/RANGE/Beam, Mission Attempt, Hybrid-Orders-UI.
 
@@ -1923,12 +1926,12 @@ Phase-2-Tisch: Seed-Phasen, Hotseat feste Spaceline, Report/Staff/RANGE/Beam, Mi
 
 ## 2026-08-15
 
-Phase 0 Modelle + JSON-Loader Â· Phase 1 Deck Builder `.stdeck` Â· Lackey-Split in Set-Ordner.
+Phase 0 Modelle + JSON-Loader Ã‚Â· Phase 1 Deck Builder `.stdeck` Ã‚Â· Lackey-Split in Set-Ordner.
 
 
-## 2026-09-21 — StartOfTurnWindow (Phrase) + Full Planet Scan Gate
-- Neu: `TimingRules.RequiresStartOfTurnWindow` / `IsStartOfTurnWindowOpen` / `CanPlayStartOfTurnCard` (Compendium 6.1 Exception; Segmente SoT→NormalPlay→Execute→EoT→Draw).
+## 2026-09-21 â€” StartOfTurnWindow (Phrase) + Full Planet Scan Gate
+- Neu: `TimingRules.RequiresStartOfTurnWindow` / `IsStartOfTurnWindowOpen` / `CanPlayStartOfTurnCard` (Compendium 6.1 Exception; Segmente SoTâ†’NormalPlayâ†’Executeâ†’EoTâ†’Draw).
 - Gate vor Stack/Responses: `LegalMoves.AddHandPlays`, `EngineAuthority.EvaluatePlay`, `TableWindow.TryAllowHandPlay`.
 - Full Planet Scan = erster Phrase-Consumer (Gametext + Katalog); Apply-Pfad nur Safety-Net.
-- Pepsch-Fail: FPS nach Normal-Play öffnete Amanda-Fenster; Illegal kam zu spät → jetzt sofort Deny.
+- Pepsch-Fail: FPS nach Normal-Play Ã¶ffnete Amanda-Fenster; Illegal kam zu spÃ¤t â†’ jetzt sofort Deny.
 

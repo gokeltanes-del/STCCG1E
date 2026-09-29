@@ -1,14 +1,14 @@
-# HANDOFF — STCCG 1E
+﻿# HANDOFF â€” STCCG 1E
 
-**Stand:** 2026-09-28 · **Ort:** Josef `C:\Dev\StarTrekCCG\StarTrekCCG` · **GitHub `master`:** `8083785`
+**Stand:** 2026-09-28 Â· **Ort:** Josef `C:\Dev\StarTrekCCG\StarTrekCCG` Â· **GitHub `master`:** `8083785`
 
-Nur aktueller Brückenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.md`, `FEATURES.md`, Coverage.
+Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.md`, `FEATURES.md`, Coverage.
 
 ---
 
-## Jetzt aktiv — Multiplayer / Network-Modus
+## Jetzt aktiv â€” Multiplayer / Network-Modus
 
-**Status:** Spaceline Insert — Q-Net/Gaps als eigene Spalten auf `master` (`8083785`). Snapshot `ColumnInstanceIds` + `MissionIds` + `Spans`. Smoke Dual-EXE (zwei Q-Nets, gleiche Spaceline P1=P2) noch **HOLD**.
+**Status:** AttemptMission Guest→Host Apply getippt (`1194d42` merge). Dual-EXE Smoke HOLD. Phase-5 weiterhin offen. Spaceline Insert `8083785` Basis.
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
 
 ### Architektur
@@ -17,24 +17,24 @@ Nur aktueller Brückenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.md`
 - Nutzen: `GameAction`, `LegalMoves`, `EngineAuthority`, `GameSave`-JSON.
 
 ### Roadmap
-1. Phase 1 Transport: `NetMessage`, `NetServer`, `NetClient` — getippt.
-2. Phase 2 Lobby/UI: Host / Join / Localhost — getippt `2aa9790`.
-3. Phase 3 Sync: GameAction → Host EngineAuthority → maskierter State — getippt `df904b4`.
-4. Phase 4 Dialoge/Timing: ChoiceRequest / ChoiceResponse — getippt `e102b47`.
-5. Phase 5 Härtung: Disconnect, Reconnect, Abbruch — offen.
+1. Phase 1 Transport: `NetMessage`, `NetServer`, `NetClient` â€” getippt.
+2. Phase 2 Lobby/UI: Host / Join / Localhost â€” getippt `2aa9790`.
+3. Phase 3 Sync: GameAction â†’ Host EngineAuthority â†’ maskierter State â€” getippt `df904b4`.
+4. Phase 4 Dialoge/Timing: ChoiceRequest / ChoiceResponse â€” getippt `e102b47`.
+5. Phase 5 HÃ¤rtung: Disconnect, Reconnect, Abbruch â€” offen.
 
 ### Letzte Tips auf `master` (2026-09-28)
 - Spaceline Insert: Q-Net/Gaps eigene `_spacelineOrder`-Spalten (Mission | Span | Mission). Snapshot `ColumnInstanceIds`. `InsertSpanColumn` / `EnsureSpanColumnsInOrder`. Tip `8083785`.
 - PlayCard nur aus Hand / frischem Seed; Host-Snapshot MissionIds + Spans. Tip `b4aca0e`.
-- Dual-EXE Spaceline Host↔Guest Capture/Apply. Tip `563d3eb`.
-- Span overlay Option B (älter, durch `8083785` überholt für Order). Tip `2d7acc7`.
+- Dual-EXE Spaceline Hostâ†”Guest Capture/Apply. Tip `563d3eb`.
+- Span overlay Option B (Ã¤lter, durch `8083785` Ã¼berholt fÃ¼r Order). Tip `2d7acc7`.
 
 ---
 
 ## Zuletzt (kurz)
-
+- AttemptMission network: Guest sendet nur Intent (kein lokaler Versuch gegen maskierte Seeds). Host TryApplyNetAttemptMission = TryAttemptMission (Hotseat-Pfad) + BroadcastMaskedStateToGuest. Schiff = Target2. Yes/No = AskChoiceForPlayer. PickCardFromList / PersonnelBattle / KI / Phase-5 nicht angefasst. Basis 8083785. **HOLD Dual-EXE.**
 - Span overlay subsystem (Option B): _spacelineOrder mission-only; PaintSpans Gap-Mid Endpoints; Capture Spaceline ohne Spans; BoardStore aus AE-Paar; Seed/Index mission-only; BuildSpacelineDisplayOrder weg. Tip-Hash 2d7acc7. Pipeline 5b043b0/ab2e67a/a9af295 erhalten. **HOLD.**
-- Q-Net second span no Extra-Width stack + SWB Face: Relayout missions-only columns; spans gap-mid Pin; AsMissionEndpointBorder; SWB hand→Face strip. Tip-Hash 5b043b0. Pipeline fef7075/ab2e67a/a9af295 erhalten. **HOLD.**
+- Q-Net second span no Extra-Width stack + SWB Face: Relayout missions-only columns; spans gap-mid Pin; AsMissionEndpointBorder; SWB handâ†’Face strip. Tip-Hash 5b043b0. Pipeline fef7075/ab2e67a/a9af295 erhalten. **HOLD.**
 - Spaceline span gap = mission InstanceIds + Host dock recover (Q-Net): HostInstanceId/Host2InstanceId; Apply/SpanEndpoints/DisplayOrder per InstanceId; EnsureBoardExtents deferred; PinDockables after span Relayout; Fly-in no Host TargetNorm for spans. Tip-Hash fef7075. Pipeline ab2e67a/a9af295 erhalten. **HOLD.**
 - TAK + SWB Choice via AskChoiceForPlayer (Owner-Fenster): RunKidnappers/PickHandCardToDiscard Phase-4 Gate; Host RNG+Discard/Reveal; kein KidnapOverlay PushFrame. Tip-Hash ab2e67a. Pipeline 6acacd4/a9af295 erhalten. **HOLD.**
 - Spaceline span fly-in land + gap adjacency (Q-Net Nachzieher): landInst=own InstanceId; IsSpacelineSpanCard Attach-Guard; mission-only ListSameQuadrantGaps; PickAdjacent past spans; Pin gap-X barriers + after RelayoutAll. Tip-Hash 6acacd4. Pipeline a9af295 erhalten. **HOLD.**
@@ -42,11 +42,11 @@ Nur aktueller Brückenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.md`
 - Responsive Detail/Choice-Overlays (Fensterbreite): MaxWidth+Margin statt fester Width/MinWidth; WrapPanel Typ-Buttons/Karten; ScrollViewer H=Disabled. Tip-Hash a9af295. Pipeline 3bc7e49 erhalten. **HOLD.**
 - Spaceline Attach Y board-absolute + History RMB-only zoom: Sync Y P1+/P2-; kein Gaps AttachCardToHost; Relayout Owner absolut; History nur RMB Zoom. Tip-Hash 3bc7e49. Pipeline acfb554 erhalten. **HOLD.**
 
-- Action History Kartenreihe + Play-Detail-Popup weg: Strip P1=Gruen/P2=Blau Face; Interrupt-Splash+LRS-OK entfernt; Fly-in bleibt; PlayReveal→History Network-First. Tip-Hash acfb554. Pipeline 5c29f7b erhalten. **HOLD.**
+- Action History Kartenreihe + Play-Detail-Popup weg: Strip P1=Gruen/P2=Blau Face; Interrupt-Splash+LRS-OK entfernt; Fly-in bleibt; PlayRevealâ†’History Network-First. Tip-Hash acfb554. Pipeline 5c29f7b erhalten. **HOLD.**
 
 - Host->Guest PlayReveal Face Catalog + Gaps Guest-Drop: Catalog/DTO Face (Fog-Stub-Race); gap:leftInst:rightInst Host Apply ohne Picker. Tip-Hash 5c29f7b. Pipeline 591fba3 erhalten. **HOLD.**
 
-- Guest/P2 Play-Pfad (TAK Persist + Interrupt Fly-in + Face): Net Events→TryResolveEventPlay; ClearTable/Relayout Soft-Invalidate; FindLiveCardWithArt+Discard Lookup. Tip-Hash 591fba3. Pipeline f005c71 erhalten. **HOLD.**
+- Guest/P2 Play-Pfad (TAK Persist + Interrupt Fly-in + Face): Net Eventsâ†’TryResolveEventPlay; ClearTable/Relayout Soft-Invalidate; FindLiveCardWithArt+Discard Lookup. Tip-Hash 591fba3. Pipeline f005c71 erhalten. **HOLD.**
 
 
 - Play Fly-in Event/Interrupt Target + P2 Face: TargetInstanceId Live-Bounds Host/Guest; Face vor Anim; Net PlaysOnHost attach (nicht TABLE). Tip-Hash f005c71. Pipeline df1259e erhalten. **HOLD.**
@@ -60,9 +60,9 @@ Nur aktueller Brückenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.md`
 
 - Play Fly-in sichtbar (Nachzieher-Fix): DragLayer + BeginAnimation; Storyboard/Collapsed-Canvas Root Cause; Debug StatusText. Tip-Hash 034aec2. Pipeline b1d5d3e erhalten. **HOLD.**
 
-- Play Fly-in Nachzieher (Hand→Mitte→Slot): Gerade Bahn Hand→~3.5× Mitte Hold→Slot; DropShadow; kein Dim/Banner/Neon; DTO TargetNorm; Host State vor Reveal. Tip-Hash b1d5d3e. Pipeline 57c1a3e erhalten. **HOLD.**
+- Play Fly-in Nachzieher (Handâ†’Mitteâ†’Slot): Gerade Bahn Handâ†’~3.5Ã— Mitte Holdâ†’Slot; DropShadow; kein Dim/Banner/Neon; DTO TargetNorm; Host State vor Reveal. Tip-Hash b1d5d3e. Pipeline 57c1a3e erhalten. **HOLD.**
 
-- Play Fly-in Reveal (Network): Host nach erfolgreichem Hand-Play / Interrupt BeginPlayCardStack → BroadcastPlayReveal + lokale Animation; Guest nur nach PlayReveal-Message (kein lokales Pre-Apply). Overlay non-modal ~1.4s. Tip-Hash 57c1a3e. Board-Sync 8322b68 erhalten. **HOLD.**
+- Play Fly-in Reveal (Network): Host nach erfolgreichem Hand-Play / Interrupt BeginPlayCardStack â†’ BroadcastPlayReveal + lokale Animation; Guest nur nach PlayReveal-Message (kein lokales Pre-Apply). Overlay non-modal ~1.4s. Tip-Hash 57c1a3e. Board-Sync 8322b68 erhalten. **HOLD.**
 
 - Board-Sync Multiplayer (Fly/Beam/Attack/Interrupt): Guest Action-only; Host TryApplyNet* + sofort Broadcast; kein Phantom-EndTurn-Wipe. Tip-Hash 8322b68. Visibility b2dfaf7 erhalten. **HOLD.**
 - Alien Probe Hand-Sync + Occupancy/AT Fog: NetStateMask Probe-Hand + Stack-Occupancy mask; UI FogViewer; 12.12 stub. Prior 5da7c3b erhalten. **HOLD.**
@@ -81,12 +81,12 @@ Nur aktueller Brückenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.md`
 
 - Network P2 Facility Seed-on-Outpost + Viewer Dock: PlayerForStrip owner; underInst Facility Apply; eigene Facilities unten auf P2-Client. Tip-Hash dabaecc. **HOLD.**
 
-- Network P2 Facility Seed: Guest Target/underInst → Host dockt an Mission (nicht CommitCardToTable/P2 TABLE). Tip-Hash 493fc0b. **HOLD.**
+- Network P2 Facility Seed: Guest Target/underInst â†’ Host dockt an Mission (nicht CommitCardToTable/P2 TABLE). Tip-Hash 493fc0b. **HOLD.**
 
 - Network Seed-under-Mission: gleicher Stack Host/Guest; Owner face-up / Opp face-down+Zaehler; underInst+force restore. Tip-Hash 6da1c61. **HOLD.**
 
 
-- Network P2 Mission-Seed: Guest after:/before: Note → Host engine insert; Slot-Hover glow. Tip-Hash 141c4df.
+- Network P2 Mission-Seed: Guest after:/before: Note â†’ Host engine insert; Slot-Hover glow. Tip-Hash 141c4df.
 
 - Network UI Nachzieher Seed: Hand/Seed face-up LocalPlayer; Mission Glow/Snap; Spaceline Viewer-Orientierung. Tip-Hash 7747bf8.
 
@@ -97,13 +97,13 @@ Nur aktueller Brückenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.md`
 
 - Network Viewer=LocalPlayer: Guest sieht P2-Seed/Hand unten; Fremdzonen maskiert; Host-Broadcast nach Seed bleibt. Tip-Hash 1bd513f.
 
-- Network Seed/Mission Sync getippt: Host broadcast nach Seed + SeedCard Guest→Host. Tip-Hash ba2ee6f.
+- Network Seed/Mission Sync getippt: Host broadcast nach Seed + SeedCard Guestâ†’Host. Tip-Hash ba2ee6f.
 - Network Phase 4 ChoiceRequest/Response getippt: NetChoiceDto + AskChoiceForPlayer + response window routing. Tip-Hash `e102b47`.
-- Network Lobby-Flow getippt: Deck pick + Ready + StartGame ÔåÆ Session. Tip-Hash `81455f2`.
+- Network Lobby-Flow getippt: Deck pick + Ready + StartGame Ã”Ã¥Ã† Session. Tip-Hash `81455f2`.
 - Network Phase 3 Sync getippt: NetActionDto/NetStateMask/NetPlaySession + TableWindow EndPhase/EndTurn. Tip-Hash df904b4.
 - Network Phase 2 Lobby getippt: `NetworkLobbyWindow` + ModeNetwork-Anbindung. Tip-Hash `2aa9790`.
 - Network Phase 1 Scaffold getippt: `StarTrekCCG/Network/` (NetMessage/NetServer/NetClient). Tip-Hash `027f993`.
-- Ältere Extract- und Premiere-Tips: `CHANGELOG.md`. `EXTRACT_REST.md` ist entfernt.
+- Ã„ltere Extract- und Premiere-Tips: `CHANGELOG.md`. `EXTRACT_REST.md` ist entfernt.
 - Tracker bleibt aktiv. Datei und Docs-Verweise existieren weiter.
 
 ---
@@ -119,16 +119,16 @@ Nur aktueller Brückenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.md`
 - Plays-on / Plays-as F3-Smoke
 - Freundes-Report Beaming; ETA `21b2d52` Retest; Artifact-Y Load intermittent
 - FEATURES Smoke offen: Beaming 7.1.1, Response-Window Hotseat, Occupancy Badge
-- FEATURES-Zeilen Extract P0-D1/E1/S1 sind veraltet vs. CHANGELOG — bei Gelegenheit nachziehen
+- FEATURES-Zeilen Extract P0-D1/E1/S1 sind veraltet vs. CHANGELOG â€” bei Gelegenheit nachziehen
 
 ---
 
 ## Geschlossen (Verweis)
 
-Working-Karten und Tip-MikroblÔö£├écke: `CHANGELOG.md` + `CARD_TRACKER.md`. Nicht zurÔö£ÔòØck nach HANDOFF.
+Working-Karten und Tip-MikroblÃ”Ã¶Â£â”œÃ©cke: `CHANGELOG.md` + `CARD_TRACKER.md`. Nicht zurÃ”Ã¶Â£Ã”Ã²Ã˜ck nach HANDOFF.
 
 ---
 
 ## Pflege-Regel
 
-Nach Tip: kurze Zeile unter **Zuletzt** oder **Jetzt aktiv** + `CHANGELOG.md`. Keine Tip-Novellen. Keine ├ö├ç├ùAktiv├ö├ç┬ú-BlÔö£├écke fÔö£ÔòØr bereits `working` Karten.
+Nach Tip: kurze Zeile unter **Zuletzt** oder **Jetzt aktiv** + `CHANGELOG.md`. Keine Tip-Novellen. Keine â”œÃ¶â”œÃ§â”œÃ¹Aktivâ”œÃ¶â”œÃ§â”¬Ãº-BlÃ”Ã¶Â£â”œÃ©cke fÃ”Ã¶Â£Ã”Ã²Ã˜r bereits `working` Karten.

@@ -127,12 +127,20 @@ public sealed class NetActionDto
         };
     }
 
+    /// <summary>
+    /// Slots stay aligned: [card, target, target2]. A zero means "absent" so a later
+    /// id (Attempting-Ship on AttemptMission) is not read as the card.
+    /// </summary>
     private static int[]? BuildInstanceIds(GameAction action)
     {
-        var ids = new System.Collections.Generic.List<int>(3);
-        if (action.Card?.InstanceId > 0) ids.Add(action.Card.InstanceId);
-        if (action.Target?.InstanceId > 0) ids.Add(action.Target.InstanceId);
-        if (action.Target2?.InstanceId > 0) ids.Add(action.Target2.InstanceId);
-        return ids.Count > 0 ? ids.ToArray() : null;
+        int cardId = action.Card?.InstanceId > 0 ? action.Card.InstanceId : 0;
+        int targetId = action.Target?.InstanceId > 0 ? action.Target.InstanceId : 0;
+        int target2Id = action.Target2?.InstanceId > 0 ? action.Target2.InstanceId : 0;
+        if (cardId == 0 && targetId == 0 && target2Id == 0) return null;
+        if (target2Id > 0)
+            return new[] { cardId, targetId, target2Id };
+        if (targetId > 0)
+            return new[] { cardId, targetId };
+        return new[] { cardId };
     }
 }
