@@ -89,6 +89,18 @@ public static class ShipRules
     }
 
     /// <summary>
+    /// Printed Cloaking Device (text, staffing, or characteristics) or a [Cloak] icon.
+    /// Same check the ship action panel uses for the Cloak button.
+    /// </summary>
+    public static bool HasCloakingDevice(Card? ship)
+    {
+        if (ship == null) return false;
+        string t = $"{ship.Text} {ship.Staff} {ship.Characteristics}";
+        return t.Contains("Cloaking Device", StringComparison.OrdinalIgnoreCase)
+               || t.Contains("[Cloak]", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// Ship Seizure (Premiere 136 C):
     /// "Plays on your ship with Tractor Beam. Discard another empty exposed ship here."
     /// Validates the play-on tractor host.
@@ -198,6 +210,8 @@ public static class ShipRules
         if (!HasTractorBeam(galaxy)) return "Galaxy with Tractor Beam in Text must have Tractor Beam";
         if (!HasTractorBeam(bop)) return "Bird-of-Prey with Tractor Beam in Characteristics must have Tractor Beam";
         if (HasTractorBeam(shuttle)) return "Shuttle without Tractor Beam must not have Tractor Beam";
+        if (!HasCloakingDevice(bop)) return "Bird-of-Prey with Cloaking Device in Text must have a Cloaking Device";
+        if (HasCloakingDevice(shuttle)) return "Shuttle without Cloaking Device must not have one";
 
         // 6. Ship Seizure Tractor Host
         var tractorOk = CanBeShipSeizureTractorHost(galaxy, hostOwner: 1, player: 1);

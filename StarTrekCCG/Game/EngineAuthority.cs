@@ -67,6 +67,9 @@ public static class EngineAuthority
             case GameActionKind.FlipHiddenAgenda:
                 return EvaluateFlipHiddenAgenda(state, action);
 
+            case GameActionKind.Cloak:
+                return EvaluateCloak(state, action);
+
             case GameActionKind.Fly:
                 return EvaluateFly(state, action);
 
@@ -198,6 +201,58 @@ public static class EngineAuthority
             Card = action.Card,
             Message = msg,
             TemplateId = "hidden-agenda"
+        });
+        return result;
+    }
+
+    // Verb: cloak
+    // Rule: 7.6 — Execute order on your ship that has a Cloaking Device.
+    // Tow, Tachyon lock, and Incoming Message stay on the table (same checks as the button).
+    private static ApplyResult EvaluateCloak(GameState state, GameAction action)
+    {
+        if (state.SeedPhase)
+            return ApplyResult.Deny("Not during seed.", "cloak", action.Player);
+        if (state.Segment != GameSession.TurnSegment.Execute)
+            return ApplyResult.Deny("Cloak is an Execute order.", "cloak", action.Player);
+        if (action.Player != state.ActivePlayer)
+            return ApplyResult.Deny(
+                "Only the active player may cloak.",
+                "cloak", action.Player);
+        if (action.Card == null || !CardKinds.IsShip(action.Card))
+            return ApplyResult.Deny("No ship.", "cloak", action.Player);
+        if (!ShipRules.HasCloakingDevice(action.Card))
+            return ApplyResult.Deny(
+                $"{action.Card.Name} has no Cloaking Device.",
+                "cloak", action.Player, action.Card);
+
+        var piece = state.Board.FirstOrDefault(p =>
+            p.Kind == BoardPieceKind.Ship
+            && (ReferenceEquals(p.Card, action.Card)
+                || (action.Card.InstanceId > 0 && p.InstanceId == action.Card.InstanceId)
+                || (action.Card.InstanceId == 0
+                    && string.Equals(p.Card.Name, action.Card.Name, StringComparison.OrdinalIgnoreCase))));
+        if (piece != null)
+        {
+            if (piece.Controller != action.Player && piece.Owner != action.Player)
+                return ApplyResult.Deny("Only your ships may cloak.", "cloak", action.Player, action.Card);
+            if (piece.Stopped || state.IsStoppedInstance(piece.InstanceId))
+                return ApplyResult.Deny(
+                    "This ship is stopped until the start of your next turn.",
+                    "cloak", action.Player, action.Card);
+        }
+
+        bool decloak = string.Equals(action.Note, "decloak", StringComparison.OrdinalIgnoreCase);
+        string msg = decloak
+            ? $"Decloak {action.Card.Name} authorized."
+            : $"Cloak {action.Card.Name} authorized.";
+        var result = ApplyResult.OkResult(msg, "cloak");
+        result.Events.Add(new GameEvent
+        {
+            Kind = GameEventKind.Info,
+            Player = action.Player,
+            Card = action.Card,
+            Message = msg,
+            TemplateId = "cloak"
         });
         return result;
     }
