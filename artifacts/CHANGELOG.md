@@ -1,3 +1,14 @@
+## 2026-09-29 - Stack clear names the current sequence
+
+- *Auftrag*: Dual-EXE Step 8. Ein Stack-Clear auf Guest oder Host gilt nur, wenn er die aktuelle Sequence des Action-Stacks nennt. Ein spaeter oder veralteter Clear wischt einen neueren Stack nicht weg. Der Host bleibt die Wahrheit. Der Guest aendert sie nur, indem er einen passenden Broadcast anwendet.
+- *Id*: `TimingRules.ActionStack.Sequence`. Sie startet bei 0. Der erste Push auf einen leeren Stack zaehlt eins hoch. Eine Response auf demselben Stack nicht. Dieselbe Zahl steht im State (`StackWindowSnap.Sequence`) und an EndPhase/EndTurn (`NetActionDto.StackSequence`). Keine zweite Id. Keine neuen Snapshot-Felder, kein Phase-5-Transport.
+- *Vorher ohne Id*: End PLAY und End Turn auf dem Host haben `_stack.Clear()` gemacht, sobald irgendetwas offen war. Der End-Klick hat den Stack lokal geleert, auch auf dem Guest, bevor der Host entschied. Ein ChoiceResponse-Pass, dessen Correlation nicht mehr das offene Fenster war, hat den aktuellen Stack trotzdem aufgeloest.
+- *Jetzt*: Der End-Klick nennt die aktuelle Sequence und leert lokal nichts. Der Host leert nur bei Gleichstand und macht dann EndPhase oder EndTurn. Eine andere oder fehlende Sequence: der neuere Stack bleibt, der Zug geht nicht weiter, Status und Log `Stale stack clear ignored`. Der Guest uebernimmt eine hoehere Sequence aus dem Broadcast und leert nur, wenn derselbe Stand geschlossen ist. Eine niedrigere Sequence ignoriert er. Ein Pass, der nicht mehr zu diesem Stand gehoert, loest den neueren Stack nicht auf.
+- *Unveraendert*: Wahl 10s, Reveal Yes/No 10s, Reveal OK 20s, Antwortfenster 3s. Idle-Zug 60s (`OnlineIdleTurnTimeoutMs`), nur der Host, wie der End-Knopf. RequiredMoveDestination fragt den Schiffseigner. Download, FlipHiddenAgenda und Cloak sind Guest-Orders, die der Host anwendet. ShowCardReveal Yes/No folgt dem Entscheider. Ein Guest-Transwarp-Drop ohne offenen Stack bleibt `PlayCard`.
+- *Smoke Dual-EXE (Debug, P1 Host, P2 Guest)*: (1) Stack auf, Guest-End nennt diese Sequence — Host leert, beide Fenster weiter. (2) Host hat inzwischen einen neueren Stack — der alte End leert ihn nicht, der Zug bleibt. (3) Guest leert nicht selbst; erst der Broadcast mit derselben Sequence schliesst das Fenster. (4) Hotseat loest den eigenen Stack weiter lokal auf.
+- *Nicht in diesem Schritt*: weitere Snapshot-Felder, Phase-5-Transport. Keine neuen Kartenregeln. Kein Push master.
+- *Scope*: TimingRules.cs, GameSave.cs, GameAction.cs, NetActionDto.cs, TableWindow.xaml.cs.
+
 ## 2026-09-29 - Idle Dual-EXE turn ends after 60 seconds
 
 - *Auftrag*: Pepsch hat die 60s an jeder Frage gestoppt. 60s gilt fuer einen Zug, in dem niemand etwas tut. Nicht fuer jede Frage. Keine neue Phase.

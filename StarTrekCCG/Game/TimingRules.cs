@@ -116,10 +116,20 @@ public static class TimingRules
         public ResponseWindowState State { get; set; } = ResponseWindowState.Closed;
         public bool IsOpen => Items.Count > 0;
 
+        /// <summary>
+        /// Id of the stack generation now in play. Starts at 0 (no stack yet).
+        /// The first Push onto an empty stack advances it. Responses on that same
+        /// stack do not. A clear names this id. The next open stack gets a new one,
+        /// so a late clear of the old id does not match.
+        /// </summary>
+        public long Sequence { get; private set; }
+
         public PendingAction? Top => Items.Count == 0 ? null : Items[^1];
 
         public void Push(PendingAction a)
         {
+            if (Items.Count == 0)
+                Sequence++;
             Items.Add(a);
             ConsecutivePasses = 0;
         }
@@ -135,6 +145,28 @@ public static class TimingRules
         {
             Items.Clear();
             ConsecutivePasses = 0;
+        }
+
+        /// <summary>
+        /// Wipe this stack only when <paramref name="sequence"/> is <see cref="Sequence"/>
+        /// and the stack is open. A mismatch leaves the stack (returns false).
+        /// </summary>
+        public bool TryClear(long sequence)
+        {
+            if (!IsOpen || sequence != Sequence)
+                return false;
+            Clear();
+            return true;
+        }
+
+        /// <summary>
+        /// Guest: remember a newer host sequence without opening a local stack.
+        /// A lower id is stale and is ignored.
+        /// </summary>
+        public void AdoptSequence(long sequence)
+        {
+            if (sequence > Sequence)
+                Sequence = sequence;
         }
     }
 

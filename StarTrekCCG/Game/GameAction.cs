@@ -54,6 +54,12 @@ public sealed class GameAction
     public string? TargetName { get; init; }
     public string? Note { get; init; }
 
+    /// <summary>
+    /// Action-stack generation this End names. Null means the message names no stack.
+    /// The host clears only when this equals the open stack's sequence.
+    /// </summary>
+    public long? StackSequence { get; init; }
+
     public string Id =>
         Kind + "|" + Player + "|" + (Card?.Name ?? "") + "|" + (Target?.Name ?? TargetName ?? "");
 
@@ -103,11 +109,11 @@ public sealed class GameAction
     public static GameAction Pass(int player) =>
         new() { Kind = GameActionKind.Pass, Player = player };
 
-    public static GameAction EndPhase(int player) =>
-        new() { Kind = GameActionKind.EndPhase, Player = player };
+    public static GameAction EndPhase(int player, long? stackSequence = null) =>
+        new() { Kind = GameActionKind.EndPhase, Player = player, StackSequence = stackSequence };
 
-    public static GameAction EndTurn(int player) =>
-        new() { Kind = GameActionKind.EndTurn, Player = player };
+    public static GameAction EndTurn(int player, long? stackSequence = null) =>
+        new() { Kind = GameActionKind.EndTurn, Player = player, StackSequence = stackSequence };
 
     public static GameAction Play(int player, Card card, Card? target = null, string? note = null) =>
         new() { Kind = GameActionKind.PlayCard, Player = player, Card = card, Target = target, Note = note };
