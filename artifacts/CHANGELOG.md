@@ -1,3 +1,10 @@
+## 2026-09-29 - AttemptMission: Mission solved on both windows
+
+- *Auftrag*: Mission-solved-Dialog, der auf dem Loeser stimmt, soll wie Dilemma/Artifact auf beiden Fenstern stehen. Text nennt weiter den Loeser. Punkte nicht doppelt. Tag bleibt. Kein Seed-Fly-in. Guest-Spiegel schliesst weiter wie 09b6747. Hotseat unveraendert.
+- *Ist vorher*: `IsEncounterRevealCard` galt nur fuer Dilemma/Artifact. "Mission solved" ging nur an den Loeser (`surfacePlayer`). Der andere sah den Dialog nicht.
+- *Fix*: Dieselbe Spiegel-Regel. Loeser hat OK. Der andere sieht `ShowHostEncounterMirror` / `revealMirror` ohne Buttons ("Guest/Host acknowledges") und das schliesst mit der bestehenden Close-Strecke (Guest-Antwort → Host-Hide, bzw. awaited `revealMirrorClose` plus Hide beim maskierten Apply). Kein zweites `MarkMissionSolved`.
+- *Scope*: TableWindow.xaml.cs. Kein Push master.
+
 ## 2026-09-29 - AttemptMission: guest encounter mirror closes
 
 - *Auftrag*: Pepsch Dual-EXE. P1 (Host) loest: P2 sieht die Encounter-Faces. Die letzte Meldung bleibt auf P2 ("Artifact acquired / Kurlen Nimbus / Both players see this card. Host acknowledges."), auch nachdem der Versuch vorbei ist und P2 am Zug ist. Kein Dismiss. Spiegel zu, wenn der Host bestaetigt oder der Versuch endet. Ein spaeterer maskierter Broadcast darf den Dialog nicht stehen lassen. Shared Faces bleiben. Hotseat unveraendert.

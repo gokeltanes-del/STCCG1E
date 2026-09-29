@@ -2368,7 +2368,7 @@ public partial class TableWindow : Window
 
     /// <summary>
     /// Host → Guest ChoiceRequest kind=reveal. Guest draws the catalog face and clicks.
-    /// Encountered dilemma/artifact: Host paints the same face (no click).
+    /// Encountered dilemma/artifact, and Mission solved: Host paints the same face (no click).
     /// Other prompts stay on the attempter. Timeout: OK, or a random Yes/No.
     /// </summary>
     private RevealAnswer ShowRevealRemoteOnGuest(
@@ -2426,9 +2426,9 @@ public partial class TableWindow : Window
             return yesNo ? (_autoSeedRng.Next(2) == 0 ? RevealAnswer.Yes : RevealAnswer.No) : RevealAnswer.Ok;
         }
 
-        // Verb: attempt-mission — encountered dilemma/artifact face on both windows.
+        // Verb: attempt-mission — encountered dilemma/artifact, and Mission solved, on both windows.
         // Guest still clicks. Host buttons stay hidden.
-        if (IsEncounterRevealCard(card))
+        if (IsWatcherSharedReveal(card, title))
         {
             ShowHostEncounterMirror(card!, title, body, subtitle,
                 "Both players see this card. Guest acknowledges.");
@@ -2600,8 +2600,8 @@ public partial class TableWindow : Window
             RevealTimerText.Text = "";
         }
 
-        // Host-owned attempt: Guest watches the encounter. Guest does not click.
-        bool guestMirror = IsEncounterRevealCard(card)
+        // Host-owned attempt: Guest watches the encounter or Mission solved. Guest does not click.
+        bool guestMirror = IsWatcherSharedReveal(card, title)
             && SendEncounterMirrorToGuest(card, title, body, subtitle, open: true);
 
         _revealFrame = new System.Windows.Threading.DispatcherFrame();
@@ -10304,6 +10304,18 @@ public partial class TableWindow : Window
         if (string.Equals(kind, NetChoiceDto.Kinds.RevealMirror, StringComparison.OrdinalIgnoreCase))
         {
             var face = BuildNetChoiceFace(dto);
+            if (face == null
+                && string.Equals(dto.Title, "Mission solved", StringComparison.Ordinal)
+                && !string.IsNullOrWhiteSpace(dto.CardName))
+            {
+                face = new Card
+                {
+                    Name = dto.CardName ?? "",
+                    Type = dto.CardType ?? "",
+                    SetFolder = dto.CardSet,
+                    InstanceId = dto.InstanceId
+                };
+            }
             if (face == null)
                 HideHostEncounterMirror();
             else
@@ -11531,6 +11543,14 @@ public partial class TableWindow : Window
             || ArtifactRules.IsArtifact(card));
 
     /// <summary>
+    /// Both windows show this step. The solver clicks. The other window has no buttons.
+    /// Mission solved is an announcement, not an encountered seed.
+    /// </summary>
+    private static bool IsWatcherSharedReveal(Card? card, string? title) =>
+        IsEncounterRevealCard(card)
+        || (card != null && string.Equals(title, "Mission solved", StringComparison.Ordinal));
+
+    /// <summary>
     /// Watcher sees the encounter face. Buttons stay hidden — the attempter clicks.
     /// </summary>
     private void ShowHostEncounterMirror(Card card, string title, string body, string? subtitle, string? audience = null)
@@ -11588,14 +11608,14 @@ public partial class TableWindow : Window
     }
 
     /// <summary>
-    /// Host attempt: show the encounter on the Guest without waiting for a click.
+    /// Host attempt: show the encounter or Mission solved on the Guest without waiting for a click.
     /// Guest attempt does not use this — that player already has the interactive reveal.
     /// </summary>
     private bool SendEncounterMirrorToGuest(Card? card, string title, string body, string? subtitle, bool open, bool wait = false)
     {
         if (_gameMode != GameMode.Network || _netSession is not { IsHost: true } || _attemptRemoteSurface)
             return false;
-        if (open && !IsEncounterRevealCard(card))
+        if (open && !IsWatcherSharedReveal(card, title))
             return false;
         if (!open && !_guestEncounterMirrorOpen)
             return false;
