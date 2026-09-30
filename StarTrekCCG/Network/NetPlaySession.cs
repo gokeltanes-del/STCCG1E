@@ -17,6 +17,7 @@ public sealed class NetPlaySession : IDisposable
 
     private readonly NetServer? _server;
     private readonly NetClient? _client;
+    private readonly INetLink? _link;
     private readonly CancellationTokenSource _cts = new();
     private Task? _receiveTask;
     private SynchronizationContext? _sync;
@@ -62,24 +63,37 @@ public sealed class NetPlaySession : IDisposable
     /// <summary>Guest: resume token for this game. The value is not written to the game log.</summary>
     public event Action<string>? SessionTokenReceived;
 
-    private NetPlaySession(SessionRole role, int localPlayer, NetServer? server, NetClient? client)
+    private NetPlaySession(SessionRole role, int localPlayer, NetServer? server, NetClient? client, INetLink? link)
     {
         Role = role;
         LocalPlayer = localPlayer;
         _server = server;
         _client = client;
+        _link = link;
     }
 
     public static NetPlaySession CreateHost(NetServer server, int localPlayer = 1)
     {
         ArgumentNullException.ThrowIfNull(server);
-        return new NetPlaySession(SessionRole.Host, localPlayer, server, null);
+        return new NetPlaySession(SessionRole.Host, localPlayer, server, null, null);
     }
 
     public static NetPlaySession CreateGuest(NetClient client, int localPlayer = 2)
     {
         ArgumentNullException.ThrowIfNull(client);
-        return new NetPlaySession(SessionRole.Guest, localPlayer, null, client);
+        return new NetPlaySession(SessionRole.Guest, localPlayer, null, client, null);
+    }
+
+    public static NetPlaySession CreateHostLink(INetLink link, int localPlayer = 1)
+    {
+        ArgumentNullException.ThrowIfNull(link);
+        return new NetPlaySession(SessionRole.Host, localPlayer, null, null, link);
+    }
+
+    public static NetPlaySession CreateGuestLink(INetLink link, int localPlayer = 2)
+    {
+        ArgumentNullException.ThrowIfNull(link);
+        return new NetPlaySession(SessionRole.Guest, localPlayer, null, null, link);
     }
 
     /// <summary>
@@ -134,7 +148,7 @@ public sealed class NetPlaySession : IDisposable
     {
         ThrowIfDisposed();
         if (_server is null)
-            throw new InvalidOperationException("Only the host accepts a resume.");
+            return ResumeResult.Cancelled;
         await _server.AcceptClientAsync(cancellationToken).ConfigureAwait(false);
         using var readCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         readCts.CancelAfter(TimeSpan.FromSeconds(10));
@@ -177,6 +191,7 @@ public sealed class NetPlaySession : IDisposable
         Interlocked.Increment(ref _loopGeneration);
         try { _server?.Stop(); } catch { /* ignore */ }
         try { _client?.Disconnect(); } catch { /* ignore */ }
+        try { _link?.Disconnect(); } catch { /* ignore */ }
         Post(() => Disconnected?.Invoke("Reconnect grace ended (120s)."));
     }
 
@@ -331,6 +346,8 @@ public sealed class NetPlaySession : IDisposable
         readCts.CancelAfter(DeadAfterMs);
         try
         {
+            if (_link != null)
+                return await _link.ReceiveAsync(readCts.Token).ConfigureAwait(false);
             if (_server != null)
                 return await _server.ReceiveAsync(readCts.Token).ConfigureAwait(false);
             if (_client != null)
@@ -399,7 +416,9 @@ public sealed class NetPlaySession : IDisposable
             return;
         try
         {
-            if (_server != null)
+            if (_link != null)
+                _link.Disconnect();
+            else if (_server != null)
                 _server.DropClient();
             else
                 _client?.Disconnect();
@@ -561,6 +580,8 @@ public sealed class NetPlaySession : IDisposable
 
     private Task SendRawAsync(NetMessage message, CancellationToken cancellationToken = default)
     {
+        if (_link != null)
+            return _link.SendAsync(message, cancellationToken);
         if (_server != null)
             return _server.SendAsync(message, cancellationToken);
         if (_client != null)
@@ -586,6 +607,7 @@ public sealed class NetPlaySession : IDisposable
         try { _cts.Dispose(); } catch { /* ignore */ }
         try { _server?.Dispose(); } catch { /* ignore */ }
         try { _client?.Dispose(); } catch { /* ignore */ }
+        try { _link?.Dispose(); } catch { /* ignore */ }
     }
 
     private void ThrowIfDisposed()

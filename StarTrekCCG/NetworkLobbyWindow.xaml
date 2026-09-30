@@ -121,7 +121,7 @@
                         BorderBrush="#3A3A48" BorderThickness="1" Margin="0,0,0,12">
                     <StackPanel>
                         <TextBlock Text="Matchmaking" Foreground="#EEE" FontSize="13" FontWeight="SemiBold"/>
-                        <TextBlock Text="Optional. Direct IP and Localhost stay as they are. No relay."
+                        <TextBlock Text="Optional. Direct IP and Localhost stay as they are. Play via relay does not open the host port."
                                    Foreground="#888" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,8"/>
                         <Grid Margin="0,0,0,8">
                             <Grid.ColumnDefinitions>
@@ -187,9 +187,12 @@
                                     Height="28" MinWidth="64" Cursor="Hand"
                                     Background="#3A3A48" Foreground="White" BorderThickness="0"/>
                         </Grid>
+                        <Button x:Name="BtnMmRelay" Content="Play via relay" Click="BtnMmRelay_Click"
+                                Height="32" HorizontalAlignment="Stretch" Cursor="Hand" Margin="0,0,0,6"
+                                Background="#0E639C" Foreground="White" BorderThickness="0"/>
                         <Button x:Name="BtnMmPlay" Content="Open direct game" Click="BtnMmPlay_Click"
                                 Height="32" HorizontalAlignment="Stretch" Cursor="Hand"
-                                Background="#0E639C" Foreground="White" BorderThickness="0"/>
+                                Background="#3A3A48" Foreground="White" BorderThickness="0"/>
                         <TextBlock x:Name="MmStateText" Text="Matchmaking idle."
                                    Foreground="#8AB4F8" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"/>
                     </StackPanel>

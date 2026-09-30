@@ -1,4 +1,4 @@
-﻿﻿# HANDOFF â€” STCCG 1E
+﻿﻿﻿﻿# HANDOFF â€” STCCG 1E
 
 **Stand:** 2026-09-30 · **Ort:** Josef `C:\Dev\StarTrekCCG\StarTrekCCG` · **HEAD:** `aa99a37` · **origin/master:** derselbe Hash
 
@@ -22,10 +22,12 @@ Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.m
 - Life-form Scan und Jaglom Shrek: spielt der Gast, sieht er die Karten im eigenen Fenster (ChoiceRequest kind=reveal). Der Host oeffnet die Galerie nicht. Host und Hotseat bleiben BeginOpponentPileInteract.
 - Gap: ein Gast-Drop mit gap: ueberspringt den Dialog weiter. Ohne diese Note waehlt der Gast ueber ChoiceRequest kind=choice. Host und Hotseat bleiben ShowIndexPickDialog.
 - cardId: SetFolder/ReleaseRaw/Name. Speichern schreibt sie (Deck v3). Alte Decks ohne cardId laden weiter ueber Name und Set. Getippt, nicht gruen.
-- Host-Deck: der Gast bekommt es nicht. LobbyReady vom Host hat kein DeckJson. StartGame auf der Leitung hat leeres deckP1Json. Der Gast parst nur sein Deck (P2). Karten des Hosts kommen aus dem maskierten Snapshot (InstanceId bleibt, Name leer wenn verdeckt). Eine Gast-Aktion wartet auf diesen Snapshot und nennt die InstanceId von dort. Getippt, nicht gruen.
+- Host-Deck: der Gast bekommt es nicht. LobbyReady vom Host hat kein DeckJson. StartGame auf der Leitung hat leeres deckP1Json. Der Deck-Titel des Hosts geht in StartGame nicht mehr mit. Getippt, nicht gruen.
+- Relais: LobbyService /relay kopiert die Spiel-Frames, ohne sie zu lesen. Beide Seiten verbinden sich nach aussen. Direct-IP und Localhost bleiben. Getippt, nicht gruen. Start: `dotnet run --project LobbyService/LobbyService.csproj -c Debug` (0.0.0.0:7788, /lobby und /relay).
+- Version: Engine stccg-1e plus SHA-256 der cards.json unter dem DataRoot, den der Client wirklich laedt. Weichen sie ab, kein Start. Getippt, nicht gruen.
 
 **Offen:**
-- Relay fehlt. Versions-Hash fehlt.
+- Relais-Reconnect (dieselbe Partie nach Socket-Verlust) fehlt. Der Direct-IP-Listener bleibt.
 
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
 

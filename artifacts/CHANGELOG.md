@@ -1,4 +1,8 @@
-﻿﻿## 2026-09-30 - Guest does not receive the host deck
+﻿﻿﻿## 2026-09-30 - Relay copies game frames
+
+- Spielbar, nicht gruen: Play via relay schickt die bestehenden NetMessage-Frames ueber LobbyService /relay. Der Dienst kopiert nur. Direct-IP und Localhost bleiben. Version: stccg-1e und Hash der geladenen cards.json. Abweichung blockiert den Start. Start: `dotnet run --project LobbyService/LobbyService.csproj -c Debug` (Port 7788).
+
+## 2026-09-30 - Guest does not receive the host deck
 
 - Spielbar, nicht gruen: LobbyReady und StartGame tragen das Host-Deck nicht mehr zum Gast. Der Gast parst nur sein Deck. Host-Karten und InstanceIds kommen aus dem maskierten Snapshot. Aktionen vor dem ersten Snapshot gehen nicht raus.
 

@@ -19,7 +19,11 @@ public sealed class MatchmakingClient : IDisposable
     private CancellationTokenSource? _cts;
     private Task? _read;
 
+    public string? PlayerId { get; private set; }
     public string? Role { get; private set; }
+    public string VersionNote { get; private set; } = "";
+    public bool VersionKnown { get; private set; }
+    public bool VersionBlocksStart { get; private set; }
     public bool InRoom { get; private set; }
     public string? RoomName { get; private set; }
     public string? DirectHost { get; private set; }
@@ -43,11 +47,20 @@ public sealed class MatchmakingClient : IDisposable
         _read = Task.Run(() => ReadLoopAsync(socket, cts.Token));
     }
 
-    public Task CreateRoomAsync(string room, int gamePort)
-        => SendAsync(new { type = "create", room, gamePort });
+    public async Task CreateRoomAsync(string room, int gamePort)
+    {
+        await SendVersionAsync().ConfigureAwait(false);
+        await SendAsync(new { type = "create", room, gamePort }).ConfigureAwait(false);
+    }
 
-    public Task JoinRoomAsync(string room)
-        => SendAsync(new { type = "join", room });
+    public async Task JoinRoomAsync(string room)
+    {
+        await SendVersionAsync().ConfigureAwait(false);
+        await SendAsync(new { type = "join", room }).ConfigureAwait(false);
+    }
+
+    private Task SendVersionAsync()
+        => SendAsync(new { type = "version", engine = EngineStamp.Id, cardHash = EngineStamp.CardHash });
 
     public Task RefreshAsync()
         => SendAsync(new { type = "list" });
@@ -69,8 +82,12 @@ public sealed class MatchmakingClient : IDisposable
         _socket = null;
         try { _cts?.Dispose(); } catch { /* ignore */ }
         _cts = null;
+        PlayerId = null;
         Role = null;
         InRoom = false;
+        VersionNote = "";
+        VersionKnown = false;
+        VersionBlocksStart = false;
         RoomName = null;
         DirectHost = null;
         DirectPort = 0;
@@ -141,6 +158,7 @@ public sealed class MatchmakingClient : IDisposable
             switch (type)
             {
                 case "welcome":
+                    PlayerId = ReadString(root, "playerId");
                     StateChanged?.Invoke("Connected to matchmaking. Create or join a room.");
                     break;
                 case "rooms":
@@ -202,7 +220,7 @@ public sealed class MatchmakingClient : IDisposable
                 players.Append(ReadString(p, "name"));
                 players.Append(" — ");
                 var deck = ReadString(p, "deckName");
-                players.Append(deck.Length == 0 ? "no deck" : deck);
+                players.Append(deck.Length == 0 ? "no deck" : "deck");
                 players.Append(" (");
                 players.Append(shortHash);
                 players.Append(')');
@@ -224,10 +242,19 @@ public sealed class MatchmakingClient : IDisposable
         }
         ChatChanged?.Invoke(chat.ToString());
 
-        if (string.IsNullOrWhiteSpace(address) || port <= 0)
-            StateChanged?.Invoke($"In room {RoomName} as {Role}. Direct address not published yet.");
+        VersionNote = ReadString(root, "versionNote");
+        VersionKnown = root.TryGetProperty("versionKnown", out var known) && known.ValueKind == JsonValueKind.True;
+        var versionOk = root.TryGetProperty("versionOk", out var okEl) && okEl.ValueKind == JsonValueKind.True;
+        VersionBlocksStart = VersionKnown && !versionOk;
+
+        if (VersionBlocksStart)
+            StateChanged?.Invoke(VersionNote);
+        else if (!VersionKnown)
+            StateChanged?.Invoke(VersionNote.Length == 0 ? "Waiting for both version stamps." : VersionNote);
+        else if (string.IsNullOrWhiteSpace(address) || port <= 0)
+            StateChanged?.Invoke($"In room {RoomName} as {Role}. Versions match. Direct address not published yet.");
         else
-            StateChanged?.Invoke($"In room {RoomName} as {Role}. Direct {address}:{port}.");
+            StateChanged?.Invoke($"In room {RoomName} as {Role}. Versions match. Direct {address}:{port}.");
     }
 
     private static string FormatRooms(JsonElement root)

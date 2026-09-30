@@ -13,7 +13,7 @@ namespace StarTrekCCG.Network;
 /// TCP-Gast: Connect zu Host:Port, Send/Receive von NetMessage, Disconnect.
 /// Framing: Int32 BE Länge + UTF-8 JSON. Keine Spiel-Logik.
 /// </summary>
-public sealed class NetClient : IDisposable
+public sealed class NetClient : INetLink
 {
     private TcpClient? _client;
     private NetworkStream? _stream;

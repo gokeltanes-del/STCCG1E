@@ -28,6 +28,8 @@ public partial class NetworkLobbyWindow : Window
 {
     private NetServer? _server;
     private NetClient? _client;
+    private INetLink? _link;
+    private bool _relayHost;
     private MatchmakingClient? _mm;
     private string? _matchPublicAddress;
     private int _matchPublicPort;
@@ -63,7 +65,7 @@ public partial class NetworkLobbyWindow : Window
     public bool IsConnected { get; private set; }
 
     /// <summary>True when this window hosted the listen/accept side.</summary>
-    public bool IsHost => _server is not null || _detachedWasHost;
+    public bool IsHost => _server is not null || _relayHost || _detachedWasHost;
 
     public NetServer? Server => _server;
     public NetClient? Client => _client;
@@ -132,12 +134,13 @@ public partial class NetworkLobbyWindow : Window
 
             var hello = NetMessage.Create(
                 NetMessage.Types.Handshake,
-                payloadJson: JsonSerializer.Serialize(new { role = "host", player = 1 }));
+                payloadJson: StampPayload("host", 1));
             await _server.SendAsync(hello, ct).ConfigureAwait(true);
 
             var reply = await _server.ReceiveAsync(ct).ConfigureAwait(true);
             if (!string.Equals(reply.Type, NetMessage.Types.Handshake, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException($"Expected handshake, got '{reply.Type}'.");
+            EnsureSameStamp(reply);
 
             IsConnected = true;
             SetStatus("Connected as Host (P1) — pick deck, then Start game when both ready.");
@@ -194,12 +197,13 @@ public partial class NetworkLobbyWindow : Window
 
             var hello = NetMessage.Create(
                 NetMessage.Types.Handshake,
-                payloadJson: JsonSerializer.Serialize(new { role = "guest", player = 2 }));
+                payloadJson: StampPayload("guest", 2));
             await _client.SendAsync(hello, ct).ConfigureAwait(true);
 
             var reply = await _client.ReceiveAsync(ct).ConfigureAwait(true);
             if (!string.Equals(reply.Type, NetMessage.Types.Handshake, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException($"Expected handshake, got '{reply.Type}'.");
+            EnsureSameStamp(reply);
 
             IsConnected = true;
             SetStatus("Connected as Guest (P2) — pick deck, then Start game when both ready.");
@@ -254,7 +258,9 @@ public partial class NetworkLobbyWindow : Window
             while (!ct.IsCancellationRequested && !_gameStarting)
             {
                 NetMessage msg;
-                if (_server != null)
+                if (_link != null)
+                    msg = await _link.ReceiveAsync(ct).ConfigureAwait(false);
+                else if (_server != null)
                     msg = await _server.ReceiveAsync(ct).ConfigureAwait(false);
                 else if (_client != null)
                     msg = await _client.ReceiveAsync(ct).ConfigureAwait(false);
@@ -396,7 +402,7 @@ public partial class NetworkLobbyWindow : Window
             // Wire copy has no host deck. RaiseGameStarting keeps both lists for the host engine.
             var wire = new NetLobbyDto.StartGame
             {
-                DeckP1Name = start.DeckP1Name,
+                DeckP1Name = "",
                 DeckP2Name = start.DeckP2Name,
                 DeckP1Json = "",
                 DeckP2Json = start.DeckP2Json,
@@ -431,7 +437,9 @@ public partial class NetworkLobbyWindow : Window
     private async Task SendLobbyAsync(NetMessage message)
     {
         var ct = _cts?.Token ?? CancellationToken.None;
-        if (_server != null)
+        if (_link != null)
+            await _link.SendAsync(message, ct).ConfigureAwait(true);
+        else if (_server != null)
             await _server.SendAsync(message, ct).ConfigureAwait(true);
         else if (_client != null)
             await _client.SendAsync(message, ct).ConfigureAwait(true);
@@ -600,7 +608,7 @@ public partial class NetworkLobbyWindow : Window
             LobbyReadyText.Text = you;
 
             var peerLabel = IsHost ? "Guest (P2)" : "Host (P1)";
-            var peerDeck = string.IsNullOrWhiteSpace(_peerDeckName) ? "no deck yet" : _peerDeckName;
+            var peerDeck = string.IsNullOrWhiteSpace(_peerDeckName) ? "no deck yet" : "deck selected";
             var peerReady = _peerReady ? "ready" : "not ready";
             LobbyPeerText.Text = $"{peerLabel}: {peerDeck} — {peerReady}";
 
@@ -844,10 +852,11 @@ public partial class NetworkLobbyWindow : Window
     /// Hand ownership of the live NetServer/NetClient to NetPlaySession.
     /// Cancels lobby receive loop first so only one reader remains on the stream.
     /// </summary>
-    public (NetServer? server, NetClient? client) DetachTransport()
+    public (NetServer? server, NetClient? client, INetLink? link) DetachTransport()
     {
         TransportDetached = true;
-        _detachedWasHost = _server is not null;
+        _detachedWasHost = _server is not null || _relayHost;
+        _relayHost = false;
         try { _cts?.Cancel(); } catch { /* ignore */ }
         // Ensure lobby reader stops before NetPlaySession owns the stream.
         try { _lobbyReceiveTask?.Wait(TimeSpan.FromSeconds(2)); } catch { /* ignore */ }
@@ -857,9 +866,11 @@ public partial class NetworkLobbyWindow : Window
 
         var server = _server;
         var client = _client;
+        var link = _link;
         _server = null;
         _client = null;
-        return (server, client);
+        _link = null;
+        return (server, client, link);
     }
 
     private void DisconnectInternal(string? statusMessage)
@@ -876,6 +887,9 @@ public partial class NetworkLobbyWindow : Window
         SetNatStatus("");
         try { _client?.Dispose(); } catch { /* ignore */ }
         _client = null;
+        try { _link?.Dispose(); } catch { /* ignore */ }
+        _link = null;
+        _relayHost = false;
 
         var wasConnected = IsConnected;
         IsConnected = false;
@@ -1107,6 +1121,11 @@ public partial class NetworkLobbyWindow : Window
             SetMmState("Create or join a room first. Host, Join, and Localhost above still work.");
             return;
         }
+        if (VersionBlocks(out var blocked))
+        {
+            SetMmState(blocked);
+            return;
+        }
 
         if (string.Equals(_mm.Role, "host", StringComparison.Ordinal))
         {
@@ -1148,7 +1167,7 @@ public partial class NetworkLobbyWindow : Window
             }
 
             await _mm.SendAddressAsync(host, port).ConfigureAwait(true);
-            SetMmState($"Published {host}:{port} to the room. Relay is not built.");
+            SetMmState($"Published {host}:{port} to the room. Direct IP still works. Relay is Play via relay.");
         }
         catch (Exception ex)
         {
@@ -1213,6 +1232,140 @@ public partial class NetworkLobbyWindow : Window
             }
         }
         return null;
+    }
+
+    private async void BtnMmRelay_Click(object sender, RoutedEventArgs e)
+    {
+        if (_mm is not { InRoom: true })
+        {
+            SetMmState("Create or join a room first. Direct IP and Localhost still work.");
+            return;
+        }
+        if (VersionBlocks(out var blocked))
+        {
+            SetMmState(blocked);
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_mm.PlayerId) || string.IsNullOrWhiteSpace(_mm.RoomName))
+        {
+            SetMmState("The room has no player id yet.");
+            return;
+        }
+        if (!TryParseLobbyService(MmServiceBox.Text, out var host, out var port))
+        {
+            SetMmState("Service address must be host:port, for example 127.0.0.1:7788.");
+            return;
+        }
+        var asHost = string.Equals(_mm.Role, "host", StringComparison.Ordinal);
+        await RunRelayAsync(host, port, _mm.RoomName, asHost, _mm.PlayerId).ConfigureAwait(true);
+    }
+
+    private async Task RunRelayAsync(string host, int port, string room, bool asHost, string playerId)
+    {
+        if (_busy) return;
+        var keepPath = _localDeckPath;
+        var keepJson = _localDeckJson;
+        var keepName = _localDeckName;
+        DisconnectInternal(null);
+        _localDeckPath = keepPath;
+        _localDeckJson = keepJson;
+        _localDeckName = keepName;
+        _busy = true;
+        SetBusyUi(true);
+        _cts = new CancellationTokenSource();
+        var ct = _cts.Token;
+        try
+        {
+            var link = new RelayNetLink();
+            SetStatus(asHost
+                ? $"Relay: connecting as host to {host}:{port}."
+                : $"Relay: connecting as guest to {host}:{port}.");
+            await link.ConnectAsync(host, port, room, asHost ? "host" : "guest", playerId, ct).ConfigureAwait(true);
+            _link = link;
+            _relayHost = asHost;
+            var hello = NetMessage.Create(
+                NetMessage.Types.Handshake,
+                payloadJson: StampPayload(asHost ? "host" : "guest", asHost ? 1 : 2));
+            await link.SendAsync(hello, ct).ConfigureAwait(true);
+            var reply = await link.ReceiveAsync(ct).ConfigureAwait(true);
+            if (!string.Equals(reply.Type, NetMessage.Types.Handshake, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException($"Expected handshake, got '{reply.Type}'.");
+            EnsureSameStamp(reply);
+            IsConnected = true;
+            SetStatus(asHost
+                ? "Relay: Host (P1). No host port. Pick a deck, then Start game."
+                : "Relay: Guest (P2). No host port. Pick a deck, then Start game.");
+            ConnectionChanged?.Invoke(this, true);
+            SetBusyUi(connected: true);
+            EnterLobbyRoom();
+            StartLobbyReceiveLoop();
+        }
+        catch (OperationCanceledException)
+        {
+            DisconnectInternal("Cancelled");
+        }
+        catch (Exception ex)
+        {
+            DisconnectInternal("Relay error: " + ex.Message);
+        }
+        finally
+        {
+            _busy = false;
+            if (!IsConnected)
+                SetBusyUi(false);
+        }
+    }
+
+
+    private bool VersionBlocks(out string why)
+    {
+        why = "";
+        if (_mm == null)
+            return false;
+        if (_mm.VersionBlocksStart)
+        {
+            why = string.IsNullOrWhiteSpace(_mm.VersionNote) ? "Version mismatch. No start." : _mm.VersionNote;
+            return true;
+        }
+        if (!_mm.VersionKnown)
+        {
+            why = string.IsNullOrWhiteSpace(_mm.VersionNote) ? "Waiting for both version stamps." : _mm.VersionNote;
+            return true;
+        }
+        return false;
+    }
+
+    private static string StampPayload(string role, int player)
+        => JsonSerializer.Serialize(new { role, player, engine = EngineStamp.Id, cardHash = EngineStamp.CardHash });
+
+    private static void EnsureSameStamp(NetMessage reply)
+    {
+        string engine = "";
+        string hash = "";
+        if (!string.IsNullOrWhiteSpace(reply.PayloadJson))
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(reply.PayloadJson);
+                var root = doc.RootElement;
+                if (root.TryGetProperty("engine", out var en) && en.ValueKind == JsonValueKind.String)
+                    engine = en.GetString() ?? "";
+                if (root.TryGetProperty("cardHash", out var ch) && ch.ValueKind == JsonValueKind.String)
+                    hash = ch.GetString() ?? "";
+            }
+            catch
+            {
+                engine = "";
+            }
+        }
+        if (!string.Equals(engine, EngineStamp.Id, StringComparison.Ordinal)
+            || !string.Equals(hash, EngineStamp.CardHash, StringComparison.OrdinalIgnoreCase))
+        {
+            var mine = EngineStamp.CardHash.Length >= 8 ? EngineStamp.CardHash[..8] : EngineStamp.CardHash;
+            var theirs = hash.Length >= 8 ? hash[..8] : (hash.Length == 0 ? "none" : hash);
+            throw new InvalidOperationException(
+                $"Version mismatch: engine '{engine}' vs '{EngineStamp.Id}', cards {theirs} vs {mine}. No start.");
+        }
     }
 
     private static bool TryParseLobbyService(string? text, out string host, out int port)

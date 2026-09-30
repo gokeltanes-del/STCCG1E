@@ -10654,8 +10654,12 @@ public partial class TableWindow : Window
         if (_netSession != null) return;
         if (!lobby.IsConnected) return;
 
-        var (server, client) = lobby.DetachTransport();
-        if (server != null)
+        var (server, client, link) = lobby.DetachTransport();
+        if (link != null)
+            _netSession = lobby.IsHost
+                ? NetPlaySession.CreateHostLink(link, localPlayer: 1)
+                : NetPlaySession.CreateGuestLink(link, localPlayer: 2);
+        else if (server != null)
             _netSession = NetPlaySession.CreateHost(server, localPlayer: 1);
         else if (client != null)
         {

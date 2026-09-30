@@ -3,8 +3,8 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 
-// In-memory matchmaking only. No game state, no relay, no deck bodies.
-// Restart clears every room. Listens on 0.0.0.0:7788, WebSocket path /lobby.
+// In-memory rooms. /lobby is signaling. /relay copies game frames and does not read them.
+// Restart clears every room. Listens on 0.0.0.0:7788.
 
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.UseUrls("http://0.0.0.0:7788");
@@ -13,10 +13,11 @@ builder.Logging.AddConsole();
 builder.Logging.SetMinimumLevel(LogLevel.Warning);
 
 var app = builder.Build();
-var book = new RoomBook();
+var relay = new RelayHub();
+var book = new RoomBook(relay);
 
 app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(30) });
-app.MapGet("/", () => Results.Text("StarTrekCCG lobby. WebSocket /lobby. Rooms are in memory. No game relay."));
+app.MapGet("/", () => Results.Text("StarTrekCCG lobby. WebSocket /lobby. Relay WebSocket /relay copies frames only."));
 app.Map("/lobby", async (HttpContext ctx) =>
 {
     if (!ctx.WebSockets.IsWebSocketRequest)
@@ -31,7 +32,20 @@ app.Map("/lobby", async (HttpContext ctx) =>
     await session.RunAsync();
 });
 
-app.Logger.LogWarning("Lobby service listening on http://0.0.0.0:7788/lobby (in-memory rooms, no relay).");
+app.Map("/relay", async (HttpContext ctx) =>
+{
+    if (!ctx.WebSockets.IsWebSocketRequest)
+    {
+        ctx.Response.StatusCode = StatusCodes.Status400BadRequest;
+        await ctx.Response.WriteAsync("WebSocket required.");
+        return;
+    }
+
+    using var socket = await ctx.WebSockets.AcceptWebSocketAsync();
+    await relay.RunAsync(socket, book);
+});
+
+app.Logger.LogWarning("Lobby service listening on http://0.0.0.0:7788 (/lobby signaling, /relay copies frames).");
 app.Run();
 
 static class Limits
@@ -50,6 +64,8 @@ sealed class LobbySession
 
     public string Id { get; } = Guid.NewGuid().ToString("N");
     public string Name { get; private set; } = "";
+    public string Engine { get; set; } = "";
+    public string CardHash { get; set; } = "";
     public bool SaidHello { get; private set; }
 
     public LobbySession(WebSocket socket, RoomBook book)
@@ -159,6 +175,9 @@ sealed class LobbySession
                 case "address":
                     await FanOut(_book.Address(this, ReadString(root, "host"), ReadInt(root, "port")));
                     break;
+                case "version":
+                    await FanOut(_book.ApplyVersion(this, ReadString(root, "engine"), ReadString(root, "cardHash")));
+                    break;
                 case "leave":
                     await FanOut(_book.Leave(this));
                     break;
@@ -236,8 +255,14 @@ sealed record Outbound(LobbySession To, object Payload);
 
 sealed class RoomBook
 {
+    private readonly RelayHub _relay;
     private readonly object _gate = new();
     private readonly Dictionary<string, Room> _rooms = new(StringComparer.Ordinal);
+
+    public RoomBook(RelayHub relay)
+    {
+        _relay = relay;
+    }
 
     public object List()
     {
@@ -274,7 +299,7 @@ sealed class RoomBook
                 return Err(who, "room already exists");
 
             var room = new Room { Name = roomName, ListenPort = gamePort };
-            room.Host = new Seat { Session = who, Name = who.Name, Role = "host" };
+            room.Host = new Seat { Session = who, Name = who.Name, Role = "host", Engine = who.Engine, CardHash = who.CardHash };
             _rooms[roomName] = room;
             return RoomNotes(room);
         }
@@ -291,7 +316,7 @@ sealed class RoomBook
                 return Err(who, "no such room");
             if (room.Guest != null)
                 return Err(who, "room is full");
-            room.Guest = new Seat { Session = who, Name = who.Name, Role = "guest" };
+            room.Guest = new Seat { Session = who, Name = who.Name, Role = "guest", Engine = who.Engine, CardHash = who.CardHash };
             return RoomNotes(room);
         }
     }
@@ -358,6 +383,7 @@ sealed class RoomBook
 
     public List<Outbound> Leave(LobbySession who)
     {
+        _relay.Drop(who.Id);
         lock (_gate)
         {
             var found = FindSeat(who);
@@ -416,6 +442,9 @@ sealed class RoomBook
             address = room.Address ?? "",
             port = room.Port,
             listenPort = room.ListenPort,
+            versionKnown = VersionKnown(room),
+            versionOk = VersionKnown(room) && VersionsMatch(room),
+            versionNote = VersionNote(room),
             players = seats.Where(s => s != null).Select(s => new
             {
                 name = s!.Name,
@@ -425,6 +454,71 @@ sealed class RoomBook
             }).ToArray(),
             lines = room.Lines.Select(l => new { from = l.From, text = l.Text }).ToArray()
         };
+    }
+
+    public string? AuthorizeRelay(string playerId, string roomName, string role)
+    {
+        lock (_gate)
+        {
+            if (!_rooms.TryGetValue(roomName, out var room))
+                return "no such room";
+            var seat = role == "host" ? room.Host : room.Guest;
+            if (seat == null)
+                return "that seat is empty";
+            if (!string.Equals(seat.Session.Id, playerId, StringComparison.Ordinal))
+                return "not your seat";
+            if (room.Host == null || room.Guest == null)
+                return "waiting for both players";
+            if (!VersionKnown(room))
+                return "waiting for both version stamps";
+            if (!VersionsMatch(room))
+                return VersionNote(room);
+            return null;
+        }
+    }
+
+    public List<Outbound> ApplyVersion(LobbySession who, string engine, string cardHash)
+    {
+        engine = LobbySession.ClipName(engine, 40);
+        cardHash = (cardHash ?? "").Trim().ToLowerInvariant();
+        if (engine.Length == 0)
+            return Err(who, "engine required");
+        if (cardHash.Length != 64 || cardHash.Any(c => !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))))
+            return Err(who, "card hash must be 64 hex characters");
+
+        who.Engine = engine;
+        who.CardHash = cardHash;
+        lock (_gate)
+        {
+            var found = FindSeat(who);
+            if (found == null)
+                return new List<Outbound>();
+            found.Value.Seat.Engine = engine;
+            found.Value.Seat.CardHash = cardHash;
+            return RoomNotes(found.Value.Room);
+        }
+    }
+
+    private static bool VersionKnown(Room room)
+        => room.Host != null && room.Guest != null
+           && room.Host.Engine.Length > 0 && room.Guest.Engine.Length > 0
+           && room.Host.CardHash.Length > 0 && room.Guest.CardHash.Length > 0;
+
+    private static bool VersionsMatch(Room room)
+        => string.Equals(room.Host!.Engine, room.Guest!.Engine, StringComparison.Ordinal)
+           && string.Equals(room.Host.CardHash, room.Guest.CardHash, StringComparison.OrdinalIgnoreCase);
+
+    private static string VersionNote(Room room)
+    {
+        if (room.Host == null || room.Guest == null)
+            return "waiting for both players";
+        if (!VersionKnown(room))
+            return "waiting for both version stamps";
+        if (!string.Equals(room.Host.Engine, room.Guest.Engine, StringComparison.Ordinal))
+            return "engine mismatch: " + room.Host.Engine + " vs " + room.Guest.Engine + ". No start.";
+        if (!string.Equals(room.Host.CardHash, room.Guest.CardHash, StringComparison.OrdinalIgnoreCase))
+            return "card data mismatch (" + room.Host.CardHash[..8] + " vs " + room.Guest.CardHash[..8] + "). No start.";
+        return "versions match";
     }
 
     private static List<Outbound> Err(LobbySession who, string message)
@@ -459,5 +553,7 @@ sealed class RoomBook
         public string Role { get; set; } = "";
         public string? DeckName { get; set; }
         public string? DeckHash { get; set; }
+        public string Engine { get; set; } = "";
+        public string CardHash { get; set; } = "";
     }
 }
