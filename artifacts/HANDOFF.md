@@ -24,6 +24,7 @@ Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.m
 - cardId: SetFolder/ReleaseRaw/Name. Speichern schreibt sie (Deck v3). Alte Decks ohne cardId laden weiter ueber Name und Set. Getippt, nicht gruen.
 - Host-Deck: der Gast bekommt es nicht. LobbyReady vom Host hat kein DeckJson. StartGame auf der Leitung hat leeres deckP1Json. Der Deck-Titel des Hosts geht in StartGame nicht mehr mit. Getippt, nicht gruen.
 - Relais: LobbyService /relay kopiert die Spiel-Frames, ohne sie zu lesen. Beide Seiten verbinden sich nach aussen. Direct-IP und Localhost bleiben. Getippt, nicht gruen. Start: `dotnet run --project LobbyService/LobbyService.csproj -c Debug` (0.0.0.0:7788, /lobby und /relay).
+- Relais: beide Sitze an /relay wachen auf und kopieren. Der Dienst schickt open und wartet nicht auf open vom Client. Frames vor dem Peer gehen unveraendert weiter. Ein zweites Play via relay bei offener Pipe bricht den anderen Sitz nicht ab. Getippt, nicht gruen.
 - Version: Engine stccg-1e plus SHA-256 der cards.json unter dem DataRoot, den der Client wirklich laedt. Weichen sie ab, kein Start. Getippt, nicht gruen.
 
 **Offen:**

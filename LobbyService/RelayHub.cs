@@ -30,7 +30,7 @@ sealed class RelayHub
             }
 
             me = new RelayEnd(socket, room, role, playerId);
-            (RelayEnd Host, RelayEnd Guest)? opened;
+            bool opened;
             try
             {
                 opened = Attach(me);
@@ -40,29 +40,11 @@ sealed class RelayHub
                 await SendTextAsync(socket, new { type = "relay", status = "error", message = ex.Message }).ConfigureAwait(false);
                 return;
             }
-            if (opened == null)
+
+            if (!opened)
                 await SendTextAsync(socket, new { type = "relay", status = "waiting" }).ConfigureAwait(false);
-
-            var sawOpen = opened != null;
-            while (!sawOpen)
-            {
-                var incoming = await ReadAnyAsync(socket).ConfigureAwait(false);
-                if (incoming == null)
-                    return;
-                if (incoming.Value.Binary)
-                    Queue(me, incoming.Value.Bytes);
-                else if (IsOpenStatus(incoming.Value.Bytes))
-                    sawOpen = true;
-            }
-
-            if (opened != null)
-            {
-                await SendTextAsync(opened.Value.Host.Socket, new { type = "relay", status = "open" }).ConfigureAwait(false);
-                await SendTextAsync(opened.Value.Guest.Socket, new { type = "relay", status = "open" }).ConfigureAwait(false);
-                await FlushAsync(opened.Value.Host, opened.Value.Guest).ConfigureAwait(false);
-                await FlushAsync(opened.Value.Guest, opened.Value.Host).ConfigureAwait(false);
-                Console.Error.WriteLine("relay open room " + room);
-            }
+            else
+                await OpenPipeAsync(me).ConfigureAwait(false);
 
             await PumpAsync(me).ConfigureAwait(false);
         }
@@ -77,7 +59,7 @@ sealed class RelayHub
         finally
         {
             if (me != null)
-                Drop(me.PlayerId);
+                Drop(me);
         }
     }
 
@@ -107,7 +89,24 @@ sealed class RelayHub
         CloseQuiet(guest, playerId);
     }
 
-    private (RelayEnd Host, RelayEnd Guest)? Attach(RelayEnd me)
+    private void Drop(RelayEnd me)
+    {
+        RelayEnd? other = null;
+        lock (_gate)
+        {
+            if (!_pairs.TryGetValue(me.Room, out var pair))
+                return;
+            var mine = me.Role == "host" ? pair.Host : pair.Guest;
+            if (!ReferenceEquals(mine, me))
+                return;
+            other = ReferenceEquals(pair.Host, me) ? pair.Guest : pair.Host;
+            _pairs.Remove(me.Room);
+        }
+
+        CloseQuiet(other, me.PlayerId);
+    }
+
+    private bool Attach(RelayEnd me)
     {
         lock (_gate)
         {
@@ -130,47 +129,96 @@ sealed class RelayHub
                 pair.Guest = me;
             }
 
-            if (pair.Host != null && pair.Guest != null)
-                return (pair.Host, pair.Guest);
-            return null;
+            return pair.Host != null && pair.Guest != null;
         }
+    }
+
+    private async Task OpenPipeAsync(RelayEnd me)
+    {
+        RelayEnd host;
+        RelayEnd guest;
+        lock (_gate)
+        {
+            if (!_pairs.TryGetValue(me.Room, out var pair) || pair.Host == null || pair.Guest == null)
+                return;
+            host = pair.Host;
+            guest = pair.Guest;
+        }
+
+        await SendTextAsync(host.Socket, new { type = "relay", status = "open" }).ConfigureAwait(false);
+        await SendTextAsync(guest.Socket, new { type = "relay", status = "open" }).ConfigureAwait(false);
+
+        while (true)
+        {
+            byte[][] hostFrames;
+            byte[][] guestFrames;
+            lock (_gate)
+            {
+                if (!_pairs.TryGetValue(me.Room, out var pair)
+                    || !ReferenceEquals(pair.Host, host)
+                    || !ReferenceEquals(pair.Guest, guest))
+                    return;
+                lock (host.Pending)
+                {
+                    hostFrames = host.Pending.ToArray();
+                    host.Pending.Clear();
+                    host.PendingBytes = 0;
+                }
+                lock (guest.Pending)
+                {
+                    guestFrames = guest.Pending.ToArray();
+                    guest.Pending.Clear();
+                    guest.PendingBytes = 0;
+                }
+                if (hostFrames.Length == 0 && guestFrames.Length == 0)
+                {
+                    pair.Forwarding = true;
+                    break;
+                }
+            }
+
+            foreach (var frame in hostFrames)
+                await SendBinaryAsync(guest, frame).ConfigureAwait(false);
+            foreach (var frame in guestFrames)
+                await SendBinaryAsync(host, frame).ConfigureAwait(false);
+        }
+
+        Console.Error.WriteLine("relay open room " + me.Room);
     }
 
     private async Task PumpAsync(RelayEnd me)
     {
         while (me.Socket.State == WebSocketState.Open)
         {
-            var frame = await ReadBinaryAsync(me.Socket).ConfigureAwait(false);
-            if (frame == null)
+            var incoming = await ReadAnyAsync(me.Socket).ConfigureAwait(false);
+            if (incoming == null)
                 return;
-            var peer = Peer(me);
-            if (peer == null)
-            {
-                lock (me.Pending)
-                {
-                    if (me.PendingBytes + frame.Length > 2 * 1024 * 1024 || me.Pending.Count >= 8)
-                        throw new InvalidOperationException("relay peer not here");
-                    me.Pending.Add(frame);
-                    me.PendingBytes += frame.Length;
-                }
+            if (!incoming.Value.Binary)
                 continue;
+
+            var frame = incoming.Value.Bytes;
+            RelayEnd? peer;
+            lock (_gate)
+            {
+                if (!_pairs.TryGetValue(me.Room, out var pair) || !pair.Forwarding)
+                {
+                    Queue(me, frame);
+                    continue;
+                }
+                if (ReferenceEquals(pair.Host, me))
+                    peer = pair.Guest;
+                else if (ReferenceEquals(pair.Guest, me))
+                    peer = pair.Host;
+                else
+                    peer = null;
+                if (peer == null)
+                {
+                    Queue(me, frame);
+                    continue;
+                }
             }
 
             await SendBinaryAsync(peer, frame).ConfigureAwait(false);
-        }
-    }
-
-    private RelayEnd? Peer(RelayEnd me)
-    {
-        lock (_gate)
-        {
-            if (!_pairs.TryGetValue(me.Room, out var pair))
-                return null;
-            if (ReferenceEquals(pair.Host, me))
-                return pair.Guest;
-            if (ReferenceEquals(pair.Guest, me))
-                return pair.Host;
-            return null;
         }
     }
 
@@ -182,20 +230,6 @@ sealed class RelayHub
                 throw new InvalidOperationException("relay peer not here");
             me.Pending.Add(frame);
             me.PendingBytes += frame.Length;
-        }
-    }
-
-    private static bool IsOpenStatus(byte[] bytes)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(Encoding.UTF8.GetString(bytes));
-            var status = doc.RootElement.TryGetProperty("status", out var st) ? st.GetString() : null;
-            return string.Equals(status, "open", StringComparison.Ordinal);
-        }
-        catch
-        {
-            return false;
         }
     }
 
@@ -221,19 +255,6 @@ sealed class RelayHub
         }
         while (!result.EndOfMessage);
         return (binary == true, ms.ToArray());
-    }
-
-    private static async Task FlushAsync(RelayEnd from, RelayEnd to)
-    {
-        byte[][] frames;
-        lock (from.Pending)
-        {
-            frames = from.Pending.ToArray();
-            from.Pending.Clear();
-            from.PendingBytes = 0;
-        }
-        foreach (var frame in frames)
-            await SendBinaryAsync(to, frame).ConfigureAwait(false);
     }
 
     private static async Task SendBinaryAsync(RelayEnd dest, byte[] payload)
@@ -318,9 +339,6 @@ sealed class RelayHub
         return Encoding.UTF8.GetString(frame);
     }
 
-    private static Task<byte[]?> ReadBinaryAsync(WebSocket socket)
-        => ReadFrameAsync(socket, 16 * 1024 * 1024, textOnly: false);
-
     private static async Task<byte[]?> ReadFrameAsync(WebSocket socket, int max, bool textOnly)
     {
         using var ms = new MemoryStream();
@@ -347,6 +365,7 @@ sealed class RelayHub
     {
         public RelayEnd? Host { get; set; }
         public RelayEnd? Guest { get; set; }
+        public bool Forwarding { get; set; }
     }
 
     private sealed class RelayEnd

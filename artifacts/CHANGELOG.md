@@ -1,4 +1,8 @@
-﻿﻿﻿## 2026-09-30 - Relay copies game frames
+﻿﻿﻿## 2026-09-30 - Relay wakes both seats
+
+- Getippt, nicht gruen: Beide Sitze an /relay wachen auf und kopieren. Der Dienst schickt open und wartet nicht auf open vom Client. Frames, die vor dem Peer ankamen, gehen unveraendert weiter, ungelesen. Ein zweites Play via relay bei offener Pipe bricht den anderen Sitz nicht ab. Direct-IP und Localhost bleiben. /lobby bleibt Signaling.
+
+## 2026-09-30 - Relay copies game frames
 
 - Spielbar, nicht gruen: Play via relay schickt die bestehenden NetMessage-Frames ueber LobbyService /relay. Der Dienst kopiert nur. Direct-IP und Localhost bleiben. Version: stccg-1e und Hash der geladenen cards.json. Abweichung blockiert den Start. Start: `dotnet run --project LobbyService/LobbyService.csproj -c Debug` (Port 7788).
 

@@ -1262,6 +1262,13 @@ public partial class NetworkLobbyWindow : Window
 
     private async Task RunRelayAsync(string host, int port, string room, bool asHost, string playerId)
     {
+        if (_link is RelayNetLink { IsConnected: true })
+        {
+            SetStatus(asHost
+                ? "Relay: Host (P1). No host port. Pick a deck, then Start game."
+                : "Relay: Guest (P2). No host port. Pick a deck, then Start game.");
+            return;
+        }
         if (_busy) return;
         var keepPath = _localDeckPath;
         var keepJson = _localDeckJson;
