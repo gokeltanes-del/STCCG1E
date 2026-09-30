@@ -1,4 +1,9 @@
-﻿﻿﻿## 2026-09-30 - Account login on the lobby service
+﻿﻿﻿## 2026-09-30 - Relay socket stays open when the game starts
+
+- Getippt, nicht gruen, nicht DONE. Die Lobby gibt den offenen Relais-Socket an den Tisch. Der Lobby-Token wird nicht mehr abgebrochen, solange RelayNetLink.ReceiveAsync darauf liest. Auf net8 schliesst genau dieses Abbrechen den Socket (Relay is not connected.), und der Dienst beendet dann den Gast. Der laufende Read geht an die Session und wird nicht ein zweites Mal auf demselben Socket gestartet.
+- Direct-IP bricht den eigenen Lobby-Read weiter ab. RoomBook.Leave bleibt ohne Relay-Drop. Die Host-Deckliste geht nicht an den Gast. Kein Konten-Umbau, kein Latinum.
+
+## 2026-09-30 - Account login on the lobby service
 
 - Getippt, nicht gruen, nicht DONE. Gleicher LobbyService, kein zweites Projekt, keine Spielsimulation. Register und Login. Passwort mit BCrypt.Net-Next (verwaltetes bcrypt, kein natives bcrypt). Konten, Decks und die eingefrorene Partie in SQLite ueber Microsoft.Data.Sqlite. Token auf spaeteren Lobby-Rufen. Anzeigename max 24 und am Konto gebunden.
 - Login-Fenster vor der Netzwerk-Lobby: Register, Login, weiter als Sandbox. Direct-IP und Localhost bleiben.

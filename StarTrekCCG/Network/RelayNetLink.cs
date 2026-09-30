@@ -17,6 +17,9 @@ public sealed class RelayNetLink : INetLink
 {
     private ClientWebSocket? _socket;
     private readonly SemaphoreSlim _send = new(1, 1);
+    private readonly object _receiveGate = new();
+    private Task<NetMessage>? _receive;
+    private bool _handOff;
     private bool _disposed;
 
     public bool IsConnected => _socket is { State: WebSocketState.Open };
@@ -75,16 +78,78 @@ public sealed class RelayNetLink : INetLink
         }
     }
 
-    public async Task<NetMessage> ReceiveAsync(CancellationToken cancellationToken = default)
+    public Task<NetMessage> ReceiveAsync(CancellationToken cancellationToken = default)
     {
-        var socket = SocketOrThrow();
-        var frame = await ReadBinaryAsync(socket, cancellationToken).ConfigureAwait(false);
-        if (frame.Length < 4)
-            throw new InvalidDataException("Relay frame is too short.");
-        var length = IPAddress.NetworkToHostOrder(BitConverter.ToInt32(frame, 0));
-        if (length < 0 || length > 16 * 1024 * 1024 || frame.Length != 4 + length)
-            throw new InvalidDataException($"Invalid relay frame length: {length}.");
-        return NetMessage.Deserialize(Encoding.UTF8.GetString(frame, 4, length));
+        Task<NetMessage>? adopted = null;
+        TaskCompletionSource<NetMessage>? created = null;
+        ClientWebSocket? socket = null;
+        lock (_receiveGate)
+        {
+            if (_handOff && _receive != null)
+            {
+                adopted = _receive;
+                _handOff = false;
+                if (adopted.IsCompleted)
+                    _receive = null;
+            }
+            else if (_receive != null)
+            {
+                throw new InvalidOperationException("Relay receive already in progress.");
+            }
+            else
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                socket = SocketOrThrow();
+                created = new TaskCompletionSource<NetMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
+                _receive = created.Task;
+            }
+        }
+
+        if (adopted != null)
+            return adopted;
+
+        _ = PumpAsync(socket!, cancellationToken, created!);
+        return created!.Task;
+    }
+
+    /// <summary>
+    /// Lobby is blocked in ReceiveAsync. The session must await that same task.
+    /// Do not cancel the token inside that read: on net8, ClientWebSocket.ReceiveAsync
+    /// aborts the socket when its token is cancelled.
+    /// </summary>
+    public void HandOffInFlightReceive()
+    {
+        lock (_receiveGate)
+        {
+            if (_receive != null)
+                _handOff = true;
+        }
+    }
+
+    private async Task PumpAsync(ClientWebSocket socket, CancellationToken cancellationToken, TaskCompletionSource<NetMessage> done)
+    {
+        try
+        {
+            var frame = await ReadBinaryAsync(socket, cancellationToken).ConfigureAwait(false);
+            if (frame.Length < 4)
+                throw new InvalidDataException("Relay frame is too short.");
+            var length = IPAddress.NetworkToHostOrder(BitConverter.ToInt32(frame, 0));
+            if (length < 0 || length > 16 * 1024 * 1024 || frame.Length != 4 + length)
+                throw new InvalidDataException($"Invalid relay frame length: {length}.");
+            done.TrySetResult(NetMessage.Deserialize(Encoding.UTF8.GetString(frame, 4, length)));
+        }
+        catch (Exception ex)
+        {
+            done.TrySetException(ex);
+        }
+        finally
+        {
+            lock (_receiveGate)
+            {
+                if (!_handOff && ReferenceEquals(_receive, done.Task))
+                    _receive = null;
+            }
+        }
     }
 
     public void Disconnect()

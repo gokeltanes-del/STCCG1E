@@ -285,7 +285,13 @@ public partial class NetworkLobbyWindow : Window
             {
                 NetMessage msg;
                 if (_link != null)
-                    msg = await _link.ReceiveAsync(ct).ConfigureAwait(false);
+                {
+                    // None: this token must not enter ClientWebSocket.ReceiveAsync.
+                    // Detach hands the in-flight read to the session. Cancelling it aborts the socket on net8.
+                    msg = await _link.ReceiveAsync(CancellationToken.None).ConfigureAwait(false);
+                    if (_gameStarting)
+                        break;
+                }
                 else if (_server != null)
                     msg = await _server.ReceiveAsync(ct).ConfigureAwait(false);
                 else if (_client != null)
@@ -913,20 +919,34 @@ public partial class NetworkLobbyWindow : Window
     }
 
     /// <summary>
-    /// Hand ownership of the live NetServer/NetClient to NetPlaySession.
-    /// Cancels lobby receive loop first so only one reader remains on the stream.
+    /// Hand ownership of the live transport to NetPlaySession.
+    /// Direct IP cancels its lobby read so only one reader remains on the stream.
+    /// Relay does not: cancelling the token inside RelayNetLink.ReceiveAsync aborts the socket on net8.
+    /// That in-flight read is handed to the session and is not started again.
     /// </summary>
     public (NetServer? server, NetClient? client, INetLink? link) DetachTransport()
     {
         TransportDetached = true;
         _detachedWasHost = _server is not null || _relayHost;
         _relayHost = false;
-        try { _cts?.Cancel(); } catch { /* ignore */ }
-        // Ensure lobby reader stops before NetPlaySession owns the stream.
-        try { _lobbyReceiveTask?.Wait(TimeSpan.FromSeconds(2)); } catch { /* ignore */ }
-        try { _cts?.Dispose(); } catch { /* ignore */ }
-        _cts = null;
-        _lobbyReceiveTask = null;
+        if (_link is RelayNetLink relay)
+        {
+            relay.HandOffInFlightReceive();
+            // Leave _cts uncancelled. The lobby loop is inside ReceiveAsync(CancellationToken.None)
+            // and exits on _gameStarting without a second read. Disposing the source here can throw
+            // from the loop's token, so drop the field and let the loop release it.
+            _cts = null;
+            _lobbyReceiveTask = null;
+        }
+        else
+        {
+            try { _cts?.Cancel(); } catch { /* ignore */ }
+            // Ensure lobby reader stops before NetPlaySession owns the stream.
+            try { _lobbyReceiveTask?.Wait(TimeSpan.FromSeconds(2)); } catch { /* ignore */ }
+            try { _cts?.Dispose(); } catch { /* ignore */ }
+            _cts = null;
+            _lobbyReceiveTask = null;
+        }
 
         var server = _server;
         var client = _client;

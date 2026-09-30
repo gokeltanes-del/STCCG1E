@@ -1,12 +1,14 @@
 ﻿﻿﻿﻿# HANDOFF â€” STCCG 1E
 
-**Stand:** 2026-09-30 · **Ort:** Josef `C:\Dev\StarTrekCCG\StarTrekCCG` · **HEAD:** local Phase 3 tip, parent `06364f2`, not pushed · **origin/master:** not this tip
+**Stand:** 2026-09-30 · **Ort:** Josef `C:\Dev\StarTrekCCG\StarTrekCCG` · **HEAD:** local relay-start tip, parent `042c445`, not pushed · **origin/master:** not this tip
 
 Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.md`, `FEATURES.md`, Coverage.
 
 ---
 
 ## Jetzt aktiv
+
+**Relais Spielstart:** getippt, nicht gruen, nicht DONE, nicht gepusht. Der Lobby-Read auf dem Relais wird nicht abgebrochen. Derselbe laufende Read geht an die Session, kein zweiter Read auf dem Socket. Der Socket bleibt Open. Direct-IP bricht seinen eigenen Read weiter ab. Host-Deck geht nicht an den Gast. RoomBook.Leave unveraendert.
 
 **Pepsch, 2026-09-30:** Relais funktioniert. Open direct game funktioniert. Sein Test dieser beiden Wege, nicht DONE fuer aeltere Netzpunkte. Offen: UPnP-Router-Test, Zwei-Netz-NAT, Relais-Reconnect-Grace. Der erste Gast-Play-Zug ist davon nicht gruen. Er hat ihn hier nicht bestaetigt.
 
