@@ -1,14 +1,29 @@
 ﻿# HANDOFF â€” STCCG 1E
 
-**Stand:** 2026-09-28 Â· **Ort:** Josef `C:\Dev\StarTrekCCG\StarTrekCCG` Â· **GitHub `master`:** `8083785`
+**Stand:** 2026-09-30 · **Ort:** Josef `C:\Dev\StarTrekCCG\StarTrekCCG` · **HEAD:** `aa99a37` · **origin/master:** derselbe Hash
 
 Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.md`, `FEATURES.md`, Coverage.
 
 ---
 
-## Jetzt aktiv — Schritt 7 Matchmaking-Lobby
+## Jetzt aktiv
 
-**Status:** Schritte 1-6 committed (66420c6, 8d54aed, 81cc501, a9df863, acae526, 8005df4). Schritt 7 Matchmaking getippt. Relay nicht gebaut. Zweitrechner-Test offen. Nicht gruen. Start: dotnet run --project LobbyService/LobbyService.csproj -c Debug, Port 7788. Details: CHANGELOG 2026-09-30 Matchmaking.
+**Status:** Sieben Commits seit `dda4334` sind gepusht (HEAD = origin/master `aa99a37`, 0 ahead / 0 behind). Getippt, von Pepsch nicht gruen. Zweitrechner-Test offen. Nicht gruen.
+
+- `66420c6` Heartbeat
+- `8d54aed` Maske
+- `81cc501` Ok-Reveal
+- `a9df863` Reconnect
+- `acae526` Choice-Fallback
+- `8005df4` UPnP
+- `aa99a37` LobbyService (Signaling, kein Spiel-Relay). Dienst: `dotnet run --project LobbyService/LobbyService.csproj -c Debug`, Port 7788. Details: CHANGELOG 2026-09-30.
+
+**Offen:**
+- StartGame schickt dem Gast noch beide Deck-JSONs (`deckP1Json` und `deckP2Json`). Nicht abgeschnitten: `OnLobbyGameStarting` parst beide (`LoadAndLinkDeckFromJson`, leeres JSON wirft). `PlaceDeckOnTable` legt P1, danach `PlaceOpponentDeck` P2. Dieselben InstanceIds nimmt der Host in `FromDto` vor dem Namen. Ohne das Host-Deck auf dem Gast trifft eine Gast-Aktion die falsche Host-Karte. Der Host behaelt beide Decks lokal und holt das JSON nicht vom Gast zurueck.
+- Life-form Scan und Jaglom Shrek bleiben Host-lokal (`BeginOpponentPileInteract`).
+- `ShowIndexPickDialog` bleibt Host-lokal. Ein Gast-Drop mit `gap:` ueberspringt den Dialog.
+- `cardId` fehlt. Relay fehlt. Versions-Hash fehlt.
+
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
 
 ### Architektur
@@ -21,7 +36,7 @@ Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.m
 2. Phase 2 Lobby/UI: Host / Join / Localhost â€” getippt `2aa9790`.
 3. Phase 3 Sync: GameAction â†’ Host EngineAuthority â†’ maskierter State â€” getippt `df904b4`.
 4. Phase 4 Dialoge/Timing: ChoiceRequest / ChoiceResponse â€” getippt `e102b47`.
-5. Phase 5 HÃ¤rtung: Disconnect, Reconnect, Abbruch â€” offen.
+5. Phase 5 Haertung: Disconnect, Reconnect, Abbruch - getippt `a9df863`, von Pepsch nicht gruen. Nicht mehr offen.
 
 ### Letzte Tips auf `master` (2026-09-28)
 - Spaceline Insert: Q-Net/Gaps eigene `_spacelineOrder`-Spalten (Mission | Span | Mission). Snapshot `ColumnInstanceIds`. `InsertSpanColumn` / `EnsureSpanColumnsInOrder`. Tip `8083785`.
