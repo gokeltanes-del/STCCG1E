@@ -592,8 +592,6 @@ public partial class NetworkLobbyWindow : Window
         catch { /* ignore */ }
 
         DeckCombo.ItemsSource = items;
-        if (MmDeckCombo != null)
-            MmDeckCombo.ItemsSource = items;
         if (items.Count > 0 && DeckCombo.SelectedIndex < 0)
             DeckCombo.SelectedIndex = -1; // user must pick explicitly
     }
@@ -1106,12 +1104,6 @@ public partial class NetworkLobbyWindow : Window
         {
             SetMmState(ex.Message);
         }
-    }
-
-    private async void MmDeckCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (MmDeckCombo.SelectedItem is not DeckListItem item) return;
-        await ApplyLocalDeckAsync(item.Path, Path.GetFileNameWithoutExtension(item.Path)).ConfigureAwait(true);
     }
 
     private async void BtnMmPlay_Click(object sender, RoutedEventArgs e)

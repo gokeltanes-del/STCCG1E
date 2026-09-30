@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 
 // In-memory rooms. /lobby is signaling. /relay copies game frames and does not read them.
+// Closing /lobby does not abort /relay. A relay seat drops only when that relay socket ends.
 // Restart clears every room. Listens on 0.0.0.0:7788.
 
 var builder = WebApplication.CreateBuilder(args);
@@ -14,7 +15,7 @@ builder.Logging.SetMinimumLevel(LogLevel.Warning);
 
 var app = builder.Build();
 var relay = new RelayHub();
-var book = new RoomBook(relay);
+var book = new RoomBook();
 
 app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(30) });
 app.MapGet("/", () => Results.Text("StarTrekCCG lobby. WebSocket /lobby. Relay WebSocket /relay copies frames only."));
@@ -255,14 +256,8 @@ sealed record Outbound(LobbySession To, object Payload);
 
 sealed class RoomBook
 {
-    private readonly RelayHub _relay;
     private readonly object _gate = new();
     private readonly Dictionary<string, Room> _rooms = new(StringComparer.Ordinal);
-
-    public RoomBook(RelayHub relay)
-    {
-        _relay = relay;
-    }
 
     public object List()
     {
@@ -383,7 +378,7 @@ sealed class RoomBook
 
     public List<Outbound> Leave(LobbySession who)
     {
-        _relay.Drop(who.Id);
+        // Lobby close, including the window closing at game start, must not abort /relay.
         lock (_gate)
         {
             var found = FindSeat(who);

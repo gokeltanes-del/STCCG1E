@@ -3,6 +3,8 @@ using System.Text;
 using System.Text.Json;
 
 // Copies one binary frame from one seat to the other. Does not read the frame.
+// A seat is dropped only when its own relay socket ends. That aborts the peer
+// so the pipe does not stay half open. Lobby leave does not call in here.
 sealed class RelayHub
 {
     private readonly object _gate = new();
@@ -61,32 +63,6 @@ sealed class RelayHub
             if (me != null)
                 Drop(me);
         }
-    }
-
-    public void Drop(string playerId)
-    {
-        RelayEnd? host = null;
-        RelayEnd? guest = null;
-        lock (_gate)
-        {
-            string? key = null;
-            foreach (var pair in _pairs)
-            {
-                if (string.Equals(pair.Value.Host?.PlayerId, playerId, StringComparison.Ordinal)
-                    || string.Equals(pair.Value.Guest?.PlayerId, playerId, StringComparison.Ordinal))
-                {
-                    key = pair.Key;
-                    host = pair.Value.Host;
-                    guest = pair.Value.Guest;
-                    break;
-                }
-            }
-            if (key != null)
-                _pairs.Remove(key);
-        }
-
-        CloseQuiet(host, playerId);
-        CloseQuiet(guest, playerId);
     }
 
     private void Drop(RelayEnd me)

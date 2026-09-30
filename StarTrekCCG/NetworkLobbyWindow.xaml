@@ -160,18 +160,6 @@
                                     Height="30" MinWidth="64" Cursor="Hand"
                                     Background="#3A3A48" Foreground="White" BorderThickness="0"/>
                         </StackPanel>
-                        <TextBlock Text="Deck (only a hash is sent)" Foreground="#AAA" FontSize="11" Margin="0,0,0,4"/>
-                        <Grid Margin="0,0,0,8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <ComboBox x:Name="MmDeckCombo" Height="28" Margin="0,0,8,0"
-                                      Background="#1E1E22" Foreground="#EEE" BorderBrush="#3A3A48"
-                                      SelectionChanged="MmDeckCombo_SelectionChanged"/>
-                            <Button Grid.Column="1" Content="Browse..." Height="28" MinWidth="72" Cursor="Hand"
-                                    Click="BtnBrowseDeck_Click" Background="#3A3A48" Foreground="White" BorderThickness="0"/>
-                        </Grid>
                         <TextBlock x:Name="MmPlayersText" Text="" Foreground="#CCC" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,6"/>
                         <TextBox x:Name="MmChatLog" Height="64" IsReadOnly="True" TextWrapping="Wrap"
                                  VerticalScrollBarVisibility="Auto" Margin="0,0,0,6"

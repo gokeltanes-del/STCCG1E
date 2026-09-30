@@ -1,4 +1,8 @@
-﻿﻿﻿## 2026-09-30 - Relay wakes both seats
+﻿﻿﻿## 2026-09-30 - Relay stays up when the lobby closes
+
+- Getippt, nicht gruen: Schliessen von /lobby, auch das Lobby-Fenster beim Spielstart, bricht /relay nicht ab. Ein Relais-Sitz faellt nur, wenn sein eigener Socket endet, und dann nur der andere Sitz. Heartbeat-Pings gehen weiter. Die zweite Deck-Zeile im Matchmaking ist weg. Hash und Deck kommen weiter von der oberen Auswahl. Der Gegner sieht weiter nur "deck selected". Direct-IP und Localhost bleiben.
+
+## 2026-09-30 - Relay wakes both seats
 
 - Getippt, nicht gruen: Beide Sitze an /relay wachen auf und kopieren. Der Dienst schickt open und wartet nicht auf open vom Client. Frames, die vor dem Peer ankamen, gehen unveraendert weiter, ungelesen. Ein zweites Play via relay bei offener Pipe bricht den anderen Sitz nicht ab. Direct-IP und Localhost bleiben. /lobby bleibt Signaling.
 
