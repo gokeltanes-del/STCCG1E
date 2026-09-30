@@ -10263,6 +10263,7 @@ public partial class TableWindow : Window
         }
         catch { /* designer / headless */ }
         RefreshActionHistory();
+        ReportMatchResult(winner);
     }
 
     /// <summary>Spock: 1 Keep per Raise copy from loser's draw → winner Out of Play (not hand).</summary>
@@ -10625,7 +10626,14 @@ public partial class TableWindow : Window
             }
         }
 
-        var lobby = new NetworkLobbyWindow { Owner = this };
+        var gate = new AccountGateWindow { Owner = this };
+        if (gate.ShowDialog() != true)
+        {
+            if (_netSession == null)
+                ModeNetwork.IsChecked = false;
+            return;
+        }
+        var lobby = new NetworkLobbyWindow(gate.Result) { Owner = this };
         // Stay in lobby after connect — NetPlaySession starts only on GameStarting (both ready).
         lobby.ConnectionChanged += (_, connected) =>
         {
@@ -10710,8 +10718,59 @@ public partial class TableWindow : Window
     /// Lobby GameStarting: both ready → DetachTransport → NetPlaySession → place decks from JSON.
     /// netztauglich: decks arrive as JSON over StartGame, not local paths.
     /// </summary>
+
+    private string? _matchReportHost;
+    private int _matchReportPort;
+    private string? _matchReportId;
+    private string? _matchReportSecret;
+    private int _matchReportSent;
+
+    private void RememberMatchReport(LobbyGameStartArgs args)
+    {
+        _matchReportHost = args.LobbyHost;
+        _matchReportPort = args.LobbyPort;
+        _matchReportId = args.MatchId;
+        _matchReportSecret = args.ReportSecret;
+        _matchReportSent = 0;
+    }
+
+    private void ReportMatchResult(int winner)
+    {
+        if (winner is not (1 or 2))
+            return;
+        if (System.Threading.Interlocked.Exchange(ref _matchReportSent, 1) != 0)
+            return;
+        if (string.IsNullOrWhiteSpace(_matchReportId) || string.IsNullOrWhiteSpace(_matchReportSecret))
+            return;
+        if (string.IsNullOrWhiteSpace(_matchReportHost) || _matchReportPort is < 1 or > 65535)
+            return;
+        var host = _matchReportHost;
+        var port = _matchReportPort;
+        var id = _matchReportId!;
+        var secret = _matchReportSecret!;
+        var seat = winner == 1 ? "host" : "guest";
+        _ = Task.Run(async () =>
+        {
+            var mm = new MatchmakingClient();
+            try
+            {
+                await mm.ConnectSocketAsync(host!, port).ConfigureAwait(false);
+                await mm.ReportAsync(id, secret, seat).ConfigureAwait(false);
+            }
+            catch
+            {
+                // Disagree, one report, or a closed service writes nothing.
+            }
+            finally
+            {
+                mm.Dispose();
+            }
+        });
+    }
+
     private void OnLobbyGameStarting(NetworkLobbyWindow lobby, LobbyGameStartArgs args)
     {
+        RememberMatchReport(args);
         TryStartNetSessionFromLobby(lobby);
         if (_netSession == null)
             throw new InvalidOperationException("NetPlaySession did not start after lobby GameStarting.");
@@ -15968,7 +16027,10 @@ public partial class TableWindow : Window
         if (DevLongGameItem != null)
             DevLongGameItem.IsChecked = _session.PointsToWin >= 500;
         if (s.Winner is 1 or 2)
+        {
             _session.RestoreWinner(s.Winner);
+            ReportMatchResult(s.Winner.Value);
+        }
         _raiseKeepsResolved = _session.Winner is > 0;
         _session.OncePerGame.Clear();
         if (save.OncePerGame != null)

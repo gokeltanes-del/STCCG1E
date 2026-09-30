@@ -1,4 +1,12 @@
-﻿﻿﻿## 2026-09-30 - Guest first play reaches the host
+﻿﻿﻿## 2026-09-30 - Account login on the lobby service
+
+- Getippt, nicht gruen, nicht DONE. Gleicher LobbyService, kein zweites Projekt, keine Spielsimulation. Register und Login. Passwort mit BCrypt.Net-Next (verwaltetes bcrypt, kein natives bcrypt). Konten, Decks und die eingefrorene Partie in SQLite ueber Microsoft.Data.Sqlite. Token auf spaeteren Lobby-Rufen. Anzeigename max 24 und am Konto gebunden.
+- Login-Fenster vor der Netzwerk-Lobby: Register, Login, weiter als Sandbox. Direct-IP und Localhost bleiben.
+- Server-Decks sind Listen von cardId (SetFolder/ReleaseRaw/Name), keine Karten-JSON-Dumps. Sandbox: lokaler Katalog, lokale Decks, online nur gegen Sandbox, kein Latinum. Konto: nur die Server-Deckliste. Eine Partie, ein Modus. Die Seiten mischen nicht.
+- Beim Start friert der Dienst eine Deck-Kopie an die MatchId. /relay kopiert nur Bytes. Der Host spielt die Regeln. Die Host-Deckliste geht nicht an den Gast.
+- Match-Historie nur, wenn beide denselben Sieger melden. Uneins oder nur eine Meldung: nichts geschrieben. Kein Inventar, kein Latinum, keine Booster, kein Shop, kein Elo, kein Zuschauen, keine KI-Gegner.
+
+## 2026-09-30 - Guest first play reaches the host
 
 - Getippt, nicht gruen: Ein Hand-Drop des Gastes in Match-Play bei geschlossenem Stack geht als PlayCard an den Host (Facility oder Host-InstanceId unter dem Cursor). Affiliation und Report werden davor nicht mehr lokal verweigert. Ein noch alter Snapshot (anderer Spieler) schluckt den Drop nicht. Der Host AuthorizePlay entscheidet.
 - Entscheidet der lokale Gast, fragt AskChoiceForPlayer auf diesem Fenster (bestehende lokale Wahl). Host-Fragen und Hotseat bleiben. Die 60s-Idle-Uhr eines Zuges startet erst, wenn der Your-Turn-State an den Gast gequeued ist. 60s, Wahl 10s, Reveal-OK 20s, Antwortfenster 3s und Grace 120s sind unveraendert. Das Host-Deck geht nicht an den Gast. Online ist nicht DONE.

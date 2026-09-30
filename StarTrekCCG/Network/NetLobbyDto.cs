@@ -115,4 +115,8 @@ public sealed class LobbyGameStartArgs : EventArgs
     public string DeckP2Json { get; init; } = string.Empty;
     /// <summary>Both accepted Skip seed phase — Host AutoCompleteSeed then Play.</summary>
     public bool SkipSeedPhase { get; init; }
+    public string MatchId { get; init; } = string.Empty;
+    public string ReportSecret { get; init; } = string.Empty;
+    public string LobbyHost { get; init; } = string.Empty;
+    public int LobbyPort { get; init; }
 }

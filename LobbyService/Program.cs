@@ -3,7 +3,7 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 
-// In-memory rooms. /lobby is signaling. /relay copies game frames and does not read them.
+// In-memory rooms. /lobby is signaling plus accounts. /relay copies game frames and does not read them.
 // Closing /lobby does not abort /relay. A relay seat drops only when that relay socket ends.
 // Restart clears every room. Listens on 0.0.0.0:7788.
 
@@ -15,7 +15,8 @@ builder.Logging.SetMinimumLevel(LogLevel.Warning);
 
 var app = builder.Build();
 var relay = new RelayHub();
-var book = new RoomBook();
+var auth = new AuthStore(Path.Combine(app.Environment.ContentRootPath, "data", "lobby.db"));
+var book = new RoomBook(auth);
 
 app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(30) });
 app.MapGet("/", () => Results.Text("StarTrekCCG lobby. WebSocket /lobby. Relay WebSocket /relay copies frames only."));
@@ -29,7 +30,7 @@ app.Map("/lobby", async (HttpContext ctx) =>
     }
 
     using var socket = await ctx.WebSockets.AcceptWebSocketAsync();
-    var session = new LobbySession(socket, book);
+    var session = new LobbySession(socket, book, auth);
     await session.RunAsync();
 });
 
@@ -52,7 +53,7 @@ app.Run();
 static class Limits
 {
     public const int MaxRooms = 50;
-    public const int MaxMessageBytes = 4096;
+    public const int MaxMessageBytes = 262144;
     public const int MaxChatLines = 30;
 }
 
@@ -69,10 +70,17 @@ sealed class LobbySession
     public string CardHash { get; set; } = "";
     public bool SaidHello { get; private set; }
 
-    public LobbySession(WebSocket socket, RoomBook book)
+    private readonly AuthStore _auth;
+
+    public string Mode { get; private set; } = "sandbox";
+    public string? Token { get; private set; }
+    public int UserId { get; private set; }
+
+    public LobbySession(WebSocket socket, RoomBook book, AuthStore auth)
     {
         _socket = socket;
         _book = book;
+        _auth = auth;
     }
 
     public async Task RunAsync()
@@ -137,6 +145,12 @@ sealed class LobbySession
         {
             var root = doc.RootElement;
             var type = root.TryGetProperty("type", out var typeEl) ? typeEl.GetString() : null;
+            if (type is "register" or "login" or "deckSave" or "deckList" or "deckGet" or "report")
+            {
+                await SendAsync(AccountCall(type, root));
+                return;
+            }
+
             if (!SaidHello)
             {
                 if (!string.Equals(type, "hello", StringComparison.Ordinal))
@@ -144,15 +158,20 @@ sealed class LobbySession
                     await SendAsync(new { type = "error", message = "say hello first" });
                     return;
                 }
-                var name = ClipName(ReadString(root, "name"), 24);
-                if (name.Length == 0)
+                if (!TryHello(root, out var helloError))
                 {
-                    await SendAsync(new { type = "error", message = "name required" });
+                    await SendAsync(new { type = "error", message = helloError });
                     return;
                 }
-                Name = name;
                 SaidHello = true;
-                await SendAsync(new { type = "welcome", playerId = Id, name = Name });
+                await SendAsync(new { type = "welcome", playerId = Id, name = Name, mode = Mode });
+                return;
+            }
+
+            var tokenError = RejectToken(root);
+            if (tokenError != null)
+            {
+                await SendAsync(new { type = "error", message = tokenError });
                 return;
             }
 
@@ -171,7 +190,10 @@ sealed class LobbySession
                     await FanOut(_book.Chat(this, ReadString(root, "text")));
                     break;
                 case "deck":
-                    await FanOut(_book.Deck(this, ReadString(root, "deckName"), ReadString(root, "deckHash")));
+                    await FanOut(_book.Deck(this, root));
+                    break;
+                case "begin":
+                    await FanOut(_book.Begin(this));
                     break;
                 case "address":
                     await FanOut(_book.Address(this, ReadString(root, "host"), ReadInt(root, "port")));
@@ -225,6 +247,82 @@ sealed class LobbySession
         catch { /* ignore */ }
     }
 
+
+    private object AccountCall(string type, JsonElement root)
+    {
+        switch (type)
+        {
+            case "register":
+                return _auth.Register(ReadString(root, "name"), ReadString(root, "password"));
+            case "login":
+                return _auth.Login(ReadString(root, "name"), ReadString(root, "password"));
+            case "deckSave":
+                return _auth.SaveDeck(ReadString(root, "token"), ReadString(root, "name"),
+                    root.TryGetProperty("cardIds", out var cards) ? cards : default);
+            case "deckList":
+                return _auth.ListDecks(ReadString(root, "token"));
+            case "deckGet":
+                return _auth.GetDeck(ReadString(root, "token"), ReadString(root, "name"));
+            case "report":
+                return _auth.Report(ReadString(root, "matchId"), ReadString(root, "secret"), ReadString(root, "winner"));
+            default:
+                return new { type = "error", message = "unknown type" };
+        }
+    }
+
+    private bool TryHello(JsonElement root, out string error)
+    {
+        error = "";
+        var mode = ReadString(root, "mode");
+        if (mode.Length == 0)
+            mode = "sandbox";
+        if (mode is not ("sandbox" or "account"))
+        {
+            error = "mode must be sandbox or account";
+            return false;
+        }
+        var token = ReadString(root, "token");
+        if (mode == "account")
+        {
+            if (!_auth.TrySession(token, out var user))
+            {
+                error = "login required";
+                return false;
+            }
+            Name = user.Name;
+            Mode = "account";
+            Token = token;
+            UserId = user.Id;
+            return true;
+        }
+        if (token.Length > 0)
+        {
+            error = "sandbox does not use an account";
+            return false;
+        }
+        var name = ClipName(ReadString(root, "name"), 24);
+        if (name.Length == 0)
+        {
+            error = "name required";
+            return false;
+        }
+        Name = name;
+        Mode = "sandbox";
+        Token = null;
+        UserId = 0;
+        return true;
+    }
+
+    private string? RejectToken(JsonElement root)
+    {
+        var token = ReadString(root, "token");
+        if (Mode == "account")
+            return string.Equals(token, Token, StringComparison.Ordinal) && token.Length > 0
+                ? null
+                : "token required";
+        return token.Length == 0 ? null : "sandbox does not use an account";
+    }
+
     private static string ReadString(JsonElement root, string name)
         => root.TryGetProperty(name, out var el) && el.ValueKind == JsonValueKind.String
             ? (el.GetString() ?? "")
@@ -258,6 +356,12 @@ sealed class RoomBook
 {
     private readonly object _gate = new();
     private readonly Dictionary<string, Room> _rooms = new(StringComparer.Ordinal);
+    private readonly AuthStore _auth;
+
+    public RoomBook(AuthStore auth)
+    {
+        _auth = auth;
+    }
 
     public object List()
     {
@@ -270,7 +374,8 @@ sealed class RoomBook
                     name = r.Name,
                     hostName = r.Host?.Name ?? "",
                     players = (r.Host == null ? 0 : 1) + (r.Guest == null ? 0 : 1),
-                    open = r.Guest == null
+                    open = r.Guest == null,
+                    mode = r.Mode
                 })
                 .ToArray();
         }
@@ -293,7 +398,7 @@ sealed class RoomBook
             if (_rooms.ContainsKey(roomName))
                 return Err(who, "room already exists");
 
-            var room = new Room { Name = roomName, ListenPort = gamePort };
+            var room = new Room { Name = roomName, ListenPort = gamePort, Mode = who.Mode };
             room.Host = new Seat { Session = who, Name = who.Name, Role = "host", Engine = who.Engine, CardHash = who.CardHash };
             _rooms[roomName] = room;
             return RoomNotes(room);
@@ -309,6 +414,8 @@ sealed class RoomBook
                 return Err(who, "leave the current room first");
             if (!_rooms.TryGetValue(roomName, out var room))
                 return Err(who, "no such room");
+            if (!string.Equals(room.Mode, who.Mode, StringComparison.Ordinal))
+                return Err(who, "a match is one mode");
             if (room.Guest != null)
                 return Err(who, "room is full");
             room.Guest = new Seat { Session = who, Name = who.Name, Role = "guest", Engine = who.Engine, CardHash = who.CardHash };
@@ -333,14 +440,29 @@ sealed class RoomBook
         }
     }
 
-    public List<Outbound> Deck(LobbySession who, string deckName, string deckHash)
+    public List<Outbound> Deck(LobbySession who, JsonElement root)
     {
-        deckName = LobbySession.ClipName(deckName, 80);
-        deckHash = (deckHash ?? "").Trim().ToLowerInvariant();
+        var deckName = LobbySession.ClipName(ReadString(root, "deckName"), 80);
+        var deckHash = ReadString(root, "deckHash").Trim().ToLowerInvariant();
         if (deckName.Length == 0)
             return Err(who, "deck name required");
-        if (deckHash.Length != 64 || deckHash.Any(c => !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))))
-            return Err(who, "deck hash must be 64 hex characters");
+
+        string cards;
+        if (who.Mode == "account")
+        {
+            if (!_auth.TryReadDeck(who.UserId, deckName, out cards, out var error))
+                return Err(who, error);
+            deckHash = AuthStore.Sha256Hex(cards);
+        }
+        else
+        {
+            if (deckHash.Length != 64 || deckHash.Any(c => !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))))
+                return Err(who, "deck hash must be 64 hex characters");
+            if (!root.TryGetProperty("cardIds", out var cardIds))
+                return Err(who, "sandbox deck needs card ids");
+            if (!AuthStore.TryCanonical(cardIds, out cards, out _, out var error))
+                return Err(who, error);
+        }
 
         lock (_gate)
         {
@@ -349,9 +471,55 @@ sealed class RoomBook
                 return Err(who, "join a room first");
             found.Value.Seat.DeckName = deckName;
             found.Value.Seat.DeckHash = deckHash;
+            found.Value.Seat.PrivateCards = cards;
             return RoomNotes(found.Value.Room);
         }
     }
+
+    public List<Outbound> Begin(LobbySession who)
+    {
+        lock (_gate)
+        {
+            var found = FindSeat(who);
+            if (found == null)
+                return Err(who, "join a room first");
+            if (!string.Equals(found.Value.Seat.Role, "host", StringComparison.Ordinal))
+                return Err(who, "only the host freezes the match");
+            var room = found.Value.Room;
+            if (room.Host == null || room.Guest == null)
+                return Err(who, "waiting for both players");
+            if (string.IsNullOrEmpty(room.Host.PrivateCards) || string.IsNullOrEmpty(room.Guest.PrivateCards))
+                return Err(who, "both players need a deck before the match starts");
+            if (room.MatchId == null)
+            {
+                var frozen = _auth.Freeze(
+                    room.Mode,
+                    room.Host.Name,
+                    room.Guest.Name,
+                    room.Host.DeckName ?? "",
+                    room.Host.PrivateCards,
+                    room.Guest.DeckName ?? "",
+                    room.Guest.PrivateCards);
+                room.MatchId = frozen.MatchId;
+                room.HostSecret = frozen.HostSecret;
+                room.GuestSecret = frozen.GuestSecret;
+            }
+            // Each seat gets its own secret. Neither payload includes a deck list.
+            return new List<Outbound>
+            {
+                new(room.Host.Session, MatchNote(room.MatchId, "host", room.HostSecret!, room.Host.PrivateCards!)),
+                new(room.Guest.Session, MatchNote(room.MatchId, "guest", room.GuestSecret!, room.Guest.PrivateCards!))
+            };
+        }
+    }
+
+    private static object MatchNote(string matchId, string seat, string secret, string cards)
+        => new { type = "match", matchId, seat, secret, count = AuthStore.CountIds(cards) };
+
+    private static string ReadString(JsonElement root, string name)
+        => root.TryGetProperty(name, out var el) && el.ValueKind == JsonValueKind.String
+            ? (el.GetString() ?? "")
+            : "";
 
     public List<Outbound> Address(LobbySession who, string host, int port)
     {
@@ -533,7 +701,11 @@ sealed class RoomBook
     private sealed class Room
     {
         public string Name { get; set; } = "";
+        public string Mode { get; set; } = "sandbox";
         public int ListenPort { get; set; }
+        public string? MatchId { get; set; }
+        public string? HostSecret { get; set; }
+        public string? GuestSecret { get; set; }
         public Seat? Host { get; set; }
         public Seat? Guest { get; set; }
         public string? Address { get; set; }
@@ -548,6 +720,7 @@ sealed class RoomBook
         public string Role { get; set; } = "";
         public string? DeckName { get; set; }
         public string? DeckHash { get; set; }
+        public string? PrivateCards { get; set; }
         public string Engine { get; set; } = "";
         public string CardHash { get; set; } = "";
     }

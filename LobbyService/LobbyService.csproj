@@ -7,4 +7,11 @@
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- Official net8 SQLite provider. The small e_sqlite3 native library ships inside the package. -->
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.10" />
+    <!-- Managed bcrypt. No native bcrypt and no Argon2 native runtime. -->
+    <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+  </ItemGroup>
+
 </Project>

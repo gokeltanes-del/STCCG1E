@@ -30,9 +30,14 @@ public partial class NetworkLobbyWindow : Window
     private NetClient? _client;
     private INetLink? _link;
     private bool _relayHost;
+    private readonly LobbySignIn _signIn;
     private MatchmakingClient? _mm;
     private string? _matchPublicAddress;
     private int _matchPublicPort;
+    private string _serviceHost = "127.0.0.1";
+    private int _servicePort = 7788;
+    private bool _suppressDeck;
+    private List<DeckListItem> _serverDeckItems = new();
     private CancellationTokenSource? _cts;
     private Task? _lobbyReceiveTask;
     private bool _busy;
@@ -59,6 +64,8 @@ public partial class NetworkLobbyWindow : Window
     {
         public string DisplayName { get; init; } = "";
         public string Path { get; init; } = "";
+        public string ServerName { get; init; } = "";
+        public bool FromServer { get; init; }
         public override string ToString() => DisplayName;
     }
 
@@ -81,11 +88,30 @@ public partial class NetworkLobbyWindow : Window
     public event EventHandler<LobbyGameStartArgs>? GameStarting;
 
     public NetworkLobbyWindow()
+        : this(LobbySignIn.Sandbox())
     {
+    }
+
+    public NetworkLobbyWindow(LobbySignIn signIn)
+    {
+        _signIn = signIn ?? LobbySignIn.Sandbox();
         InitializeComponent();
+        _serviceHost = string.IsNullOrWhiteSpace(_signIn.Host) ? "127.0.0.1" : _signIn.Host;
+        _servicePort = _signIn.Port is > 0 and <= 65535 ? _signIn.Port : 7788;
+        MmServiceBox.Text = _serviceHost + ":" + _servicePort.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (_signIn.IsAccount)
+        {
+            MmNameBox.Text = _signIn.Name;
+            MmNameBox.IsReadOnly = true;
+            BtnBrowseDeck.Content = "Upload";
+            SetMmState("Account. Server deck list only. No Latinum.");
+        }
+        else
+        {
+            MmNameBox.Text = string.IsNullOrWhiteSpace(_signIn.Name) ? Environment.UserName : _signIn.Name;
+            SetMmState("Sandbox. Local decks. Online versus Sandbox. No Latinum.");
+        }
         RefreshDeckList();
-        if (string.IsNullOrWhiteSpace(MmNameBox.Text))
-            MmNameBox.Text = Environment.UserName;
     }
 
     private async void BtnHost_Click(object sender, RoutedEventArgs e)
@@ -361,16 +387,7 @@ public partial class NetworkLobbyWindow : Window
 
         if (string.Equals(msg.Type, NetMessage.Types.StartGame, StringComparison.OrdinalIgnoreCase))
         {
-            if (string.IsNullOrWhiteSpace(msg.PayloadJson)) return;
-            try
-            {
-                var start = NetLobbyDto.FromJson<NetLobbyDto.StartGame>(msg.PayloadJson);
-                RaiseGameStarting(start);
-            }
-            catch (Exception ex)
-            {
-                SetStatus("Bad StartGame: " + ex.Message);
-            }
+            _ = AcceptStartAsync(msg);
             return;
         }
     }
@@ -382,6 +399,25 @@ public partial class NetworkLobbyWindow : Window
         {
             SetStatus("Both ready but deck JSON missing — re-select decks.");
             return;
+        }
+
+                if (_signIn.IsAccount && _mm is not { InRoom: true })
+        {
+            SetStatus("Account matches start from a room so the server can freeze the deck.");
+            return;
+        }
+        if (_mm is { InRoom: true })
+        {
+            try
+            {
+                await SendDeckHashIfAnyAsync().ConfigureAwait(true);
+                await _mm.BeginAsync().ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                SetStatus("Match freeze failed: " + ex.Message);
+                return;
+            }
         }
 
         StopSkipSeedTimeout();
@@ -430,7 +466,11 @@ public partial class NetworkLobbyWindow : Window
             DeckP2Name = start.DeckP2Name,
             DeckP1Json = start.DeckP1Json,
             DeckP2Json = start.DeckP2Json,
-            SkipSeedPhase = start.SkipSeedPhase
+            SkipSeedPhase = start.SkipSeedPhase,
+            MatchId = _mm?.MatchId ?? "",
+            ReportSecret = _mm?.ReportSecret ?? "",
+            LobbyHost = _serviceHost,
+            LobbyPort = _servicePort
         });
     }
 
@@ -449,12 +489,21 @@ public partial class NetworkLobbyWindow : Window
 
     private async void DeckCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (_suppressDeck) return;
         if (DeckCombo.SelectedItem is not DeckListItem item) return;
-        await ApplyLocalDeckAsync(item.Path, Path.GetFileNameWithoutExtension(item.Path)).ConfigureAwait(true);
+        if (item.FromServer)
+            await ApplyServerDeckAsync(item.ServerName).ConfigureAwait(true);
+        else
+            await ApplyLocalDeckAsync(item.Path, Path.GetFileNameWithoutExtension(item.Path)).ConfigureAwait(true);
     }
 
     private async void BtnBrowseDeck_Click(object sender, RoutedEventArgs e)
     {
+        if (_signIn.IsAccount)
+        {
+            await UploadAccountDeckAsync().ConfigureAwait(true);
+            return;
+        }
         var dlg = new OpenFileDialog
         {
             Title = "Select deck",
@@ -525,6 +574,16 @@ public partial class NetworkLobbyWindow : Window
             return;
         }
 
+        try
+        {
+            await SendDeckHashIfAnyAsync().ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            SetStatus("Deck was not stored for the match: " + ex.Message);
+            return;
+        }
+
         _localReady = true;
         UpdateLobbyUi();
         SetStatus(_peerReady
@@ -556,6 +615,13 @@ public partial class NetworkLobbyWindow : Window
 
     private void RefreshDeckList()
     {
+        if (_signIn.IsAccount)
+        {
+            _suppressDeck = true;
+            DeckCombo.ItemsSource = _serverDeckItems;
+            _suppressDeck = false;
+            return;
+        }
         var items = new List<DeckListItem>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -1025,7 +1091,13 @@ public partial class NetworkLobbyWindow : Window
             return;
         }
 
-        var name = string.IsNullOrWhiteSpace(MmNameBox.Text) ? "Player" : MmNameBox.Text.Trim();
+        _serviceHost = host;
+        _servicePort = port;
+        var name = _signIn.IsAccount
+            ? _signIn.Name
+            : (string.IsNullOrWhiteSpace(MmNameBox.Text) ? "Player" : MmNameBox.Text.Trim());
+        if (name.Length > 24)
+            name = name[..24];
         var mm = new MatchmakingClient();
         mm.StateChanged += text => Dispatcher.BeginInvoke(() => SetMmState(text));
         mm.PlayersChanged += text => Dispatcher.BeginInvoke(() => MmPlayersText.Text = text ?? "");
@@ -1034,9 +1106,11 @@ public partial class NetworkLobbyWindow : Window
             Dispatcher.BeginInvoke(() => SetMmState($"Host published {announcedHost}:{announcedPort}. Open direct game when ready."));
         try
         {
-            await mm.ConnectAsync(host, port, name).ConfigureAwait(true);
+            await mm.ConnectAsync(host, port, name, _signIn.Mode, _signIn.Token).ConfigureAwait(true);
             _mm?.Dispose();
             _mm = mm;
+            if (_signIn.IsAccount)
+                await LoadServerDecksAsync().ConfigureAwait(true);
         }
         catch (Exception ex)
         {
@@ -1172,7 +1246,8 @@ public partial class NetworkLobbyWindow : Window
         if (_mm is not { InRoom: true } || string.IsNullOrWhiteSpace(_localDeckJson) || string.IsNullOrWhiteSpace(_localDeckName))
             return;
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(_localDeckJson))).ToLowerInvariant();
-        await _mm.SendDeckAsync(_localDeckName, hash).ConfigureAwait(true);
+        string? cards = _signIn.IsAccount ? null : DeckCardList.FromDeckJson(_localDeckJson);
+        await _mm.SendDeckAsync(_localDeckName, hash, cards).ConfigureAwait(true);
     }
 
     private async Task SendExistingDeckPickAsync()
@@ -1334,10 +1409,10 @@ public partial class NetworkLobbyWindow : Window
         return false;
     }
 
-    private static string StampPayload(string role, int player)
-        => JsonSerializer.Serialize(new { role, player, engine = EngineStamp.Id, cardHash = EngineStamp.CardHash });
+    private string StampPayload(string role, int player)
+        => JsonSerializer.Serialize(new { role, player, engine = EngineStamp.Id, cardHash = EngineStamp.CardHash, mode = _signIn.Mode });
 
-    private static void EnsureSameStamp(NetMessage reply)
+    private void EnsureSameStamp(NetMessage reply)
     {
         string engine = "";
         string hash = "";
@@ -1365,6 +1440,158 @@ public partial class NetworkLobbyWindow : Window
             throw new InvalidOperationException(
                 $"Version mismatch: engine '{engine}' vs '{EngineStamp.Id}', cards {theirs} vs {mine}. No start.");
         }
+        var mode = "sandbox";
+        if (!string.IsNullOrWhiteSpace(reply.PayloadJson))
+        {
+            try
+            {
+                using var modeDoc = JsonDocument.Parse(reply.PayloadJson);
+                if (modeDoc.RootElement.TryGetProperty("mode", out var modeEl) && modeEl.ValueKind == JsonValueKind.String)
+                {
+                    var raw = modeEl.GetString() ?? "";
+                    if (raw.Length > 0)
+                        mode = raw;
+                }
+            }
+            catch
+            {
+                mode = "sandbox";
+            }
+        }
+        if (!string.Equals(mode, _signIn.Mode, StringComparison.Ordinal))
+            throw new InvalidOperationException("sandbox and account cannot play the same match.");
+    }
+
+
+    private async Task AcceptStartAsync(NetMessage msg)
+    {
+        if (_gameStarting) return;
+        if (string.IsNullOrWhiteSpace(msg.PayloadJson)) return;
+        try
+        {
+            if (_signIn.IsAccount && _mm is not { InRoom: true })
+            {
+                SetStatus("Account matches start from a room so the server can freeze the deck.");
+                return;
+            }
+            if (_mm is { InRoom: true })
+                await _mm.WaitForMatchAsync().ConfigureAwait(true);
+            var start = NetLobbyDto.FromJson<NetLobbyDto.StartGame>(msg.PayloadJson);
+            RaiseGameStarting(start);
+        }
+        catch (Exception ex)
+        {
+            SetStatus("Bad StartGame: " + ex.Message);
+        }
+    }
+
+    private async Task ApplyServerDeckAsync(string name)
+    {
+        if (_mm == null || string.IsNullOrWhiteSpace(_signIn.Token))
+        {
+            SetStatus("Connect to the service to use an account deck.");
+            return;
+        }
+        try
+        {
+            var body = await _mm.GetDeckAsync(_signIn.Token, name).ConfigureAwait(true);
+            if (!body.TryGetProperty("cardIds", out var cardIds) || cardIds.ValueKind != JsonValueKind.Object)
+            {
+                var message = body.TryGetProperty("message", out var msg) && msg.ValueKind == JsonValueKind.String
+                    ? msg.GetString()
+                    : "Deck was not read.";
+                SetStatus(message ?? "Deck was not read.");
+                return;
+            }
+            var deck = DeckCardList.ToDeck(name, cardIds);
+            _localDeckPath = null;
+            _localDeckJson = DeckCardList.SerializeDeck(deck);
+            _localDeckName = string.IsNullOrWhiteSpace(deck.Name) ? name : deck.Name;
+            BtnStartGame.IsEnabled = true;
+            SetStatus("Account deck: " + _localDeckName);
+            await SendDeckHashIfAnyAsync().ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            SetStatus("Account deck failed: " + ex.Message);
+        }
+    }
+
+    private async Task UploadAccountDeckAsync()
+    {
+        if (_mm == null || string.IsNullOrWhiteSpace(_signIn.Token))
+        {
+            SetStatus("Connect to the service before uploading a deck.");
+            return;
+        }
+        var dlg = new OpenFileDialog
+        {
+            Title = "Upload deck as card ids",
+            Filter = "STCCG Deck (*.stdeck)|*.stdeck",
+            InitialDirectory = Directory.Exists(GamePaths.DecksRoot) ? GamePaths.DecksRoot : Environment.CurrentDirectory
+        };
+        if (dlg.ShowDialog() != true)
+            return;
+        try
+        {
+            var json = File.ReadAllText(dlg.FileName);
+            var loaded = new Services.DeckService().LoadFromJson(json);
+            var name = string.IsNullOrWhiteSpace(loaded.Name)
+                ? Path.GetFileNameWithoutExtension(dlg.FileName)
+                : loaded.Name.Trim();
+            if (name.Length > 80)
+                name = name[..80];
+            var cards = DeckCardList.FromDeck(loaded);
+            var saved = await _mm.SaveDeckAsync(_signIn.Token, name, cards).ConfigureAwait(true);
+            if (saved.TryGetProperty("type", out var typeEl) && typeEl.GetString() == "error")
+            {
+                var message = saved.TryGetProperty("message", out var msg) ? msg.GetString() : "Upload failed.";
+                SetStatus(message ?? "Upload failed.");
+                return;
+            }
+            await LoadServerDecksAsync().ConfigureAwait(true);
+            SetStatus("Uploaded " + name + " as card ids.");
+        }
+        catch (Exception ex)
+        {
+            SetStatus("Upload failed: " + ex.Message);
+        }
+    }
+
+    private async Task LoadServerDecksAsync()
+    {
+        if (!_signIn.IsAccount || _mm == null || string.IsNullOrWhiteSpace(_signIn.Token))
+            return;
+        var body = await _mm.ListDecksAsync(_signIn.Token).ConfigureAwait(true);
+        var items = new List<DeckListItem>();
+        if (body.TryGetProperty("decks", out var decks) && decks.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var row in decks.EnumerateArray())
+            {
+                var name = row.TryGetProperty("name", out var n) && n.ValueKind == JsonValueKind.String ? n.GetString() : "";
+                if (string.IsNullOrWhiteSpace(name))
+                    continue;
+                var count = row.TryGetProperty("count", out var c) && c.TryGetInt32(out var k) ? k : 0;
+                items.Add(new DeckListItem
+                {
+                    DisplayName = name + " (" + count + ")",
+                    ServerName = name,
+                    FromServer = true
+                });
+            }
+        }
+        void Apply()
+        {
+            _suppressDeck = true;
+            _serverDeckItems = items;
+            DeckCombo.ItemsSource = null;
+            DeckCombo.ItemsSource = items;
+            _suppressDeck = false;
+        }
+        if (Dispatcher.CheckAccess())
+            Apply();
+        else
+            Dispatcher.Invoke(Apply);
     }
 
     private static bool TryParseLobbyService(string? text, out string host, out int port)

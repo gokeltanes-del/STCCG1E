@@ -15,11 +15,19 @@ namespace StarTrekCCG.Network;
 public sealed class MatchmakingClient : IDisposable
 {
     private readonly SemaphoreSlim _send = new(1, 1);
+    private readonly object _waitGate = new();
     private ClientWebSocket? _socket;
     private CancellationTokenSource? _cts;
     private Task? _read;
+    private TaskCompletionSource<JsonElement>? _pending;
+    private TaskCompletionSource<bool>? _matchWait;
 
     public string? PlayerId { get; private set; }
+    public string? DisplayName { get; private set; }
+    public string Mode { get; private set; } = "sandbox";
+    public string? Token { get; private set; }
+    public string? MatchId { get; private set; }
+    public string? ReportSecret { get; private set; }
     public string? Role { get; private set; }
     public string VersionNote { get; private set; } = "";
     public bool VersionKnown { get; private set; }
@@ -34,7 +42,18 @@ public sealed class MatchmakingClient : IDisposable
     public event Action<string>? ChatChanged;
     public event Action<string, int>? AddressAnnounced;
 
-    public async Task ConnectAsync(string host, int port, string name, CancellationToken cancellationToken = default)
+    public async Task ConnectAsync(string host, int port, string name, string mode, string? token, CancellationToken cancellationToken = default)
+    {
+        await ConnectSocketAsync(host, port, cancellationToken).ConfigureAwait(false);
+        Mode = string.Equals(mode, "account", StringComparison.Ordinal) ? "account" : "sandbox";
+        Token = Mode == "account" ? token : null;
+        var hello = Envelope("hello");
+        hello["name"] = name ?? "";
+        hello["mode"] = Mode;
+        await SendAsync(hello).ConfigureAwait(false);
+    }
+
+    public async Task ConnectSocketAsync(string host, int port, CancellationToken cancellationToken = default)
     {
         Dispose();
         var socket = new ClientWebSocket();
@@ -43,36 +62,118 @@ public sealed class MatchmakingClient : IDisposable
         await socket.ConnectAsync(uri, cancellationToken).ConfigureAwait(false);
         _socket = socket;
         _cts = cts;
-        await SendAsync(new { type = "hello", name }).ConfigureAwait(false);
         _read = Task.Run(() => ReadLoopAsync(socket, cts.Token));
     }
 
     public async Task CreateRoomAsync(string room, int gamePort)
     {
         await SendVersionAsync().ConfigureAwait(false);
-        await SendAsync(new { type = "create", room, gamePort }).ConfigureAwait(false);
+        var env = Envelope("create");
+        env["room"] = room;
+        env["gamePort"] = gamePort;
+        await SendAsync(env).ConfigureAwait(false);
     }
 
     public async Task JoinRoomAsync(string room)
     {
         await SendVersionAsync().ConfigureAwait(false);
-        await SendAsync(new { type = "join", room }).ConfigureAwait(false);
+        var env = Envelope("join");
+        env["room"] = room;
+        await SendAsync(env).ConfigureAwait(false);
     }
 
     private Task SendVersionAsync()
-        => SendAsync(new { type = "version", engine = EngineStamp.Id, cardHash = EngineStamp.CardHash });
+    {
+        var env = Envelope("version");
+        env["engine"] = EngineStamp.Id;
+        env["cardHash"] = EngineStamp.CardHash;
+        return SendAsync(env);
+    }
 
     public Task RefreshAsync()
-        => SendAsync(new { type = "list" });
+        => SendAsync(Envelope("list"));
 
     public Task SendChatAsync(string text)
-        => SendAsync(new { type = "chat", text });
+    {
+        var env = Envelope("chat");
+        env["text"] = text;
+        return SendAsync(env);
+    }
 
-    public Task SendDeckAsync(string deckName, string deckHash)
-        => SendAsync(new { type = "deck", deckName, deckHash });
+    public Task SendDeckAsync(string deckName, string deckHash, string? cardIdsJson)
+    {
+        var env = Envelope("deck");
+        env["deckName"] = deckName;
+        env["deckHash"] = deckHash;
+        if (!string.IsNullOrEmpty(cardIdsJson))
+            env["cardIds"] = JsonSerializer.Deserialize<JsonElement>(cardIdsJson);
+        return SendAsync(env);
+    }
 
     public Task SendAddressAsync(string host, int port)
-        => SendAsync(new { type = "address", host, port });
+    {
+        var env = Envelope("address");
+        env["host"] = host;
+        env["port"] = port;
+        return SendAsync(env);
+    }
+
+    public async Task BeginAsync()
+    {
+        TaskCompletionSource<bool> wait;
+        lock (_waitGate)
+        {
+            if (_matchWait != null)
+                throw new InvalidOperationException("Already waiting for a match freeze.");
+            wait = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _matchWait = wait;
+        }
+        await SendAsync(Envelope("begin")).ConfigureAwait(false);
+        await wait.Task.WaitAsync(TimeSpan.FromSeconds(8)).ConfigureAwait(false);
+        if (string.IsNullOrEmpty(MatchId) || string.IsNullOrEmpty(ReportSecret))
+            throw new InvalidOperationException("The server did not freeze the match.");
+    }
+
+    public async Task WaitForMatchAsync()
+    {
+        if (!string.IsNullOrEmpty(MatchId) && !string.IsNullOrEmpty(ReportSecret))
+            return;
+        TaskCompletionSource<bool> wait;
+        lock (_waitGate)
+        {
+            if (!string.IsNullOrEmpty(MatchId) && !string.IsNullOrEmpty(ReportSecret))
+                return;
+            _matchWait ??= new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            wait = _matchWait;
+        }
+        await wait.Task.WaitAsync(TimeSpan.FromSeconds(8)).ConfigureAwait(false);
+        if (string.IsNullOrEmpty(MatchId) || string.IsNullOrEmpty(ReportSecret))
+            throw new InvalidOperationException("The server did not freeze the match.");
+    }
+
+    public async Task<JsonElement> RegisterAsync(string name, string password)
+        => await RequestAsync(new { type = "register", name, password }).ConfigureAwait(false);
+
+    public async Task<JsonElement> LoginAsync(string name, string password)
+        => await RequestAsync(new { type = "login", name, password }).ConfigureAwait(false);
+
+    public async Task<JsonElement> SaveDeckAsync(string token, string name, string cardIdsJson)
+        => await RequestAsync(new
+        {
+            type = "deckSave",
+            token,
+            name,
+            cardIds = JsonSerializer.Deserialize<JsonElement>(cardIdsJson)
+        }).ConfigureAwait(false);
+
+    public async Task<JsonElement> ListDecksAsync(string token)
+        => await RequestAsync(new { type = "deckList", token }).ConfigureAwait(false);
+
+    public async Task<JsonElement> GetDeckAsync(string token, string name)
+        => await RequestAsync(new { type = "deckGet", token, name }).ConfigureAwait(false);
+
+    public async Task<JsonElement> ReportAsync(string matchId, string secret, string winner)
+        => await RequestAsync(new { type = "report", matchId, secret, winner }).ConfigureAwait(false);
 
     public void Dispose()
     {
@@ -83,6 +184,11 @@ public sealed class MatchmakingClient : IDisposable
         try { _cts?.Dispose(); } catch { /* ignore */ }
         _cts = null;
         PlayerId = null;
+        DisplayName = null;
+        Token = null;
+        Mode = "sandbox";
+        MatchId = null;
+        ReportSecret = null;
         Role = null;
         InRoom = false;
         VersionNote = "";
@@ -113,7 +219,7 @@ public sealed class MatchmakingClient : IDisposable
 
     private async Task ReadLoopAsync(ClientWebSocket socket, CancellationToken ct)
     {
-        var buffer = new byte[4096];
+        var buffer = new byte[8192];
         try
         {
             while (!ct.IsCancellationRequested && socket.State == WebSocketState.Open)
@@ -126,7 +232,7 @@ public sealed class MatchmakingClient : IDisposable
                     if (result.MessageType == WebSocketMessageType.Close)
                         return;
                     ms.Write(buffer, 0, result.Count);
-                    if (ms.Length > 8192)
+                    if (ms.Length > 262144)
                         return;
                 }
                 while (!result.EndOfMessage);
@@ -148,6 +254,39 @@ public sealed class MatchmakingClient : IDisposable
         }
     }
 
+
+    private Dictionary<string, object?> Envelope(string type)
+    {
+        var env = new Dictionary<string, object?> { ["type"] = type };
+        if (string.Equals(Mode, "account", StringComparison.Ordinal) && !string.IsNullOrEmpty(Token))
+            env["token"] = Token;
+        return env;
+    }
+
+    private async Task<JsonElement> RequestAsync(object payload)
+    {
+        var wait = new TaskCompletionSource<JsonElement>(TaskCreationOptions.RunContinuationsAsynchronously);
+        lock (_waitGate)
+        {
+            if (_pending != null)
+                throw new InvalidOperationException("A lobby request is already waiting.");
+            _pending = wait;
+        }
+        try
+        {
+            await SendAsync(payload).ConfigureAwait(false);
+            return await wait.Task.WaitAsync(TimeSpan.FromSeconds(8)).ConfigureAwait(false);
+        }
+        finally
+        {
+            lock (_waitGate)
+            {
+                if (ReferenceEquals(_pending, wait))
+                    _pending = null;
+            }
+        }
+    }
+
     private void Handle(string json)
     {
         try
@@ -155,10 +294,63 @@ public sealed class MatchmakingClient : IDisposable
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
             var type = root.TryGetProperty("type", out var typeEl) ? typeEl.GetString() : null;
+            if (string.Equals(type, "match", StringComparison.Ordinal))
+            {
+                MatchId = ReadString(root, "matchId");
+                ReportSecret = ReadString(root, "secret");
+                TaskCompletionSource<bool>? wait;
+                lock (_waitGate)
+                {
+                    wait = _matchWait;
+                    _matchWait = null;
+                }
+                wait?.TrySetResult(true);
+                return;
+            }
+            if (string.Equals(type, "error", StringComparison.Ordinal))
+            {
+                var message = ReadString(root, "message");
+                TaskCompletionSource<bool>? matchWait;
+                TaskCompletionSource<JsonElement>? pending;
+                lock (_waitGate)
+                {
+                    matchWait = _matchWait;
+                    _matchWait = null;
+                    pending = _pending;
+                    _pending = null;
+                }
+                if (matchWait != null)
+                {
+                    matchWait.TrySetException(new InvalidOperationException(message));
+                    return;
+                }
+                if (pending != null)
+                {
+                    pending.TrySetResult(root.Clone());
+                    return;
+                }
+                StateChanged?.Invoke(message);
+                return;
+            }
+            if (_pending != null && type is "auth" or "deckSaved" or "deckList" or "deckBody" or "report")
+            {
+                var copy = root.Clone();
+                TaskCompletionSource<JsonElement>? pending;
+                lock (_waitGate)
+                {
+                    pending = _pending;
+                    _pending = null;
+                }
+                pending?.TrySetResult(copy);
+                return;
+            }
             switch (type)
             {
                 case "welcome":
                     PlayerId = ReadString(root, "playerId");
+                    var bound = ReadString(root, "name");
+                    if (bound.Length > 0)
+                        DisplayName = bound;
                     StateChanged?.Invoke("Connected to matchmaking. Create or join a room.");
                     break;
                 case "rooms":
@@ -166,9 +358,6 @@ public sealed class MatchmakingClient : IDisposable
                     break;
                 case "room":
                     ApplyRoom(root);
-                    break;
-                case "error":
-                    StateChanged?.Invoke(ReadString(root, "message"));
                     break;
                 case "gone":
                     InRoom = false;

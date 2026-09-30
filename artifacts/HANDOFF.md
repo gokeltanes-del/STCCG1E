@@ -1,12 +1,16 @@
 ﻿﻿﻿﻿# HANDOFF â€” STCCG 1E
 
-**Stand:** 2026-09-30 · **Ort:** Josef `C:\Dev\StarTrekCCG\StarTrekCCG` · **HEAD:** local tip on `fcb5cf3`, not pushed · **origin/master:** not this tip
+**Stand:** 2026-09-30 · **Ort:** Josef `C:\Dev\StarTrekCCG\StarTrekCCG` · **HEAD:** local Phase 3 tip, parent `06364f2`, not pushed · **origin/master:** not this tip
 
 Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.md`, `FEATURES.md`, Coverage.
 
 ---
 
 ## Jetzt aktiv
+
+**Pepsch, 2026-09-30:** Relais funktioniert. Open direct game funktioniert. Sein Test dieser beiden Wege, nicht DONE fuer aeltere Netzpunkte. Offen: UPnP-Router-Test, Zwei-Netz-NAT, Relais-Reconnect-Grace. Der erste Gast-Play-Zug ist davon nicht gruen. Er hat ihn hier nicht bestaetigt.
+
+**Phase 3 Konten:** getippt, nicht gruen, nicht DONE, nicht gepusht. Details: CHANGELOG 2026-09-30.
 
 **Gast erster Play-Zug:** getippt, nicht gruen, nicht DONE, nicht gepusht. Hand-Drop in Match-Play, Stack zu, wird PlayCard an den Host (Facility oder Host-InstanceId unter dem Cursor). Kein lokales Affiliation/Report-Deny davor, auch nicht wenn der Snapshot noch den anderen Spieler zeigt. AskChoiceForPlayer fragt, wenn der lokale Gast entscheidet. Host-Fragen und Hotseat bleiben. Idle 60s startet erst, wenn der Your-Turn-State gequeued ist. Zeiten unveraendert. Host-Deck bleibt beim Host.
 Pepsch: Relais blieb nach Lobby-Close stehen. Spielen ging ab Zug 2. Dieser erste Gast-Play-Zug ist der offene Tip.
