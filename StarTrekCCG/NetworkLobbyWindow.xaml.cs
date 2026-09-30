@@ -42,6 +42,7 @@ public partial class NetworkLobbyWindow : Window
     private Task? _lobbyReceiveTask;
     private bool _busy;
     private bool _gameStarting;
+    private int _relayReceiveHandedOff;
 
     private string? _localDeckPath;
     private string? _localDeckJson;
@@ -281,15 +282,18 @@ public partial class NetworkLobbyWindow : Window
     {
         try
         {
-            while (!ct.IsCancellationRequested && !_gameStarting)
+            while (!ct.IsCancellationRequested && !_gameStarting && Volatile.Read(ref _relayReceiveHandedOff) == 0)
             {
                 NetMessage msg;
                 if (_link != null)
                 {
                     // None: this token must not enter ClientWebSocket.ReceiveAsync.
                     // Detach hands the in-flight read to the session. Cancelling it aborts the socket on net8.
+                    // After that handoff this continuation must not call ReceiveAsync again.
+                    if (Volatile.Read(ref _relayReceiveHandedOff) != 0)
+                        break;
                     msg = await _link.ReceiveAsync(CancellationToken.None).ConfigureAwait(false);
-                    if (_gameStarting)
+                    if (_gameStarting || Volatile.Read(ref _relayReceiveHandedOff) != 0)
                         break;
                 }
                 else if (_server != null)
@@ -306,11 +310,15 @@ public partial class NetworkLobbyWindow : Window
         {
             // normal: DetachTransport or Disconnect
         }
+        catch (InvalidOperationException) when (Volatile.Read(ref _relayReceiveHandedOff) != 0)
+        {
+            // The session already owns the read. Do not drop the socket from here.
+        }
         catch (Exception ex)
         {
             await Dispatcher.InvokeAsync(() =>
             {
-                if (!_gameStarting && IsConnected)
+                if (!_gameStarting && Volatile.Read(ref _relayReceiveHandedOff) == 0 && IsConnected)
                     DisconnectInternal("Lobby receive error: " + ex.Message);
             });
         }
@@ -931,10 +939,11 @@ public partial class NetworkLobbyWindow : Window
         _relayHost = false;
         if (_link is RelayNetLink relay)
         {
+            // Visible to the lobby continuation before it can start another read.
+            Volatile.Write(ref _relayReceiveHandedOff, 1);
             relay.HandOffInFlightReceive();
-            // Leave _cts uncancelled. The lobby loop is inside ReceiveAsync(CancellationToken.None)
-            // and exits on _gameStarting without a second read. Disposing the source here can throw
-            // from the loop's token, so drop the field and let the loop release it.
+            // Leave _cts uncancelled. The lobby loop is inside ReceiveAsync(CancellationToken.None).
+            // When that read completes, the continuation exits on the handoff and does not read again.
             _cts = null;
             _lobbyReceiveTask = null;
         }

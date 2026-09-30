@@ -1,4 +1,10 @@
-﻿## 2026-09-30 - Relay snapshot before the next turn
+﻿## 2026-09-30 - Relay read once, held turn does not spin
+
+- Getippt, nicht gruen, nicht DONE. Nach dem Handoff ruft die Lobby ReceiveAsync nicht noch einmal auf. ReceiveNextAsync bricht den Relais-Read nicht ab. Die 15s bleiben am Heartbeat, der keinen zweiten Read startet.
+- Ein gehaltener naechster Zug macht End turn falsch, ruft CompleteTurnChange nicht noch einmal, und stellt die Idle-Uhr neu, wenn die Frist schon vorbei ist. OnNetDisconnected stoppt die Uhr. Kein 500ms-Spin.
+- Unveraendert: Idle 60s, Wahl 10s, Reveal 20s, Antwortfenster 3s, Grace 120s. Die Host-Deckliste geht nicht an den Gast. Kein Phase 4.
+
+## 2026-09-30 - Relay snapshot before the next turn
 
 - Getippt, nicht gruen, nicht DONE. Der Host wartet den maskierten Snapshot ab. Ein Sendefehler ist Transportverlust, derselbe Weg wie ein toter Socket. Der naechste Zug startet erst, wenn ein maskierter Snapshot dieses Zuges auf dem offenen Link geschrieben ist.
 - Relais-Rejoin schickt diesen Snapshot. Ein fehlender TCP-Server ist kein erfolgreiches Resume. Erfolg wird nicht gemeldet, wenn der Socket nicht offen ist.

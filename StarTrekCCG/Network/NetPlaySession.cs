@@ -389,15 +389,21 @@ public sealed class NetPlaySession : IDisposable
     /// <summary>
     /// One framed read. No bytes for <see cref="DeadAfterMs"/> is a dead socket
     /// (silent drop has no FIN/RST) and uses the same cleanup as a socket fault.
+    /// The relay read is not cancelled: on net8 that aborts ClientWebSocket.
+    /// The 15s silent-socket death stays on the heartbeat, which does not start a second read.
     /// </summary>
     private async Task<NetMessage?> ReceiveNextAsync(CancellationToken ct)
     {
+        if (_link != null)
+        {
+            ct.ThrowIfCancellationRequested();
+            return await _link.ReceiveAsync(CancellationToken.None).ConfigureAwait(false);
+        }
+
         using var readCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         readCts.CancelAfter(DeadAfterMs);
         try
         {
-            if (_link != null)
-                return await _link.ReceiveAsync(readCts.Token).ConfigureAwait(false);
             if (_server != null)
                 return await _server.ReceiveAsync(readCts.Token).ConfigureAwait(false);
             if (_client != null)

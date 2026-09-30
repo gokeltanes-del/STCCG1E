@@ -279,6 +279,7 @@ public partial class TableWindow : Window
     private const int OnlineIdleTurnTimeoutMs = 60_000;
 
     private System.Windows.Threading.DispatcherTimer? _idleTurnTimer;
+    private bool _netDisconnected;
     private DateTime _idleTurnDeadlineUtc;
     private int _idleTurnArmedForPlayer;
     private int _idleTurnArmedTurnNumber;
@@ -11193,6 +11194,7 @@ public partial class TableWindow : Window
         session.ActionReceived += OnNetActionReceived;
         session.StateReceived += OnNetStateReceived;
         session.ErrorReceived += OnNetErrorReceived;
+        _netDisconnected = false;
         session.Disconnected += OnNetDisconnected;
         session.ChoiceRequestReceived += OnNetChoiceRequestReceived;
         session.ChoiceResponseReceived += OnNetChoiceResponseReceived;
@@ -11566,6 +11568,8 @@ public partial class TableWindow : Window
 
     private void OnNetDisconnected(string reason)
     {
+        _netDisconnected = true;
+        StopOnlineIdleTurnWatch();
         StatusText.Text = "Network disconnected: " + reason;
         _session.Log.AddDebug(_session.TurnNumber, "Net", "Disconnected: " + reason);
     }
@@ -12043,9 +12047,14 @@ public partial class TableWindow : Window
                 FinishExecuteAndEndTurn();
                 if (_session.ActivePlayer == beforePlayer && _session.Segment == beforeSeg)
                 {
+                    // Hold already returned from FinishExecute. Do not flip again.
+                    if (NextTurnWaitsForSnapshot() && !CurrentTurnSnapshotOnOpenLink())
+                        return false;
                     // Stuck EOT flags / re-entrancy: force flip so P2 is never trapped in EXECUTE.
                     CompleteTurnChange();
                 }
+                if (_session.ActivePlayer == beforePlayer && _session.Segment == beforeSeg)
+                    return false;
                 _session.Log.Add(_session.TurnNumber, $"P{action.Player}", "Net: End turn");
                 return true;
 
@@ -14291,6 +14300,9 @@ public partial class TableWindow : Window
         _session.Log.AddDebug(_session.TurnNumber, "Net",
             "Next turn held: masked snapshot for this turn is not on the open link.");
         StatusText.Text = "Network: this turn is not on the open link yet.";
+        // A deadline already in the past makes the 500ms tick re-enter End turn.
+        if (_idleTurnDeadlineUtc != default && DateTime.UtcNow >= _idleTurnDeadlineUtc)
+            _idleTurnDeadlineUtc = DateTime.UtcNow.AddMilliseconds(OnlineIdleTurnTimeoutMs);
         return true;
     }
 
@@ -14311,6 +14323,7 @@ public partial class TableWindow : Window
 
     private void EnsureOnlineIdleTurnWatch()
     {
+        if (_netDisconnected) return;
         if (_idleTurnEnding) return;
         if (_netGraceActive) return;
         if (!OnlineIdleTurnApplies())
@@ -14376,6 +14389,11 @@ public partial class TableWindow : Window
 
     private void OnlineIdleTurnTimer_Tick(object? sender, EventArgs e)
     {
+        if (_netDisconnected)
+        {
+            StopOnlineIdleTurnWatch();
+            return;
+        }
         if (_idleTurnEnding) return;
         if (_netGraceActive) return;
         if (!OnlineIdleTurnApplies())
