@@ -103,6 +103,8 @@ public partial class TableWindow : Window
     /// A refusal is a status line. Hotseat and a Host click keep the dialog.
     /// </summary>
     private bool _netGuestOrderApplying;
+    /// <summary>Guest: true after the first host snapshot. Local copies before that have the wrong InstanceIds.</summary>
+    private bool _netGuestHasHostState;
     /// <summary>
     /// Other choices keep a random answer when nobody clicks.
     /// Required-move sets this false so a blank or timed-out answer is not a destination.
@@ -10696,12 +10698,35 @@ public partial class TableWindow : Window
         if (_netSession == null)
             throw new InvalidOperationException("NetPlaySession did not start after lobby GameStarting.");
 
-        var deck1 = LoadAndLinkDeckFromJson(args.DeckP1Json);
-        var deck2 = LoadAndLinkDeckFromJson(args.DeckP2Json);
-        if (!string.IsNullOrWhiteSpace(args.DeckP1Name))
-            deck1.Name = args.DeckP1Name;
-        if (!string.IsNullOrWhiteSpace(args.DeckP2Name))
-            deck2.Name = args.DeckP2Name;
+        Deck deck1;
+        Deck deck2;
+        if (_netSession.IsGuest)
+        {
+            // Do not parse DeckP1Json. Host cards exist here only after the masked snapshot.
+            if (string.IsNullOrWhiteSpace(args.DeckP2Json))
+                throw new InvalidOperationException("Guest start is missing the guest deck.");
+            deck2 = LoadAndLinkDeckFromJson(args.DeckP2Json);
+            if (!string.IsNullOrWhiteSpace(args.DeckP2Name))
+                deck2.Name = args.DeckP2Name;
+            deck1 = new Deck
+            {
+                Name = string.IsNullOrWhiteSpace(args.DeckP1Name) ? "Player 1" : args.DeckP1Name
+            };
+            _netGuestHasHostState = false;
+            _session.Log.AddDebug(_session.TurnNumber, "Net",
+                $"Lobby start: guest deck {deck2.Name}, host deck not loaded, skipSeed={args.SkipSeedPhase}.");
+        }
+        else
+        {
+            deck1 = LoadAndLinkDeckFromJson(args.DeckP1Json);
+            deck2 = LoadAndLinkDeckFromJson(args.DeckP2Json);
+            if (!string.IsNullOrWhiteSpace(args.DeckP1Name))
+                deck1.Name = args.DeckP1Name;
+            if (!string.IsNullOrWhiteSpace(args.DeckP2Name))
+                deck2.Name = args.DeckP2Name;
+            _session.Log.AddDebug(_session.TurnNumber, "Net",
+                $"Lobby start: P1={deck1.Name}, P2={deck2.Name}, role=Host, skipSeed={args.SkipSeedPhase}.");
+        }
 
         _loadedDeck = deck1;
         PlaceDeckOnTable(deck1);
@@ -10710,9 +10735,7 @@ public partial class TableWindow : Window
 
         StatusText.Text = _netSession.IsHost
             ? $"Network: Host P1 — decks on table ({deck1.Name} vs {deck2.Name})."
-            : $"Network: Guest P2 — decks on table ({deck1.Name} vs {deck2.Name}).";
-        _session.Log.AddDebug(_session.TurnNumber, "Net",
-            $"Lobby start: P1={deck1.Name}, P2={deck2.Name}, role={(_netSession.IsHost ? "Host" : "Guest")}, skipSeed={args.SkipSeedPhase}.");
+            : $"Network: Guest P2 — {deck2.Name}. Waiting for the host snapshot.";
 
         EnsureNetworkModeFromSession();
         try { lobby.Close(); } catch { /* ignore */ }
@@ -11361,6 +11384,7 @@ public partial class TableWindow : Window
         _netSession = null;
         try { old?.Dispose(); } catch { /* ignore */ }
 
+        _netGuestHasHostState = false;
         _netSession = NetPlaySession.CreateGuest(client, localPlayer: 2);
         HookNetSession(_netSession);
         var sync = SynchronizationContext.Current
@@ -11395,6 +11419,7 @@ public partial class TableWindow : Window
             HideHostEncounterMirror();
             EnsureNetworkModeFromSession();
             ApplyGameSave(save);
+            _netGuestHasHostState = true;
             ApplyAuthoritativeStackWindow(save.Stack);
             HideHostEncounterMirror();
             // ApplyGameSave restores Session.ActivePlayer → _activePlayer; refresh seed banner/stack.
@@ -14011,6 +14036,11 @@ public partial class TableWindow : Window
     private async System.Threading.Tasks.Task SendGuestActionAsync(GameAction action)
     {
         if (_netSession == null || !_netSession.IsGuest) return;
+        if (!_netGuestHasHostState)
+        {
+            StatusText.Text = "Network: waiting for the host snapshot.";
+            return;
+        }
         try
         {
             await _netSession.SendActionAsync(NetActionDto.ToDto(action)).ConfigureAwait(true);

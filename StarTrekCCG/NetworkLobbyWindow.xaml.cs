@@ -307,7 +307,8 @@ public partial class NetworkLobbyWindow : Window
                 _peerReady = ready.IsReady;
                 if (!string.IsNullOrWhiteSpace(ready.DeckName))
                     _peerDeckName = ready.DeckName;
-                if (ready.IsReady && !string.IsNullOrWhiteSpace(ready.DeckJson))
+                // Host keeps the guest list. The guest never stores the host deck.
+                if (IsHost && ready.IsReady && !string.IsNullOrWhiteSpace(ready.DeckJson))
                     _peerDeckJson = ready.DeckJson;
                 UpdateLobbyUi();
 
@@ -392,7 +393,16 @@ public partial class NetworkLobbyWindow : Window
 
         try
         {
-            var msg = NetMessage.Create(NetMessage.Types.StartGame, payloadJson: NetLobbyDto.ToJson(start));
+            // Wire copy has no host deck. RaiseGameStarting keeps both lists for the host engine.
+            var wire = new NetLobbyDto.StartGame
+            {
+                DeckP1Name = start.DeckP1Name,
+                DeckP2Name = start.DeckP2Name,
+                DeckP1Json = "",
+                DeckP2Json = start.DeckP2Json,
+                SkipSeedPhase = start.SkipSeedPhase
+            };
+            var msg = NetMessage.Create(NetMessage.Types.StartGame, payloadJson: NetLobbyDto.ToJson(wire));
             await SendLobbyAsync(msg).ConfigureAwait(true);
             RaiseGameStarting(start);
         }
@@ -520,7 +530,7 @@ public partial class NetworkLobbyWindow : Window
                 Player = LocalPlayerNumber,
                 IsReady = true,
                 DeckName = _localDeckName ?? "Deck",
-                DeckJson = _localDeckJson
+                DeckJson = IsHost ? null : _localDeckJson
             };
             await SendLobbyAsync(NetMessage.Create(NetMessage.Types.LobbyReady, NetLobbyDto.ToJson(ready)))
                 .ConfigureAwait(true);

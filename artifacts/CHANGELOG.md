@@ -1,4 +1,8 @@
-﻿## 2026-09-30 - Decks store a catalog cardId
+﻿﻿## 2026-09-30 - Guest does not receive the host deck
+
+- Spielbar, nicht gruen: LobbyReady und StartGame tragen das Host-Deck nicht mehr zum Gast. Der Gast parst nur sein Deck. Host-Karten und InstanceIds kommen aus dem maskierten Snapshot. Aktionen vor dem ersten Snapshot gehen nicht raus.
+
+## 2026-09-30 - Decks store a catalog cardId
 
 - Spielbar, nicht gruen: Decks speichern cardId (SetFolder/ReleaseRaw/Name). Alte Decks ohne cardId laden weiter.
 

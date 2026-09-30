@@ -1,4 +1,4 @@
-﻿# HANDOFF â€” STCCG 1E
+﻿﻿# HANDOFF â€” STCCG 1E
 
 **Stand:** 2026-09-30 · **Ort:** Josef `C:\Dev\StarTrekCCG\StarTrekCCG` · **HEAD:** `aa99a37` · **origin/master:** derselbe Hash
 
@@ -22,9 +22,9 @@ Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.m
 - Life-form Scan und Jaglom Shrek: spielt der Gast, sieht er die Karten im eigenen Fenster (ChoiceRequest kind=reveal). Der Host oeffnet die Galerie nicht. Host und Hotseat bleiben BeginOpponentPileInteract.
 - Gap: ein Gast-Drop mit gap: ueberspringt den Dialog weiter. Ohne diese Note waehlt der Gast ueber ChoiceRequest kind=choice. Host und Hotseat bleiben ShowIndexPickDialog.
 - cardId: SetFolder/ReleaseRaw/Name. Speichern schreibt sie (Deck v3). Alte Decks ohne cardId laden weiter ueber Name und Set. Getippt, nicht gruen.
+- Host-Deck: der Gast bekommt es nicht. LobbyReady vom Host hat kein DeckJson. StartGame auf der Leitung hat leeres deckP1Json. Der Gast parst nur sein Deck (P2). Karten des Hosts kommen aus dem maskierten Snapshot (InstanceId bleibt, Name leer wenn verdeckt). Eine Gast-Aktion wartet auf diesen Snapshot und nennt die InstanceId von dort. Getippt, nicht gruen.
 
 **Offen:**
-- StartGame schickt dem Gast noch beide Deck-JSONs (`deckP1Json` und `deckP2Json`). Nicht abgeschnitten: `OnLobbyGameStarting` parst beide (`LoadAndLinkDeckFromJson`, leeres JSON wirft). `PlaceDeckOnTable` legt P1, danach `PlaceOpponentDeck` P2. Dieselben InstanceIds nimmt der Host in `FromDto` vor dem Namen. Ohne das Host-Deck auf dem Gast trifft eine Gast-Aktion die falsche Host-Karte. Der Host behaelt beide Decks lokal und holt das JSON nicht vom Gast zurueck.
 - Relay fehlt. Versions-Hash fehlt.
 
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
