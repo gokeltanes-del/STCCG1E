@@ -8,6 +8,8 @@ Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.m
 
 ## Jetzt aktiv
 
+**Relais-Reconnect am Tisch:** getippt, nicht gruen, nicht DONE, nicht gepusht. Zweiter Relais-Read wirft nicht und bricht den Gast nicht ab. Obere Zeile: Connected / Reconnect / Disconnected. Knopf nur in der 120s Grace, gleiche Partie, maskierter Snapshot, kein Lobby-Join, kein TCP-NetServer. Pepsch: Relais-Partie hielt bis Zug 20.
+
 **Relais-Read und Idle-Spin:** getippt, nicht gruen, nicht DONE, nicht gepusht. Nach dem Handoff kein zweiter Lobby-Read. Der 15s-Abbruch haengt nicht am Relais-Read, nur am Heartbeat. Gehaltener Zug: End turn falsch, kein zweites CompleteTurnChange, Idle-Uhr neu wenn die Frist vorbei ist. OnNetDisconnected stoppt die Uhr. Zeiten unveraendert. Host-Deck geht nicht an den Gast. Kein Phase 4.
 
 **Snapshot vor dem naechsten Zug:** getippt, nicht gruen, nicht DONE, nicht gepusht. Der Host wartet den maskierten Snapshot ab. Ein Sendefehler ist Transportverlust. Der naechste Zug startet erst, wenn dieser Zug auf dem offenen Link geschrieben ist. Relais-Rejoin schickt den Snapshot. Kein TCP-Server ist kein Resume. Erfolg nur bei offenem Socket. Zeiten unveraendert. Host-Deck geht nicht an den Gast. Kein Phase 4.

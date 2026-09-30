@@ -1,4 +1,10 @@
-﻿## 2026-09-30 - Relay read once, held turn does not spin
+﻿## 2026-09-30 - Relay reconnect sits on the table
+
+- Getippt, nicht gruen, nicht DONE. Ein zweiter ReceiveAsync auf dem Relais wirft nicht mehr und startet keinen zweiten Socket-Read. Der laufende Read wird geteilt. Der alte Wurf bricht den Gast nicht mehr per Abort ab. Ein WLAN-Riss geht in die Grace, ohne diesen Wurf.
+- Reconnect bleibt ein Knopf, kein Automat. Obere Tischzeile, gleiche dunkle Farben: Connected, waehrend der 120s Grace Reconnect (dort druecken), danach Disconnected. Der Gast bleibt in derselben Partie: derselbe Relais-Sitz, maskierter Snapshot, kein neues Mischen, kein Lobby-Join. Relais-Rejoin ohne TCP-NetServer. Ist die Grace vorbei, steht das da. 120s unveraendert.
+- Pepsch: die Relais-Partie hielt bis Zug 20. Der kurze WLAN-Riss danach ist dieser Tip, nicht gruen.
+
+## 2026-09-30 - Relay read once, held turn does not spin
 
 - Getippt, nicht gruen, nicht DONE. Nach dem Handoff ruft die Lobby ReceiveAsync nicht noch einmal auf. ReceiveNextAsync bricht den Relais-Read nicht ab. Die 15s bleiben am Heartbeat, der keinen zweiten Read startet.
 - Ein gehaltener naechster Zug macht End turn falsch, ruft CompleteTurnChange nicht noch einmal, und stellt die Idle-Uhr neu, wenn die Frist schon vorbei ist. OnNetDisconnected stoppt die Uhr. Kein 500ms-Spin.

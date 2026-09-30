@@ -367,6 +367,9 @@ public sealed class NetPlaySession : IDisposable
                         break;
                     if (generation != Volatile.Read(ref _loopGeneration))
                         break;
+                    // Still one read in flight. Do not Abort the socket: the relay would drop the guest.
+                    if (IsRelayDoubleRead(ex))
+                        continue;
                     ReportDead(ex.Message, generation);
                     break;
                 }
@@ -474,6 +477,8 @@ public sealed class NetPlaySession : IDisposable
         if (_disposed)
             return;
         if (generation != Volatile.Read(ref _loopGeneration))
+            return;
+        if (IsRelayDoubleRead(reason))
             return;
         if (Interlocked.Exchange(ref _deadReported, 1) != 0)
             return;
@@ -624,6 +629,13 @@ public sealed class NetPlaySession : IDisposable
         if (string.Equals(msg.Type, NetMessage.Types.Pong, StringComparison.OrdinalIgnoreCase))
             return;
     }
+
+    private static bool IsRelayDoubleRead(Exception ex)
+        => IsRelayDoubleRead(ex.Message);
+
+    private static bool IsRelayDoubleRead(string? reason)
+        => reason != null
+           && reason.Contains("Relay receive already in progress", StringComparison.Ordinal);
 
     private async Task ReplyPongAsync(int generation)
     {

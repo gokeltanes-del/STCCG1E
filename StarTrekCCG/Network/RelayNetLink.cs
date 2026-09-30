@@ -19,7 +19,7 @@ public sealed class RelayNetLink : INetLink
     private readonly SemaphoreSlim _send = new(1, 1);
     private readonly object _receiveGate = new();
     private Task<NetMessage>? _receive;
-    private bool _handOff;
+    private TaskCompletionSource<NetMessage>? _receiveTcs;
     private bool _disposed;
     private string _hostName = "";
     private int _port;
@@ -101,50 +101,41 @@ public sealed class RelayNetLink : INetLink
 
     public Task<NetMessage> ReceiveAsync(CancellationToken cancellationToken = default)
     {
-        Task<NetMessage>? adopted = null;
+        Task<NetMessage>? existing = null;
         TaskCompletionSource<NetMessage>? created = null;
         ClientWebSocket? socket = null;
         lock (_receiveGate)
         {
-            if (_handOff && _receive != null)
-            {
-                adopted = _receive;
-                _handOff = false;
-                if (adopted.IsCompleted)
-                    _receive = null;
-            }
-            else if (_receive != null)
-            {
-                throw new InvalidOperationException("Relay receive already in progress.");
-            }
+            // One socket read. Lobby-after-handoff and a restarted session loop
+            // join this task. A second ReceiveAsync must not throw: ReportDead
+            // would Abort this socket, and the relay then aborts the guest.
+            if (_receive != null)
+                existing = _receive;
             else
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 socket = SocketOrThrow();
                 created = new TaskCompletionSource<NetMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
+                _receiveTcs = created;
                 _receive = created.Task;
             }
         }
 
-        if (adopted != null)
-            return adopted;
+        if (existing != null)
+            return existing;
 
         _ = PumpAsync(socket!, cancellationToken, created!);
         return created!.Task;
     }
 
     /// <summary>
-    /// Lobby is blocked in ReceiveAsync. The session must await that same task.
-    /// Do not cancel the token inside that read: on net8, ClientWebSocket.ReceiveAsync
-    /// aborts the socket when its token is cancelled.
+    /// Lobby is blocked in ReceiveAsync. The session awaits that same task.
+    /// A later ReceiveAsync joins it and does not start a second socket read.
+    /// Do not cancel the token inside that read: on net8 that aborts the socket.
     /// </summary>
     public void HandOffInFlightReceive()
     {
-        lock (_receiveGate)
-        {
-            if (_receive != null)
-                _handOff = true;
-        }
+        // Mark only. The in-flight task is already the single socket read.
     }
 
     private async Task PumpAsync(ClientWebSocket socket, CancellationToken cancellationToken, TaskCompletionSource<NetMessage> done)
@@ -167,22 +158,28 @@ public sealed class RelayNetLink : INetLink
         {
             lock (_receiveGate)
             {
-                if (!_handOff && ReferenceEquals(_receive, done.Task))
+                if (ReferenceEquals(_receive, done.Task))
+                {
                     _receive = null;
+                    _receiveTcs = null;
+                }
             }
         }
     }
 
     public void Disconnect()
     {
+        TaskCompletionSource<NetMessage>? pending;
+        lock (_receiveGate)
+        {
+            pending = _receiveTcs;
+            _receive = null;
+            _receiveTcs = null;
+        }
         try { _socket?.Abort(); } catch { /* ignore */ }
         try { _socket?.Dispose(); } catch { /* ignore */ }
         _socket = null;
-        lock (_receiveGate)
-        {
-            _receive = null;
-            _handOff = false;
-        }
+        pending?.TrySetException(new IOException("Relay socket closed."));
     }
 
     public void Dispose()

@@ -10587,6 +10587,7 @@ public partial class TableWindow : Window
             GameMode.SingleAi => "Mode: Singleplayer AI (not available yet)",
             _ => "Mode selected"
         };
+        RefreshNetLinkStatus();
     }
 
     /// <summary>
@@ -11201,6 +11202,7 @@ public partial class TableWindow : Window
         session.PlayRevealReceived += OnNetPlayRevealReceived;
         session.TransportLost += OnNetTransportLost;
         session.SessionTokenReceived += OnNetSessionToken;
+        RefreshNetLinkStatus();
     }
 
     private void UnhookNetSession(NetPlaySession session)
@@ -11299,8 +11301,9 @@ public partial class TableWindow : Window
         _idleDeadlineAtGraceStart = _idleTurnDeadlineUtc;
         _responseDeadlineAtGraceStart = _responseWindowDeadlineUtc;
         StatusText.Text = _netSession is { IsHost: true }
-            ? "Network: guest socket lost. Same game stays open for 120s."
-            : "Network: connection lost. Same game stays open for 120s.";
+            ? "Network: guest socket lost. Same game stays open for 120s. Press Reconnect on the guest."
+            : "Network: connection lost. Same game stays open for 120s. Press Reconnect.";
+        RefreshNetLinkStatus();
         _maskedSnapshotWrittenTurn = -1;
         _session.Log.AddDebug(_session.TurnNumber, "Net", "Transport lost, grace 120s: " + reason);
 
@@ -11313,10 +11316,9 @@ public partial class TableWindow : Window
         if (!_netGraceTimer.IsEnabled)
             _netGraceTimer.Start();
 
+        // Reconnect is a button on this window, not automatic. Host still waits for that seat.
         if (_netSession is { IsHost: true } session)
             StartHostResumeAccept(session);
-        else if (_netSession is { IsGuest: true, UsesRelay: true } guestSession)
-            StartGuestRelayReconnect(guestSession);
     }
 
     private void NetGraceTimer_Tick(object? sender, EventArgs e)
@@ -11341,8 +11343,11 @@ public partial class TableWindow : Window
         if (!expired)
         {
             _netGraceForceChoiceFallback = false;
+            RefreshNetLinkStatus();
             return;
         }
+        _netDisconnected = true;
+        RefreshNetLinkStatus();
         _netSession?.AbandonAfterGrace();
     }
 
@@ -11408,66 +11413,6 @@ public partial class TableWindow : Window
         });
     }
 
-    private void StartGuestRelayReconnect(NetPlaySession session)
-    {
-        try { _netResumeAcceptCts?.Cancel(); } catch { /* ignore */ }
-        _netResumeAcceptCts = new CancellationTokenSource();
-        var token = _netResumeAcceptCts.Token;
-        _ = Task.Run(async () =>
-        {
-            while (!token.IsCancellationRequested)
-            {
-                bool open;
-                try
-                {
-                    open = await session.ReconnectRelayAsync(token).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException)
-                {
-                    break;
-                }
-                catch
-                {
-                    try { await Task.Delay(300, token).ConfigureAwait(false); }
-                    catch { break; }
-                    continue;
-                }
-
-                if (!open || !session.PeerSocketOpen)
-                {
-                    try { await Task.Delay(300, token).ConfigureAwait(false); }
-                    catch { break; }
-                    continue;
-                }
-
-                _ = Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    if (!ReferenceEquals(session, _netSession) || !_netGraceActive) return;
-                    if (!session.PeerSocketOpen)
-                    {
-                        StatusText.Text = "Network: peer socket is not open. Resume is not complete.";
-                        _session.Log.AddDebug(_session.TurnNumber, "Net",
-                            "Guest relay rejoin refused: socket is not open.");
-                        return;
-                    }
-                    try
-                    {
-                        session.RestartReceiveLoop();
-                        EndNetReconnectGrace(expired: false);
-                        StatusText.Text = "Network: relay rejoined. Waiting for the host snapshot.";
-                        _session.Log.AddDebug(_session.TurnNumber, "Net",
-                            "Guest relay socket is open. Waiting for the masked snapshot.");
-                    }
-                    catch (Exception ex)
-                    {
-                        StatusText.Text = "Network: relay rejoin failed: " + ex.Message;
-                    }
-                }));
-                break;
-            }
-        });
-    }
-
     private async Task CompleteGuestReconnectAsync(NetPlaySession session)
     {
         if (!ReferenceEquals(session, _netSession) || !_netGraceActive) return;
@@ -11514,9 +11459,38 @@ public partial class TableWindow : Window
     {
         if (_netSession is { IsHost: true })
         {
-            StatusText.Text = "Network: host keeps this game. Waiting for the same guest.";
+            StatusText.Text = _netDisconnected
+                ? "Network: reconnect grace ended (120s)."
+                : _netGraceActive
+                    ? "Network: host keeps this game. Waiting for the same guest."
+                    : "Network: already connected.";
             return;
         }
+
+        if (_netSession is { IsGuest: true, UsesRelay: true } relayGuest)
+        {
+            if (_netDisconnected || !_netGraceActive)
+            {
+                StatusText.Text = "Network: reconnect grace ended (120s).";
+                RefreshNetLinkStatus();
+                return;
+            }
+            await GuestRelayReconnectOnceAsync(relayGuest).ConfigureAwait(true);
+            return;
+        }
+
+        if (_netDisconnected)
+        {
+            StatusText.Text = "Network: reconnect grace ended (120s).";
+            return;
+        }
+
+        if (_netSession != null && !_netGraceActive)
+        {
+            StatusText.Text = "Network: already connected.";
+            return;
+        }
+
         if (!TryReadGuestResume(out var token, out var host, out var port))
         {
             StatusText.Text = "Network: no saved guest session to reconnect.";
@@ -11571,7 +11545,91 @@ public partial class TableWindow : Window
         _netDisconnected = true;
         StopOnlineIdleTurnWatch();
         StatusText.Text = "Network disconnected: " + reason;
+        RefreshNetLinkStatus();
         _session.Log.AddDebug(_session.TurnNumber, "Net", "Disconnected: " + reason);
+    }
+
+    /// <summary>Top bar: Connected, Reconnect (press during the 120s grace), Disconnected.</summary>
+    private void RefreshNetLinkStatus()
+    {
+        if (BtnNetLink == null) return;
+        if (_netSession == null && !_netDisconnected)
+        {
+            BtnNetLink.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        BtnNetLink.Visibility = Visibility.Visible;
+        if (_netDisconnected)
+            BtnNetLink.Content = "Disconnected";
+        else if (_netGraceActive)
+            BtnNetLink.Content = "Reconnect";
+        else
+            BtnNetLink.Content = "Connected";
+    }
+
+    private int _netReconnectBusy;
+
+    /// <summary>One relay rejoin of this seat. Not a lobby join and not a new deck.</summary>
+    private async Task GuestRelayReconnectOnceAsync(NetPlaySession session)
+    {
+        if (System.Threading.Interlocked.Exchange(ref _netReconnectBusy, 1) != 0)
+            return;
+        try
+        {
+            if (!ReferenceEquals(session, _netSession) || _netDisconnected || !_netGraceActive)
+            {
+                StatusText.Text = "Network: reconnect grace ended (120s).";
+                RefreshNetLinkStatus();
+                return;
+            }
+
+            var left = _netGraceUntilUtc - DateTime.UtcNow;
+            if (left <= TimeSpan.Zero)
+            {
+                StatusText.Text = "Network: reconnect grace ended (120s).";
+                return;
+            }
+
+            try { _netResumeAcceptCts?.Cancel(); } catch { /* ignore */ }
+            _netResumeAcceptCts = new CancellationTokenSource(left);
+            var token = _netResumeAcceptCts.Token;
+            StatusText.Text = "Network: reconnecting the relay seat.";
+            bool open = await session.ReconnectRelayAsync(token).ConfigureAwait(true);
+            if (!ReferenceEquals(session, _netSession) || _netDisconnected || !_netGraceActive)
+            {
+                StatusText.Text = "Network: reconnect grace ended (120s).";
+                RefreshNetLinkStatus();
+                return;
+            }
+            if (!open || !session.PeerSocketOpen)
+            {
+                StatusText.Text = "Network: relay is not open. Press Reconnect again.";
+                return;
+            }
+
+            session.RestartReceiveLoop();
+            EndNetReconnectGrace(expired: false);
+            StatusText.Text = "Network: relay rejoined. Waiting for the host snapshot.";
+            _session.Log.AddDebug(_session.TurnNumber, "Net",
+                "Guest relay socket is open. Waiting for the masked snapshot.");
+        }
+        catch (OperationCanceledException)
+        {
+            StatusText.Text = _netGraceActive && !_netDisconnected
+                ? "Network: relay reconnect timed out. Press Reconnect again."
+                : "Network: reconnect grace ended (120s).";
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = _netGraceActive && !_netDisconnected
+                ? "Network: reconnect failed: " + ex.Message
+                : "Network: reconnect grace ended (120s).";
+        }
+        finally
+        {
+            System.Threading.Interlocked.Exchange(ref _netReconnectBusy, 0);
+        }
     }
 
     private void OnNetErrorReceived(string message)
