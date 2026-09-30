@@ -21,6 +21,7 @@ namespace StarTrekCCG.Services;
 public class CardDatabase
 {
     private readonly List<Card> _cards = new();
+    private readonly Dictionary<string, Card> _byCardId = new(StringComparer.Ordinal);
     private readonly string _dataRoot;
 
     public IReadOnlyList<Card> AllCards => _cards.AsReadOnly();
@@ -36,6 +37,7 @@ public class CardDatabase
     public int LoadAll()
     {
         _cards.Clear();
+        _byCardId.Clear();
 
         if (!Directory.Exists(_dataRoot))
         {
@@ -89,7 +91,20 @@ public class CardDatabase
             }
         }
 
+        RebuildCardIdIndex();
         return _cards.Count;
+    }
+
+    private void RebuildCardIdIndex()
+    {
+        _byCardId.Clear();
+        foreach (var card in _cards)
+        {
+            var id = card.CardId;
+            if (string.IsNullOrEmpty(id)) continue;
+            if (!_byCardId.ContainsKey(id))
+                _byCardId[id] = card;
+        }
     }
 
     /// <summary>
@@ -144,6 +159,55 @@ public class CardDatabase
     {
         return _cards.FirstOrDefault(c =>
             string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>Catalog card for SetFolder/ReleaseRaw/Name. Null when the id is unknown.</summary>
+    public Card? FindByCardId(string? cardId)
+    {
+        if (string.IsNullOrWhiteSpace(cardId)) return null;
+        return _byCardId.TryGetValue(cardId.Trim(), out var card) ? card : null;
+    }
+
+    /// <summary>
+    /// cardId wins when the catalog has it. Otherwise name and set, same as before v3.
+    /// A miss leaves the entry unloaded; the deck still loads.
+    /// </summary>
+    public Card? FindForDeckEntry(DeckEntry entry)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        var byId = FindByCardId(entry.CardId);
+        if (byId != null) return byId;
+        return _cards.FirstOrDefault(c =>
+            string.Equals(c.Name, entry.Name, StringComparison.OrdinalIgnoreCase) &&
+            (entry.Set == null || string.Equals(c.SetFolder, entry.Set, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    public void LinkEntry(DeckEntry entry)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        var card = FindForDeckEntry(entry);
+        entry.Card = card;
+        if (card != null)
+            entry.CardId = card.CardId;
+    }
+
+    public void LinkDeck(Deck deck)
+    {
+        ArgumentNullException.ThrowIfNull(deck);
+        void Link(List<DeckEntry>? list)
+        {
+            if (list == null) return;
+            foreach (var entry in list)
+                LinkEntry(entry);
+        }
+        Link(deck.SeedCards);
+        Link(deck.DrawCards);
+        Link(deck.QsTentCards);
+        Link(deck.BattleBridgeCards);
+        Link(deck.QContinuumCards);
+        Link(deck.SitePileCards);
+        Link(deck.TribbleCards);
+        Link(deck.SideCards);
     }
 
     public IEnumerable<Card> GetByType(string type)

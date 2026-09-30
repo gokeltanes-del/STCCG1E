@@ -9659,23 +9659,7 @@ public partial class TableWindow : Window
         {
             var deck = _deckService.Load(dialog.FileName);
 
-            void Link(List<DeckEntry> list)
-            {
-                foreach (var entry in list)
-                {
-                    entry.Card = _db.AllCards.FirstOrDefault(c =>
-                        string.Equals(c.Name, entry.Name, StringComparison.OrdinalIgnoreCase) &&
-                        (entry.Set == null || string.Equals(c.SetFolder, entry.Set, StringComparison.OrdinalIgnoreCase)));
-                }
-            }
-            Link(deck.SeedCards);
-            Link(deck.DrawCards);
-            Link(deck.QsTentCards);
-            Link(deck.BattleBridgeCards);
-            Link(deck.QContinuumCards);
-            Link(deck.SitePileCards);
-            Link(deck.TribbleCards);
-            Link(deck.SideCards);
+            LinkDeckEntries(deck);
 
             _loadedDeck = deck;
             ApplySelectedGameMode();
@@ -9712,23 +9696,7 @@ public partial class TableWindow : Window
         try
         {
             var deck = _deckService.Load(dialog.FileName);
-            void Link(List<DeckEntry> list)
-            {
-                foreach (var entry in list)
-                {
-                    entry.Card = _db!.AllCards.FirstOrDefault(c =>
-                        string.Equals(c.Name, entry.Name, StringComparison.OrdinalIgnoreCase) &&
-                        (entry.Set == null || string.Equals(c.SetFolder, entry.Set, StringComparison.OrdinalIgnoreCase)));
-                }
-            }
-            Link(deck.SeedCards);
-            Link(deck.DrawCards);
-            Link(deck.QsTentCards);
-            Link(deck.BattleBridgeCards);
-            Link(deck.QContinuumCards);
-            Link(deck.SitePileCards);
-            Link(deck.TribbleCards);
-            Link(deck.SideCards);
+            LinkDeckEntries(deck);
 
             _loadedDeckOpp = deck;
             PlaceOpponentDeck(deck);
@@ -14694,23 +14662,8 @@ public partial class TableWindow : Window
 
     private void LinkDeckEntries(Deck deck)
     {
-        void Link(List<DeckEntry> list)
-        {
-            foreach (var entry in list)
-            {
-                entry.Card = _db!.AllCards.FirstOrDefault(c =>
-                    string.Equals(c.Name, entry.Name, StringComparison.OrdinalIgnoreCase) &&
-                    (entry.Set == null || string.Equals(c.SetFolder, entry.Set, StringComparison.OrdinalIgnoreCase)));
-            }
-        }
-        Link(deck.SeedCards);
-        Link(deck.DrawCards);
-        Link(deck.QsTentCards);
-        Link(deck.BattleBridgeCards);
-        Link(deck.QContinuumCards);
-        Link(deck.SitePileCards);
-        Link(deck.TribbleCards);
-        Link(deck.SideCards);
+        if (_db == null) return;
+        _db.LinkDeck(deck);
     }
 
     /// <summary>

@@ -21,13 +21,14 @@ public enum DeckSection
 }
 
 /// <summary>
-/// Speichert und lädt Decks als .stdeck Dateien (Format v2, liest auch v1).
+/// Speichert und lädt Decks als .stdeck Dateien (Format v3, liest auch v1 und v2).
 /// </summary>
 public class DeckService
 {
     public const string FormatV1 = "STCCG1E-Deck-v1";
     public const string FormatV2 = "STCCG1E-Deck-v2";
-    public const string RequiredFormat = FormatV2;
+    public const string FormatV3 = "STCCG1E-Deck-v3";
+    public const string RequiredFormat = FormatV3;
     public const string FileExtension = ".stdeck";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -51,7 +52,8 @@ public class DeckService
 
     public void Save(Deck deck, string filePath)
     {
-        deck.Format = FormatV2;
+        StampCardIds(deck);
+        deck.Format = FormatV3;
         deck.Modified = DateTime.Now;
         var json = JsonSerializer.Serialize(deck, JsonOptions);
         File.WriteAllText(filePath, json);
@@ -69,12 +71,11 @@ public class DeckService
         var deck = JsonSerializer.Deserialize<Deck>(json, JsonOptions)
                    ?? throw new InvalidDataException("The file could not be read.");
 
-        if (!string.Equals(deck.Format, FormatV1, StringComparison.Ordinal) &&
-            !string.Equals(deck.Format, FormatV2, StringComparison.Ordinal))
+        if (!IsKnownFormat(deck.Format))
         {
             throw new InvalidDataException(
                 "This is not a valid Star Trek CCG deck file.\n\n" +
-                $"Expected format: {FormatV1} or {FormatV2}");
+                $"Expected format: {FormatV1}, {FormatV2}, or {FormatV3}");
         }
 
         // v1 → v2: flat side stays in SideCards (SideLegacy), user can move manually
@@ -93,18 +94,50 @@ public class DeckService
         var deck = JsonSerializer.Deserialize<Deck>(json, JsonOptions)
                    ?? throw new InvalidDataException("The deck JSON could not be read.");
 
-        if (!string.Equals(deck.Format, FormatV1, StringComparison.Ordinal) &&
-            !string.Equals(deck.Format, FormatV2, StringComparison.Ordinal))
+        if (!IsKnownFormat(deck.Format))
         {
             throw new InvalidDataException(
                 "This is not a valid Star Trek CCG deck file.\n\n" +
-                $"Expected format: {FormatV1} or {FormatV2}");
+                $"Expected format: {FormatV1}, {FormatV2}, or {FormatV3}");
         }
 
         EnsureLists(deck);
         return deck;
     }
 
+
+    private static bool IsKnownFormat(string? format) =>
+        string.Equals(format, FormatV1, StringComparison.Ordinal)
+        || string.Equals(format, FormatV2, StringComparison.Ordinal)
+        || string.Equals(format, FormatV3, StringComparison.Ordinal);
+
+    /// <summary>
+    /// Writes the catalog id. Linked cards use SetFolder/ReleaseRaw/Name.
+    /// An old row with only a name still gets an id; load falls back to name and set if release is missing.
+    /// </summary>
+    private static void StampCardIds(Deck deck)
+    {
+        void Stamp(List<DeckEntry>? list)
+        {
+            if (list == null) return;
+            foreach (var entry in list)
+            {
+                if (entry == null) continue;
+                if (entry.Card != null)
+                    entry.CardId = entry.Card.CardId;
+                else if (string.IsNullOrWhiteSpace(entry.CardId))
+                    entry.CardId = Card.FormatCardId(entry.Set, null, entry.Name);
+            }
+        }
+        Stamp(deck.SeedCards);
+        Stamp(deck.DrawCards);
+        Stamp(deck.QsTentCards);
+        Stamp(deck.BattleBridgeCards);
+        Stamp(deck.QContinuumCards);
+        Stamp(deck.SitePileCards);
+        Stamp(deck.TribbleCards);
+        Stamp(deck.SideCards);
+    }
     private static void EnsureLists(Deck deck)
     {
         deck.SeedCards ??= new();
@@ -131,6 +164,8 @@ public class DeckService
         if (existing != null)
         {
             existing.Quantity += quantity;
+            if (string.IsNullOrWhiteSpace(existing.CardId))
+                existing.CardId = card.CardId;
         }
         else
         {
@@ -140,6 +175,7 @@ public class DeckService
                 Set = card.SetFolder,
                 Type = card.Type,
                 Quantity = quantity,
+                CardId = card.CardId,
                 Card = card
             });
         }

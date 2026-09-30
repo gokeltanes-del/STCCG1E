@@ -867,7 +867,7 @@ public partial class DeckBuilderWindow : Window
             try
             {
                 _deckService.Save(_currentDeck, dialog.FileName);
-                MessageBox.Show($"Deck \"{_currentDeck.Name}\" saved (format v2).", "Saved",
+                MessageBox.Show($"Deck \"{_currentDeck.Name}\" saved (format v3).", "Saved",
                     MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
@@ -895,24 +895,7 @@ public partial class DeckBuilderWindow : Window
 
                 if (_db != null)
                 {
-                    void Link(List<DeckEntry> list)
-                    {
-                        foreach (var entry in list)
-                        {
-                            entry.Card = _db.AllCards.FirstOrDefault(c =>
-                                string.Equals(c.Name, entry.Name, StringComparison.OrdinalIgnoreCase) &&
-                                (entry.Set == null || string.Equals(c.SetFolder, entry.Set, StringComparison.OrdinalIgnoreCase)));
-                        }
-                    }
-
-                    Link(loaded.SeedCards);
-                    Link(loaded.DrawCards);
-                    Link(loaded.QsTentCards);
-                    Link(loaded.BattleBridgeCards);
-                    Link(loaded.QContinuumCards);
-                    Link(loaded.SitePileCards);
-                    Link(loaded.TribbleCards);
-                    Link(loaded.SideCards);
+                    _db.LinkDeck(loaded);
                 }
 
                 _currentDeck = loaded;

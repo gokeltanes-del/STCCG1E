@@ -21,10 +21,11 @@ Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.m
 **Getippt, nicht gruen:**
 - Life-form Scan und Jaglom Shrek: spielt der Gast, sieht er die Karten im eigenen Fenster (ChoiceRequest kind=reveal). Der Host oeffnet die Galerie nicht. Host und Hotseat bleiben BeginOpponentPileInteract.
 - Gap: ein Gast-Drop mit gap: ueberspringt den Dialog weiter. Ohne diese Note waehlt der Gast ueber ChoiceRequest kind=choice. Host und Hotseat bleiben ShowIndexPickDialog.
+- cardId: SetFolder/ReleaseRaw/Name. Speichern schreibt sie (Deck v3). Alte Decks ohne cardId laden weiter ueber Name und Set. Getippt, nicht gruen.
 
 **Offen:**
 - StartGame schickt dem Gast noch beide Deck-JSONs (`deckP1Json` und `deckP2Json`). Nicht abgeschnitten: `OnLobbyGameStarting` parst beide (`LoadAndLinkDeckFromJson`, leeres JSON wirft). `PlaceDeckOnTable` legt P1, danach `PlaceOpponentDeck` P2. Dieselben InstanceIds nimmt der Host in `FromDto` vor dem Namen. Ohne das Host-Deck auf dem Gast trifft eine Gast-Aktion die falsche Host-Karte. Der Host behaelt beide Decks lokal und holt das JSON nicht vom Gast zurueck.
-- `cardId` fehlt. Relay fehlt. Versions-Hash fehlt.
+- Relay fehlt. Versions-Hash fehlt.
 
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
 

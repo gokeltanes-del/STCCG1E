@@ -4,12 +4,12 @@ namespace StarTrekCCG.Models;
 
 /// <summary>
 /// Komplettes Deck: Seed, Draw und benannte Side Decks (1E).
-/// Format v2 – v1-Dateien mit flachem "side" werden beim Laden migriert.
+/// Format v3 – v1-Dateien mit flachem "side" werden beim Laden migriert.
 /// </summary>
 public class Deck
 {
     [JsonPropertyName("format")]
-    public string Format { get; set; } = "STCCG1E-Deck-v2";
+    public string Format { get; set; } = "STCCG1E-Deck-v3";
 
     [JsonPropertyName("name")]
     public string Name { get; set; } = "New Deck";

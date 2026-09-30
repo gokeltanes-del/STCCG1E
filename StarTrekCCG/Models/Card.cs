@@ -24,6 +24,18 @@ public class Card
     [JsonPropertyName("release_raw")]
     public string? ReleaseRaw { get; set; }
 
+    /// <summary>
+    /// Catalog identity: SetFolder/ReleaseRaw/Name, each end trimmed. Not a hash. Not InstanceId.
+    /// </summary>
+    [JsonIgnore]
+    public string CardId => FormatCardId(SetFolder, ReleaseRaw, Name);
+
+    public static string FormatCardId(string? setFolder, string? releaseRaw, string? name)
+    {
+        static string Trim(string? value) => (value ?? "").Trim();
+        return Trim(setFolder) + "/" + Trim(releaseRaw) + "/" + Trim(name);
+    }
+
     [JsonPropertyName("rarity_info")]
     public string? RarityInfo { get; set; }
 

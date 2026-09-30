@@ -1,4 +1,8 @@
-﻿## 2026-09-30 - Guest examine and gap choice stay on the guest
+﻿## 2026-09-30 - Decks store a catalog cardId
+
+- Spielbar, nicht gruen: Decks speichern cardId (SetFolder/ReleaseRaw/Name). Alte Decks ohne cardId laden weiter.
+
+## 2026-09-30 - Guest examine and gap choice stay on the guest
 
 - Spielbar, nicht gruen: Life-form Scan und Jaglom Shrek zeigen die Karten im Gast-Fenster (kind=reveal), nicht auf dem Host-Strip. Eine Gap-Wahl ohne gap-Note geht als kind=choice an den Gast. Host und Hotseat bleiben lokal. Kein zweites Apply.
 

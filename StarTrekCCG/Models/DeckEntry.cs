@@ -20,6 +20,10 @@ public class DeckEntry
     [JsonPropertyName("quantity")]
     public int Quantity { get; set; } = 1;
 
+    /// <summary>Catalog id SetFolder/ReleaseRaw/Name. Missing on decks saved before v3.</summary>
+    [JsonPropertyName("cardId")]
+    public string? CardId { get; set; }
+
     // Wird zur Laufzeit gesetzt, nicht in der JSON-Datei gespeichert
     [JsonIgnore]
     public Card? Card { get; set; }
