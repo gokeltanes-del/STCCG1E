@@ -7,6 +7,13 @@
         Background="#252528"
         ResizeMode="NoResize"
         Closing="Window_Closing">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="LobbyChrome.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
     <!-- Verb: network lobby host join deck ready -->
     <Border Padding="24,20" Background="#252528">
         <ScrollViewer VerticalScrollBarVisibility="Auto">

@@ -8,6 +8,8 @@ Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.m
 
 ## Jetzt aktiv
 
+**Lobby-Text:** getippt, nicht gruen, nicht DONE, nicht gepusht. Netzwerk-Lobby und Sign-in: Deck-Dropdown, Buttons und Textfelder bleiben hell auf #1E1E22 / #3A3A48. Aero2 darf die Flaeche nicht mehr weiss zeichnen.
+
 **Relais Spielstart:** getippt, nicht gruen, nicht DONE, nicht gepusht. Der Lobby-Read auf dem Relais wird nicht abgebrochen. Derselbe laufende Read geht an die Session, kein zweiter Read auf dem Socket. Der Socket bleibt Open. Direct-IP bricht seinen eigenen Read weiter ab. Host-Deck geht nicht an den Gast. RoomBook.Leave unveraendert.
 
 **Pepsch, 2026-09-30:** Relais funktioniert. Open direct game funktioniert. Sein Test dieser beiden Wege, nicht DONE fuer aeltere Netzpunkte. Offen: UPnP-Router-Test, Zwei-Netz-NAT, Relais-Reconnect-Grace. Der erste Gast-Play-Zug ist davon nicht gruen. Er hat ihn hier nicht bestaetigt.

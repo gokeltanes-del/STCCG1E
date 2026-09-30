@@ -6,6 +6,13 @@
         WindowStartupLocation="CenterOwner"
         Background="#252528"
         ResizeMode="NoResize">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="LobbyChrome.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
     <Border Padding="24,20" Background="#252528">
         <StackPanel>
             <TextBlock Text="Sign in" Foreground="#EEE" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,4"/>

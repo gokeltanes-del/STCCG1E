@@ -1,4 +1,8 @@
-﻿﻿﻿## 2026-09-30 - Relay socket stays open when the game starts
+﻿## 2026-09-30 - Lobby text stays readable
+
+- Getippt, nicht gruen. Netzwerk-Lobby und Sign-in: Text, Buttons und das Deck-Dropdown bleiben hell (#EEE / White) auf den bestehenden dunklen Flaechen (#1E1E22, Hover/Auswahl #3A3A48). Kein neues Theme.
+
+## 2026-09-30 - Relay socket stays open when the game starts
 
 - Getippt, nicht gruen, nicht DONE. Die Lobby gibt den offenen Relais-Socket an den Tisch. Der Lobby-Token wird nicht mehr abgebrochen, solange RelayNetLink.ReceiveAsync darauf liest. Auf net8 schliesst genau dieses Abbrechen den Socket (Relay is not connected.), und der Dienst beendet dann den Gast. Der laufende Read geht an die Session und wird nicht ein zweites Mal auf demselben Socket gestartet.
 - Direct-IP bricht den eigenen Lobby-Read weiter ab. RoomBook.Leave bleibt ohne Relay-Drop. Die Host-Deckliste geht nicht an den Gast. Kein Konten-Umbau, kein Latinum.
