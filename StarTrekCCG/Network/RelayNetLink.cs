@@ -21,6 +21,11 @@ public sealed class RelayNetLink : INetLink
     private Task<NetMessage>? _receive;
     private bool _handOff;
     private bool _disposed;
+    private string _hostName = "";
+    private int _port;
+    private string _room = "";
+    private string _role = "";
+    private string _playerId = "";
 
     public bool IsConnected => _socket is { State: WebSocketState.Open };
 
@@ -55,7 +60,23 @@ public sealed class RelayNetLink : INetLink
             throw;
         }
 
+        _hostName = host;
+        _port = port;
+        _room = room;
+        _role = role;
+        _playerId = playerId;
         _socket = socket;
+    }
+
+    /// <summary>Same room and seat. Returns only after this socket is open.</summary>
+    public async Task ReconnectAsync(CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrEmpty(_hostName) || _port is < 1 or > 65535)
+            throw new InvalidOperationException("Relay has no endpoint.");
+        Disconnect();
+        await ConnectAsync(_hostName, _port, _room, _role, _playerId, cancellationToken).ConfigureAwait(false);
+        if (!IsConnected)
+            throw new InvalidOperationException("Relay is not connected.");
     }
 
     public async Task SendAsync(NetMessage message, CancellationToken cancellationToken = default)
@@ -157,6 +178,11 @@ public sealed class RelayNetLink : INetLink
         try { _socket?.Abort(); } catch { /* ignore */ }
         try { _socket?.Dispose(); } catch { /* ignore */ }
         _socket = null;
+        lock (_receiveGate)
+        {
+            _receive = null;
+            _handOff = false;
+        }
     }
 
     public void Dispose()

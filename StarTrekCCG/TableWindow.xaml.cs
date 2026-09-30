@@ -285,8 +285,10 @@ public partial class TableWindow : Window
     private bool _idleTurnEnding;
     /// <summary>Player clicked during the idle end's Play-phase prompts. Do not also end Execute.</summary>
     private bool _idleTurnPlayerInterrupted;
-    /// <summary>New turn is armed. The 60s starts only after that your-turn state is queued.</summary>
+    /// <summary>New turn is armed. The 60s starts only after that your-turn state is written to the open link.</summary>
     private bool _idleTurnAwaitingYourTurnBroadcast;
+    /// <summary>Turn whose masked snapshot was written to the open link. -1 means none.</summary>
+    private int _maskedSnapshotWrittenTurn = -1;
 
     private System.Windows.Threading.DispatcherTimer? _responseWindowTimer;
     private DateTime _responseWindowDeadlineUtc;
@@ -11282,6 +11284,7 @@ public partial class TableWindow : Window
 
     private void OnNetTransportLost(string reason)
     {
+        _maskedSnapshotWrittenTurn = -1;
         if (_netGraceActive || _netSession == null) return;
         BeginNetReconnectGrace(reason);
     }
@@ -11296,6 +11299,7 @@ public partial class TableWindow : Window
         StatusText.Text = _netSession is { IsHost: true }
             ? "Network: guest socket lost. Same game stays open for 120s."
             : "Network: connection lost. Same game stays open for 120s.";
+        _maskedSnapshotWrittenTurn = -1;
         _session.Log.AddDebug(_session.TurnNumber, "Net", "Transport lost, grace 120s: " + reason);
 
         _netGraceTimer ??= new System.Windows.Threading.DispatcherTimer
@@ -11309,6 +11313,8 @@ public partial class TableWindow : Window
 
         if (_netSession is { IsHost: true } session)
             StartHostResumeAccept(session);
+        else if (_netSession is { IsGuest: true, UsesRelay: true } guestSession)
+            StartGuestRelayReconnect(guestSession);
     }
 
     private void NetGraceTimer_Tick(object? sender, EventArgs e)
@@ -11370,7 +11376,10 @@ public partial class TableWindow : Window
                 }
                 catch
                 {
-                    if (!session.HostListening || token.IsCancellationRequested)
+                    if (token.IsCancellationRequested)
+                        break;
+                    // Relay has no TCP listener. HostListening is false; that is not "stop trying".
+                    if (!session.UsesRelay && !session.HostListening)
                         break;
                     try { session.DropAcceptedClient(); } catch { /* ignore */ }
                     try { await Task.Delay(300, token).ConfigureAwait(false); }
@@ -11380,7 +11389,7 @@ public partial class TableWindow : Window
 
                 if (result == NetPlaySession.ResumeResult.Accepted)
                 {
-                    _ = Dispatcher.BeginInvoke(new Action(() => CompleteGuestReconnect(session)));
+                    _ = Dispatcher.BeginInvoke(new Action(() => { _ = CompleteGuestReconnectAsync(session); }));
                     break;
                 }
                 if (result == NetPlaySession.ResumeResult.Cancelled)
@@ -11397,24 +11406,105 @@ public partial class TableWindow : Window
         });
     }
 
-    private void CompleteGuestReconnect(NetPlaySession session)
+    private void StartGuestRelayReconnect(NetPlaySession session)
+    {
+        try { _netResumeAcceptCts?.Cancel(); } catch { /* ignore */ }
+        _netResumeAcceptCts = new CancellationTokenSource();
+        var token = _netResumeAcceptCts.Token;
+        _ = Task.Run(async () =>
+        {
+            while (!token.IsCancellationRequested)
+            {
+                bool open;
+                try
+                {
+                    open = await session.ReconnectRelayAsync(token).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+                catch
+                {
+                    try { await Task.Delay(300, token).ConfigureAwait(false); }
+                    catch { break; }
+                    continue;
+                }
+
+                if (!open || !session.PeerSocketOpen)
+                {
+                    try { await Task.Delay(300, token).ConfigureAwait(false); }
+                    catch { break; }
+                    continue;
+                }
+
+                _ = Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    if (!ReferenceEquals(session, _netSession) || !_netGraceActive) return;
+                    if (!session.PeerSocketOpen)
+                    {
+                        StatusText.Text = "Network: peer socket is not open. Resume is not complete.";
+                        _session.Log.AddDebug(_session.TurnNumber, "Net",
+                            "Guest relay rejoin refused: socket is not open.");
+                        return;
+                    }
+                    try
+                    {
+                        session.RestartReceiveLoop();
+                        EndNetReconnectGrace(expired: false);
+                        StatusText.Text = "Network: relay rejoined. Waiting for the host snapshot.";
+                        _session.Log.AddDebug(_session.TurnNumber, "Net",
+                            "Guest relay socket is open. Waiting for the masked snapshot.");
+                    }
+                    catch (Exception ex)
+                    {
+                        StatusText.Text = "Network: relay rejoin failed: " + ex.Message;
+                    }
+                }));
+                break;
+            }
+        });
+    }
+
+    private async Task CompleteGuestReconnectAsync(NetPlaySession session)
     {
         if (!ReferenceEquals(session, _netSession) || !_netGraceActive) return;
-        EndNetReconnectGrace(expired: false);
+        if (!session.PeerSocketOpen)
+        {
+            StatusText.Text = "Network: peer socket is not open. Resume is not complete.";
+            _session.Log.AddDebug(_session.TurnNumber, "Net",
+                "Resume refused: peer socket is not open.");
+            if (session.IsHost)
+                StartHostResumeAccept(session);
+            return;
+        }
+
         try
         {
             session.RestartReceiveLoop();
-            if (session.IsHost)
+            if (!session.IsHost)
+                return;
+            bool written = await BroadcastMaskedStateToGuestAsync().ConfigureAwait(true);
+            if (!written || !session.PeerSocketOpen)
             {
-                BroadcastMaskedStateToGuest();
-                StatusText.Text = "Network: guest reconnected. Masked snapshot sent.";
+                StatusText.Text = "Network: resume snapshot was not written.";
                 _session.Log.AddDebug(_session.TurnNumber, "Net",
-                    "Guest resumed the same game. MaskForViewer snapshot sent.");
+                    "Rejoin did not write the masked snapshot.");
+                if (_netGraceActive)
+                    StartHostResumeAccept(session);
+                return;
             }
+
+            EndNetReconnectGrace(expired: false);
+            StatusText.Text = "Network: guest reconnected. Masked snapshot sent.";
+            _session.Log.AddDebug(_session.TurnNumber, "Net",
+                "Guest resumed the same game. MaskForViewer snapshot sent.");
         }
         catch (Exception ex)
         {
             StatusText.Text = "Network: resume failed: " + ex.Message;
+            if (_netGraceActive && session.IsHost)
+                StartHostResumeAccept(session);
         }
     }
 
@@ -14010,8 +14100,16 @@ public partial class TableWindow : Window
     }
 
     private void BroadcastMaskedStateToGuest()
+        => _ = BroadcastMaskedStateToGuestAsync();
+
+    /// <summary>
+    /// Writes one masked snapshot. The send is awaited. A fault is transport loss,
+    /// the same path as a dead socket. Returns true only when that snapshot for the
+    /// current turn was written and the link is still open.
+    /// </summary>
+    private async Task<bool> BroadcastMaskedStateToGuestAsync()
     {
-        if (_netSession == null || !_netSession.IsHost) return;
+        if (_netSession == null || !_netSession.IsHost) return false;
         EnsureNetworkModeFromSession();
         try
         {
@@ -14024,17 +14122,37 @@ public partial class TableWindow : Window
                 ForceHideWatcherMirror();
             var save = CaptureGameSave();
             var masked = NetStateMask.MaskForViewer(save, viewerPlayer: 2);
-            _ = _netSession.BroadcastStateAsync(masked);
-            ArmOnlineIdleTurnAfterYourTurnQueued();
+            int turn = _session.TurnNumber;
+            if (!_netSession.PeerSocketOpen)
+            {
+                _netSession.ReportTransportLoss("Masked snapshot was not written: link is not open.");
+                return false;
+            }
+
+            await _netSession.BroadcastStateAsync(masked).ConfigureAwait(true);
+            if (!_netSession.PeerSocketOpen)
+            {
+                _netSession.ReportTransportLoss("Masked snapshot was not written: link is not open.");
+                return false;
+            }
+
+            if (turn == _session.TurnNumber)
+            {
+                _maskedSnapshotWrittenTurn = turn;
+                ArmOnlineIdleTurnAfterYourTurnQueued();
+            }
             _session.Log.AddDebug(_session.TurnNumber, "Net",
                 $"Broadcast masked GameSave to Guest (active P{save.Session.ActivePlayer}, " +
                 $"seed={save.Session.SeedPhaseActive}, table={save.Table.Count}, spaceline={save.Spaceline.Count}, " +
                 $"stack={save.Stack?.Sequence}/{save.Stack?.Open}).");
+            return turn == _session.TurnNumber && _maskedSnapshotWrittenTurn == turn;
         }
         catch (Exception ex)
         {
             StatusText.Text = "Net broadcast failed: " + ex.Message;
             _session.Log.AddDebug(_session.TurnNumber, "Net", "Broadcast failed: " + ex.Message);
+            try { _netSession.ReportTransportLoss(ex.Message); } catch { /* ignore */ }
+            return false;
         }
     }
 
@@ -14152,7 +14270,32 @@ public partial class TableWindow : Window
         || _inspectorMode == InspectorMode.OpponentPileInteract;
 
     /// <summary>
-    /// Start the 60s only once this turn's masked state has been queued to the guest.
+    /// Network host in match play. The next turn waits until this turn's masked
+    /// snapshot has been written to the open link.
+    /// </summary>
+    private bool NextTurnWaitsForSnapshot() =>
+        _gameMode == GameMode.Network
+        && _netSession is { IsHost: true }
+        && !_seedPhaseActive
+        && _session.Match == GameSession.MatchPhase.Play;
+
+    private bool CurrentTurnSnapshotOnOpenLink() =>
+        _netSession is { PeerSocketOpen: true }
+        && _maskedSnapshotWrittenTurn == _session.TurnNumber;
+
+    /// <summary>True when the caller must not start the next turn.</summary>
+    private bool HoldNextTurnUntilSnapshot()
+    {
+        if (!NextTurnWaitsForSnapshot() || CurrentTurnSnapshotOnOpenLink())
+            return false;
+        _session.Log.AddDebug(_session.TurnNumber, "Net",
+            "Next turn held: masked snapshot for this turn is not on the open link.");
+        StatusText.Text = "Network: this turn is not on the open link yet.";
+        return true;
+    }
+
+    /// <summary>
+    /// Start the 60s only once this turn's masked state has been written to the open link.
     /// A later broadcast in the same turn does not restart it.
     /// </summary>
     private void ArmOnlineIdleTurnAfterYourTurnQueued()
@@ -14395,6 +14538,8 @@ public partial class TableWindow : Window
             ResumeEndOfTurnAfterDrawResponses();
             return;
         }
+        if (HoldNextTurnUntilSnapshot())
+            return;
         _eotEndingInProgress = true;
         int p = _session.ActivePlayer;
         _endTurnFinishingPlayer = p;
@@ -14531,6 +14676,8 @@ public partial class TableWindow : Window
             _session.Log.Add(_session.TurnNumber, "sys", "CompleteTurnChange re-entrancy ignored");
             return;
         }
+        if (HoldNextTurnUntilSnapshot())
+            return;
         _completingTurnChange = true;
         try
         {

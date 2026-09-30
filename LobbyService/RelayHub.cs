@@ -235,13 +235,15 @@ sealed class RelayHub
 
     private static async Task SendBinaryAsync(RelayEnd dest, byte[] payload)
     {
+        // A closed dest must not swallow the frame after the sender already returned.
         if (dest.Socket.State != WebSocketState.Open)
-            return;
+            throw new InvalidOperationException("relay peer socket is not open");
         await dest.Send.WaitAsync().ConfigureAwait(false);
         try
         {
-            if (dest.Socket.State == WebSocketState.Open)
-                await dest.Socket.SendAsync(payload, WebSocketMessageType.Binary, true, CancellationToken.None).ConfigureAwait(false);
+            if (dest.Socket.State != WebSocketState.Open)
+                throw new InvalidOperationException("relay peer socket is not open");
+            await dest.Socket.SendAsync(payload, WebSocketMessageType.Binary, true, CancellationToken.None).ConfigureAwait(false);
         }
         finally
         {

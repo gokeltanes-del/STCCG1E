@@ -141,14 +141,46 @@ public sealed class NetPlaySession : IDisposable
     public enum ResumeResult { Accepted, Rejected, TimedOut, Cancelled }
 
     /// <summary>
-    /// Block until a socket arrives, then read one resume message.
+    /// Block until the same guest is back.
     /// A mismatch drops that socket and leaves the listener up.
+    /// A null TCP server is not a successful resume. Relay returns Accepted
+    /// only when the relay socket is open after rejoin.
     /// </summary>
     public async Task<ResumeResult> AcceptSameGuestAsync(CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
         if (_server is null)
+        {
+            if (_link is not RelayNetLink)
+                return ResumeResult.Cancelled;
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                try
+                {
+                    var open = await ReconnectRelayAsync(cancellationToken).ConfigureAwait(false);
+                    if (open && PeerSocketOpen)
+                        return ResumeResult.Accepted;
+                }
+                catch (OperationCanceledException)
+                {
+                    return ResumeResult.Cancelled;
+                }
+                catch
+                {
+                    // Still not a resume. The peer socket is not open.
+                }
+
+                try
+                {
+                    await Task.Delay(300, cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    return ResumeResult.Cancelled;
+                }
+            }
             return ResumeResult.Cancelled;
+        }
         await _server.AcceptClientAsync(cancellationToken).ConfigureAwait(false);
         using var readCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         readCts.CancelAfter(TimeSpan.FromSeconds(10));
@@ -183,6 +215,24 @@ public sealed class NetPlaySession : IDisposable
     }
 
     public bool HostListening => _server?.IsListening == true;
+
+    public bool UsesRelay => _link is RelayNetLink;
+
+    /// <summary>The socket this session writes to is open. Not "a server object exists".</summary>
+    public bool PeerSocketOpen =>
+        _link?.IsConnected == true
+        || _server?.HasClient == true
+        || _client?.IsConnected == true;
+
+    /// <summary>Relay only. False when this session has no relay socket, or it did not open.</summary>
+    public async Task<bool> ReconnectRelayAsync(CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        if (_link is not RelayNetLink relay)
+            return false;
+        await relay.ReconnectAsync(cancellationToken).ConfigureAwait(false);
+        return relay.IsConnected;
+    }
 
     /// <summary>Grace elapsed. Same end as a transport fault: listener closes, Disconnected fires.</summary>
     public void AbandonAfterGrace()
@@ -406,6 +456,13 @@ public sealed class NetPlaySession : IDisposable
     /// Heartbeat death. Drop the socket once and raise TransportLost.
     /// The host listener stays open. Disconnected is only after the grace period.
     /// </summary>
+    /// <summary>Send fault. Same cleanup as a dead socket.</summary>
+    public void ReportTransportLoss(string reason)
+    {
+        ReportDead(string.IsNullOrWhiteSpace(reason) ? "Connection lost." : reason,
+            Volatile.Read(ref _loopGeneration));
+    }
+
     private void ReportDead(string reason, int generation)
     {
         if (_disposed)
@@ -581,12 +638,24 @@ public sealed class NetPlaySession : IDisposable
     private Task SendRawAsync(NetMessage message, CancellationToken cancellationToken = default)
     {
         if (_link != null)
+        {
+            if (!_link.IsConnected)
+                throw new InvalidOperationException("Relay is not connected.");
             return _link.SendAsync(message, cancellationToken);
+        }
         if (_server != null)
+        {
+            if (!_server.HasClient)
+                throw new InvalidOperationException("No client connected.");
             return _server.SendAsync(message, cancellationToken);
+        }
         if (_client != null)
+        {
+            if (!_client.IsConnected)
+                throw new InvalidOperationException("Not connected.");
             return _client.SendAsync(message, cancellationToken);
-        return Task.CompletedTask;
+        }
+        throw new InvalidOperationException("No open link.");
     }
 
     private long NextSeq() => Interlocked.Increment(ref _seq);

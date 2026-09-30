@@ -1,4 +1,10 @@
-﻿## 2026-09-30 - Lobby text stays readable
+﻿## 2026-09-30 - Relay snapshot before the next turn
+
+- Getippt, nicht gruen, nicht DONE. Der Host wartet den maskierten Snapshot ab. Ein Sendefehler ist Transportverlust, derselbe Weg wie ein toter Socket. Der naechste Zug startet erst, wenn ein maskierter Snapshot dieses Zuges auf dem offenen Link geschrieben ist.
+- Relais-Rejoin schickt diesen Snapshot. Ein fehlender TCP-Server ist kein erfolgreiches Resume. Erfolg wird nicht gemeldet, wenn der Socket nicht offen ist.
+- Unveraendert: Idle 60s, Wahl 10s, Reveal 20s, Antwortfenster 3s, Grace 120s. Die Host-Deckliste geht nicht an den Gast. Kein Phase 4.
+
+## 2026-09-30 - Lobby text stays readable
 
 - Getippt, nicht gruen. Netzwerk-Lobby und Sign-in: Text, Buttons und das Deck-Dropdown bleiben hell (#EEE / White) auf den bestehenden dunklen Flaechen (#1E1E22, Hover/Auswahl #3A3A48). Kein neues Theme.
 

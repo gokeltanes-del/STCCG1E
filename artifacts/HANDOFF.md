@@ -1,12 +1,14 @@
 ﻿﻿﻿﻿# HANDOFF â€” STCCG 1E
 
-**Stand:** 2026-09-30 · **Ort:** Josef `C:\Dev\StarTrekCCG\StarTrekCCG` · **HEAD:** local relay-start tip, parent `042c445`, not pushed · **origin/master:** not this tip
+**Stand:** 2026-09-30 · **Ort:** Josef `C:\Dev\StarTrekCCG\StarTrekCCG` · **HEAD:** local tip, not pushed, not green · **origin/master:** not this tip
 
 Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.md`, `FEATURES.md`, Coverage.
 
 ---
 
 ## Jetzt aktiv
+
+**Snapshot vor dem naechsten Zug:** getippt, nicht gruen, nicht DONE, nicht gepusht. Der Host wartet den maskierten Snapshot ab. Ein Sendefehler ist Transportverlust. Der naechste Zug startet erst, wenn dieser Zug auf dem offenen Link geschrieben ist. Relais-Rejoin schickt den Snapshot. Kein TCP-Server ist kein Resume. Erfolg nur bei offenem Socket. Zeiten unveraendert. Host-Deck geht nicht an den Gast. Kein Phase 4.
 
 **Lobby-Text:** getippt, nicht gruen, nicht DONE, nicht gepusht. Netzwerk-Lobby und Sign-in: Deck-Dropdown, Buttons und Textfelder bleiben hell auf #1E1E22 / #3A3A48. Aero2 darf die Flaeche nicht mehr weiss zeichnen.
 
