@@ -22138,22 +22138,38 @@ public partial class TableWindow : Window
             case InterruptRules.Effect.LifeformScan:
                 {
                     int oppPlayer = controller == 1 ? 2 : 1;
-                    BeginOpponentPileInteract(
-                        oppPlayer,
-                        TargetPileType.Hand,
-                        PileInteraction.ViewOnly | PileInteraction.FullView,
-                        "Life-form Scan — examine opponent's hand, then Done.");
+                    if (!TryShowExaminedPileOnGuest(
+                            controller,
+                            oppPlayer,
+                            TargetPileType.Hand,
+                            "Life-form Scan",
+                            "Examine opponent's hand, then OK."))
+                    {
+                        BeginOpponentPileInteract(
+                            oppPlayer,
+                            TargetPileType.Hand,
+                            PileInteraction.ViewOnly | PileInteraction.FullView,
+                            "Life-form Scan — examine opponent's hand, then Done.");
+                    }
                     break;
                 }
             case InterruptRules.Effect.JaglomLook:
                 {
                     // Premiere text: "Examine opponent's draw deck, then replace unshuffled."
                     int oppPlayer = controller == 1 ? 2 : 1;
-                    BeginOpponentPileInteract(
-                        oppPlayer,
-                        TargetPileType.Draw,
-                        PileInteraction.ViewOnly | PileInteraction.FullView,
-                        "Jaglom Shrek — examine opponent's draw deck (faces up), then Done. Deck is not shuffled.");
+                    if (!TryShowExaminedPileOnGuest(
+                            controller,
+                            oppPlayer,
+                            TargetPileType.Draw,
+                            "Jaglom Shrek",
+                            "Examine opponent's draw deck (faces up), then OK. Deck is not shuffled."))
+                    {
+                        BeginOpponentPileInteract(
+                            oppPlayer,
+                            TargetPileType.Draw,
+                            PileInteraction.ViewOnly | PileInteraction.FullView,
+                            "Jaglom Shrek — examine opponent's draw deck (faces up), then Done. Deck is not shuffled.");
+                    }
                     break;
                 }
             case InterruptRules.Effect.PlanetScan:
@@ -22814,7 +22830,7 @@ public partial class TableWindow : Window
             string b = (p.right.Tag as Card)?.Name ?? "?";
             return $"{a}  ↔  {b}";
         }).ToList();
-        int idx = ShowIndexPickDialog(ev.Name ?? "Gap", labels);
+        int idx = PickGapIndex(ev, controller, labels);
         if (idx < 0 || idx >= pairs.Count) return null;
         // Ensure PickAdjacentMission returns the other side
         _eventPreferredHost2 = pairs[idx].right;
@@ -22841,6 +22857,61 @@ public partial class TableWindow : Window
         return list;
     }
 
+    /// <summary>
+    /// Guest played the examine. Faces go to that window as ChoiceRequest kind=reveal.
+    /// Host does not open the strip. No second apply on the guest.
+    /// Host or hotseat keeps BeginOpponentPileInteract.
+    /// </summary>
+    private bool TryShowExaminedPileOnGuest(
+        int controller,
+        int pileOwner,
+        TargetPileType pile,
+        string title,
+        string body)
+    {
+        if (_gameMode != GameMode.Network || _netSession is not { IsHost: true })
+            return false;
+        if (controller is not (1 or 2) || controller == _netSession.LocalPlayer)
+            return false;
+
+        var cards = GetPileCards(pileOwner, pile);
+        ShowRevealRemoteOnGuest(
+            cards.Count == 1 ? cards[0] : null,
+            title,
+            cards.Count == 0 ? "Nothing to examine." : body,
+            RevealButtons.Ok,
+            cards.Count == 0 ? null : cards.Count + " cards",
+            targetPlayer: controller,
+            shareFace: false,
+            faces: cards.Count > 0 ? cards : null,
+            privateToTarget: true);
+        return true;
+    }
+
+    /// <summary>
+    /// Host and hotseat stay on the local list. A guest choice uses ChoiceRequest kind=choice.
+    /// </summary>
+    private int PickGapIndex(Card ev, int controller, List<string> labels)
+    {
+        bool guestPicks = _gameMode == GameMode.Network
+            && _netSession is { IsHost: true }
+            && controller is 1 or 2
+            && controller != _netSession.LocalPlayer;
+        if (!guestPicks)
+            return ShowIndexPickDialog(ev.Name ?? "Gap", labels);
+
+        var options = new string[labels.Count];
+        for (int i = 0; i < labels.Count; i++)
+            options[i] = (i + 1) + ". " + labels[i];
+        string picked = AskChoiceForPlayer(
+            controller, ev, ev.Name ?? "Gap", "Choose a gap.", options);
+        for (int i = 0; i < options.Length; i++)
+        {
+            if (string.Equals(options[i], picked, StringComparison.Ordinal))
+                return i;
+        }
+        return -1;
+    }
     private int ShowIndexPickDialog(string title, List<string> labels)
     {
         int chosen = -1;
