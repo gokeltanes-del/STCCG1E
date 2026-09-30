@@ -14,6 +14,7 @@
 - Server-Decks sind Listen von cardId (SetFolder/ReleaseRaw/Name), keine Karten-JSON-Dumps. Sandbox: lokaler Katalog, lokale Decks, online nur gegen Sandbox, kein Latinum. Konto: nur die Server-Deckliste. Eine Partie, ein Modus. Die Seiten mischen nicht.
 - Beim Start friert der Dienst eine Deck-Kopie an die MatchId. /relay kopiert nur Bytes. Der Host spielt die Regeln. Die Host-Deckliste geht nicht an den Gast.
 - Match-Historie nur, wenn beide denselben Sieger melden. Uneins oder nur eine Meldung: nichts geschrieben. Kein Inventar, kein Latinum, keine Booster, kein Shop, kein Elo, kein Zuschauen, keine KI-Gegner.
+- **Pepsch-Test, 2026-09-30:** Sandbox und Account-Relay funktionieren jetzt (nach Detach-Fix `f13abb1` und Lobby-Kontrast-Fix `e79cdcb`). Das bestaetigt nur diese beiden Wege, kein pauschales DONE. Offen bleiben UPnP-Router-Test, Zwei-Netz-NAT, Relais-Reconnect-Grace und der erste Gast-Play-Zug; in dieser Nachricht hat er den ersten Gast-Play-Zug nicht bestaetigt. Phase 4 (Inventar, Latinum, Shop, Elo, Zuschauen) bleibt geparkt.
 
 ## 2026-09-30 - Guest first play reaches the host
 

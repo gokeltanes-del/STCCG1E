@@ -12,7 +12,7 @@ Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.m
 
 **Relais Spielstart:** getippt, nicht gruen, nicht DONE, nicht gepusht. Der Lobby-Read auf dem Relais wird nicht abgebrochen. Derselbe laufende Read geht an die Session, kein zweiter Read auf dem Socket. Der Socket bleibt Open. Direct-IP bricht seinen eigenen Read weiter ab. Host-Deck geht nicht an den Gast. RoomBook.Leave unveraendert.
 
-**Pepsch, 2026-09-30:** Relais funktioniert. Open direct game funktioniert. Sein Test dieser beiden Wege, nicht DONE fuer aeltere Netzpunkte. Offen: UPnP-Router-Test, Zwei-Netz-NAT, Relais-Reconnect-Grace. Der erste Gast-Play-Zug ist davon nicht gruen. Er hat ihn hier nicht bestaetigt.
+**Pepsch, 2026-09-30:** Sandbox und Account-Relay funktionieren jetzt (nach Detach-Fix `f13abb1` und Lobby-Kontrast-Fix `e79cdcb`). Das ist sein Test dieser beiden Wege, kein pauschales DONE. Offen bleiben: UPnP-Router-Test, Zwei-Netz-NAT, Relais-Reconnect-Grace und der erste Gast-Play-Zug; den ersten Gast-Play-Zug hat er in dieser Nachricht nicht bestaetigt. Phase 4 (Inventar, Latinum, Shop, Elo, Zuschauen) bleibt geparkt.
 
 **Phase 3 Konten:** getippt, nicht gruen, nicht DONE, nicht gepusht. Details: CHANGELOG 2026-09-30.
 
