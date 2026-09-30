@@ -285,6 +285,8 @@ public partial class TableWindow : Window
     private bool _idleTurnEnding;
     /// <summary>Player clicked during the idle end's Play-phase prompts. Do not also end Execute.</summary>
     private bool _idleTurnPlayerInterrupted;
+    /// <summary>New turn is armed. The 60s starts only after that your-turn state is queued.</summary>
+    private bool _idleTurnAwaitingYourTurnBroadcast;
 
     private System.Windows.Threading.DispatcherTimer? _responseWindowTimer;
     private DateTime _responseWindowDeadlineUtc;
@@ -3001,10 +3003,11 @@ public partial class TableWindow : Window
         if (_gameMode != GameMode.Network || _netSession == null)
             return AskChoiceLocal(decidingPlayer, card, title, prompt, clean);
 
-        // Guest must not open engine-side choices; inbound handler uses AskChoiceLocal directly.
+        // Local guest answers on this window. Host-owned questions stay suppressed.
+        // Inbound ChoiceRequest still calls AskChoiceLocal directly.
         if (_netSession.IsGuest)
         {
-            if (_guestHandlingInboundChoice && decidingPlayer == _netSession.LocalPlayer)
+            if (decidingPlayer == _netSession.LocalPlayer)
                 return AskChoiceLocal(decidingPlayer, card, title, prompt, clean);
             StatusText.Text = $"Net Guest: ignoring local AskChoice for P{decidingPlayer} (Host decides).";
             _session.Log.AddDebug(_session.TurnNumber, "Net",
@@ -7308,8 +7311,18 @@ public partial class TableWindow : Window
         bool placedOk = false;
         var windowPos = e.GetPosition(this);
 
+        // Guest hand drop in match Play, stack closed: host AuthorizePlay decides.
+        // Do not local-deny affiliation, report, timing, or a stale snapshot first.
+        bool guestHandToHost = _netSession is { IsGuest: true }
+            && !_seedPhaseActive
+            && zref.ZoneName == "Hand"
+            && _session.Match == GameSession.MatchPhase.Play
+            && !_stack.IsOpen
+            && !InterruptRules.IsInterrupt(card)
+            && !ArtifactRules.IsPlaysAsInterruptFromHand(card);
+
         // Normal card play / for free / Timing (nur aus der Hand, Spielphase)
-        if (!TryAllowHandPlay(card, zref.ZoneName, out string handDeny))
+        if (!guestHandToHost && !TryAllowHandPlay(card, zref.ZoneName, out string handDeny))
         {
             ShowPlayError(handDeny);
             ReturnFloatingToZone(card, cardBorder, zref.ZoneName, zref.Opponent);
@@ -7318,7 +7331,8 @@ public partial class TableWindow : Window
         }
 
         // 6.2 Entering Play – Unique / Universal / not duplicatable
-        if (zref.ZoneName == "Hand" && !_seedPhaseActive
+        if (!guestHandToHost
+            && zref.ZoneName == "Hand" && !_seedPhaseActive
             && !TryEnterPlayCheck(card, out string enterDeny))
         {
             ShowPlayError(enterDeny);
@@ -13952,6 +13966,7 @@ public partial class TableWindow : Window
             var save = CaptureGameSave();
             var masked = NetStateMask.MaskForViewer(save, viewerPlayer: 2);
             _ = _netSession.BroadcastStateAsync(masked);
+            ArmOnlineIdleTurnAfterYourTurnQueued();
             _session.Log.AddDebug(_session.TurnNumber, "Net",
                 $"Broadcast masked GameSave to Guest (active P{save.Session.ActivePlayer}, " +
                 $"seed={save.Session.SeedPhaseActive}, table={save.Table.Count}, spaceline={save.Spaceline.Count}, " +
@@ -14077,6 +14092,21 @@ public partial class TableWindow : Window
         || _completingTurnChange
         || _inspectorMode == InspectorMode.OpponentPileInteract;
 
+    /// <summary>
+    /// Start the 60s only once this turn's masked state has been queued to the guest.
+    /// A later broadcast in the same turn does not restart it.
+    /// </summary>
+    private void ArmOnlineIdleTurnAfterYourTurnQueued()
+    {
+        if (!_idleTurnAwaitingYourTurnBroadcast) return;
+        if (!OnlineIdleTurnApplies()) return;
+        if (_idleTurnArmedForPlayer != _session.ActivePlayer
+            || _idleTurnArmedTurnNumber != _session.TurnNumber)
+            return;
+        _idleTurnAwaitingYourTurnBroadcast = false;
+        _idleTurnDeadlineUtc = DateTime.UtcNow.AddMilliseconds(OnlineIdleTurnTimeoutMs);
+    }
+
     private void EnsureOnlineIdleTurnWatch()
     {
         if (_idleTurnEnding) return;
@@ -14093,7 +14123,9 @@ public partial class TableWindow : Window
         {
             _idleTurnArmedForPlayer = _session.ActivePlayer;
             _idleTurnArmedTurnNumber = _session.TurnNumber;
-            _idleTurnDeadlineUtc = DateTime.UtcNow.AddMilliseconds(OnlineIdleTurnTimeoutMs);
+            // Apply work before the queue is not eaten out of the 60s.
+            _idleTurnAwaitingYourTurnBroadcast = true;
+            _idleTurnDeadlineUtc = default;
         }
 
         _idleTurnTimer ??= new System.Windows.Threading.DispatcherTimer
@@ -14111,6 +14143,8 @@ public partial class TableWindow : Window
         _idleTurnTimer?.Stop();
         _idleTurnArmedForPlayer = 0;
         _idleTurnArmedTurnNumber = 0;
+        _idleTurnAwaitingYourTurnBroadcast = false;
+        _idleTurnDeadlineUtc = default;
     }
 
     /// <summary>Local host player clicked or typed on their own turn. Restarts the idle clock.</summary>
@@ -14148,6 +14182,8 @@ public partial class TableWindow : Window
             return;
         }
         // Choice, reveal, and response windows keep their own short timers.
+        // Queued your-turn state has not gone out yet. Do not spend the 60s.
+        if (_idleTurnAwaitingYourTurnBroadcast || _idleTurnDeadlineUtc == default) return;
         if (OnlineIdleTurnBlockedByPrompt())
         {
             _idleTurnDeadlineUtc = DateTime.UtcNow.AddMilliseconds(OnlineIdleTurnTimeoutMs);
@@ -34994,17 +35030,53 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
     /// Supports Ship (report facility), Personnel/Equipment (host stack), Event/TABLE permanents.
     /// Returns true when handled (sent or denied+returned); false only if not Guest.
     /// </summary>
+    /// <summary>
+    /// Guest PlayCard target: own facility, or own facility/ship, under the cursor.
+    /// Distance only. Does not apply affiliation or report legality.
+    /// </summary>
+    private Border? FindGuestPlayHostUnderCursor(
+        double cx, double cy, int owner, bool facilityOnly, double maxDist)
+    {
+        Border? best = null;
+        double bestDist = double.MaxValue;
+        foreach (var b in TableCanvas.Children.OfType<Border>())
+        {
+            if (b.Visibility != Visibility.Visible || b.Tag is not Card hc) continue;
+            bool facility = ReportingRules.IsFacilityHost(hc);
+            if (facilityOnly)
+            {
+                if (!facility) continue;
+            }
+            else if (!facility && !IsShipCard(hc))
+                continue;
+            int ho = GetBorderOwner(b);
+            if (ho == 0) ho = 1;
+            if (ho != owner) continue;
+            double w = b.Width > 0 ? b.Width : TableCardWidth;
+            double h = b.Height > 0 ? b.Height : TableCardHeight;
+            double bx = Canvas.GetLeft(b) + w / 2.0;
+            double by = Canvas.GetTop(b) + h / 2.0;
+            double d = Math.Sqrt((cx - bx) * (cx - bx) + (cy - by) * (cy - by));
+            if (d < bestDist)
+            {
+                bestDist = d;
+                best = b;
+            }
+        }
+        if (best == null || bestDist > maxDist) return null;
+        return best;
+    }
+
     private bool TrySubmitGuestNetworkPlay(Card card, Border cardBorder, Point windowPos, ZoneCardRef zref)
     {
         if (_netSession == null || !_netSession.IsGuest)
             return false;
 
+        // A snapshot that still shows the other player must not swallow the drop.
         if (_activePlayer != _netSession.LocalPlayer)
         {
-            StatusText.Text =
-                $"Network: waiting for P{_activePlayer} (you are P{_netSession.LocalPlayer}).";
-            ReturnFloatingToZone(card, cardBorder, zref.ZoneName, zref.Opponent);
-            return true;
+            _session.Log.AddDebug(_session.TurnNumber, "Net",
+                $"Guest PlayCard while local active is P{_activePlayer}; Host decides.");
         }
 
         Card? target = null;
@@ -35015,50 +35087,35 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
 
         if (IsShipCard(card))
         {
-            // Temporary position for snap helpers (card stays in hand).
-            Canvas.SetLeft(cardBorder, tablePt.X - TableCardWidth / 2.0);
-            Canvas.SetTop(cardBorder, tablePt.Y - TableCardHeight / 2.0);
-            var facility = FindNearestLegalReportHost(tablePt.X, tablePt.Y, owner, card, out double fdist);
-            if (facility == null || fdist > ShipSnapRange * 1.8)
-            {
-                deny = $"{card.Name}: snap onto your matching Outpost/HQ to report.";
-            }
-            else if (facility.Tag is Card fc)
+            // Geometry only. Affiliation and report are the host's AuthorizePlay.
+            var facility = FindGuestPlayHostUnderCursor(
+                tablePt.X, tablePt.Y, owner, facilityOnly: true, ShipSnapRange * 1.8);
+            if (facility?.Tag is Card fc)
             {
                 target = fc;
                 if (fc.InstanceId > 0)
                     note = $"underInst:{fc.InstanceId}";
             }
+            else
+            {
+                deny = $"{card.Name}: snap onto your Outpost/HQ to report.";
+            }
         }
         else if (IsStackableCard(card))
         {
-            Canvas.SetLeft(cardBorder, tablePt.X - TableCardWidth / 2.0);
-            Canvas.SetTop(cardBorder, tablePt.Y - TableCardHeight / 2.0);
             bool isReport = _session.Match == GameSession.MatchPhase.Play
                 && ReportingRules.MustReportForDuty(card);
-            var host = TrySnapToHost(cardBorder, owner, reportTargetsOnly: isReport);
+            double facilityRange = isReport ? ShipSnapRange * 2.5 : ShipSnapRange;
+            var host = FindGuestPlayHostUnderCursor(
+                tablePt.X, tablePt.Y, owner, facilityOnly: true, facilityRange);
             if (host == null)
-                host = TrySnapToHost(cardBorder, owner, reportTargetsOnly: false);
+                host = FindGuestPlayHostUnderCursor(
+                    tablePt.X, tablePt.Y, owner, facilityOnly: false, ShipSnapRange);
             if (host?.Tag is Card hc)
             {
-                if (isReport)
-                {
-                    var (ok, reason) = CanReportToHost(card, hc, host, owner);
-                    if (!ok)
-                        deny = reason;
-                    else
-                    {
-                        target = hc;
-                        if (hc.InstanceId > 0)
-                            note = $"underInst:{hc.InstanceId}";
-                    }
-                }
-                else
-                {
-                    target = hc;
-                    if (hc.InstanceId > 0)
-                        note = $"underInst:{hc.InstanceId}";
-                }
+                target = hc;
+                if (hc.InstanceId > 0)
+                    note = $"underInst:{hc.InstanceId}";
             }
             else
             {

@@ -1,4 +1,10 @@
-﻿﻿﻿## 2026-09-30 - Relay stays up when the lobby closes
+﻿﻿﻿## 2026-09-30 - Guest first play reaches the host
+
+- Getippt, nicht gruen: Ein Hand-Drop des Gastes in Match-Play bei geschlossenem Stack geht als PlayCard an den Host (Facility oder Host-InstanceId unter dem Cursor). Affiliation und Report werden davor nicht mehr lokal verweigert. Ein noch alter Snapshot (anderer Spieler) schluckt den Drop nicht. Der Host AuthorizePlay entscheidet.
+- Entscheidet der lokale Gast, fragt AskChoiceForPlayer auf diesem Fenster (bestehende lokale Wahl). Host-Fragen und Hotseat bleiben. Die 60s-Idle-Uhr eines Zuges startet erst, wenn der Your-Turn-State an den Gast gequeued ist. 60s, Wahl 10s, Reveal-OK 20s, Antwortfenster 3s und Grace 120s sind unveraendert. Das Host-Deck geht nicht an den Gast. Online ist nicht DONE.
+- Pepsch: das Relais blieb nach dem Lobby-Schliessen stehen, und Spielen ging ab Zug 2. Dieser erste Play-Zug des Gastes ist getippt, nicht gruen.
+
+## 2026-09-30 - Relay stays up when the lobby closes
 
 - Getippt, nicht gruen: Schliessen von /lobby, auch das Lobby-Fenster beim Spielstart, bricht /relay nicht ab. Ein Relais-Sitz faellt nur, wenn sein eigener Socket endet, und dann nur der andere Sitz. Heartbeat-Pings gehen weiter. Die zweite Deck-Zeile im Matchmaking ist weg. Hash und Deck kommen weiter von der oberen Auswahl. Der Gegner sieht weiter nur "deck selected". Direct-IP und Localhost bleiben.
 
