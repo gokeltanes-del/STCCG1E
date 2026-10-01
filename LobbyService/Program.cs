@@ -4,7 +4,9 @@ using System.Text;
 using System.Text.Json;
 
 // In-memory rooms. /lobby is signaling plus accounts. /relay copies game frames and does not read them.
+// The server does not simulate rules. Both clients connect outbound.
 // Closing /lobby does not abort /relay. A relay seat drops only when that relay socket ends.
+// If the host PC is gone, the room still dies after the 120s grace.
 // Restart clears every room. Listens on 0.0.0.0:7788.
 
 var builder = WebApplication.CreateBuilder(args);

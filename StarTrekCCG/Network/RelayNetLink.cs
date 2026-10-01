@@ -33,6 +33,9 @@ public sealed class RelayNetLink : INetLink
     {
         if (_socket != null)
             throw new InvalidOperationException("Relay already connected.");
+        // Direct-IP dials TCP 7777. This socket is only the relay (default 7788).
+        if (port == 7777)
+            throw new InvalidOperationException("Relay does not dial port 7777.");
         var socket = new ClientWebSocket();
         var uri = new Uri($"ws://{host}:{port}/relay");
         try

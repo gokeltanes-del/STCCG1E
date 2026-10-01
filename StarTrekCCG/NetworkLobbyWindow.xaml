@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Network Lobby"
-        Height="720" Width="480"
+        Height="780" Width="480"
         WindowStartupLocation="CenterOwner"
         Background="#252528"
         ResizeMode="NoResize"
@@ -63,6 +63,8 @@
                                 Height="34" MinWidth="96" Cursor="Hand" IsEnabled="False"
                                 Background="#5A2A2A" Foreground="White" BorderThickness="0"/>
                     </StackPanel>
+                    <TextBlock Text="Direct IP and Localhost use this port (default 7777). Host still opens it with UPnP or PCP. That is not Play via relay."
+                               Foreground="#AAA" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4"/>
                 </StackPanel>
 
                 <!-- Lobby room (after handshake) -->
@@ -140,9 +142,9 @@
                 <Border Background="#1A1A1E" CornerRadius="4" Padding="12,10"
                         BorderBrush="#3A3A48" BorderThickness="1" Margin="0,0,0,12">
                     <StackPanel>
-                        <TextBlock Text="Matchmaking" Foreground="#EEE" FontSize="13" FontWeight="SemiBold"/>
-                        <TextBlock Text="Optional. Direct IP and Localhost stay as they are. Play via relay does not open the host port."
-                                   Foreground="#888" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,8"/>
+                        <TextBlock Text="Server" Foreground="#EEE" FontSize="13" FontWeight="SemiBold"/>
+                        <TextBlock Text="Outside the home LAN, play only through this server on TCP 7788. Both clients connect out. The server does not play the rules. If the host PC dies, the match still dies after 120s. Play via relay does not listen on 7777 and does not use UPnP or PCP."
+                                   Foreground="#AAA" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,8"/>
                         <Grid Margin="0,0,0,8">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="110"/>
@@ -153,7 +155,7 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
-                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Service" Foreground="#AAA" VerticalAlignment="Center" Margin="0,0,0,6"/>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Server" Foreground="#AAA" VerticalAlignment="Center" Margin="0,0,0,6"/>
                             <TextBox x:Name="MmServiceBox" Grid.Row="0" Grid.Column="1" Text="127.0.0.1:7788"
                                      Height="28" Padding="6,3" Margin="0,0,0,6"
                                      Background="#1E1E22" Foreground="#EEE" BorderBrush="#3A3A48"/>
@@ -166,6 +168,8 @@
                                      Height="28" Padding="6,3"
                                      Background="#1E1E22" Foreground="#EEE" BorderBrush="#3A3A48"/>
                         </Grid>
+                        <TextBlock Text="Server address: a domain or an IP, with the port. Same PC: 127.0.0.1:7788. Another PC: the host machine's LAN address and port 7788. A public game: a public host and port 7788. No domain name is set up in this build."
+                                   Foreground="#AAA" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                             <Button x:Name="BtnMmConnect" Content="Connect" Click="BtnMmConnect_Click"
                                     Height="30" MinWidth="72" Margin="0,0,6,0" Cursor="Hand"

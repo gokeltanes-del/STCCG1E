@@ -1,4 +1,12 @@
-﻿## 2026-10-01 - Account match save on the lobby
+﻿## 2026-10-01 - Outside the home LAN only through relay 7788
+
+- Getippt, nicht getestet, nicht gruen, nicht gepusht. Schritt 2. Spiel ausserhalb des Heim-LAN nur ueber den Server auf TCP 7788. Beide Clients verbinden sich nach aussen. Der Server simuliert keine Regeln. Stirbt der Host-PC, stirbt die Partie nach der 120s Grace, wie bisher.
+- Lobby: Server-Adressfeld (Domain oder IP, mit Port). Default 127.0.0.1:7788 fuer denselben PC. Ein anderer PC nimmt die LAN-Adresse des Host-Rechners und Port 7788. Eine oeffentliche Partie nimmt einen oeffentlichen Host und Port 7788. Kein Domainname ist hier eingerichtet.
+- Play via relay bindet keinen lokalen TCP-Listener auf 7777 und ruft kein UPnP/PCP. Direct-IP und Localhost auf 7777 bleiben, inklusive UPnP nur auf dem Direct-Weg. Der Gast auf dem Relaisweg waehlt Port 7777 nicht.
+- Nicht in diesem Commit: TLS, systemd, Backups, Deploy, Server-Miete, Latinum, Packs, Tausch, Kartenpool. Uhren unveraendert: Ping 5s, stiller Tod 15s, Grace 120s, Wahl 10s, Reveal-OK 20s, Antwortfenster 3s, Idle 60s.
+- Nicht gruen. Offene Menschentests: WLAN-Reconnect `3e45f0a`, Save/Load `7a6065b`. Zwei Netze koennen erst bestehen, wenn ein oeffentlicher Host auf TCP 7788 existiert.
+
+## 2026-10-01 - Account match save on the lobby
 
 - Getippt, nicht gruen, nicht getestet, nicht gepusht. Autosave und manueller Save sind getrennt. Das Autosave ist eine Zeile pro lebender MatchId. Der Host schreibt es, nachdem ein maskierter Snapshot auf dem offenen Link liegt, und ersetzt damit die vorige Zeile. Es wird geloescht, wenn beide Clients denselben Sieger melden. Der manuelle Save ist ein Knopf, hat einen Namen, gehoert denselben zwei Konten und bleibt nach dem Ende. Sandbox-Partien ohne Kontenraum speichern nichts auf dem Server. Laden: der urspruengliche Host sitzt wieder als Host, wendet den vollen Save an und schickt dem Gast nur die maskierte Sicht. Uhren unveraendert: Ping 5s, stiller Tod 15s, Grace 120s, Wahl 10s, Reveal-OK 20s, Antwortfenster 3s, Idle 60s.
 

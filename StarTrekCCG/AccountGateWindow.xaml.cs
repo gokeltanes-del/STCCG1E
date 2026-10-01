@@ -102,13 +102,13 @@ public partial class AccountGateWindow : Window
         var colon = text.LastIndexOf(':');
         if (colon <= 0 || !int.TryParse(text[(colon + 1)..], out port) || port is < 1 or > 65535)
         {
-            StatusText.Text = "Service must be host:port, for example 127.0.0.1:7788.";
+            StatusText.Text = "Server address must be host:port, for example 127.0.0.1:7788.";
             return false;
         }
         host = text[..colon].Trim();
         if (host.Length == 0)
         {
-            StatusText.Text = "Service must be host:port, for example 127.0.0.1:7788.";
+            StatusText.Text = "Server address must be host:port, for example 127.0.0.1:7788.";
             return false;
         }
         return true;

@@ -1294,6 +1294,7 @@ public partial class NetworkLobbyWindow : Window
             Dispatcher.Invoke(Apply);
     }
 
+    /// <summary>Direct-IP host only. Play via relay must not call this and must not listen on 7777.</summary>
     private async Task AnnouncePortForwardAsync(int port, CancellationToken ct)
     {
         try
@@ -1371,7 +1372,7 @@ public partial class NetworkLobbyWindow : Window
     {
         if (!TryParseLobbyService(MmServiceBox.Text, out var host, out var port))
         {
-            SetMmState("Service must be host:port or ws://host:port/lobby.");
+            SetMmState("Server address must be host:port or ws://host:port/lobby.");
             return;
         }
 
@@ -1606,7 +1607,7 @@ public partial class NetworkLobbyWindow : Window
         }
         if (!TryParseLobbyService(MmServiceBox.Text, out var host, out var port))
         {
-            SetMmState("Service address must be host:port, for example 127.0.0.1:7788.");
+            SetMmState("Server address must be host:port, for example 127.0.0.1:7788.");
             return;
         }
         var asHost = string.Equals(_mm.Role, "host", StringComparison.Ordinal);
@@ -1623,6 +1624,13 @@ public partial class NetworkLobbyWindow : Window
             return;
         }
         if (_busy) return;
+        // Relay is outbound to the server port. Never bind 7777 and never call UPnP/PCP here.
+        if (port == 7777)
+        {
+            SetMmState("Play via relay does not dial port 7777. Use the server address with port 7788. Direct IP stays on Host and Join.");
+            SetStatus("Relay refused port 7777. No local listener. No UPnP.");
+            return;
+        }
         var keepPath = _localDeckPath;
         var keepJson = _localDeckJson;
         var keepName = _localDeckName;
@@ -1636,6 +1644,8 @@ public partial class NetworkLobbyWindow : Window
         var ct = _cts.Token;
         try
         {
+            if (_server != null)
+                throw new InvalidOperationException("Relay must not keep a local listener.");
             var link = new RelayNetLink();
             SetStatus(asHost
                 ? $"Relay: connecting as host to {host}:{port}."
@@ -1655,6 +1665,7 @@ public partial class NetworkLobbyWindow : Window
             SetStatus(asHost
                 ? "Relay: Host (P1). No host port. Pick a deck, then Start game."
                 : "Relay: Guest (P2). No host port. Pick a deck, then Start game.");
+            SetNatStatus("Relay. No listener on 7777. No UPnP or PCP.");
             ConnectionChanged?.Invoke(this, true);
             SetBusyUi(connected: true);
             EnterLobbyRoom();

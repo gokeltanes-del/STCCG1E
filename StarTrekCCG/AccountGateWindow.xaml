@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Sign in"
-        Height="420" Width="420"
+        Height="480" Width="420"
         WindowStartupLocation="CenterOwner"
         Background="#252528"
         ResizeMode="NoResize">
@@ -28,7 +28,7 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
-                <TextBlock Grid.Row="0" Text="Service" Foreground="#AAA" VerticalAlignment="Center" Margin="0,0,0,8"/>
+                <TextBlock Grid.Row="0" Text="Server" Foreground="#AAA" VerticalAlignment="Center" Margin="0,0,0,8"/>
                 <TextBox x:Name="ServiceBox" Grid.Row="0" Grid.Column="1" Text="127.0.0.1:7788"
                          Height="28" Padding="6,3" Margin="0,0,0,8"
                          Background="#1E1E22" Foreground="#EEE" BorderBrush="#3A3A48"/>
@@ -41,6 +41,8 @@
                              Height="28" Padding="6,3"
                              Background="#1E1E22" Foreground="#EEE" BorderBrush="#3A3A48"/>
             </Grid>
+            <TextBlock Text="Server address: a domain or an IP, with the port. Same PC: 127.0.0.1:7788. Another PC: the host machine's LAN address and port 7788. A public game: a public host and port 7788. No domain name is set up here."
+                       Foreground="#AAA" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
             <TextBlock Text="Display name is max 24 characters and is bound to the account."
                        Foreground="#888" FontSize="11" Margin="0,0,0,12"/>
             <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
