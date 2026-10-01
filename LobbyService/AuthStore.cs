@@ -5,6 +5,8 @@ using Microsoft.Data.Sqlite;
 
 // Accounts, server decks (cardId lists only), frozen match decks, and match history.
 // History is inserted only when both seats report the same winner.
+// That insert is the one latinum credit for an account match: loser 5, winner 10.
+// Sandbox, one report, disagreeing reports, and a repeat report pay nothing.
 sealed class AuthStore : IDisposable
 {
     public const int NameMax = 24;
@@ -12,6 +14,8 @@ sealed class AuthStore : IDisposable
     public const int PasswordMax = 72;
     public const int DeckNameMax = 80;
     public const int MaxCards = 500;
+    public const int MatchLoserLatinum = 5;
+    public const int MatchWinnerLatinum = MatchLoserLatinum * 2;
 
     private static readonly string[] Sections =
     {
@@ -332,7 +336,7 @@ sealed class AuthStore : IDisposable
         {
             using var cmd = _db.CreateCommand();
             cmd.CommandText = """
-                SELECT mode, host_name, guest_name, host_secret, guest_secret
+                SELECT mode, host_name, guest_name, host_secret, guest_secret, host_user_id, guest_user_id
                 FROM matches WHERE match_id = $id
                 """;
             cmd.Parameters.AddWithValue("$id", matchId);
@@ -344,6 +348,8 @@ sealed class AuthStore : IDisposable
             var guestName = reader.GetString(2);
             var hostSecret = reader.GetString(3);
             var guestSecret = reader.GetString(4);
+            var hostUserId = reader.GetInt32(5);
+            var guestUserId = reader.GetInt32(6);
             reader.Close();
 
             string seat;
@@ -360,7 +366,7 @@ sealed class AuthStore : IDisposable
             if (already.ExecuteScalar() != null)
             {
                 DeleteAutosave(matchId);
-                return new { type = "report", written = true, message = "already written" };
+                return new { type = "report", written = true, rewarded = false, message = "already written" };
             }
 
             if (!_pending.TryGetValue(matchId, out var votes))
@@ -379,7 +385,12 @@ sealed class AuthStore : IDisposable
                 return new { type = "report", written = false, message = "reports disagree" };
 
             var winnerName = hostVote == "host" ? hostName : guestName;
+            var winnerId = hostVote == "host" ? hostUserId : guestUserId;
+            var loserId = hostVote == "host" ? guestUserId : hostUserId;
+            var account = string.Equals(mode, "account", StringComparison.Ordinal);
+            using var tx = _db.BeginTransaction();
             using var insert = _db.CreateCommand();
+            insert.Transaction = tx;
             insert.CommandText = """
                 INSERT INTO match_history (match_id, mode, host_name, guest_name, winner_seat, winner_name, written_utc)
                 VALUES ($id, $mode, $host, $guest, $seat, $name, $utc)
@@ -392,8 +403,27 @@ sealed class AuthStore : IDisposable
             insert.Parameters.AddWithValue("$name", winnerName);
             insert.Parameters.AddWithValue("$utc", Now());
             insert.ExecuteNonQuery();
+            var rewarded = false;
+            if (account)
+            {
+                if (winnerId > 0)
+                {
+                    AddLatinum(_db, tx, winnerId, MatchWinnerLatinum);
+                    rewarded = true;
+                }
+                if (loserId > 0)
+                {
+                    AddLatinum(_db, tx, loserId, MatchLoserLatinum);
+                    rewarded = true;
+                }
+            }
+            tx.Commit();
             DeleteAutosave(matchId);
-            return new { type = "report", written = true, message = "written" };
+            if (!rewarded)
+                return new { type = "report", written = true, rewarded = false, message = "written" };
+            var reporterId = seat == "host" ? hostUserId : guestUserId;
+            var latinum = reporterId > 0 ? ReadLatinum(reporterId) : 0;
+            return new { type = "report", written = true, rewarded = true, message = "written", latinum };
         }
     }
 
@@ -714,6 +744,17 @@ sealed class AuthStore : IDisposable
         cmd.Parameters.AddWithValue("$user", userId);
         var value = cmd.ExecuteScalar();
         return value == null || value is DBNull ? 0 : Convert.ToInt32(value);
+    }
+
+    private static void AddLatinum(SqliteConnection db, SqliteTransaction tx, int userId, int amount)
+    {
+        using var cmd = db.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "UPDATE users SET latinum = latinum + $amount WHERE id = $user";
+        cmd.Parameters.AddWithValue("$amount", amount);
+        cmd.Parameters.AddWithValue("$user", userId);
+        if (cmd.ExecuteNonQuery() != 1)
+            throw new InvalidOperationException("latinum account missing");
     }
 
     private void EnsureLatinumColumn()

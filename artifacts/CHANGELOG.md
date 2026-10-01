@@ -1,3 +1,8 @@
+## 2026-10-01 - Latinum for an agreed account match
+
+- Getippt, nicht getestet, nicht gruen, nicht gepusht. Schritt 4. Latinum nur, wenn beide Clients denselben Sieger melden und match_history dabei neu geschrieben wird. Verlierer 5, Sieger 10 (das Doppelte). Eine Gutschrift pro Partie. Eine zweite Meldung zahlt nicht noch einmal. Uneins oder nur eine Meldung: nichts. Sandbox zahlt nichts.
+- Keine Packs, kein Tausch, kein Deckbuilder-Filter, kein Shop, kein echtes Geld. Der Server simuliert keine Partie. Der Host entscheidet den Sieger, beide Clients melden ihn. Uhren unveraendert: Ping 5s, stiller Tod 15s, Grace 120s, Wahl 10s, Reveal-OK 20s, Antwortfenster 3s, Idle 60s.
+- Nicht gruen. Schritt 3 (e6dadb4, Pool und 100 Latinum) ist ebenfalls nicht getestet. Pepsch hat WAN-Spiel, WLAN 15s Reconnect und Load in einem neuen Raum bestaetigt. Der volle Raum nach dem Schliessen (4ae51cb) wartet weiter auf ihn.
 ## 2026-10-01 - Account card pool and starting latinum
 
 - Getippt, nicht getestet, nicht gruen, nicht gepusht. Schritt 3. Ein neues Konto bekommt einmal 100 Latinum. Dieselbe Registrierung kopiert `Decks/Federation Premiere.stdeck` nach `account_cards` (user_id, card_id, quantity) und speichert dieselbe Kartenliste als Default-Deck. cardId ist SetFolder/ReleaseRaw/Name aus dem Katalog, keine erfundenen Namen. Eine Karte im Deck, Yellow Alert, liegt in Alternate_Universe, der Rest in PR.
