@@ -1,3 +1,9 @@
+## 2026-10-01 - Seat is freed after the 120s grace
+
+- Pepsch, 2026-10-01 Abend, bestaetigt: WAN-Spiel funktioniert. Gast-WLAN 15s aus, dann Reconnect funktioniert. Save und danach Load in einem neuen Raum funktionieren.
+- Nicht bestaetigt, nicht gruen: beide Clients zu, wieder eingeloggt, der alte Raum sagt voll. Der Sitz blieb belegt, obwohl beide Lobby-Sockets weg waren. Dieser Tip gibt den Sitz frei, wenn innerhalb der bestehenden 120s niemand zurueckkommt. Das Relais-Paar einer laufenden Partie wird in der Grace nicht geloescht. Manuelle Saves bleiben. Autosave bleibt wie es ist. Ein leerer Raum darf weg, wenn beide Sitze frei sind und die Grace vorbei ist. Ein Raum mit einem lebenden Sitz nimmt das andere Konto an.
+- Nicht gruen. Nicht das ganze Projekt. Nicht gepusht.
+
 ## 2026-10-01 - Relay seat survives the lobby window closing
 
 - Getippt, nicht getestet, nicht gruen, nicht gepusht. Try now und die 2,5s-Schleife waehlen weiter die Server-Adresse, mit der die Partie begonnen hat. Ein Hotspot erreicht 192.168.50.241 nicht. Das ist kein zweiter Server.

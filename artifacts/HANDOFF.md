@@ -1,6 +1,6 @@
 ﻿﻿﻿﻿# HANDOFF â€” STCCG 1E
 
-**Stand:** 2026-10-01 · **Ort:** Josef `C:\Dev\StarTrekCCG\StarTrekCCG` · **HEAD:** step 2 local, not tested, not green · **origin/master:** e04c9c7 (Pepsch push 2026-10-01)
+**Stand:** 2026-10-01 · **Ort:** Josef `C:\Dev\StarTrekCCG\StarTrekCCG` · **HEAD:** seat after 120s grace, not green, project not done · **origin/master:** e04c9c7 (Pepsch push 2026-10-01)
 
 Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.md`, `FEATURES.md`, Coverage.
 
@@ -8,11 +8,13 @@ Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.m
 
 ## Jetzt aktiv
 
+**Sitz nach 120s frei, nicht gruen:** getippt, nicht getestet, nicht gepusht. Pepsch 2026-10-01 Abend: WAN-Spiel funktioniert. Gast-WLAN 15s aus, dann Reconnect funktioniert. Save und Load in einem neuen Raum funktionieren. Danach beide Clients zu und wieder eingeloggt: der alte Raum sagt voll. Der Sitz bleibt belegt, obwohl beide Lobby-Sockets weg sind. Nach der bestehenden 120s Grace ohne Rejoin wird dieser Sitz frei. Das Relais-Paar einer laufenden Partie wird in der Grace nicht geloescht. Manuelle Saves bleiben. Autosave bleibt. Ein leerer Raum darf weg, wenn beide Sitze frei sind und die Grace vorbei ist. Ein lebender Sitz nimmt das andere Konto an. Nicht gruen. Das Projekt ist nicht fertig.
+
 **Relais-Sitz nach Lobby-Close, nicht gruen:** getippt, nicht getestet, nicht gepusht. Try now waehlt die Adresse aus dem Server-Feld beim Start, nicht die aktuelle Netzwerkkarte. Hotspot und 192.168.50.241 gehen nicht. RoomBook behaelt nach Spielstart die playerId, solange das Relais-Paar innerhalb von 120s ersetzt wird. Danach weg. Nicht gruen, bis beide Clients die Partie mit 81.217.114.46:7788 starten und der Gast mitten im Spiel auf den Hotspot wechselt.
 
 **Relais ausserhalb des Heim-LAN, Schritt 2, nicht gruen:** lokal getippt, nicht getestet, nicht gruen, nicht gepusht. Spiel ausserhalb des Heim-LAN nur ueber den Server auf TCP 7788. Beide Clients verbinden sich nach aussen. Der Server simuliert keine Regeln. Stirbt der Host-PC, stirbt die Partie nach der 120s Grace. In der Lobby ist das Server-Adressfeld (Domain oder IP, mit Port). Default 127.0.0.1:7788 fuer denselben PC. Ein anderer PC nimmt die LAN-Adresse des Host-Rechners und Port 7788. Eine oeffentliche Partie nimmt einen oeffentlichen Host und Port 7788. Kein Domainname ist hier eingerichtet. Play via relay bindet keinen lokalen TCP-Listener auf 7777 und ruft kein UPnP/PCP. Direct-IP und Localhost auf 7777 bleiben eigene Buttons, UPnP nur auf diesem Direct-Weg. Der Gast auf dem Relaisweg waehlt Port 7777 nicht. Kein TLS, kein systemd, kein Backup, kein Deploy. Kein Latinum, keine Packs, kein Tausch, kein Kartenpool. Uhren unveraendert.
 
-**Offene Menschentests, nicht gruen:** WLAN-Reconnect `3e45f0a` ist nicht gruen. Save/Load `7a6065b` ist nicht gruen. Zwei Netze koennen den Relaisweg erst bestehen, wenn ein oeffentlicher Host auf TCP 7788 existiert. Bis dahin nicht gruen.
+**Menschentests:** Pepsch 2026-10-01 Abend bestaetigt WAN-Spiel, WLAN 15s aus dann Reconnect, und Save/Load in einem neuen Raum. Der alte Raum, der danach voll sagt, ist der Sitz-Tip oben und nicht gruen. Kein pauschales DONE. Der Rest des Projekts ist nicht fertig.
 
 **Account-Save, nicht gruen:** lokal getippt, nicht getestet, nicht gepusht. Autosave und manueller Save sind zwei Zeilen. Eine Autosave-Zeile pro lebender MatchId, ersetzt wenn der Host einen maskierten Snapshot geschrieben hat, geloescht sobald beide denselben Sieger melden. Der manuelle Save hat einen Namen, gehoert denselben zwei Konten und bleibt nach dem Spielende. Sandbox schreibt keinen Server-Save. Der volle Spielstand geht nur an den Host. Der Gast bekommt nur die maskierte Sicht, derselbe Weg wie BroadcastMaskedStateToGuest. Uhren unveraendert.
 

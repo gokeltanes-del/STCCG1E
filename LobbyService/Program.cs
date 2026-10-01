@@ -6,7 +6,8 @@ using System.Text.Json;
 // In-memory rooms. /lobby is signaling plus accounts. /relay copies game frames and does not read them.
 // The server does not simulate rules. Both clients connect outbound.
 // Closing /lobby does not abort /relay. A relay seat drops only when that relay socket ends.
-// If the host PC is gone, the room still dies after the 120s grace.
+// If a client is gone and does not rejoin within the 120s grace, that seat is freed.
+// A live match relay pair is not deleted during the grace. An empty room may go after that.
 // Restart clears every room. Listens on 0.0.0.0:7788.
 
 var builder = WebApplication.CreateBuilder(args);
@@ -394,7 +395,7 @@ sealed class RoomBook
                     name = r.Name,
                     hostName = r.Host?.Name ?? "",
                     players = (r.Host == null ? 0 : 1) + (r.Guest == null ? 0 : 1),
-                    open = r.Guest == null,
+                    open = r.Host == null || r.Guest == null,
                     mode = r.Mode
                 })
                 .ToArray();
@@ -436,9 +437,19 @@ sealed class RoomBook
                 return Err(who, "no such room");
             if (!string.Equals(room.Mode, who.Mode, StringComparison.Ordinal))
                 return Err(who, "a match is one mode");
-            if (room.Guest != null)
+            if (room.Host != null && room.Guest != null)
                 return Err(who, "room is full");
-            room.Guest = new Seat { Session = who, Name = who.Name, Role = "guest", Engine = who.Engine, CardHash = who.CardHash };
+            // Whichever seat the grace freed. The other account sits there.
+            if (room.Host == null)
+            {
+                room.Host = new Seat { Session = who, Name = who.Name, Role = "host", Engine = who.Engine, CardHash = who.CardHash };
+                room.HostLobbyClosed = false;
+            }
+            else
+            {
+                room.Guest = new Seat { Session = who, Name = who.Name, Role = "guest", Engine = who.Engine, CardHash = who.CardHash };
+                room.GuestLobbyClosed = false;
+            }
             return RoomNotes(room);
         }
     }
@@ -620,7 +631,11 @@ sealed class RoomBook
                     room.HostLobbyClosed = true;
                 else
                     room.GuestLobbyClosed = true;
-                return new List<Outbound>();
+                // Grace still running: keep this playerId so the same relay
+                // socket can be replaced. Do not delete the relay pair here.
+                if (!room.RelayGraceEnded)
+                    return new List<Outbound>();
+                return FreeClosedSeats(room, who);
             }
             if (ReferenceEquals(room.Host?.Session, who))
             {
@@ -740,24 +755,64 @@ sealed class RoomBook
             if (!VersionsMatch(room))
                 return VersionNote(room);
             room.RelayHeld = true;
+            // A new live pair. Lobby close must keep the seat until the next grace.
+            room.RelayGraceEnded = false;
             return null;
         }
     }
 
     /// <summary>
-    /// Relay pair is gone after the 120s grace. Drop the seat record only when
-    /// both lobby sockets have already closed. A live lobby keeps the room.
+    /// Relay pair is already gone after the 120s grace. Free each seat whose
+    /// lobby socket is already gone. A live lobby keeps its seat. An empty
+    /// room is removed. Does not delete the relay pair and does not delete saves.
     /// </summary>
-    public void ReleaseRelayRoom(string roomName)
+    public List<Outbound> ReleaseRelayRoom(string roomName)
     {
         lock (_gate)
         {
             if (!_rooms.TryGetValue(roomName, out var room))
-                return;
-            if (room.MatchId == null || !room.RelayHeld || !room.HostLobbyClosed || !room.GuestLobbyClosed)
-                return;
-            _rooms.Remove(roomName);
+                return new List<Outbound>();
+            if (room.MatchId == null || !room.RelayHeld)
+                return new List<Outbound>();
+            room.RelayGraceEnded = true;
+            return FreeClosedSeats(room, null);
         }
+    }
+
+    /// <summary>
+    /// Caller holds _gate. Grace has ended. A closed lobby seat is cleared.
+    /// Both seats gone: the room goes. One live seat stays so the other account can join.
+    /// </summary>
+    private List<Outbound> FreeClosedSeats(Room room, LobbySession? leaver)
+    {
+        var notes = new List<Outbound>();
+        if (room.HostLobbyClosed && room.Host != null)
+        {
+            var session = room.Host.Session;
+            room.Host = null;
+            room.HostLobbyClosed = false;
+            room.Address = null;
+            room.Port = 0;
+            if (leaver != null && ReferenceEquals(session, leaver))
+                notes.Add(new Outbound(leaver, new { type = "gone", message = "you left" }));
+        }
+        if (room.GuestLobbyClosed && room.Guest != null)
+        {
+            var session = room.Guest.Session;
+            room.Guest = null;
+            room.GuestLobbyClosed = false;
+            room.Address = null;
+            room.Port = 0;
+            if (leaver != null && ReferenceEquals(session, leaver))
+                notes.Add(new Outbound(leaver, new { type = "gone", message = "you left" }));
+        }
+        if (room.Host == null && room.Guest == null)
+        {
+            _rooms.Remove(room.Name);
+            return notes;
+        }
+        notes.AddRange(RoomNotes(room));
+        return notes;
     }
 
     public List<Outbound> ApplyVersion(LobbySession who, string engine, string cardHash)
@@ -831,6 +886,7 @@ sealed class RoomBook
         public string? Address { get; set; }
         public int Port { get; set; }
         public bool RelayHeld { get; set; }
+        public bool RelayGraceEnded { get; set; }
         public bool HostLobbyClosed { get; set; }
         public bool GuestLobbyClosed { get; set; }
         public List<(string From, string Text)> Lines { get; } = new();

@@ -131,10 +131,18 @@ sealed class RelayHub
             _pairs.Remove(room);
         }
 
-        _book?.ReleaseRelayRoom(room);
+        var notes = _book?.ReleaseRelayRoom(room);
         AbortSeat(host);
         AbortSeat(guest);
         Console.Error.WriteLine("relay room dropped after 120s " + room);
+        if (notes != null)
+        {
+            foreach (var note in notes)
+            {
+                try { await note.To.SendAsync(note.Payload).ConfigureAwait(false); }
+                catch { /* lobby already gone */ }
+            }
+        }
     }
 
     private static void AbortSeat(RelayEnd? end)
