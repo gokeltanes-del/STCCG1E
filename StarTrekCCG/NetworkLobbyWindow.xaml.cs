@@ -109,7 +109,9 @@ public partial class NetworkLobbyWindow : Window
             MmNameBox.Text = _signIn.Name;
             MmNameBox.IsReadOnly = true;
             BtnBrowseDeck.Content = "Upload";
-            SetMmState("Account. Server deck list only. No Latinum.");
+            SetMmState(_signIn.Latinum is int n
+                ? "Account. Server deck list only. Latinum " + n.ToString(System.Globalization.CultureInfo.InvariantCulture) + "."
+                : "Account. Server deck list only. No Latinum.");
         }
         else
         {
@@ -1397,7 +1399,10 @@ public partial class NetworkLobbyWindow : Window
             _mm?.Dispose();
             _mm = mm;
             if (_signIn.IsAccount)
+            {
                 await LoadServerDecksAsync().ConfigureAwait(true);
+                await RefreshAccountPoolAsync().ConfigureAwait(true);
+            }
         }
         catch (Exception ex)
         {
@@ -1557,15 +1562,49 @@ public partial class NetworkLobbyWindow : Window
         }
     }
 
+    private async Task RefreshAccountPoolAsync()
+    {
+        if (!_signIn.IsAccount || _mm == null || string.IsNullOrWhiteSpace(_signIn.Token))
+            return;
+        try
+        {
+            var body = await _mm.GetPoolAsync(_signIn.Token).ConfigureAwait(true);
+            if (body.TryGetProperty("latinum", out var latinum) && latinum.TryGetInt32(out var n))
+                _signIn.Latinum = n;
+        }
+        catch
+        {
+            // keep the number from sign-in
+        }
+        if (_signIn.Latinum is int shown)
+            SetMmState("Account. Server deck list only. Latinum " + shown.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".");
+    }
+
     private void SetMmState(string text)
     {
         void Apply()
         {
             if (MmStateText != null)
-                MmStateText.Text = text ?? "";
+                MmStateText.Text = WithLatinum(text ?? "");
         }
         if (Dispatcher.CheckAccess()) Apply();
         else Dispatcher.Invoke(Apply);
+    }
+
+    private string WithLatinum(string text)
+    {
+        if (!_signIn.IsAccount || _signIn.Latinum is not int n)
+            return text;
+        var number = n.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var mark = " Latinum ";
+        var cut = text.LastIndexOf(mark, StringComparison.Ordinal);
+        if (cut >= 0)
+            text = text[..cut].TrimEnd();
+        if (text.Contains("No Latinum", StringComparison.Ordinal))
+            return text.Replace("No Latinum", "Latinum " + number);
+        if (text.Contains("Latinum " + number, StringComparison.Ordinal))
+            return text;
+        return text.TrimEnd() + " Latinum " + number + ".";
     }
 
     private static string? FirstLanIPv4()
@@ -1833,6 +1872,9 @@ public partial class NetworkLobbyWindow : Window
         {
             var json = File.ReadAllText(dlg.FileName);
             var loaded = new Services.DeckService().LoadFromJson(json);
+            var db = new Services.CardDatabase(GamePaths.DataRoot);
+            db.LoadAll();
+            db.LinkDeck(loaded);
             var name = string.IsNullOrWhiteSpace(loaded.Name)
                 ? Path.GetFileNameWithoutExtension(dlg.FileName)
                 : loaded.Name.Trim();

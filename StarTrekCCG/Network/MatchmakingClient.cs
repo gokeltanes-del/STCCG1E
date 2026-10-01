@@ -177,6 +177,9 @@ public sealed class MatchmakingClient : IDisposable
     public async Task<JsonElement> GetDeckAsync(string token, string name)
         => await RequestAsync(new { type = "deckGet", token, name }).ConfigureAwait(false);
 
+    public async Task<JsonElement> GetPoolAsync(string token)
+        => await RequestAsync(new { type = "get_pool", token }).ConfigureAwait(false);
+
     public async Task<JsonElement> ReportAsync(string matchId, string secret, string winner)
         => await RequestAsync(new { type = "report", matchId, secret, winner }).ConfigureAwait(false);
 
@@ -372,7 +375,7 @@ public sealed class MatchmakingClient : IDisposable
                 StateChanged?.Invoke(message);
                 return;
             }
-            if (_pending != null && type is "auth" or "deckSaved" or "deckList" or "deckBody" or "report" or "saveStored")
+            if (_pending != null && type is "auth" or "deckSaved" or "deckList" or "deckBody" or "pool" or "report" or "saveStored")
             {
                 var copy = root.Clone();
                 TaskCompletionSource<JsonElement>? pending;

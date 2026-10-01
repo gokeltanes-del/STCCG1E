@@ -148,7 +148,7 @@ sealed class LobbySession
         {
             var root = doc.RootElement;
             var type = root.TryGetProperty("type", out var typeEl) ? typeEl.GetString() : null;
-            if (type is "register" or "login" or "deckSave" or "deckList" or "deckGet" or "report" or "saveAuto" or "saveManual")
+            if (type is "register" or "login" or "deckSave" or "deckList" or "deckGet" or "get_pool" or "report" or "saveAuto" or "saveManual")
             {
                 await SendAsync(AccountCall(type, root));
                 return;
@@ -269,6 +269,10 @@ sealed class LobbySession
                 return _auth.ListDecks(ReadString(root, "token"));
             case "deckGet":
                 return _auth.GetDeck(ReadString(root, "token"), ReadString(root, "name"));
+            case "get_pool":
+                if (!SaidHello || !string.Equals(Mode, "account", StringComparison.Ordinal))
+                    return new { type = "error", message = "sandbox does not use an account" };
+                return _auth.GetPool(ReadString(root, "token"));
             case "report":
                 return _auth.Report(ReadString(root, "matchId"), ReadString(root, "secret"), ReadString(root, "winner"));
             case "saveAuto":

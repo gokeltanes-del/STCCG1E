@@ -1,6 +1,6 @@
 ﻿﻿﻿﻿# HANDOFF â€” STCCG 1E
 
-**Stand:** 2026-10-01 · **Ort:** Josef `C:\Dev\StarTrekCCG\StarTrekCCG` · **HEAD:** seat after 120s grace, not green, project not done · **origin/master:** e04c9c7 (Pepsch push 2026-10-01)
+**Stand:** 2026-10-01 · **Ort:** Josef `C:\Dev\StarTrekCCG\StarTrekCCG` · **HEAD:** account pool and starting latinum, not green, project not done · **origin/master:** e04c9c7 (Pepsch push 2026-10-01)
 
 Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.md`, `FEATURES.md`, Coverage.
 
@@ -8,13 +8,15 @@ Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.m
 
 ## Jetzt aktiv
 
+**Account-Kartenpool und Start-Latinum, Schritt 3, nicht gruen:** lokal getippt, nicht getestet, nicht gepusht. Ein neues Konto bekommt einmal 100 Latinum und das Starterdeck `Decks/Federation Premiere.stdeck` als `account_cards` (cardId SetFolder/ReleaseRaw/Name) und als Default-Deck gleichen Namens. `get_pool` gibt diese Karten zurueck. `saveDeck` lehnt eine Karte ab, die das Konto nicht besitzt (`card not in account pool`). Die Summe der Kopien darf die Pool-Menge nicht uebersteigen. Sandbox liest und schreibt weder `account_cards` noch latinum. Keine Packs, keine Match-Belohnung, kein Tausch, kein Deckbuilder-Filter, kein Shop, kein echtes Geld. Der Server simuliert keine Partie. Nicht gruen.
+
 **Sitz nach 120s frei, nicht gruen:** getippt, nicht getestet, nicht gepusht. Pepsch 2026-10-01 Abend: WAN-Spiel funktioniert. Gast-WLAN 15s aus, dann Reconnect funktioniert. Save und Load in einem neuen Raum funktionieren. Danach beide Clients zu und wieder eingeloggt: der alte Raum sagt voll. Der Sitz bleibt belegt, obwohl beide Lobby-Sockets weg sind. Nach der bestehenden 120s Grace ohne Rejoin wird dieser Sitz frei. Das Relais-Paar einer laufenden Partie wird in der Grace nicht geloescht. Manuelle Saves bleiben. Autosave bleibt. Ein leerer Raum darf weg, wenn beide Sitze frei sind und die Grace vorbei ist. Ein lebender Sitz nimmt das andere Konto an. Nicht gruen. Das Projekt ist nicht fertig.
 
 **Relais-Sitz nach Lobby-Close, nicht gruen:** getippt, nicht getestet, nicht gepusht. Try now waehlt die Adresse aus dem Server-Feld beim Start, nicht die aktuelle Netzwerkkarte. Hotspot und 192.168.50.241 gehen nicht. RoomBook behaelt nach Spielstart die playerId, solange das Relais-Paar innerhalb von 120s ersetzt wird. Danach weg. Nicht gruen, bis beide Clients die Partie mit 81.217.114.46:7788 starten und der Gast mitten im Spiel auf den Hotspot wechselt.
 
 **Relais ausserhalb des Heim-LAN, Schritt 2, nicht gruen:** lokal getippt, nicht getestet, nicht gruen, nicht gepusht. Spiel ausserhalb des Heim-LAN nur ueber den Server auf TCP 7788. Beide Clients verbinden sich nach aussen. Der Server simuliert keine Regeln. Stirbt der Host-PC, stirbt die Partie nach der 120s Grace. In der Lobby ist das Server-Adressfeld (Domain oder IP, mit Port). Default 127.0.0.1:7788 fuer denselben PC. Ein anderer PC nimmt die LAN-Adresse des Host-Rechners und Port 7788. Eine oeffentliche Partie nimmt einen oeffentlichen Host und Port 7788. Kein Domainname ist hier eingerichtet. Play via relay bindet keinen lokalen TCP-Listener auf 7777 und ruft kein UPnP/PCP. Direct-IP und Localhost auf 7777 bleiben eigene Buttons, UPnP nur auf diesem Direct-Weg. Der Gast auf dem Relaisweg waehlt Port 7777 nicht. Kein TLS, kein systemd, kein Backup, kein Deploy. Kein Latinum, keine Packs, kein Tausch, kein Kartenpool. Uhren unveraendert.
 
-**Menschentests:** Pepsch 2026-10-01 Abend bestaetigt WAN-Spiel, WLAN 15s aus dann Reconnect, und Save/Load in einem neuen Raum. Der alte Raum, der danach voll sagt, ist der Sitz-Tip oben und nicht gruen. Kein pauschales DONE. Der Rest des Projekts ist nicht fertig.
+**Menschentests:** Pepsch 2026-10-01 Abend bestaetigt WAN-Spiel, WLAN 15s aus dann Reconnect, und Save/Load in einem neuen Raum. Der alte Raum, der danach voll sagt, ist der Sitz-Tip oben und nicht gruen. Kein pauschales DONE. Der Rest des Projekts ist nicht fertig. Schritt 3 (Pool und 100 Latinum) ist lokal und nicht getestet. Der volle Raum nach dem Schliessen (4ae51cb) wartet weiter auf Pepsch.
 
 **Account-Save, nicht gruen:** lokal getippt, nicht getestet, nicht gepusht. Autosave und manueller Save sind zwei Zeilen. Eine Autosave-Zeile pro lebender MatchId, ersetzt wenn der Host einen maskierten Snapshot geschrieben hat, geloescht sobald beide denselben Sieger melden. Der manuelle Save hat einen Namen, gehoert denselben zwei Konten und bleibt nach dem Spielende. Sandbox schreibt keinen Server-Save. Der volle Spielstand geht nur an den Host. Der Gast bekommt nur die maskierte Sicht, derselbe Weg wie BroadcastMaskedStateToGuest. Uhren unveraendert.
 
@@ -24,7 +26,7 @@ Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.m
 
 1. Automatischer Reconnect innerhalb der 120s Grace, Banner auf dem Tisch, Relais-Raum bleibt 120s offen, Wahl- und Reveal-Uhren einfrieren. Dieser Punkt ist hier nur getippt, nicht gruen.
 2. Spiel ausserhalb des Heim-LAN nur ueber Relais-Port 7788. Kein UPnP auf 7777 fuer diesen Weg. Oben getippt, nicht getestet, nicht gruen.
-3. Account-Kartenpool plus Start-Latinum.
+3. Account-Kartenpool plus Start-Latinum. Getippt in diesem Commit, nicht getestet, nicht gruen. Keine Packs, keine Match-Belohnung, kein Tausch, kein Deckbuilder-Filter.
 4. Latinum nur, wenn beide Clients denselben Sieger melden. Sieger bekommt das Doppelte. Sandbox zahlt nichts.
 5. Booster nur auf dem Server ziehen.
 6. Direkter Tausch und Raise the Stakes. Kein Tausch waehrend einer laufenden Partie.

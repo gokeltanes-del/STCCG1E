@@ -1,3 +1,10 @@
+## 2026-10-01 - Account card pool and starting latinum
+
+- Getippt, nicht getestet, nicht gruen, nicht gepusht. Schritt 3. Ein neues Konto bekommt einmal 100 Latinum. Dieselbe Registrierung kopiert `Decks/Federation Premiere.stdeck` nach `account_cards` (user_id, card_id, quantity) und speichert dieselbe Kartenliste als Default-Deck. cardId ist SetFolder/ReleaseRaw/Name aus dem Katalog, keine erfundenen Namen. Eine Karte im Deck, Yellow Alert, liegt in Alternate_Universe, der Rest in PR.
+- Lobby-Nachricht `get_pool` gibt die Karten dieses Kontos zurueck. `saveDeck` lehnt eine Karte ab, die das Konto nicht besitzt, mit "card not in account pool". Die Summe der Kopien darf die Menge im Pool nicht uebersteigen.
+- Sandbox liest und schreibt weder `account_cards` noch latinum. Keine Packs, keine Match-Belohnung, kein Tausch, kein Deckbuilder-Filter, kein Shop, kein echtes Geld. Der Server simuliert keine Partie. Der Host bleibt die einzige Regelwahrheit.
+- Die Lobby zeigt die Latinum-Zahl auf der bestehenden Statuszeile, wenn ein Konto angemeldet ist. Sandbox bleibt "No Latinum".
+- Nicht gruen. Pepsch hat WAN-Spiel, WLAN 15s Reconnect und Load in einem neuen Raum bestaetigt. Der volle Raum nach dem Schliessen (4ae51cb) wartet weiter auf ihn.
 ## 2026-10-01 - Seat is freed after the 120s grace
 
 - Pepsch, 2026-10-01 Abend, bestaetigt: WAN-Spiel funktioniert. Gast-WLAN 15s aus, dann Reconnect funktioniert. Save und danach Load in einem neuen Raum funktionieren.

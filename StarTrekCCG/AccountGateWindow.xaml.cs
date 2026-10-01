@@ -74,13 +74,17 @@ public partial class AccountGateWindow : Window
                 StatusText.Text = "The service did not issue a token.";
                 return;
             }
+            int? latinum = null;
+            if (reply.TryGetProperty("latinum", out var latEl) && latEl.TryGetInt32(out var lat))
+                latinum = lat;
             Result = new LobbySignIn
             {
                 Mode = "account",
                 Name = bound ?? name,
                 Token = token,
                 Host = host,
-                Port = port
+                Port = port,
+                Latinum = latinum
             };
             DialogResult = true;
         }

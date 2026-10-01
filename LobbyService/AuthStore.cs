@@ -19,6 +19,7 @@ sealed class AuthStore : IDisposable
     };
 
     private readonly SqliteConnection _db;
+    private readonly StarterGrant _starter;
     private readonly object _gate = new();
     private readonly Dictionary<string, Dictionary<string, string>> _pending = new(StringComparer.Ordinal);
 
@@ -38,7 +39,8 @@ sealed class AuthStore : IDisposable
                 id INTEGER PRIMARY KEY,
                 name TEXT NOT NULL COLLATE NOCASE UNIQUE,
                 password_hash TEXT NOT NULL,
-                created_utc TEXT NOT NULL
+                created_utc TEXT NOT NULL,
+                latinum INTEGER NOT NULL DEFAULT 0
             );
             CREATE TABLE IF NOT EXISTS sessions (
                 token TEXT PRIMARY KEY,
@@ -50,6 +52,12 @@ sealed class AuthStore : IDisposable
                 name TEXT NOT NULL COLLATE NOCASE,
                 card_ids TEXT NOT NULL,
                 PRIMARY KEY (user_id, name)
+            );
+            CREATE TABLE IF NOT EXISTS account_cards (
+                user_id INTEGER NOT NULL,
+                card_id TEXT NOT NULL,
+                quantity INTEGER NOT NULL,
+                PRIMARY KEY (user_id, card_id)
             );
             CREATE TABLE IF NOT EXISTS matches (
                 match_id TEXT PRIMARY KEY,
@@ -86,6 +94,8 @@ sealed class AuthStore : IDisposable
             """;
         cmd.ExecuteNonQuery();
         EnsureMatchAccountColumns();
+        EnsureLatinumColumn();
+        _starter = StarterDeck.Load(Path.GetDirectoryName(path) ?? ".");
     }
 
     public object Register(string name, string password)
@@ -101,20 +111,26 @@ sealed class AuthStore : IDisposable
             exists.Parameters.AddWithValue("$name", clean);
             if (exists.ExecuteScalar() != null)
                 return Err("that name is taken");
+            using var tx = _db.BeginTransaction();
             var hash = BCrypt.Net.BCrypt.HashPassword(password, workFactor: 10);
             using var insert = _db.CreateCommand();
-            insert.CommandText = "INSERT INTO users (name, password_hash, created_utc) VALUES ($name, $hash, $utc)";
+            insert.Transaction = tx;
+            insert.CommandText = "INSERT INTO users (name, password_hash, created_utc, latinum) VALUES ($name, $hash, $utc, $latinum)";
             insert.Parameters.AddWithValue("$name", clean);
             insert.Parameters.AddWithValue("$hash", hash);
             insert.Parameters.AddWithValue("$utc", Now());
+            insert.Parameters.AddWithValue("$latinum", StarterDeck.Latinum);
             insert.ExecuteNonQuery();
             using var idCmd = _db.CreateCommand();
+            idCmd.Transaction = tx;
             idCmd.CommandText = "SELECT id FROM users WHERE name = $name";
             idCmd.Parameters.AddWithValue("$name", clean);
             var id = Convert.ToInt32(idCmd.ExecuteScalar());
+            GrantStarter(id, tx);
             var token = NewToken();
-            InsertSession(id, token);
-            return new { type = "auth", token, name = clean, mode = "account" };
+            InsertSession(id, token, tx);
+            tx.Commit();
+            return new { type = "auth", token, name = clean, mode = "account", latinum = StarterDeck.Latinum };
         }
     }
 
@@ -127,7 +143,7 @@ sealed class AuthStore : IDisposable
         lock (_gate)
         {
             using var cmd = _db.CreateCommand();
-            cmd.CommandText = "SELECT id, password_hash, name FROM users WHERE name = $name";
+            cmd.CommandText = "SELECT id, password_hash, name, latinum FROM users WHERE name = $name";
             cmd.Parameters.AddWithValue("$name", clean);
             using var reader = cmd.ExecuteReader();
             if (!reader.Read())
@@ -135,6 +151,7 @@ sealed class AuthStore : IDisposable
             var id = reader.GetInt32(0);
             var hash = reader.GetString(1);
             var storedName = reader.GetString(2);
+            var latinum = reader.GetInt32(3);
             bool ok;
             try { ok = BCrypt.Net.BCrypt.Verify(password, hash); }
             catch { ok = false; }
@@ -142,7 +159,7 @@ sealed class AuthStore : IDisposable
                 return Err("wrong password");
             var token = NewToken();
             InsertSession(id, token);
-            return new { type = "auth", token, name = storedName, mode = "account" };
+            return new { type = "auth", token, name = storedName, mode = "account", latinum };
         }
     }
 
@@ -180,6 +197,8 @@ sealed class AuthStore : IDisposable
             return Err(error);
         lock (_gate)
         {
+            if (!FitsPool(user.Id, canonical, out error))
+                return Err(error);
             using var cmd = _db.CreateCommand();
             cmd.CommandText = """
                 INSERT INTO decks (user_id, name, card_ids) VALUES ($user, $name, $cards)
@@ -193,7 +212,24 @@ sealed class AuthStore : IDisposable
         return new { type = "deckSaved", name = deckName, count };
     }
 
-    public object ListDecks(string? token)
+    public object GetPool(string? token)
+    {
+        if (!TrySession(token, out var user))
+            return Err("login required");
+        var cards = new List<object>();
+        int latinum;
+        lock (_gate)
+        {
+            latinum = ReadLatinum(user.Id);
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "SELECT card_id, quantity FROM account_cards WHERE user_id = $user ORDER BY card_id";
+            cmd.Parameters.AddWithValue("$user", user.Id);
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+                cards.Add(new { cardId = reader.GetString(0), quantity = reader.GetInt32(1) });
+        }
+        return new { type = "pool", latinum, cards };
+    }    public object ListDecks(string? token)
     {
         if (!TrySession(token, out var user))
             return Err("login required");
@@ -609,7 +645,86 @@ sealed class AuthStore : IDisposable
         drop.ExecuteNonQuery();
     }
 
-    private void EnsureMatchAccountColumns()
+    private void GrantStarter(int userId, SqliteTransaction tx)
+    {
+        foreach (var card in _starter.Pool)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = "INSERT INTO account_cards (user_id, card_id, quantity) VALUES ($user, $card, $qty)";
+            cmd.Parameters.AddWithValue("$user", userId);
+            cmd.Parameters.AddWithValue("$card", card.CardId);
+            cmd.Parameters.AddWithValue("$qty", card.Quantity);
+            cmd.ExecuteNonQuery();
+        }
+
+        using var deck = _db.CreateCommand();
+        deck.Transaction = tx;
+        deck.CommandText = """
+            INSERT INTO decks (user_id, name, card_ids) VALUES ($user, $name, $cards)
+            ON CONFLICT(user_id, name) DO UPDATE SET card_ids = excluded.card_ids
+            """;
+        deck.Parameters.AddWithValue("$user", userId);
+        deck.Parameters.AddWithValue("$name", _starter.DeckName);
+        deck.Parameters.AddWithValue("$cards", _starter.CanonicalCards);
+        deck.ExecuteNonQuery();
+    }
+
+    private bool FitsPool(int userId, string canonical, out string error)
+    {
+        error = "";
+        using var doc = JsonDocument.Parse(canonical);
+        var need = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var prop in doc.RootElement.EnumerateObject())
+        {
+            if (prop.Value.ValueKind != JsonValueKind.Array)
+                continue;
+            foreach (var item in prop.Value.EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.String)
+                    continue;
+                var id = (item.GetString() ?? "").Trim();
+                if (id.Length == 0)
+                    continue;
+                need[id] = need.TryGetValue(id, out var n) ? n + 1 : 1;
+            }
+        }
+
+        foreach (var pair in need)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "SELECT quantity FROM account_cards WHERE user_id = $user AND card_id = $card";
+            cmd.Parameters.AddWithValue("$user", userId);
+            cmd.Parameters.AddWithValue("$card", pair.Key);
+            var owned = cmd.ExecuteScalar();
+            var qty = owned == null || owned is DBNull ? 0 : Convert.ToInt32(owned);
+            if (pair.Value > qty)
+            {
+                error = "card not in account pool";
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private int ReadLatinum(int userId)
+    {
+        using var cmd = _db.CreateCommand();
+        cmd.CommandText = "SELECT latinum FROM users WHERE id = $user";
+        cmd.Parameters.AddWithValue("$user", userId);
+        var value = cmd.ExecuteScalar();
+        return value == null || value is DBNull ? 0 : Convert.ToInt32(value);
+    }
+
+    private void EnsureLatinumColumn()
+    {
+        if (!HasColumn("users", "latinum"))
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "ALTER TABLE users ADD COLUMN latinum INTEGER NOT NULL DEFAULT 0;";
+            cmd.ExecuteNonQuery();
+        }
+    }    private void EnsureMatchAccountColumns()
     {
         if (!HasColumn("matches", "host_user_id"))
         {
@@ -652,9 +767,11 @@ sealed class AuthStore : IDisposable
     }
 
 
-    private void InsertSession(int userId, string token)
+    private void InsertSession(int userId, string token, SqliteTransaction? tx = null)
     {
         using var cmd = _db.CreateCommand();
+        if (tx != null)
+            cmd.Transaction = tx;
         cmd.CommandText = "INSERT INTO sessions (token, user_id, created_utc) VALUES ($token, $user, $utc)";
         cmd.Parameters.AddWithValue("$token", token);
         cmd.Parameters.AddWithValue("$user", userId);
