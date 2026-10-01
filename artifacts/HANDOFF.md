@@ -1,12 +1,14 @@
 ﻿﻿﻿﻿# HANDOFF â€” STCCG 1E
 
-**Stand:** 2026-10-01 · **Ort:** Josef `C:\Dev\StarTrekCCG\StarTrekCCG` · **HEAD:** match latinum, not green, project not done · **origin/master:** e04c9c7 (Pepsch push 2026-10-01)
+**Stand:** 2026-10-01 · **Ort:** Josef `C:\Dev\StarTrekCCG\StarTrekCCG` · **HEAD:** premiere booster, not green, project not done · **origin/master:** e04c9c7 (Pepsch push 2026-10-01)
 
 Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.md`, `FEATURES.md`, Coverage.
 
 ---
 
 ## Jetzt aktiv
+
+**Premiere-Booster, Schritt 5, nicht gruen:** lokal getippt, nicht getestet, nicht gepusht. Ein Konto kauft `premiere_booster` fuer 50 Latinum. Nachricht `buy_pack`. Der Server zieht nur selbst, mit RandomNumberGenerator, nie aus Kartennamen vom Client. Ein Pack ist 15 Karten: 1 Rare, 3 Uncommon, 11 Common. Die Seltenheit ist `rarity_info` in `Data/Sets/PR/cards.json` (121 Rare, 121 Uncommon, 121 Common). Eine SQLite-Transaktion: latinum mindestens 50, minus 50, die 15 cardIds nach `account_cards`, Antwort cardIds und Rest-Latinum. Zu wenig Latinum ist ein Fehler und aendert nichts. Sandbox kann nicht kaufen. Kein Tausch, kein Deckbuilder-Filter. Der Server simuliert keine Partie. Nicht gruen.
 
 **Match-Latinum, Schritt 4, nicht gruen:** lokal getippt, nicht getestet, nicht gepusht. Ein Konto-Match schreibt Latinum nur im bestehenden AuthStore.Report, und nur wenn beide Clients denselben Sieger melden und match_history dabei neu entsteht. Verlierer 5, Sieger 10 (das Doppelte). Eine Gutschrift pro Partie. Eine zweite Meldung derselben Partie zahlt nicht noch einmal. Uneinige Meldungen oder nur eine Meldung zahlen nichts. Sandbox zahlt nichts. Keine Packs, kein Tausch, kein Deckbuilder-Filter. Uhren unveraendert. Der Server simuliert die Partie nicht. Der Host entscheidet den Sieger, beide Clients melden ihn. Nicht gruen.
 
@@ -18,19 +20,19 @@ Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.m
 
 **Relais ausserhalb des Heim-LAN, Schritt 2, nicht gruen:** lokal getippt, nicht getestet, nicht gruen, nicht gepusht. Spiel ausserhalb des Heim-LAN nur ueber den Server auf TCP 7788. Beide Clients verbinden sich nach aussen. Der Server simuliert keine Regeln. Stirbt der Host-PC, stirbt die Partie nach der 120s Grace. In der Lobby ist das Server-Adressfeld (Domain oder IP, mit Port). Default 127.0.0.1:7788 fuer denselben PC. Ein anderer PC nimmt die LAN-Adresse des Host-Rechners und Port 7788. Eine oeffentliche Partie nimmt einen oeffentlichen Host und Port 7788. Kein Domainname ist hier eingerichtet. Play via relay bindet keinen lokalen TCP-Listener auf 7777 und ruft kein UPnP/PCP. Direct-IP und Localhost auf 7777 bleiben eigene Buttons, UPnP nur auf diesem Direct-Weg. Der Gast auf dem Relaisweg waehlt Port 7777 nicht. Kein TLS, kein systemd, kein Backup, kein Deploy. Kein Latinum, keine Packs, kein Tausch, kein Kartenpool. Uhren unveraendert.
 
-**Menschentests:** Pepsch 2026-10-01 Abend bestaetigt WAN-Spiel, WLAN 15s aus dann Reconnect, und Save/Load in einem neuen Raum. Der alte Raum, der danach voll sagt, ist der Sitz-Tip oben und nicht gruen. Kein pauschales DONE. Der Rest des Projekts ist nicht fertig. Schritt 4 (Match-Latinum, Verlierer 5, Sieger 10) ist lokal und nicht getestet. Schritt 3 (Pool und 100 Latinum, e6dadb4) ist ebenfalls nicht getestet. Der volle Raum nach dem Schliessen (4ae51cb) wartet weiter auf Pepsch.
+**Menschentests:** Pepsch 2026-10-01 Abend bestaetigt WAN-Spiel, WLAN 15s aus dann Reconnect, und Save/Load in einem neuen Raum. Der alte Raum, der danach voll sagt, ist der Sitz-Tip oben und nicht gruen. Kein pauschales DONE. Der Rest des Projekts ist nicht fertig. Schritt 5 (Premiere-Booster, 50 Latinum) ist lokal und nicht getestet. Schritt 4 (Match-Latinum, Verlierer 5, Sieger 10) ist lokal und nicht getestet. Schritt 3 (Pool und 100 Latinum, e6dadb4) ist ebenfalls nicht getestet. Der volle Raum nach dem Schliessen (4ae51cb) wartet weiter auf Pepsch.
 
 **Account-Save, nicht gruen:** lokal getippt, nicht getestet, nicht gepusht. Autosave und manueller Save sind zwei Zeilen. Eine Autosave-Zeile pro lebender MatchId, ersetzt wenn der Host einen maskierten Snapshot geschrieben hat, geloescht sobald beide denselben Sieger melden. Der manuelle Save hat einen Namen, gehoert denselben zwei Konten und bleibt nach dem Spielende. Sandbox schreibt keinen Server-Save. Der volle Spielstand geht nur an den Host. Der Gast bekommt nur die maskierte Sicht, derselbe Weg wie BroadcastMaskedStateToGuest. Uhren unveraendert.
 
 **Automatischer Reconnect, Schritt 1, nicht gruen:** getippt in diesem Commit, nicht DONE, nicht gepusht. origin/master bleibt `e04c9c7`. Pepschs Drop am 2026-10-01 sah automatisch aus, aber der Code bei `e04c9c7` hatte keinen Gast-Auto-Reconnect. Ein kurzer WLAN-Riss kann den Socket offen halten. Dieser Tip ist der echte Auto-Reconnect. Nicht gruen, bis Pepsch ihn spielt.
 
-**Geplant, nicht erledigt, nicht gruen** (Schritt 2 ist oben getippt, nicht getestet, nicht gruen. Schritte 3 und 4 sind oben getippt, nicht getestet, nicht gruen. Schritte 5-7 sind nicht in diesem Commit. Server-Miete ist eine spaetere Erklaerung, nicht dieser Commit):
+**Geplant, nicht erledigt, nicht gruen** (Schritt 2 ist oben getippt, nicht getestet, nicht gruen. Schritte 3 und 4 sind oben getippt, nicht getestet, nicht gruen. Schritt 5 ist oben getippt, nicht getestet, nicht gruen. Schritte 6-7 sind nicht in diesem Commit. Server-Miete ist eine spaetere Erklaerung, nicht dieser Commit):
 
 1. Automatischer Reconnect innerhalb der 120s Grace, Banner auf dem Tisch, Relais-Raum bleibt 120s offen, Wahl- und Reveal-Uhren einfrieren. Dieser Punkt ist hier nur getippt, nicht gruen.
 2. Spiel ausserhalb des Heim-LAN nur ueber Relais-Port 7788. Kein UPnP auf 7777 fuer diesen Weg. Oben getippt, nicht getestet, nicht gruen.
 3. Account-Kartenpool plus Start-Latinum. Getippt in diesem Commit, nicht getestet, nicht gruen. Keine Packs, keine Match-Belohnung, kein Tausch, kein Deckbuilder-Filter.
 4. Latinum nur, wenn beide Clients denselben Sieger melden. Verlierer 5, Sieger 10. Getippt in diesem Commit, nicht getestet, nicht gruen. Eine Gutschrift pro Partie. Sandbox zahlt nichts.
-5. Booster nur auf dem Server ziehen.
+5. Booster nur auf dem Server ziehen. Getippt in diesem Commit, nicht getestet, nicht gruen. Premiere-Booster 50 Latinum. Der Server zieht 1 Rare, 3 Uncommon, 11 Common aus Data/Sets/PR/cards.json. Sandbox kauft nicht. Kein Tausch, kein Deckbuilder-Filter.
 6. Direkter Tausch und Raise the Stakes. Kein Tausch waehrend einer laufenden Partie.
 7. Deckbuilder an den Account-Pool gebunden.
 

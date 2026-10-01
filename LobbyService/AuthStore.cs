@@ -7,6 +7,7 @@ using Microsoft.Data.Sqlite;
 // History is inserted only when both seats report the same winner.
 // That insert is the one latinum credit for an account match: loser 5, winner 10.
 // Sandbox, one report, disagreeing reports, and a repeat report pay nothing.
+// buy_pack draws a Premiere booster on the server. Not enough latinum changes nothing.
 sealed class AuthStore : IDisposable
 {
     public const int NameMax = 24;
@@ -24,6 +25,7 @@ sealed class AuthStore : IDisposable
 
     private readonly SqliteConnection _db;
     private readonly StarterGrant _starter;
+    private readonly PremiereCatalog _premiere;
     private readonly object _gate = new();
     private readonly Dictionary<string, Dictionary<string, string>> _pending = new(StringComparer.Ordinal);
 
@@ -99,7 +101,9 @@ sealed class AuthStore : IDisposable
         cmd.ExecuteNonQuery();
         EnsureMatchAccountColumns();
         EnsureLatinumColumn();
-        _starter = StarterDeck.Load(Path.GetDirectoryName(path) ?? ".");
+        var start = Path.GetDirectoryName(path) ?? ".";
+        _starter = StarterDeck.Load(start);
+        _premiere = PremiereCatalog.Load(start);
     }
 
     public object Register(string name, string password)
@@ -233,7 +237,44 @@ sealed class AuthStore : IDisposable
                 cards.Add(new { cardId = reader.GetString(0), quantity = reader.GetInt32(1) });
         }
         return new { type = "pool", latinum, cards };
-    }    public object ListDecks(string? token)
+    }
+
+    public object BuyPack(string? token, string? packType)
+    {
+        if (!string.Equals((packType ?? "").Trim(), PremiereCatalog.PackType, StringComparison.Ordinal))
+            return Err("unknown pack");
+        if (!TrySession(token, out var user))
+            return Err("login required");
+
+        // Drawn here, from the catalog. The caller has no card names to apply.
+        var drawn = _premiere.Draw();
+        if (drawn.Count != PremiereCatalog.RareCount + PremiereCatalog.UncommonCount + PremiereCatalog.CommonCount)
+            return Err("pack was not drawn");
+
+        lock (_gate)
+        {
+            using var tx = _db.BeginTransaction();
+            using var upd = _db.CreateCommand();
+            upd.Transaction = tx;
+            upd.CommandText = "UPDATE users SET latinum = latinum - $price WHERE id = $user AND latinum >= $price";
+            upd.Parameters.AddWithValue("$price", PremiereCatalog.Price);
+            upd.Parameters.AddWithValue("$user", user.Id);
+            if (upd.ExecuteNonQuery() != 1)
+            {
+                tx.Rollback();
+                return Err("not enough latinum");
+            }
+
+            foreach (var cardId in drawn)
+                AddOwnedCard(user.Id, cardId, tx);
+
+            var left = ReadLatinum(user.Id, tx);
+            tx.Commit();
+            return new { type = "pack", packType = PremiereCatalog.PackType, price = PremiereCatalog.Price, latinum = left, cardIds = drawn };
+        }
+    }
+
+    public object ListDecks(string? token)
     {
         if (!TrySession(token, out var user))
             return Err("login required");
@@ -737,13 +778,28 @@ sealed class AuthStore : IDisposable
         return true;
     }
 
-    private int ReadLatinum(int userId)
+    private int ReadLatinum(int userId, SqliteTransaction? tx = null)
     {
         using var cmd = _db.CreateCommand();
+        if (tx != null)
+            cmd.Transaction = tx;
         cmd.CommandText = "SELECT latinum FROM users WHERE id = $user";
         cmd.Parameters.AddWithValue("$user", userId);
         var value = cmd.ExecuteScalar();
         return value == null || value is DBNull ? 0 : Convert.ToInt32(value);
+    }
+
+    private void AddOwnedCard(int userId, string cardId, SqliteTransaction tx)
+    {
+        using var cmd = _db.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = """
+            INSERT INTO account_cards (user_id, card_id, quantity) VALUES ($user, $card, 1)
+            ON CONFLICT(user_id, card_id) DO UPDATE SET quantity = quantity + 1
+            """;
+        cmd.Parameters.AddWithValue("$user", userId);
+        cmd.Parameters.AddWithValue("$card", cardId);
+        cmd.ExecuteNonQuery();
     }
 
     private static void AddLatinum(SqliteConnection db, SqliteTransaction tx, int userId, int amount)

@@ -1,3 +1,9 @@
+## 2026-10-01 - Premiere booster for 50 latinum
+
+- Getippt, nicht getestet, nicht gruen, nicht gepusht. Schritt 5. Ein Konto kauft einen Premiere-Booster fuer 50 Latinum. Nachricht `buy_pack`, packType `premiere_booster`. Der Server zieht mit RandomNumberGenerator: 1 Rare, 3 Uncommon, 11 Common. Die Seltenheiten stehen in Data/Sets/PR/cards.json (`rarity_info`: 121 R, 121 U, 121 C). Der Client schickt keine Kartennamen. Eine SQLite-Transaktion: Latinum mindestens 50, minus 50, 15 cardIds in account_cards, Antwort cardIds und Rest-Latinum. Zu wenig Latinum ist ein Fehler und aendert nichts. Sandbox kann nicht kaufen.
+- Kein Tausch, kein Deckbuilder-Filter, kein echtes Geld. Der Server simuliert keine Partie. Die Lobby kann einen dunklen Dialog zeigen (#1E1E22 / #3A3A48, heller Text) mit Latinum und einem Kaufknopf, danach die 15 Karten.
+- Schritte 3 und 4 sind ebenfalls nicht getestet. Nicht gruen.
+
 ## 2026-10-01 - Latinum for an agreed account match
 
 - Getippt, nicht getestet, nicht gruen, nicht gepusht. Schritt 4. Latinum nur, wenn beide Clients denselben Sieger melden und match_history dabei neu geschrieben wird. Verlierer 5, Sieger 10 (das Doppelte). Eine Gutschrift pro Partie. Eine zweite Meldung zahlt nicht noch einmal. Uneins oder nur eine Meldung: nichts. Sandbox zahlt nichts.

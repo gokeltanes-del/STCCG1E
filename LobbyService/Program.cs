@@ -148,7 +148,7 @@ sealed class LobbySession
         {
             var root = doc.RootElement;
             var type = root.TryGetProperty("type", out var typeEl) ? typeEl.GetString() : null;
-            if (type is "register" or "login" or "deckSave" or "deckList" or "deckGet" or "get_pool" or "report" or "saveAuto" or "saveManual")
+            if (type is "register" or "login" or "deckSave" or "deckList" or "deckGet" or "get_pool" or "buy_pack" or "report" or "saveAuto" or "saveManual")
             {
                 await SendAsync(AccountCall(type, root));
                 return;
@@ -273,6 +273,13 @@ sealed class LobbySession
                 if (!SaidHello || !string.Equals(Mode, "account", StringComparison.Ordinal))
                     return new { type = "error", message = "sandbox does not use an account" };
                 return _auth.GetPool(ReadString(root, "token"));
+            case "buy_pack":
+                if (!SaidHello || !string.Equals(Mode, "account", StringComparison.Ordinal))
+                    return new { type = "error", message = "sandbox cannot buy" };
+                if (!string.Equals(ReadString(root, "token"), Token, StringComparison.Ordinal) || string.IsNullOrEmpty(Token))
+                    return new { type = "error", message = "token required" };
+                // packType only. Card names on this message are ignored.
+                return _auth.BuyPack(Token, ReadString(root, "packType"));
             case "report":
                 return _auth.Report(ReadString(root, "matchId"), ReadString(root, "secret"), ReadString(root, "winner"));
             case "saveAuto":

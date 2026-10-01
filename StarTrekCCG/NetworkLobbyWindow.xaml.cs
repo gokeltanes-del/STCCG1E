@@ -118,6 +118,7 @@ public partial class NetworkLobbyWindow : Window
             MmNameBox.Text = string.IsNullOrWhiteSpace(_signIn.Name) ? Environment.UserName : _signIn.Name;
             SetMmState("Sandbox. Local decks. Online versus Sandbox. No Latinum.");
         }
+        BtnBuyBooster.Visibility = _signIn.IsAccount ? Visibility.Visible : Visibility.Collapsed;
         RefreshDeckList();
     }
 
@@ -1560,6 +1561,50 @@ public partial class NetworkLobbyWindow : Window
         {
             SetStatus("Deck announce failed: " + ex.Message);
         }
+    }
+
+    private void BtnBuyBooster_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_signIn.IsAccount)
+            return;
+        if (_mm == null || string.IsNullOrWhiteSpace(_signIn.Token))
+        {
+            SetMmState("Connect to the service first.");
+            return;
+        }
+        var dlg = new BoosterWindow(_signIn.Latinum, BuyPremiereBoosterAsync) { Owner = this };
+        dlg.ShowDialog();
+        if (_signIn.Latinum is int shown)
+            SetMmState("Account. Server deck list only. Latinum " + shown.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".");
+    }
+
+    private async Task<PackBuyResult> BuyPremiereBoosterAsync()
+    {
+        if (_mm == null || string.IsNullOrWhiteSpace(_signIn.Token))
+            return PackBuyResult.Fail("Connect to the service first.");
+        var body = await _mm.BuyPackAsync(_signIn.Token, "premiere_booster").ConfigureAwait(true);
+        var type = body.TryGetProperty("type", out var typeEl) ? typeEl.GetString() : null;
+        if (!string.Equals(type, "pack", StringComparison.Ordinal))
+        {
+            var message = body.TryGetProperty("message", out var msgEl) ? msgEl.GetString() : null;
+            return PackBuyResult.Fail(string.IsNullOrWhiteSpace(message) ? "buy failed" : message);
+        }
+        var ids = new List<string>();
+        if (body.TryGetProperty("cardIds", out var arr) && arr.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in arr.EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.String)
+                    continue;
+                var id = (item.GetString() ?? "").Trim();
+                if (id.Length > 0)
+                    ids.Add(id);
+            }
+        }
+        if (!body.TryGetProperty("latinum", out var latEl) || !latEl.TryGetInt32(out var latinum))
+            return PackBuyResult.Fail("buy failed");
+        _signIn.Latinum = latinum;
+        return PackBuyResult.Bought(latinum, ids);
     }
 
     private async Task RefreshAccountPoolAsync()
