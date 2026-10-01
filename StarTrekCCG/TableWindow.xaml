@@ -432,6 +432,19 @@
                     </DockPanel>
                 </Border>
             </Border>
+            <Border x:Name="NetReconnectShield" Grid.ColumnSpan="2" Visibility="Collapsed" Panel.ZIndex="270" Background="#CC1A1A20"/>
+            <Border x:Name="NetReconnectBanner" Grid.ColumnSpan="2" Visibility="Collapsed" Panel.ZIndex="280"
+                    Background="#3A3A48" BorderBrush="#555" BorderThickness="1" CornerRadius="4"
+                    VerticalAlignment="Top" HorizontalAlignment="Stretch" Margin="12,8,12,0" Padding="12,8">
+                <DockPanel LastChildFill="True">
+                    <Button x:Name="BtnNetReconnectNow" DockPanel.Dock="Right" Content="Try now" Click="Reconnect_Click"
+                            Margin="12,0,0,0" Padding="12,4" Background="#2A2A36" Foreground="White" BorderThickness="0"
+                            FontWeight="SemiBold" Cursor="Hand" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="NetReconnectBannerText" Foreground="White" FontSize="14" FontWeight="SemiBold"
+                               VerticalAlignment="Center" TextWrapping="Wrap"
+                               Text="Connection lost. Reconnecting. 120s left of 120."/>
+                </DockPanel>
+            </Border>
         </Grid>
     </DockPanel>
 </Window>

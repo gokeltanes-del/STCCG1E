@@ -90,6 +90,15 @@ public partial class TableWindow : Window
     private string? _netGuestHost;
     private int _netGuestPort;
     private bool _netGraceForceChoiceFallback;
+    private bool _netReconnectLinkUp;
+    private int _netTryNowFlag;
+    private int _netAutoReconnectGeneration;
+    private CancellationTokenSource? _netAttemptCts;
+    private CancellationTokenSource? _netReconnectDelayCts;
+    private readonly Dictionary<string, NetChoiceDto> _openChoiceRequests = new();
+    private readonly Dictionary<string, DateTime> _openChoiceDeadlineUtc = new();
+    private readonly Dictionary<string, int> _choiceRemainingMs = new();
+    private const int NetAutoReconnectIntervalMs = 2500;
     /// <summary>Phase 4: Host waits on Guest ChoiceResponse by correlationId.</summary>
     private readonly Dictionary<string, TaskCompletionSource<NetChoiceDto>> _pendingChoiceResponses = new();
     /// <summary>Guest: correlationId of inbound ChoiceRequest currently shown.</summary>
@@ -1042,6 +1051,18 @@ public partial class TableWindow : Window
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (NetReconnectShield?.Visibility == Visibility.Visible)
+        {
+            Key shieldKey = e.Key == Key.System ? e.SystemKey : e.Key;
+            bool altF4 = (Keyboard.Modifiers & ModifierKeys.Alt) != 0 && shieldKey == Key.F4;
+            bool reconnectButton = ReferenceEquals(e.OriginalSource, BtnNetReconnectNow)
+                || ReferenceEquals(e.OriginalSource, BtnNetLink);
+            if (!altF4 && !reconnectButton)
+            {
+                e.Handled = true;
+                return;
+            }
+        }
         NoteOnlineIdleActivity();
         if (e.OriginalSource is TextBox) return;
 
@@ -2589,6 +2610,7 @@ public partial class TableWindow : Window
 
         var tcs = new TaskCompletionSource<NetChoiceDto>(TaskCreationOptions.RunContinuationsAsynchronously);
         _pendingChoiceResponses[corr] = tcs;
+        RememberOpenChoice(dto, timeoutMs);
         StatusText.Text = shareFace
             ? $"P{who} — {title} (both windows)…"
             : $"P{who} attempt — {title} (Guest window)…";
@@ -2604,7 +2626,7 @@ public partial class TableWindow : Window
         }
         catch (Exception ex)
         {
-            _pendingChoiceResponses.Remove(corr);
+            ForgetOpenChoice(corr);
             StatusText.Text = "Net attempt reveal send failed: " + ex.Message;
             return yesNo ? DeterministicRevealAnswer(yes, no) : RevealAnswer.Ok;
         }
@@ -2632,7 +2654,7 @@ public partial class TableWindow : Window
             if (mirrored)
                 ForceHideWatcherMirror();
         }
-        _pendingChoiceResponses.Remove(corr);
+        ForgetOpenChoice(corr);
 
         if (!yesNo)
             return RevealAnswer.Ok;
@@ -3213,6 +3235,7 @@ public partial class TableWindow : Window
 
         var tcs = new TaskCompletionSource<NetChoiceDto>(TaskCreationOptions.RunContinuationsAsynchronously);
         _pendingChoiceResponses[corr] = tcs;
+        RememberOpenChoice(dto, timeoutMs);
 
         StatusText.Text = $"Waiting for P{decidingPlayer} choice: {title}…";
         _session.Log.AddDebug(_session.TurnNumber, "Net",
@@ -3224,13 +3247,13 @@ public partial class TableWindow : Window
         }
         catch (Exception ex)
         {
-            _pendingChoiceResponses.Remove(corr);
+            ForgetOpenChoice(corr);
             StatusText.Text = "Net ChoiceRequest send failed: " + ex.Message;
             return DeterministicChoiceFallback(clean);
         }
 
         var result = WaitForChoiceResponse(corr, tcs, timeoutMs);
-        _pendingChoiceResponses.Remove(corr);
+        ForgetOpenChoice(corr);
 
         if (result != null && result.TimedOut != true && !string.IsNullOrWhiteSpace(result.SelectedOption))
         {
@@ -5898,6 +5921,7 @@ public partial class TableWindow : Window
 
         var tcs = new TaskCompletionSource<NetChoiceDto>(TaskCreationOptions.RunContinuationsAsynchronously);
         _pendingChoiceResponses[corr] = tcs;
+        RememberOpenChoice(dto, timeoutMs);
         long windowSequence = _stack.Sequence;
         StatusText.Text = $"P{responder} response window… waiting for Guest.";
         _session.Log.AddDebug(_session.TurnNumber, "Net",
@@ -5909,14 +5933,14 @@ public partial class TableWindow : Window
         }
         catch (Exception ex)
         {
-            _pendingChoiceResponses.Remove(corr);
+            ForgetOpenChoice(corr);
             StatusText.Text = "Net ResponseWindow send failed: " + ex.Message;
             ApplyResponseTimeoutFallback();
             return;
         }
 
         var result = WaitForChoiceResponse(corr, tcs, timeoutMs + 500);
-        _pendingChoiceResponses.Remove(corr);
+        ForgetOpenChoice(corr);
 
         // The wait pumps the dispatcher. A newer stack may have opened. This pass
         // belongs to windowSequence and must not resolve that newer stack.
@@ -10961,6 +10985,15 @@ public partial class TableWindow : Window
             return;
         }
 
+        // Same prompt is already on screen. Do not open a second dialog or a second outcome.
+        if (!string.IsNullOrEmpty(dto.CorrelationId)
+            && string.Equals(dto.CorrelationId, _guestActiveChoiceCorrelationId, StringComparison.Ordinal))
+        {
+            _session.Log.AddDebug(_session.TurnNumber, "Net",
+                "ChoiceRequest already on screen. Same correlation, no second dialog.");
+            return;
+        }
+
         string kind = dto.Kind ?? NetChoiceDto.Kinds.Choice;
         if (string.Equals(kind, NetChoiceDto.Kinds.ResponseWindow, StringComparison.OrdinalIgnoreCase)
             || string.Equals(kind, NetChoiceDto.Kinds.ResponsePass, StringComparison.OrdinalIgnoreCase))
@@ -11286,23 +11319,84 @@ public partial class TableWindow : Window
         }
     }
 
+    private void RememberOpenChoice(NetChoiceDto dto, int timeoutMs)
+    {
+        if (string.IsNullOrWhiteSpace(dto.CorrelationId)) return;
+        _openChoiceRequests[dto.CorrelationId] = dto;
+        _openChoiceDeadlineUtc[dto.CorrelationId] = DateTime.UtcNow.AddMilliseconds(Math.Max(0, timeoutMs));
+    }
+
+    private void ForgetOpenChoice(string? corr)
+    {
+        if (string.IsNullOrWhiteSpace(corr)) return;
+        _pendingChoiceResponses.Remove(corr);
+        _openChoiceRequests.Remove(corr);
+        _openChoiceDeadlineUtc.Remove(corr);
+        _choiceRemainingMs.Remove(corr);
+    }
+
+    private void FreezeChoiceClocksForGrace()
+    {
+        _choiceRemainingMs.Clear();
+        foreach (var kv in _openChoiceDeadlineUtc)
+        {
+            var left = kv.Value - DateTime.UtcNow;
+            int ms = (int)Math.Max(0, Math.Ceiling(left.TotalMilliseconds));
+            _choiceRemainingMs[kv.Key] = ms;
+        }
+    }
+
+    /// <summary>
+    /// The open choice belonged to the guest. Send that same request again.
+    /// TimeoutMs is the time still left, not a fresh 10s / 20s / 3s.
+    /// </summary>
+    private async Task ResendOpenGuestChoicesAsync(NetPlaySession session)
+    {
+        if (!session.IsHost) return;
+        foreach (var pair in _openChoiceRequests.ToList())
+        {
+            var dto = pair.Value;
+            if (dto.TargetPlayer == session.LocalPlayer)
+                continue;
+            if (!_choiceRemainingMs.TryGetValue(pair.Key, out int remaining) || remaining <= 0)
+                continue;
+            var copy = NetChoiceDto.FromJson(dto.ToJson());
+            copy.CorrelationId = dto.CorrelationId;
+            copy.TimeoutMs = remaining;
+            await session.SendChoiceRequestAsync(copy).ConfigureAwait(true);
+        }
+    }
+
     private void OnNetTransportLost(string reason)
     {
         _maskedSnapshotWrittenTurn = -1;
-        if (_netGraceActive || _netSession == null) return;
-        BeginNetReconnectGrace(reason);
+        _netReconnectLinkUp = false;
+        if (_netSession == null || _netDisconnected) return;
+        if (!_netGraceActive)
+        {
+            BeginNetReconnectGrace(reason);
+            return;
+        }
+
+        _session.Log.AddDebug(_session.TurnNumber, "Net",
+            "Transport lost again during grace: " + reason);
+        UpdateNetReconnectBanner();
+        if (_netSession.IsHost)
+            StartHostResumeAccept(_netSession);
+        else
+            StartGuestAutoReconnect(_netSession);
     }
 
     private void BeginNetReconnectGrace(string reason)
     {
         _netGraceActive = true;
+        _netReconnectLinkUp = false;
         _netGraceStartedUtc = DateTime.UtcNow;
         _netGraceUntilUtc = _netGraceStartedUtc.AddMilliseconds(NetPlaySession.ReconnectGraceMs);
         _idleDeadlineAtGraceStart = _idleTurnDeadlineUtc;
         _responseDeadlineAtGraceStart = _responseWindowDeadlineUtc;
-        StatusText.Text = _netSession is { IsHost: true }
-            ? "Network: guest socket lost. Same game stays open for 120s. Press Reconnect on the guest."
-            : "Network: connection lost. Same game stays open for 120s. Press Reconnect.";
+        FreezeChoiceClocksForGrace();
+        StatusText.Text = "Network: connection lost. Reconnecting. 120s left of 120.";
         RefreshNetLinkStatus();
         _maskedSnapshotWrittenTurn = -1;
         _session.Log.AddDebug(_session.TurnNumber, "Net", "Transport lost, grace 120s: " + reason);
@@ -11316,13 +11410,18 @@ public partial class TableWindow : Window
         if (!_netGraceTimer.IsEnabled)
             _netGraceTimer.Start();
 
-        // Reconnect is a button on this window, not automatic. Host still waits for that seat.
-        if (_netSession is { IsHost: true } session)
-            StartHostResumeAccept(session);
+        // No click. Host direct-IP still waits in AcceptSameGuestAsync.
+        // Relay host and both guests retry until the link is up or the 120s ends.
+        if (_netSession is { IsHost: true } host)
+            StartHostResumeAccept(host);
+        else if (_netSession != null)
+            StartGuestAutoReconnect(_netSession);
     }
 
     private void NetGraceTimer_Tick(object? sender, EventArgs e)
     {
+        if (!_netGraceActive && !_netDisconnected) return;
+        UpdateNetReconnectBanner();
         if (!_netGraceActive) return;
         if (DateTime.UtcNow < _netGraceUntilUtc) return;
         EndNetReconnectGrace(expired: true);
@@ -11336,9 +11435,13 @@ public partial class TableWindow : Window
             || _revealFrame != null
             || _responseWindowTimer?.IsEnabled == true);
         _netGraceActive = false;
+        _netReconnectLinkUp = false;
         _netGraceForceChoiceFallback = forceFallback;
+        _netAutoReconnectGeneration++;
         _netGraceTimer?.Stop();
         try { _netResumeAcceptCts?.Cancel(); } catch { /* ignore */ }
+        try { _netAttemptCts?.Cancel(); } catch { /* ignore */ }
+        try { _netReconnectDelayCts?.Cancel(); } catch { /* ignore */ }
         ApplyNetGraceClockExtension(skipResponse: forceFallback);
         if (!expired)
         {
@@ -11363,9 +11466,44 @@ public partial class TableWindow : Window
             _responseWindowDeadlineUtc += paused;
     }
 
+    private void RequestTryNow()
+    {
+        Interlocked.Exchange(ref _netTryNowFlag, 1);
+        try { _netAttemptCts?.Cancel(); } catch { /* ignore */ }
+        try { _netReconnectDelayCts?.Cancel(); } catch { /* ignore */ }
+    }
+
+    private bool TakeTryNow()
+        => Interlocked.Exchange(ref _netTryNowFlag, 0) == 1;
+
+    private async Task<bool> DelayReconnectIntervalAsync(CancellationToken graceToken)
+    {
+        if (TakeTryNow())
+            return !graceToken.IsCancellationRequested;
+        var delay = new CancellationTokenSource();
+        var previous = Interlocked.Exchange(ref _netReconnectDelayCts, delay);
+        try { previous?.Cancel(); } catch { /* ignore */ }
+        try { previous?.Dispose(); } catch { /* ignore */ }
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(graceToken, delay.Token);
+        try
+        {
+            await Task.Delay(NetAutoReconnectIntervalMs, linked.Token).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException) when (!graceToken.IsCancellationRequested)
+        {
+            TakeTryNow();
+        }
+        catch (OperationCanceledException)
+        {
+            return false;
+        }
+        return !graceToken.IsCancellationRequested;
+    }
+
     private void StartHostResumeAccept(NetPlaySession session)
     {
         try { _netResumeAcceptCts?.Cancel(); } catch { /* ignore */ }
+        try { _netResumeAcceptCts?.Dispose(); } catch { /* ignore */ }
         _netResumeAcceptCts = new CancellationTokenSource();
         var token = _netResumeAcceptCts.Token;
         _ = Task.Run(async () =>
@@ -11373,9 +11511,19 @@ public partial class TableWindow : Window
             while (!token.IsCancellationRequested)
             {
                 NetPlaySession.ResumeResult result;
+                CancellationTokenSource? attempt = null;
                 try
                 {
-                    result = await session.AcceptSameGuestAsync(token).ConfigureAwait(false);
+                    if (session.UsesRelay)
+                    {
+                        attempt = CancellationTokenSource.CreateLinkedTokenSource(token);
+                        _netAttemptCts = attempt;
+                        result = await session.AcceptSameGuestAsync(attempt.Token).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        result = await session.AcceptSameGuestAsync(token).ConfigureAwait(false);
+                    }
                 }
                 catch (OperationCanceledException)
                 {
@@ -11385,13 +11533,20 @@ public partial class TableWindow : Window
                 {
                     if (token.IsCancellationRequested)
                         break;
-                    // Relay has no TCP listener. HostListening is false; that is not "stop trying".
                     if (!session.UsesRelay && !session.HostListening)
                         break;
                     try { session.DropAcceptedClient(); } catch { /* ignore */ }
-                    try { await Task.Delay(300, token).ConfigureAwait(false); }
-                    catch { break; }
+                    if (TakeTryNow())
+                        continue;
+                    if (!await DelayReconnectIntervalAsync(token).ConfigureAwait(false))
+                        break;
                     continue;
+                }
+                finally
+                {
+                    if (attempt != null && ReferenceEquals(_netAttemptCts, attempt))
+                        _netAttemptCts = null;
+                    try { attempt?.Dispose(); } catch { /* ignore */ }
                 }
 
                 if (result == NetPlaySession.ResumeResult.Accepted)
@@ -11399,7 +11554,11 @@ public partial class TableWindow : Window
                     _ = Dispatcher.BeginInvoke(new Action(() => { _ = CompleteGuestReconnectAsync(session); }));
                     break;
                 }
-                if (result == NetPlaySession.ResumeResult.Cancelled)
+                if (result == NetPlaySession.ResumeResult.Cancelled && token.IsCancellationRequested)
+                    break;
+                if (token.IsCancellationRequested)
+                    break;
+                if (!session.UsesRelay && !session.HostListening)
                     break;
                 if (result == NetPlaySession.ResumeResult.Rejected)
                 {
@@ -11409,8 +11568,56 @@ public partial class TableWindow : Window
                             StatusText.Text = "Network: resume rejected. Same game still waiting for P2.";
                     }));
                 }
+                // Try now, or a cancelled relay attempt, retries without the 2.5s wait.
+                if (TakeTryNow() || result == NetPlaySession.ResumeResult.Cancelled)
+                    continue;
+                if (!await DelayReconnectIntervalAsync(token).ConfigureAwait(false))
+                    break;
             }
         });
+    }
+
+    private void StartGuestAutoReconnect(NetPlaySession session)
+    {
+        _netAutoReconnectGeneration++;
+        int generation = _netAutoReconnectGeneration;
+        try { _netAttemptCts?.Cancel(); } catch { /* ignore */ }
+        _ = RunGuestAutoReconnectAsync(session, generation);
+    }
+
+    private async Task RunGuestAutoReconnectAsync(NetPlaySession session, int generation)
+    {
+        while (generation == _netAutoReconnectGeneration
+               && _netGraceActive
+               && !_netDisconnected
+               && ReferenceEquals(_netSession, session))
+        {
+            if (DateTime.UtcNow >= _netGraceUntilUtc)
+                return;
+            bool up;
+            try
+            {
+                up = session.UsesRelay
+                    ? await GuestRelayReconnectOnceAsync(session).ConfigureAwait(true)
+                    : await GuestDirectReconnectOnceAsync().ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                up = false;
+                if (_netGraceActive && !_netDisconnected)
+                    StatusText.Text = "Network: reconnect failed: " + ex.Message;
+            }
+
+            if (generation != _netAutoReconnectGeneration || !_netGraceActive || _netDisconnected)
+                return;
+            if (up)
+                return;
+            var grace = _netResumeAcceptCts?.Token ?? CancellationToken.None;
+            if (TakeTryNow())
+                continue;
+            if (!await DelayReconnectIntervalAsync(grace).ConfigureAwait(true))
+                return;
+        }
     }
 
     private async Task CompleteGuestReconnectAsync(NetPlaySession session)
@@ -11428,15 +11635,27 @@ public partial class TableWindow : Window
 
         try
         {
+            _netReconnectLinkUp = true;
+            UpdateNetReconnectBanner();
             session.RestartReceiveLoop();
             if (!session.IsHost)
                 return;
             bool written = await BroadcastMaskedStateToGuestAsync().ConfigureAwait(true);
             if (!written || !session.PeerSocketOpen)
             {
+                _netReconnectLinkUp = false;
                 StatusText.Text = "Network: resume snapshot was not written.";
                 _session.Log.AddDebug(_session.TurnNumber, "Net",
                     "Rejoin did not write the masked snapshot.");
+                if (_netGraceActive)
+                    StartHostResumeAccept(session);
+                return;
+            }
+
+            await ResendOpenGuestChoicesAsync(session).ConfigureAwait(true);
+            if (!session.PeerSocketOpen)
+            {
+                _netReconnectLinkUp = false;
                 if (_netGraceActive)
                     StartHostResumeAccept(session);
                 return;
@@ -11449,70 +11668,64 @@ public partial class TableWindow : Window
         }
         catch (Exception ex)
         {
+            _netReconnectLinkUp = false;
             StatusText.Text = "Network: resume failed: " + ex.Message;
             if (_netGraceActive && session.IsHost)
                 StartHostResumeAccept(session);
         }
     }
 
-    private async void Reconnect_Click(object sender, RoutedEventArgs e)
+    private void FinishGuestReconnectAfterSnapshot()
     {
-        if (_netSession is { IsHost: true })
-        {
-            StatusText.Text = _netDisconnected
-                ? "Network: reconnect grace ended (120s)."
-                : _netGraceActive
-                    ? "Network: host keeps this game. Waiting for the same guest."
-                    : "Network: already connected.";
-            return;
-        }
+        if (!_netGraceActive || _netSession is not { IsGuest: true }) return;
+        EndNetReconnectGrace(expired: false);
+        _session.Log.AddDebug(_session.TurnNumber, "Net",
+            "Guest applied the masked snapshot. Reconnect banner hidden.");
+    }
 
-        if (_netSession is { IsGuest: true, UsesRelay: true } relayGuest)
-        {
-            if (_netDisconnected || !_netGraceActive)
-            {
-                StatusText.Text = "Network: reconnect grace ended (120s).";
-                RefreshNetLinkStatus();
-                return;
-            }
-            await GuestRelayReconnectOnceAsync(relayGuest).ConfigureAwait(true);
-            return;
-        }
-
-        if (_netDisconnected)
+    private void Reconnect_Click(object sender, RoutedEventArgs e)
+    {
+        if (_netDisconnected || (_netSession == null && NetReconnectBanner?.Visibility == Visibility.Visible))
         {
             StatusText.Text = "Network: reconnect grace ended (120s).";
+            UpdateNetReconnectBanner();
             return;
         }
 
-        if (_netSession != null && !_netGraceActive)
+        if (_netSession is { IsHost: true } host)
         {
-            StatusText.Text = "Network: already connected.";
+            if (!_netGraceActive)
+            {
+                StatusText.Text = "Network: already connected.";
+                return;
+            }
+            if (host.UsesRelay)
+            {
+                StatusText.Text = "Network: reconnecting now.";
+                RequestTryNow();
+            }
+            else
+            {
+                StatusText.Text = "Network: host keeps this game. Waiting for the same guest.";
+            }
+            UpdateNetReconnectBanner();
             return;
         }
 
-        if (!TryReadGuestResume(out var token, out var host, out var port))
+        if (_netSession is { IsGuest: true })
         {
-            StatusText.Text = "Network: no saved guest session to reconnect.";
+            if (!_netGraceActive)
+            {
+                StatusText.Text = "Network: already connected.";
+                return;
+            }
+            StatusText.Text = "Network: reconnecting now.";
+            RequestTryNow();
+            UpdateNetReconnectBanner();
             return;
         }
 
-        var client = new NetClient();
-        try
-        {
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-            await client.ConnectAsync(host, port, cts.Token).ConfigureAwait(true);
-            var payload = JsonSerializer.Serialize(new { token, player = 2 });
-            await client.SendAsync(NetMessage.Create(NetMessage.Types.Resume, payloadJson: payload), cts.Token)
-                .ConfigureAwait(true);
-            ReplaceGuestSession(client);
-            StatusText.Text = "Network: reconnected. Waiting for the host snapshot.";
-        }
-        catch (Exception ex)
-        {
-            try { client.Dispose(); } catch { /* ignore */ }
-            StatusText.Text = "Network: reconnect failed: " + ex.Message;
-        }
+        StatusText.Text = "Network: no saved guest session to reconnect.";
     }
 
     private void ReplaceGuestSession(NetClient client)
@@ -11520,10 +11733,7 @@ public partial class TableWindow : Window
         var old = _netSession;
         if (old != null)
             UnhookNetSession(old);
-        ApplyNetGraceClockExtension();
-        _netGraceActive = false;
-        _netGraceTimer?.Stop();
-        try { _netResumeAcceptCts?.Cancel(); } catch { /* ignore */ }
+        // Grace stays up until the masked snapshot is applied. Clocks stay paused.
         _netSession = null;
         try { old?.Dispose(); } catch { /* ignore */ }
 
@@ -11536,6 +11746,8 @@ public partial class TableWindow : Window
         _networkLobbyConnected = true;
         EnsureNetworkModeFromSession();
         ApplySelectedGameMode();
+        _netReconnectLinkUp = true;
+        UpdateNetReconnectBanner();
         _session.Log.AddDebug(_session.TurnNumber, "Net",
             "Guest reconnect socket open. Waiting for host snapshot.");
     }
@@ -11543,19 +11755,21 @@ public partial class TableWindow : Window
     private void OnNetDisconnected(string reason)
     {
         _netDisconnected = true;
+        _netReconnectLinkUp = false;
         StopOnlineIdleTurnWatch();
         StatusText.Text = "Network disconnected: " + reason;
         RefreshNetLinkStatus();
         _session.Log.AddDebug(_session.TurnNumber, "Net", "Disconnected: " + reason);
     }
 
-    /// <summary>Top bar: Connected, Reconnect (press during the 120s grace), Disconnected.</summary>
+    /// <summary>Top bar: Connected, Reconnect (try now during the 120s grace), Disconnected.</summary>
     private void RefreshNetLinkStatus()
     {
         if (BtnNetLink == null) return;
         if (_netSession == null && !_netDisconnected)
         {
             BtnNetLink.Visibility = Visibility.Collapsed;
+            UpdateNetReconnectBanner();
             return;
         }
 
@@ -11566,65 +11780,202 @@ public partial class TableWindow : Window
             BtnNetLink.Content = "Reconnect";
         else
             BtnNetLink.Content = "Connected";
+        UpdateNetReconnectBanner();
+    }
+
+    private void UpdateNetReconnectBanner()
+    {
+        if (NetReconnectBanner == null || NetReconnectShield == null || NetReconnectBannerText == null)
+            return;
+        bool blockPlay = _netGraceActive || _netDisconnected;
+        if (BtnEndTurn != null) BtnEndTurn.IsHitTestVisible = !blockPlay;
+        if (BtnPhaseNext != null) BtnPhaseNext.IsHitTestVisible = !blockPlay;
+        if (BtnSeedFinish != null) BtnSeedFinish.IsHitTestVisible = !blockPlay;
+
+        if (_netDisconnected)
+        {
+            NetReconnectShield.Visibility = Visibility.Visible;
+            NetReconnectBanner.Visibility = Visibility.Visible;
+            NetReconnectBannerText.Text = "Disconnected. Reconnect grace ended (120s).";
+            if (BtnNetReconnectNow != null) BtnNetReconnectNow.IsEnabled = false;
+            return;
+        }
+
+        if (!_netGraceActive)
+        {
+            NetReconnectShield.Visibility = Visibility.Collapsed;
+            NetReconnectBanner.Visibility = Visibility.Collapsed;
+            if (BtnNetReconnectNow != null) BtnNetReconnectNow.IsEnabled = true;
+            return;
+        }
+
+        var left = _netGraceUntilUtc - DateTime.UtcNow;
+        int seconds = Math.Max(0, (int)Math.Ceiling(left.TotalSeconds));
+        NetReconnectShield.Visibility = Visibility.Visible;
+        NetReconnectBanner.Visibility = Visibility.Visible;
+        NetReconnectBannerText.Text = _netReconnectLinkUp
+            ? $"Connection lost. Reconnecting. Waiting for the table. {seconds}s left of 120."
+            : $"Connection lost. Reconnecting. {seconds}s left of 120.";
+        if (BtnNetReconnectNow != null) BtnNetReconnectNow.IsEnabled = true;
     }
 
     private int _netReconnectBusy;
 
     /// <summary>One relay rejoin of this seat. Not a lobby join and not a new deck.</summary>
-    private async Task GuestRelayReconnectOnceAsync(NetPlaySession session)
+    private async Task<bool> GuestRelayReconnectOnceAsync(NetPlaySession session)
     {
         if (System.Threading.Interlocked.Exchange(ref _netReconnectBusy, 1) != 0)
-            return;
+            return false;
         try
         {
             if (!ReferenceEquals(session, _netSession) || _netDisconnected || !_netGraceActive)
             {
                 StatusText.Text = "Network: reconnect grace ended (120s).";
                 RefreshNetLinkStatus();
-                return;
+                return false;
             }
+            if (_netReconnectLinkUp && session.PeerSocketOpen)
+                return true;
 
             var left = _netGraceUntilUtc - DateTime.UtcNow;
             if (left <= TimeSpan.Zero)
             {
                 StatusText.Text = "Network: reconnect grace ended (120s).";
-                return;
+                return false;
             }
 
-            try { _netResumeAcceptCts?.Cancel(); } catch { /* ignore */ }
-            _netResumeAcceptCts = new CancellationTokenSource(left);
-            var token = _netResumeAcceptCts.Token;
+            var attempt = new CancellationTokenSource(left);
+            _netAttemptCts = attempt;
+            var token = attempt.Token;
             StatusText.Text = "Network: reconnecting the relay seat.";
-            bool open = await session.ReconnectRelayAsync(token).ConfigureAwait(true);
+            UpdateNetReconnectBanner();
+            bool open;
+            try
+            {
+                open = await session.ReconnectRelayAsync(token).ConfigureAwait(true);
+            }
+            finally
+            {
+                if (ReferenceEquals(_netAttemptCts, attempt))
+                    _netAttemptCts = null;
+                try { attempt.Dispose(); } catch { /* ignore */ }
+            }
+
             if (!ReferenceEquals(session, _netSession) || _netDisconnected || !_netGraceActive)
             {
                 StatusText.Text = "Network: reconnect grace ended (120s).";
                 RefreshNetLinkStatus();
-                return;
+                return false;
             }
             if (!open || !session.PeerSocketOpen)
             {
-                StatusText.Text = "Network: relay is not open. Press Reconnect again.";
-                return;
+                StatusText.Text = "Network: relay is not open. Reconnecting.";
+                return false;
             }
 
             session.RestartReceiveLoop();
-            EndNetReconnectGrace(expired: false);
+            _netReconnectLinkUp = true;
             StatusText.Text = "Network: relay rejoined. Waiting for the host snapshot.";
+            UpdateNetReconnectBanner();
             _session.Log.AddDebug(_session.TurnNumber, "Net",
                 "Guest relay socket is open. Waiting for the masked snapshot.");
+            return true;
         }
         catch (OperationCanceledException)
         {
             StatusText.Text = _netGraceActive && !_netDisconnected
-                ? "Network: relay reconnect timed out. Press Reconnect again."
+                ? "Network: reconnecting."
                 : "Network: reconnect grace ended (120s).";
+            return false;
         }
         catch (Exception ex)
         {
             StatusText.Text = _netGraceActive && !_netDisconnected
                 ? "Network: reconnect failed: " + ex.Message
                 : "Network: reconnect grace ended (120s).";
+            return false;
+        }
+        finally
+        {
+            System.Threading.Interlocked.Exchange(ref _netReconnectBusy, 0);
+        }
+    }
+
+    /// <summary>Same direct-IP resume as the old button. No new shuffle, no lobby join.</summary>
+    private async Task<bool> GuestDirectReconnectOnceAsync()
+    {
+        if (System.Threading.Interlocked.Exchange(ref _netReconnectBusy, 1) != 0)
+            return false;
+        var client = new NetClient();
+        try
+        {
+            if (_netDisconnected || !_netGraceActive || _netSession is not { IsGuest: true, UsesRelay: false })
+            {
+                client.Dispose();
+                return false;
+            }
+            if (_netReconnectLinkUp && _netSession.PeerSocketOpen)
+            {
+                client.Dispose();
+                return true;
+            }
+            if (!TryReadGuestResume(out var token, out var host, out var port))
+            {
+                client.Dispose();
+                StatusText.Text = "Network: no saved guest session to reconnect.";
+                return false;
+            }
+
+            var left = _netGraceUntilUtc - DateTime.UtcNow;
+            if (left <= TimeSpan.Zero)
+            {
+                client.Dispose();
+                StatusText.Text = "Network: reconnect grace ended (120s).";
+                return false;
+            }
+
+            var attempt = new CancellationTokenSource(TimeSpan.FromSeconds(Math.Min(10, Math.Max(1, left.TotalSeconds))));
+            _netAttemptCts = attempt;
+            StatusText.Text = "Network: reconnecting.";
+            UpdateNetReconnectBanner();
+            try
+            {
+                await client.ConnectAsync(host, port, attempt.Token).ConfigureAwait(true);
+                var payload = JsonSerializer.Serialize(new { token, player = 2 });
+                await client.SendAsync(NetMessage.Create(NetMessage.Types.Resume, payloadJson: payload), attempt.Token)
+                    .ConfigureAwait(true);
+            }
+            finally
+            {
+                if (ReferenceEquals(_netAttemptCts, attempt))
+                    _netAttemptCts = null;
+                try { attempt.Dispose(); } catch { /* ignore */ }
+            }
+
+            if (_netDisconnected || !_netGraceActive)
+            {
+                client.Dispose();
+                StatusText.Text = "Network: reconnect grace ended (120s).";
+                return false;
+            }
+
+            ReplaceGuestSession(client);
+            StatusText.Text = "Network: reconnected. Waiting for the host snapshot.";
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            try { client.Dispose(); } catch { /* ignore */ }
+            if (_netGraceActive && !_netDisconnected)
+                StatusText.Text = "Network: reconnecting.";
+            return false;
+        }
+        catch (Exception ex)
+        {
+            try { client.Dispose(); } catch { /* ignore */ }
+            if (_netGraceActive && !_netDisconnected)
+                StatusText.Text = "Network: reconnect failed: " + ex.Message;
+            return false;
         }
         finally
         {
@@ -11655,6 +12006,8 @@ public partial class TableWindow : Window
             UpdatePhaseControls();
             if (_seedPhaseActive)
                 ShowCurrentSeedStack();
+            if (_netGraceActive && _netSession is { IsGuest: true })
+                FinishGuestReconnectAfterSnapshot();
             StatusText.Text =
                 $"Net state applied (T{_session.TurnNumber} P{_activePlayer}/{_session.ActivePlayer} " +
                 $"{(_seedPhaseActive ? "SEED " + _seedSubPhase : _session.Segment.ToString())}).";

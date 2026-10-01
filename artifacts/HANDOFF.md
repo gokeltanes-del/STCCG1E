@@ -8,6 +8,20 @@ Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.m
 
 ## Jetzt aktiv
 
+**Automatischer Reconnect, Schritt 1, nicht gruen:** getippt in diesem Commit, nicht DONE, nicht gepusht. origin/master bleibt `e04c9c7`. Pepschs Drop am 2026-10-01 sah automatisch aus, aber der Code bei `e04c9c7` hatte keinen Gast-Auto-Reconnect. Ein kurzer WLAN-Riss kann den Socket offen halten. Dieser Tip ist der echte Auto-Reconnect. Nicht gruen, bis Pepsch ihn spielt.
+
+**Geplant, nicht erledigt, nicht gruen** (Schritte 2-7 sind nicht in diesem Commit; Server-Miete ist eine spaetere Erklaerung, nicht dieser Commit):
+
+1. Automatischer Reconnect innerhalb der 120s Grace, Banner auf dem Tisch, Relais-Raum bleibt 120s offen, Wahl- und Reveal-Uhren einfrieren. Dieser Punkt ist hier nur getippt, nicht gruen.
+2. Spiel ausserhalb des Heim-LAN nur ueber Relais-Port 7788. Kein UPnP auf 7777 fuer diesen Weg.
+3. Account-Kartenpool plus Start-Latinum.
+4. Latinum nur, wenn beide Clients denselben Sieger melden. Sieger bekommt das Doppelte. Sandbox zahlt nichts.
+5. Booster nur auf dem Server ziehen.
+6. Direkter Tausch und Raise the Stakes. Kein Tausch waehrend einer laufenden Partie.
+7. Deckbuilder an den Account-Pool gebunden.
+
+Elo, Zuschauen, KI und echtes Geld bleiben draussen. Uhren unveraendert: Ping 5s, stiller Tod 15s, Grace 120s, Wahl 10s, Reveal-OK 20s, Antwortfenster 3s, Idle 60s.
+
 **Relais-Reconnect am Tisch:** Drop-Test bestaetigt (Pepsch, 2026-10-01), nicht DONE. `e04c9c7` ist auf origin/master. Zweiter Relais-Read wirft nicht und bricht den Gast nicht ab. Obere Zeile: Connected / Reconnect / Disconnected. Knopf nur in der 120s Grace, gleiche Partie, maskierter Snapshot, kein Lobby-Join, kein TCP-NetServer. Pepsch: "Netzwerkunterbrechung funktioniert, das spiel hat automatisch reconnected." Die Unterbrechung hat funktioniert, die Partie hat sich von selbst wieder verbunden. Nicht der Reconnect-Knopf. Grace bleibt 120s. Die alte Partie bis Zug 20 ist dieser Test nicht. Diese Notiz ist lokal, nicht auf origin.
 
 **Relais-Read und Idle-Spin:** getippt, nicht gruen, nicht DONE. `836061c` ist auf origin/master. Nach dem Handoff kein zweiter Lobby-Read. Der 15s-Abbruch haengt nicht am Relais-Read, nur am Heartbeat. Gehaltener Zug: End turn falsch, kein zweites CompleteTurnChange, Idle-Uhr neu wenn die Frist vorbei ist. OnNetDisconnected stoppt die Uhr. Zeiten unveraendert. Host-Deck geht nicht an den Gast. Kein Phase 4.

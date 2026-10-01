@@ -151,35 +151,25 @@ public sealed class NetPlaySession : IDisposable
         ThrowIfDisposed();
         if (_server is null)
         {
+            // One relay attempt. The table waits about 2.5s and tries again.
+            // Direct-IP still blocks in AcceptClientAsync below. No TCP server is started here.
             if (_link is not RelayNetLink)
                 return ResumeResult.Cancelled;
-            while (!cancellationToken.IsCancellationRequested)
+            try
             {
-                try
-                {
-                    var open = await ReconnectRelayAsync(cancellationToken).ConfigureAwait(false);
-                    if (open && PeerSocketOpen)
-                        return ResumeResult.Accepted;
-                }
-                catch (OperationCanceledException)
-                {
-                    return ResumeResult.Cancelled;
-                }
-                catch
-                {
-                    // Still not a resume. The peer socket is not open.
-                }
-
-                try
-                {
-                    await Task.Delay(300, cancellationToken).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException)
-                {
-                    return ResumeResult.Cancelled;
-                }
+                var open = await ReconnectRelayAsync(cancellationToken).ConfigureAwait(false);
+                if (open && PeerSocketOpen)
+                    return ResumeResult.Accepted;
+                return ResumeResult.Rejected;
             }
-            return ResumeResult.Cancelled;
+            catch (OperationCanceledException)
+            {
+                return ResumeResult.Cancelled;
+            }
+            catch
+            {
+                return ResumeResult.Rejected;
+            }
         }
         await _server.AcceptClientAsync(cancellationToken).ConfigureAwait(false);
         using var readCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);

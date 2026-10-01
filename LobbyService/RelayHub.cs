@@ -75,11 +75,78 @@ sealed class RelayHub
             var mine = me.Role == "host" ? pair.Host : pair.Guest;
             if (!ReferenceEquals(mine, me))
                 return;
-            other = ReferenceEquals(pair.Host, me) ? pair.Guest : pair.Host;
-            _pairs.Remove(me.Room);
+            if (me.Role == "host")
+                pair.Host = null;
+            else
+                pair.Guest = null;
+            pair.Forwarding = false;
+            other = me.Role == "host" ? pair.Guest : pair.Host;
+            // Same outage keeps the original 120s. A later drop starts a new one.
+            NoteVacancy(pair, me.Room);
         }
 
-        CloseQuiet(other, me.PlayerId);
+        // The peer must observe the socket end so its 120s grace starts.
+        // The room itself stays so this same seat can replace the socket.
+        AbortSeat(other);
+    }
+
+    /// <summary>
+    /// 120s, the same grace as the table. Not a new duration.
+    /// After that the room is removed the way a drop used to remove it at once.
+    /// </summary>
+    private const int RoomHoldMs = 120_000;
+
+    private void NoteVacancy(RelayPair pair, string room)
+    {
+        if (pair.VacantSinceUtc != null)
+            return;
+        var stamp = DateTime.UtcNow;
+        pair.VacantSinceUtc = stamp;
+        _ = ExpireRoomAsync(room, stamp);
+    }
+
+    private async Task ExpireRoomAsync(string room, DateTime stamp)
+    {
+        try
+        {
+            await Task.Delay(RoomHoldMs).ConfigureAwait(false);
+        }
+        catch
+        {
+            return;
+        }
+
+        RelayEnd? host = null;
+        RelayEnd? guest = null;
+        lock (_gate)
+        {
+            if (!_pairs.TryGetValue(room, out var pair))
+                return;
+            if (pair.VacantSinceUtc != stamp)
+                return;
+            host = pair.Host;
+            guest = pair.Guest;
+            _pairs.Remove(room);
+        }
+
+        AbortSeat(host);
+        AbortSeat(guest);
+        Console.Error.WriteLine("relay room dropped after 120s " + room);
+    }
+
+    private static void AbortSeat(RelayEnd? end)
+    {
+        if (end == null)
+            return;
+        try
+        {
+            if (end.Socket.State is WebSocketState.Open or WebSocketState.CloseReceived)
+                end.Socket.Abort();
+        }
+        catch
+        {
+            // already gone
+        }
     }
 
     private bool Attach(RelayEnd me)
@@ -92,20 +159,31 @@ sealed class RelayHub
                 _pairs[me.Room] = pair;
             }
 
+            // A dead seat can be replaced. A live seat cannot.
+            // Replacing the socket is the rejoin. No JSON goes into the binary pipe.
             if (me.Role == "host")
             {
-                if (pair.Host != null)
+                if (pair.Host != null
+                    && !ReferenceEquals(pair.Host, me)
+                    && pair.Host.Socket.State == WebSocketState.Open)
                     throw new InvalidOperationException("host relay already attached");
                 pair.Host = me;
             }
             else
             {
-                if (pair.Guest != null)
+                if (pair.Guest != null
+                    && !ReferenceEquals(pair.Guest, me)
+                    && pair.Guest.Socket.State == WebSocketState.Open)
                     throw new InvalidOperationException("guest relay already attached");
                 pair.Guest = me;
             }
 
-            return pair.Host != null && pair.Guest != null;
+            pair.Forwarding = false;
+            bool bothOpen = pair.Host?.Socket.State == WebSocketState.Open
+                && pair.Guest?.Socket.State == WebSocketState.Open;
+            if (bothOpen)
+                pair.VacantSinceUtc = null;
+            return bothOpen;
         }
     }
 
@@ -259,18 +337,6 @@ sealed class RelayHub
         await socket.SendAsync(bytes, WebSocketMessageType.Text, true, CancellationToken.None).ConfigureAwait(false);
     }
 
-    private static void CloseQuiet(RelayEnd? end, string exceptPlayerId)
-    {
-        if (end == null || string.Equals(end.PlayerId, exceptPlayerId, StringComparison.Ordinal))
-            return;
-        try
-        {
-            if (end.Socket.State == WebSocketState.Open)
-                end.Socket.Abort();
-        }
-        catch { /* ignore */ }
-    }
-
     private static bool TryParseJoin(string json, out string room, out string role, out string playerId, out string error)
     {
         room = "";
@@ -344,6 +410,7 @@ sealed class RelayHub
         public RelayEnd? Host { get; set; }
         public RelayEnd? Guest { get; set; }
         public bool Forwarding { get; set; }
+        public DateTime? VacantSinceUtc { get; set; }
     }
 
     private sealed class RelayEnd

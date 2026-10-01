@@ -1,4 +1,14 @@
-﻿## 2026-10-01 - Relay drop reconnects on its own
+﻿## 2026-10-01 - Automatic reconnect during the 120s grace
+
+- Getippt, nicht gruen, nicht DONE, nicht gepusht. Pepsch, 2026-10-01: der Drop sah automatisch aus. Der Code bei `e04c9c7` hatte keinen Gast-Auto-Reconnect. Ein kurzer WLAN-Riss kann den Socket offen halten. Dieser Tip ist Schritt 1, der echte Auto-Reconnect. origin/master bleibt `e04c9c7`.
+- TransportLost in der Partie: Gast und Relais-Host versuchen von selbst etwa alle 2,5s, bis der Link steht oder die 120s um sind. Der Knopf bleibt Try now. Kein neuer Lobby-Join, kein neues Mischen, kein TCP-NetServer auf dem Relaisweg. Direct-IP-Gast macht dasselbe Resume. Direct-IP-Host wartet weiter in AcceptSameGuestAsync.
+- Banner auf dem Tisch, Hintergrund #3A3A48, weisser Text. Connection lost, reconnecting, Sekunden von 120, Try now. Waehrend der Grace ist die Spieleingabe gesperrt, Fenster und Spielstand bleiben. Nach 120s: Disconnected, Partie tot (AbandonAfterGrace). Banner weg, wenn der maskierte Snapshot angewendet ist.
+- RelayHub loescht den Raum nicht sofort. Derselbe Sitz kann den Socket innerhalb von 120s ersetzen. Danach das bestehende open. Kein JSON in die binaere Pipe. Der andere Client sieht den Riss. Nach 120s faellt der Raum wie bisher.
+- Wahl, Reveal und Antwortfenster pausieren in der Grace. Die vollen Dauern bleiben. Nach Rejoin und maskiertem Snapshot laeuft die Restzeit weiter. Offene Gast-Wahl: derselbe ChoiceRequest, dieselbe CorrelationId. Kein zweites Regel-Ergebnis.
+- Geplant, nicht erledigt, nicht gruen: (2) ausserhalb des Heim-LAN nur Relais-Port 7788, kein UPnP auf 7777 fuer diesen Weg; (3) Account-Kartenpool plus Start-Latinum; (4) Latinum nur wenn beide denselben Sieger melden, Sieger doppelt, Sandbox zahlt nichts; (5) Booster nur auf dem Server; (6) direkter Tausch und Raise the Stakes, kein Tausch in der laufenden Partie; (7) Deckbuilder an den Account-Pool. Elo, Zuschauen, KI, echtes Geld draussen. Server-Miete ist eine spaetere Erklaerung, nicht dieser Commit.
+- Unveraendert: Ping 5s, stiller Tod 15s, Grace 120s, Wahl 10s, Reveal-OK 20s, Antwortfenster 3s, Idle 60s. Schritt 1 ist nicht gruen.
+
+## 2026-10-01 - Relay drop reconnects on its own
 
 - Pepsch, 2026-10-01: "Netzwerkunterbrechung funktioniert, das spiel hat automatisch reconnected." Drop-Test zu `e04c9c7` (parent `836061c`) bestaetigt: die Unterbrechung hat funktioniert, die Partie hat sich von selbst wieder verbunden. Nicht der Reconnect-Knopf. Grace bleibt 120s. Die alte Partie bis Zug 20 ist dieser Test nicht. Offen bleiben UPnP am echten Router, Zwei-Netz-NAT / TCP 7788 und Phase 4. Kein pauschales DONE.
 - Pepsch hat gepusht (2026-10-01). origin/master ist `e04c9c7` und war vor dieser Notiz gleich dem lokalen master. Damit auf origin: `b4aa275` Fix: write the guest snapshot before the next turn; `836061c` Fix: do not double-read the relay or spin a held turn; `e04c9c7` Fix: reconnect the relay from the table during grace. Diese Doku-Notiz ist lokal und nicht auf origin.
