@@ -1,6 +1,6 @@
 ﻿﻿﻿﻿# HANDOFF â€” STCCG 1E
 
-**Stand:** 2026-09-30 · **Ort:** Josef `C:\Dev\StarTrekCCG\StarTrekCCG` · **HEAD:** local tip, not pushed, not green · **origin/master:** not this tip
+**Stand:** 2026-10-01 · **Ort:** Josef `C:\Dev\StarTrekCCG\StarTrekCCG` · **HEAD:** this docs note is local only · **origin/master:** e04c9c7 (Pepsch push 2026-10-01)
 
 Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.md`, `FEATURES.md`, Coverage.
 
@@ -8,11 +8,11 @@ Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.m
 
 ## Jetzt aktiv
 
-**Relais-Reconnect am Tisch:** getippt, nicht gruen, nicht DONE, nicht gepusht. Zweiter Relais-Read wirft nicht und bricht den Gast nicht ab. Obere Zeile: Connected / Reconnect / Disconnected. Knopf nur in der 120s Grace, gleiche Partie, maskierter Snapshot, kein Lobby-Join, kein TCP-NetServer. Pepsch: Relais-Partie hielt bis Zug 20.
+**Relais-Reconnect am Tisch:** Drop-Test bestaetigt (Pepsch, 2026-10-01), nicht DONE. `e04c9c7` ist auf origin/master. Zweiter Relais-Read wirft nicht und bricht den Gast nicht ab. Obere Zeile: Connected / Reconnect / Disconnected. Knopf nur in der 120s Grace, gleiche Partie, maskierter Snapshot, kein Lobby-Join, kein TCP-NetServer. Pepsch: "Netzwerkunterbrechung funktioniert, das spiel hat automatisch reconnected." Die Unterbrechung hat funktioniert, die Partie hat sich von selbst wieder verbunden. Nicht der Reconnect-Knopf. Grace bleibt 120s. Die alte Partie bis Zug 20 ist dieser Test nicht. Diese Notiz ist lokal, nicht auf origin.
 
-**Relais-Read und Idle-Spin:** getippt, nicht gruen, nicht DONE, nicht gepusht. Nach dem Handoff kein zweiter Lobby-Read. Der 15s-Abbruch haengt nicht am Relais-Read, nur am Heartbeat. Gehaltener Zug: End turn falsch, kein zweites CompleteTurnChange, Idle-Uhr neu wenn die Frist vorbei ist. OnNetDisconnected stoppt die Uhr. Zeiten unveraendert. Host-Deck geht nicht an den Gast. Kein Phase 4.
+**Relais-Read und Idle-Spin:** getippt, nicht gruen, nicht DONE. `836061c` ist auf origin/master. Nach dem Handoff kein zweiter Lobby-Read. Der 15s-Abbruch haengt nicht am Relais-Read, nur am Heartbeat. Gehaltener Zug: End turn falsch, kein zweites CompleteTurnChange, Idle-Uhr neu wenn die Frist vorbei ist. OnNetDisconnected stoppt die Uhr. Zeiten unveraendert. Host-Deck geht nicht an den Gast. Kein Phase 4.
 
-**Snapshot vor dem naechsten Zug:** getippt, nicht gruen, nicht DONE, nicht gepusht. Der Host wartet den maskierten Snapshot ab. Ein Sendefehler ist Transportverlust. Der naechste Zug startet erst, wenn dieser Zug auf dem offenen Link geschrieben ist. Relais-Rejoin schickt den Snapshot. Kein TCP-Server ist kein Resume. Erfolg nur bei offenem Socket. Zeiten unveraendert. Host-Deck geht nicht an den Gast. Kein Phase 4.
+**Snapshot vor dem naechsten Zug:** getippt, nicht gruen, nicht DONE. `b4aa275` ist auf origin/master. Der Host wartet den maskierten Snapshot ab. Ein Sendefehler ist Transportverlust. Der naechste Zug startet erst, wenn dieser Zug auf dem offenen Link geschrieben ist. Relais-Rejoin schickt den Snapshot. Kein TCP-Server ist kein Resume. Erfolg nur bei offenem Socket. Zeiten unveraendert. Host-Deck geht nicht an den Gast. Kein Phase 4.
 
 **Lobby-Text:** getippt, nicht gruen, nicht DONE, nicht gepusht. Netzwerk-Lobby und Sign-in: Deck-Dropdown, Buttons und Textfelder bleiben hell auf #1E1E22 / #3A3A48. Aero2 darf die Flaeche nicht mehr weiss zeichnen.
 
@@ -46,7 +46,7 @@ Pepsch: Relais blieb nach Lobby-Close stehen. Spielen ging ab Zug 2. Dieser erst
 - Version: Engine stccg-1e plus SHA-256 der cards.json unter dem DataRoot, den der Client wirklich laedt. Weichen sie ab, kein Start. Getippt, nicht gruen.
 
 **Offen:**
-- Relais-Reconnect (dieselbe Partie nach Socket-Verlust) fehlt. Der Direct-IP-Listener bleibt.
+- Relais-Drop 2026-10-01 bestaetigt: dieselbe Partie hat sich nach der Unterbrechung von selbst wieder verbunden (`e04c9c7` auf origin). Der Direct-IP-Listener bleibt. UPnP am echten Router, Zwei-Netz-NAT / TCP 7788 und Phase 4 bleiben offen.
 
 **Ziel:** LAN, Internet (Direct IP / VPN), 2 Instanzen auf einem PC (Localhost).
 

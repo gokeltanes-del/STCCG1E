@@ -1,4 +1,9 @@
-﻿## 2026-09-30 - Relay reconnect sits on the table
+﻿## 2026-10-01 - Relay drop reconnects on its own
+
+- Pepsch, 2026-10-01: "Netzwerkunterbrechung funktioniert, das spiel hat automatisch reconnected." Drop-Test zu `e04c9c7` (parent `836061c`) bestaetigt: die Unterbrechung hat funktioniert, die Partie hat sich von selbst wieder verbunden. Nicht der Reconnect-Knopf. Grace bleibt 120s. Die alte Partie bis Zug 20 ist dieser Test nicht. Offen bleiben UPnP am echten Router, Zwei-Netz-NAT / TCP 7788 und Phase 4. Kein pauschales DONE.
+- Pepsch hat gepusht (2026-10-01). origin/master ist `e04c9c7` und war vor dieser Notiz gleich dem lokalen master. Damit auf origin: `b4aa275` Fix: write the guest snapshot before the next turn; `836061c` Fix: do not double-read the relay or spin a held turn; `e04c9c7` Fix: reconnect the relay from the table during grace. Diese Doku-Notiz ist lokal und nicht auf origin.
+
+## 2026-09-30 - Relay reconnect sits on the table
 
 - Getippt, nicht gruen, nicht DONE. Ein zweiter ReceiveAsync auf dem Relais wirft nicht mehr und startet keinen zweiten Socket-Read. Der laufende Read wird geteilt. Der alte Wurf bricht den Gast nicht mehr per Abort ab. Ein WLAN-Riss geht in die Grace, ohne diesen Wurf.
 - Reconnect bleibt ein Knopf, kein Automat. Obere Tischzeile, gleiche dunkle Farben: Connected, waehrend der 120s Grace Reconnect (dort druecken), danach Disconnected. Der Gast bleibt in derselben Partie: derselbe Relais-Sitz, maskierter Snapshot, kein neues Mischen, kein Lobby-Join. Relais-Rejoin ohne TCP-NetServer. Ist die Grace vorbei, steht das da. 120s unveraendert.
