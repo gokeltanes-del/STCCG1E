@@ -8,6 +8,8 @@ Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.m
 
 ## Jetzt aktiv
 
+**Relais-Sitz nach Lobby-Close, nicht gruen:** getippt, nicht getestet, nicht gepusht. Try now waehlt die Adresse aus dem Server-Feld beim Start, nicht die aktuelle Netzwerkkarte. Hotspot und 192.168.50.241 gehen nicht. RoomBook behaelt nach Spielstart die playerId, solange das Relais-Paar innerhalb von 120s ersetzt wird. Danach weg. Nicht gruen, bis beide Clients die Partie mit 81.217.114.46:7788 starten und der Gast mitten im Spiel auf den Hotspot wechselt.
+
 **Relais ausserhalb des Heim-LAN, Schritt 2, nicht gruen:** lokal getippt, nicht getestet, nicht gruen, nicht gepusht. Spiel ausserhalb des Heim-LAN nur ueber den Server auf TCP 7788. Beide Clients verbinden sich nach aussen. Der Server simuliert keine Regeln. Stirbt der Host-PC, stirbt die Partie nach der 120s Grace. In der Lobby ist das Server-Adressfeld (Domain oder IP, mit Port). Default 127.0.0.1:7788 fuer denselben PC. Ein anderer PC nimmt die LAN-Adresse des Host-Rechners und Port 7788. Eine oeffentliche Partie nimmt einen oeffentlichen Host und Port 7788. Kein Domainname ist hier eingerichtet. Play via relay bindet keinen lokalen TCP-Listener auf 7777 und ruft kein UPnP/PCP. Direct-IP und Localhost auf 7777 bleiben eigene Buttons, UPnP nur auf diesem Direct-Weg. Der Gast auf dem Relaisweg waehlt Port 7777 nicht. Kein TLS, kein systemd, kein Backup, kein Deploy. Kein Latinum, keine Packs, kein Tausch, kein Kartenpool. Uhren unveraendert.
 
 **Offene Menschentests, nicht gruen:** WLAN-Reconnect `3e45f0a` ist nicht gruen. Save/Load `7a6065b` ist nicht gruen. Zwei Netze koennen den Relaisweg erst bestehen, wenn ein oeffentlicher Host auf TCP 7788 existiert. Bis dahin nicht gruen.

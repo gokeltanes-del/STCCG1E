@@ -1,3 +1,9 @@
+## 2026-10-01 - Relay seat survives the lobby window closing
+
+- Getippt, nicht getestet, nicht gruen, nicht gepusht. Try now und die 2,5s-Schleife waehlen weiter die Server-Adresse, mit der die Partie begonnen hat. Ein Hotspot erreicht 192.168.50.241 nicht. Das ist kein zweiter Server.
+- Zusätzlich: Lobby-Fenster zu beim Spielstart hat den RoomBook-Raum geloescht. AuthorizeRelay antwortete danach mit no such room, obwohl RelayHub den Sitz 120s haelt. Ein eingefrorener Relais-Raum behaelt dieselbe playerId. Nach 120s ohne Rejoin faellt der Eintrag mit dem Relais-Paar. Direct-IP ohne Relais verlaesst den Raum wie bisher.
+- Nicht gruen. Retest nur, wenn BEIDE Clients vor der Partie 81.217.114.46:7788 im Server-Feld stehen.
+
 ﻿## 2026-10-01 - Outside the home LAN only through relay 7788
 
 - Getippt, nicht getestet, nicht gruen, nicht gepusht. Schritt 2. Spiel ausserhalb des Heim-LAN nur ueber den Server auf TCP 7788. Beide Clients verbinden sich nach aussen. Der Server simuliert keine Regeln. Stirbt der Host-PC, stirbt die Partie nach der 120s Grace, wie bisher.

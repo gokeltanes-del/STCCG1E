@@ -610,6 +610,18 @@ sealed class RoomBook
             if (found == null)
                 return new List<Outbound>();
             var room = found.Value.Room;
+            // The match is already frozen and the relay seat was authorized.
+            // Closing the lobby window must keep this playerId so the same role
+            // can replace its relay socket. RelayHub releases the record after
+            // the 120s grace. A direct-IP room (no relay) still leaves as before.
+            if (room.MatchId != null && room.RelayHeld)
+            {
+                if (ReferenceEquals(room.Host?.Session, who))
+                    room.HostLobbyClosed = true;
+                else
+                    room.GuestLobbyClosed = true;
+                return new List<Outbound>();
+            }
             if (ReferenceEquals(room.Host?.Session, who))
             {
                 _rooms.Remove(room.Name);
@@ -727,7 +739,24 @@ sealed class RoomBook
                 return "waiting for both version stamps";
             if (!VersionsMatch(room))
                 return VersionNote(room);
+            room.RelayHeld = true;
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Relay pair is gone after the 120s grace. Drop the seat record only when
+    /// both lobby sockets have already closed. A live lobby keeps the room.
+    /// </summary>
+    public void ReleaseRelayRoom(string roomName)
+    {
+        lock (_gate)
+        {
+            if (!_rooms.TryGetValue(roomName, out var room))
+                return;
+            if (room.MatchId == null || !room.RelayHeld || !room.HostLobbyClosed || !room.GuestLobbyClosed)
+                return;
+            _rooms.Remove(roomName);
         }
     }
 
@@ -801,6 +830,9 @@ sealed class RoomBook
         public Seat? Guest { get; set; }
         public string? Address { get; set; }
         public int Port { get; set; }
+        public bool RelayHeld { get; set; }
+        public bool HostLobbyClosed { get; set; }
+        public bool GuestLobbyClosed { get; set; }
         public List<(string From, string Text)> Lines { get; } = new();
     }
 

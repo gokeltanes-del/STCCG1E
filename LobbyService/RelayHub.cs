@@ -9,9 +9,11 @@ sealed class RelayHub
 {
     private readonly object _gate = new();
     private readonly Dictionary<string, RelayPair> _pairs = new(StringComparer.Ordinal);
+    private RoomBook? _book;
 
     public async Task RunAsync(WebSocket socket, RoomBook book)
     {
+        _book = book;
         RelayEnd? me = null;
         try
         {
@@ -129,6 +131,7 @@ sealed class RelayHub
             _pairs.Remove(room);
         }
 
+        _book?.ReleaseRelayRoom(room);
         AbortSeat(host);
         AbortSeat(guest);
         Console.Error.WriteLine("relay room dropped after 120s " + room);
