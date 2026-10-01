@@ -763,6 +763,63 @@ sealed partial class AuthStore : IDisposable
         deck.ExecuteNonQuery();
     }
 
+    public bool TryMatchDeck(int userId, string canonical, out string error)
+    {
+        error = "";
+        if (userId <= 0)
+        {
+            error = "login required";
+            return false;
+        }
+        lock (_gate)
+        {
+            using var doc = JsonDocument.Parse(canonical);
+            var need = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (var prop in doc.RootElement.EnumerateObject())
+            {
+                if (prop.Value.ValueKind != JsonValueKind.Array)
+                    continue;
+                foreach (var item in prop.Value.EnumerateArray())
+                {
+                    if (item.ValueKind != JsonValueKind.String)
+                        continue;
+                    var id = (item.GetString() ?? "").Trim();
+                    if (id.Length == 0)
+                        continue;
+                    need[id] = need.TryGetValue(id, out var n) ? n + 1 : 1;
+                }
+            }
+
+            foreach (var pair in need)
+            {
+                using var cmd = _db.CreateCommand();
+                cmd.CommandText = "SELECT quantity FROM account_cards WHERE user_id = $user AND card_id = $card";
+                cmd.Parameters.AddWithValue("$user", userId);
+                cmd.Parameters.AddWithValue("$card", pair.Key);
+                var owned = cmd.ExecuteScalar();
+                var qty = owned == null || owned is DBNull ? 0 : Convert.ToInt32(owned);
+                if (pair.Value > qty)
+                {
+                    var name = CardNameFromId(pair.Key);
+                    error = qty <= 0
+                        ? name + " is not in the account pool"
+                        : "too many copies of " + name;
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    private static string CardNameFromId(string cardId)
+    {
+        var slash = cardId.LastIndexOf('/');
+        if (slash < 0 || slash >= cardId.Length - 1)
+            return cardId;
+        var name = cardId[(slash + 1)..].Trim();
+        return name.Length == 0 ? cardId : name;
+    }
+
     private bool FitsPool(int userId, string canonical, out string error)
     {
         error = "";

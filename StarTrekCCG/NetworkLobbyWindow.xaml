@@ -1,4 +1,4 @@
-<Window x:Class="StarTrekCCG.NetworkLobbyWindow"
+﻿<Window x:Class="StarTrekCCG.NetworkLobbyWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Network Lobby"
@@ -206,6 +206,10 @@
                                 Height="32" HorizontalAlignment="Stretch" Cursor="Hand"
                                 Background="#3A3A48" Foreground="White" BorderThickness="0"/>
                         <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                            <Button x:Name="BtnDeckBuilder" Content="Deck builder" Click="BtnDeckBuilder_Click"
+                                    Height="30" HorizontalAlignment="Left" MinWidth="120" Margin="0,0,8,0" Cursor="Hand"
+                                    Visibility="Collapsed"
+                                    Background="#3A3A48" Foreground="#EEE" BorderThickness="0"/>
                             <Button x:Name="BtnBuyBooster" Content="Buy booster" Click="BtnBuyBooster_Click"
                                     Height="30" HorizontalAlignment="Left" MinWidth="120" Margin="0,0,8,0" Cursor="Hand"
                                     Visibility="Collapsed"

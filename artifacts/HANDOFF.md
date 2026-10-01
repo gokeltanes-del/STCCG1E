@@ -1,12 +1,15 @@
 ﻿﻿﻿﻿# HANDOFF â€” STCCG 1E
 
-**Stand:** 2026-10-01 · **Ort:** Josef `C:\Dev\StarTrekCCG\StarTrekCCG` · **HEAD:** direct trade and raise the stakes, not green, project not done · **origin/master:** e04c9c7 (Pepsch push 2026-10-01)
+**Stand:** 2026-10-01 · **Ort:** Josef `C:\Dev\StarTrekCCG\StarTrekCCG` · **HEAD:** account deck pool, not green, project not done · **origin/master:** e04c9c7 (Pepsch push 2026-10-01)
 
 Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.md`, `FEATURES.md`, Coverage.
 
 ---
 
 ## Jetzt aktiv
+
+
+**Deckbuilder am Account-Pool, Schritt 7, nicht gruen:** lokal getippt, nicht getestet, nicht gepusht. Hauptmenue ohne Account-Login, und Sandbox: volle lokale Kartenliste, lokale Deckdateien, unveraendert. Nach dem Lobby-Login im Account-Modus laedt der Deckbuilder `get_pool`. Karten, die das Konto nicht besitzt, bleiben in der Liste, grau, Menge 0. Die Zeile zeigt Pool-Menge und Deck-Menge. Eine weitere Kopie ueber die Pool-Menge wird nicht hinzugefuegt. Speichern und Laden gehen als cardIds auf das Konto, Deckformat v3 bleibt fuer lokale Dateien. Bevor ein Account-Match einfriert, prueft der Server beide Decks gegen `account_cards`. Fehlt eine Karte oder liegt die Menge darueber, lehnt er Ready und Start ab und nennt die Karte. Dieses Deck wird nicht auf die Partie eingefroren. Hotseat unveraendert. Kein Elo, kein Zuschauen, keine KI. Nicht gruen.
 
 **Direkter Tausch und Raise the Stakes, Schritt 6, nicht gruen:** lokal getippt, nicht getestet, nicht gepusht. Zwei Konten. `trade_offer` nennt offerCards und requestCards (cardId und Menge). Das andere Konto muss `trade_accept`. Eine SQLite-Transaktion bewegt beide Seiten oder keine. Abgelehnt, wenn ein Konto eine matches-Zeile ohne match_history hat: "account is currently in a match". Abgelehnt, wenn die Karte nicht im Pool ist: "card not in account pool". Abgelehnt, wenn ein gespeichertes Deck danach mehr Kopien listen wuerde als der Pool: "trade would break a saved deck". Nicht still ungueltig markiert. Sandbox kann nicht tauschen. Kein Markt. Raise the Stakes auf dem Tisch ist unveraendert. Der Host beendet die Partie schon, wenn der Gegner zugibt. Beide Clients melden den Sieger. Boolean raiseTheStakes nur, wenn der Host-Grund schon "Raise the Stakes" ist (WinReason im Snapshot, den der Gast schon fuer den Sieger anwendet). Kein Kartenname vom Client. Nur wenn beide denselben Sieger melden und beide das Flag setzen, zieht der Server eine zufaellige Kopie aus dem eingefrorenen Deck des Verlierers nach account_cards des Siegers, in derselben Transaktion wie das Latinum (Sieger 10, Verlierer 5). Uneinige Sieger: nichts bewegen, nichts zahlen. Sieger einig, Flags nicht beide wahr: Latinum wie bisher, keine Karte. Eine gespeicherte Deckliste, die danach mehr Kopien haette, verliert die ueberzaehlige Kopie. Der Server simuliert die Partie nicht. Kein Deckbuilder-Filter. Nicht gruen.
 
@@ -22,13 +25,13 @@ Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.m
 
 **Relais ausserhalb des Heim-LAN, Schritt 2, nicht gruen:** lokal getippt, nicht getestet, nicht gruen, nicht gepusht. Spiel ausserhalb des Heim-LAN nur ueber den Server auf TCP 7788. Beide Clients verbinden sich nach aussen. Der Server simuliert keine Regeln. Stirbt der Host-PC, stirbt die Partie nach der 120s Grace. In der Lobby ist das Server-Adressfeld (Domain oder IP, mit Port). Default 127.0.0.1:7788 fuer denselben PC. Ein anderer PC nimmt die LAN-Adresse des Host-Rechners und Port 7788. Eine oeffentliche Partie nimmt einen oeffentlichen Host und Port 7788. Kein Domainname ist hier eingerichtet. Play via relay bindet keinen lokalen TCP-Listener auf 7777 und ruft kein UPnP/PCP. Direct-IP und Localhost auf 7777 bleiben eigene Buttons, UPnP nur auf diesem Direct-Weg. Der Gast auf dem Relaisweg waehlt Port 7777 nicht. Kein TLS, kein systemd, kein Backup, kein Deploy. Kein Latinum, keine Packs, kein Tausch, kein Kartenpool. Uhren unveraendert.
 
-**Menschentests:** Pepsch 2026-10-01 Abend bestaetigt WAN-Spiel, WLAN 15s aus dann Reconnect, und Save/Load in einem neuen Raum. Der alte Raum, der danach voll sagt, ist der Sitz-Tip oben und nicht gruen. Kein pauschales DONE. Der Rest des Projekts ist nicht fertig. Schritt 5 (Premiere-Booster, 50 Latinum) ist lokal und nicht getestet. Schritt 4 (Match-Latinum, Verlierer 5, Sieger 10) ist lokal und nicht getestet. Schritt 3 (Pool und 100 Latinum, e6dadb4) ist ebenfalls nicht getestet. Der volle Raum nach dem Schliessen (4ae51cb) wartet weiter auf Pepsch.
+**Menschentests:** Pepsch 2026-10-01 Abend bestaetigt WAN-Spiel, WLAN 15s aus dann Reconnect, und Save/Load in einem neuen Raum. Der alte Raum, der danach voll sagt, ist der Sitz-Tip oben und nicht gruen. Kein pauschales DONE. Der Rest des Projekts ist nicht fertig. Schritte 3, 4, 5 und 6 hat Pepsch nicht getestet. Schritt 7 (Deckbuilder am Pool) ist ebenfalls nicht getestet. Der volle Raum nach dem Schliessen (4ae51cb) wartet weiter auf Pepsch.
 
 **Account-Save, nicht gruen:** lokal getippt, nicht getestet, nicht gepusht. Autosave und manueller Save sind zwei Zeilen. Eine Autosave-Zeile pro lebender MatchId, ersetzt wenn der Host einen maskierten Snapshot geschrieben hat, geloescht sobald beide denselben Sieger melden. Der manuelle Save hat einen Namen, gehoert denselben zwei Konten und bleibt nach dem Spielende. Sandbox schreibt keinen Server-Save. Der volle Spielstand geht nur an den Host. Der Gast bekommt nur die maskierte Sicht, derselbe Weg wie BroadcastMaskedStateToGuest. Uhren unveraendert.
 
 **Automatischer Reconnect, Schritt 1, nicht gruen:** getippt in diesem Commit, nicht DONE, nicht gepusht. origin/master bleibt `e04c9c7`. Pepschs Drop am 2026-10-01 sah automatisch aus, aber der Code bei `e04c9c7` hatte keinen Gast-Auto-Reconnect. Ein kurzer WLAN-Riss kann den Socket offen halten. Dieser Tip ist der echte Auto-Reconnect. Nicht gruen, bis Pepsch ihn spielt.
 
-**Geplant, nicht erledigt, nicht gruen** (Schritt 2 ist oben getippt, nicht getestet, nicht gruen. Schritte 3 und 4 sind oben getippt, nicht getestet, nicht gruen. Schritt 5 ist oben getippt, nicht getestet, nicht gruen. Schritt 6 ist oben getippt, nicht getestet, nicht gruen. Schritt 7 ist nicht in diesem Commit. Server-Miete ist eine spaetere Erklaerung, nicht dieser Commit):
+**Geplant, nicht erledigt, nicht gruen** (Schritt 2 ist oben getippt, nicht getestet, nicht gruen. Schritte 3 und 4 sind oben getippt, nicht getestet, nicht gruen. Schritt 5 ist oben getippt, nicht getestet, nicht gruen. Schritt 6 ist oben getippt, nicht getestet, nicht gruen. Schritt 7 ist oben getippt, nicht getestet, nicht gruen. Server-Miete ist eine spaetere Erklaerung, nicht dieser Commit):
 
 1. Automatischer Reconnect innerhalb der 120s Grace, Banner auf dem Tisch, Relais-Raum bleibt 120s offen, Wahl- und Reveal-Uhren einfrieren. Dieser Punkt ist hier nur getippt, nicht gruen.
 2. Spiel ausserhalb des Heim-LAN nur ueber Relais-Port 7788. Kein UPnP auf 7777 fuer diesen Weg. Oben getippt, nicht getestet, nicht gruen.
@@ -36,7 +39,7 @@ Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.m
 4. Latinum nur, wenn beide Clients denselben Sieger melden. Verlierer 5, Sieger 10. Getippt in diesem Commit, nicht getestet, nicht gruen. Eine Gutschrift pro Partie. Sandbox zahlt nichts.
 5. Booster nur auf dem Server ziehen. Getippt in diesem Commit, nicht getestet, nicht gruen. Premiere-Booster 50 Latinum. Der Server zieht 1 Rare, 3 Uncommon, 11 Common aus Data/Sets/PR/cards.json. Sandbox kauft nicht. Kein Tausch, kein Deckbuilder-Filter.
 6. Direkter Tausch und Raise the Stakes. Oben getippt, nicht getestet, nicht gruen. Kein Tausch waehrend einer laufenden Partie.
-7. Deckbuilder an den Account-Pool gebunden.
+7. Deckbuilder an den Account-Pool gebunden. Getippt in diesem Commit, nicht getestet, nicht gruen. Sandbox und das Hauptmenue ohne Login bleiben die lokale Liste. Ein Account-Match friert nicht ein, wenn eine Karte fehlt oder die Menge ueber dem Pool liegt.
 
 Elo, Zuschauen, KI und echtes Geld bleiben draussen. Uhren unveraendert: Ping 5s, stiller Tod 15s, Grace 120s, Wahl 10s, Reveal-OK 20s, Antwortfenster 3s, Idle 60s.
 

@@ -1,3 +1,10 @@
+## 2026-10-01 - Account deck builder uses the card pool
+
+- Getippt, nicht getestet, nicht gruen, nicht gepusht. Schritt 7. Der Deckbuilder aus dem Hauptmenue ohne Account-Login, und Sandbox, bleiben die volle lokale Kartenliste und lokale Deckdateien. Nach dem Lobby-Login im Account-Modus laedt er `get_pool`. Nicht besessene Karten bleiben sichtbar, grau, Menge 0. Pool-Menge und Deck-Menge stehen in der Zaehlerzeile. Mehr Kopien als die Pool-Menge werden nicht hinzugefuegt. Speichern und Laden eines Account-Decks gehen als cardIds. Deckformat v3 bleibt fuer lokale Dateien.
+- Bevor ein Account-Match einfriert, prueft der Server das gewaehlte Deck beider Sitze gegen `account_cards`. Fehlt eine Karte: "name is not in the account pool". Zu viele Kopien: "too many copies of name". Ready und Start werden abgelehnt. Das Deck wird nicht eingefroren. `saveDeck` bleibt bei "card not in account pool".
+- Hotseat unveraendert. Kein Elo, kein Zuschauen, keine KI, kein echtes Geld. Der Server simuliert die Partie nicht. Dunkle Combos und die Deck-Auswahl bleiben #1E1E22 / #3A3A48 mit hellem Text.
+- Nicht gruen. Schritte 3, 4, 5 und 6 hat Pepsch nicht getestet. Schritt 7 ist ebenfalls nicht getestet. Pepsch hat WAN-Spiel, WLAN 15s Reconnect und Load in einem neuen Raum bestaetigt. Der volle Raum nach dem Schliessen (4ae51cb) wartet weiter auf ihn.
+
 ## 2026-10-01 - Direct trade and Raise the Stakes
 
 - Getippt, nicht getestet, nicht gruen, nicht gepusht. Schritt 6. Direkter Tausch nur in der Lobby. Konto A bietet Konto B Karten, die jede Seite schon besitzt (`trade_offer`: offerCards und requestCards, cardId und Menge). B muss `trade_accept`. Eine SQLite-Transaktion bewegt beide Seiten oder keine. Abgelehnt: ein Konto hat eine matches-Zeile ohne match_history ("account is currently in a match"); eine Karte fehlt im Pool ("card not in account pool"); ein gespeichertes Deck wuerde danach mehr Kopien listen als der Pool ("trade would break a saved deck"). Gewaehlt: ablehnen, nicht still ein Deck ungueltig markieren. Sandbox kann nicht tauschen. Kein Markt. Dunkles Angebot/Annehmen (#1E1E22 / #3A3A48).

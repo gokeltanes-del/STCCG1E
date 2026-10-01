@@ -528,6 +528,8 @@ sealed class RoomBook
         {
             if (!_auth.TryReadDeck(who.UserId, deckName, out cards, out var error))
                 return Err(who, error);
+            if (!_auth.TryMatchDeck(who.UserId, cards, out error))
+                return Err(who, error);
             deckHash = AuthStore.Sha256Hex(cards);
         }
         else
@@ -548,7 +550,9 @@ sealed class RoomBook
             found.Value.Seat.DeckName = deckName;
             found.Value.Seat.DeckHash = deckHash;
             found.Value.Seat.PrivateCards = cards;
-            return RoomNotes(found.Value.Room);
+            var notes = RoomNotes(found.Value.Room);
+            notes.Insert(0, new Outbound(who, new { type = "deckOk" }));
+            return notes;
         }
     }
 
@@ -568,6 +572,13 @@ sealed class RoomBook
                 return Err(who, "both players need a deck before the match starts");
             if (room.MatchId == null)
             {
+                if (string.Equals(room.Mode, "account", StringComparison.Ordinal))
+                {
+                    if (!_auth.TryMatchDeck(room.Host.Session.UserId, room.Host.PrivateCards!, out var hostWhy))
+                        return Err(who, "host deck: " + hostWhy);
+                    if (!_auth.TryMatchDeck(room.Guest.Session.UserId, room.Guest.PrivateCards!, out var guestWhy))
+                        return Err(who, "guest deck: " + guestWhy);
+                }
                 var frozen = _auth.Freeze(
                     room.Mode,
                     room.Host.Name,

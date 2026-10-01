@@ -9,6 +9,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Microsoft.Win32;
 using StarTrekCCG.Models;
+using StarTrekCCG.Network;
 using StarTrekCCG.Services;
 
 namespace StarTrekCCG;
@@ -25,9 +26,20 @@ public partial class DeckBuilderWindow : Window
     private string? _activeSkillCat;
     private readonly HashSet<string> _selectedSkillTags = new(StringComparer.OrdinalIgnoreCase);
     private List<(string Category, List<string> Items)> _skillCategories = new();
+    private readonly AccountDeckBridge? _account;
+    private readonly Dictionary<string, int>? _pool;
 
     public DeckBuilderWindow()
+        : this(null)
     {
+    }
+
+    public DeckBuilderWindow(AccountDeckBridge? account)
+    {
+        _account = account;
+        _pool = account == null
+            ? null
+            : new Dictionary<string, int>(account.Pool, StringComparer.Ordinal);
         InitializeComponent();
         Loaded += DeckBuilderWindow_Loaded;
         RefreshDeckList();
@@ -46,7 +58,9 @@ public partial class DeckBuilderWindow : Window
             CardList.ItemsSource = _allCards;
 
             PopulateFilters();
-            StatusText.Text = $"{count} cards loaded";
+            StatusText.Text = _pool == null
+                ? $"{count} cards loaded"
+                : $"{count} cards loaded. Pool {PoolTotal()}.";
             DeckTabs.SelectedIndex = 1; // Draw als Standard
         }
         catch (Exception ex)
@@ -344,9 +358,11 @@ public partial class DeckBuilderWindow : Window
             _ => result.OrderBy(c => c.Name)
         };
 
-        var list = result.ToList();
+        var list = result.Select(c => new BrowserRow(c, PoolQuantity(c))).ToList();
         CardList.ItemsSource = list;
-        StatusText.Text = $"{list.Count} cards shown";
+        StatusText.Text = _pool == null
+            ? $"{list.Count} cards shown"
+            : $"{list.Count} cards shown. Pool {PoolTotal()}.";
     }
 
     private static int ParseStat(string? s)
@@ -405,21 +421,21 @@ public partial class DeckBuilderWindow : Window
 
     private void CardList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (CardList.SelectedItem is Card card)
-            ShowCardDetail(card);
+        if (CardList.SelectedItem is BrowserRow row)
+            ShowCardDetail(row.Card);
     }
 
     private void CardList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
         // Left list: double-click only adds to the active pile (no zoom)
-        if (CardList.SelectedItem is Card card)
-            AddCardToSection(card, _activeSection, 1);
+        if (CardList.SelectedItem is BrowserRow row)
+            AddCardToSection(row.Card, _activeSection, 1);
     }
 
     private void CardImage_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ClickCount < 2) return;
-        Card? card = CardList.SelectedItem as Card
+        Card? card = (CardList.SelectedItem as BrowserRow)?.Card
                      ?? (DeckList.SelectedItem as DeckEntry)?.Card;
         if (card != null)
             ShowCardZoom(card);
@@ -568,9 +584,9 @@ public partial class DeckBuilderWindow : Window
 
     private void AddAllVisible_Click(object sender, RoutedEventArgs e)
     {
-        if (CardList.ItemsSource is not IEnumerable<Card> visible)
+        if (CardList.ItemsSource is not IEnumerable<BrowserRow> visible)
             return;
-        var cards = visible.ToList();
+        var cards = visible.Select(row => row.Card).ToList();
         if (cards.Count == 0)
         {
             StatusText.Text = "No filtered cards to add.";
@@ -585,9 +601,14 @@ public partial class DeckBuilderWindow : Window
             MessageBoxImage.Question);
         if (ask != MessageBoxResult.Yes) return;
 
-        int added = 0, skipped = 0;
+        int added = 0, skipped = 0, overPool = 0;
         foreach (var card in cards)
         {
+            if (!CanAddFromPool(card, 1, out _))
+            {
+                overPool++;
+                continue;
+            }
             if (RulesEnforced && !DeckPlacementRules.CanAdd(_currentDeck, card, _activeSection, 1, out _))
             {
                 skipped++;
@@ -599,15 +620,17 @@ public partial class DeckBuilderWindow : Window
         _currentDeck.Name = DeckNameBox.Text.Trim();
         SelectTabForSection(_activeSection);
         RefreshDeckList();
-        StatusText.Text = skipped == 0
-            ? $"+{added} cards → {pile}"
-            : $"+{added} → {pile}  ({skipped} skipped — wrong pile for type)";
+        StatusText.Text = overPool == 0
+            ? (skipped == 0
+                ? $"+{added} cards to {pile}"
+                : $"+{added} to {pile}  ({skipped} skipped, wrong pile)")
+            : $"+{added} to {pile}  ({skipped} wrong pile, {overPool} over the pool)";
     }
 
     private void AddSelected(DeckSection section, int quantity)
     {
-        if (CardList.SelectedItem is Card card)
-            AddCardToSection(card, section, quantity);
+        if (CardList.SelectedItem is BrowserRow row)
+            AddCardToSection(row.Card, section, quantity);
     }
 
     private bool RulesEnforced => IgnoreRulesCheck == null || IgnoreRulesCheck.IsChecked != true;
@@ -618,6 +641,12 @@ public partial class DeckBuilderWindow : Window
         {
             MessageBox.Show(why, "Deck construction", MessageBoxButton.OK, MessageBoxImage.Information);
             StatusText.Text = why;
+            return;
+        }
+        if (!CanAddFromPool(card, quantity, out var poolWhy))
+        {
+            MessageBox.Show(poolWhy, "Account pool", MessageBoxButton.OK, MessageBoxImage.Information);
+            StatusText.Text = poolWhy;
             return;
         }
         _deckService.AddCard(_currentDeck, card, section, quantity);
@@ -836,7 +865,7 @@ public partial class DeckBuilderWindow : Window
             SideLegacyTab.Visibility = Visibility.Collapsed;
         }
 
-        DeckCountText.Text =
+        DeckCountText.Text = AccountCountHead() +
             $"Seed {_currentDeck.SeedCount}  •  Draw {_currentDeck.DrawCount}  •  " +
             $"Q's Tent {_currentDeck.QsTentCount}  •  BB {_currentDeck.BattleBridgeCount}  •  " +
             $"Q-C {_currentDeck.QContinuumCount}  •  Sites {_currentDeck.SitePileCount}  •  " +
@@ -848,9 +877,14 @@ public partial class DeckBuilderWindow : Window
 
     // ----------------- Speichern / Laden -----------------
 
-    private void SaveDeck_Click(object sender, RoutedEventArgs e)
+    private async void SaveDeck_Click(object sender, RoutedEventArgs e)
     {
         _currentDeck.Name = string.IsNullOrWhiteSpace(DeckNameBox.Text) ? "Untitled deck" : DeckNameBox.Text.Trim();
+        if (_account != null)
+        {
+            await SaveAccountDeckAsync();
+            return;
+        }
 
         var dialog = new SaveFileDialog
         {
@@ -878,8 +912,13 @@ public partial class DeckBuilderWindow : Window
         }
     }
 
-    private void LoadDeck_Click(object sender, RoutedEventArgs e)
+    private async void LoadDeck_Click(object sender, RoutedEventArgs e)
     {
+        if (_account != null)
+        {
+            await LoadAccountDeckAsync();
+            return;
+        }
         var dialog = new OpenFileDialog
         {
             Title = "Load deck",
@@ -1026,12 +1065,272 @@ public partial class DeckBuilderWindow : Window
         UpdateSkillFilterSummary();
         ApplyFilters();
     }
-}
+    private async Task SaveAccountDeckAsync()
+    {
+        if (_account == null)
+            return;
+        try
+        {
+            var cards = DeckCardList.FromDeck(_currentDeck);
+            var error = await _account.SaveAsync(_currentDeck.Name, cards).ConfigureAwait(true);
+            if (!string.IsNullOrWhiteSpace(error))
+            {
+                StatusText.Text = error;
+                MessageBox.Show(error, "Deck not saved", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            StatusText.Text = "Saved " + _currentDeck.Name + " on the account. Pool " + PoolTotal() + ".";
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = ex.Message;
+            MessageBox.Show(ex.Message, "Deck not saved", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private async Task LoadAccountDeckAsync()
+    {
+        if (_account == null)
+            return;
+        IReadOnlyList<(string Name, int Count)> decks;
+        try
+        {
+            decks = await _account.ListAsync().ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = ex.Message;
+            return;
+        }
+        if (decks.Count == 0)
+        {
+            StatusText.Text = "No account decks.";
+            return;
+        }
+        var picked = PickAccountDeck(decks);
+        if (picked == null)
+            return;
+        try
+        {
+            var loaded = await _account.LoadAsync(picked).ConfigureAwait(true);
+            if (loaded == null)
+            {
+                StatusText.Text = "Deck was not read.";
+                return;
+            }
+            if (_db != null)
+                _db.LinkDeck(loaded);
+            _currentDeck = loaded;
+            RefreshDeckList();
+            StatusText.Text = "Loaded " + loaded.Name + " from the account. Pool " + PoolTotal() + ".";
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = ex.Message;
+        }
+    }
+
+    private string? PickAccountDeck(IReadOnlyList<(string Name, int Count)> decks)
+    {
+        var win = new Window
+        {
+            Title = "Account decks",
+            Width = 420,
+            Height = 360,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Owner = this,
+            Background = new SolidColorBrush(Color.FromRgb(0x1E, 0x1E, 0x22)),
+            ResizeMode = ResizeMode.NoResize
+        };
+        var root = new DockPanel { Margin = new Thickness(12) };
+        var buttons = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(0, 8, 0, 0)
+        };
+        var ok = new Button
+        {
+            Content = "Load",
+            Width = 90,
+            Height = 32,
+            Margin = new Thickness(0, 0, 8, 0),
+            Background = new SolidColorBrush(Color.FromRgb(0x3A, 0x3A, 0x48)),
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0)
+        };
+        var cancel = new Button
+        {
+            Content = "Cancel",
+            Width = 90,
+            Height = 32,
+            Background = new SolidColorBrush(Color.FromRgb(0x3A, 0x3A, 0x48)),
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0)
+        };
+        buttons.Children.Add(ok);
+        buttons.Children.Add(cancel);
+        DockPanel.SetDock(buttons, Dock.Bottom);
+        var title = new TextBlock
+        {
+            Text = "Choose an account deck.",
+            Foreground = Brushes.White,
+            Margin = new Thickness(0, 0, 0, 8)
+        };
+        DockPanel.SetDock(title, Dock.Top);
+        var list = new ListBox
+        {
+            Background = new SolidColorBrush(Color.FromRgb(0x1E, 0x1E, 0x22)),
+            Foreground = Brushes.White,
+            BorderBrush = new SolidColorBrush(Color.FromRgb(0x3A, 0x3A, 0x48))
+        };
+        list.ItemContainerStyle = new Style(typeof(ListBoxItem))
+        {
+            Setters =
+            {
+                new Setter(Control.BackgroundProperty, new SolidColorBrush(Color.FromRgb(0x1E, 0x1E, 0x22))),
+                new Setter(Control.ForegroundProperty, Brushes.White)
+            }
+        };
+        foreach (var deck in decks)
+            list.Items.Add(new ListBoxItem { Content = deck.Name + " (" + deck.Count + ")", Tag = deck.Name, Foreground = Brushes.White });
+        if (list.Items.Count > 0)
+            list.SelectedIndex = 0;
+        root.Children.Add(buttons);
+        root.Children.Add(title);
+        root.Children.Add(list);
+        win.Content = root;
+        string? picked = null;
+        ok.Click += (_, _) =>
+        {
+            if (list.SelectedItem is ListBoxItem item && item.Tag is string name)
+                picked = name;
+            win.DialogResult = picked != null;
+        };
+        cancel.Click += (_, _) => { win.DialogResult = false; };
+        win.ShowDialog();
+        return picked;
+    }
+
+    private int PoolQuantity(Card card)
+    {
+        if (_pool == null)
+            return -1;
+        return _pool.TryGetValue(card.CardId, out var n) ? n : 0;
+    }
+
+    private int PoolTotal()
+        => _pool == null ? 0 : _pool.Values.Sum();
+
+    private string AccountCountHead()
+    {
+        if (_pool == null)
+            return "";
+        return "Pool " + PoolTotal() + "  |  Deck " + _currentDeck.TotalCards + "  |  ";
+    }
+
+    private bool CanAddFromPool(Card card, int quantity, out string why)
+    {
+        why = "";
+        if (_pool == null)
+            return true;
+        var owned = PoolQuantity(card);
+        var have = CopiesInDeck(card.CardId);
+        if (have + quantity <= owned)
+            return true;
+        why = owned <= 0
+            ? card.Name + " is not in the account pool"
+            : "too many copies of " + card.Name;
+        return false;
+    }
+
+    private int CopiesInDeck(string cardId)
+    {
+        var n = 0;
+        void Take(List<DeckEntry> entries)
+        {
+            foreach (var entry in entries)
+            {
+                if (entry == null)
+                    continue;
+                var id = !string.IsNullOrWhiteSpace(entry.CardId)
+                    ? entry.CardId
+                    : entry.Card != null
+                        ? entry.Card.CardId
+                        : Card.FormatCardId(entry.Set, null, entry.Name);
+                if (string.Equals(id, cardId, StringComparison.Ordinal))
+                    n += entry.Quantity < 1 ? 1 : entry.Quantity;
+            }
+        }
+        Take(_currentDeck.SeedCards);
+        Take(_currentDeck.DrawCards);
+        Take(_currentDeck.QsTentCards);
+        Take(_currentDeck.BattleBridgeCards);
+        Take(_currentDeck.QContinuumCards);
+        Take(_currentDeck.SitePileCards);
+        Take(_currentDeck.TribbleCards);
+        Take(_currentDeck.SideCards);
+        return n;
+    }
+
+    private sealed class BrowserRow
+    {
+        private static readonly SolidColorBrush GreyName = CreateGrey();
+
+        public BrowserRow(Card card, int poolQuantity)
+        {
+            Card = card;
+            PoolQuantity = poolQuantity;
+        }
+
+        public Card Card { get; }
+        public int PoolQuantity { get; }
+        public string Name => Card.Name;
+        public string? Type => Card.Type;
+        public string? Affiliation => Card.Affiliation;
+        public string? Quadrant => Card.Quadrant;
+        public string? Region => Card.Region;
+        public bool Unowned => PoolQuantity == 0;
+        public string PoolLabel => PoolQuantity < 0 ? "" : "pool " + PoolQuantity;
+        public Visibility PoolVisibility => PoolQuantity < 0 ? Visibility.Collapsed : Visibility.Visible;
+        public Brush NameBrush => PoolQuantity == 0 ? GreyName : Brushes.White;
+
+        private static SolidColorBrush CreateGrey()
+        {
+            var brush = new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88));
+            brush.Freeze();
+            return brush;
+        }
+    }
+
+
 
 
 /// <summary>
 /// One affiliation family: mission icon [FED], name Federation, duals, etc.
 /// </summary>
+}
+
+public sealed class AccountDeckBridge
+{
+    public AccountDeckBridge(
+        IReadOnlyDictionary<string, int> pool,
+        Func<string, string, Task<string?>> saveAsync,
+        Func<Task<IReadOnlyList<(string Name, int Count)>>> listAsync,
+        Func<string, Task<Deck?>> loadAsync)
+    {
+        Pool = pool;
+        SaveAsync = saveAsync;
+        ListAsync = listAsync;
+        LoadAsync = loadAsync;
+    }
+
+    public IReadOnlyDictionary<string, int> Pool { get; }
+    public Func<string, string, Task<string?>> SaveAsync { get; }
+    public Func<Task<IReadOnlyList<(string Name, int Count)>>> ListAsync { get; }
+    public Func<string, Task<Deck?>> LoadAsync { get; }
+}
+
 internal static class AffilFamily
 {
     private static readonly (string Label, string[] Tokens)[] Families =

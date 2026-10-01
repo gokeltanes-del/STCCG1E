@@ -21,6 +21,7 @@ public sealed class MatchmakingClient : IDisposable
     private Task? _read;
     private TaskCompletionSource<JsonElement>? _pending;
     private TaskCompletionSource<bool>? _matchWait;
+    private TaskCompletionSource<bool>? _deckWait;
 
     public string? PlayerId { get; private set; }
     public string? DisplayName { get; private set; }
@@ -105,14 +106,35 @@ public sealed class MatchmakingClient : IDisposable
         return SendAsync(env);
     }
 
-    public Task SendDeckAsync(string deckName, string deckHash, string? cardIdsJson)
+    public async Task SendDeckAsync(string deckName, string deckHash, string? cardIdsJson)
     {
         var env = Envelope("deck");
         env["deckName"] = deckName;
         env["deckHash"] = deckHash;
         if (!string.IsNullOrEmpty(cardIdsJson))
             env["cardIds"] = JsonSerializer.Deserialize<JsonElement>(cardIdsJson);
-        return SendAsync(env);
+        TaskCompletionSource<bool> wait;
+        lock (_waitGate)
+        {
+            if (_deckWait != null)
+                throw new InvalidOperationException("Already waiting for a deck check.");
+            wait = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _deckWait = wait;
+        }
+        try
+        {
+            await SendAsync(env).ConfigureAwait(false);
+            await wait.Task.WaitAsync(TimeSpan.FromSeconds(8)).ConfigureAwait(false);
+        }
+        catch
+        {
+            lock (_waitGate)
+            {
+                if (ReferenceEquals(_deckWait, wait))
+                    _deckWait = null;
+            }
+            throw;
+        }
     }
 
     public Task SendAddressAsync(string host, int port)
@@ -293,6 +315,23 @@ public sealed class MatchmakingClient : IDisposable
     }
 
 
+
+    private void FinishDeckWait(string? error)
+    {
+        TaskCompletionSource<bool>? wait;
+        lock (_waitGate)
+        {
+            wait = _deckWait;
+            _deckWait = null;
+        }
+        if (wait == null)
+            return;
+        if (string.IsNullOrWhiteSpace(error))
+            wait.TrySetResult(true);
+        else
+            wait.TrySetException(new InvalidOperationException(error));
+    }
+
     private Dictionary<string, object?> Envelope(string type)
     {
         var env = new Dictionary<string, object?> { ["type"] = type };
@@ -365,9 +404,19 @@ public sealed class MatchmakingClient : IDisposable
                 wait?.TrySetResult(true);
                 return;
             }
+            if (string.Equals(type, "deckOk", StringComparison.Ordinal))
+            {
+                FinishDeckWait(null);
+                return;
+            }
             if (string.Equals(type, "error", StringComparison.Ordinal))
             {
                 var message = ReadString(root, "message");
+                if (_deckWait != null)
+                {
+                    FinishDeckWait(string.IsNullOrWhiteSpace(message) ? "deck was not accepted" : message);
+                    return;
+                }
                 TaskCompletionSource<bool>? matchWait;
                 TaskCompletionSource<JsonElement>? pending;
                 lock (_waitGate)

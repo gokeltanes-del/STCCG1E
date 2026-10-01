@@ -6,6 +6,13 @@
         WindowStartupLocation="CenterScreen"
         Background="#1E1E1E"
         PreviewKeyDown="Window_PreviewKeyDown">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="LobbyChrome.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
 
     <Grid>
         <Grid Margin="12" x:Name="MainLayout">
@@ -98,10 +105,27 @@
                 <ListBox x:Name="CardList" Background="#2D2D2D" Foreground="White" BorderThickness="0"
                      SelectionChanged="CardList_SelectionChanged"
                      MouseDoubleClick="CardList_MouseDoubleClick">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Foreground" Value="#EEE"/>
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Unowned}" Value="True">
+                                    <Setter Property="Opacity" Value="0.45"/>
+                                </DataTrigger>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter Property="Background" Value="#3A3A48"/>
+                                    <Setter Property="Foreground" Value="#EEE"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <StackPanel Margin="2">
-                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{Binding NameBrush}"/>
+                                <TextBlock Text="{Binding PoolLabel}" Foreground="#9CDCFE" FontSize="10"
+                                           Visibility="{Binding PoolVisibility}"/>
                                 <TextBlock Foreground="#888" FontSize="11">
                                 <Run Text="{Binding Type}"/>
                                 <Run Text=" • "/>

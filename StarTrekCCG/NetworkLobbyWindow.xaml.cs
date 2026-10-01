@@ -15,6 +15,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.Win32;
+using StarTrekCCG.Models;
 using StarTrekCCG.Network;
 
 namespace StarTrekCCG;
@@ -120,6 +121,7 @@ public partial class NetworkLobbyWindow : Window
         }
         BtnBuyBooster.Visibility = _signIn.IsAccount ? Visibility.Visible : Visibility.Collapsed;
         BtnTrade.Visibility = _signIn.IsAccount ? Visibility.Visible : Visibility.Collapsed;
+        BtnDeckBuilder.Visibility = _signIn.IsAccount ? Visibility.Visible : Visibility.Collapsed;
         RefreshDeckList();
     }
 
@@ -1562,6 +1564,112 @@ public partial class NetworkLobbyWindow : Window
         {
             SetStatus("Deck announce failed: " + ex.Message);
         }
+    }
+
+    private async void BtnDeckBuilder_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_signIn.IsAccount)
+            return;
+        if (_mm == null || string.IsNullOrWhiteSpace(_signIn.Token))
+        {
+            SetMmState("Connect to the service first.");
+            return;
+        }
+        JsonElement body;
+        try
+        {
+            body = await _mm.GetPoolAsync(_signIn.Token).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            SetMmState("Pool was not read: " + ex.Message);
+            return;
+        }
+        var type = body.TryGetProperty("type", out var typeEl) ? typeEl.GetString() : null;
+        if (!string.Equals(type, "pool", StringComparison.Ordinal))
+        {
+            var message = body.TryGetProperty("message", out var msg) ? msg.GetString() : null;
+            SetMmState(string.IsNullOrWhiteSpace(message) ? "Pool was not read." : message!);
+            return;
+        }
+        var pool = new Dictionary<string, int>(StringComparer.Ordinal);
+        if (body.TryGetProperty("cards", out var cards) && cards.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var row in cards.EnumerateArray())
+            {
+                var id = row.TryGetProperty("cardId", out var idEl) && idEl.ValueKind == JsonValueKind.String
+                    ? (idEl.GetString() ?? "").Trim()
+                    : "";
+                var qty = row.TryGetProperty("quantity", out var qtyEl) && qtyEl.TryGetInt32(out var n) ? n : 0;
+                if (id.Length == 0 || qty <= 0)
+                    continue;
+                pool[id] = qty;
+            }
+        }
+        var bridge = new AccountDeckBridge(pool, SaveAccountDeckAsync, ListAccountDecksAsync, ReadAccountDeckAsync);
+        var win = new DeckBuilderWindow(bridge) { Owner = this };
+        win.Show();
+    }
+
+    private async Task<string?> SaveAccountDeckAsync(string name, string cardIdsJson)
+    {
+        if (_mm == null || string.IsNullOrWhiteSpace(_signIn.Token))
+            return "Connect to the service first.";
+        var saved = await _mm.SaveDeckAsync(_signIn.Token, name, cardIdsJson).ConfigureAwait(true);
+        if (saved.TryGetProperty("type", out var typeEl) && typeEl.GetString() == "error")
+        {
+            var message = saved.TryGetProperty("message", out var msg) ? msg.GetString() : null;
+            return string.IsNullOrWhiteSpace(message) ? "Deck was not saved." : message;
+        }
+        try
+        {
+            await LoadServerDecksAsync().ConfigureAwait(true);
+        }
+        catch
+        {
+            // the save itself succeeded
+        }
+        return null;
+    }
+
+    private async Task<IReadOnlyList<(string Name, int Count)>> ListAccountDecksAsync()
+    {
+        if (_mm == null || string.IsNullOrWhiteSpace(_signIn.Token))
+            return Array.Empty<(string, int)>();
+        var body = await _mm.ListDecksAsync(_signIn.Token).ConfigureAwait(true);
+        if (body.TryGetProperty("type", out var typeEl) && typeEl.GetString() == "error")
+        {
+            var message = body.TryGetProperty("message", out var msg) ? msg.GetString() : "Deck list failed.";
+            throw new InvalidOperationException(string.IsNullOrWhiteSpace(message) ? "Deck list failed." : message);
+        }
+        var items = new List<(string Name, int Count)>();
+        if (body.TryGetProperty("decks", out var decks) && decks.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var row in decks.EnumerateArray())
+            {
+                var name = row.TryGetProperty("name", out var n) && n.ValueKind == JsonValueKind.String ? n.GetString() : "";
+                if (string.IsNullOrWhiteSpace(name))
+                    continue;
+                var count = row.TryGetProperty("count", out var c) && c.TryGetInt32(out var k) ? k : 0;
+                items.Add((name, count));
+            }
+        }
+        return items;
+    }
+
+    private async Task<Deck?> ReadAccountDeckAsync(string name)
+    {
+        if (_mm == null || string.IsNullOrWhiteSpace(_signIn.Token))
+            return null;
+        var body = await _mm.GetDeckAsync(_signIn.Token, name).ConfigureAwait(true);
+        if (!body.TryGetProperty("cardIds", out var cardIds) || cardIds.ValueKind != JsonValueKind.Object)
+        {
+            var message = body.TryGetProperty("message", out var msg) && msg.ValueKind == JsonValueKind.String
+                ? msg.GetString()
+                : "Deck was not read.";
+            throw new InvalidOperationException(string.IsNullOrWhiteSpace(message) ? "Deck was not read." : message);
+        }
+        return DeckCardList.ToDeck(name, cardIds);
     }
 
     private void BtnBuyBooster_Click(object sender, RoutedEventArgs e)
