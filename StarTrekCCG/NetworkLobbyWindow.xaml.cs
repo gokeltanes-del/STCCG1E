@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.Win32;
 using StarTrekCCG.Network;
@@ -43,6 +44,9 @@ public partial class NetworkLobbyWindow : Window
     private bool _busy;
     private bool _gameStarting;
     private int _relayReceiveHandedOff;
+    private string? _guestResumeMatchId;
+    private string? _guestResumeSecret;
+    private bool _guestLoadSignaled;
 
     private string? _localDeckPath;
     private string? _localDeckJson;
@@ -263,6 +267,7 @@ public partial class NetworkLobbyWindow : Window
             RefreshDeckList();
             UpdateLobbyUi();
             BtnStartGame.IsEnabled = !string.IsNullOrWhiteSpace(_localDeckJson);
+            UpdateLoadGameButton();
         }
 
         if (Dispatcher.CheckAccess()) Apply();
@@ -404,6 +409,16 @@ public partial class NetworkLobbyWindow : Window
             _ = AcceptStartAsync(msg);
             return;
         }
+
+        if (string.Equals(msg.Type, NetMessage.Types.LoadGame, StringComparison.OrdinalIgnoreCase))
+        {
+            if (IsHost)
+                return;
+            _guestLoadSignaled = true;
+            SetStatus("Host is loading the saved game.");
+            TryBeginGuestResume();
+            return;
+        }
     }
 
     private async Task TryHostSendStartGameAsync(bool skipSeedPhase)
@@ -484,7 +499,8 @@ public partial class NetworkLobbyWindow : Window
             MatchId = _mm?.MatchId ?? "",
             ReportSecret = _mm?.ReportSecret ?? "",
             LobbyHost = _serviceHost,
-            LobbyPort = _servicePort
+            LobbyPort = _servicePort,
+            AccountMatch = _signIn.IsAccount
         });
     }
 
@@ -573,6 +589,245 @@ public partial class NetworkLobbyWindow : Window
             SetStatus("Deck load failed: " + ex.Message);
             UpdateLobbyUi();
         }
+    }
+
+    private void UpdateLoadGameButton()
+    {
+        var saves = _mm?.Saves;
+        bool any = _signIn.IsAccount && saves != null && saves.Count > 0;
+        if (BtnLoadGame != null)
+        {
+            BtnLoadGame.Visibility = any ? Visibility.Visible : Visibility.Collapsed;
+            BtnLoadGame.IsEnabled = any && IsHost && !_gameStarting;
+        }
+        if (LoadGameHint != null)
+        {
+            LoadGameHint.Visibility = any ? Visibility.Visible : Visibility.Collapsed;
+            LoadGameHint.Text = !any
+                ? ""
+                : IsHost
+                    ? "Load game continues the server save for these two accounts. You stay host."
+                    : "A saved game is waiting. Only the host can load it. You get the masked table.";
+        }
+    }
+
+    private async void BtnLoadGame_Click(object sender, RoutedEventArgs e)
+    {
+        if (_mm == null || !_signIn.IsAccount)
+        {
+            SetStatus("Load game is only for an account match.");
+            return;
+        }
+        if (!IsHost)
+        {
+            SetStatus("Only the host loads the saved game.");
+            return;
+        }
+        if (!IsConnected)
+        {
+            SetStatus("Play via relay first, then Load game.");
+            return;
+        }
+        var saves = _mm.Saves;
+        if (saves.Count == 0)
+        {
+            SetStatus("No save for these two accounts.");
+            return;
+        }
+        var pick = saves.Count == 1 ? saves[0] : PickSave(saves);
+        if (pick == null)
+            return;
+        try
+        {
+            BtnLoadGame.IsEnabled = false;
+            var reply = await _mm.LoadAsync(pick.MatchId, pick.Kind, pick.Name).ConfigureAwait(true);
+            if (reply.TryGetProperty("type", out var typeEl) && typeEl.GetString() == "error")
+            {
+                var message = reply.TryGetProperty("message", out var msg) ? msg.GetString() : "Load failed.";
+                SetStatus(message ?? "Load failed.");
+                UpdateLoadGameButton();
+                return;
+            }
+            var blob = reply.TryGetProperty("blob", out var blobEl) && blobEl.ValueKind == JsonValueKind.String
+                ? blobEl.GetString() ?? ""
+                : "";
+            if (blob.Length == 0)
+            {
+                SetStatus("The server did not return the save.");
+                UpdateLoadGameButton();
+                return;
+            }
+            var matchId = reply.TryGetProperty("matchId", out var idEl) && idEl.ValueKind == JsonValueKind.String
+                ? idEl.GetString() ?? pick.MatchId
+                : pick.MatchId;
+            var secret = reply.TryGetProperty("secret", out var secEl) && secEl.ValueKind == JsonValueKind.String
+                ? secEl.GetString() ?? ""
+                : "";
+            var signal = NetMessage.Create(
+                NetMessage.Types.LoadGame,
+                payloadJson: JsonSerializer.Serialize(new { matchId }));
+            await SendLobbyAsync(signal).ConfigureAwait(true);
+            RaiseResumeStarting(matchId, secret, blob);
+        }
+        catch (Exception ex)
+        {
+            SetStatus("Load failed: " + ex.Message);
+            UpdateLoadGameButton();
+        }
+    }
+
+    private void OnGuestResume(string matchId, string secret, string blob)
+    {
+        if (!string.IsNullOrEmpty(blob) || _gameStarting || !_signIn.IsAccount)
+            return;
+        _guestResumeMatchId = matchId;
+        _guestResumeSecret = secret;
+        _ = GuestResumeAsync();
+    }
+
+    private async Task GuestResumeAsync()
+    {
+        try
+        {
+            if (!IsConnected)
+            {
+                if (_mm == null || string.IsNullOrWhiteSpace(_mm.PlayerId) || string.IsNullOrWhiteSpace(_mm.RoomName))
+                {
+                    SetStatus("Load is waiting, but this seat is not in the room.");
+                    return;
+                }
+                if (!TryParseLobbyService(MmServiceBox.Text, out var host, out var port))
+                    return;
+                var asHost = string.Equals(_mm.Role, "host", StringComparison.Ordinal);
+                await RunRelayAsync(host, port, _mm.RoomName, asHost, _mm.PlayerId).ConfigureAwait(true);
+            }
+            if (!IsConnected)
+            {
+                SetStatus("Could not open the relay for the loaded game.");
+                return;
+            }
+            TryBeginGuestResume();
+        }
+        catch (Exception ex)
+        {
+            SetStatus("Load failed: " + ex.Message);
+        }
+    }
+
+    private void TryBeginGuestResume()
+    {
+        if (_gameStarting || !_guestLoadSignaled)
+            return;
+        if (string.IsNullOrWhiteSpace(_guestResumeSecret))
+            return;
+        RaiseResumeStarting(_guestResumeMatchId ?? "", _guestResumeSecret, null);
+    }
+
+    private void RaiseResumeStarting(string matchId, string secret, string? hostBlob)
+    {
+        if (_gameStarting)
+            return;
+        _gameStarting = true;
+        SetStatus("Loading the saved game...");
+        GameStarting?.Invoke(this, new LobbyGameStartArgs
+        {
+            IsHost = IsHost,
+            Resume = true,
+            ResumeSaveJson = hostBlob ?? "",
+            AccountMatch = true,
+            MatchId = matchId ?? "",
+            ReportSecret = secret ?? "",
+            LobbyHost = _serviceHost,
+            LobbyPort = _servicePort
+        });
+    }
+
+    private LobbySaveInfo? PickSave(IReadOnlyList<LobbySaveInfo> saves)
+    {
+        var win = new Window
+        {
+            Title = "Load game",
+            Width = 440,
+            Height = 360,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Owner = this,
+            Background = new SolidColorBrush(Color.FromRgb(0x1E, 0x1E, 0x22)),
+            ResizeMode = ResizeMode.NoResize
+        };
+        var root = new DockPanel { Margin = new Thickness(12) };
+        var buttons = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(0, 10, 0, 0)
+        };
+        var ok = new Button
+        {
+            Content = "Load game",
+            Width = 110,
+            Height = 32,
+            Margin = new Thickness(0, 0, 8, 0),
+            Background = new SolidColorBrush(Color.FromRgb(0x0E, 0x63, 0x9C)),
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0)
+        };
+        var cancel = new Button
+        {
+            Content = "Cancel",
+            Width = 90,
+            Height = 32,
+            Background = new SolidColorBrush(Color.FromRgb(0x3A, 0x3A, 0x48)),
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0)
+        };
+        buttons.Children.Add(ok);
+        buttons.Children.Add(cancel);
+        DockPanel.SetDock(buttons, Dock.Bottom);
+        var title = new TextBlock
+        {
+            Text = "Choose a save for these two accounts.",
+            Foreground = Brushes.White,
+            Margin = new Thickness(0, 0, 0, 8)
+        };
+        DockPanel.SetDock(title, Dock.Top);
+        var list = new ListBox
+        {
+            Background = new SolidColorBrush(Color.FromRgb(0x1E, 0x1E, 0x22)),
+            Foreground = Brushes.White,
+            BorderBrush = new SolidColorBrush(Color.FromRgb(0x3A, 0x3A, 0x48))
+        };
+        list.ItemContainerStyle = new Style(typeof(ListBoxItem))
+        {
+            Setters =
+            {
+                new Setter(Control.BackgroundProperty, new SolidColorBrush(Color.FromRgb(0x1E, 0x1E, 0x22))),
+                new Setter(Control.ForegroundProperty, Brushes.White)
+            }
+        };
+        foreach (var save in saves)
+        {
+            var when = string.IsNullOrWhiteSpace(save.SavedUtc) ? "" : "  " + save.SavedUtc;
+            var label = save.Kind == "auto"
+                ? "Autosave" + when
+                : "Manual: " + save.Name + when;
+            list.Items.Add(new ListBoxItem { Content = label, Tag = save, Foreground = Brushes.White });
+        }
+        if (list.Items.Count > 0)
+            list.SelectedIndex = 0;
+        root.Children.Add(buttons);
+        root.Children.Add(title);
+        root.Children.Add(list);
+        win.Content = root;
+        LobbySaveInfo? picked = null;
+        ok.Click += (_, _) =>
+        {
+            if (list.SelectedItem is ListBoxItem item && item.Tag is LobbySaveInfo save)
+                picked = save;
+            win.DialogResult = picked != null;
+        };
+        cancel.Click += (_, _) => { win.DialogResult = false; };
+        win.ShowDialog();
+        return picked;
     }
 
     private async void BtnStartGame_Click(object sender, RoutedEventArgs e)
@@ -1131,6 +1386,8 @@ public partial class NetworkLobbyWindow : Window
         mm.StateChanged += text => Dispatcher.BeginInvoke(() => SetMmState(text));
         mm.PlayersChanged += text => Dispatcher.BeginInvoke(() => MmPlayersText.Text = text ?? "");
         mm.ChatChanged += text => Dispatcher.BeginInvoke(() => MmChatLog.Text = text ?? "");
+        mm.SavesChanged += () => Dispatcher.BeginInvoke(UpdateLoadGameButton);
+        mm.ResumeOffered += (matchId, secret, blob) => Dispatcher.BeginInvoke(() => OnGuestResume(matchId, secret, blob));
         mm.AddressAnnounced += (announcedHost, announcedPort) =>
             Dispatcher.BeginInvoke(() => SetMmState($"Host published {announcedHost}:{announcedPort}. Open direct game when ready."));
         try

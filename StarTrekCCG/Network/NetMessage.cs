@@ -24,6 +24,8 @@ public sealed class NetMessage
         public const string LobbyReady = "lobbyReady";
         public const string LobbyStatus = "lobbyStatus";
         public const string StartGame = "startGame";
+        /// <summary>Lobby: host is loading a server save. No deck and no save blob.</summary>
+        public const string LoadGame = "loadGame";
         /// <summary>Lobby: propose/accept/decline skip seed phase (pre-StartGame).</summary>
         public const string LobbySkipSeed = "lobbySkipSeed";
         // Phase 4: dialogs / response window

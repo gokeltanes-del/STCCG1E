@@ -86,9 +86,22 @@
                                     Background="#3A3A48" Foreground="White" BorderThickness="0"/>
                         </Grid>
 
-                        <Button x:Name="BtnStartGame" Content="Start game" Click="BtnStartGame_Click"
-                                Height="34" HorizontalAlignment="Stretch" Margin="0,0,0,10" Cursor="Hand"
-                                Background="#0E639C" Foreground="White" BorderThickness="0" IsEnabled="False"/>
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Button x:Name="BtnStartGame" Content="Start game" Click="BtnStartGame_Click"
+                                    Height="34" HorizontalAlignment="Stretch" Margin="0,0,6,0" Cursor="Hand"
+                                    Background="#0E639C" Foreground="White" BorderThickness="0" IsEnabled="False"/>
+                            <Button x:Name="BtnLoadGame" Grid.Column="1" Content="Load game" Click="BtnLoadGame_Click"
+                                    Height="34" HorizontalAlignment="Stretch" Margin="6,0,0,0" Cursor="Hand"
+                                    Background="#3A3A48" Foreground="White" BorderThickness="0"
+                                    Visibility="Collapsed" IsEnabled="False"/>
+                        </Grid>
+                        <TextBlock x:Name="LoadGameHint" Text=""
+                                   Foreground="#EEE" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"
+                                   Visibility="Collapsed"/>
 
                         <TextBlock x:Name="LobbyPeerText" Text="Waiting for opponent…"
                                    Foreground="#CCC" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,4"/>

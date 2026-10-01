@@ -119,4 +119,10 @@ public sealed class LobbyGameStartArgs : EventArgs
     public string ReportSecret { get; init; } = string.Empty;
     public string LobbyHost { get; init; } = string.Empty;
     public int LobbyPort { get; init; }
+    /// <summary>Account room. Sandbox matches are not stored on the server.</summary>
+    public bool AccountMatch { get; init; }
+    /// <summary>Continue a stored match. The host applies ResumeSaveJson. The guest waits.</summary>
+    public bool Resume { get; init; }
+    /// <summary>Full host GameSave. Empty for the guest. Never a masked view.</summary>
+    public string ResumeSaveJson { get; init; } = string.Empty;
 }

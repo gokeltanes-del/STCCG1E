@@ -115,6 +115,9 @@
                     </StackPanel>
                 </Border>
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="BtnMpSave" Content="Save game" Click="BtnMpSave_Click" Visibility="Collapsed"
+                            Padding="10,4" Margin="0,0,8,0" Background="#3A3A48" Foreground="White" BorderThickness="0"
+                            FontWeight="SemiBold" Cursor="Hand" VerticalAlignment="Center"/>
                     <Button x:Name="BtnNetLink" Content="Connected" Click="Reconnect_Click" Visibility="Collapsed"
                             Padding="10,4" Margin="0,0,8,0" Background="#3A3A48" Foreground="White" BorderThickness="0"
                             FontWeight="SemiBold" Cursor="Hand" VerticalAlignment="Center"/>

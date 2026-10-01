@@ -41,6 +41,11 @@ public sealed class MatchmakingClient : IDisposable
     public event Action<string>? PlayersChanged;
     public event Action<string>? ChatChanged;
     public event Action<string, int>? AddressAnnounced;
+    public event Action? SavesChanged;
+    /// <summary>Guest only. The host load reply is not raised here. Blob is empty.</summary>
+    public event Action<string, string, string>? ResumeOffered;
+
+    public IReadOnlyList<LobbySaveInfo> Saves { get; private set; } = Array.Empty<LobbySaveInfo>();
 
     public async Task ConnectAsync(string host, int port, string name, string mode, string? token, CancellationToken cancellationToken = default)
     {
@@ -175,6 +180,21 @@ public sealed class MatchmakingClient : IDisposable
     public async Task<JsonElement> ReportAsync(string matchId, string secret, string winner)
         => await RequestAsync(new { type = "report", matchId, secret, winner }).ConfigureAwait(false);
 
+    public async Task<JsonElement> SaveAutoAsync(string matchId, string secret, string blob)
+        => await RequestAsync(new { type = "saveAuto", matchId, secret, blob }).ConfigureAwait(false);
+
+    public async Task<JsonElement> SaveManualAsync(string matchId, string secret, string name, string blob)
+        => await RequestAsync(new { type = "saveManual", matchId, secret, name, blob }).ConfigureAwait(false);
+
+    public async Task<JsonElement> LoadAsync(string matchId, string kind, string name)
+    {
+        var env = Envelope("load");
+        env["matchId"] = matchId;
+        env["kind"] = kind;
+        env["name"] = name ?? "";
+        return await RequestAsync(env).ConfigureAwait(false);
+    }
+
     public void Dispose()
     {
         try { _cts?.Cancel(); } catch { /* ignore */ }
@@ -232,7 +252,7 @@ public sealed class MatchmakingClient : IDisposable
                     if (result.MessageType == WebSocketMessageType.Close)
                         return;
                     ms.Write(buffer, 0, result.Count);
-                    if (ms.Length > 262144)
+                    if (ms.Length > 2097152)
                         return;
                 }
                 while (!result.EndOfMessage);
@@ -294,6 +314,26 @@ public sealed class MatchmakingClient : IDisposable
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
             var type = root.TryGetProperty("type", out var typeEl) ? typeEl.GetString() : null;
+            if (string.Equals(type, "resume", StringComparison.Ordinal))
+            {
+                MatchId = ReadString(root, "matchId");
+                ReportSecret = ReadString(root, "secret");
+                var blob = ReadString(root, "blob");
+                TaskCompletionSource<JsonElement>? pending;
+                lock (_waitGate)
+                {
+                    pending = _pending;
+                    if (pending != null)
+                        _pending = null;
+                }
+                if (pending != null)
+                {
+                    pending.TrySetResult(root.Clone());
+                    return;
+                }
+                ResumeOffered?.Invoke(MatchId ?? "", ReportSecret ?? "", blob);
+                return;
+            }
             if (string.Equals(type, "match", StringComparison.Ordinal))
             {
                 MatchId = ReadString(root, "matchId");
@@ -332,7 +372,7 @@ public sealed class MatchmakingClient : IDisposable
                 StateChanged?.Invoke(message);
                 return;
             }
-            if (_pending != null && type is "auth" or "deckSaved" or "deckList" or "deckBody" or "report")
+            if (_pending != null && type is "auth" or "deckSaved" or "deckList" or "deckBody" or "report" or "saveStored")
             {
                 var copy = root.Clone();
                 TaskCompletionSource<JsonElement>? pending;
@@ -365,7 +405,9 @@ public sealed class MatchmakingClient : IDisposable
                     RoomName = null;
                     DirectHost = null;
                     DirectPort = 0;
+                    Saves = Array.Empty<LobbySaveInfo>();
                     PlayersChanged?.Invoke("");
+                    SavesChanged?.Invoke();
                     StateChanged?.Invoke(ReadString(root, "message"));
                     break;
                 default:
@@ -431,19 +473,48 @@ public sealed class MatchmakingClient : IDisposable
         }
         ChatChanged?.Invoke(chat.ToString());
 
+        var saves = new List<LobbySaveInfo>();
+        if (root.TryGetProperty("saves", out var saveEl) && saveEl.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var row in saveEl.EnumerateArray())
+            {
+                var kind = ReadString(row, "kind");
+                if (kind is not ("auto" or "manual"))
+                    continue;
+                var id = ReadString(row, "matchId");
+                if (id.Length == 0)
+                    continue;
+                saves.Add(new LobbySaveInfo
+                {
+                    MatchId = id,
+                    Kind = kind,
+                    Name = ReadString(row, "name"),
+                    SavedUtc = ReadString(row, "savedUtc")
+                });
+            }
+        }
+        Saves = saves;
+        SavesChanged?.Invoke();
+
+        var saveNote = ReadString(root, "saveNote");
         VersionNote = ReadString(root, "versionNote");
         VersionKnown = root.TryGetProperty("versionKnown", out var known) && known.ValueKind == JsonValueKind.True;
         var versionOk = root.TryGetProperty("versionOk", out var okEl) && okEl.ValueKind == JsonValueKind.True;
         VersionBlocksStart = VersionKnown && !versionOk;
 
-        if (VersionBlocksStart)
+        var saveTail = Saves.Count > 0
+            ? " Saved game for these two accounts. Play via relay, then Load game."
+            : "";
+        if (saveNote.Length > 0)
+            StateChanged?.Invoke(saveNote);
+        else if (VersionBlocksStart)
             StateChanged?.Invoke(VersionNote);
         else if (!VersionKnown)
-            StateChanged?.Invoke(VersionNote.Length == 0 ? "Waiting for both version stamps." : VersionNote);
+            StateChanged?.Invoke((VersionNote.Length == 0 ? "Waiting for both version stamps." : VersionNote) + saveTail);
         else if (string.IsNullOrWhiteSpace(address) || port <= 0)
-            StateChanged?.Invoke($"In room {RoomName} as {Role}. Versions match. Direct address not published yet.");
+            StateChanged?.Invoke($"In room {RoomName} as {Role}. Versions match. Direct address not published yet." + saveTail);
         else
-            StateChanged?.Invoke($"In room {RoomName} as {Role}. Versions match. Direct {address}:{port}.");
+            StateChanged?.Invoke($"In room {RoomName} as {Role}. Versions match. Direct {address}:{port}." + saveTail);
     }
 
     private static string FormatRooms(JsonElement root)
@@ -470,4 +541,12 @@ public sealed class MatchmakingClient : IDisposable
         => root.TryGetProperty(name, out var el) && el.ValueKind == JsonValueKind.String
             ? (el.GetString() ?? "")
             : "";
+}
+
+public sealed class LobbySaveInfo
+{
+    public string MatchId { get; init; } = "";
+    public string Kind { get; init; } = "";
+    public string Name { get; init; } = "";
+    public string SavedUtc { get; init; } = "";
 }

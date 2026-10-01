@@ -8,6 +8,8 @@ Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.m
 
 ## Jetzt aktiv
 
+**Account-Save, nicht gruen:** lokal getippt, nicht getestet, nicht gepusht. Autosave und manueller Save sind zwei Zeilen. Eine Autosave-Zeile pro lebender MatchId, ersetzt wenn der Host einen maskierten Snapshot geschrieben hat, geloescht sobald beide denselben Sieger melden. Der manuelle Save hat einen Namen, gehoert denselben zwei Konten und bleibt nach dem Spielende. Sandbox schreibt keinen Server-Save. Der volle Spielstand geht nur an den Host. Der Gast bekommt nur die maskierte Sicht, derselbe Weg wie BroadcastMaskedStateToGuest. Uhren unveraendert.
+
 **Automatischer Reconnect, Schritt 1, nicht gruen:** getippt in diesem Commit, nicht DONE, nicht gepusht. origin/master bleibt `e04c9c7`. Pepschs Drop am 2026-10-01 sah automatisch aus, aber der Code bei `e04c9c7` hatte keinen Gast-Auto-Reconnect. Ein kurzer WLAN-Riss kann den Socket offen halten. Dieser Tip ist der echte Auto-Reconnect. Nicht gruen, bis Pepsch ihn spielt.
 
 **Geplant, nicht erledigt, nicht gruen** (Schritte 2-7 sind nicht in diesem Commit; Server-Miete ist eine spaetere Erklaerung, nicht dieser Commit):

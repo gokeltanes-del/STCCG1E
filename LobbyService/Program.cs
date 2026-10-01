@@ -53,7 +53,7 @@ app.Run();
 static class Limits
 {
     public const int MaxRooms = 50;
-    public const int MaxMessageBytes = 262144;
+    public const int MaxMessageBytes = 2097152;
     public const int MaxChatLines = 30;
 }
 
@@ -145,7 +145,7 @@ sealed class LobbySession
         {
             var root = doc.RootElement;
             var type = root.TryGetProperty("type", out var typeEl) ? typeEl.GetString() : null;
-            if (type is "register" or "login" or "deckSave" or "deckList" or "deckGet" or "report")
+            if (type is "register" or "login" or "deckSave" or "deckList" or "deckGet" or "report" or "saveAuto" or "saveManual")
             {
                 await SendAsync(AccountCall(type, root));
                 return;
@@ -194,6 +194,9 @@ sealed class LobbySession
                     break;
                 case "begin":
                     await FanOut(_book.Begin(this));
+                    break;
+                case "load":
+                    await FanOut(_book.Load(this, root));
                     break;
                 case "address":
                     await FanOut(_book.Address(this, ReadString(root, "host"), ReadInt(root, "port")));
@@ -265,6 +268,10 @@ sealed class LobbySession
                 return _auth.GetDeck(ReadString(root, "token"), ReadString(root, "name"));
             case "report":
                 return _auth.Report(ReadString(root, "matchId"), ReadString(root, "secret"), ReadString(root, "winner"));
+            case "saveAuto":
+                return _auth.PutSave(ReadString(root, "matchId"), ReadString(root, "secret"), "auto", "", ReadBlob(root));
+            case "saveManual":
+                return _auth.PutSave(ReadString(root, "matchId"), ReadString(root, "secret"), "manual", ReadString(root, "name"), ReadBlob(root));
             default:
                 return new { type = "error", message = "unknown type" };
         }
@@ -327,6 +334,17 @@ sealed class LobbySession
         => root.TryGetProperty(name, out var el) && el.ValueKind == JsonValueKind.String
             ? (el.GetString() ?? "")
             : "";
+
+    private static string ReadBlob(JsonElement root)
+    {
+        if (!root.TryGetProperty("blob", out var el))
+            return "";
+        if (el.ValueKind == JsonValueKind.String)
+            return el.GetString() ?? "";
+        if (el.ValueKind == JsonValueKind.Object)
+            return el.GetRawText();
+        return "";
+    }
 
     private static int ReadInt(JsonElement root, string name)
         => root.TryGetProperty(name, out var el) && el.TryGetInt32(out var n) ? n : 0;
@@ -499,7 +517,9 @@ sealed class RoomBook
                     room.Host.DeckName ?? "",
                     room.Host.PrivateCards,
                     room.Guest.DeckName ?? "",
-                    room.Guest.PrivateCards);
+                    room.Guest.PrivateCards,
+                    room.Host.Session.UserId,
+                    room.Guest.Session.UserId);
                 room.MatchId = frozen.MatchId;
                 room.HostSecret = frozen.HostSecret;
                 room.GuestSecret = frozen.GuestSecret;
@@ -515,6 +535,41 @@ sealed class RoomBook
 
     private static object MatchNote(string matchId, string seat, string secret, string cards)
         => new { type = "match", matchId, seat, secret, count = AuthStore.CountIds(cards) };
+
+    public List<Outbound> Load(LobbySession who, JsonElement root)
+    {
+        lock (_gate)
+        {
+            var found = FindSeat(who);
+            if (found == null)
+                return Err(who, "join a room first");
+            if (!string.Equals(found.Value.Seat.Role, "host", StringComparison.Ordinal))
+                return Err(who, "only the host loads a saved game");
+            var room = found.Value.Room;
+            if (!string.Equals(room.Mode, "account", StringComparison.Ordinal))
+                return Err(who, "only an account match can be loaded");
+            if (room.Host == null || room.Guest == null)
+                return Err(who, "waiting for both players");
+            var hostId = room.Host.Session.UserId;
+            var guestId = room.Guest.Session.UserId;
+            if (hostId <= 0 || guestId <= 0)
+                return Err(who, "only an account match can be loaded");
+            var matchId = ReadString(root, "matchId");
+            var kind = ReadString(root, "kind");
+            var name = ReadString(root, "name");
+            if (!_auth.TryLoad(hostId, guestId, matchId, kind, name, out var blob, out var hostSecret, out var guestSecret, out var error))
+                return Err(who, error);
+            room.MatchId = matchId.Trim();
+            room.HostSecret = hostSecret;
+            room.GuestSecret = guestSecret;
+            // Full save goes to the host seat only. The guest gets the match id and its own secret.
+            return new List<Outbound>
+            {
+                new(room.Host.Session, new { type = "resume", matchId = room.MatchId, seat = "host", secret = hostSecret, blob }),
+                new(room.Guest.Session, new { type = "resume", matchId = room.MatchId, seat = "guest", secret = guestSecret })
+            };
+        }
+    }
 
     private static string ReadString(JsonElement root, string name)
         => root.TryGetProperty(name, out var el) && el.ValueKind == JsonValueKind.String
@@ -584,17 +639,49 @@ sealed class RoomBook
         return null;
     }
 
-    private static List<Outbound> RoomNotes(Room room)
+    private List<Outbound> RoomNotes(Room room)
     {
+        var saves = SavesFor(room);
+        var note = SaveNote(room, saves.Length);
         var notes = new List<Outbound>();
         if (room.Host != null)
-            notes.Add(new Outbound(room.Host.Session, RoomView(room, "host")));
+            notes.Add(new Outbound(room.Host.Session, RoomView(room, "host", saves, note)));
         if (room.Guest != null)
-            notes.Add(new Outbound(room.Guest.Session, RoomView(room, "guest")));
+            notes.Add(new Outbound(room.Guest.Session, RoomView(room, "guest", saves, note)));
         return notes;
     }
 
-    private static object RoomView(Room room, string role)
+    private object[] SavesFor(Room room)
+    {
+        if (!string.Equals(room.Mode, "account", StringComparison.Ordinal))
+            return Array.Empty<object>();
+        if (room.Host == null || room.Guest == null)
+            return Array.Empty<object>();
+        var hostId = room.Host.Session.UserId;
+        var guestId = room.Guest.Session.UserId;
+        if (hostId <= 0 || guestId <= 0)
+            return Array.Empty<object>();
+        return _auth.ListSaves(hostId, guestId);
+    }
+
+    private string SaveNote(Room room, int orderedCount)
+    {
+        if (orderedCount > 0)
+            return "";
+        if (!string.Equals(room.Mode, "account", StringComparison.Ordinal))
+            return "";
+        if (room.Host == null || room.Guest == null)
+            return "";
+        var hostId = room.Host.Session.UserId;
+        var guestId = room.Guest.Session.UserId;
+        if (hostId <= 0 || guestId <= 0 || hostId == guestId)
+            return "";
+        if (_auth.ListSaves(guestId, hostId).Length == 0)
+            return "";
+        return "The original host must host the room to load the save.";
+    }
+
+    private static object RoomView(Room room, string role, object[] saves, string saveNote)
     {
         Seat?[] seats = { room.Host, room.Guest };
         return new
@@ -615,7 +702,9 @@ sealed class RoomBook
                 deckName = s.DeckName ?? "",
                 deckHash = s.DeckHash ?? ""
             }).ToArray(),
-            lines = room.Lines.Select(l => new { from = l.From, text = l.Text }).ToArray()
+            lines = room.Lines.Select(l => new { from = l.From, text = l.Text }).ToArray(),
+            saves,
+            saveNote
         };
     }
 

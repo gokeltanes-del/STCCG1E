@@ -10612,6 +10612,7 @@ public partial class TableWindow : Window
             _ => "Mode selected"
         };
         RefreshNetLinkStatus();
+        UpdateMpSaveButton();
     }
 
     /// <summary>
@@ -10752,6 +10753,10 @@ public partial class TableWindow : Window
     private string? _matchReportId;
     private string? _matchReportSecret;
     private int _matchReportSent;
+    private bool _accountMatch;
+    private readonly object _autoSaveGate = new();
+    private int _autoSaveRunning;
+    private string? _autoSaveLatest;
 
     private void RememberMatchReport(LobbyGameStartArgs args)
     {
@@ -10760,6 +10765,90 @@ public partial class TableWindow : Window
         _matchReportId = args.MatchId;
         _matchReportSecret = args.ReportSecret;
         _matchReportSent = 0;
+        _accountMatch = args.AccountMatch;
+        UpdateMpSaveButton();
+    }
+
+    private void UpdateMpSaveButton()
+    {
+        if (BtnMpSave == null)
+            return;
+        bool show = _accountMatch && _gameMode == GameMode.Network && _netSession is { IsHost: true };
+        BtnMpSave.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void QueueAccountAutosave(GameSave save)
+    {
+        if (!_accountMatch || save.Session.Winner is 1 or 2)
+            return;
+        if (string.IsNullOrWhiteSpace(_matchReportId) || string.IsNullOrWhiteSpace(_matchReportSecret))
+            return;
+        if (string.IsNullOrWhiteSpace(_matchReportHost) || _matchReportPort is < 1 or > 65535)
+            return;
+        string json;
+        try { json = JsonSerializer.Serialize(save); }
+        catch { return; }
+        var host = _matchReportHost;
+        var port = _matchReportPort;
+        var id = _matchReportId;
+        var secret = _matchReportSecret;
+        lock (_autoSaveGate)
+        {
+            _autoSaveLatest = json;
+            if (_autoSaveRunning == 1)
+                return;
+            _autoSaveRunning = 1;
+        }
+        _ = Task.Run(() => FlushAccountAutosaveAsync(host!, port, id!, secret!));
+    }
+
+    private async Task FlushAccountAutosaveAsync(string host, int port, string id, string secret)
+    {
+        try
+        {
+            while (true)
+            {
+                string? json;
+                lock (_autoSaveGate)
+                {
+                    json = _autoSaveLatest;
+                    _autoSaveLatest = null;
+                    if (json == null)
+                    {
+                        _autoSaveRunning = 0;
+                        return;
+                    }
+                }
+                var mm = new MatchmakingClient();
+                try
+                {
+                    await mm.ConnectSocketAsync(host, port).ConfigureAwait(false);
+                    var reply = await mm.SaveAutoAsync(id, secret, json).ConfigureAwait(false);
+                    if (reply.TryGetProperty("type", out var kind) && kind.GetString() == "error")
+                    {
+                        var message = reply.TryGetProperty("message", out var msg) ? msg.GetString() : "autosave failed";
+                        var note = message ?? "autosave failed";
+                        _ = Dispatcher.BeginInvoke(() =>
+                            _session.Log.AddDebug(_session.TurnNumber, "Net", "Autosave not stored: " + note));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    var note = ex.Message;
+                    _ = Dispatcher.BeginInvoke(() =>
+                        _session.Log.AddDebug(_session.TurnNumber, "Net", "Autosave not stored: " + note));
+                }
+                finally
+                {
+                    mm.Dispose();
+                }
+            }
+        }
+        catch
+        {
+            lock (_autoSaveGate)
+                _autoSaveRunning = 0;
+        }
     }
 
     private void ReportMatchResult(int winner)
@@ -10798,6 +10887,11 @@ public partial class TableWindow : Window
 
     private void OnLobbyGameStarting(NetworkLobbyWindow lobby, LobbyGameStartArgs args)
     {
+        if (args.Resume)
+        {
+            StartLoadedMatch(lobby, args);
+            return;
+        }
         RememberMatchReport(args);
         TryStartNetSessionFromLobby(lobby);
         if (_netSession == null)
@@ -14565,6 +14659,7 @@ public partial class TableWindow : Window
                 $"Broadcast masked GameSave to Guest (active P{save.Session.ActivePlayer}, " +
                 $"seed={save.Session.SeedPhaseActive}, table={save.Table.Count}, spaceline={save.Spaceline.Count}, " +
                 $"stack={save.Stack?.Sequence}/{save.Stack?.Open}).");
+            QueueAccountAutosave(save);
             return turn == _session.TurnNumber && _maskedSnapshotWrittenTurn == turn;
         }
         catch (Exception ex)
@@ -15801,6 +15896,178 @@ public partial class TableWindow : Window
         _spacelineOrder
             .Where(b => b.Tag is Card c && IsMissionCard(c))
             .ToList();
+
+    private void StartLoadedMatch(NetworkLobbyWindow lobby, LobbyGameStartArgs args)
+    {
+        RememberMatchReport(args);
+        TryStartNetSessionFromLobby(lobby);
+        if (_netSession == null)
+            throw new InvalidOperationException("NetPlaySession did not start after loading a save.");
+
+        EnsureNetworkModeFromSession();
+        try { lobby.Close(); } catch { /* ignore */ }
+        ApplySelectedGameMode();
+        UpdateMpSaveButton();
+
+        if (_netSession.IsHost)
+        {
+            if (string.IsNullOrWhiteSpace(args.ResumeSaveJson))
+                throw new InvalidOperationException("Host load is missing the save.");
+            var snap = JsonSerializer.Deserialize<GameSave>(
+                args.ResumeSaveJson,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (snap == null)
+                throw new InvalidOperationException("Saved game was empty.");
+            ApplyGameSave(snap);
+            _session.Log.Add(_session.TurnNumber, "System", "Loaded the server save. Masked snapshot sent.");
+            _ = SendLoadedSnapshotAsync();
+            return;
+        }
+
+        _loadedDeck = new Deck { Name = "Player 1" };
+        _loadedDeckOpp = new Deck { Name = "Player 2" };
+        _netGuestHasHostState = false;
+        _session.Log.Add(_session.TurnNumber, "System", "Waiting for the host snapshot of the loaded game.");
+    }
+
+    private async Task SendLoadedSnapshotAsync()
+    {
+        try
+        {
+            await Task.Delay(600).ConfigureAwait(true);
+            await BroadcastMaskedStateToGuestAsync().ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = "Loaded save, but the snapshot was not sent: " + ex.Message;
+        }
+    }
+
+    private async void BtnMpSave_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_accountMatch || _netSession is not { IsHost: true })
+        {
+            MessageBox.Show("Only the host of an account match can store a server save.", "Save game",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_matchReportId) || string.IsNullOrWhiteSpace(_matchReportSecret)
+            || string.IsNullOrWhiteSpace(_matchReportHost) || _matchReportPort is < 1 or > 65535)
+        {
+            MessageBox.Show("This match has no server id yet.", "Save game",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        var name = AskMpSaveName();
+        if (string.IsNullOrWhiteSpace(name))
+            return;
+        try
+        {
+            BtnMpSave.IsEnabled = false;
+            var json = JsonSerializer.Serialize(CaptureGameSave());
+            var mm = new MatchmakingClient();
+            try
+            {
+                await mm.ConnectSocketAsync(_matchReportHost!, _matchReportPort).ConfigureAwait(true);
+                var reply = await mm.SaveManualAsync(_matchReportId!, _matchReportSecret!, name, json).ConfigureAwait(true);
+                if (reply.TryGetProperty("type", out var kind) && kind.GetString() == "error")
+                {
+                    var message = reply.TryGetProperty("message", out var msg) ? msg.GetString() : "Save failed.";
+                    MessageBox.Show(message ?? "Save failed.", "Save game",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+            }
+            finally
+            {
+                mm.Dispose();
+            }
+            _session.Log.Add(_session.TurnNumber, "System", "Manual server save: " + name);
+            BtnMpSave.Content = "Saved";
+            await Task.Delay(1200).ConfigureAwait(true);
+            BtnMpSave.Content = "Save game";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("Could not save:\n\n" + ex.Message, "Save game",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally
+        {
+            if (BtnMpSave != null)
+                BtnMpSave.IsEnabled = true;
+        }
+    }
+
+    private string? AskMpSaveName()
+    {
+        var win = new Window
+        {
+            Title = "Save game",
+            Width = 420,
+            Height = 180,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Owner = this,
+            Background = new SolidColorBrush(Color.FromRgb(0x1E, 0x1E, 0x22)),
+            ResizeMode = ResizeMode.NoResize
+        };
+        var root = new StackPanel { Margin = new Thickness(14) };
+        root.Children.Add(new TextBlock
+        {
+            Text = "Name this manual save. It stays after the match ends.",
+            Foreground = Brushes.White,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 0, 8)
+        });
+        var box = new TextBox
+        {
+            Height = 28,
+            Padding = new Thickness(6, 3, 6, 3),
+            Background = new SolidColorBrush(Color.FromRgb(0x1E, 0x1E, 0x22)),
+            Foreground = Brushes.White,
+            BorderBrush = new SolidColorBrush(Color.FromRgb(0x3A, 0x3A, 0x48)),
+            Text = "Manual save"
+        };
+        root.Children.Add(box);
+        var row = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(0, 12, 0, 0)
+        };
+        var ok = new Button
+        {
+            Content = "Save game",
+            Width = 110,
+            Height = 32,
+            Margin = new Thickness(0, 0, 8, 0),
+            Background = new SolidColorBrush(Color.FromRgb(0x0E, 0x63, 0x9C)),
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0)
+        };
+        var cancel = new Button
+        {
+            Content = "Cancel",
+            Width = 90,
+            Height = 32,
+            Background = new SolidColorBrush(Color.FromRgb(0x3A, 0x3A, 0x48)),
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0)
+        };
+        string? picked = null;
+        ok.Click += (_, _) =>
+        {
+            picked = (box.Text ?? "").Trim();
+            win.DialogResult = picked.Length > 0;
+        };
+        cancel.Click += (_, _) => { win.DialogResult = false; };
+        row.Children.Add(ok);
+        row.Children.Add(cancel);
+        root.Children.Add(row);
+        win.Content = root;
+        win.ShowDialog();
+        return picked;
+    }
 
     private void MenuSaveGame_Click(object sender, RoutedEventArgs e)
     {

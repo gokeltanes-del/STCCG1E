@@ -1,4 +1,8 @@
-﻿## 2026-10-01 - Automatic reconnect during the 120s grace
+﻿## 2026-10-01 - Account match save on the lobby
+
+- Getippt, nicht gruen, nicht getestet, nicht gepusht. Autosave und manueller Save sind getrennt. Das Autosave ist eine Zeile pro lebender MatchId. Der Host schreibt es, nachdem ein maskierter Snapshot auf dem offenen Link liegt, und ersetzt damit die vorige Zeile. Es wird geloescht, wenn beide Clients denselben Sieger melden. Der manuelle Save ist ein Knopf, hat einen Namen, gehoert denselben zwei Konten und bleibt nach dem Ende. Sandbox-Partien ohne Kontenraum speichern nichts auf dem Server. Laden: der urspruengliche Host sitzt wieder als Host, wendet den vollen Save an und schickt dem Gast nur die maskierte Sicht. Uhren unveraendert: Ping 5s, stiller Tod 15s, Grace 120s, Wahl 10s, Reveal-OK 20s, Antwortfenster 3s, Idle 60s.
+
+## 2026-10-01 - Automatic reconnect during the 120s grace
 
 - Getippt, nicht gruen, nicht DONE, nicht gepusht. Pepsch, 2026-10-01: der Drop sah automatisch aus. Der Code bei `e04c9c7` hatte keinen Gast-Auto-Reconnect. Ein kurzer WLAN-Riss kann den Socket offen halten. Dieser Tip ist Schritt 1, der echte Auto-Reconnect. origin/master bleibt `e04c9c7`.
 - TransportLost in der Partie: Gast und Relais-Host versuchen von selbst etwa alle 2,5s, bis der Link steht oder die 120s um sind. Der Knopf bleibt Try now. Kein neuer Lobby-Join, kein neues Mischen, kein TCP-NetServer auf dem Relaisweg. Direct-IP-Gast macht dasselbe Resume. Direct-IP-Host wartet weiter in AcceptSameGuestAsync.

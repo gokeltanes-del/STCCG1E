@@ -73,8 +73,19 @@ sealed class AuthStore : IDisposable
                 winner_name TEXT NOT NULL,
                 written_utc TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS match_saves (
+                match_id TEXT NOT NULL,
+                kind TEXT NOT NULL,
+                name TEXT NOT NULL,
+                host_user_id INTEGER NOT NULL,
+                guest_user_id INTEGER NOT NULL,
+                blob TEXT NOT NULL,
+                updated_utc TEXT NOT NULL,
+                PRIMARY KEY (match_id, kind, name)
+            );
             """;
         cmd.ExecuteNonQuery();
+        EnsureMatchAccountColumns();
     }
 
     public object Register(string name, string password)
@@ -237,7 +248,7 @@ sealed class AuthStore : IDisposable
         }
     }
 
-    public FrozenMatch Freeze(string mode, string hostName, string guestName, string hostDeck, string hostCards, string guestDeck, string guestCards)
+    public FrozenMatch Freeze(string mode, string hostName, string guestName, string hostDeck, string hostCards, string guestDeck, string guestCards, int hostUserId, int guestUserId)
     {
         var matchId = Guid.NewGuid().ToString("N");
         var hostSecret = NewToken();
@@ -248,9 +259,10 @@ sealed class AuthStore : IDisposable
             cmd.CommandText = """
                 INSERT INTO matches (
                     match_id, mode, host_name, guest_name, host_secret, guest_secret,
-                    host_deck_name, guest_deck_name, host_cards, guest_cards, created_utc)
+                    host_deck_name, guest_deck_name, host_cards, guest_cards, created_utc,
+                    host_user_id, guest_user_id)
                 VALUES (
-                    $id, $mode, $host, $guest, $hs, $gs, $hd, $gd, $hc, $gc, $utc)
+                    $id, $mode, $host, $guest, $hs, $gs, $hd, $gd, $hc, $gc, $utc, $hu, $gu)
                 """;
             cmd.Parameters.AddWithValue("$id", matchId);
             cmd.Parameters.AddWithValue("$mode", mode);
@@ -263,6 +275,8 @@ sealed class AuthStore : IDisposable
             cmd.Parameters.AddWithValue("$hc", hostCards);
             cmd.Parameters.AddWithValue("$gc", guestCards);
             cmd.Parameters.AddWithValue("$utc", Now());
+            cmd.Parameters.AddWithValue("$hu", hostUserId);
+            cmd.Parameters.AddWithValue("$gu", guestUserId);
             cmd.ExecuteNonQuery();
         }
         return new FrozenMatch(matchId, hostSecret, guestSecret);
@@ -308,7 +322,10 @@ sealed class AuthStore : IDisposable
             already.CommandText = "SELECT 1 FROM match_history WHERE match_id = $id";
             already.Parameters.AddWithValue("$id", matchId);
             if (already.ExecuteScalar() != null)
+            {
+                DeleteAutosave(matchId);
                 return new { type = "report", written = true, message = "already written" };
+            }
 
             if (!_pending.TryGetValue(matchId, out var votes))
             {
@@ -339,6 +356,7 @@ sealed class AuthStore : IDisposable
             insert.Parameters.AddWithValue("$name", winnerName);
             insert.Parameters.AddWithValue("$utc", Now());
             insert.ExecuteNonQuery();
+            DeleteAutosave(matchId);
             return new { type = "report", written = true, message = "written" };
         }
     }
@@ -419,7 +437,220 @@ sealed class AuthStore : IDisposable
         }
     }
 
+    public const int SaveMaxBytes = 2_000_000;
+    public const int SaveNameMax = 40;
+
+    public object PutSave(string? matchId, string? secret, string? kind, string? name, string? blob)
+    {
+        matchId = (matchId ?? "").Trim();
+        secret = (secret ?? "").Trim();
+        kind = (kind ?? "").Trim().ToLowerInvariant();
+        blob = blob ?? "";
+        if (matchId.Length == 0 || secret.Length == 0)
+            return Err("match id and secret required");
+        if (kind is not ("auto" or "manual"))
+            return Err("save kind must be auto or manual");
+        if (blob.Length == 0 || blob.Length > SaveMaxBytes)
+            return Err("save is empty or too large");
+        if (!SaveJsonOk(blob))
+            return Err("save must be a json object");
+        if (kind == "auto")
+            name = "";
+        else
+        {
+            name = LobbySession.ClipName(name, SaveNameMax);
+            if (name.Length == 0)
+                return Err("save name required");
+        }
+
+        lock (_gate)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = """
+                SELECT mode, host_secret, host_user_id, guest_user_id
+                FROM matches WHERE match_id = $id
+                """;
+            cmd.Parameters.AddWithValue("$id", matchId);
+            using var reader = cmd.ExecuteReader();
+            if (!reader.Read())
+                return Err("no such match");
+            var mode = reader.GetString(0);
+            var hostSecret = reader.GetString(1);
+            var hostUser = reader.GetInt32(2);
+            var guestUser = reader.GetInt32(3);
+            reader.Close();
+            if (!string.Equals(mode, "account", StringComparison.Ordinal) || hostUser <= 0 || guestUser <= 0)
+                return Err("only an account match is saved");
+            if (!string.Equals(secret, hostSecret, StringComparison.Ordinal))
+                return Err("only the host stores the save");
+
+            using var up = _db.CreateCommand();
+            up.CommandText = """
+                INSERT INTO match_saves (match_id, kind, name, host_user_id, guest_user_id, blob, updated_utc)
+                VALUES ($id, $kind, $name, $host, $guest, $blob, $utc)
+                ON CONFLICT(match_id, kind, name) DO UPDATE SET
+                    blob = excluded.blob,
+                    updated_utc = excluded.updated_utc
+                """;
+            up.Parameters.AddWithValue("$id", matchId);
+            up.Parameters.AddWithValue("$kind", kind);
+            up.Parameters.AddWithValue("$name", name);
+            up.Parameters.AddWithValue("$host", hostUser);
+            up.Parameters.AddWithValue("$guest", guestUser);
+            up.Parameters.AddWithValue("$blob", blob);
+            up.Parameters.AddWithValue("$utc", Now());
+            up.ExecuteNonQuery();
+        }
+        return new { type = "saveStored", kind, name };
+    }
+
+    public object[] ListSaves(int hostUserId, int guestUserId)
+    {
+        var rows = new List<object>();
+        if (hostUserId <= 0 || guestUserId <= 0)
+            return rows.ToArray();
+        lock (_gate)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = """
+                SELECT match_id, kind, name, updated_utc
+                FROM match_saves
+                WHERE host_user_id = $h AND guest_user_id = $g
+                ORDER BY CASE kind WHEN 'auto' THEN 0 ELSE 1 END, updated_utc DESC
+                """;
+            cmd.Parameters.AddWithValue("$h", hostUserId);
+            cmd.Parameters.AddWithValue("$g", guestUserId);
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                rows.Add(new
+                {
+                    matchId = reader.GetString(0),
+                    kind = reader.GetString(1),
+                    name = reader.GetString(2),
+                    savedUtc = reader.GetString(3)
+                });
+            }
+        }
+        return rows.ToArray();
+    }
+
+    public bool TryLoad(int hostUserId, int guestUserId, string? matchId, string? kind, string? name, out string blob, out string hostSecret, out string guestSecret, out string error)
+    {
+        blob = "";
+        hostSecret = "";
+        guestSecret = "";
+        error = "";
+        matchId = (matchId ?? "").Trim();
+        kind = (kind ?? "").Trim().ToLowerInvariant();
+        if (kind == "auto")
+            name = "";
+        else
+            name = LobbySession.ClipName(name, SaveNameMax);
+        if (matchId.Length == 0 || kind is not ("auto" or "manual"))
+        {
+            error = "save not found";
+            return false;
+        }
+        if (hostUserId <= 0 || guestUserId <= 0)
+        {
+            error = "only an account match can be loaded";
+            return false;
+        }
+
+        lock (_gate)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = """
+                SELECT blob FROM match_saves
+                WHERE match_id = $id AND kind = $kind AND name = $name
+                  AND host_user_id = $h AND guest_user_id = $g
+                """;
+            cmd.Parameters.AddWithValue("$id", matchId);
+            cmd.Parameters.AddWithValue("$kind", kind);
+            cmd.Parameters.AddWithValue("$name", name ?? "");
+            cmd.Parameters.AddWithValue("$h", hostUserId);
+            cmd.Parameters.AddWithValue("$g", guestUserId);
+            var found = cmd.ExecuteScalar() as string;
+            if (string.IsNullOrEmpty(found))
+            {
+                error = "no such save";
+                return false;
+            }
+
+            using var match = _db.CreateCommand();
+            match.CommandText = """
+                SELECT host_secret, guest_secret, host_user_id, guest_user_id
+                FROM matches WHERE match_id = $id
+                """;
+            match.Parameters.AddWithValue("$id", matchId);
+            using var reader = match.ExecuteReader();
+            if (!reader.Read()
+                || reader.GetInt32(2) != hostUserId
+                || reader.GetInt32(3) != guestUserId)
+            {
+                error = "not your match";
+                return false;
+            }
+            hostSecret = reader.GetString(0);
+            guestSecret = reader.GetString(1);
+            blob = found;
+            return true;
+        }
+    }
+
     public void Dispose() => _db.Dispose();
+
+    private void DeleteAutosave(string matchId)
+    {
+        using var drop = _db.CreateCommand();
+        drop.CommandText = "DELETE FROM match_saves WHERE match_id = $id AND kind = 'auto'";
+        drop.Parameters.AddWithValue("$id", matchId);
+        drop.ExecuteNonQuery();
+    }
+
+    private void EnsureMatchAccountColumns()
+    {
+        if (!HasColumn("matches", "host_user_id"))
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "ALTER TABLE matches ADD COLUMN host_user_id INTEGER NOT NULL DEFAULT 0;";
+            cmd.ExecuteNonQuery();
+        }
+        if (!HasColumn("matches", "guest_user_id"))
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "ALTER TABLE matches ADD COLUMN guest_user_id INTEGER NOT NULL DEFAULT 0;";
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    private bool HasColumn(string table, string column)
+    {
+        using var cmd = _db.CreateCommand();
+        cmd.CommandText = "SELECT name FROM pragma_table_info('" + table + "')";
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            if (string.Equals(reader.GetString(0), column, StringComparison.Ordinal))
+                return true;
+        }
+        return false;
+    }
+
+    private static bool SaveJsonOk(string blob)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(blob);
+            return doc.RootElement.ValueKind == JsonValueKind.Object;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
 
     private void InsertSession(int userId, string token)
     {
