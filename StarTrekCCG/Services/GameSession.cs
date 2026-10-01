@@ -76,6 +76,9 @@ public sealed class GameSession
 
     public int? Winner { get; private set; }
 
+    /// <summary>Host reason from DeclareWinner. Not a second rules pass.</summary>
+    public string? WinReason { get; private set; }
+
     public ActionLog Log { get; } = new();
 
     public bool TryMarkOncePerGame(int player, string key)
@@ -101,12 +104,14 @@ public sealed class GameSession
         Winner = player;
         Match = MatchPhase.Ended;
         string why = string.IsNullOrWhiteSpace(reason) ? "declared" : reason;
+        WinReason = why;
         Log.Add(TurnNumber, "System", $"P{Winner} wins ({why}).");
     }
 
-    public void RestoreWinner(int? winner)
+    public void RestoreWinner(int? winner, string? reason = null)
     {
         Winner = winner is 1 or 2 ? winner : null;
+        WinReason = Winner is > 0 ? reason : null;
         if (Winner is > 0)
             Match = MatchPhase.Ended;
     }

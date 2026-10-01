@@ -148,7 +148,7 @@ sealed class LobbySession
         {
             var root = doc.RootElement;
             var type = root.TryGetProperty("type", out var typeEl) ? typeEl.GetString() : null;
-            if (type is "register" or "login" or "deckSave" or "deckList" or "deckGet" or "get_pool" or "buy_pack" or "report" or "saveAuto" or "saveManual")
+            if (type is "register" or "login" or "deckSave" or "deckList" or "deckGet" or "get_pool" or "buy_pack" or "trade_offer" or "trade_list" or "trade_accept" or "trade_decline" or "report" or "saveAuto" or "saveManual")
             {
                 await SendAsync(AccountCall(type, root));
                 return;
@@ -280,8 +280,28 @@ sealed class LobbySession
                     return new { type = "error", message = "token required" };
                 // packType only. Card names on this message are ignored.
                 return _auth.BuyPack(Token, ReadString(root, "packType"));
+            case "trade_offer":
+            case "trade_list":
+            case "trade_accept":
+            case "trade_decline":
+                if (!SaidHello || !string.Equals(Mode, "account", StringComparison.Ordinal))
+                    return new { type = "error", message = "sandbox cannot trade" };
+                if (!string.Equals(ReadString(root, "token"), Token, StringComparison.Ordinal) || string.IsNullOrEmpty(Token))
+                    return new { type = "error", message = "token required" };
+                if (type == "trade_offer")
+                    return _auth.OfferTrade(Token, ReadString(root, "to"), root);
+                if (type == "trade_list")
+                    return _auth.ListTrades(Token);
+                if (type == "trade_accept")
+                    return _auth.AcceptTrade(Token, ReadId(root, "offerId"));
+                return _auth.DeclineTrade(Token, ReadId(root, "offerId"));
             case "report":
-                return _auth.Report(ReadString(root, "matchId"), ReadString(root, "secret"), ReadString(root, "winner"));
+                // winner plus an optional boolean. A card id on this message is ignored.
+                return _auth.Report(
+                    ReadString(root, "matchId"),
+                    ReadString(root, "secret"),
+                    ReadString(root, "winner"),
+                    ReadBool(root, "raiseTheStakes"));
             case "saveAuto":
                 return _auth.PutSave(ReadString(root, "matchId"), ReadString(root, "secret"), "auto", "", ReadBlob(root));
             case "saveManual":
@@ -348,6 +368,20 @@ sealed class LobbySession
         => root.TryGetProperty(name, out var el) && el.ValueKind == JsonValueKind.String
             ? (el.GetString() ?? "")
             : "";
+
+    private static string ReadId(JsonElement root, string name)
+    {
+        if (!root.TryGetProperty(name, out var el))
+            return "";
+        if (el.ValueKind == JsonValueKind.String)
+            return el.GetString() ?? "";
+        if (el.ValueKind == JsonValueKind.Number && el.TryGetInt64(out var n))
+            return n.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return "";
+    }
+
+    private static bool ReadBool(JsonElement root, string name)
+        => root.TryGetProperty(name, out var el) && el.ValueKind == JsonValueKind.True;
 
     private static string ReadBlob(JsonElement root)
     {

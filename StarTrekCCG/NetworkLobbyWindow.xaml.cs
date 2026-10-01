@@ -119,6 +119,7 @@ public partial class NetworkLobbyWindow : Window
             SetMmState("Sandbox. Local decks. Online versus Sandbox. No Latinum.");
         }
         BtnBuyBooster.Visibility = _signIn.IsAccount ? Visibility.Visible : Visibility.Collapsed;
+        BtnTrade.Visibility = _signIn.IsAccount ? Visibility.Visible : Visibility.Collapsed;
         RefreshDeckList();
     }
 
@@ -1576,6 +1577,57 @@ public partial class NetworkLobbyWindow : Window
         dlg.ShowDialog();
         if (_signIn.Latinum is int shown)
             SetMmState("Account. Server deck list only. Latinum " + shown.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".");
+    }
+
+    private void BtnTrade_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_signIn.IsAccount)
+            return;
+        if (_mm == null || string.IsNullOrWhiteSpace(_signIn.Token))
+        {
+            SetMmState("Connect to the service first.");
+            return;
+        }
+        var dlg = new TradeWindow(OfferTradeAsync, ListTradesAsync, AcceptTradeAsync, DeclineTradeAsync, PoolForTradeAsync)
+        {
+            Owner = this
+        };
+        dlg.ShowDialog();
+    }
+
+    private async Task<JsonElement> OfferTradeAsync(string toName, string giveJson, string askJson)
+    {
+        if (_mm == null || string.IsNullOrWhiteSpace(_signIn.Token))
+            return TradeError("Connect to the service first.");
+        using var give = JsonDocument.Parse(giveJson);
+        using var ask = JsonDocument.Parse(askJson);
+        return await _mm.TradeOfferAsync(_signIn.Token, toName, give.RootElement.Clone(), ask.RootElement.Clone()).ConfigureAwait(true);
+    }
+
+    private Task<JsonElement> ListTradesAsync()
+        => _mm == null || string.IsNullOrWhiteSpace(_signIn.Token)
+            ? Task.FromResult(TradeError("Connect to the service first."))
+            : _mm.TradeListAsync(_signIn.Token);
+
+    private Task<JsonElement> AcceptTradeAsync(long offerId)
+        => _mm == null || string.IsNullOrWhiteSpace(_signIn.Token)
+            ? Task.FromResult(TradeError("Connect to the service first."))
+            : _mm.TradeAcceptAsync(_signIn.Token, offerId);
+
+    private Task<JsonElement> DeclineTradeAsync(long offerId)
+        => _mm == null || string.IsNullOrWhiteSpace(_signIn.Token)
+            ? Task.FromResult(TradeError("Connect to the service first."))
+            : _mm.TradeDeclineAsync(_signIn.Token, offerId);
+
+    private Task<JsonElement> PoolForTradeAsync()
+        => _mm == null || string.IsNullOrWhiteSpace(_signIn.Token)
+            ? Task.FromResult(TradeError("Connect to the service first."))
+            : _mm.GetPoolAsync(_signIn.Token);
+
+    private static JsonElement TradeError(string message)
+    {
+        using var doc = JsonDocument.Parse("{\"type\":\"error\",\"message\":" + JsonSerializer.Serialize(message) + "}");
+        return doc.RootElement.Clone();
     }
 
     private async Task<PackBuyResult> BuyPremiereBoosterAsync()

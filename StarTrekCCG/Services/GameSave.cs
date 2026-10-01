@@ -117,6 +117,8 @@ public sealed class SessionSnap
     public int RedAlertPlaysLeft { get; set; }
     public int PointsToWin { get; set; } = 100;
     public int? Winner { get; set; }
+    /// <summary>Host win reason. Older saves omit it.</summary>
+    public string? WinReason { get; set; }
     public int NextInstanceId { get; set; }
 }
 

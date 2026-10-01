@@ -8,7 +8,9 @@ using Microsoft.Data.Sqlite;
 // That insert is the one latinum credit for an account match: loser 5, winner 10.
 // Sandbox, one report, disagreeing reports, and a repeat report pay nothing.
 // buy_pack draws a Premiere booster on the server. Not enough latinum changes nothing.
-sealed class AuthStore : IDisposable
+// trade_offer / trade_accept move owned cards in one transaction, or neither.
+// A raiseTheStakes flag on both agreeing reports moves one server-picked card with the latinum.
+sealed partial class AuthStore : IDisposable
 {
     public const int NameMax = 24;
     public const int PasswordMin = 8;
@@ -27,7 +29,7 @@ sealed class AuthStore : IDisposable
     private readonly StarterGrant _starter;
     private readonly PremiereCatalog _premiere;
     private readonly object _gate = new();
-    private readonly Dictionary<string, Dictionary<string, string>> _pending = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Dictionary<string, ReportVote>> _pending = new(StringComparer.Ordinal);
 
     public AuthStore(string path)
     {
@@ -96,6 +98,14 @@ sealed class AuthStore : IDisposable
                 blob TEXT NOT NULL,
                 updated_utc TEXT NOT NULL,
                 PRIMARY KEY (match_id, kind, name)
+            );
+            CREATE TABLE IF NOT EXISTS trade_offers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                from_user INTEGER NOT NULL,
+                to_user INTEGER NOT NULL,
+                offer_json TEXT NOT NULL,
+                request_json TEXT NOT NULL,
+                created_utc TEXT NOT NULL
             );
             """;
         cmd.ExecuteNonQuery();
@@ -363,7 +373,7 @@ sealed class AuthStore : IDisposable
         return new FrozenMatch(matchId, hostSecret, guestSecret);
     }
 
-    public object Report(string? matchId, string? secret, string? winnerSeat)
+    public object Report(string? matchId, string? secret, string? winnerSeat, bool raiseTheStakes)
     {
         matchId = (matchId ?? "").Trim();
         secret = (secret ?? "").Trim();
@@ -377,7 +387,8 @@ sealed class AuthStore : IDisposable
         {
             using var cmd = _db.CreateCommand();
             cmd.CommandText = """
-                SELECT mode, host_name, guest_name, host_secret, guest_secret, host_user_id, guest_user_id
+                SELECT mode, host_name, guest_name, host_secret, guest_secret, host_user_id, guest_user_id,
+                       host_cards, guest_cards
                 FROM matches WHERE match_id = $id
                 """;
             cmd.Parameters.AddWithValue("$id", matchId);
@@ -391,6 +402,8 @@ sealed class AuthStore : IDisposable
             var guestSecret = reader.GetString(4);
             var hostUserId = reader.GetInt32(5);
             var guestUserId = reader.GetInt32(6);
+            var hostCards = reader.GetString(7);
+            var guestCards = reader.GetString(8);
             reader.Close();
 
             string seat;
@@ -412,22 +425,26 @@ sealed class AuthStore : IDisposable
 
             if (!_pending.TryGetValue(matchId, out var votes))
             {
-                votes = new Dictionary<string, string>(StringComparer.Ordinal);
+                votes = new Dictionary<string, ReportVote>(StringComparer.Ordinal);
                 _pending[matchId] = votes;
             }
-            votes[seat] = winnerSeat;
+            // raiseTheStakes is a boolean. A card id on this message is ignored.
+            votes[seat] = new ReportVote(winnerSeat, raiseTheStakes);
             if (votes.Count < 2)
                 return new { type = "report", written = false, message = "waiting for the other player" };
 
             var hostVote = votes["host"];
             var guestVote = votes["guest"];
             _pending.Remove(matchId);
-            if (!string.Equals(hostVote, guestVote, StringComparison.Ordinal))
+            if (!string.Equals(hostVote.Winner, guestVote.Winner, StringComparison.Ordinal))
                 return new { type = "report", written = false, message = "reports disagree" };
 
-            var winnerName = hostVote == "host" ? hostName : guestName;
-            var winnerId = hostVote == "host" ? hostUserId : guestUserId;
-            var loserId = hostVote == "host" ? guestUserId : hostUserId;
+            var agreed = hostVote.Winner;
+            var stakes = hostVote.RaiseTheStakes && guestVote.RaiseTheStakes;
+            var winnerName = agreed == "host" ? hostName : guestName;
+            var winnerId = agreed == "host" ? hostUserId : guestUserId;
+            var loserId = agreed == "host" ? guestUserId : hostUserId;
+            var loserCards = agreed == "host" ? guestCards : hostCards;
             var account = string.Equals(mode, "account", StringComparison.Ordinal);
             using var tx = _db.BeginTransaction();
             using var insert = _db.CreateCommand();
@@ -440,7 +457,7 @@ sealed class AuthStore : IDisposable
             insert.Parameters.AddWithValue("$mode", mode);
             insert.Parameters.AddWithValue("$host", hostName);
             insert.Parameters.AddWithValue("$guest", guestName);
-            insert.Parameters.AddWithValue("$seat", hostVote);
+            insert.Parameters.AddWithValue("$seat", agreed);
             insert.Parameters.AddWithValue("$name", winnerName);
             insert.Parameters.AddWithValue("$utc", Now());
             insert.ExecuteNonQuery();
@@ -458,13 +475,18 @@ sealed class AuthStore : IDisposable
                     rewarded = true;
                 }
             }
+            string? stakeCard = null;
+            if (account && stakes && winnerId > 0 && loserId > 0)
+                stakeCard = MoveStakeCard(loserId, winnerId, loserCards, tx);
             tx.Commit();
             DeleteAutosave(matchId);
             if (!rewarded)
                 return new { type = "report", written = true, rewarded = false, message = "written" };
             var reporterId = seat == "host" ? hostUserId : guestUserId;
             var latinum = reporterId > 0 ? ReadLatinum(reporterId) : 0;
-            return new { type = "report", written = true, rewarded = true, message = "written", latinum };
+            if (stakeCard != null)
+                return new { type = "report", written = true, rewarded = true, message = "written", latinum, raiseTheStakes = true, cardId = stakeCard };
+            return new { type = "report", written = true, rewarded = true, message = "written", latinum, raiseTheStakes = stakes };
         }
     }
 
@@ -945,3 +967,5 @@ sealed class AuthStore : IDisposable
 readonly record struct AccountUser(int Id, string Name);
 
 readonly record struct FrozenMatch(string MatchId, string HostSecret, string GuestSecret);
+
+readonly record struct ReportVote(string Winner, bool RaiseTheStakes);

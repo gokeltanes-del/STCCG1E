@@ -183,8 +183,20 @@ public sealed class MatchmakingClient : IDisposable
     public async Task<JsonElement> BuyPackAsync(string token, string packType)
         => await RequestAsync(new { type = "buy_pack", token, packType }).ConfigureAwait(false);
 
-    public async Task<JsonElement> ReportAsync(string matchId, string secret, string winner)
-        => await RequestAsync(new { type = "report", matchId, secret, winner }).ConfigureAwait(false);
+    public async Task<JsonElement> ReportAsync(string matchId, string secret, string winner, bool raiseTheStakes = false)
+        => await RequestAsync(new { type = "report", matchId, secret, winner, raiseTheStakes }).ConfigureAwait(false);
+
+    public async Task<JsonElement> TradeOfferAsync(string token, string toName, JsonElement offerCards, JsonElement requestCards)
+        => await RequestAsync(new { type = "trade_offer", token, to = toName, offerCards, requestCards }).ConfigureAwait(false);
+
+    public async Task<JsonElement> TradeListAsync(string token)
+        => await RequestAsync(new { type = "trade_list", token }).ConfigureAwait(false);
+
+    public async Task<JsonElement> TradeAcceptAsync(string token, long offerId)
+        => await RequestAsync(new { type = "trade_accept", token, offerId }).ConfigureAwait(false);
+
+    public async Task<JsonElement> TradeDeclineAsync(string token, long offerId)
+        => await RequestAsync(new { type = "trade_decline", token, offerId }).ConfigureAwait(false);
 
     public async Task<JsonElement> SaveAutoAsync(string matchId, string secret, string blob)
         => await RequestAsync(new { type = "saveAuto", matchId, secret, blob }).ConfigureAwait(false);

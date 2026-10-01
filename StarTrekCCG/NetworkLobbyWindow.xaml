@@ -205,10 +205,16 @@
                         <Button x:Name="BtnMmPlay" Content="Open direct game" Click="BtnMmPlay_Click"
                                 Height="32" HorizontalAlignment="Stretch" Cursor="Hand"
                                 Background="#3A3A48" Foreground="White" BorderThickness="0"/>
-                        <Button x:Name="BtnBuyBooster" Content="Buy booster" Click="BtnBuyBooster_Click"
-                                Height="30" HorizontalAlignment="Left" MinWidth="120" Margin="0,8,0,0" Cursor="Hand"
-                                Visibility="Collapsed"
-                                Background="#3A3A48" Foreground="#EEE" BorderThickness="0"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                            <Button x:Name="BtnBuyBooster" Content="Buy booster" Click="BtnBuyBooster_Click"
+                                    Height="30" HorizontalAlignment="Left" MinWidth="120" Margin="0,0,8,0" Cursor="Hand"
+                                    Visibility="Collapsed"
+                                    Background="#3A3A48" Foreground="#EEE" BorderThickness="0"/>
+                            <Button x:Name="BtnTrade" Content="Trade" Click="BtnTrade_Click"
+                                    Height="30" HorizontalAlignment="Left" MinWidth="88" Cursor="Hand"
+                                    Visibility="Collapsed"
+                                    Background="#3A3A48" Foreground="#EEE" BorderThickness="0"/>
+                        </StackPanel>
                         <TextBlock x:Name="MmStateText" Text="Matchmaking idle."
                                    Foreground="#8AB4F8" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"/>
                     </StackPanel>

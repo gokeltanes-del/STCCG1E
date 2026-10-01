@@ -10290,7 +10290,7 @@ public partial class TableWindow : Window
         }
         catch { /* designer / headless */ }
         RefreshActionHistory();
-        ReportMatchResult(winner);
+        ReportMatchResult(winner, HostReportedRaiseTheStakes(reason));
     }
 
     /// <summary>Spock: 1 Keep per Raise copy from loser's draw → winner Out of Play (not hand).</summary>
@@ -10851,7 +10851,7 @@ public partial class TableWindow : Window
         }
     }
 
-    private void ReportMatchResult(int winner)
+    private void ReportMatchResult(int winner, bool raiseTheStakes)
     {
         if (winner is not (1 or 2))
             return;
@@ -10872,7 +10872,7 @@ public partial class TableWindow : Window
             try
             {
                 await mm.ConnectSocketAsync(host!, port).ConfigureAwait(false);
-                await mm.ReportAsync(id, secret, seat).ConfigureAwait(false);
+                await mm.ReportAsync(id, secret, seat, raiseTheStakes).ConfigureAwait(false);
             }
             catch
             {
@@ -10884,6 +10884,11 @@ public partial class TableWindow : Window
             }
         });
     }
+
+    /// <summary>True only when the host already ended the match for Raise the Stakes. Not a card name from the client.</summary>
+    private static bool HostReportedRaiseTheStakes(string? reason)
+        => !string.IsNullOrEmpty(reason)
+           && reason.Contains("Raise the Stakes", StringComparison.Ordinal);
 
     private void OnLobbyGameStarting(NetworkLobbyWindow lobby, LobbyGameStartArgs args)
     {
@@ -16211,6 +16216,7 @@ public partial class TableWindow : Window
                 RedAlertPlaysLeft = _redAlertPlaysLeft,
                 PointsToWin = _session.PointsToWin,
                 Winner = _session.Winner,
+                WinReason = _session.WinReason,
                 NextInstanceId = CardFactory.PeekNextId
             }
         };
@@ -16871,8 +16877,8 @@ public partial class TableWindow : Window
             DevLongGameItem.IsChecked = _session.PointsToWin >= 500;
         if (s.Winner is 1 or 2)
         {
-            _session.RestoreWinner(s.Winner);
-            ReportMatchResult(s.Winner.Value);
+            _session.RestoreWinner(s.Winner, s.WinReason);
+            ReportMatchResult(s.Winner.Value, HostReportedRaiseTheStakes(s.WinReason));
         }
         _raiseKeepsResolved = _session.Winner is > 0;
         _session.OncePerGame.Clear();
