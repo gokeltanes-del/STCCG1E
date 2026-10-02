@@ -1,6 +1,6 @@
 # TABLEWINDOW_INVENTORY — Ist der Tischdatei
 
-**Stand:** 2026-09-28 (`8083785`)  
+**Stand:** 2026-10-02 (`4ec69fe`)  
 **Dateien:** `TableWindow.xaml`, `TableWindow.xaml.cs` (~33 440 Zeilen, ~974 Methoden), `TableWindow.DetailGroups.cs`
 
 Keine Slice-Geschichte. Systeme außerhalb: `ENGINE.md`. Ablauf: `IMPLEMENT.md`.

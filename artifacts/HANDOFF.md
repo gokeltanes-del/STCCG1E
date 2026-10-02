@@ -1,12 +1,24 @@
-﻿﻿﻿﻿# HANDOFF â€” STCCG 1E
+﻿# HANDOFF — STCCG 1E
 
-**Stand:** 2026-10-01 · **Ort:** Josef `C:\Dev\StarTrekCCG\StarTrekCCG` · **HEAD:** account deck pool, not green, project not done · **origin/master:** e04c9c7 (Pepsch push 2026-10-01)
+**Stand:** 2026-10-02 · **Ort:** Josef `C:\Dev\StarTrekCCG\StarTrekCCG` · **HEAD:** `4ec69fe` · **origin/master:** `4ec69fe`
 
 Nur aktueller BrÃ¼ckenstand. Historie: `CHANGELOG.md`. Status: `CARD_TRACKER.md`, `FEATURES.md`, Coverage.
 
 ---
 
 ## Jetzt aktiv
+
+**Startbildschirm und Online-Lobby-Integration, nicht gruen:** lokal getippt, nicht getestet, nicht gepusht.
+- Neues `MainMenuWindow.xaml` und `ThemeSkin.xaml` an den Koordinaten von TableWindow. TopBar Statusleiste (44px), LeftRail (156px mit 5 Navigationsbuttons und Lounge/Friends), Center Main Viewscreen, Bottom Social (130px mit Avatars 2/3 und Tabbed Chat 1/3), RightRail (260px mit Back, Shop/Latinum und Reserve-Slots).
+- Viewscreen oben mittig: Zwei prominente Haupt-Game-Launch-Buttons:
+  1. "OFFICIAL MATCH (RANKED)" (Relay · Account Card Pool · Rated)
+  2. "HOLODECK (OPEN RULES)" (Sandbox · All Cards Unlocked · Freeplay)
+- Automatischer Server-Connect im Hintergrund: Bei Login verbindet sich der Client direkt mit dem Server (Standard TCP 7788) und tritt dem Raum "Lounge" bei, ohne manuelle IP/Port/Raum-Eingabemasken.
+- Lounge Crew Avatar-Dock: Zeigt live die tatsächlich auf dem Server online verbundenen Spieler (`PlayerListChanged`).
+- Neuer Kommunikations-Flow: Button auf Crew-Karten von "CHAT" in "INVITE TO CHAT" umgewandelt. Wechselt in den "PRIVATE"-Konferenzkanal und ermöglicht das Einladen mehrerer Teilnehmer in private Chatgruppen.
+- "PLAY"-Button an Crew-Karten öffnet die Matchauswahl (Ranked vs. Holodeck).
+- `NetworkLobbyWindow.xaml`: Manuelle IP-, Port- und Raumeingaben standardmäßig in ein minimiertes "Advanced"-Panel verlegt; automatische Verbindung und Bereinigung überflüssiger technischer Felder für einen sauberen Online-Workflow.
+- Start über `App.xaml` auf MainMenuWindow verdrahtet; `ThemeSkin.xaml` und `LobbyChrome.xaml` global in `App.xaml` (`Application.Resources`) registriert, damit alle Windows und Controls die Skin-Ressourcen ohne Ladefehler finden. Fehler in `DeckBuilderWindow` (TwoWay/OneWay-Bindung auf schreibgeschütztes `Type` in `Run`) behoben. Nicht gruen.
 
 
 **Deckbuilder am Account-Pool, Schritt 7, nicht gruen:** lokal getippt, nicht getestet, nicht gepusht. Hauptmenue ohne Account-Login, und Sandbox: volle lokale Kartenliste, lokale Deckdateien, unveraendert. Nach dem Lobby-Login im Account-Modus laedt der Deckbuilder `get_pool`. Karten, die das Konto nicht besitzt, bleiben in der Liste, grau, Menge 0. Die Zeile zeigt Pool-Menge und Deck-Menge. Eine weitere Kopie ueber die Pool-Menge wird nicht hinzugefuegt. Speichern und Laden gehen als cardIds auf das Konto, Deckformat v3 bleibt fuer lokale Dateien. Bevor ein Account-Match einfriert, prueft der Server beide Decks gegen `account_cards`. Fehlt eine Karte oder liegt die Menge darueber, lehnt er Ready und Start ab und nennt die Karte. Dieses Deck wird nicht auf die Partie eingefroren. Hotseat unveraendert. Kein Elo, kein Zuschauen, keine KI. Nicht gruen.

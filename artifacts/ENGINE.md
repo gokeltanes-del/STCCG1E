@@ -1,6 +1,6 @@
 # ENGINE — Ist-Landkarte des Codes
 
-**Stand:** 2026-09-28 (`8083785`)  
+**Stand:** 2026-10-02 (`4ec69fe`)  
 **Pfad:** `StarTrekCCG/` (Live Josef, Kopie `artifacts/StarTrekCCG/`)
 
 Suchindex zuerst, dann Dateien. Offenes steht in `HANDOFF.md`, `FEATURES.md`, `CARD_TRACKER.md`.  
@@ -33,6 +33,7 @@ Zuerst diese Tabelle, dann `Rule:` / `Glossary:` / `Verb:` im Code.
 
 | Thema / Phrase | Zuerst | Dann |
 |---|---|---|
+| Main Bridge / Lobby UI | `MainMenuWindow.xaml` | `ThemeSkin.xaml`, `Zone_Center_Main`, `MatchmakingClient` |
 | Darf ich das jetzt? | `LegalMoves.Collect` | `EngineAuthority.Evaluate` |
 | Typ der Karte | `CardKinds.Of` | `UsesNormalCardPlay`, `IsAnytimeType` |
 | Ins Spiel kommen | `PlayRules.CanEnterPlay` | Unique/`PersonaKey` |
@@ -92,7 +93,9 @@ Kein Treffer: `ENGINE.md` Wortliste unten, dann Dateiname `*Rules`, dann TableWi
 
 | Datei | Wofür | Größe ca. |
 |-------|--------|-----------|
-| `App.xaml(.cs)` | WPF-Start, leer | klein |
+| `App.xaml(.cs)` | WPF-Start (StartupUri MainMenuWindow.xaml) | klein |
+| `MainMenuWindow.xaml(.cs)` | Startbildschirm & Hauptmenü (Bridge-Skin) | neu |
+| `ThemeSkin.xaml` | Thematisches Skin- & Farbressourcen-Framework | neu |
 | `TableWindow.xaml(.cs)` | Tisch, ~974 Methoden, ~33k Zeilen | Apply-Ort |
 | `TableWindow.DetailGroups.cs` | Detailgruppen-Text | nicht Regelwahrheit |
 | `DeckBuilderWindow.*` | Deckbau | — |

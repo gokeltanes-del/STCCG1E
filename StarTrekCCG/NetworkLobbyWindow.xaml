@@ -24,48 +24,50 @@
                 <TextBlock Text="Connect, pick decks, both Ready — Host starts when both ready"
                            Foreground="#888" FontSize="11" Margin="0,0,0,16"/>
 
-                <!-- Connect panel -->
-                <StackPanel x:Name="ConnectPanel">
-                    <Grid Margin="0,0,0,12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="110"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
+                <!-- Direct LAN / Offline Connect panel (Collapsible) -->
+                <Expander x:Name="DirectConnectExpander" Header="Direct LAN / Localhost (Optional Direct IP)" Foreground="#8AB4F8" FontSize="11" Margin="0,0,0,12" IsExpanded="False">
+                    <StackPanel x:Name="ConnectPanel" Margin="0,8,0,0">
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="110"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
 
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Port"
-                                   Foreground="#AAA" VerticalAlignment="Center" Margin="0,0,0,8"/>
-                        <TextBox x:Name="PortBox" Grid.Row="0" Grid.Column="1"
-                                 Text="7777" Height="28" Padding="6,3" Margin="0,0,0,8"
-                                 Background="#1E1E22" Foreground="#EEE" BorderBrush="#3A3A48"/>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Port"
+                                       Foreground="#AAA" VerticalAlignment="Center" Margin="0,0,0,8"/>
+                            <TextBox x:Name="PortBox" Grid.Row="0" Grid.Column="1"
+                                     Text="7777" Height="28" Padding="6,3" Margin="0,0,0,8"
+                                     Background="#1E1E22" Foreground="#EEE" BorderBrush="#3A3A48"/>
 
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Host address"
-                                   Foreground="#AAA" VerticalAlignment="Center"/>
-                        <TextBox x:Name="HostBox" Grid.Row="1" Grid.Column="1"
-                                 Text="127.0.0.1" Height="28" Padding="6,3"
-                                 Background="#1E1E22" Foreground="#EEE" BorderBrush="#3A3A48"/>
-                    </Grid>
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Host address"
+                                       Foreground="#AAA" VerticalAlignment="Center"/>
+                            <TextBox x:Name="HostBox" Grid.Row="1" Grid.Column="1"
+                                     Text="127.0.0.1" Height="28" Padding="6,3"
+                                     Background="#1E1E22" Foreground="#EEE" BorderBrush="#3A3A48"/>
+                        </Grid>
 
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="0,0,0,12">
-                        <Button x:Name="BtnHost" Content="Host" Click="BtnHost_Click"
-                                Height="34" MinWidth="88" Margin="0,0,8,0" Cursor="Hand"
-                                Background="#0E639C" Foreground="White" BorderThickness="0"/>
-                        <Button x:Name="BtnJoin" Content="Join" Click="BtnJoin_Click"
-                                Height="34" MinWidth="88" Margin="0,0,8,0" Cursor="Hand"
-                                Background="#0E639C" Foreground="White" BorderThickness="0"/>
-                        <Button x:Name="BtnLocalhost" Content="Localhost" Click="BtnLocalhost_Click"
-                                Height="34" MinWidth="88" Margin="0,0,8,0" Cursor="Hand"
-                                Background="#3A3A48" Foreground="White" BorderThickness="0"/>
-                        <Button x:Name="BtnDisconnect" Content="Disconnect" Click="BtnDisconnect_Click"
-                                Height="34" MinWidth="96" Cursor="Hand" IsEnabled="False"
-                                Background="#5A2A2A" Foreground="White" BorderThickness="0"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="0,0,0,8">
+                            <Button x:Name="BtnHost" Content="Host" Click="BtnHost_Click"
+                                    Height="32" MinWidth="80" Margin="0,0,8,0" Cursor="Hand"
+                                    Background="#0E639C" Foreground="White" BorderThickness="0"/>
+                            <Button x:Name="BtnJoin" Content="Join" Click="BtnJoin_Click"
+                                    Height="32" MinWidth="80" Margin="0,0,8,0" Cursor="Hand"
+                                    Background="#0E639C" Foreground="White" BorderThickness="0"/>
+                            <Button x:Name="BtnLocalhost" Content="Localhost" Click="BtnLocalhost_Click"
+                                    Height="32" MinWidth="80" Margin="0,0,8,0" Cursor="Hand"
+                                    Background="#3A3A48" Foreground="White" BorderThickness="0"/>
+                            <Button x:Name="BtnDisconnect" Content="Disconnect" Click="BtnDisconnect_Click"
+                                    Height="32" MinWidth="88" Cursor="Hand" IsEnabled="False"
+                                    Background="#5A2A2A" Foreground="White" BorderThickness="0"/>
+                        </StackPanel>
+                        <TextBlock Text="Direct IP and Localhost use port 7777 (Host opens UPnP/PCP). For online internet play, use Relay below."
+                                   Foreground="#AAA" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4"/>
                     </StackPanel>
-                    <TextBlock Text="Direct IP and Localhost use this port (default 7777). Host still opens it with UPnP or PCP. That is not Play via relay."
-                               Foreground="#AAA" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4"/>
-                </StackPanel>
+                </Expander>
 
                 <!-- Lobby room (after handshake) -->
                 <Border x:Name="LobbyPanel" Background="#1A1A1E" CornerRadius="4" Padding="12,10"
@@ -142,42 +144,45 @@
                 <Border Background="#1A1A1E" CornerRadius="4" Padding="12,10"
                         BorderBrush="#3A3A48" BorderThickness="1" Margin="0,0,0,12">
                     <StackPanel>
-                        <TextBlock Text="Server" Foreground="#EEE" FontSize="13" FontWeight="SemiBold"/>
-                        <TextBlock Text="Outside the home LAN, play only through this server on TCP 7788. Both clients connect out. The server does not play the rules. If the host PC dies, the match still dies after 120s. Play via relay does not listen on 7777 and does not use UPnP or PCP."
+                        <TextBlock Text="Server Matchmaking" Foreground="#EEE" FontSize="13" FontWeight="SemiBold"/>
+                        <TextBlock Text="Connect to the central server on TCP 7788 for official ranked matches and lounge matchmaking. Outside the LAN, play through relay without manual port-forwarding."
                                    Foreground="#AAA" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,8"/>
-                        <Grid Margin="0,0,0,8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="110"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Server" Foreground="#AAA" VerticalAlignment="Center" Margin="0,0,0,6"/>
-                            <TextBox x:Name="MmServiceBox" Grid.Row="0" Grid.Column="1" Text="127.0.0.1:7788"
-                                     Height="28" Padding="6,3" Margin="0,0,0,6"
-                                     Background="#1E1E22" Foreground="#EEE" BorderBrush="#3A3A48"/>
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Your name" Foreground="#AAA" VerticalAlignment="Center" Margin="0,0,0,6"/>
-                            <TextBox x:Name="MmNameBox" Grid.Row="1" Grid.Column="1" Text=""
-                                     Height="28" Padding="6,3" Margin="0,0,0,6"
-                                     Background="#1E1E22" Foreground="#EEE" BorderBrush="#3A3A48"/>
-                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Room" Foreground="#AAA" VerticalAlignment="Center"/>
-                            <TextBox x:Name="MmRoomBox" Grid.Row="2" Grid.Column="1" Text="Table"
-                                     Height="28" Padding="6,3"
-                                     Background="#1E1E22" Foreground="#EEE" BorderBrush="#3A3A48"/>
-                        </Grid>
-                        <TextBlock Text="Server address: a domain or an IP, with the port. Same PC: 127.0.0.1:7788. Another PC: the host machine's LAN address and port 7788. A public game: a public host and port 7788. No domain name is set up in this build."
-                                   Foreground="#AAA" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                        
+                        <!-- Collapsible Advanced Connection Box (Hidden by default since login connects automatically) -->
+                        <Expander Header="Server &amp; Room Settings (Advanced)" Foreground="#8AB4F8" FontSize="11" Margin="0,0,0,8" IsExpanded="False">
+                            <Grid Margin="0,6,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="110"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Server" Foreground="#AAA" VerticalAlignment="Center" Margin="0,0,0,6"/>
+                                <TextBox x:Name="MmServiceBox" Grid.Row="0" Grid.Column="1" Text="127.0.0.1:7788"
+                                         Height="28" Padding="6,3" Margin="0,0,0,6"
+                                         Background="#1E1E22" Foreground="#EEE" BorderBrush="#3A3A48"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Your name" Foreground="#AAA" VerticalAlignment="Center" Margin="0,0,0,6"/>
+                                <TextBox x:Name="MmNameBox" Grid.Row="1" Grid.Column="1" Text=""
+                                         Height="28" Padding="6,3" Margin="0,0,0,6"
+                                         Background="#1E1E22" Foreground="#EEE" BorderBrush="#3A3A48"/>
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Room" Foreground="#AAA" VerticalAlignment="Center"/>
+                                <TextBox x:Name="MmRoomBox" Grid.Row="2" Grid.Column="1" Text="Table"
+                                         Height="28" Padding="6,3"
+                                         Background="#1E1E22" Foreground="#EEE" BorderBrush="#3A3A48"/>
+                            </Grid>
+                        </Expander>
+
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                             <Button x:Name="BtnMmConnect" Content="Connect" Click="BtnMmConnect_Click"
                                     Height="30" MinWidth="72" Margin="0,0,6,0" Cursor="Hand"
                                     Background="#0E639C" Foreground="White" BorderThickness="0"/>
-                            <Button x:Name="BtnMmCreate" Content="Create" Click="BtnMmCreate_Click"
-                                    Height="30" MinWidth="72" Margin="0,0,6,0" Cursor="Hand"
+                            <Button x:Name="BtnMmCreate" Content="Create Room" Click="BtnMmCreate_Click"
+                                    Height="30" MinWidth="82" Margin="0,0,6,0" Cursor="Hand"
                                     Background="#3A3A48" Foreground="White" BorderThickness="0"/>
-                            <Button x:Name="BtnMmJoin" Content="Join room" Click="BtnMmJoin_Click"
+                            <Button x:Name="BtnMmJoin" Content="Join Room" Click="BtnMmJoin_Click"
                                     Height="30" MinWidth="80" Margin="0,0,6,0" Cursor="Hand"
                                     Background="#3A3A48" Foreground="White" BorderThickness="0"/>
                             <Button x:Name="BtnMmRefresh" Content="Rooms" Click="BtnMmRefresh_Click"

@@ -1,7 +1,7 @@
 # Compendium 2.7.4 — Appendix A Coverage
 
 Quelle: `rules/Compendium_Rulebook.pdf` (Appendix A: Errata p. 226–321). Lookup: `IMPLEMENT.md`.
-Stand: 2026-09-19. Scope: Premiere; ➖ = nicht jetzt.
+Stand: 2026-10-02. Scope: Premiere; ➖ = nicht jetzt.
 
 ✅ spielbar · 🟡 Lücken · ❌ fehlt · ➖ später
 

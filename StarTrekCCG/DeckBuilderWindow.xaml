@@ -123,18 +123,18 @@
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <StackPanel Margin="2">
-                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{Binding NameBrush}"/>
-                                <TextBlock Text="{Binding PoolLabel}" Foreground="#9CDCFE" FontSize="10"
-                                           Visibility="{Binding PoolVisibility}"/>
+                                <TextBlock Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold" Foreground="{Binding NameBrush, Mode=OneWay}"/>
+                                <TextBlock Text="{Binding PoolLabel, Mode=OneWay}" Foreground="#9CDCFE" FontSize="10"
+                                           Visibility="{Binding PoolVisibility, Mode=OneWay}"/>
                                 <TextBlock Foreground="#888" FontSize="11">
-                                <Run Text="{Binding Type}"/>
-                                <Run Text=" • "/>
-                                <Run Text="{Binding Affiliation}"/>
+                                    <Run Text="{Binding Type, Mode=OneWay}"/>
+                                    <Run Text=" • "/>
+                                    <Run Text="{Binding Affiliation, Mode=OneWay}"/>
                                 </TextBlock>
                                 <TextBlock Foreground="#6A9" FontSize="10">
-                                <Run Text="{Binding Quadrant}"/>
-                                <Run Text=" "/>
-                                <Run Text="{Binding Region}"/>
+                                    <Run Text="{Binding Quadrant, Mode=OneWay}"/>
+                                    <Run Text=" "/>
+                                    <Run Text="{Binding Region, Mode=OneWay}"/>
                                 </TextBlock>
                             </StackPanel>
                         </DataTemplate>
@@ -290,10 +290,10 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <StackPanel>
-                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
-                                            <TextBlock Foreground="#888" FontSize="11" Text="{Binding Type}"/>
+                                            <TextBlock Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold"/>
+                                            <TextBlock Foreground="#888" FontSize="11" Text="{Binding Type, Mode=OneWay}"/>
                                         </StackPanel>
-                                        <TextBlock Grid.Column="1" Text="{Binding Quantity, StringFormat={}{0}x}"
+                                        <TextBlock Grid.Column="1" Text="{Binding Quantity, Mode=OneWay, StringFormat={}{0}x}"
                                                FontWeight="Bold" Foreground="#4EC9B0" VerticalAlignment="Center"
                                                Margin="8,0,4,0"/>
                                     </Grid>

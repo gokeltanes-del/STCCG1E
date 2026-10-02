@@ -12,6 +12,14 @@ namespace StarTrekCCG.Network;
 /// Talks to the in-memory lobby service. Deck JSON never leaves this process through here.
 /// The socket URL is always ws://host:port/lobby. No other path is fetched.
 /// </summary>
+public sealed class LobbyPlayerInfo
+{
+    public string Name { get; init; } = "";
+    public string Role { get; init; } = "";
+    public string DeckName { get; init; } = "";
+    public string DeckHash { get; init; } = "";
+}
+
 public sealed class MatchmakingClient : IDisposable
 {
     private readonly SemaphoreSlim _send = new(1, 1);
@@ -40,6 +48,7 @@ public sealed class MatchmakingClient : IDisposable
 
     public event Action<string>? StateChanged;
     public event Action<string>? PlayersChanged;
+    public event Action<IReadOnlyList<LobbyPlayerInfo>>? PlayerListChanged;
     public event Action<string>? ChatChanged;
     public event Action<string, int>? AddressAnnounced;
     public event Action? SavesChanged;
@@ -474,6 +483,7 @@ public sealed class MatchmakingClient : IDisposable
                     DirectPort = 0;
                     Saves = Array.Empty<LobbySaveInfo>();
                     PlayersChanged?.Invoke("");
+                    PlayerListChanged?.Invoke(Array.Empty<LobbyPlayerInfo>());
                     SavesChanged?.Invoke();
                     StateChanged?.Invoke(ReadString(root, "message"));
                     break;
@@ -505,26 +515,37 @@ public sealed class MatchmakingClient : IDisposable
         }
 
         var players = new StringBuilder();
+        var playerList = new List<LobbyPlayerInfo>();
         if (root.TryGetProperty("players", out var arr) && arr.ValueKind == JsonValueKind.Array)
         {
             foreach (var p in arr.EnumerateArray())
             {
+                var pName = ReadString(p, "name");
+                var pRole = ReadString(p, "role");
+                var pDeck = ReadString(p, "deckName");
                 var hash = ReadString(p, "deckHash");
                 var shortHash = hash.Length >= 8 ? hash[..8] : (hash.Length == 0 ? "no hash" : hash);
+                playerList.Add(new LobbyPlayerInfo
+                {
+                    Name = pName,
+                    Role = pRole,
+                    DeckName = pDeck,
+                    DeckHash = hash
+                });
                 if (players.Length > 0)
                     players.AppendLine();
-                players.Append(ReadString(p, "role"));
+                players.Append(pRole);
                 players.Append(' ');
-                players.Append(ReadString(p, "name"));
+                players.Append(pName);
                 players.Append(" — ");
-                var deck = ReadString(p, "deckName");
-                players.Append(deck.Length == 0 ? "no deck" : "deck");
+                players.Append(pDeck.Length == 0 ? "no deck" : "deck");
                 players.Append(" (");
                 players.Append(shortHash);
                 players.Append(')');
             }
         }
         PlayersChanged?.Invoke(players.ToString());
+        PlayerListChanged?.Invoke(playerList);
 
         var chat = new StringBuilder();
         if (root.TryGetProperty("lines", out var lines) && lines.ValueKind == JsonValueKind.Array)

@@ -1283,17 +1283,17 @@ public partial class DeckBuilderWindow : Window
             PoolQuantity = poolQuantity;
         }
 
-        public Card Card { get; }
-        public int PoolQuantity { get; }
-        public string Name => Card.Name;
-        public string? Type => Card.Type;
-        public string? Affiliation => Card.Affiliation;
-        public string? Quadrant => Card.Quadrant;
-        public string? Region => Card.Region;
-        public bool Unowned => PoolQuantity == 0;
-        public string PoolLabel => PoolQuantity < 0 ? "" : "pool " + PoolQuantity;
-        public Visibility PoolVisibility => PoolQuantity < 0 ? Visibility.Collapsed : Visibility.Visible;
-        public Brush NameBrush => PoolQuantity == 0 ? GreyName : Brushes.White;
+        public Card Card { get; set; }
+        public int PoolQuantity { get; set; }
+        public string Name { get => Card.Name; set { } }
+        public string? Type { get => Card.Type; set { } }
+        public string? Affiliation { get => Card.Affiliation; set { } }
+        public string? Quadrant { get => Card.Quadrant; set { } }
+        public string? Region { get => Card.Region; set { } }
+        public bool Unowned { get => PoolQuantity == 0; set { } }
+        public string PoolLabel { get => PoolQuantity < 0 ? "" : "pool " + PoolQuantity; set { } }
+        public Visibility PoolVisibility { get => PoolQuantity < 0 ? Visibility.Collapsed : Visibility.Visible; set { } }
+        public Brush NameBrush { get => PoolQuantity == 0 ? GreyName : Brushes.White; set { } }
 
         private static SolidColorBrush CreateGrey()
         {

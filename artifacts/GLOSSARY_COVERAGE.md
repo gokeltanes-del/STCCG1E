@@ -1,7 +1,7 @@
 # Compendium 2.7.4 — Glossary Coverage
 
 Quelle: `rules/Compendium_Rulebook.pdf` (Glossary p. 104–224). Ablauf: `IMPLEMENT.md`. Wahrheit für spielbare Zellen: `RULES_CHECKLIST.md`.
-Stand: 2026-09-19. Scope: Premiere; ➖ = nicht jetzt.
+Stand: 2026-10-02. Scope: Premiere; ➖ = nicht jetzt.
 
 ✅ spielbar · 🟡 Lücken · ❌ fehlt · ➖ später
 

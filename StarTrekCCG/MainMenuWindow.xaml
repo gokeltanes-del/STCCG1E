@@ -1,0 +1,525 @@
+<Window x:Class="StarTrekCCG.MainMenuWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Star Trek CCG 1E – Main Bridge"
+        Height="900" Width="1680"
+        MinHeight="768" MinWidth="1280"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource SkinBrush_WindowBackground}"
+        Loaded="MainMenuWindow_Loaded">
+
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="ThemeSkin.xaml"/>
+                <ResourceDictionary Source="LobbyChrome.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <!-- Overall Window Structure: Follows TableWindow.xaml coordinates and layout zones -->
+    <DockPanel LastChildFill="True">
+
+        <!-- ========================================================================= -->
+        <!-- ZONE_TOPBAR (Top Status Bar)                                              -->
+        <!-- Coordinates & Geometry: Full Width, MinHeight ~44px                       -->
+        <!-- ========================================================================= -->
+        <Border x:Name="Zone_TopBar"
+                DockPanel.Dock="Top"
+                Background="{StaticResource SkinBrush_HeaderBarGradient}"
+                BorderBrush="{StaticResource SkinBrush_OuterFrame}"
+                BorderThickness="0,0,0,2"
+                MinHeight="44"
+                Padding="16,6">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/> <!-- Player Name & Rank & Faction -->
+                    <ColumnDefinition Width="*"/>    <!-- Center dynamic banner / spacer -->
+                    <ColumnDefinition Width="Auto"/> <!-- Login/Logout & Online Indicator -->
+                </Grid.ColumnDefinitions>
+
+                <!-- Left: Profile Info -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock x:Name="PlayerNameText"
+                               Text="CAPTAIN RIX"
+                               Foreground="#FFFFFF"
+                               FontSize="16"
+                               FontWeight="Bold"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Text="  ·  " Foreground="#64748B" VerticalAlignment="Center" FontSize="14"/>
+                    <TextBlock x:Name="PlayerRankText"
+                               Text="CADET"
+                               Foreground="#94A3B8"
+                               FontSize="14"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Text="  ·  " Foreground="#64748B" VerticalAlignment="Center" FontSize="14"/>
+                    <TextBlock x:Name="PlayerFactionText"
+                               Text="FEDERATION"
+                               Foreground="#38BDF8"
+                               FontSize="14"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Right: Auth Button & Online Status LED -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="BtnAuthSwitch"
+                            Content="LOGIN"
+                            Click="BtnAuthSwitch_Click"
+                            Style="{StaticResource SkinStyle_SciFiButton}"
+                            Height="28"
+                            Padding="12,2"
+                            Margin="0,0,16,0"/>
+
+                    <Ellipse x:Name="OnlineIndicatorLight"
+                             Width="10"
+                             Height="10"
+                             Fill="{StaticResource SkinBrush_GreenOnline}"
+                             VerticalAlignment="Center"
+                             Margin="0,0,6,0"/>
+
+                    <TextBlock x:Name="OnlineStatusText"
+                               Text="online"
+                               Foreground="#E2E8F0"
+                               FontSize="13"
+                               FontWeight="Medium"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ========================================================================= -->
+        <!-- CORE BODY GRID (Left Rail, Center Main Screen, Right Rail)                -->
+        <!-- Widths: LeftRail 156px, Center *, RightRail 260px (matches TableWindow)   -->
+        <!-- ========================================================================= -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="156"/> <!-- ZONE_LEFTRAIL -->
+                <ColumnDefinition Width="*"/>   <!-- ZONE_CENTER_MAIN & ZONE_BOTTOM_SOCIAL -->
+                <ColumnDefinition Width="260"/> <!-- ZONE_RIGHTRAIL -->
+            </Grid.ColumnDefinitions>
+
+            <!-- ===================================================================== -->
+            <!-- ZONE_LEFTRAIL (156px)                                                 -->
+            <!-- ===================================================================== -->
+            <Border Grid.Column="0"
+                    Background="{StaticResource SkinBrush_RailBackground}"
+                    BorderBrush="{StaticResource SkinBrush_OuterFrame}"
+                    BorderThickness="0,0,2,0"
+                    Padding="8,10">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <!-- Upper 5 buttons -->
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                        <!-- Lower 2 buttons (Lounge, Friends) -->
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Upper 5 Buttons: PLAY, COLLECTION, DECKS, CAREER, OPTIONS -->
+                    <UniformGrid Grid.Row="0" Columns="1" Margin="0,0,0,10">
+                        <Button x:Name="BtnNavPlay"
+                                Content="PLAY"
+                                Click="BtnNavPlay_Click"
+                                Style="{StaticResource SkinStyle_SciFiButton}"
+                                Margin="2,4"/>
+                        <Button x:Name="BtnNavCollection"
+                                Content="COLLECTION"
+                                Click="BtnNavCollection_Click"
+                                Style="{StaticResource SkinStyle_SciFiButton}"
+                                Margin="2,4"/>
+                        <Button x:Name="BtnNavDecks"
+                                Content="DECKS"
+                                Click="BtnNavDecks_Click"
+                                Style="{StaticResource SkinStyle_SciFiButton}"
+                                Margin="2,4"/>
+                        <Button x:Name="BtnNavCareer"
+                                Content="CAREER"
+                                Click="BtnNavCareer_Click"
+                                Style="{StaticResource SkinStyle_SciFiButton}"
+                                Margin="2,4"/>
+                        <Button x:Name="BtnNavOptions"
+                                Content="OPTIONS"
+                                Click="BtnNavOptions_Click"
+                                Style="{StaticResource SkinStyle_SciFiButton}"
+                                Margin="2,4"/>
+                    </UniformGrid>
+
+                    <Separator Grid.Row="1" Background="{StaticResource SkinBrush_InnerFrame}" Margin="4,4,4,10"/>
+
+                    <!-- Lower 2 Buttons: LOUNGE, FRIENDS -->
+                    <StackPanel Grid.Row="2" Orientation="Vertical">
+                        <Button x:Name="BtnNavLounge"
+                                Content="LOUNGE"
+                                Click="BtnNavLounge_Click"
+                                Style="{StaticResource SkinStyle_SciFiButton}"
+                                Height="42"
+                                Margin="2,3"/>
+                        <Button x:Name="BtnNavFriends"
+                                Content="FRIENDS"
+                                Click="BtnNavFriends_Click"
+                                Style="{StaticResource SkinStyle_SciFiButton}"
+                                Height="42"
+                                Margin="2,3"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- ===================================================================== -->
+            <!-- ZONE_CENTER_MAIN & ZONE_BOTTOM_SOCIAL                                 -->
+            <!-- ===================================================================== -->
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>     <!-- ZONE_CENTER_MAIN (Dynamic Viewscreen) -->
+                    <RowDefinition Height="130"/>   <!-- ZONE_BOTTOM_SOCIAL (Avatars 2/3 + Chat 1/3) -->
+                </Grid.RowDefinitions>
+
+                <!-- 1. Center Main Screen (Dynamic Content Area) -->
+                <Border Grid.Row="0"
+                        Margin="8,8,8,4"
+                        Background="{StaticResource SkinBrush_CenterBackground}"
+                        BorderBrush="{StaticResource SkinBrush_OuterFrame}"
+                        BorderThickness="2"
+                        CornerRadius="8"
+                        ClipToBounds="True">
+                    <Grid>
+                        <!-- Simulated / Fallback Deep Space Viewscreen Background -->
+                        <Grid x:Name="SpaceBackdropGrid">
+                            <Grid.Background>
+                                <RadialGradientBrush Center="0.5,0.45" RadiusX="0.65" RadiusY="0.55">
+                                    <GradientStop Color="#1E3A5F" Offset="0"/>
+                                    <GradientStop Color="#0F1F38" Offset="0.35"/>
+                                    <GradientStop Color="#080D16" Offset="0.8"/>
+                                    <GradientStop Color="#03060B" Offset="1"/>
+                                </RadialGradientBrush>
+                            </Grid.Background>
+                            
+                            <!-- Star nebula decorative element -->
+                            <Border Opacity="0.35" HorizontalAlignment="Center" VerticalAlignment="Center" Width="800" Height="400">
+                                <Border.Background>
+                                    <RadialGradientBrush Center="0.5,0.5" RadiusX="0.5" RadiusY="0.5">
+                                        <GradientStop Color="#D97706" Offset="0"/>
+                                        <GradientStop Color="#0284C7" Offset="0.45"/>
+                                        <GradientStop Color="Transparent" Offset="1"/>
+                                    </RadialGradientBrush>
+                                </Border.Background>
+                            </Border>
+                        </Grid>
+
+                        <!-- Dynamic Content Container -->
+                        <ContentControl x:Name="MainScreenContentHost">
+                            <!-- Default view is the Bridge Viewscreen with Quick Actions & Prominent Match Launch -->
+                            <Grid HorizontalAlignment="Center" VerticalAlignment="Stretch" Margin="0,16,0,16">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/> <!-- Top: Prominent Match Buttons -->
+                                    <RowDefinition Height="*"/>    <!-- Center/Bottom: Welcome Panel & Quick Nav -->
+                                </Grid.RowDefinitions>
+
+                                <!-- Top Prominent Game Mode Selection Buttons -->
+                                <Border Grid.Row="0"
+                                        HorizontalAlignment="Center"
+                                        Background="#E60D1826"
+                                        BorderBrush="{StaticResource SkinBrush_InnerFrame}"
+                                        BorderThickness="1.5"
+                                        CornerRadius="10"
+                                        Padding="20,14"
+                                        Margin="0,0,0,16">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                        <!-- Official Match (Ranked) -->
+                                        <Button x:Name="BtnLaunchRankedMatch"
+                                                Click="BtnLaunchRankedMatch_Click"
+                                                Style="{StaticResource SkinStyle_SciFiButton}"
+                                                Width="280"
+                                                Height="70"
+                                                Margin="8,0">
+                                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <TextBlock Text="OFFICIAL MATCH (RANKED)"
+                                                           Foreground="#FDE047"
+                                                           FontSize="15"
+                                                           FontWeight="Bold"
+                                                           HorizontalAlignment="Center"/>
+                                                <TextBlock Text="Relay · Account Card Pool · Rated"
+                                                           Foreground="#CBD5E1"
+                                                           FontSize="11"
+                                                           HorizontalAlignment="Center"
+                                                           Margin="0,3,0,0"/>
+                                            </StackPanel>
+                                        </Button>
+
+                                        <!-- Holodeck (Open Rules) -->
+                                        <Button x:Name="BtnLaunchHolodeckMatch"
+                                                Click="BtnLaunchHolodeckMatch_Click"
+                                                Style="{StaticResource SkinStyle_SciFiButton}"
+                                                Width="280"
+                                                Height="70"
+                                                Margin="8,0">
+                                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <TextBlock Text="HOLODECK (OPEN RULES)"
+                                                           Foreground="{StaticResource SkinBrush_CyanAccent}"
+                                                           FontSize="15"
+                                                           FontWeight="Bold"
+                                                           HorizontalAlignment="Center"/>
+                                                <TextBlock Text="Sandbox · All Cards Unlocked · Freeplay"
+                                                           Foreground="#CBD5E1"
+                                                           FontSize="11"
+                                                           HorizontalAlignment="Center"
+                                                           Margin="0,3,0,0"/>
+                                            </StackPanel>
+                                        </Button>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Secondary Console / System Status & Quick Actions -->
+                                <Border Grid.Row="1"
+                                        Background="#D015202E"
+                                        BorderBrush="{StaticResource SkinBrush_InnerFrame}"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Padding="28,18"
+                                        MaxWidth="640"
+                                        VerticalAlignment="Center">
+                                    <StackPanel HorizontalAlignment="Center">
+                                        <TextBlock Text="MAIN BRIDGE VIEWSCREEN"
+                                                   Foreground="{StaticResource SkinBrush_CyanAccent}"
+                                                   FontSize="16"
+                                                   FontWeight="Bold"
+                                                   HorizontalAlignment="Center"
+                                                   Margin="0,0,0,6"/>
+                                        <TextBlock Text="Welcome to Star Trek CCG 1E. Choose a match protocol above or select an operation below."
+                                                   Foreground="#CBD5E1"
+                                                   FontSize="12"
+                                                   TextWrapping="Wrap"
+                                                   TextAlignment="Center"
+                                                   Margin="0,0,0,16"/>
+                                        <WrapPanel HorizontalAlignment="Center">
+                                            <Button Content="HOTSEAT TABLE"
+                                                    Click="BtnQuickLaunchGame_Click"
+                                                    Style="{StaticResource SkinStyle_SciFiButton}"
+                                                    Padding="16,8"
+                                                    Margin="6"/>
+                                            <Button Content="NETWORK LOBBY"
+                                                    Click="BtnNavLounge_Click"
+                                                    Style="{StaticResource SkinStyle_SciFiButton}"
+                                                    Padding="16,8"
+                                                    Margin="6"/>
+                                            <Button Content="DECK BUILDER"
+                                                    Click="BtnNavDecks_Click"
+                                                    Style="{StaticResource SkinStyle_SciFiButton}"
+                                                    Padding="16,8"
+                                                    Margin="6"/>
+                                        </WrapPanel>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                        </ContentControl>
+                    </Grid>
+                </Border>
+
+                <!-- 2. Bottom Social Zone: Left 2/3 Avatars, Right 1/3 Chat -->
+                <Grid Grid.Row="1" Margin="8,4,8,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2*"/> <!-- 2/3: Avatars Dock (Lounge / Friends) -->
+                        <ColumnDefinition Width="*"/>  <!-- 1/3: Tabbed Chat -->
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Avatar Dock (Horizontal Scroll) -->
+                    <Border Grid.Column="0"
+                            Background="{StaticResource SkinBrush_FooterBackground}"
+                            BorderBrush="{StaticResource SkinBrush_OuterFrame}"
+                            BorderThickness="2"
+                            CornerRadius="6"
+                            Margin="0,0,4,0"
+                            Padding="6,4">
+                        <DockPanel LastChildFill="True">
+                            <TextBlock x:Name="AvatarDockTitle"
+                                       DockPanel.Dock="Top"
+                                       Text="LOUNGE CREW"
+                                       Foreground="{StaticResource SkinBrush_CyanAccent}"
+                                       FontSize="11"
+                                       FontWeight="SemiBold"
+                                       Margin="6,0,0,4"/>
+
+                            <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                          VerticalScrollBarVisibility="Disabled">
+                                <StackPanel x:Name="AvatarsContainerPanel"
+                                            Orientation="Horizontal"
+                                            VerticalAlignment="Center">
+                                    <!-- Populated dynamically in code-behind or with initial demo items -->
+                                </StackPanel>
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- Tabbed Chat Room -->
+                    <Border Grid.Column="1"
+                            Background="{StaticResource SkinBrush_FooterBackground}"
+                            BorderBrush="{StaticResource SkinBrush_OuterFrame}"
+                            BorderThickness="2"
+                            CornerRadius="6"
+                            Margin="4,0,0,0"
+                            Padding="6,4">
+                        <DockPanel LastChildFill="True">
+                            <!-- Chat Tabs -->
+                            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,4">
+                                <Button x:Name="BtnChatTabLounge"
+                                        Content="LOUNGE"
+                                        Click="BtnChatTab_Click"
+                                        Tag="Lounge"
+                                        Style="{StaticResource SkinStyle_ActionMiniButton}"
+                                        Width="60"/>
+                                <Button x:Name="BtnChatTabPrivate"
+                                        Content="PRIVATE"
+                                        Click="BtnChatTab_Click"
+                                        Tag="Private"
+                                        Style="{StaticResource SkinStyle_ActionMiniButton}"
+                                        Width="60"/>
+                            </StackPanel>
+
+                            <!-- Chat Input Box & Send Button -->
+                            <DockPanel DockPanel.Dock="Bottom" Margin="0,4,0,0">
+                                <Button x:Name="BtnChatSend"
+                                        DockPanel.Dock="Right"
+                                        Content="SEND"
+                                        Click="BtnChatSend_Click"
+                                        Style="{StaticResource SkinStyle_ActionMiniButton}"
+                                        Width="48"
+                                        Margin="4,0,0,0"/>
+                                <TextBox x:Name="ChatInputBox"
+                                         Height="20"
+                                         Padding="4,1"
+                                         FontSize="11"
+                                         Background="#141C24"
+                                         Foreground="#EEE"
+                                         BorderBrush="{StaticResource SkinBrush_InnerFrame}"
+                                         KeyDown="ChatInputBox_KeyDown"/>
+                            </DockPanel>
+
+                            <!-- Chat History View -->
+                            <ScrollViewer x:Name="ChatScrollViewer"
+                                          VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Disabled">
+                                <TextBox x:Name="ChatHistoryBox"
+                                         IsReadOnly="True"
+                                         TextWrapping="Wrap"
+                                         Background="Transparent"
+                                         Foreground="#CBD5E1"
+                                         BorderThickness="0"
+                                         FontSize="11"/>
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Border>
+                </Grid>
+            </Grid>
+
+            <!-- ===================================================================== -->
+            <!-- ZONE_RIGHTRAIL (260px)                                                -->
+            <!-- Matches Table Permanents Width in TableWindow                         -->
+            <!-- ===================================================================== -->
+            <Border Grid.Column="2"
+                    Background="{StaticResource SkinBrush_RailBackground}"
+                    BorderBrush="{StaticResource SkinBrush_OuterFrame}"
+                    BorderThickness="2,0,0,0"
+                    Padding="10,10">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/> <!-- BACK BUTTON (Square/Compact) -->
+                        <RowDefinition Height="*"/>    <!-- 3 Action / Feature Buttons -->
+                    </Grid.RowDefinitions>
+
+                    <!-- Top Right: Square BACK Button -->
+                    <Border Grid.Row="0" Margin="0,0,0,12" HorizontalAlignment="Right">
+                        <Button x:Name="BtnNavBack"
+                                Content="◀ BACK"
+                                Click="BtnNavBack_Click"
+                                Style="{StaticResource SkinStyle_SciFiButton}"
+                                Width="88"
+                                Height="36"/>
+                    </Border>
+
+                    <!-- Right Column 3 Vertically Distributed Slots: SHOP + 2 Placeholders -->
+                    <UniformGrid Grid.Row="1" Columns="1">
+                        <!-- 1. SHOP Button & Latinum Status -->
+                        <Border Margin="2,6"
+                                Background="{StaticResource SkinBrush_CardTileGradient}"
+                                BorderBrush="{StaticResource SkinBrush_InnerFrame}"
+                                BorderThickness="1.5"
+                                CornerRadius="6"
+                                Padding="8">
+                            <DockPanel LastChildFill="True">
+                                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,4,0,6">
+                                    <TextBlock Text="🪙 " FontSize="16" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="LatinumAmountText"
+                                               Text="240"
+                                               Foreground="{StaticResource SkinBrush_GoldAccent}"
+                                               FontSize="16"
+                                               FontWeight="Bold"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Text=" Latinum"
+                                               Foreground="#94A3B8"
+                                               FontSize="12"
+                                               VerticalAlignment="Center"
+                                               Margin="4,0,0,0"/>
+                                </StackPanel>
+                                <Button x:Name="BtnShopOpen"
+                                        Content="CARD PACK SHOP"
+                                        Click="BtnShopOpen_Click"
+                                        Style="{StaticResource SkinStyle_SciFiButton}"
+                                        Height="38"
+                                        VerticalAlignment="Bottom"/>
+                            </DockPanel>
+                        </Border>
+
+                        <!-- 2. PLACEHOLDER 1 (Reserve / Locked Feature) -->
+                        <Border Margin="2,6"
+                                Background="#16222F"
+                                BorderBrush="#2A3D50"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="8"
+                                Opacity="0.6">
+                            <Grid>
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <TextBlock Text="[ RESERVE ]"
+                                               Foreground="#64748B"
+                                               FontSize="13"
+                                               FontWeight="Bold"
+                                               HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Feature Slot 1"
+                                               Foreground="#475569"
+                                               FontSize="11"
+                                               HorizontalAlignment="Center"
+                                               Margin="0,4,0,0"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- 3. PLACEHOLDER 2 (Reserve / Locked Feature) -->
+                        <Border Margin="2,6"
+                                Background="#16222F"
+                                BorderBrush="#2A3D50"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="8"
+                                Opacity="0.6">
+                            <Grid>
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <TextBlock Text="[ RESERVE ]"
+                                               Foreground="#64748B"
+                                               FontSize="13"
+                                               FontWeight="Bold"
+                                               HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Feature Slot 2"
+                                               Foreground="#475569"
+                                               FontSize="11"
+                                               HorizontalAlignment="Center"
+                                               Margin="0,4,0,0"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </UniformGrid>
+                </Grid>
+            </Border>
+        </Grid>
+    </DockPanel>
+</Window>

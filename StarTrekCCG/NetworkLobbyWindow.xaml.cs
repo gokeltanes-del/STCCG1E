@@ -98,7 +98,7 @@ public partial class NetworkLobbyWindow : Window
     {
     }
 
-    public NetworkLobbyWindow(LobbySignIn signIn)
+    public NetworkLobbyWindow(LobbySignIn signIn, bool ranked = true)
     {
         _signIn = signIn ?? LobbySignIn.Sandbox();
         InitializeComponent();
@@ -123,6 +123,19 @@ public partial class NetworkLobbyWindow : Window
         BtnTrade.Visibility = _signIn.IsAccount ? Visibility.Visible : Visibility.Collapsed;
         BtnDeckBuilder.Visibility = _signIn.IsAccount ? Visibility.Visible : Visibility.Collapsed;
         RefreshDeckList();
+
+        // Auto-connect to matchmaking on open
+        _ = AutoConnectMatchmakingAsync();
+    }
+
+    private async Task AutoConnectMatchmakingAsync()
+    {
+        try
+        {
+            await Task.Yield();
+            BtnMmConnect_Click(this, new RoutedEventArgs());
+        }
+        catch { /* ignore */ }
     }
 
     private async void BtnHost_Click(object sender, RoutedEventArgs e)

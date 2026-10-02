@@ -1,6 +1,6 @@
-# STCCG 1E ? Card Expansion Tracker
+# STCCG 1E — Card Expansion Tracker
 
-Last updated: 2026-09-27 (GitHub `master` `b4aca0e`). Scope: **Premiere** (`PR`) + **Alternate Universe** catalogued. **Priority: finish unfinished Premiere cards; Netz-Fixes parallel nach HANDOFF.** AU is logged only; not prioritized unless already wired.
+Last updated: 2026-10-02 (GitHub `master` `4ec69fe`). Scope: **Premiere** (`PR`) + **Alternate Universe** catalogued. **Priority: finish unfinished Premiere cards; Netz-Fixes parallel nach HANDOFF.** AU is logged only; not prioritized unless already wired.
 
 ## Priority (Pepsch 2026-09-19)
 

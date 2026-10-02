@@ -1,3 +1,32 @@
+## 2026-10-02 - Unified main bridge UI and seamless online matchmaking
+
+- Getippt, nicht getestet, nicht gruen, nicht gepusht.
+- Integration der Online-Lobby und Matchmaking direkt in die Hauptbrücke (`MainMenuWindow.xaml`, `MainMenuWindow.xaml.cs`):
+  - Viewscreen oben mittig (`Zone_Center_Main`): Zwei prominente Schnellstart-Buttons:
+    1. "OFFICIAL MATCH (RANKED)" (Relay · Account Card Pool · Rated)
+    2. "HOLODECK (OPEN RULES)" (Sandbox · All Cards Unlocked · Freeplay)
+  - Automatischer Server-Connect im Hintergrund: Bei Login verbindet sich der Client direkt mit dem Server (Standard TCP 7788) und tritt dem zentralen Raum "Lounge" bei, ohne manuelle IP/Port/Raum-Eingabemasken.
+  - Lounge Crew Avatar-Dock: Zeigt live die tatsächlich auf dem Server online verbundenen Spieler (`PlayerListChanged`).
+  - Neuer Kommunikations-Flow: Button auf Crew-Karten von "CHAT" in "INVITE TO CHAT" umgewandelt. Wechselt in den "PRIVATE"-Konferenzkanal und ermöglicht das Einladen mehrerer Teilnehmer in private Chatgruppen.
+  - "PLAY"-Button an Crew-Karten öffnet die Matchauswahl (Ranked vs. Holodeck).
+  - `NetworkLobbyWindow.xaml`: Manuelle IP-, Port- und Raumeingaben standardmäßig in ein minimiertes "Advanced"-Panel verlegt; automatische Verbindung und Bereinigung überflüssiger technischer Felder für einen sauberen Online-Workflow.
+- `DeckBuilderWindow.xaml` / `DeckBuilderWindow.xaml.cs`: Behebung von `XamlParseException` (`Mode=OneWay` für `Run.Text` Bindings und Property-Setters für `BrowserRow`).
+- Nicht gruen.
+
+## 2026-10-02 - Unified main bridge UI and skin framework
+
+- Getippt, nicht getestet, nicht gruen, nicht gepusht. Neues Startbildschirm- und Framework-Layout an den Koordinaten von TableWindow (`MainMenuWindow.xaml`, `MainMenuWindow.xaml.cs`, `ThemeSkin.xaml`).
+- Strukturierte Zonen:
+  - `Zone_TopBar` oben (Höhe ~44px): Spielername, Rang, Fraktion, Login/Logout-Umschalter, Onlinestatus-LED (grün/rot).
+  - `Zone_LeftRail` links (156px): 5 Hauptbuttons gleichmäßig verteilt (`PLAY`, `COLLECTION`, `DECKS`, `CAREER`, `OPTIONS`) und darunter 2 Buttons (`LOUNGE`, `FRIENDS`).
+  - `Zone_Center_Main` Mitte (*): dynamischer Viewscreen mit Sci-Fi/Space-Hintergrund und Navigationsinhalten.
+  - `Zone_Bottom_Social` unten (130px): 2/3 Avatar-Dock (horizontal scrollbar, interaktive Buttons Chat, Trade, Play) und 1/3 Chatfenster mit Lounge- und Private-Tabs.
+  - `Zone_RightRail` rechts (260px): kompakter quadratischer Back-Button oben, darunter Card-Pack-Shop (Latinum-Anzeige) und zwei Platzhalter.
+- `App.xaml` bindet `ThemeSkin.xaml` und `LobbyChrome.xaml` global in `Application.Resources` ein und startet auf `MainMenuWindow.xaml`.
+- `MainMenuWindow.xaml`: `Background` von `StaticResource` auf `DynamicResource SkinBrush_WindowBackground` geändert zur Laufzeitauflösung beim Start.
+- `DeckBuilderWindow.xaml` / `DeckBuilderWindow.xaml.cs`: Fehler `XamlParseException` ("TwoWay- oder OneWayToSource-Bindungen funktionieren nicht mit schreibgeschützter Eigenschaft 'Type'") behoben. `Run Text="{Binding Type, Mode=OneWay}"` und Setter an `BrowserRow` Properties ergänzt.
+- Nicht gruen.
+
 ## 2026-10-01 - Account deck builder uses the card pool
 
 - Getippt, nicht getestet, nicht gruen, nicht gepusht. Schritt 7. Der Deckbuilder aus dem Hauptmenue ohne Account-Login, und Sandbox, bleiben die volle lokale Kartenliste und lokale Deckdateien. Nach dem Lobby-Login im Account-Modus laedt er `get_pool`. Nicht besessene Karten bleiben sichtbar, grau, Menge 0. Pool-Menge und Deck-Menge stehen in der Zaehlerzeile. Mehr Kopien als die Pool-Menge werden nicht hinzugefuegt. Speichern und Laden eines Account-Decks gehen als cardIds. Deckformat v3 bleibt fuer lokale Dateien.
