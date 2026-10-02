@@ -15,11 +15,12 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Shapes;
 using System.Windows.Threading;
 using Microsoft.Win32;
 using StarTrekCCG.Models;
 using StarTrekCCG.Network;
+using Ellipse = System.Windows.Shapes.Ellipse;
+using Path = System.IO.Path;
 
 namespace StarTrekCCG;
 
@@ -537,7 +538,6 @@ public partial class MainMenuWindow : Window
     private void BtnNavBack_Click(object sender, RoutedEventArgs e)
     {
         CloseMatchLobby();
-        MainScreenContentHost.Content = null;
     }
 
     private void BtnLaunchRankedMatch_Click(object sender, RoutedEventArgs e)
@@ -610,7 +610,7 @@ public partial class MainMenuWindow : Window
             {
                 try
                 {
-                    var res = await _matchmaking.BuyBoosterAsync(_signIn.Token, "premiere").ConfigureAwait(true);
+                    var res = await _matchmaking.BuyPackAsync(_signIn.Token, "premiere").ConfigureAwait(true);
                     if (res.TryGetProperty("type", out var typeEl) && typeEl.GetString() == "booster")
                     {
                         var lat = res.TryGetProperty("latinum", out var latEl) && latEl.TryGetInt32(out var n) ? n : (_signIn.Latinum ?? 100) - 50;
@@ -628,11 +628,11 @@ public partial class MainMenuWindow : Window
                         return PackBuyResult.Bought(lat, ids);
                     }
                     var msg = res.TryGetProperty("message", out var m) ? m.GetString() : "Purchase failed.";
-                    return PackBuyResult.Failed(msg ?? "Purchase failed.");
+                    return PackBuyResult.Fail(msg ?? "Purchase failed.");
                 }
                 catch (Exception ex)
                 {
-                    return PackBuyResult.Failed(ex.Message);
+                    return PackBuyResult.Fail(ex.Message);
                 }
             }
             await Task.Delay(500);
@@ -646,11 +646,16 @@ public partial class MainMenuWindow : Window
     private void LaunchTradeWindow()
     {
         var trade = new TradeWindow(
-            (to, give, ask) => _matchmaking.OfferTradeAsync(_signIn.Token ?? "", to, give, ask),
-            () => _matchmaking.ListTradesAsync(_signIn.Token ?? ""),
-            id => _matchmaking.AcceptTradeAsync(_signIn.Token ?? "", id),
-            id => _matchmaking.CancelTradeAsync(_signIn.Token ?? "", id),
-            () => Task.FromResult(default(JsonElement))
+            (to, give, ask) =>
+            {
+                var giveArr = JsonSerializer.Deserialize<JsonElement>(give);
+                var askArr = JsonSerializer.Deserialize<JsonElement>(ask);
+                return _matchmaking.TradeOfferAsync(_signIn.Token ?? "", to, giveArr, askArr);
+            },
+            () => _matchmaking.TradeListAsync(_signIn.Token ?? ""),
+            id => _matchmaking.TradeAcceptAsync(_signIn.Token ?? "", id),
+            id => _matchmaking.TradeDeclineAsync(_signIn.Token ?? "", id),
+            () => _matchmaking.GetPoolAsync(_signIn.Token ?? "")
         );
         trade.Owner = this;
         trade.ShowDialog();
