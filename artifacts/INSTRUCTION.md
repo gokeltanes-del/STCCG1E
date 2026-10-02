@@ -245,7 +245,7 @@ Code-Baum kurz:
 StarTrekCCG/
   TableWindow.xaml(.cs)     Tisch
   DeckBuilderWindow.*       Deckbau
-  NetworkLobbyWindow.*      Netz-Lobby
+  MainMenuWindow.*          Startbildschirm & integrierte Match-Lobby
   Models/                   Card, Deck
   Game/                     LegalMoves, EngineAuthority, *Rules, Board/
   Network/                  TCP/JSON Host-Gast

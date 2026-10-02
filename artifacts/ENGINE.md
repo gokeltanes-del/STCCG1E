@@ -67,7 +67,7 @@ Zuerst diese Tabelle, dann `Rule:` / `Glossary:` / `Verb:` im Code.
 | Netz Choice | `AskChoiceForPlayer` | `NetChoiceDto`, `OnNetChoiceRequestReceived` |
 | Play-Fly-in Face | `ShowPlayFlyIn`, `NetPlayRevealDto` | `FindLiveCardWithArt` |
 | Save / Dual-EXE Board | `CaptureGameSave` / `ApplyGameSave` | `GameSave.cs`, Spans-Snapshot |
-| Lobby | `NetworkLobbyWindow` | `NetLobbyDto`, `TryStartNetSessionFromLobby` |
+| Lobby | `MainMenuWindow` (integrierte Match-Konsole) | `NetLobbyDto`, `StartNetSessionFromLobby` |
 | Deckbau | `DeckBuilderWindow` | `DeckService`, `CardDatabase` |
 
 Kein Treffer: `ENGINE.md` Wortliste unten, dann Dateiname `*Rules`, dann TableWindow-Methode mit gleichem Verb.
@@ -78,7 +78,7 @@ Kein Treffer: `ENGINE.md` Wortliste unten, dann Dateiname `*Rules`, dann TableWi
 
 | Schicht | Ort | Aufgabe |
 |---------|-----|---------|
-| Oberfläche | `TableWindow*`, `DeckBuilderWindow*`, `NetworkLobbyWindow*` | Geste, Paint, Ask, Lobby |
+| Oberfläche | `TableWindow*`, `DeckBuilderWindow*`, `MainMenuWindow*` | Geste, Paint, Ask, Lobby |
 | Netz | `Network/` | TCP/JSON, Host-Gast, Choice, Reveal, Mask |
 | Session | `Services/` | JSON, Decks, Save, Zug |
 | Druck | `Models/` | Was auf der Karte steht |
@@ -99,7 +99,7 @@ Kein Treffer: `ENGINE.md` Wortliste unten, dann Dateiname `*Rules`, dann TableWi
 | `TableWindow.xaml(.cs)` | Tisch, ~974 Methoden, ~33k Zeilen | Apply-Ort |
 | `TableWindow.DetailGroups.cs` | Detailgruppen-Text | nicht Regelwahrheit |
 | `DeckBuilderWindow.*` | Deckbau | — |
-| `NetworkLobbyWindow.*` | Host / Join / Localhost / Skip-Seed | — |
+| `MainMenuWindow.*` | Startbildschirm, Lounge, integrierte Match-Konsole & Lobby | — |
 
 ---
 

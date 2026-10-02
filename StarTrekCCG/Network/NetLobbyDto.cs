@@ -105,7 +105,7 @@ public static class NetLobbyDto
     }
 }
 
-/// <summary>Args for NetworkLobbyWindow.GameStarting (both sides after StartGame).</summary>
+/// <summary>Args for lobby GameStarting (both sides after StartGame).</summary>
 public sealed class LobbyGameStartArgs : EventArgs
 {
     public bool IsHost { get; init; }

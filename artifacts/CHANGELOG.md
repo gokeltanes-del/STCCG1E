@@ -1,3 +1,18 @@
+## 2026-10-02 - Persistent Lounge room, presence sync and embedded match console
+
+- Vollständig getestet und verifiziert via `LobbyService` Integrationstest.
+- Permanenter Lounge-Community-Raum im Server (`LobbyService/Program.cs`):
+  - Vorab im `RoomBook` instanziiert und permanent gehalten (`room.IsLounge = true`, `room.Mode = "all"`).
+  - Unterstützt beliebig viele verbundene Spieler (`Members`-Liste).
+  - Automatischer Broadcast (`RoomNotes(room)`) an alle Lounge-Teilnehmer beim Beitreten, Verlassen oder Wechseln in Match-Räume.
+  - Spieler sehen sich gegenseitig live im `LOUNGE CREW (ONLINE)` Avatar-Dock.
+  - Behebt die vorherige Fehlermeldung `[Server: no such room]`.
+- Vollständige Entfernung des `NetworkLobbyWindow`-Popup-Fensters:
+  - `StarTrekCCG/NetworkLobbyWindow.xaml` und `StarTrekCCG/NetworkLobbyWindow.xaml.cs` gelöscht.
+  - Sämtliche Match-Netzwerk-, Deckauswahl- und Spielstart-Funktionen direkt in `MainMenuWindow` (`MatchLobbyGrid`) integriert.
+  - Schneller Wechsel zwischen Brückenübersicht (`BridgeOverviewGrid`) und integrierter Match-Konsole (`MatchLobbyGrid`) ohne störende Popup-Dialoge.
+  - Entkopplung von `TableWindow`: Direkte Übergabe der aktiven Sockets via `StartNetSessionFromLobby(server, client, link, isHost, hostAddress, hostPort, args)`.
+
 ## 2026-10-02 - Unified main bridge UI and seamless online matchmaking
 
 - Getippt, nicht getestet, nicht gruen, nicht gepusht.

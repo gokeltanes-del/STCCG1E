@@ -154,6 +154,9 @@ public sealed class MatchmakingClient : IDisposable
         return SendAsync(env);
     }
 
+    public Task LeaveAsync()
+        => SendAsync(Envelope("leave"));
+
     public async Task BeginAsync()
     {
         TaskCompletionSource<bool> wait;

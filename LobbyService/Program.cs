@@ -420,13 +420,16 @@ sealed record Outbound(LobbySession To, object Payload);
 
 sealed class RoomBook
 {
+    public const string LoungeRoomName = "Lounge";
+
     private readonly object _gate = new();
-    private readonly Dictionary<string, Room> _rooms = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Room> _rooms = new(StringComparer.OrdinalIgnoreCase);
     private readonly AuthStore _auth;
 
     public RoomBook(AuthStore auth)
     {
         _auth = auth;
+        _rooms[LoungeRoomName] = new Room { Name = LoungeRoomName, Mode = "all" };
     }
 
     public object List()
@@ -434,13 +437,13 @@ sealed class RoomBook
         lock (_gate)
         {
             return _rooms.Values
-                .OrderBy(r => r.Name, StringComparer.Ordinal)
+                .OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
                 .Select(r => new
                 {
                     name = r.Name,
-                    hostName = r.Host?.Name ?? "",
-                    players = (r.Host == null ? 0 : 1) + (r.Guest == null ? 0 : 1),
-                    open = r.Host == null || r.Guest == null,
+                    hostName = r.IsLounge ? "Server" : (r.Host?.Name ?? ""),
+                    players = r.IsLounge ? r.Members.Count : ((r.Host == null ? 0 : 1) + (r.Guest == null ? 0 : 1)),
+                    open = r.IsLounge || (r.Host == null || r.Guest == null),
                     mode = r.Mode
                 })
                 .ToArray();
@@ -452,13 +455,27 @@ sealed class RoomBook
         roomName = LobbySession.ClipName(roomName, 24);
         if (roomName.Length == 0 || !RoomNameOk(roomName))
             return Err(who, "room name must be 1-24 letters, digits, space, _ or -");
+        if (string.Equals(roomName, LoungeRoomName, StringComparison.OrdinalIgnoreCase))
+            return Err(who, "Lounge is a permanent room");
         if (gamePort is < 1 or > 65535)
             return Err(who, "game port is not valid");
 
         lock (_gate)
         {
-            if (FindSeat(who) != null)
-                return Err(who, "leave the current room first");
+            var notes = new List<Outbound>();
+            var current = FindSeat(who);
+            if (current != null)
+            {
+                if (current.Value.Room.IsLounge)
+                {
+                    current.Value.Room.Members.RemoveAll(s => ReferenceEquals(s.Session, who));
+                    notes.AddRange(RoomNotes(current.Value.Room));
+                }
+                else
+                {
+                    return Err(who, "leave the current room first");
+                }
+            }
             if (_rooms.Count >= Limits.MaxRooms)
                 return Err(who, "too many rooms");
             if (_rooms.ContainsKey(roomName))
@@ -467,7 +484,8 @@ sealed class RoomBook
             var room = new Room { Name = roomName, ListenPort = gamePort, Mode = who.Mode };
             room.Host = new Seat { Session = who, Name = who.Name, Role = "host", Engine = who.Engine, CardHash = who.CardHash };
             _rooms[roomName] = room;
-            return RoomNotes(room);
+            notes.AddRange(RoomNotes(room));
+            return notes;
         }
     }
 
@@ -476,10 +494,50 @@ sealed class RoomBook
         roomName = LobbySession.ClipName(roomName, 24);
         lock (_gate)
         {
-            if (FindSeat(who) != null)
-                return Err(who, "leave the current room first");
+            var notes = new List<Outbound>();
+            var isLoungeTarget = string.Equals(roomName, LoungeRoomName, StringComparison.OrdinalIgnoreCase);
+            var current = FindSeat(who);
+            if (current != null)
+            {
+                if (current.Value.Room.IsLounge)
+                {
+                    if (isLoungeTarget)
+                    {
+                        // Already in Lounge; refresh view
+                        return RoomNotes(current.Value.Room);
+                    }
+                    current.Value.Room.Members.RemoveAll(s => ReferenceEquals(s.Session, who));
+                    notes.AddRange(RoomNotes(current.Value.Room));
+                }
+                else
+                {
+                    return Err(who, "leave the current room first");
+                }
+            }
+
+            if (isLoungeTarget && !_rooms.ContainsKey(LoungeRoomName))
+            {
+                _rooms[LoungeRoomName] = new Room { Name = LoungeRoomName, Mode = "all" };
+            }
+
             if (!_rooms.TryGetValue(roomName, out var room))
                 return Err(who, "no such room");
+
+            if (room.IsLounge)
+            {
+                var seat = new Seat
+                {
+                    Session = who,
+                    Name = who.Name,
+                    Role = "member",
+                    Engine = who.Engine,
+                    CardHash = who.CardHash
+                };
+                room.Members.Add(seat);
+                notes.AddRange(RoomNotes(room));
+                return notes;
+            }
+
             if (!string.Equals(room.Mode, who.Mode, StringComparison.Ordinal))
                 return Err(who, "a match is one mode");
             if (room.Host != null && room.Guest != null)
@@ -495,7 +553,8 @@ sealed class RoomBook
                 room.Guest = new Seat { Session = who, Name = who.Name, Role = "guest", Engine = who.Engine, CardHash = who.CardHash };
                 room.GuestLobbyClosed = false;
             }
-            return RoomNotes(room);
+            notes.AddRange(RoomNotes(room));
+            return notes;
         }
     }
 
@@ -563,6 +622,8 @@ sealed class RoomBook
             var found = FindSeat(who);
             if (found == null)
                 return Err(who, "join a room first");
+            if (found.Value.Room.IsLounge)
+                return Err(who, "cannot start a match in Lounge");
             if (!string.Equals(found.Value.Seat.Role, "host", StringComparison.Ordinal))
                 return Err(who, "only the host freezes the match");
             var room = found.Value.Room;
@@ -612,6 +673,8 @@ sealed class RoomBook
             var found = FindSeat(who);
             if (found == null)
                 return Err(who, "join a room first");
+            if (found.Value.Room.IsLounge)
+                return Err(who, "cannot load in Lounge");
             if (!string.Equals(found.Value.Seat.Role, "host", StringComparison.Ordinal))
                 return Err(who, "only the host loads a saved game");
             var room = found.Value.Room;
@@ -660,6 +723,8 @@ sealed class RoomBook
             var found = FindSeat(who);
             if (found == null)
                 return Err(who, "join a room first");
+            if (found.Value.Room.IsLounge)
+                return Err(who, "cannot publish address in Lounge");
             if (!string.Equals(found.Value.Seat.Role, "host", StringComparison.Ordinal))
                 return Err(who, "only the host publishes the address");
             found.Value.Room.Address = ip.ToString();
@@ -677,6 +742,15 @@ sealed class RoomBook
             if (found == null)
                 return new List<Outbound>();
             var room = found.Value.Room;
+
+            if (room.IsLounge)
+            {
+                room.Members.RemoveAll(s => ReferenceEquals(s.Session, who));
+                var notes = RoomNotes(room);
+                notes.Add(new Outbound(who, new { type = "gone", message = "you left" }));
+                return notes;
+            }
+
             // The match is already frozen and the relay seat was authorized.
             // Closing the lobby window must keep this playerId so the same role
             // can replace its relay socket. RelayHub releases the record after
@@ -716,6 +790,13 @@ sealed class RoomBook
     {
         foreach (var room in _rooms.Values)
         {
+            if (room.IsLounge)
+            {
+                var member = room.Members.FirstOrDefault(s => ReferenceEquals(s.Session, who));
+                if (member != null)
+                    return (room, member);
+                continue;
+            }
             if (ReferenceEquals(room.Host?.Session, who))
                 return (room, room.Host);
             if (ReferenceEquals(room.Guest?.Session, who))
@@ -726,14 +807,50 @@ sealed class RoomBook
 
     private List<Outbound> RoomNotes(Room room)
     {
+        var notes = new List<Outbound>();
+        if (room.IsLounge)
+        {
+            var view = LoungeRoomView(room);
+            foreach (var member in room.Members)
+            {
+                notes.Add(new Outbound(member.Session, view));
+            }
+            return notes;
+        }
+
         var saves = SavesFor(room);
         var note = SaveNote(room, saves.Length);
-        var notes = new List<Outbound>();
         if (room.Host != null)
             notes.Add(new Outbound(room.Host.Session, RoomView(room, "host", saves, note)));
         if (room.Guest != null)
             notes.Add(new Outbound(room.Guest.Session, RoomView(room, "guest", saves, note)));
         return notes;
+    }
+
+    private static object LoungeRoomView(Room room)
+    {
+        return new
+        {
+            type = "room",
+            name = room.Name,
+            role = "member",
+            address = "",
+            port = 0,
+            listenPort = 0,
+            versionKnown = true,
+            versionOk = true,
+            versionNote = "Lounge",
+            players = room.Members.Select(s => new
+            {
+                name = s.Name,
+                role = s.Role,
+                deckName = s.DeckName ?? "",
+                deckHash = s.DeckHash ?? ""
+            }).ToArray(),
+            lines = room.Lines.Select(l => new { from = l.From, text = l.Text }).ToArray(),
+            saves = Array.Empty<object>(),
+            saveNote = ""
+        };
     }
 
     private object[] SavesFor(Room room)
@@ -799,6 +916,8 @@ sealed class RoomBook
         {
             if (!_rooms.TryGetValue(roomName, out var room))
                 return "no such room";
+            if (room.IsLounge)
+                return "cannot relay in Lounge";
             var seat = role == "host" ? room.Host : room.Guest;
             if (seat == null)
                 return "that seat is empty";
@@ -827,6 +946,8 @@ sealed class RoomBook
         lock (_gate)
         {
             if (!_rooms.TryGetValue(roomName, out var room))
+                return new List<Outbound>();
+            if (room.IsLounge)
                 return new List<Outbound>();
             if (room.MatchId == null || !room.RelayHeld)
                 return new List<Outbound>();
@@ -933,12 +1054,14 @@ sealed class RoomBook
     {
         public string Name { get; set; } = "";
         public string Mode { get; set; } = "sandbox";
+        public bool IsLounge => string.Equals(Name, RoomBook.LoungeRoomName, StringComparison.OrdinalIgnoreCase);
         public int ListenPort { get; set; }
         public string? MatchId { get; set; }
         public string? HostSecret { get; set; }
         public string? GuestSecret { get; set; }
         public Seat? Host { get; set; }
         public Seat? Guest { get; set; }
+        public List<Seat> Members { get; } = new();
         public string? Address { get; set; }
         public int Port { get; set; }
         public bool RelayHeld { get; set; }

@@ -77,7 +77,6 @@ public partial class TableWindow : Window
 
     private enum GameMode { Hotseat, Network, SingleAi }
     private GameMode _gameMode = GameMode.Hotseat;
-    private NetworkLobbyWindow? _networkLobby;
     private bool _networkLobbyConnected;
     private NetPlaySession? _netSession;
     private bool _netGraceActive;
@@ -10639,22 +10638,6 @@ public partial class TableWindow : Window
 
     private void OpenNetworkLobby()
     {
-        if (_networkLobby != null)
-        {
-            try
-            {
-                if (_networkLobby.IsLoaded)
-                {
-                    _networkLobby.Activate();
-                    return;
-                }
-            }
-            catch
-            {
-                _networkLobby = null;
-            }
-        }
-
         var gate = new AccountGateWindow { Owner = this };
         if (gate.ShowDialog() != true)
         {
@@ -10662,52 +10645,104 @@ public partial class TableWindow : Window
                 ModeNetwork.IsChecked = false;
             return;
         }
-        var lobby = new NetworkLobbyWindow(gate.Result) { Owner = this };
-        // Stay in lobby after connect — NetPlaySession starts only on GameStarting (both ready).
-        lobby.ConnectionChanged += (_, connected) =>
-        {
-            _networkLobbyConnected = connected;
-            if (ModeNetwork?.IsChecked == true)
-                ApplySelectedGameMode();
-        };
-        lobby.GameStarting += (_, args) =>
-        {
-            try
-            {
-                OnLobbyGameStarting(lobby, args);
-            }
-            catch (Exception ex)
-            {
-                StatusText.Text = "Network start failed: " + ex.Message;
-                MessageBox.Show(this, "Network start failed:\n" + ex.Message, "Network Lobby",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
-        };
-        lobby.Closed += (_, _) =>
-        {
-            // Keep _networkLobbyConnected if session owns the transport.
-            if (_netSession == null)
-                _networkLobbyConnected = lobby.IsConnected;
-            if (ReferenceEquals(_networkLobby, lobby))
-                _networkLobby = null;
-            if (ModeNetwork?.IsChecked == true)
-                ApplySelectedGameMode();
-        };
-        _networkLobby = lobby;
-        lobby.Show();
+        var mainMenu = new MainMenuWindow(gate.Result);
+        mainMenu.Show();
+        Close();
     }
 
     /// <summary>
-    /// Phase 3: detach lobby transport into NetPlaySession and start receive loop on UI sync context.
+    /// Phase 3: start NetPlaySession from lobby transport and start receive loop on UI sync context.
     /// </summary>
-    private void TryStartNetSessionFromLobby(NetworkLobbyWindow lobby)
+    public void StartNetSessionFromLobby(
+        NetServer? server,
+        NetClient? client,
+        INetLink? link,
+        bool isHost,
+        string? hostAddress,
+        int hostPort,
+        LobbyGameStartArgs args)
+    {
+        if (args.Resume)
+        {
+            StartLoadedMatch(server, client, link, isHost, hostAddress, hostPort, args);
+            return;
+        }
+        RememberMatchReport(args);
+        InitNetSessionFromTransport(server, client, link, isHost, hostAddress, hostPort);
+        if (_netSession == null)
+            throw new InvalidOperationException("NetPlaySession did not start after lobby GameStarting.");
+
+        Deck deck1;
+        Deck deck2;
+        if (_netSession.IsGuest)
+        {
+            // Do not parse DeckP1Json. Host cards exist here only after the masked snapshot.
+            if (string.IsNullOrWhiteSpace(args.DeckP2Json))
+                throw new InvalidOperationException("Guest start is missing the guest deck.");
+            deck2 = LoadAndLinkDeckFromJson(args.DeckP2Json);
+            if (!string.IsNullOrWhiteSpace(args.DeckP2Name))
+                deck2.Name = args.DeckP2Name;
+            deck1 = new Deck
+            {
+                Name = string.IsNullOrWhiteSpace(args.DeckP1Name) ? "Player 1" : args.DeckP1Name
+            };
+            _netGuestHasHostState = false;
+            _session.Log.AddDebug(_session.TurnNumber, "Net",
+                $"Lobby start: guest deck {deck2.Name}, host deck not loaded, skipSeed={args.SkipSeedPhase}.");
+        }
+        else
+        {
+            deck1 = LoadAndLinkDeckFromJson(args.DeckP1Json);
+            deck2 = LoadAndLinkDeckFromJson(args.DeckP2Json);
+            if (!string.IsNullOrWhiteSpace(args.DeckP1Name))
+                deck1.Name = args.DeckP1Name;
+            if (!string.IsNullOrWhiteSpace(args.DeckP2Name))
+                deck2.Name = args.DeckP2Name;
+            _session.Log.AddDebug(_session.TurnNumber, "Net",
+                $"Lobby start: P1={deck1.Name}, P2={deck2.Name}, role=Host, skipSeed={args.SkipSeedPhase}.");
+        }
+
+        _loadedDeck = deck1;
+        PlaceDeckOnTable(deck1);
+        _loadedDeckOpp = deck2;
+        PlaceOpponentDeck(deck2);
+
+        StatusText.Text = _netSession.IsHost
+            ? $"Network: Host P1 — decks on table ({deck1.Name} vs {deck2.Name})."
+            : $"Network: Guest P2 — {deck2.Name}. Waiting for the host snapshot.";
+
+        EnsureNetworkModeFromSession();
+        ApplySelectedGameMode();
+
+        if (args.SkipSeedPhase)
+        {
+            // Host alone runs Quick-Game AutoCompleteSeed; Guest UI follows Broadcast sync.
+            if (_netSession.IsHost)
+            {
+                AutoCompleteSeed();
+                CenterOnSpaceline();
+                StatusText.Text =
+                    "Quick Game: Seed phase skipped automatically. Welcome to turn 1! Play a card or click 'Next Phase'.";
+            }
+            else
+            {
+                StatusText.Text = "Quick Game: Seed phase skipped. Waiting for Host to synchronize table state…";
+            }
+        }
+    }
+
+    private void InitNetSessionFromTransport(
+        NetServer? server,
+        NetClient? client,
+        INetLink? link,
+        bool isHost,
+        string? hostAddress,
+        int hostPort)
     {
         if (_netSession != null) return;
-        if (!lobby.IsConnected) return;
 
-        var (server, client, link) = lobby.DetachTransport();
         if (link != null)
-            _netSession = lobby.IsHost
+            _netSession = isHost
                 ? NetPlaySession.CreateHostLink(link, localPlayer: 1)
                 : NetPlaySession.CreateGuestLink(link, localPlayer: 2);
         else if (server != null)
@@ -10715,9 +10750,8 @@ public partial class TableWindow : Window
         else if (client != null)
         {
             _netSession = NetPlaySession.CreateGuest(client, localPlayer: 2);
-            _netGuestHost = (lobby.HostBox.Text ?? string.Empty).Trim();
-            if (!int.TryParse((lobby.PortBox.Text ?? string.Empty).Trim(), out _netGuestPort))
-                _netGuestPort = 0;
+            _netGuestHost = (hostAddress ?? string.Empty).Trim();
+            _netGuestPort = hostPort;
         }
         else
         {
@@ -10889,88 +10923,6 @@ public partial class TableWindow : Window
     private static bool HostReportedRaiseTheStakes(string? reason)
         => !string.IsNullOrEmpty(reason)
            && reason.Contains("Raise the Stakes", StringComparison.Ordinal);
-
-    private void OnLobbyGameStarting(NetworkLobbyWindow lobby, LobbyGameStartArgs args)
-    {
-        if (args.Resume)
-        {
-            StartLoadedMatch(lobby, args);
-            return;
-        }
-        RememberMatchReport(args);
-        TryStartNetSessionFromLobby(lobby);
-        if (_netSession == null)
-            throw new InvalidOperationException("NetPlaySession did not start after lobby GameStarting.");
-
-        Deck deck1;
-        Deck deck2;
-        if (_netSession.IsGuest)
-        {
-            // Do not parse DeckP1Json. Host cards exist here only after the masked snapshot.
-            if (string.IsNullOrWhiteSpace(args.DeckP2Json))
-                throw new InvalidOperationException("Guest start is missing the guest deck.");
-            deck2 = LoadAndLinkDeckFromJson(args.DeckP2Json);
-            if (!string.IsNullOrWhiteSpace(args.DeckP2Name))
-                deck2.Name = args.DeckP2Name;
-            deck1 = new Deck
-            {
-                Name = string.IsNullOrWhiteSpace(args.DeckP1Name) ? "Player 1" : args.DeckP1Name
-            };
-            _netGuestHasHostState = false;
-            _session.Log.AddDebug(_session.TurnNumber, "Net",
-                $"Lobby start: guest deck {deck2.Name}, host deck not loaded, skipSeed={args.SkipSeedPhase}.");
-        }
-        else
-        {
-            deck1 = LoadAndLinkDeckFromJson(args.DeckP1Json);
-            deck2 = LoadAndLinkDeckFromJson(args.DeckP2Json);
-            if (!string.IsNullOrWhiteSpace(args.DeckP1Name))
-                deck1.Name = args.DeckP1Name;
-            if (!string.IsNullOrWhiteSpace(args.DeckP2Name))
-                deck2.Name = args.DeckP2Name;
-            _session.Log.AddDebug(_session.TurnNumber, "Net",
-                $"Lobby start: P1={deck1.Name}, P2={deck2.Name}, role=Host, skipSeed={args.SkipSeedPhase}.");
-        }
-
-        _loadedDeck = deck1;
-        PlaceDeckOnTable(deck1);
-        _loadedDeckOpp = deck2;
-        PlaceOpponentDeck(deck2);
-
-        StatusText.Text = _netSession.IsHost
-            ? $"Network: Host P1 — decks on table ({deck1.Name} vs {deck2.Name})."
-            : $"Network: Guest P2 — {deck2.Name}. Waiting for the host snapshot.";
-
-        EnsureNetworkModeFromSession();
-        try { lobby.Close(); } catch { /* ignore */ }
-        ApplySelectedGameMode();
-
-        if (args.SkipSeedPhase)
-        {
-            // Host alone runs Quick-Game AutoCompleteSeed; Guest UI follows Broadcast sync.
-            if (_netSession.IsHost)
-            {
-                AutoCompleteSeed();
-                CenterOnSpaceline();
-                StatusText.Text =
-                    $"Network: Skip seed phase — auto-seeded ({deck1.Name} vs {deck2.Name}), Turn 1 Play.";
-                _session.Log.Add(_session.TurnNumber, "System",
-                    "Network: Skip seed phase accepted — Host AutoCompleteSeed.");
-                // AutoCompleteSeed → FinishSeedPhaseAndDrawOpeningHand already NotifyNetworkSeedChanged
-            }
-            else
-            {
-                StatusText.Text = "Network: Skip seed phase — waiting for Host auto-seed sync…";
-                _session.Log.AddDebug(_session.TurnNumber, "Net",
-                    "Skip seed phase: Guest waiting for Host GameSave broadcast.");
-            }
-        }
-        else
-        {
-            NotifyNetworkSeedChanged();
-        }
-    }
-
 
     /// <summary>Catalog face for a Host reveal/choice. Not a seed read and not added to any zone.</summary>
     private Card? BuildNetChoiceFace(NetChoiceDto dto)
@@ -15902,15 +15854,21 @@ public partial class TableWindow : Window
             .Where(b => b.Tag is Card c && IsMissionCard(c))
             .ToList();
 
-    private void StartLoadedMatch(NetworkLobbyWindow lobby, LobbyGameStartArgs args)
+    private void StartLoadedMatch(
+        NetServer? server,
+        NetClient? client,
+        INetLink? link,
+        bool isHost,
+        string? hostAddress,
+        int hostPort,
+        LobbyGameStartArgs args)
     {
         RememberMatchReport(args);
-        TryStartNetSessionFromLobby(lobby);
+        InitNetSessionFromTransport(server, client, link, isHost, hostAddress, hostPort);
         if (_netSession == null)
             throw new InvalidOperationException("NetPlaySession did not start after loading a save.");
 
         EnsureNetworkModeFromSession();
-        try { lobby.Close(); } catch { /* ignore */ }
         ApplySelectedGameMode();
         UpdateMpSaveButton();
 
