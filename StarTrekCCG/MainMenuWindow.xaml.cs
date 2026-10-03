@@ -737,23 +737,13 @@ public partial class MainMenuWindow : Window
         _modeNote = null;
         var ranked = string.Equals(_challengeMatchMode, "account", StringComparison.Ordinal);
         _challengeMatchMode = null;
-        _holodeckDirect = !ranked;
+        // Lobby Holodeck uses the same /relay seat as ranked. TCP 7777 stays on the explicit direct button only.
+        _holodeckDirect = false;
+        _directGame = false;
         _menu.Clear();
         _menu.Add(MenuLevel.Bridge);
         _menu.Add(MenuLevel.MatchConsole);
-        if (ranked)
-            _ = ContinueSeatedMatchAsync(true);
-        else
-            OpenHolodeckDeckSelect();
-    }
-
-    private void OpenHolodeckDeckSelect()
-    {
-        OpenMatchLobby(ranked: false, targetRoomOrUser: _matchmaking.RoomName);
-        _directGame = true;
-        if (GameOptionsPanel != null)
-            GameOptionsPanel.Visibility = Visibility.Collapsed;
-        SetStatus("Holodeck. Pick a deck, then Engage. Direct game on TCP 7777. No points and no latinum.");
+        _ = ContinueSeatedMatchAsync(ranked);
     }
 
     private void RefreshChatView()
@@ -1467,6 +1457,7 @@ public partial class MainMenuWindow : Window
         if (CurrentMenu != MenuLevel.MatchConsole)
             _menu.Add(MenuLevel.MatchConsole);
         OpenMatchLobby(ranked: ranked, targetRoomOrUser: _matchmaking.RoomName);
+        _directGame = false;
         if (VersionBlocks(out var blocked))
         {
             SetMmState(blocked);
@@ -1479,6 +1470,8 @@ public partial class MainMenuWindow : Window
         }
         var asHost = string.Equals(_matchmaking.Role, "host", StringComparison.Ordinal);
         await RunRelayAsync(_serviceHost, _servicePort, _matchmaking.RoomName, asHost, _matchmaking.PlayerId).ConfigureAwait(true);
+        if (!ranked && _link is RelayNetLink { IsConnected: true })
+            SetStatus("Holodeck. Pick a deck, then Engage. The match uses the lobby relay. No points and no latinum.");
     }
 
     private async void DeleteAccount_Click(object sender, RoutedEventArgs e)
@@ -3404,8 +3397,6 @@ public partial class MainMenuWindow : Window
     {
         if (_isRankedMatch)
             _directGame = false;
-        else if (_holodeckDirect)
-            _directGame = true;
         if (!await EnsureMatchTransportAsync().ConfigureAwait(true))
             return;
         if (!IsConnected)
@@ -4837,8 +4828,9 @@ public partial class MainMenuWindow : Window
             direct.Click += async (_, _) =>
             {
                 _directGame = true;
+                _holodeckDirect = true;
                 GameOptionsPanel.Visibility = Visibility.Collapsed;
-                SetStatus("Direct game. No points and no rewards.");
+                SetStatus("Direct game on TCP 7777. No points and no latinum. The Holodeck button itself stays on the lobby relay.");
                 await OpenDirectGameAsync().ConfigureAwait(true);
             };
             var relay = new Button
@@ -4852,8 +4844,9 @@ public partial class MainMenuWindow : Window
             relay.Click += async (_, _) =>
             {
                 _directGame = false;
+                _holodeckDirect = false;
                 GameOptionsPanel.Visibility = Visibility.Collapsed;
-                SetStatus("Server relay. Start game uses the room on TCP 7788.");
+                SetStatus("Server relay. Engage uses the room on TCP 7788. No points and no latinum.");
                 await EnsureMatchTransportAsync().ConfigureAwait(true);
             };
             var row = new StackPanel { Orientation = Orientation.Horizontal };

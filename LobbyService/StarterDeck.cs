@@ -21,7 +21,8 @@ readonly record struct StarterCard(string CardId, int Quantity);
 
 static class StarterDeck
 {
-    public const int Latinum = 100;
+    // Written only by AuthStore.Register. Login reads the stored balance, so existing accounts stay as they are.
+    public const int Latinum = 3000;
 
     private static readonly string[] Sections =
     {
