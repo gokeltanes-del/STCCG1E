@@ -4,17 +4,85 @@
         Title="Star Trek CCG 1E – Table"
         Height="900" Width="1680"
         WindowStartupLocation="CenterScreen"
-        Background="#1A1A1A"
+        Background="{DynamicResource SkinBrush_WindowBackground}"
         PreviewKeyDown="Window_PreviewKeyDown"
         Loaded="TableWindow_HookDetailGroups">
 
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="ThemeSkin.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+            <SolidColorBrush x:Key="{x:Static SystemColors.MenuHighlightBrushKey}" Color="#2A4A66"/>
+            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#2A4A66"/>
+            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#FFFFFF"/>
+            <SolidColorBrush x:Key="{x:Static SystemColors.MenuBrushKey}" Color="#1E2A38"/>
+            <SolidColorBrush x:Key="{x:Static SystemColors.MenuTextBrushKey}" Color="#E0F2FE"/>
+            <SolidColorBrush x:Key="{x:Static SystemColors.MenuBarBrushKey}" Color="#1E2A38"/>
+            <Style x:Key="SkinStyle_ModeRadio" TargetType="RadioButton">
+                <Setter Property="Foreground" Value="#E0F2FE"/>
+                <Setter Property="FontFamily" Value="Segoe UI, Tahoma, Arial"/>
+                <Setter Property="FontSize" Value="13"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="RadioButton">
+                            <StackPanel Orientation="Horizontal">
+                                <Border x:Name="Ring" Width="16" Height="16" CornerRadius="8"
+                                        BorderBrush="{StaticResource SkinBrush_CyanAccent}" BorderThickness="1.5"
+                                        Background="Transparent" VerticalAlignment="Center" Margin="0,0,6,0">
+                                    <Ellipse x:Name="Dot" Width="8" Height="8"
+                                             Fill="{StaticResource SkinBrush_GoldAccent}"
+                                             HorizontalAlignment="Center" VerticalAlignment="Center"
+                                             Visibility="Collapsed"/>
+                                </Border>
+                                <ContentPresenter VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="Dot" Property="Visibility" Value="Visible"/>
+                                    <Setter TargetName="Ring" Property="BorderBrush" Value="{StaticResource SkinBrush_GoldAccent}"/>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.4"/>
+                                    <Setter Property="Cursor" Value="Arrow"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style x:Key="SkinStyle_OverlayListItem" TargetType="ListBoxItem">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Padding" Value="2,1"/>
+                <Style.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter Property="Background" Value="#1E3348"/>
+                    </Trigger>
+                    <Trigger Property="IsSelected" Value="True">
+                        <Setter Property="Background" Value="#2A4A66"/>
+                        <Setter Property="Foreground" Value="#FFFFFF"/>
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+        </ResourceDictionary>
+    </Window.Resources>
+
     <DockPanel>
-        <Menu DockPanel.Dock="Top" Background="#2D2D30" Foreground="White">
+        <Menu DockPanel.Dock="Top" Visibility="Collapsed" Background="{StaticResource SkinBrush_HeaderBackground}" Foreground="{StaticResource SkinBrush_CyanAccent}">
             <Menu.Resources>
+                <SolidColorBrush x:Key="{x:Static SystemColors.MenuHighlightBrushKey}" Color="#2A4A66"/>
+                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#2A4A66"/>
+                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#FFFFFF"/>
+                <SolidColorBrush x:Key="{x:Static SystemColors.MenuBrushKey}" Color="#1E2A38"/>
+                <SolidColorBrush x:Key="{x:Static SystemColors.MenuTextBrushKey}" Color="#E0F2FE"/>
+                <SolidColorBrush x:Key="{x:Static SystemColors.MenuBarBrushKey}" Color="#1E2A38"/>
                 <Style TargetType="MenuItem">
-                    <Setter Property="Foreground" Value="White"/>
-                    <Setter Property="Background" Value="#2D2D30"/>
+                    <Setter Property="Foreground" Value="#E0F2FE"/>
+                    <Setter Property="Background" Value="{StaticResource SkinBrush_HeaderBackground}"/>
                     <Setter Property="Padding" Value="10,4"/>
+                    <Setter Property="FontFamily" Value="Segoe UI, Tahoma, Arial"/>
                 </Style>
             </Menu.Resources>
             <MenuItem Header="_File">
@@ -38,8 +106,6 @@
                 <MenuItem Header="_Player aids">
                     <MenuItem x:Name="AidLegalResponsesItem" Header="Highlight legal responses"
                               IsCheckable="True" IsChecked="True" Click="AidLegalResponses_Click"/>
-                    <MenuItem x:Name="AidOwnSeedCountItem" Header="Own seed counts under missions"
-                              IsCheckable="True" IsChecked="True" Click="AidOwnSeedCount_Click"/>
                     <MenuItem x:Name="AidZoneCountsItem" Header="Zone / pile counts"
                               IsCheckable="True" IsChecked="True" Click="AidZoneCounts_Click"/>
                     <MenuItem x:Name="AidSortHandItem" Header="Sort hand by type"
@@ -82,7 +148,7 @@
                 <MenuItem Header="Deck Builder…" Click="MenuDeckBuilder_Click"/>
             </MenuItem>
         </Menu>
-        <Border DockPanel.Dock="Top" Background="#1A1A20" BorderBrush="#3A3A48" BorderThickness="0,0,0,1" Padding="10,4" MinHeight="40">
+        <Border DockPanel.Dock="Top" Background="{StaticResource SkinBrush_HeaderBarGradient}" BorderBrush="{StaticResource SkinBrush_OuterFrame}" BorderThickness="0,0,0,2" Padding="10,4" MinHeight="44">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -90,8 +156,13 @@
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" x:Name="ScoreText" Text="P1: 0  ·  P2: 0" Foreground="#B5CEA8" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,14,0"/>
-                <Border Grid.Column="1" x:Name="ActivePlayerBanner" Background="#2A3A4A" CornerRadius="4" Padding="14,4" VerticalAlignment="Center" Margin="0,0,10,0" Cursor="Hand" MouseLeftButtonDown="ActivePlayerBanner_MouseLeftButtonDown">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="BtnTableCommand" Content="COMMAND" Click="BtnTableCommand_Click"
+                            Style="{StaticResource SkinStyle_SciFiButton}"
+                            Padding="12,4" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="ScoreText" Text="P1: 0  ·  P2: 0" Foreground="{StaticResource SkinBrush_GoldAccent}" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,14,0"/>
+                </StackPanel>
+                <Border Grid.Column="1" x:Name="ActivePlayerBanner" Background="{StaticResource SkinBrush_CenterBackground}" BorderBrush="{StaticResource SkinBrush_OuterFrame}" BorderThickness="1" CornerRadius="4" Padding="14,4" VerticalAlignment="Center" Margin="0,0,10,0" Cursor="Hand" MouseLeftButtonDown="ActivePlayerBanner_MouseLeftButtonDown">
                     <DockPanel LastChildFill="True">
                         <Border x:Name="ResponseIndicatorBadge" DockPanel.Dock="Right" Visibility="Collapsed" Background="#7B1FA2" CornerRadius="3" Padding="8,2" Margin="10,0,0,0" Cursor="Hand" MouseLeftButtonDown="ResponseIndicator_MouseLeftButtonDown" MouseRightButtonDown="ResponseIndicator_MouseRightButtonDown" MouseRightButtonUp="ResponseIndicator_MouseRightButtonUp" ToolTip="Click = Think mode  ·  RMB = Enlarge trigger card">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -116,18 +187,18 @@
                 </Border>
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button x:Name="BtnMpSave" Content="Save game" Click="BtnMpSave_Click" Visibility="Collapsed"
-                            Padding="10,4" Margin="0,0,8,0" Background="#3A3A48" Foreground="White" BorderThickness="0"
-                            FontWeight="SemiBold" Cursor="Hand" VerticalAlignment="Center"/>
+                            Style="{StaticResource SkinStyle_SciFiButton}"
+                            Padding="10,4" Margin="0,0,8,0" VerticalAlignment="Center"/>
                     <Button x:Name="BtnNetLink" Content="Connected" Click="Reconnect_Click" Visibility="Collapsed"
-                            Padding="10,4" Margin="0,0,8,0" Background="#3A3A48" Foreground="White" BorderThickness="0"
-                            FontWeight="SemiBold" Cursor="Hand" VerticalAlignment="Center"/>
+                            Style="{StaticResource SkinStyle_SciFiButton}"
+                            Padding="10,4" Margin="0,0,8,0" VerticalAlignment="Center"/>
                     <Grid MinWidth="200" Height="30" Margin="0,0,8,0" VerticalAlignment="Center">
-                    <Button x:Name="BtnPhaseNext" Content="Next phase ▶" Click="BtnPhaseNext_Click" Padding="10,4" Background="#3A3A48" Foreground="White" BorderBrush="#555" Cursor="Hand" IsEnabled="False" FontWeight="SemiBold"/>
-                    <Button x:Name="BtnSeedFinish" Content="Finish seed" Click="BtnSeedFinish_Click" Padding="10,4" Background="#2A4A3A" Foreground="White" BorderBrush="#3A6A4A" Cursor="Hand" IsEnabled="False" Visibility="Collapsed" FontWeight="SemiBold"/>
-                    <Button x:Name="BtnEndTurn" Content="End PLAY phase (Space)" Click="BtnEndTurn_Click" Padding="10,4" Background="#4A3A2A" Foreground="White" BorderBrush="#6A5A3A" Cursor="Hand" Visibility="Collapsed" FontWeight="SemiBold"/>
+                    <Button x:Name="BtnPhaseNext" Content="Next phase ▶" Click="BtnPhaseNext_Click" Style="{StaticResource SkinStyle_SciFiButton}" Padding="10,4" IsEnabled="False"/>
+                    <Button x:Name="BtnSeedFinish" Content="Finish seed" Click="BtnSeedFinish_Click" Style="{StaticResource SkinStyle_SciFiButton}" Padding="10,4" IsEnabled="False" Visibility="Collapsed"/>
+                    <Button x:Name="BtnEndTurn" Content="End PLAY phase (Space)" Click="BtnEndTurn_Click" Style="{StaticResource SkinStyle_SciFiButton}" Padding="10,4" Visibility="Collapsed"/>
                     </Grid>
                 </StackPanel>
-                <Button Grid.Column="3" Content="Action History" Click="BtnHistoryOpen_Click" Padding="12,5" FontSize="13" FontWeight="SemiBold" Background="#333" Foreground="#EEE" BorderBrush="#555" Cursor="Hand" VerticalAlignment="Center"/>
+                <Button Grid.Column="3" Content="Action History" Click="BtnHistoryOpen_Click" Style="{StaticResource SkinStyle_SciFiButton}" Padding="12,5" VerticalAlignment="Center"/>
             </Grid>
         </Border>
         <Grid>
@@ -140,12 +211,12 @@
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
-                <Border Grid.Row="0" Background="#252528" BorderBrush="#1A1A1C" BorderThickness="0,0,1,1" Padding="3,3">
+                <Border Grid.Row="0" Background="{StaticResource SkinBrush_RailBackground}" BorderBrush="{StaticResource SkinBrush_OuterFrame}" BorderThickness="0,0,1,1" Padding="3,3">
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <WrapPanel x:Name="OpponentZonesPanel" Width="150"/>
                     </ScrollViewer>
                 </Border>
-                <Border Grid.Row="1" Background="#3E3E46" BorderBrush="#2E2E34" BorderThickness="0,1,1,0" Padding="3,3">
+                <Border Grid.Row="1" Background="{StaticResource SkinBrush_RailBackground}" BorderBrush="{StaticResource SkinBrush_OuterFrame}" BorderThickness="0,1,1,0" Padding="3,3">
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <WrapPanel x:Name="PlayerZonesPanel" Width="150"/>
                     </ScrollViewer>
@@ -192,15 +263,15 @@
                             </ScrollViewer>
                             <!-- Think Tray: Übersicht legaler Responses über der Hand -->
                             <!-- Pepsch: dynamic width (cards + left rail), centered over responder hand -->
-                            <Border x:Name="ThinkTrayBorder" Visibility="Collapsed" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="8,4" Background="#EE161622" BorderBrush="#AB47BC" BorderThickness="2" CornerRadius="5" Padding="3,4" Panel.ZIndex="220" MaxHeight="140">
+                            <Border x:Name="ThinkTrayBorder" Visibility="Collapsed" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="8,4" Background="#EE16202C" BorderBrush="{StaticResource SkinBrush_OuterFrame}" BorderThickness="2" CornerRadius="5" Padding="3,4" Panel.ZIndex="220" MaxHeight="140">
                                 <StackPanel Orientation="Horizontal">
                                     <!-- Left rail: title / countdown / hints / Pass (no top banner duplicate) -->
-                                    <Border x:Name="ThinkTrayRail" Width="96" Margin="0,0,2,0" Padding="4,4" Background="#221828" CornerRadius="4" VerticalAlignment="Stretch">
+                                    <Border x:Name="ThinkTrayRail" Width="96" Margin="0,0,2,0" Padding="4,4" Background="{StaticResource SkinBrush_HeaderBackground}" CornerRadius="4" VerticalAlignment="Stretch">
                                         <StackPanel VerticalAlignment="Center">
-                                            <TextBlock x:Name="ThinkTrayTitle" Text="LEGAL RESPONSES (P2)" Foreground="#E1BEE7" FontSize="10" FontWeight="Bold" TextWrapping="Wrap"/>
-                                            <TextBlock x:Name="ThinkTrayCountdown" Text="3s" Foreground="#FFE082" FontSize="11" FontWeight="SemiBold" Margin="0,4,0,0"/>
+                                            <TextBlock x:Name="ThinkTrayTitle" Text="LEGAL RESPONSES (P2)" Foreground="{StaticResource SkinBrush_CyanAccent}" FontSize="10" FontWeight="Bold" TextWrapping="Wrap"/>
+                                            <TextBlock x:Name="ThinkTrayCountdown" Text="3s" Foreground="{StaticResource SkinBrush_GoldAccent}" FontSize="11" FontWeight="SemiBold" Margin="0,4,0,0"/>
                                             <TextBlock Text="Click play&#10;RMB large&#10;Space = Pass" Foreground="#AAA" FontSize="9" LineHeight="12" Margin="0,6,0,0"/>
-                                            <Button x:Name="BtnThinkPass" Content="Pass" Click="BtnThinkPass_Click" Padding="4,2" Margin="0,4,0,0" Background="#3A3A58" Foreground="White" BorderBrush="#5A5A78" Cursor="Hand" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Stretch"/>
+                                            <Button x:Name="BtnThinkPass" Content="Pass" Click="BtnThinkPass_Click" Style="{StaticResource SkinStyle_SciFiButton}" Padding="4,2" Margin="0,4,0,0" FontSize="11" HorizontalAlignment="Stretch"/>
                                         </StackPanel>
                                     </Border>
                                     <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" VerticalAlignment="Center">
@@ -208,8 +279,8 @@
                                     </ScrollViewer>
                                 </StackPanel>
                             </Border>
-                            <Border x:Name="CardRevealOverlay" Visibility="Collapsed" Background="#CC0A0A0F" Panel.ZIndex="200">
-                                <Border HorizontalAlignment="Center" VerticalAlignment="Center" Background="#252530" BorderBrush="#6A6A80" BorderThickness="1" CornerRadius="10" Padding="16" Margin="12" MaxWidth="720" MaxHeight="520">
+                            <Border x:Name="CardRevealOverlay" Visibility="Collapsed" Background="#E60B1017" Panel.ZIndex="200">
+                                <Border HorizontalAlignment="Center" VerticalAlignment="Center" Background="{StaticResource SkinBrush_HeaderBackground}" BorderBrush="{StaticResource SkinBrush_OuterFrame}" BorderThickness="1.5" CornerRadius="10" Padding="16" Margin="12" MaxWidth="720" MaxHeight="520">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto"/>
@@ -218,7 +289,7 @@
                                         <StackPanel Grid.Column="0" Margin="0,0,16,0">
                                             <TextBlock x:Name="RevealCasualtyLabel" Text="Personnel died" Visibility="Collapsed" Foreground="#FF3B30" FontSize="14" FontWeight="Bold" Margin="0,0,0,6"/>
                                             <Grid>
-                                                <Border x:Name="RevealFaceFrame" Width="220" Height="308" BorderBrush="#555" BorderThickness="1" CornerRadius="4" Background="#111" Cursor="Hand" ToolTip="Hold RMB = Large view" MouseRightButtonDown="RevealImage_MouseRightButtonDown" MouseRightButtonUp="RevealImage_MouseRightButtonUp">
+                                                <Border x:Name="RevealFaceFrame" Width="220" Height="308" BorderBrush="{StaticResource SkinBrush_InnerFrame}" BorderThickness="1" CornerRadius="4" Background="{StaticResource SkinBrush_CenterBackground}" Cursor="Hand" ToolTip="Hold RMB = Large view" MouseRightButtonDown="RevealImage_MouseRightButtonDown" MouseRightButtonUp="RevealImage_MouseRightButtonUp">
                                                     <Image x:Name="RevealImage" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" MouseRightButtonDown="RevealImage_MouseRightButtonDown" MouseRightButtonUp="RevealImage_MouseRightButtonUp"/>
                                                 </Border>
                                                 <ScrollViewer x:Name="RevealFacesScroll" Visibility="Collapsed" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" MaxHeight="308">
@@ -227,26 +298,26 @@
                                             </Grid>
                                         </StackPanel>
                                         <DockPanel Grid.Column="1">
-                                            <TextBlock DockPanel.Dock="Top" x:Name="RevealTitle" Foreground="#FFE082" FontSize="14" FontWeight="Bold" TextWrapping="Wrap" Margin="0,0,0,6"/>
-                                            <TextBlock DockPanel.Dock="Top" x:Name="RevealSubtitle" Foreground="#9CDCFE" FontSize="12" Margin="0,0,0,8" TextWrapping="Wrap"/>
-                                            <TextBlock DockPanel.Dock="Top" x:Name="RevealAudience" Foreground="#FFE082" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,6"/>
-                                            <TextBlock DockPanel.Dock="Top" x:Name="RevealTimerText" Foreground="#FFB74D" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                            <TextBlock DockPanel.Dock="Top" x:Name="RevealTitle" Foreground="{StaticResource SkinBrush_GoldAccent}" FontSize="14" FontWeight="Bold" TextWrapping="Wrap" Margin="0,0,0,6"/>
+                                            <TextBlock DockPanel.Dock="Top" x:Name="RevealSubtitle" Foreground="{StaticResource SkinBrush_CyanAccent}" FontSize="12" Margin="0,0,0,8" TextWrapping="Wrap"/>
+                                            <TextBlock DockPanel.Dock="Top" x:Name="RevealAudience" Foreground="{StaticResource SkinBrush_GoldAccent}" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,6"/>
+                                            <TextBlock DockPanel.Dock="Top" x:Name="RevealTimerText" Foreground="{StaticResource SkinBrush_GoldAccent}" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
                                             <WrapPanel DockPanel.Dock="Bottom" HorizontalAlignment="Right" Margin="0,12,0,0">
-                                                <Button x:Name="BtnRevealRespond" Content="Respond" Padding="16,8" Margin="0,0,8,0" Click="BtnRevealRespond_Click" Background="#4A2A6A" Foreground="White" BorderBrush="#7A4A9A" Cursor="Hand" Visibility="Collapsed"/>
-                                                <Button x:Name="BtnRevealPass" Content="Pass" Padding="16,8" Margin="0,0,8,0" Click="BtnRevealPass_Click" Background="#3A3A58" Foreground="White" BorderBrush="#5A5A78" Cursor="Hand" Visibility="Collapsed"/>
-                                                <Button x:Name="BtnRevealYes" Content="Yes" Padding="16,8" Margin="0,0,8,0" Click="BtnRevealYes_Click" Background="#2A5A3A" Foreground="White" BorderBrush="#3A7A4A" Cursor="Hand" Visibility="Collapsed"/>
-                                                <Button x:Name="BtnRevealNo" Content="No" Padding="16,8" Margin="0,0,8,0" Click="BtnRevealNo_Click" Background="#5A2A2A" Foreground="White" BorderBrush="#7A3A3A" Cursor="Hand" Visibility="Collapsed"/>
-                                                <Button x:Name="BtnRevealOk" Content="OK" Padding="20,8" Click="BtnRevealOk_Click" Background="#3A3A58" Foreground="White" BorderBrush="#5A5A78" Cursor="Hand"/>
+                                                <Button x:Name="BtnRevealRespond" Content="Respond" Style="{StaticResource SkinStyle_SciFiButton}" Padding="16,8" Margin="0,0,8,0" Click="BtnRevealRespond_Click" Visibility="Collapsed"/>
+                                                <Button x:Name="BtnRevealPass" Content="Pass" Style="{StaticResource SkinStyle_SciFiButton}" Padding="16,8" Margin="0,0,8,0" Click="BtnRevealPass_Click" Visibility="Collapsed"/>
+                                                <Button x:Name="BtnRevealYes" Content="Yes" Style="{StaticResource SkinStyle_SciFiButton}" Padding="16,8" Margin="0,0,8,0" Click="BtnRevealYes_Click" Visibility="Collapsed"/>
+                                                <Button x:Name="BtnRevealNo" Content="No" Style="{StaticResource SkinStyle_SciFiButton}" Padding="16,8" Margin="0,0,8,0" Click="BtnRevealNo_Click" Visibility="Collapsed"/>
+                                                <Button x:Name="BtnRevealOk" Content="OK" Style="{StaticResource SkinStyle_SciFiButton}" Padding="20,8" Click="BtnRevealOk_Click"/>
                                             </WrapPanel>
                                             <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="320">
-                                                <TextBlock x:Name="RevealBody" Foreground="#D4D4D4" FontSize="12" TextWrapping="Wrap" LineHeight="18"/>
+                                                <TextBlock x:Name="RevealBody" Foreground="#E2E8F0" FontSize="12" TextWrapping="Wrap" LineHeight="18"/>
                                             </ScrollViewer>
                                         </DockPanel>
                                     </Grid>
                                 </Border>
                             </Border>
-                            <Border x:Name="CardDetailOverlay" Visibility="Collapsed" Background="#CC0A0A0F" Panel.ZIndex="205" MouseLeftButtonDown="CardDetailOverlay_MouseLeftButtonDown">
-                                <Border HorizontalAlignment="Center" VerticalAlignment="Center" Background="#252530" BorderBrush="#6A6A80" BorderThickness="1" CornerRadius="10" Padding="16" Margin="12" MaxWidth="960" MaxHeight="760" MouseLeftButtonDown="CardDetailPanel_MouseLeftButtonDown">
+                            <Border x:Name="CardDetailOverlay" Visibility="Collapsed" Background="#E60B1017" Panel.ZIndex="205" MouseLeftButtonDown="CardDetailOverlay_MouseLeftButtonDown">
+                                <Border HorizontalAlignment="Center" VerticalAlignment="Center" Background="{StaticResource SkinBrush_HeaderBackground}" BorderBrush="{StaticResource SkinBrush_OuterFrame}" BorderThickness="1.5" CornerRadius="10" Padding="16" Margin="12" MaxWidth="960" MaxHeight="760" MouseLeftButtonDown="CardDetailPanel_MouseLeftButtonDown">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
@@ -261,12 +332,12 @@
                                                 <ColumnDefinition Width="Auto"/>
                                                 <ColumnDefinition Width="*"/>
                                             </Grid.ColumnDefinitions>
-                                            <Border Grid.Column="0" Width="200" Margin="0,0,16,0" BorderBrush="#555" BorderThickness="1" CornerRadius="4" Background="#111" VerticalAlignment="Top" Cursor="Hand">
+                                            <Border Grid.Column="0" Width="200" Margin="0,0,16,0" BorderBrush="{StaticResource SkinBrush_InnerFrame}" BorderThickness="1" CornerRadius="4" Background="{StaticResource SkinBrush_CenterBackground}" VerticalAlignment="Top" Cursor="Hand">
                                                 <Image x:Name="DetailImage" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" MouseLeftButtonDown="DetailImage_MouseLeftButtonDown" MouseRightButtonDown="DetailImage_MouseRightButtonDown" MouseRightButtonUp="DetailImage_MouseRightButtonUp"/>
                                             </Border>
                                             <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                                                 <StackPanel>
-                                                    <TextBlock x:Name="DetailName" Text="–" FontSize="16" FontWeight="Bold" Foreground="White" TextWrapping="Wrap"/>
+                                                    <TextBlock x:Name="DetailName" Text="–" FontSize="16" FontWeight="Bold" Foreground="{StaticResource SkinBrush_GoldAccent}" TextWrapping="Wrap"/>
                                                     <TextBlock x:Name="DetailType" Foreground="#4EC9B0" FontSize="12" Margin="0,4,0,8" TextWrapping="Wrap"/>
                                                     <TextBlock x:Name="DetailAttributes" Foreground="#B5CEA8" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,6" TextWrapping="Wrap"/>
                                                     <StackPanel x:Name="DetailStatusBlock" Margin="0,0,0,8"/>
@@ -275,18 +346,18 @@
                                                     <WrapPanel x:Name="DetailIconRow" Margin="0,2,0,6"/>
                                                     <TextBlock x:Name="DetailStaff" Foreground="#9CDCFE" FontSize="11" Margin="0,0,0,2" TextWrapping="Wrap"/>
                                                     <TextBlock x:Name="DetailIcons" Foreground="#C586C0" FontSize="11" Margin="0,0,0,8" TextWrapping="Wrap"/>
-                                                    <TextBlock x:Name="DetailText" Foreground="#D4D4D4" FontSize="12" TextWrapping="Wrap" LineHeight="18"/>
+                                                    <TextBlock x:Name="DetailText" Foreground="#E2E8F0" FontSize="12" TextWrapping="Wrap" LineHeight="18"/>
                                                 </StackPanel>
                                             </ScrollViewer>
                                         </Grid>
-                                        <StackPanel Grid.Column="1" Grid.Row="0" VerticalAlignment="Top" Margin="12,0,0,0" Width="110">
-                                            <Button x:Name="BtnDetailBack" Content="◀ Back" Padding="10,6" Margin="0,0,0,8" Visibility="Collapsed" Click="BtnDetailBack_Click" Background="#2A3A58" Foreground="White" BorderBrush="#5A6A88" Cursor="Hand"/>
-                                            <Button x:Name="BtnDetailBeamSelect" Content="Select none" Padding="10,6" Margin="0,0,0,8" Visibility="Collapsed" Click="BtnDetailBeamSelect_Click" Background="#2E5A3A" Foreground="#B8F0C8" BorderBrush="#4A9A60" Cursor="Hand"/>
-                                            <Button x:Name="BtnCardDetailClose" Content="Close" Padding="10,6" Click="BtnCardDetailClose_Click" Background="#3A3A58" Foreground="White" BorderBrush="#5A5A78" Cursor="Hand"/>
+                                        <StackPanel Grid.Column="1" Grid.Row="0" VerticalAlignment="Top" Margin="12,0,0,0" Width="132">
+                                            <Button x:Name="BtnDetailBack" Content="◀ Back" Style="{StaticResource SkinStyle_SciFiButton}" Padding="8,6" Margin="0,0,0,8" Visibility="Collapsed" Click="BtnDetailBack_Click"/>
+                                            <Button x:Name="BtnDetailBeamSelect" Content="Select none" Style="{StaticResource SkinStyle_SciFiButton}" Padding="8,6" Margin="0,0,0,8" Visibility="Collapsed" Click="BtnDetailBeamSelect_Click"/>
+                                            <Button x:Name="BtnCardDetailClose" Content="Close" Style="{StaticResource SkinStyle_SciFiButton}" Padding="8,6" Click="BtnCardDetailClose_Click"/>
                                         </StackPanel>
-                                        <Border x:Name="DetailStackSection" Grid.Column="0" Grid.ColumnSpan="2" Grid.Row="1" Visibility="Collapsed" Margin="0,12,0,0" BorderBrush="#3A3A50" BorderThickness="0,1,0,0" Padding="0,10,0,0">
+                                        <Border x:Name="DetailStackSection" Grid.Column="0" Grid.ColumnSpan="2" Grid.Row="1" Visibility="Collapsed" Margin="0,12,0,0" BorderBrush="{StaticResource SkinBrush_InnerFrame}" BorderThickness="0,1,0,0" Padding="0,10,0,0">
                                             <DockPanel>
-                                                <TextBlock DockPanel.Dock="Top" x:Name="DetailStackTitle" Text="Contents" Foreground="#FFE082" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                                                <TextBlock DockPanel.Dock="Top" x:Name="DetailStackTitle" Text="Contents" Foreground="{StaticResource SkinBrush_GoldAccent}" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,6"/>
                                                 <ScrollViewer x:Name="DetailStackScroll" DockPanel.Dock="Bottom" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" MaxHeight="220" MinHeight="110">
                                                     <WrapPanel x:Name="DetailStackCards"/>
                                                 </ScrollViewer>
@@ -298,50 +369,50 @@
                                     </Grid>
                                 </Border>
                             </Border>
-                            <Border x:Name="HistoryOverlay" Visibility="Collapsed" Background="#CC0A0A0F" Panel.ZIndex="210">
-                                <Border HorizontalAlignment="Center" VerticalAlignment="Center" Background="#252530" BorderBrush="#6A6A80" BorderThickness="1" CornerRadius="10" Padding="16" Margin="12" MaxWidth="880" MinHeight="480" MaxHeight="960">
+                            <Border x:Name="HistoryOverlay" Visibility="Collapsed" Background="#E60B1017" Panel.ZIndex="210">
+                                <Border HorizontalAlignment="Center" VerticalAlignment="Center" Background="{StaticResource SkinBrush_HeaderBackground}" BorderBrush="{StaticResource SkinBrush_OuterFrame}" BorderThickness="1.5" CornerRadius="10" Padding="16" Margin="12" MaxWidth="880" MinHeight="480" MaxHeight="960">
                                     <DockPanel>
                                         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
-                                            <Button DockPanel.Dock="Right" Content="Copy" Click="BtnHistoryCopy_Click" Padding="10,4" Margin="6,0,0,0"/>
-                                            <Button DockPanel.Dock="Right" Content="Open log" Click="DevOpenLogFile_Click" Padding="10,4" Margin="6,0,0,0"/>
-                                            <Button DockPanel.Dock="Right" Content="Close" Click="BtnHistoryClose_Click" Padding="10,4"/>
-                                            <TextBlock Text="Action History" Foreground="#FFE082" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+                                            <Button DockPanel.Dock="Right" Content="Copy" Click="BtnHistoryCopy_Click" Style="{StaticResource SkinStyle_SciFiButton}" Padding="10,4" Margin="6,0,0,0"/>
+                                            <Button DockPanel.Dock="Right" Content="Open log" Click="DevOpenLogFile_Click" Style="{StaticResource SkinStyle_SciFiButton}" Padding="10,4" Margin="6,0,0,0"/>
+                                            <Button DockPanel.Dock="Right" Content="Close" Click="BtnHistoryClose_Click" Style="{StaticResource SkinStyle_SciFiButton}" Padding="10,4"/>
+                                            <TextBlock Text="Action History" Foreground="{StaticResource SkinBrush_GoldAccent}" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
                                         </DockPanel>
                                         <!-- Third pane: last played cards (Face). Network: same row via PlayReveal Host broadcast. -->
                                         <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0" LastChildFill="True">
-                                            <TextBlock DockPanel.Dock="Top" Text="Recently played (click = detail / text)" Foreground="#FFE082" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                            <TextBlock DockPanel.Dock="Top" Text="Recently played (click = detail / text)" Foreground="{StaticResource SkinBrush_GoldAccent}" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,4"/>
                                             <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Height="118">
                                                 <StackPanel x:Name="PlayHistoryStrip" Orientation="Horizontal"/>
                                             </ScrollViewer>
                                         </DockPanel>
                                         <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0" LastChildFill="True">
-                                            <TextBlock DockPanel.Dock="Top" Text="Legal moves (engine)" Foreground="#9CDCFE" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                                            <ListBox x:Name="LegalMovesList" Height="140" Background="#14141C" BorderThickness="0" Foreground="#CE9178" FontSize="12" FontFamily="Consolas"/>
+                                            <TextBlock DockPanel.Dock="Top" Text="Legal moves (engine)" Foreground="{StaticResource SkinBrush_CyanAccent}" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                            <ListBox x:Name="LegalMovesList" Height="140" Background="{StaticResource SkinBrush_CenterBackground}" BorderThickness="0" Foreground="#E2E8F0" FontSize="12" FontFamily="Consolas" ItemContainerStyle="{StaticResource SkinStyle_OverlayListItem}"/>
                                         </DockPanel>
-                                        <ListBox x:Name="ActionHistoryList" MinHeight="280" Background="#1A1A22" BorderThickness="0" Foreground="#B5CEA8" FontSize="12" FontFamily="Consolas" SelectionMode="Extended"/>
+                                        <ListBox x:Name="ActionHistoryList" MinHeight="280" Background="{StaticResource SkinBrush_CenterBackground}" BorderThickness="0" Foreground="#E2E8F0" FontSize="12" FontFamily="Consolas" SelectionMode="Extended" ItemContainerStyle="{StaticResource SkinStyle_OverlayListItem}"/>
                                     </DockPanel>
                                 </Border>
                             </Border>
-                            <Border x:Name="TeamOverlay" Visibility="Collapsed" Background="#CC0A0A0F" Panel.ZIndex="210">
-                                <Border HorizontalAlignment="Center" VerticalAlignment="Center" Background="#252530" BorderBrush="#6A6A80" BorderThickness="1" CornerRadius="10" Padding="16" Margin="12" MaxWidth="560" MaxHeight="520">
+                            <Border x:Name="TeamOverlay" Visibility="Collapsed" Background="#E60B1017" Panel.ZIndex="210">
+                                <Border HorizontalAlignment="Center" VerticalAlignment="Center" Background="{StaticResource SkinBrush_HeaderBackground}" BorderBrush="{StaticResource SkinBrush_OuterFrame}" BorderThickness="1.5" CornerRadius="10" Padding="16" Margin="12" MaxWidth="560" MaxHeight="520">
                                     <DockPanel>
                                         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
-                                            <Button DockPanel.Dock="Right" Content="Close" Click="BtnTeamClose_Click" Padding="10,4"/>
-                                            <TextBlock x:Name="TeamOverlayTitle" Text="Crew / Away Team" Foreground="#FFE082" FontSize="16" FontWeight="Bold"/>
+                                            <Button DockPanel.Dock="Right" Content="Close" Click="BtnTeamClose_Click" Style="{StaticResource SkinStyle_SciFiButton}" Padding="10,4"/>
+                                            <TextBlock x:Name="TeamOverlayTitle" Text="Crew / Away Team" Foreground="{StaticResource SkinBrush_GoldAccent}" FontSize="16" FontWeight="Bold"/>
                                         </DockPanel>
                                         <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                            <TextBlock x:Name="TeamOverlayBody" Foreground="#D4D4D4" FontSize="13" FontFamily="Consolas" TextWrapping="Wrap"/>
+                                            <TextBlock x:Name="TeamOverlayBody" Foreground="#E2E8F0" FontSize="13" FontFamily="Consolas" TextWrapping="Wrap"/>
                                         </ScrollViewer>
                                     </DockPanel>
                                 </Border>
                             </Border>
-                            <Border x:Name="KidnapOverlay" Visibility="Collapsed" Background="#CC0A0A0F" Panel.ZIndex="210">
-                                <Border HorizontalAlignment="Center" VerticalAlignment="Center" Background="#252530" BorderBrush="#6A6A80" BorderThickness="1" CornerRadius="10" Padding="16" Margin="12" MaxWidth="920" MaxHeight="680">
+                            <Border x:Name="KidnapOverlay" Visibility="Collapsed" Background="#E60B1017" Panel.ZIndex="210">
+                                <Border HorizontalAlignment="Center" VerticalAlignment="Center" Background="{StaticResource SkinBrush_HeaderBackground}" BorderBrush="{StaticResource SkinBrush_OuterFrame}" BorderThickness="1.5" CornerRadius="10" Padding="16" Margin="12" MaxWidth="920" MaxHeight="680">
                                     <DockPanel>
-                                        <TextBlock DockPanel.Dock="Top" x:Name="KidnapTitle" Text="Telepathic Alien Kidnappers" Foreground="#FFE082" FontSize="16" FontWeight="Bold" Margin="0,0,0,8" TextWrapping="Wrap"/>
-                                        <TextBlock DockPanel.Dock="Top" x:Name="KidnapHint" Text="Name a card type, then pick a facedown card." Foreground="#9CDCFE" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                        <TextBlock DockPanel.Dock="Top" x:Name="KidnapTitle" Text="Telepathic Alien Kidnappers" Foreground="{StaticResource SkinBrush_GoldAccent}" FontSize="16" FontWeight="Bold" Margin="0,0,0,8" TextWrapping="Wrap"/>
+                                        <TextBlock DockPanel.Dock="Top" x:Name="KidnapHint" Text="Name a card type, then pick a facedown card." Foreground="{StaticResource SkinBrush_CyanAccent}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8"/>
                                         <WrapPanel DockPanel.Dock="Top" x:Name="KidnapTypePanel" Margin="0,0,0,10"/>
-                                        <Button x:Name="BtnKidnapCancel" DockPanel.Dock="Bottom" Content="Cancel" Click="BtnKidnapCancel_Click" Padding="12,6" HorizontalAlignment="Right" Margin="0,10,0,0"/>
+                                        <Button x:Name="BtnKidnapCancel" DockPanel.Dock="Bottom" Content="Cancel" Click="BtnKidnapCancel_Click" Style="{StaticResource SkinStyle_SciFiButton}" Padding="12,6" HorizontalAlignment="Right" Margin="0,10,0,0"/>
                                         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                                             <WrapPanel x:Name="KidnapCardsPanel"/>
                                         </ScrollViewer>
@@ -367,13 +438,13 @@
                         </DockPanel>
                     </Border>
                 </Grid>
-                <Border Grid.Column="1" x:Name="StackPanelBorder" Background="#1A1A1C" BorderBrush="#1A1A1C" BorderThickness="1,0,0,0">
+                <Border Grid.Column="1" x:Name="StackPanelBorder" Background="{StaticResource SkinBrush_RailBackground}" BorderBrush="{StaticResource SkinBrush_OuterFrame}" BorderThickness="1,0,0,0">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-                        <Border Grid.Row="0" x:Name="OppTischZoneBorder" Background="#252528" BorderBrush="#1A1A1C" BorderThickness="0,0,0,1" Padding="4">
+                        <Border Grid.Row="0" x:Name="OppTischZoneBorder" Background="{StaticResource SkinBrush_RailBackground}" BorderBrush="{StaticResource SkinBrush_InnerFrame}" BorderThickness="0,0,0,1" Padding="4">
                             <DockPanel>
                                 <TextBlock DockPanel.Dock="Top" x:Name="TopTableLabel" Text="P2 TABLE" FontSize="11" FontWeight="SemiBold" Foreground="#8EC8D8" Margin="2,2,2,4"/>
                                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -381,7 +452,7 @@
                                 </ScrollViewer>
                             </DockPanel>
                         </Border>
-                        <Border Grid.Row="1" x:Name="TischZoneBorder" Background="#3E3E46" BorderBrush="#2E2E34" BorderThickness="0,1,0,0" Padding="4">
+                        <Border Grid.Row="1" x:Name="TischZoneBorder" Background="{StaticResource SkinBrush_RailBackground}" BorderBrush="{StaticResource SkinBrush_InnerFrame}" BorderThickness="0,1,0,0" Padding="4">
                             <DockPanel>
                                 <TextBlock DockPanel.Dock="Top" x:Name="BottomTableLabel" Text="P1 TABLE" FontSize="11" FontWeight="SemiBold" Foreground="#B5CEA8" Margin="2,2,2,4"/>
                                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -405,44 +476,44 @@
             </Canvas>
             <Canvas x:Name="DragLayer" Grid.ColumnSpan="2" IsHitTestVisible="False" Panel.ZIndex="50"/>
             <Border x:Name="WelcomeOverlay" Grid.ColumnSpan="2" Background="#CC101014" Panel.ZIndex="100">
-                <Border Background="#252528" CornerRadius="10" Padding="36,28" HorizontalAlignment="Center" VerticalAlignment="Center" BorderBrush="#3A3A48" BorderThickness="1" MinWidth="360">
+                <Border Background="{StaticResource SkinBrush_HeaderBackground}" CornerRadius="10" Padding="36,28" HorizontalAlignment="Center" VerticalAlignment="Center" BorderBrush="{StaticResource SkinBrush_OuterFrame}" BorderThickness="1.5" MinWidth="360">
                     <StackPanel>
                         <TextBlock Text="Star Trek CCG 1E" FontSize="22" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
                         <TextBlock Text="Sandbox Table" FontSize="13" Foreground="#888" HorizontalAlignment="Center" Margin="0,4,0,22"/>
-                        <Button Content="New game" Click="WelcomeNewGame_Click" Height="40" Margin="0,0,0,10" FontSize="14" Cursor="Hand" Background="#0E639C" Foreground="White" BorderThickness="0"/>
-                        <Button Content="Load game…" Click="MenuLoadGame_Click" Height="36" Margin="0,0,0,6" FontSize="13" Cursor="Hand" Background="#333" Foreground="White" BorderThickness="0"/>
-                        <Button Content="Quick game…" Click="MenuQuickGame_Click" Height="36" Margin="0,0,0,6" FontSize="13" Cursor="Hand" Background="#2E7D32" Foreground="White" BorderThickness="0"/>
+                        <Button Content="New game" Click="WelcomeNewGame_Click" Style="{StaticResource SkinStyle_SciFiButton}" Height="40" Margin="0,0,0,10"/>
+                        <Button Content="Load game…" Click="MenuLoadGame_Click" Style="{StaticResource SkinStyle_SciFiButton}" Height="36" Margin="0,0,0,6"/>
+                        <Button Content="Quick game…" Click="MenuQuickGame_Click" Style="{StaticResource SkinStyle_SciFiButton}" Height="36" Margin="0,0,0,6"/>
                         <StackPanel x:Name="NewGameOptions" Visibility="Collapsed" Margin="0,16,0,0">
                             <TextBlock Text="Game mode" Foreground="#AAA" FontSize="12" Margin="0,0,0,6" HorizontalAlignment="Center"/>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,12">
-                                <RadioButton x:Name="ModeHotseat" Content="Hotseat" IsChecked="True" Foreground="#EEE" Margin="0,0,14,0" GroupName="GameMode"/>
-                                <RadioButton x:Name="ModeNetwork" Content="Network" IsEnabled="True" Foreground="#EEE" Margin="0,0,14,0" GroupName="GameMode" Checked="ModeNetwork_Checked"/>
-                                <RadioButton x:Name="ModeSingle" Content="Singleplayer (AI)" IsEnabled="False" Foreground="#666" GroupName="GameMode"/>
+                                <RadioButton x:Name="ModeHotseat" Content="Hotseat" IsChecked="True" Style="{StaticResource SkinStyle_ModeRadio}" Margin="0,0,14,0" GroupName="GameMode"/>
+                                <RadioButton x:Name="ModeNetwork" Content="Network" IsEnabled="True" Style="{StaticResource SkinStyle_ModeRadio}" Margin="0,0,14,0" GroupName="GameMode" Checked="ModeNetwork_Checked"/>
+                                <RadioButton x:Name="ModeSingle" Content="Singleplayer (AI)" IsEnabled="False" Style="{StaticResource SkinStyle_ModeRadio}" GroupName="GameMode"/>
                             </StackPanel>
-                            <Button Content="Open lobby…" Click="OpenLobby_Click" Height="28" Margin="0,0,0,10" FontSize="12" Cursor="Hand" Background="#3A3A48" Foreground="White" BorderThickness="0"/>
-                            <Button Content="Reconnect" Click="Reconnect_Click" Height="28" Margin="0,0,0,10" FontSize="12" Cursor="Hand" Background="#3A3A48" Foreground="White" BorderThickness="0"/>
-                            <Button Content="Load deck…" Click="MenuLoadDeck_Click" Height="36" Margin="0,0,0,8" Cursor="Hand" Background="#3A3A48" Foreground="White" BorderThickness="0"/>
-                            <Button Content="Create deck (Builder)…" Click="WelcomeDeckBuilder_Click" Height="36" Cursor="Hand" Background="#3A3A48" Foreground="White" BorderThickness="0"/>
+                            <Button Content="Open lobby…" Click="OpenLobby_Click" Style="{StaticResource SkinStyle_SciFiButton}" Height="32" Margin="0,0,0,10"/>
+                            <Button Content="Reconnect" Click="Reconnect_Click" Style="{StaticResource SkinStyle_SciFiButton}" Height="32" Margin="0,0,0,10"/>
+                            <Button Content="Load deck…" Click="MenuLoadDeck_Click" Style="{StaticResource SkinStyle_SciFiButton}" Height="36" Margin="0,0,0,8"/>
+                            <Button Content="Create deck (Builder)…" Click="WelcomeDeckBuilder_Click" Style="{StaticResource SkinStyle_SciFiButton}" Height="36"/>
                         </StackPanel>
                     </StackPanel>
                 </Border>
             </Border>
-            <Border x:Name="ZoomOverlay" Grid.ColumnSpan="2" Background="#E0101014" Visibility="Collapsed" Panel.ZIndex="300" MouseLeftButtonDown="ZoomOverlay_MouseLeftButtonDown" MouseRightButtonUp="ZoomOverlay_MouseRightButtonUp">
-                <Border HorizontalAlignment="Center" VerticalAlignment="Center" Background="#1A1A1E" BorderBrush="#555" BorderThickness="2" CornerRadius="8" Padding="12" MaxWidth="720" MaxHeight="920" MouseLeftButtonDown="ZoomCard_MouseLeftButtonDown">
+            <Border x:Name="ZoomOverlay" Grid.ColumnSpan="2" Background="#E60B1017" Visibility="Collapsed" Panel.ZIndex="300" MouseLeftButtonDown="ZoomOverlay_MouseLeftButtonDown" MouseRightButtonUp="ZoomOverlay_MouseRightButtonUp">
+                <Border HorizontalAlignment="Center" VerticalAlignment="Center" Background="{StaticResource SkinBrush_HeaderBackground}" BorderBrush="{StaticResource SkinBrush_OuterFrame}" BorderThickness="1.5" CornerRadius="8" Padding="12" MaxWidth="720" MaxHeight="920" MouseLeftButtonDown="ZoomCard_MouseLeftButtonDown">
                     <DockPanel>
-                        <TextBlock DockPanel.Dock="Bottom" x:Name="ZoomCaption" Text="Click = close" Foreground="#888" FontSize="12" HorizontalAlignment="Center" Margin="0,10,0,0"/>
+                        <TextBlock DockPanel.Dock="Bottom" x:Name="ZoomCaption" Text="Click = close" Foreground="{StaticResource SkinBrush_CyanAccent}" FontSize="12" HorizontalAlignment="Center" Margin="0,10,0,0"/>
                         <Image x:Name="ZoomImage" Stretch="Uniform" MaxWidth="680" MaxHeight="860" RenderOptions.BitmapScalingMode="HighQuality" Cursor="Hand"/>
                     </DockPanel>
                 </Border>
             </Border>
-            <Border x:Name="NetReconnectShield" Grid.ColumnSpan="2" Visibility="Collapsed" Panel.ZIndex="270" Background="#CC1A1A20"/>
+            <Border x:Name="NetReconnectShield" Grid.ColumnSpan="2" Visibility="Collapsed" Panel.ZIndex="270" Background="#E60B1017"/>
             <Border x:Name="NetReconnectBanner" Grid.ColumnSpan="2" Visibility="Collapsed" Panel.ZIndex="280"
-                    Background="#3A3A48" BorderBrush="#555" BorderThickness="1" CornerRadius="4"
+                    Background="{StaticResource SkinBrush_HeaderBarGradient}" BorderBrush="{StaticResource SkinBrush_OuterFrame}" BorderThickness="1.5" CornerRadius="6"
                     VerticalAlignment="Top" HorizontalAlignment="Stretch" Margin="12,8,12,0" Padding="12,8">
                 <DockPanel LastChildFill="True">
                     <Button x:Name="BtnNetReconnectNow" DockPanel.Dock="Right" Content="Try now" Click="Reconnect_Click"
-                            Margin="12,0,0,0" Padding="12,4" Background="#2A2A36" Foreground="White" BorderThickness="0"
-                            FontWeight="SemiBold" Cursor="Hand" VerticalAlignment="Center"/>
+                            Style="{StaticResource SkinStyle_SciFiButton}"
+                            Margin="12,0,0,0" Padding="12,4" VerticalAlignment="Center"/>
                     <TextBlock x:Name="NetReconnectBannerText" Foreground="White" FontSize="14" FontWeight="SemiBold"
                                VerticalAlignment="Center" TextWrapping="Wrap"
                                Text="Connection lost. Reconnecting. 120s left of 120."/>

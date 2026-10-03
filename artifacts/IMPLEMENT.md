@@ -1,6 +1,6 @@
 # IMPLEMENT — Ablauf für neue Karte, Regel, Feature
 
-**Stand:** 2026-09-28
+**Stand:** 2026-10-02
 
 Diese Datei ist die **einzige** Anleitung, wie etwas ins Spiel kommt.
 Erledigt-Listen stehen nicht hier. Status: `FEATURES.md`, `CARD_TRACKER.md`, Checkliste, Glossar, Appendix A.

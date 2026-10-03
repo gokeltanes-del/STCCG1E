@@ -45,6 +45,10 @@ public sealed class NetChoiceDto
         public const string RevealMirror = "revealMirror";
         /// <summary>Hide the watcher encounter face.</summary>
         public const string RevealMirrorClose = "revealMirrorClose";
+        /// <summary>Other player has a response window. No cards, no reply.</summary>
+        public const string ResponseWatch = "responseWatch";
+        /// <summary>The other player's response window closed.</summary>
+        public const string ResponseWatchClose = "responseWatchClose";
     }
 
     [JsonPropertyName("correlationId")]

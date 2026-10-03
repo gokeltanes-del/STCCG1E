@@ -28,6 +28,10 @@ public partial class DeckBuilderWindow : Window
     private List<(string Category, List<string> Items)> _skillCategories = new();
     private readonly AccountDeckBridge? _account;
     private readonly Dictionary<string, int>? _pool;
+    private bool _hosted;
+    private bool _catalogReady;
+    private bool _catalogGuard;
+    private System.Threading.Tasks.TaskCompletionSource<string?>? _pickWait;
 
     public DeckBuilderWindow()
         : this(null)
@@ -45,8 +49,52 @@ public partial class DeckBuilderWindow : Window
         RefreshDeckList();
     }
 
-    private void DeckBuilderWindow_Loaded(object sender, RoutedEventArgs e)
+    private void DeckBuilderWindow_Loaded(object sender, RoutedEventArgs e) => LoadCatalog();
+
+    /// <summary>
+    /// Moves the existing builder regions into the main window. No second window.
+    /// </summary>
+    public void HostIn(Panel filters, Panel cards, Panel deck, Panel detail, Panel actions, Panel zoom)
     {
+        _hosted = true;
+        MoveRegion(FilterRegion, filters);
+        MoveRegion(CardListRegion, cards);
+        MoveRegion(DeckRegion, deck);
+        MoveRegion(DetailRegion, detail);
+        MoveRegion(ActionRegion, actions);
+        MoveRegion(CardZoomOverlay, zoom);
+        LoadCatalog();
+    }
+
+    public void HandlePreviewKey(System.Windows.Input.KeyEventArgs e) => Window_PreviewKeyDown(this, e);
+
+    public void Detach()
+    {
+        _hosted = false;
+        _pickWait?.TrySetResult(null);
+        _pickWait = null;
+        foreach (var el in new FrameworkElement?[] { FilterRegion, CardListRegion, DeckRegion, DetailRegion, ActionRegion, CardZoomOverlay })
+        {
+            if (el?.Parent is Panel panel)
+                panel.Children.Remove(el);
+        }
+    }
+
+    private static void MoveRegion(FrameworkElement el, Panel host)
+    {
+        if (el.Parent is Panel parent)
+            parent.Children.Remove(el);
+        el.ClearValue(Grid.RowProperty);
+        el.ClearValue(Grid.ColumnProperty);
+        el.ClearValue(Grid.ColumnSpanProperty);
+        el.ClearValue(Grid.RowSpanProperty);
+        host.Children.Add(el);
+    }
+
+    private void LoadCatalog()
+    {
+        if (_catalogReady)
+            return;
         string dataPath = GamePaths.DataRoot;
 
         try
@@ -56,8 +104,9 @@ public partial class DeckBuilderWindow : Window
 
             _allCards = _db.AllCards.OrderBy(c => c.Name).ToList();
             CardList.ItemsSource = _allCards;
-
+            ApplyCatalogDefault();
             PopulateFilters();
+            _catalogReady = true;
             StatusText.Text = _pool == null
                 ? $"{count} cards loaded"
                 : $"{count} cards loaded. Pool {PoolTotal()}.";
@@ -66,7 +115,7 @@ public partial class DeckBuilderWindow : Window
         catch (Exception ex)
         {
             StatusText.Text = "Could not load cards";
-            MessageBox.Show(
+            BridgeDialog.Show(
                 $"Could not load card data:\n\n{ex.Message}\n\n" +
                 "Check dataPath in DeckBuilderWindow.xaml.cs.",
                 "Data error", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -320,6 +369,9 @@ public partial class DeckBuilderWindow : Window
         }
 
         // Personnel skill / icon multi-select (AND across selected tags)
+        if (AccountCardsOnly())
+            result = result.Where(c => PoolQuantity(c) > 0);
+
         var skillTags = GetSelectedSkillTags();
         if (skillTags.Count > 0)
         {
@@ -594,7 +646,7 @@ public partial class DeckBuilderWindow : Window
         }
 
         string pile = DeckService.SectionDisplayName(_activeSection);
-        var ask = MessageBox.Show(
+        var ask = BridgeDialog.Show(
             $"Add {cards.Count} visible card(s) to {pile}?\n(1 copy each)",
             "Add all visible",
             MessageBoxButton.YesNo,
@@ -639,13 +691,13 @@ public partial class DeckBuilderWindow : Window
     {
         if (RulesEnforced && !DeckPlacementRules.CanAdd(_currentDeck, card, section, quantity, out string why))
         {
-            MessageBox.Show(why, "Deck construction", MessageBoxButton.OK, MessageBoxImage.Information);
+            BridgeDialog.Show(why, "Deck construction", MessageBoxButton.OK, MessageBoxImage.Information);
             StatusText.Text = why;
             return;
         }
         if (!CanAddFromPool(card, quantity, out var poolWhy))
         {
-            MessageBox.Show(poolWhy, "Account pool", MessageBoxButton.OK, MessageBoxImage.Information);
+            BridgeDialog.Show(poolWhy, "Account pool", MessageBoxButton.OK, MessageBoxImage.Information);
             StatusText.Text = poolWhy;
             return;
         }
@@ -742,7 +794,7 @@ public partial class DeckBuilderWindow : Window
         if (RulesEnforced && card != null &&
             !DeckPlacementRules.CanAdd(_currentDeck, card, to, entry.Quantity, out string why))
         {
-            MessageBox.Show(why, "Deck construction", MessageBoxButton.OK, MessageBoxImage.Information);
+            BridgeDialog.Show(why, "Deck construction", MessageBoxButton.OK, MessageBoxImage.Information);
             StatusText.Text = why;
             return;
         }
@@ -753,7 +805,7 @@ public partial class DeckBuilderWindow : Window
 
     private void ClearDeck_Click(object sender, RoutedEventArgs e)
     {
-        var result = MessageBox.Show("Clear the current deck?", "Clear deck",
+        var result = BridgeDialog.Show("Clear the current deck?", "Clear deck",
             MessageBoxButton.YesNo, MessageBoxImage.Question);
 
         if (result == MessageBoxResult.Yes)
@@ -901,12 +953,12 @@ public partial class DeckBuilderWindow : Window
             try
             {
                 _deckService.Save(_currentDeck, dialog.FileName);
-                MessageBox.Show($"Deck \"{_currentDeck.Name}\" saved (format v3).", "Saved",
+                BridgeDialog.Show($"Deck \"{_currentDeck.Name}\" saved (format v3).", "Saved",
                     MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Could not save:\n{ex.Message}", "Error",
+                BridgeDialog.Show($"Could not save:\n{ex.Message}", "Error",
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -943,7 +995,7 @@ public partial class DeckBuilderWindow : Window
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Could not load:\n\n{ex.Message}", "Invalid file",
+                BridgeDialog.Show($"Could not load:\n\n{ex.Message}", "Invalid file",
                     MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
@@ -1076,7 +1128,7 @@ public partial class DeckBuilderWindow : Window
             if (!string.IsNullOrWhiteSpace(error))
             {
                 StatusText.Text = error;
-                MessageBox.Show(error, "Deck not saved", MessageBoxButton.OK, MessageBoxImage.Information);
+                BridgeDialog.Show(error, "Deck not saved", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
             StatusText.Text = "Saved " + _currentDeck.Name + " on the account. Pool " + PoolTotal() + ".";
@@ -1084,7 +1136,7 @@ public partial class DeckBuilderWindow : Window
         catch (Exception ex)
         {
             StatusText.Text = ex.Message;
-            MessageBox.Show(ex.Message, "Deck not saved", MessageBoxButton.OK, MessageBoxImage.Warning);
+            BridgeDialog.Show(ex.Message, "Deck not saved", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 
@@ -1107,7 +1159,9 @@ public partial class DeckBuilderWindow : Window
             StatusText.Text = "No account decks.";
             return;
         }
-        var picked = PickAccountDeck(decks);
+        var picked = _hosted
+            ? await PickAccountDeckHostedAsync(decks).ConfigureAwait(true)
+            : PickAccountDeck(decks);
         if (picked == null)
             return;
         try
@@ -1273,6 +1327,89 @@ public partial class DeckBuilderWindow : Window
         return n;
     }
 
+
+    private void ApplyCatalogDefault()
+    {
+        if (AccountOnlyCheck == null || UnlockAllCheck == null)
+            return;
+        _catalogGuard = true;
+        if (_pool == null)
+        {
+            AccountOnlyCheck.IsChecked = false;
+            AccountOnlyCheck.IsEnabled = false;
+            UnlockAllCheck.IsChecked = true;
+        }
+        else
+        {
+            AccountOnlyCheck.IsEnabled = true;
+            AccountOnlyCheck.IsChecked = true;
+            UnlockAllCheck.IsChecked = false;
+        }
+        _catalogGuard = false;
+    }
+
+    private bool AccountCardsOnly()
+    {
+        if (_pool == null)
+            return false;
+        if (UnlockAllCheck?.IsChecked == true)
+            return false;
+        return AccountOnlyCheck?.IsChecked == true;
+    }
+
+    private void CatalogFilter_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_catalogGuard || AccountOnlyCheck == null || UnlockAllCheck == null)
+            return;
+        _catalogGuard = true;
+        if (ReferenceEquals(sender, AccountOnlyCheck) && AccountOnlyCheck.IsChecked == true)
+            UnlockAllCheck.IsChecked = false;
+        else if (ReferenceEquals(sender, UnlockAllCheck) && UnlockAllCheck.IsChecked == true)
+            AccountOnlyCheck.IsChecked = false;
+        if (AccountOnlyCheck.IsChecked != true && UnlockAllCheck.IsChecked != true)
+        {
+            if (_pool != null)
+                AccountOnlyCheck.IsChecked = true;
+            else
+                UnlockAllCheck.IsChecked = true;
+        }
+        _catalogGuard = false;
+        if (_catalogReady)
+            ApplyFilters();
+    }
+
+    private async System.Threading.Tasks.Task<string?> PickAccountDeckHostedAsync(System.Collections.Generic.IReadOnlyList<(string Name, int Count)> decks)
+    {
+        if (AccountPickList == null || AccountPickPanel == null)
+            return null;
+        AccountPickList.Items.Clear();
+        foreach (var deck in decks)
+            AccountPickList.Items.Add(new ListBoxItem { Content = deck.Name + " (" + deck.Count + ")", Tag = deck.Name, Foreground = Brushes.White });
+        if (AccountPickList.Items.Count > 0)
+            AccountPickList.SelectedIndex = 0;
+        AccountPickPanel.Visibility = Visibility.Visible;
+        _pickWait = new System.Threading.Tasks.TaskCompletionSource<string?>(System.Threading.Tasks.TaskCreationOptions.RunContinuationsAsynchronously);
+        var picked = await _pickWait.Task.ConfigureAwait(true);
+        _pickWait = null;
+        AccountPickPanel.Visibility = Visibility.Collapsed;
+        return picked;
+    }
+
+    private void AccountPickOk_Click(object sender, RoutedEventArgs e)
+    {
+        string? name = null;
+        if (AccountPickList?.SelectedItem is ListBoxItem item && item.Tag is string tag)
+            name = tag;
+        AccountPickPanel.Visibility = Visibility.Collapsed;
+        _pickWait?.TrySetResult(name);
+    }
+
+    private void AccountPickCancel_Click(object sender, RoutedEventArgs e)
+    {
+        AccountPickPanel.Visibility = Visibility.Collapsed;
+        _pickWait?.TrySetResult(null);
+    }
+
     private sealed class BrowserRow
     {
         private static readonly SolidColorBrush GreyName = CreateGrey();
@@ -1283,17 +1420,17 @@ public partial class DeckBuilderWindow : Window
             PoolQuantity = poolQuantity;
         }
 
-        public Card Card { get; }
-        public int PoolQuantity { get; }
-        public string Name => Card.Name;
-        public string? Type => Card.Type;
-        public string? Affiliation => Card.Affiliation;
-        public string? Quadrant => Card.Quadrant;
-        public string? Region => Card.Region;
-        public bool Unowned => PoolQuantity == 0;
-        public string PoolLabel => PoolQuantity < 0 ? "" : "pool " + PoolQuantity;
-        public Visibility PoolVisibility => PoolQuantity < 0 ? Visibility.Collapsed : Visibility.Visible;
-        public Brush NameBrush => PoolQuantity == 0 ? GreyName : Brushes.White;
+        public Card Card { get; set; }
+        public int PoolQuantity { get; set; }
+        public string Name { get => Card.Name; set { } }
+        public string? Type { get => Card.Type; set { } }
+        public string? Affiliation { get => Card.Affiliation; set { } }
+        public string? Quadrant { get => Card.Quadrant; set { } }
+        public string? Region { get => Card.Region; set { } }
+        public bool Unowned { get => PoolQuantity == 0; set { } }
+        public string PoolLabel { get => PoolQuantity < 0 ? "" : "pool " + PoolQuantity; set { } }
+        public Visibility PoolVisibility { get => PoolQuantity < 0 ? Visibility.Collapsed : Visibility.Visible; set { } }
+        public Brush NameBrush { get => PoolQuantity == 0 ? GreyName : Brushes.White; set { } }
 
         private static SolidColorBrush CreateGrey()
         {

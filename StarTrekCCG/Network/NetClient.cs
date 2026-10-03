@@ -20,7 +20,9 @@ public sealed class NetClient : INetLink
     private readonly SemaphoreSlim _sendLock = new(1, 1);
     private bool _disposed;
 
-    public bool IsConnected => _client is { Connected: true };
+    // TcpClient.Connected turns false when the lobby read is cancelled at game start.
+    // The socket still sends. Disconnect is what actually closes it.
+    public bool IsConnected => _stream != null;
 
     public async Task ConnectAsync(string host, int port, CancellationToken cancellationToken = default)
     {

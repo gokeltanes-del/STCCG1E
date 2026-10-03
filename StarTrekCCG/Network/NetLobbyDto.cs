@@ -24,6 +24,13 @@ public static class NetLobbyDto
 
         [JsonPropertyName("deckName")]
         public string DeckName { get; set; } = string.Empty;
+
+        [JsonPropertyName("count")]
+        public int Count { get; set; }
+
+        /// <summary>Guest only. The host does not put its card list on this message.</summary>
+        [JsonPropertyName("deckJson")]
+        public string? DeckJson { get; set; }
     }
 
     public sealed class Ready
@@ -105,7 +112,7 @@ public static class NetLobbyDto
     }
 }
 
-/// <summary>Args for NetworkLobbyWindow.GameStarting (both sides after StartGame).</summary>
+/// <summary>Args for lobby GameStarting (both sides after StartGame).</summary>
 public sealed class LobbyGameStartArgs : EventArgs
 {
     public bool IsHost { get; init; }
@@ -113,6 +120,10 @@ public sealed class LobbyGameStartArgs : EventArgs
     public string DeckP2Name { get; init; } = string.Empty;
     public string DeckP1Json { get; init; } = string.Empty;
     public string DeckP2Json { get; init; } = string.Empty;
+    /// <summary>Account or lobby name for seat 1. Empty keeps "Player 1".</summary>
+    public string Player1Name { get; init; } = string.Empty;
+    /// <summary>Account or lobby name for seat 2. Empty keeps "Player 2".</summary>
+    public string Player2Name { get; init; } = string.Empty;
     /// <summary>Both accepted Skip seed phase — Host AutoCompleteSeed then Play.</summary>
     public bool SkipSeedPhase { get; init; }
     public string MatchId { get; init; } = string.Empty;

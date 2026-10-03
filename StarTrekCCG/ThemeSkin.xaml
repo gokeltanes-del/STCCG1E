@@ -1,0 +1,150 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Theme Skin: Star Trek Sci-Fi / LCARS Steel Blue Theme -->
+    
+    <!-- Base Colors -->
+    <Color x:Key="SkinColor_WindowBackground">#141923</Color>
+    <Color x:Key="SkinColor_HeaderBackground">#1E2A38</Color>
+    <Color x:Key="SkinColor_RailBackground">#16202C</Color>
+    <Color x:Key="SkinColor_CenterBackground">#0B1017</Color>
+    <Color x:Key="SkinColor_FooterBackground">#1A2533</Color>
+
+    <!-- Chrome & Frame Accent Colors -->
+    <Color x:Key="SkinColor_OuterFrame">#4B6B88</Color>
+    <Color x:Key="SkinColor_InnerFrame">#2D4255</Color>
+    <Color x:Key="SkinColor_BevelLight">#7B9DBE</Color>
+    <Color x:Key="SkinColor_BevelDark">#141C24</Color>
+    <Color x:Key="SkinColor_GoldAccent">#F4B43B</Color>
+    <Color x:Key="SkinColor_CyanAccent">#4FC3F7</Color>
+    <Color x:Key="SkinColor_GreenOnline">#00E676</Color>
+    <Color x:Key="SkinColor_RedOffline">#FF5252</Color>
+
+    <!-- Brushes -->
+    <SolidColorBrush x:Key="SkinBrush_WindowBackground" Color="{StaticResource SkinColor_WindowBackground}"/>
+    <SolidColorBrush x:Key="SkinBrush_HeaderBackground" Color="{StaticResource SkinColor_HeaderBackground}"/>
+    <SolidColorBrush x:Key="SkinBrush_RailBackground" Color="{StaticResource SkinColor_RailBackground}"/>
+    <SolidColorBrush x:Key="SkinBrush_CenterBackground" Color="{StaticResource SkinColor_CenterBackground}"/>
+    <SolidColorBrush x:Key="SkinBrush_FooterBackground" Color="{StaticResource SkinColor_FooterBackground}"/>
+    <SolidColorBrush x:Key="SkinBrush_OuterFrame" Color="{StaticResource SkinColor_OuterFrame}"/>
+    <SolidColorBrush x:Key="SkinBrush_InnerFrame" Color="{StaticResource SkinColor_InnerFrame}"/>
+    <SolidColorBrush x:Key="SkinBrush_GoldAccent" Color="{StaticResource SkinColor_GoldAccent}"/>
+    <SolidColorBrush x:Key="SkinBrush_CyanAccent" Color="{StaticResource SkinColor_CyanAccent}"/>
+    <SolidColorBrush x:Key="SkinBrush_GreenOnline" Color="{StaticResource SkinColor_GreenOnline}"/>
+    <SolidColorBrush x:Key="SkinBrush_RedOffline" Color="{StaticResource SkinColor_RedOffline}"/>
+
+    <!-- Gradients -->
+    <LinearGradientBrush x:Key="SkinBrush_HeaderBarGradient" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#273A4E" Offset="0"/>
+        <GradientStop Color="#1A2837" Offset="1"/>
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="SkinBrush_BevelBorderGradient" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#8AB3D8" Offset="0"/>
+        <GradientStop Color="#4A6A88" Offset="0.5"/>
+        <GradientStop Color="#203040" Offset="1"/>
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="SkinBrush_MainButtonGradient" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#53789E" Offset="0"/>
+        <GradientStop Color="#3B5977" Offset="0.5"/>
+        <GradientStop Color="#2B435C" Offset="1"/>
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="SkinBrush_MainButtonHover" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#6893BF" Offset="0"/>
+        <GradientStop Color="#4E749C" Offset="0.5"/>
+        <GradientStop Color="#395878" Offset="1"/>
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="SkinBrush_MainButtonPressed" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#22364A" Offset="0"/>
+        <GradientStop Color="#324B64" Offset="1"/>
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="SkinBrush_CardTileGradient" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#263A4D" Offset="0"/>
+        <GradientStop Color="#182533" Offset="1"/>
+    </LinearGradientBrush>
+
+    <!-- Sci-Fi / Trek Button Style -->
+    <Style x:Key="SkinStyle_SciFiButton" TargetType="Button">
+        <Setter Property="Foreground" Value="#E0F2FE"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="FontFamily" Value="Segoe UI, Tahoma, Arial"/>
+        <Setter Property="SnapsToDevicePixels" Value="True"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid>
+                        <Border x:Name="OuterBevel"
+                                Background="{StaticResource SkinBrush_BevelBorderGradient}"
+                                CornerRadius="5"
+                                Padding="1.5">
+                            <Border x:Name="InnerFace"
+                                    Background="{StaticResource SkinBrush_MainButtonGradient}"
+                                    CornerRadius="4"
+                                    BorderBrush="#2A3E54"
+                                    BorderThickness="1">
+                                <ContentPresenter HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  Margin="{TemplateBinding Padding}"/>
+                            </Border>
+                        </Border>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="InnerFace" Property="Background" Value="{StaticResource SkinBrush_MainButtonHover}"/>
+                            <Setter Property="Foreground" Value="#FFFFFF"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="InnerFace" Property="Background" Value="{StaticResource SkinBrush_MainButtonPressed}"/>
+                            <Setter TargetName="OuterBevel" Property="Background" Value="#2A3E54"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45"/>
+                            <Setter Property="Cursor" Value="Arrow"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Small Action Button (Chat/Trade/Play in Avatar) -->
+    <Style x:Key="SkinStyle_ActionMiniButton" TargetType="Button">
+        <Setter Property="Foreground" Value="#BAE6FD"/>
+        <Setter Property="FontSize" Value="10"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Height" Value="20"/>
+        <Setter Property="MinWidth" Value="42"/>
+        <Setter Property="Margin" Value="2,0"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd"
+                            Background="#233547"
+                            BorderBrush="#486B8C"
+                            BorderThickness="1"
+                            CornerRadius="3"
+                            Padding="3,1">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#3B5775"/>
+                            <Setter Property="Foreground" Value="#FFFFFF"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#172330"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>

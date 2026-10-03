@@ -107,6 +107,13 @@ sealed partial class AuthStore : IDisposable
                 request_json TEXT NOT NULL,
                 created_utc TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS friendships (
+                user_a INTEGER NOT NULL,
+                user_b INTEGER NOT NULL,
+                created_utc TEXT NOT NULL,
+                PRIMARY KEY (user_a, user_b),
+                CHECK (user_a < user_b)
+            );
             """;
         cmd.ExecuteNonQuery();
         EnsureMatchAccountColumns();
@@ -178,6 +185,44 @@ sealed partial class AuthStore : IDisposable
             var token = NewToken();
             InsertSession(id, token);
             return new { type = "auth", token, name = storedName, mode = "account", latinum };
+        }
+    }
+
+    public object DeleteAccount(string? token, string? password)
+    {
+        if (!TrySession(token, out var user))
+            return Err("login required");
+        if (string.IsNullOrEmpty(password))
+            return Err("wrong password");
+        lock (_gate)
+        {
+            using var read = _db.CreateCommand();
+            read.CommandText = "SELECT password_hash FROM users WHERE id = $id";
+            read.Parameters.AddWithValue("$id", user.Id);
+            var hashObj = read.ExecuteScalar();
+            if (hashObj is not string hash)
+                return Err("login required");
+            bool ok;
+            try { ok = BCrypt.Net.BCrypt.Verify(password, hash); }
+            catch { ok = false; }
+            if (!ok)
+                return Err("wrong password");
+
+            using var tx = _db.BeginTransaction();
+            void Drop(string sql)
+            {
+                using var del = _db.CreateCommand();
+                del.Transaction = tx;
+                del.CommandText = sql;
+                del.Parameters.AddWithValue("$id", user.Id);
+                del.ExecuteNonQuery();
+            }
+            Drop("DELETE FROM sessions WHERE user_id = $id");
+            Drop("DELETE FROM decks WHERE user_id = $id");
+            Drop("DELETE FROM account_cards WHERE user_id = $id");
+            Drop("DELETE FROM users WHERE id = $id");
+            tx.Commit();
+            return new { type = "accountDeleted", name = user.Name };
         }
     }
 
@@ -281,6 +326,23 @@ sealed partial class AuthStore : IDisposable
             var left = ReadLatinum(user.Id, tx);
             tx.Commit();
             return new { type = "pack", packType = PremiereCatalog.PackType, price = PremiereCatalog.Price, latinum = left, cardIds = drawn };
+        }
+    }
+
+    // DEV-ONLY HOOK. Remove for release. Adds a fixed 500 to users.latinum for the logged-in account.
+    public const int DevGrantLatinumAmount = 500;
+
+    public object DevGrantLatinum(string? token)
+    {
+        if (!TrySession(token, out var user))
+            return Err("login required");
+        lock (_gate)
+        {
+            using var tx = _db.BeginTransaction();
+            AddLatinum(_db, tx, user.Id, DevGrantLatinumAmount);
+            var left = ReadLatinum(user.Id, tx);
+            tx.Commit();
+            return new { type = "latinum", latinum = left };
         }
     }
 

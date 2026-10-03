@@ -1,4 +1,4 @@
-﻿using System.Security.Cryptography;
+using System.Security.Cryptography;
 using System.Text.Json;
 using Microsoft.Data.Sqlite;
 
@@ -600,6 +600,74 @@ sealed partial class AuthStore
         foreach (var key in keys)
             rows.Add(new { cardId = key, quantity = lines[key] });
         return JsonSerializer.Serialize(rows);
+    }
+
+
+    // Both offers move in one transaction, or neither does. No latinum.
+    public bool TryCommitAccountTrade(
+        int fromId,
+        int toId,
+        IReadOnlyList<string> fromGives,
+        IReadOnlyList<string> toGives,
+        out string error)
+    {
+        error = "";
+        if (fromId <= 0 || toId <= 0 || fromId == toId)
+        {
+            error = "no such account";
+            return false;
+        }
+        if (!TryCountCopies(fromGives, out var give, out error) || !TryCountCopies(toGives, out var get, out error))
+            return false;
+        if (give.Count == 0 && get.Count == 0)
+        {
+            error = "name a card";
+            return false;
+        }
+
+        lock (_gate)
+        {
+            using var tx = _db.BeginTransaction();
+            if (!TradeFits(fromId, give, get, tx, out error) || !TradeFits(toId, get, give, tx, out error))
+            {
+                tx.Rollback();
+                return false;
+            }
+            if (!MoveLines(fromId, toId, give, tx) || !MoveLines(toId, fromId, get, tx))
+            {
+                tx.Rollback();
+                error = "card not in account pool";
+                return false;
+            }
+            tx.Commit();
+            return true;
+        }
+    }
+
+    private static bool TryCountCopies(IReadOnlyList<string>? ids, out Dictionary<string, int> lines, out string error)
+    {
+        lines = new Dictionary<string, int>(StringComparer.Ordinal);
+        error = "";
+        if (ids == null)
+            return true;
+        if (ids.Count > 4)
+        {
+            error = "trade is too large";
+            return false;
+        }
+        foreach (var raw in ids)
+        {
+            var id = (raw ?? "").Trim();
+            if (id.Length == 0)
+                continue;
+            if (!CardIdOk(id))
+            {
+                error = "card id must be SetFolder/ReleaseRaw/Name";
+                return false;
+            }
+            lines[id] = lines.TryGetValue(id, out var have) ? have + 1 : 1;
+        }
+        return true;
     }
 
     private static bool ParseStoredLines(string json, out Dictionary<string, int> lines)

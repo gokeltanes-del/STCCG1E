@@ -12,6 +12,14 @@ namespace StarTrekCCG.Network;
 /// Talks to the in-memory lobby service. Deck JSON never leaves this process through here.
 /// The socket URL is always ws://host:port/lobby. No other path is fetched.
 /// </summary>
+public sealed class LobbyPlayerInfo
+{
+    public string Name { get; init; } = "";
+    public string Role { get; init; } = "";
+    public string DeckName { get; init; } = "";
+    public string DeckHash { get; init; } = "";
+}
+
 public sealed class MatchmakingClient : IDisposable
 {
     private readonly SemaphoreSlim _send = new(1, 1);
@@ -40,11 +48,51 @@ public sealed class MatchmakingClient : IDisposable
 
     public event Action<string>? StateChanged;
     public event Action<string>? PlayersChanged;
+    public event Action<IReadOnlyList<LobbyPlayerInfo>>? PlayerListChanged;
     public event Action<string>? ChatChanged;
     public event Action<string, int>? AddressAnnounced;
     public event Action? SavesChanged;
     /// <summary>Guest only. The host load reply is not raised here. Blob is empty.</summary>
     public event Action<string, string, string>? ResumeOffered;
+    /// <summary>Target only. from, challengeId. No mode yet.</summary>
+    public event Action<string, string>? InviteReceived;
+    /// <summary>Challenger only. who accepted, challengeId.</summary>
+    public event Action<string, string>? InviteAccepted;
+    /// <summary>Target only. from, inviteId.</summary>
+    public event Action<string, string>? PrivateChatInviteReceived;
+    /// <summary>Requester only. The other player was asked.</summary>
+    public event Action<string>? PrivateChatInviteSent;
+    /// <summary>Requester only. to, message. Decline is a separate event.</summary>
+    public event Action<string, string>? PrivateChatInviteFailed;
+    public event Action<string>? PrivateChatDeclined;
+    public event Action<string>? PrivateChatInviteClosed;
+    public event Action<IReadOnlyList<string>>? PrivateChatJoined;
+    public event Action<string, string>? PrivateChatLine;
+    public event Action<string>? PrivateChatEnded;
+    /// <summary>Target only. from, requestId.</summary>
+    public event Action<string, string>? TradeAsked;
+    /// <summary>Requester only. The other player was asked.</summary>
+    public event Action<string>? TradeAskSent;
+    /// <summary>to, message. Nothing was moved.</summary>
+    public event Action<string, string>? TradeAskFailed;
+    public event Action<string>? TradeDeclined;
+    /// <summary>sessionId, partner. Both players.</summary>
+    public event Action<string, string>? TradeOpened;
+    /// <summary>sessionId, mine, theirs, mineLocked, theirsLocked.</summary>
+    public event Action<string, string[], string[], bool, bool>? TradeStateReceived;
+    public event Action<string>? TradeDone;
+    public event Action<string, string>? TradeAborted;
+    public event Action<string, string>? TradeClosed;
+    /// <summary>Target only. from, mode (account or sandbox), challengeId.</summary>
+    public event Action<string, string, string>? ModeOfferReceived;
+    /// <summary>Mode was declined. The invite stays open for another choice.</summary>
+    public event Action<string>? ModeDeclined;
+    public event Action? MatchSeated;
+    public event Action<string, string>? FriendAskReceived;
+    public event Action<string>? FriendNotice;
+    public event Action<IReadOnlyList<string>, IReadOnlyList<bool>>? FriendsChanged;
+
+    private bool _expectMatch;
 
     public IReadOnlyList<LobbySaveInfo> Saves { get; private set; } = Array.Empty<LobbySaveInfo>();
 
@@ -99,10 +147,140 @@ public sealed class MatchmakingClient : IDisposable
     public Task RefreshAsync()
         => SendAsync(Envelope("list"));
 
+    public Task SendChallengeAsync(string toName)
+    {
+        var env = Envelope("challenge");
+        env["to"] = toName ?? "";
+        return SendAsync(env);
+    }
+
+    public Task SendFriendRequestAsync(string toName)
+    {
+        var env = Envelope("friendRequest");
+        env["to"] = toName ?? "";
+        return SendAsync(env);
+    }
+
+    public Task ReplyFriendAsync(string requestId, bool accept)
+    {
+        var env = Envelope("friendReply");
+        env["requestId"] = requestId ?? "";
+        env["accept"] = accept;
+        return SendAsync(env);
+    }
+
+    public Task RemoveFriendAsync(string name)
+    {
+        var env = Envelope("friendRemove");
+        env["name"] = name ?? "";
+        return SendAsync(env);
+    }
+
+    public Task RequestFriendsAsync()
+    {
+        return SendAsync(Envelope("friendList"));
+    }
+
+    public Task ReplyChallengeAsync(string challengeId, bool accept)
+    {
+        var env = Envelope("challengeReply");
+        env["challengeId"] = challengeId ?? "";
+        env["accept"] = accept;
+        return SendAsync(env);
+    }
+
+    public Task SendModeAsync(string challengeId, string mode)
+    {
+        var env = Envelope("challengeMode");
+        env["challengeId"] = challengeId ?? "";
+        env["mode"] = mode ?? "";
+        return SendAsync(env);
+    }
+
+    public Task ReplyModeAsync(string challengeId, bool accept)
+    {
+        if (accept)
+            _expectMatch = true;
+        var env = Envelope("modeReply");
+        env["challengeId"] = challengeId ?? "";
+        env["accept"] = accept;
+        return SendAsync(env);
+    }
+
+    public Task CancelChallengeAsync(string challengeId)
+    {
+        _expectMatch = false;
+        var env = Envelope("challengeCancel");
+        env["challengeId"] = challengeId ?? "";
+        return SendAsync(env);
+    }
+
     public Task SendChatAsync(string text)
     {
         var env = Envelope("chat");
         env["text"] = text;
+        return SendAsync(env);
+    }
+
+    public Task SendChatInviteAsync(string toName)
+    {
+        var env = Envelope("chatInvite");
+        env["to"] = toName ?? "";
+        return SendAsync(env);
+    }
+
+    public Task SendTradeAskAsync(string toName)
+    {
+        var env = Envelope("tradeAsk");
+        env["to"] = toName ?? "";
+        return SendAsync(env);
+    }
+
+    public Task ReplyTradeAskAsync(string requestId, bool accept)
+    {
+        var env = Envelope("tradeReply");
+        env["requestId"] = requestId ?? "";
+        env["accept"] = accept;
+        return SendAsync(env);
+    }
+
+    public Task SendTradeSlotsAsync(string sessionId, IReadOnlyList<string> cards)
+    {
+        var env = Envelope("tradeSlots");
+        env["sessionId"] = sessionId ?? "";
+        var row = new string[4];
+        for (var i = 0; i < 4; i++)
+            row[i] = cards != null && i < cards.Count ? (cards[i] ?? "") : "";
+        env["cards"] = row;
+        return SendAsync(env);
+    }
+
+    public Task SendTradeLockAsync(string sessionId)
+    {
+        var env = Envelope("tradeLock");
+        env["sessionId"] = sessionId ?? "";
+        return SendAsync(env);
+    }
+
+    public Task CancelTradeAsync(string sessionId)
+    {
+        var env = Envelope("tradeCancel");
+        env["sessionId"] = sessionId ?? "";
+        return SendAsync(env);
+    }
+
+    public Task ReplyChatInviteAsync(string inviteId, bool accept)
+    {
+        var env = Envelope("chatInviteReply");
+        env["inviteId"] = inviteId ?? "";
+        env["accept"] = accept;
+        return SendAsync(env);
+    }
+
+    public Task SendPrivateChatAsync(string text)
+    {
+        var env = Envelope("privateChat");
+        env["text"] = text ?? "";
         return SendAsync(env);
     }
 
@@ -145,6 +323,9 @@ public sealed class MatchmakingClient : IDisposable
         return SendAsync(env);
     }
 
+    public Task LeaveAsync()
+        => SendAsync(Envelope("leave"));
+
     public async Task BeginAsync()
     {
         TaskCompletionSource<bool> wait;
@@ -184,6 +365,13 @@ public sealed class MatchmakingClient : IDisposable
     public async Task<JsonElement> LoginAsync(string name, string password)
         => await RequestAsync(new { type = "login", name, password }).ConfigureAwait(false);
 
+    public async Task<JsonElement> DeleteAccountAsync(string password)
+    {
+        var env = Envelope("deleteAccount");
+        env["password"] = password ?? "";
+        return await RequestAsync(env).ConfigureAwait(false);
+    }
+
     public async Task<JsonElement> SaveDeckAsync(string token, string name, string cardIdsJson)
         => await RequestAsync(new
         {
@@ -204,6 +392,10 @@ public sealed class MatchmakingClient : IDisposable
 
     public async Task<JsonElement> BuyPackAsync(string token, string packType)
         => await RequestAsync(new { type = "buy_pack", token, packType }).ConfigureAwait(false);
+
+    // DEV-ONLY HOOK. Remove for release. The server adds a fixed 500. This message sends no amount.
+    public async Task<JsonElement> DevGrantLatinumAsync(string token)
+        => await RequestAsync(new { type = "devGrantLatinum", token }).ConfigureAwait(false);
 
     public async Task<JsonElement> ReportAsync(string matchId, string secret, string winner, bool raiseTheStakes = false)
         => await RequestAsync(new { type = "report", matchId, secret, winner, raiseTheStakes }).ConfigureAwait(false);
@@ -436,10 +628,12 @@ public sealed class MatchmakingClient : IDisposable
                     pending.TrySetResult(root.Clone());
                     return;
                 }
+                if (_expectMatch)
+                    _expectMatch = false;
                 StateChanged?.Invoke(message);
                 return;
             }
-            if (_pending != null && type is "auth" or "deckSaved" or "deckList" or "deckBody" or "pool" or "pack" or "report" or "saveStored")
+            if (_pending != null && type is "auth" or "deckSaved" or "deckList" or "deckBody" or "pool" or "pack" or "latinum" or "report" or "saveStored" or "accountDeleted")
             {
                 var copy = root.Clone();
                 TaskCompletionSource<JsonElement>? pending;
@@ -466,6 +660,112 @@ public sealed class MatchmakingClient : IDisposable
                 case "room":
                     ApplyRoom(root);
                     break;
+                case "challenge":
+                    InviteReceived?.Invoke(ReadString(root, "from"), ReadString(root, "challengeId"));
+                    break;
+                case "challengeSent":
+                    StateChanged?.Invoke("Challenge sent to " + ReadString(root, "to") + ". Waiting for an answer.");
+                    break;
+                case "inviteAccepted":
+                    InviteAccepted?.Invoke(ReadString(root, "by"), ReadString(root, "challengeId"));
+                    break;
+                case "inviteWaiting":
+                    StateChanged?.Invoke("Waiting for the match choice.");
+                    break;
+                case "modeOffer":
+                    ModeOfferReceived?.Invoke(ReadString(root, "from"), ReadString(root, "mode"), ReadString(root, "challengeId"));
+                    break;
+                case "modeOffered":
+                    StateChanged?.Invoke("Mode offered. Waiting for an answer.");
+                    break;
+                case "modeDeclined":
+                    _expectMatch = false;
+                    ModeDeclined?.Invoke(ReadString(root, "message"));
+                    break;
+                case "matchReady":
+                    _expectMatch = true;
+                    break;
+                case "challengeClosed":
+                    _expectMatch = false;
+                    StateChanged?.Invoke(ReadString(root, "message"));
+                    break;
+                case "friendAsk":
+                    FriendAskReceived?.Invoke(ReadString(root, "from"), ReadString(root, "requestId"));
+                    break;
+                case "friendRequestSent":
+                    FriendNotice?.Invoke("friendRequestSent:" + ReadString(root, "to"));
+                    break;
+                case "friendAccepted":
+                    FriendNotice?.Invoke("friendAccepted:" + ReadString(root, "name"));
+                    break;
+                case "friendDeclined":
+                    FriendNotice?.Invoke("friendDeclined:" + ReadString(root, "name"));
+                    break;
+                case "friendRemoved":
+                    FriendNotice?.Invoke("friendRemoved:" + ReadString(root, "name"));
+                    break;
+                case "friendClosed":
+                    FriendNotice?.Invoke("friendClosed:" + ReadString(root, "message"));
+                    break;
+                case "friends":
+                    FriendsChanged?.Invoke(ReadNames(root), ReadFlags(root));
+                    break;
+                case "chatInvite":
+                    PrivateChatInviteReceived?.Invoke(ReadString(root, "from"), ReadString(root, "inviteId"));
+                    break;
+                case "chatInviteSent":
+                    PrivateChatInviteSent?.Invoke(ReadString(root, "to"));
+                    break;
+                case "chatInviteFailed":
+                    PrivateChatInviteFailed?.Invoke(ReadString(root, "to"), ReadString(root, "message"));
+                    break;
+                case "chatInviteDeclined":
+                    PrivateChatDeclined?.Invoke(ReadString(root, "by"));
+                    break;
+                case "chatInviteClosed":
+                    PrivateChatInviteClosed?.Invoke(ReadString(root, "message"));
+                    break;
+                case "chatJoined":
+                    PrivateChatJoined?.Invoke(ReadNames(root));
+                    break;
+                case "privateChat":
+                    PrivateChatLine?.Invoke(ReadString(root, "from"), ReadString(root, "text"));
+                    break;
+                case "privateChatEnded":
+                    PrivateChatEnded?.Invoke(ReadString(root, "message"));
+                    break;
+                case "tradeAsked":
+                    TradeAsked?.Invoke(ReadString(root, "from"), ReadString(root, "requestId"));
+                    break;
+                case "tradeAskSent":
+                    TradeAskSent?.Invoke(ReadString(root, "to"));
+                    break;
+                case "tradeAskFailed":
+                    TradeAskFailed?.Invoke(ReadString(root, "to"), ReadString(root, "message"));
+                    break;
+                case "tradeDeclined":
+                    TradeDeclined?.Invoke(ReadString(root, "by"));
+                    break;
+                case "tradeOpened":
+                    TradeOpened?.Invoke(ReadString(root, "sessionId"), ReadString(root, "partner"));
+                    break;
+                case "tradeState":
+                    TradeStateReceived?.Invoke(
+                        ReadString(root, "sessionId"),
+                        ReadCardRow(root, "mine"),
+                        ReadCardRow(root, "theirs"),
+                        root.TryGetProperty("mineLocked", out var mineLock) && mineLock.ValueKind == JsonValueKind.True,
+                        root.TryGetProperty("theirsLocked", out var theirLock) && theirLock.ValueKind == JsonValueKind.True);
+                    break;
+                case "tradeDone":
+                    TradeDone?.Invoke(ReadString(root, "sessionId"));
+                    break;
+                case "tradeAborted":
+                    TradeAborted?.Invoke(ReadString(root, "sessionId"), ReadString(root, "message"));
+                    break;
+                case "tradeClosed":
+                    TradeClosed?.Invoke(ReadString(root, "sessionId"), ReadString(root, "message"));
+                    break;
                 case "gone":
                     InRoom = false;
                     Role = null;
@@ -474,6 +774,7 @@ public sealed class MatchmakingClient : IDisposable
                     DirectPort = 0;
                     Saves = Array.Empty<LobbySaveInfo>();
                     PlayersChanged?.Invoke("");
+                    PlayerListChanged?.Invoke(Array.Empty<LobbyPlayerInfo>());
                     SavesChanged?.Invoke();
                     StateChanged?.Invoke(ReadString(root, "message"));
                     break;
@@ -486,6 +787,32 @@ public sealed class MatchmakingClient : IDisposable
         {
             StateChanged?.Invoke("Bad lobby message: " + ex.Message);
         }
+    }
+
+    private static IReadOnlyList<string> ReadNames(JsonElement root)
+    {
+        var names = new List<string>();
+        if (root.TryGetProperty("names", out var arr) && arr.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in arr.EnumerateArray())
+            {
+                var name = item.GetString() ?? "";
+                if (name.Length > 0)
+                    names.Add(name);
+            }
+        }
+        return names;
+    }
+
+    private static IReadOnlyList<bool> ReadFlags(JsonElement root)
+    {
+        var flags = new List<bool>();
+        if (root.TryGetProperty("online", out var arr) && arr.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in arr.EnumerateArray())
+                flags.Add(item.ValueKind == JsonValueKind.True);
+        }
+        return flags;
     }
 
     private void ApplyRoom(JsonElement root)
@@ -503,28 +830,44 @@ public sealed class MatchmakingClient : IDisposable
             if (changed)
                 AddressAnnounced?.Invoke(address, port);
         }
+        else if (DirectHost != null || DirectPort != 0)
+        {
+            DirectHost = null;
+            DirectPort = 0;
+        }
 
         var players = new StringBuilder();
+        var playerList = new List<LobbyPlayerInfo>();
         if (root.TryGetProperty("players", out var arr) && arr.ValueKind == JsonValueKind.Array)
         {
             foreach (var p in arr.EnumerateArray())
             {
+                var pName = ReadString(p, "name");
+                var pRole = ReadString(p, "role");
+                var pDeck = ReadString(p, "deckName");
                 var hash = ReadString(p, "deckHash");
                 var shortHash = hash.Length >= 8 ? hash[..8] : (hash.Length == 0 ? "no hash" : hash);
+                playerList.Add(new LobbyPlayerInfo
+                {
+                    Name = pName,
+                    Role = pRole,
+                    DeckName = pDeck,
+                    DeckHash = hash
+                });
                 if (players.Length > 0)
                     players.AppendLine();
-                players.Append(ReadString(p, "role"));
+                players.Append(pRole);
                 players.Append(' ');
-                players.Append(ReadString(p, "name"));
+                players.Append(pName);
                 players.Append(" — ");
-                var deck = ReadString(p, "deckName");
-                players.Append(deck.Length == 0 ? "no deck" : "deck");
+                players.Append(pDeck.Length == 0 ? "no deck" : "deck");
                 players.Append(" (");
                 players.Append(shortHash);
                 players.Append(')');
             }
         }
         PlayersChanged?.Invoke(players.ToString());
+        PlayerListChanged?.Invoke(playerList);
 
         var chat = new StringBuilder();
         if (root.TryGetProperty("lines", out var lines) && lines.ValueKind == JsonValueKind.Array)
@@ -582,6 +925,14 @@ public sealed class MatchmakingClient : IDisposable
             StateChanged?.Invoke($"In room {RoomName} as {Role}. Versions match. Direct address not published yet." + saveTail);
         else
             StateChanged?.Invoke($"In room {RoomName} as {Role}. Versions match. Direct {address}:{port}." + saveTail);
+
+        if (_expectMatch
+            && !string.Equals(RoomName, "Lounge", StringComparison.OrdinalIgnoreCase)
+            && Role is "host" or "guest")
+        {
+            _expectMatch = false;
+            MatchSeated?.Invoke();
+        }
     }
 
     private static string FormatRooms(JsonElement root)
@@ -608,6 +959,21 @@ public sealed class MatchmakingClient : IDisposable
         => root.TryGetProperty(name, out var el) && el.ValueKind == JsonValueKind.String
             ? (el.GetString() ?? "")
             : "";
+
+    private static string[] ReadCardRow(JsonElement root, string name)
+    {
+        var cards = new string[] { "", "", "", "" };
+        if (!root.TryGetProperty(name, out var arr) || arr.ValueKind != JsonValueKind.Array)
+            return cards;
+        var index = 0;
+        foreach (var item in arr.EnumerateArray())
+        {
+            if (index >= 4)
+                break;
+            cards[index++] = item.ValueKind == JsonValueKind.String ? (item.GetString() ?? "").Trim() : "";
+        }
+        return cards;
+    }
 }
 
 public sealed class LobbySaveInfo

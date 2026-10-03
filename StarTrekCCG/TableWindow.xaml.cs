@@ -77,7 +77,6 @@ public partial class TableWindow : Window
 
     private enum GameMode { Hotseat, Network, SingleAi }
     private GameMode _gameMode = GameMode.Hotseat;
-    private NetworkLobbyWindow? _networkLobby;
     private bool _networkLobbyConnected;
     private NetPlaySession? _netSession;
     private bool _netGraceActive;
@@ -269,7 +268,6 @@ public partial class TableWindow : Window
 
     // Player aids (Options menu) — on by default
     private bool _aidLegalResponses = true;
-    private bool _aidOwnSeedCounts = true;
     private bool _devShowDebugLog = true;
     /// <summary>Dev: play Dilemma/Artifact from hand onto a mission (artifacts acquire immediately).</summary>
     private bool _devPlaySeedFromHand;
@@ -302,6 +300,12 @@ public partial class TableWindow : Window
 
     private System.Windows.Threading.DispatcherTimer? _responseWindowTimer;
     private DateTime _responseWindowDeadlineUtc;
+    private bool _opponentResponseHold;
+    private int _opponentResponseHoldPlayer;
+    private Brush? _opponentHandBrush;
+    private Brush? _opponentHandBorderBrush;
+    private Thickness _opponentHandBorderThickness;
+    private bool _releasingHeldCard;
     private List<TimingRules.LegalResponseItem> _currentLegalResponses = new();
     // ThinkTray frame blink cue (3s, Space cancels early).
     private System.Windows.Threading.DispatcherTimer? _legalBlinkTimer;
@@ -1402,7 +1406,7 @@ public partial class TableWindow : Window
         {
             var present = GetAllCardsOnHost(host, p);
             if (!present.Any()) continue;
-            sb.AppendLine($"— Player {p} —");
+            sb.AppendLine($"— {SeatLabel(p)} —");
             if (present.Any(ModifierRules.IsPersonnelCard))
                 sb.AppendLine(ModifierRules.FormatTeamSummary(ModifierRules.SummarizeTeam(present, p, loseFirstListedSkill: LoseFirstListedOnHost(host)), p));
             foreach (var c in present)
@@ -2482,7 +2486,7 @@ public partial class TableWindow : Window
         }
         card.FaceUp = true;
         string flipped = owner is 1 or 2
-            ? $"Player {owner} flipped {card.Name} face up."
+            ? $"{SeatLabel(owner)} flipped {card.Name} face up."
             : $"Flipped {card.Name} face up.";
         RebuildTablePermanentsPanel();
         ShowPublicCardResult(owner, card, "Hidden Agenda flipped", flipped, card.Name);
@@ -2706,10 +2710,11 @@ public partial class TableWindow : Window
             && TryRouteGuestInfoReveal(surfacePlayer, card, title, body, buttons, subtitle, yesLabel, noLabel, faces, out var guestReveal))
             return guestReveal;
 
+        ReleaseInHandCardVisual();
         _revealCurrentCard = card;
         if (CardRevealOverlay == null)
         {
-            MessageBox.Show(body, title);
+            BridgeDialog.Show(body, title);
             return RevealAnswer.Ok;
         }
 
@@ -2744,8 +2749,8 @@ public partial class TableWindow : Window
         BtnRevealNo.Visibility = choice ? Visibility.Visible : Visibility.Collapsed;
         if (playerPick)
         {
-            BtnRevealYes.Content = yesLabel ?? "Player 1";
-            BtnRevealNo.Content = noLabel ?? "Player 2";
+            BtnRevealYes.Content = yesLabel ?? SeatLabel(1);
+            BtnRevealNo.Content = noLabel ?? SeatLabel(2);
         }
         else if (yesNo)
         {
@@ -2865,16 +2870,16 @@ public partial class TableWindow : Window
     /// One sentence both windows share when they are allowed to see a card-list result.
     /// Names the choosing player, the card they selected, and whose effect card caused it.
     /// </summary>
-    private static string FormatCardListResult(
+    private string FormatCardListResult(
         int actor, string verbPast, string selected, int effectOwner, string effectName, string? tail = null)
     {
-        string who = actor is 1 or 2 ? $"Player {actor}" : "Player";
+        string who = actor is 1 or 2 ? $"{SeatLabel(actor)}" : "seat";
         string pick = string.IsNullOrWhiteSpace(selected) ? "a card" : selected.Trim();
         string effect = string.IsNullOrWhiteSpace(effectName) ? "that card" : effectName.Trim();
         string sentence = effectOwner == actor && effectOwner is 1 or 2
             ? $"{who}'s {effect} {verbPast} {pick}."
             : effectOwner is 1 or 2
-                ? $"{who} {verbPast} {pick} to Player {effectOwner}'s {effect}."
+                ? $"{who} {verbPast} {pick} to {SeatLabel(effectOwner)}'s {effect}."
                 : $"{who} {verbPast} {pick} to {effect}.";
         if (string.IsNullOrWhiteSpace(tail))
             return sentence;
@@ -3346,9 +3351,13 @@ public partial class TableWindow : Window
         return null;
     }
 
-    private int AskPlayer(Card? card, string title, string prompt) =>
-        AskChoice(card, title, prompt, "Player 1", "Player 2")
-            .StartsWith("Player 2", StringComparison.OrdinalIgnoreCase) ? 2 : 1;
+    private int AskPlayer(Card? card, string title, string prompt)
+    {
+        string seat1 = SeatLabel(1);
+        string seat2 = SeatLabel(2);
+        string picked = AskChoice(card, title, prompt, seat1, seat2);
+        return string.Equals(picked, seat2, StringComparison.OrdinalIgnoreCase) ? 2 : 1;
+    }
     private void BtnRevealYes_Click(object sender, RoutedEventArgs e) => CloseReveal(RevealAnswer.Yes);
     private void BtnRevealNo_Click(object sender, RoutedEventArgs e) => CloseReveal(RevealAnswer.No);
 
@@ -3416,7 +3425,7 @@ public partial class TableWindow : Window
         catch (Exception ex)
         {
             StatusText.Text = "Failed to load card data";
-            MessageBox.Show(
+            BridgeDialog.Show(
                 $"Could not load card data:\n\n{ex.Message}\n\n" +
                 "Expected a Data/ folder with set subfolders and cards.json\n"
                 + "(or set STCCG_DATA / keep C:\\STCCG_DATA as fallback).\n"
@@ -3588,8 +3597,10 @@ public partial class TableWindow : Window
         int stripOwner = PlayerForStrip(opponent);
         if (title != null)
         {
-            string who = $"P{stripOwner}";
-            title.Text = zoneName == "Hand" ? $"{who} HAND" : $"{who} · {zoneName}";
+            string who = SeatLabel(stripOwner);
+            title.Text = opponent && _opponentResponseHold && zoneName == "Hand"
+                ? SeatLabel(_opponentResponseHoldPlayer) + " response window"
+                : zoneName == "Hand" ? $"{who} HAND" : $"{who} · {zoneName}";
             // Pepsch mockup: P1 #B5CEA8, P2 #8EC8D8 (Hand); other zones keep aid blue
             bool p2Chrome = stripOwner == 2;
             title.Foreground = zoneName == "Hand"
@@ -3714,7 +3725,7 @@ public partial class TableWindow : Window
         {
             // Owner sees own seeded dilemmas/artifacts face-up; opponent sees face-down + count.
             // Seed phase used to reveal ALL faces (Host saw Guest's Vulcan Stone of Gol) - wrong for Network.
-            bool showCount = _devShowSeedCounts || _seedPhaseActive || _devRevealSeed || _aidOwnSeedCounts;
+            bool showCount = _devShowSeedCounts || _seedPhaseActive || _devRevealSeed;
             int ownN = 0, oppN = 0;
             foreach (var sb in seedList)
             {
@@ -4574,7 +4585,7 @@ public partial class TableWindow : Window
                 if (!anytime)
                 {
                     StatusText.Text =
-                        $"Player {_activePlayer}'s turn — the other player may only play interrupts / doorways.";
+                        $"{SeatLabel(_activePlayer)}'s turn — the other player may only play interrupts / doorways.";
                     return;
                 }
             }
@@ -5112,7 +5123,7 @@ public partial class TableWindow : Window
         }
         try
         {
-            MessageBox.Show(message, "Illegal action", MessageBoxButton.OK, MessageBoxImage.Information);
+            BridgeDialog.Show(message, "Illegal action", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch { /* Designer / Headless */ }
     }
@@ -5866,7 +5877,7 @@ public partial class TableWindow : Window
             if (_legalBlinkSavedBrush != null)
                 ThinkTrayBorder.BorderBrush = _legalBlinkSavedBrush;
             else
-                ThinkTrayBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(0xAB, 0x47, 0xBC));
+                ThinkTrayBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(0x4B, 0x6B, 0x88));
             ThinkTrayBorder.BorderThickness = _legalBlinkSavedThickness.Left > 0
                 ? _legalBlinkSavedThickness
                 : new Thickness(2);
@@ -5892,6 +5903,8 @@ public partial class TableWindow : Window
         List<TimingRules.LegalResponseItem> legal)
     {
         if (_netSession == null || !_netSession.IsHost) return;
+        ReleaseInHandCardVisual();
+        MarkOpponentResponseHold(responder);
 
         if (CardRevealOverlay != null && _announceKind is AnnounceKind.RespondOrPass or AnnounceKind.PickCard)
             CardRevealOverlay.Visibility = Visibility.Collapsed;
@@ -5923,7 +5936,7 @@ public partial class TableWindow : Window
         _pendingChoiceResponses[corr] = tcs;
         RememberOpenChoice(dto, timeoutMs);
         long windowSequence = _stack.Sequence;
-        StatusText.Text = $"P{responder} response window… waiting for Guest.";
+        StatusText.Text = SeatLabel(responder) + " response window. Waiting.";
         _session.Log.AddDebug(_session.TurnNumber, "Net",
             $"ResponseWindow → P{responder} corr={corr} legal={legal.Count}");
 
@@ -5970,6 +5983,7 @@ public partial class TableWindow : Window
 
     private void OpenSilentResponseWindow(int responder, TimingRules.PendingAction top, List<TimingRules.LegalResponseItem> legal)
     {
+        ReleaseInHandCardVisual();
         _stack.State = TimingRules.ResponseWindowState.Silent;
         _stack.ResponsePlayer = responder;
         _currentLegalResponses = legal;
@@ -5987,7 +6001,9 @@ public partial class TableWindow : Window
         if (_gameMode == GameMode.Network && _netSession != null && _netSession.IsGuest
             && !_guestHandlingInboundChoice && string.IsNullOrEmpty(_guestActiveChoiceCorrelationId))
         {
-            StatusText.Text = $"Net Guest: Host owns response window (P{responder}).";
+            StatusText.Text = SeatLabel(responder) + " response window.";
+            if (responder != _netSession.LocalPlayer)
+                MarkOpponentResponseHold(responder);
             return;
         }
 
@@ -6002,6 +6018,7 @@ public partial class TableWindow : Window
         // ThinkTray immediately; centered above responder hand (dynamic width).
         ShowThinkTrayForResponder(responder, silentCountdown: true);
         PopulateThinkTray();
+        AnnounceResponseHold(true, responder);
 
         UpdatePhaseControls();
 
@@ -6040,7 +6057,10 @@ public partial class TableWindow : Window
     private void ShowThinkTrayForResponder(int responder, bool silentCountdown)
     {
         if (ThinkTrayBorder == null) return;
-        if (responder == 2)
+        ClearOpponentResponseHold();
+        // Hotseat keeps the acting seat's side. Every other mode: the human is the bottom seat.
+        bool hotseatOtherSeat = _gameMode == GameMode.Hotseat && responder != ViewerPlayer;
+        if (hotseatOtherSeat)
         {
             ThinkTrayBorder.VerticalAlignment = VerticalAlignment.Top;
             ThinkTrayBorder.Margin = new Thickness(14, 6, 14, 0);
@@ -6053,7 +6073,7 @@ public partial class TableWindow : Window
         BringResponseUiToFront();
         ThinkTrayBorder.Visibility = Visibility.Visible;
         if (ThinkTrayTitle != null)
-            ThinkTrayTitle.Text = $"LEGAL RESPONSES (P{responder})";
+            ThinkTrayTitle.Text = "LEGAL RESPONSES " + SeatLabel(responder);
         if (ThinkTrayCountdown != null)
         {
             int sec = silentCountdown ? _responseDefaultDurationSec : _responseThinkDurationSec;
@@ -6270,6 +6290,8 @@ public partial class TableWindow : Window
 
     private void CloseResponseWindowUi()
     {
+        AnnounceResponseHold(false, _stack.ResponsePlayer);
+        ClearOpponentResponseHold();
         StopLegalActionBlink();
         StopResponseWindowTimer();
         _stack.State = TimingRules.ResponseWindowState.Closed;
@@ -8173,9 +8195,9 @@ public partial class TableWindow : Window
         if (OppTablePermanentsPanel != null)
             Fill(OppTablePermanentsPanel, topCards);
         if (BottomTableLabel != null)
-            BottomTableLabel.Text = $"P{ViewerPlayer} TABLE";
+            BottomTableLabel.Text = SeatLabel(ViewerPlayer) + " TABLE";
         if (TopTableLabel != null)
-            TopTableLabel.Text = $"P{(ViewerPlayer == 1 ? 2 : 1)} TABLE";
+            TopTableLabel.Text = SeatLabel(ViewerPlayer == 1 ? 2 : 1) + " TABLE";
     }
 
     private static bool SameTableCard(Card a, Card b)
@@ -9686,7 +9708,7 @@ public partial class TableWindow : Window
     {
         if (_db == null)
         {
-            MessageBox.Show("Card data is not loaded yet.");
+            BridgeDialog.Show("Card data is not loaded yet.");
             return;
         }
 
@@ -9715,7 +9737,7 @@ public partial class TableWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Load error:\n\n{ex.Message}", "Invalid file",
+            BridgeDialog.Show($"Load error:\n\n{ex.Message}", "Invalid file",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
@@ -9723,14 +9745,14 @@ public partial class TableWindow : Window
     private void TryLoadOpponentDeck()
     {
         if (_db == null) return;
-        var result = MessageBox.Show(
-            "Hotseat: Load deck for Player 2 now?\n\n(No = Player 1 only, opponent zones stay empty)",
-            "Player 2 deck", MessageBoxButton.YesNo, MessageBoxImage.Question);
+        var result = BridgeDialog.Show(
+            ("Hotseat: Load deck for " + SeatLabel(2) + " now?\n\n(No = " + SeatLabel(1) + " only, opponent zones stay empty)"),
+            SeatLabel(2) + " deck", MessageBoxButton.YesNo, MessageBoxImage.Question);
         if (result != MessageBoxResult.Yes) return;
 
         var dialog = new OpenFileDialog
         {
-            Title = "Load Player 2 deck",
+            Title = "Load " + SeatLabel(2) + " deck",
             Filter = "STCCG Deck (*.stdeck)|*.stdeck",
             InitialDirectory = GamePaths.DecksRoot
         };
@@ -9743,12 +9765,12 @@ public partial class TableWindow : Window
 
             _loadedDeckOpp = deck;
             PlaceOpponentDeck(deck);
-            StatusText.Text = $"Hotseat: P1 {_loadedDeck?.Name} + P2 {deck.Name} – Player 1 seeds.";
+            StatusText.Text = "Hotseat: " + SeatLabel(1) + " " + (_loadedDeck?.Name ?? "") + " + " + SeatLabel(2) + " " + (deck.Name ?? "") + " - " + SeatLabel(1) + " seeds.";
             RefreshZoneCounts();
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Player 2 deck:\n\n{ex.Message}", "Error",
+            BridgeDialog.Show(SeatLabel(2) + " deck:\n\n" + ex.Message, "Error",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
@@ -9826,6 +9848,137 @@ public partial class TableWindow : Window
     }
 
     private void MenuExit_Click(object sender, RoutedEventArgs e) => Close();
+
+    /// <summary>
+    /// Abort. Yes closes a live match transport, then the main menu. No stays.
+    /// Does not call FinishMatch or ReportMatchResult, so no points and no latinum.
+    /// </summary>
+    private void MenuEndGame_Click()
+    {
+        var answer = BridgeDialog.Show(
+            this,
+            "End this game and return to the main menu?",
+            "End Game",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+        if (answer != MessageBoxResult.Yes)
+            return;
+
+        System.Threading.Interlocked.Exchange(ref _matchReportSent, 1);
+        DropLiveMatchTransport();
+
+        var menu = new MainMenuWindow(_returnSignIn);
+        if (Application.Current != null)
+            Application.Current.MainWindow = menu;
+        menu.Show();
+        Close();
+    }
+
+    /// <summary>
+    /// Same close as a dropped play socket: dispose the session so a relay peer is aborted
+    /// and a direct-IP peer sees the TCP close. Does not start reconnect and does not report a winner.
+    /// </summary>
+    private void DropLiveMatchTransport()
+    {
+        _netAutoReconnectGeneration++;
+        _netGraceActive = false;
+        _networkLobbyConnected = false;
+        try { _netGraceTimer?.Stop(); } catch { /* ignore */ }
+        try { _netResumeAcceptCts?.Cancel(); } catch { /* ignore */ }
+        try { _netAttemptCts?.Cancel(); } catch { /* ignore */ }
+        try { _netReconnectDelayCts?.Cancel(); } catch { /* ignore */ }
+
+        var session = _netSession;
+        _netSession = null;
+        if (session == null)
+            return;
+        try { UnhookNetSession(session); } catch { /* ignore */ }
+        try { session.Dispose(); } catch { /* ignore */ }
+    }
+
+    private void BtnTableCommand_Click(object sender, RoutedEventArgs e)
+    {
+        TableCommandMenu.Show(this, BtnTableCommand, BuildTableCommands());
+    }
+
+    private IReadOnlyList<TableCommandMenu.Entry> BuildTableCommands()
+    {
+        TableCommandMenu.Entry Leaf(string label, Action run, Func<bool>? check = null) => new()
+        {
+            Label = label,
+            Run = run,
+            Checked = check
+        };
+        TableCommandMenu.Entry Folder(string label, params TableCommandMenu.Entry[] children) => new()
+        {
+            Label = label,
+            Children = children
+        };
+        void Flip(MenuItem? item, RoutedEventHandler handler)
+        {
+            if (item == null)
+                return;
+            item.IsChecked = item.IsChecked != true;
+            handler(item, new RoutedEventArgs());
+        }
+        void Fire(MenuItem? item, RoutedEventHandler handler)
+        {
+            if (item == null)
+                return;
+            handler(item, new RoutedEventArgs());
+        }
+
+        return new TableCommandMenu.Entry[]
+        {
+            Leaf("End Game", MenuEndGame_Click),
+            Folder("File",
+                Leaf("New game", () => MenuNewGame_Click(this, new RoutedEventArgs())),
+                Leaf("Quick game", () => MenuQuickGame_Click(this, new RoutedEventArgs())),
+                Leaf("Save game", () => MenuSaveGame_Click(this, new RoutedEventArgs())),
+                Leaf("Load game", () => MenuLoadGame_Click(this, new RoutedEventArgs())),
+                Leaf("Open deck", () => MenuLoadDeck_Click(this, new RoutedEventArgs())),
+                Leaf("Exit", () => MenuExit_Click(this, new RoutedEventArgs()))),
+            Folder("Tools",
+                Leaf("Deck Builder", () => MenuDeckBuilder_Click(this, new RoutedEventArgs()))),
+            Folder("View",
+                Leaf("Reset View", () => MenuZoomReset_Click(this, new RoutedEventArgs())),
+                Leaf("Center Spaceline", () => MenuCenterSpaceline_Click(this, new RoutedEventArgs()))),
+            Folder("Options",
+                Folder("Player Aids",
+                    Leaf("Highlight legal responses", () => Flip(AidLegalResponsesItem, AidLegalResponses_Click), () => AidLegalResponsesItem?.IsChecked == true),
+                    Leaf("Zone / pile counts", () => Flip(AidZoneCountsItem, AidZoneCounts_Click), () => AidZoneCountsItem?.IsChecked == true),
+                    Leaf("Sort hand by type", () => Flip(AidSortHandItem, AidSortHand_Click), () => AidSortHandItem?.IsChecked == true)),
+                Folder("Response Window",
+                    Folder("Default Duration",
+                        Leaf("2 seconds (Fast)", () => Fire(OptResponse2s, OptResponseDuration_Click), () => OptResponse2s?.IsChecked == true),
+                        Leaf("3 seconds (Standard)", () => Fire(OptResponse3s, OptResponseDuration_Click), () => OptResponse3s?.IsChecked == true),
+                        Leaf("5 seconds (Slow)", () => Fire(OptResponse5s, OptResponseDuration_Click), () => OptResponse5s?.IsChecked == true)),
+                    Folder("Think Duration",
+                        Leaf("10 seconds", () => Fire(OptThink10s, OptThinkDuration_Click), () => OptThink10s?.IsChecked == true)),
+                    Leaf("Preset: Hotseat standard (3s / 10s)", () => OptPresetHotseat_Click(this, new RoutedEventArgs())),
+                    Leaf("Preset: Test fast (2s / 10s)", () => OptPresetFast_Click(this, new RoutedEventArgs())))),
+            Folder("Developer",
+                Leaf("Reveal seed under missions", () => Flip(DevRevealSeedItem, DevRevealSeed_Click), () => DevRevealSeedItem?.IsChecked == true),
+                Leaf("Show seed counts", () => Flip(DevShowSeedCountItem, DevShowSeedCount_Click), () => DevShowSeedCountItem?.IsChecked == true),
+                Leaf("Peek opponent piles", () => Flip(DevPeekOpponentItem, DevPeekOpponent_Click), () => DevPeekOpponentItem?.IsChecked == true),
+                Leaf("Show Debug: lines in action history", () => Flip(DevShowDebugLogItem, DevShowDebugLog_Click), () => DevShowDebugLogItem?.IsChecked == true),
+                Leaf("Write debug file (Data/Logs)", () => Flip(DevFileLogItem, DevFileLog_Click), () => DevFileLogItem?.IsChecked == true),
+                Leaf("Open debug file log", () => DevOpenLogFile_Click(this, new RoutedEventArgs())),
+                Leaf("Open Logs Folder", () => DevOpenLogFolder_Click(this, new RoutedEventArgs())),
+                Leaf("Play Seed Cards from Hand", () => Flip(DevPlaySeedFromHandItem, DevPlaySeedFromHand_Click), () => DevPlaySeedFromHandItem?.IsChecked == true),
+                Leaf("Long Game (500 points to win)", () => Flip(DevLongGameItem, DevLongGame_Click), () => DevLongGameItem?.IsChecked == true),
+                Leaf("Inspect opponent Hand (gallery)", () => DevInspectOppHand_Click(this, new RoutedEventArgs())),
+                Leaf("Inspect opponent discard (gallery)", () => DevInspectOppDiscard_Click(this, new RoutedEventArgs())),
+                Leaf("Inspect opponent draw (backs)", () => DevInspectOppDraw_Click(this, new RoutedEventArgs())),
+                Leaf("Dump legal moves", () => DevDumpLegalMoves_Click(this, new RoutedEventArgs())),
+                Leaf("Dump Board", () => DevDumpBoard_Click(this, new RoutedEventArgs())),
+                Leaf("Download from Q's Tent", () => DevTentDownload_Click(this, new RoutedEventArgs())),
+                Leaf("Flip own Hidden Agendas", () => DevFlipHiddenAgendas_Click(this, new RoutedEventArgs())),
+                Leaf("Add Card to game", () => DevAddCard_Click(this, new RoutedEventArgs())),
+                Leaf("Deck Builder", () => MenuDeckBuilder_Click(this, new RoutedEventArgs())))
+        };
+    }
+
 
     private void DevRevealSeed_Click(object sender, RoutedEventArgs e)
     {
@@ -9978,15 +10131,6 @@ public partial class TableWindow : Window
         StatusText.Text = "Preset applied: Test fast (2s default / 10s think).";
     }
 
-    private void AidOwnSeedCount_Click(object sender, RoutedEventArgs e)
-    {
-        _aidOwnSeedCounts = AidOwnSeedCountItem?.IsChecked == true;
-        RefreshDevSeedDisplay();
-        StatusText.Text = _aidOwnSeedCounts
-            ? "Player aid: own seed counts under missions."
-            : "Player aid: seed counts hidden.";
-    }
-
     private void AidZoneCounts_Click(object sender, RoutedEventArgs e)
     {
         _aidZoneCounts = AidZoneCountsItem?.IsChecked == true;
@@ -10015,7 +10159,7 @@ public partial class TableWindow : Window
     {
         if (_db == null)
         {
-            MessageBox.Show("Card database is not loaded.", "Developer",
+            BridgeDialog.Show("Card database is not loaded.", "Developer",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
@@ -10077,7 +10221,7 @@ public partial class TableWindow : Window
         {
             if (list.SelectedItem is not Card card)
             {
-                MessageBox.Show("Select a card first.", "Developer");
+                BridgeDialog.Show("Select a card first.", "Developer");
                 return;
             }
             InjectDevCard(card, dest.SelectedIndex);
@@ -10194,7 +10338,7 @@ public partial class TableWindow : Window
                         ApplyPerspective();
                         UpdatePhaseControls();
                         OnTurnContextChanged(
-                            $"Facility: Player {_activePlayer} is still seeding " +
+                            $"Facility: {SeatLabel(_activePlayer)} is still seeding " +
                             $"({CountSeedFor(SeedSubPhase.Facility, other)} remaining).");
                         return;
                     }
@@ -10222,7 +10366,7 @@ public partial class TableWindow : Window
             if (CountSeedFor(_seedSubPhase, 1) == 0 && CountSeedFor(_seedSubPhase, 2) > 0)
             {
                 _activePlayer = 2;
-                StatusText.Text = $"P1 has no cards in this phase → Player 2's turn.";
+                StatusText.Text = SeatLabel(1) + " has no cards in this phase. " + SeatLabel(2) + "'s turn.";
             }
         }
         ApplyPerspective();
@@ -10282,11 +10426,11 @@ public partial class TableWindow : Window
         if (_session.Winner is null or 0)
             _session.DeclareWinner(winner, reason);
         ResolveRaiseStakesKeeps(winner);
-        string msg = $"Match ended — Player {winner} wins ({reason}).";
+        string msg = $"Match ended — {SeatLabel(winner)} wins ({reason}).";
         StatusText.Text = msg;
         try
         {
-            MessageBox.Show(msg, "Match Ended", MessageBoxButton.OK, MessageBoxImage.Information);
+            BridgeDialog.Show(msg, "Match Ended", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch { /* designer / headless */ }
         RefreshActionHistory();
@@ -10451,11 +10595,11 @@ public partial class TableWindow : Window
             {
                 string respInfo = _stack.Top?.IsMandatory == true ? " · MANDATORY RESPONSE REQUIRED" : "";
                 ActivePlayerText.Text =
-                    $"TURN {_turnNumber} · P{_activePlayer} · RESPONSE WINDOW (P{_stack.ResponsePlayer}){respInfo}";
+                    $"TURN {_turnNumber} · {SeatLabel(_activePlayer)} · RESPONSE WINDOW ({SeatLabel(_stack.ResponsePlayer)}){respInfo}";
             }
             else if (ActivePlayerText != null && ResponseIndicatorBadge?.Visibility == Visibility.Visible)
             {
-                string side = _activePlayer == ViewerPlayer ? $"Player {_activePlayer} (BOTTOM)" : $"Player {_activePlayer} (TOP)";
+                string side = ActiveSeatLabel();
                 ActivePlayerText.Text = $"TURN {_turnNumber} · {side}";
             }
             if (ActivePlayerBanner != null)
@@ -10490,7 +10634,7 @@ public partial class TableWindow : Window
 
         if (_seedPhaseActive)
         {
-            string side = _activePlayer == ViewerPlayer ? $"Player {_activePlayer} (BOTTOM)" : $"Player {_activePlayer} (TOP)";
+            string side = ActiveSeatLabel();
             int left = CountSeedFor(_seedSubPhase, _activePlayer);
             SetActiveBanner(
                 $"SEED · {SeedPhaseShortName()} · {side} · {left} card(s) left",
@@ -10516,7 +10660,7 @@ public partial class TableWindow : Window
         }
         else if (_loadedDeck != null)
         {
-            string side = _activePlayer == ViewerPlayer ? $"Player {_activePlayer} (BOTTOM)" : $"Player {_activePlayer} (TOP)";
+            string side = ActiveSeatLabel();
             string phase = _session.Segment switch
             {
                 GameSession.TurnSegment.Play => "PLAY",
@@ -10639,22 +10783,6 @@ public partial class TableWindow : Window
 
     private void OpenNetworkLobby()
     {
-        if (_networkLobby != null)
-        {
-            try
-            {
-                if (_networkLobby.IsLoaded)
-                {
-                    _networkLobby.Activate();
-                    return;
-                }
-            }
-            catch
-            {
-                _networkLobby = null;
-            }
-        }
-
         var gate = new AccountGateWindow { Owner = this };
         if (gate.ShowDialog() != true)
         {
@@ -10662,52 +10790,156 @@ public partial class TableWindow : Window
                 ModeNetwork.IsChecked = false;
             return;
         }
-        var lobby = new NetworkLobbyWindow(gate.Result) { Owner = this };
-        // Stay in lobby after connect — NetPlaySession starts only on GameStarting (both ready).
-        lobby.ConnectionChanged += (_, connected) =>
-        {
-            _networkLobbyConnected = connected;
-            if (ModeNetwork?.IsChecked == true)
-                ApplySelectedGameMode();
-        };
-        lobby.GameStarting += (_, args) =>
-        {
-            try
-            {
-                OnLobbyGameStarting(lobby, args);
-            }
-            catch (Exception ex)
-            {
-                StatusText.Text = "Network start failed: " + ex.Message;
-                MessageBox.Show(this, "Network start failed:\n" + ex.Message, "Network Lobby",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
-        };
-        lobby.Closed += (_, _) =>
-        {
-            // Keep _networkLobbyConnected if session owns the transport.
-            if (_netSession == null)
-                _networkLobbyConnected = lobby.IsConnected;
-            if (ReferenceEquals(_networkLobby, lobby))
-                _networkLobby = null;
-            if (ModeNetwork?.IsChecked == true)
-                ApplySelectedGameMode();
-        };
-        _networkLobby = lobby;
-        lobby.Show();
+        var mainMenu = new MainMenuWindow(gate.Result);
+        mainMenu.Show();
+        Close();
     }
 
     /// <summary>
-    /// Phase 3: detach lobby transport into NetPlaySession and start receive loop on UI sync context.
+    /// Phase 3: start NetPlaySession from lobby transport and start receive loop on UI sync context.
     /// </summary>
-    private void TryStartNetSessionFromLobby(NetworkLobbyWindow lobby)
+    private string? _seatName1;
+    private string? _seatName2;
+    private LobbySignIn _returnSignIn = LobbySignIn.Sandbox();
+
+    public void SetSeatNames(string? player1, string? player2) => RememberSeatNames(player1, player2);
+
+    /// <summary>Same account or sandbox the table was opened from. End Game opens this again. Not a score.</summary>
+    public void RememberReturnMenu(LobbySignIn? signIn)
+    {
+        _returnSignIn = signIn ?? LobbySignIn.Sandbox();
+    }
+
+    private void RememberSeatNames(string? player1, string? player2)
+    {
+        _seatName1 = CleanSeatName(player1);
+        _seatName2 = CleanSeatName(player2);
+    }
+
+    private static string? CleanSeatName(string? name)
+    {
+        var trimmed = (name ?? "").Trim();
+        return trimmed.Length == 0 ? null : trimmed;
+    }
+
+    /// <summary>Account name plus seat, for example Test2 (P2). Not the words Player1 or Player2.</summary>
+    private string SeatLabel(int player)
+    {
+        int seat = player == 2 ? 2 : 1;
+        string? name = seat == 1 ? _seatName1 : _seatName2;
+        if (string.IsNullOrWhiteSpace(name) && seat == 1)
+            name = CleanSeatName(_returnSignIn.Name);
+        if (string.IsNullOrWhiteSpace(name))
+            return $"(P{seat})";
+        return $"{name} (P{seat})";
+    }
+
+    private string ActiveSeatLabel() => SeatLabel(_activePlayer);
+
+    public void StartNetSessionFromLobby(
+        NetServer? server,
+        NetClient? client,
+        INetLink? link,
+        bool isHost,
+        string? hostAddress,
+        int hostPort,
+        LobbyGameStartArgs args)
+    {
+        RememberSeatNames(args.Player1Name, args.Player2Name);
+        EnsureCardCatalog();
+        if (args.Resume)
+        {
+            StartLoadedMatch(server, client, link, isHost, hostAddress, hostPort, args);
+            return;
+        }
+        RememberMatchReport(args);
+        InitNetSessionFromTransport(server, client, link, isHost, hostAddress, hostPort);
+        if (_netSession == null)
+            throw new InvalidOperationException("NetPlaySession did not start after lobby GameStarting.");
+
+        Deck deck1;
+        Deck deck2;
+        if (_netSession.IsGuest)
+        {
+            // Do not parse DeckP1Json. Host cards exist here only after the masked snapshot.
+            if (string.IsNullOrWhiteSpace(args.DeckP2Json))
+                throw new InvalidOperationException("Guest start is missing the guest deck.");
+            deck2 = LoadAndLinkDeckFromJson(args.DeckP2Json);
+            if (!string.IsNullOrWhiteSpace(args.DeckP2Name))
+                deck2.Name = args.DeckP2Name;
+            deck1 = new Deck
+            {
+                Name = string.IsNullOrWhiteSpace(args.DeckP1Name) ? SeatLabel(1) : args.DeckP1Name
+            };
+            _netGuestHasHostState = false;
+            _session.Log.AddDebug(_session.TurnNumber, "Net",
+                $"Lobby start: guest deck {deck2.Name}, host deck not loaded, skipSeed={args.SkipSeedPhase}.");
+        }
+        else
+        {
+            deck1 = LoadAndLinkDeckFromJson(args.DeckP1Json);
+            deck2 = LoadAndLinkDeckFromJson(args.DeckP2Json);
+            if (!string.IsNullOrWhiteSpace(args.DeckP1Name))
+                deck1.Name = args.DeckP1Name;
+            if (!string.IsNullOrWhiteSpace(args.DeckP2Name))
+                deck2.Name = args.DeckP2Name;
+            _session.Log.AddDebug(_session.TurnNumber, "Net",
+                $"Lobby start: P1={deck1.Name}, P2={deck2.Name}, role=Host, skipSeed={args.SkipSeedPhase}.");
+        }
+
+        _loadedDeck = deck1;
+        PlaceDeckOnTable(deck1);
+        _loadedDeckOpp = deck2;
+        PlaceOpponentDeck(deck2);
+
+        StatusText.Text = _netSession.IsHost
+            ? $"Network: Host P1 — decks on table ({deck1.Name} vs {deck2.Name})."
+            : $"Network: Guest P2 — {deck2.Name}. Waiting for the host snapshot.";
+
+        EnsureNetworkModeFromSession();
+        ApplySelectedGameMode();
+
+        if (args.SkipSeedPhase)
+        {
+            // Host alone runs Quick-Game AutoCompleteSeed; Guest UI follows Broadcast sync.
+            if (_netSession.IsHost)
+            {
+                AutoCompleteSeed();
+                CenterOnSpaceline();
+                StatusText.Text =
+                    "Quick Game: Seed phase skipped automatically. Welcome to turn 1! Play a card or click 'Next Phase'.";
+            }
+            else
+            {
+                StatusText.Text = "Quick Game: Seed phase skipped. Waiting for Host to synchronize table state…";
+            }
+        }
+    }
+
+    /// <summary>
+    /// Lobby start used to run before Loaded, so LinkDeck saw no catalog and placed nothing.
+    /// </summary>
+    private void EnsureCardCatalog()
+    {
+        if (_db != null)
+            return;
+        _db = new CardDatabase(DataPath);
+        _cardBackImage ??= CardBack.Load(DataPath);
+        _db.LoadAll();
+    }
+
+    private void InitNetSessionFromTransport(
+        NetServer? server,
+        NetClient? client,
+        INetLink? link,
+        bool isHost,
+        string? hostAddress,
+        int hostPort)
     {
         if (_netSession != null) return;
-        if (!lobby.IsConnected) return;
 
-        var (server, client, link) = lobby.DetachTransport();
         if (link != null)
-            _netSession = lobby.IsHost
+            _netSession = isHost
                 ? NetPlaySession.CreateHostLink(link, localPlayer: 1)
                 : NetPlaySession.CreateGuestLink(link, localPlayer: 2);
         else if (server != null)
@@ -10715,9 +10947,8 @@ public partial class TableWindow : Window
         else if (client != null)
         {
             _netSession = NetPlaySession.CreateGuest(client, localPlayer: 2);
-            _netGuestHost = (lobby.HostBox.Text ?? string.Empty).Trim();
-            if (!int.TryParse((lobby.PortBox.Text ?? string.Empty).Trim(), out _netGuestPort))
-                _netGuestPort = 0;
+            _netGuestHost = (hostAddress ?? string.Empty).Trim();
+            _netGuestPort = hostPort;
         }
         else
         {
@@ -10855,6 +11086,8 @@ public partial class TableWindow : Window
     {
         if (winner is not (1 or 2))
             return;
+        if (!_accountMatch)
+            return;
         if (System.Threading.Interlocked.Exchange(ref _matchReportSent, 1) != 0)
             return;
         if (string.IsNullOrWhiteSpace(_matchReportId) || string.IsNullOrWhiteSpace(_matchReportSecret))
@@ -10889,88 +11122,6 @@ public partial class TableWindow : Window
     private static bool HostReportedRaiseTheStakes(string? reason)
         => !string.IsNullOrEmpty(reason)
            && reason.Contains("Raise the Stakes", StringComparison.Ordinal);
-
-    private void OnLobbyGameStarting(NetworkLobbyWindow lobby, LobbyGameStartArgs args)
-    {
-        if (args.Resume)
-        {
-            StartLoadedMatch(lobby, args);
-            return;
-        }
-        RememberMatchReport(args);
-        TryStartNetSessionFromLobby(lobby);
-        if (_netSession == null)
-            throw new InvalidOperationException("NetPlaySession did not start after lobby GameStarting.");
-
-        Deck deck1;
-        Deck deck2;
-        if (_netSession.IsGuest)
-        {
-            // Do not parse DeckP1Json. Host cards exist here only after the masked snapshot.
-            if (string.IsNullOrWhiteSpace(args.DeckP2Json))
-                throw new InvalidOperationException("Guest start is missing the guest deck.");
-            deck2 = LoadAndLinkDeckFromJson(args.DeckP2Json);
-            if (!string.IsNullOrWhiteSpace(args.DeckP2Name))
-                deck2.Name = args.DeckP2Name;
-            deck1 = new Deck
-            {
-                Name = string.IsNullOrWhiteSpace(args.DeckP1Name) ? "Player 1" : args.DeckP1Name
-            };
-            _netGuestHasHostState = false;
-            _session.Log.AddDebug(_session.TurnNumber, "Net",
-                $"Lobby start: guest deck {deck2.Name}, host deck not loaded, skipSeed={args.SkipSeedPhase}.");
-        }
-        else
-        {
-            deck1 = LoadAndLinkDeckFromJson(args.DeckP1Json);
-            deck2 = LoadAndLinkDeckFromJson(args.DeckP2Json);
-            if (!string.IsNullOrWhiteSpace(args.DeckP1Name))
-                deck1.Name = args.DeckP1Name;
-            if (!string.IsNullOrWhiteSpace(args.DeckP2Name))
-                deck2.Name = args.DeckP2Name;
-            _session.Log.AddDebug(_session.TurnNumber, "Net",
-                $"Lobby start: P1={deck1.Name}, P2={deck2.Name}, role=Host, skipSeed={args.SkipSeedPhase}.");
-        }
-
-        _loadedDeck = deck1;
-        PlaceDeckOnTable(deck1);
-        _loadedDeckOpp = deck2;
-        PlaceOpponentDeck(deck2);
-
-        StatusText.Text = _netSession.IsHost
-            ? $"Network: Host P1 — decks on table ({deck1.Name} vs {deck2.Name})."
-            : $"Network: Guest P2 — {deck2.Name}. Waiting for the host snapshot.";
-
-        EnsureNetworkModeFromSession();
-        try { lobby.Close(); } catch { /* ignore */ }
-        ApplySelectedGameMode();
-
-        if (args.SkipSeedPhase)
-        {
-            // Host alone runs Quick-Game AutoCompleteSeed; Guest UI follows Broadcast sync.
-            if (_netSession.IsHost)
-            {
-                AutoCompleteSeed();
-                CenterOnSpaceline();
-                StatusText.Text =
-                    $"Network: Skip seed phase — auto-seeded ({deck1.Name} vs {deck2.Name}), Turn 1 Play.";
-                _session.Log.Add(_session.TurnNumber, "System",
-                    "Network: Skip seed phase accepted — Host AutoCompleteSeed.");
-                // AutoCompleteSeed → FinishSeedPhaseAndDrawOpeningHand already NotifyNetworkSeedChanged
-            }
-            else
-            {
-                StatusText.Text = "Network: Skip seed phase — waiting for Host auto-seed sync…";
-                _session.Log.AddDebug(_session.TurnNumber, "Net",
-                    "Skip seed phase: Guest waiting for Host GameSave broadcast.");
-            }
-        }
-        else
-        {
-            NotifyNetworkSeedChanged();
-        }
-    }
-
 
     /// <summary>Catalog face for a Host reveal/choice. Not a seed read and not added to any zone.</summary>
     private Card? BuildNetChoiceFace(NetChoiceDto dto)
@@ -11077,6 +11228,18 @@ public partial class TableWindow : Window
     private void OnNetChoiceRequestReceived(NetChoiceDto dto)
     {
         if (_netSession == null) return;
+        string earlyKind = dto.Kind ?? "";
+        if (string.Equals(earlyKind, NetChoiceDto.Kinds.ResponseWatch, StringComparison.OrdinalIgnoreCase))
+        {
+            ReleaseInHandCardVisual();
+            MarkOpponentResponseHold(dto.TargetPlayer);
+            return;
+        }
+        if (string.Equals(earlyKind, NetChoiceDto.Kinds.ResponseWatchClose, StringComparison.OrdinalIgnoreCase))
+        {
+            ClearOpponentResponseHold();
+            return;
+        }
         if (dto.TargetPlayer != _netSession.LocalPlayer)
         {
             _session.Log.AddDebug(_session.TurnNumber, "Net",
@@ -11230,6 +11393,8 @@ public partial class TableWindow : Window
     private void HandleGuestResponseWindowRequest(NetChoiceDto dto)
     {
         if (_netSession == null || !_netSession.IsGuest) return;
+        ReleaseInHandCardVisual();
+        ClearOpponentResponseHold();
 
         _guestActiveChoiceCorrelationId = dto.CorrelationId;
         int responder = dto.TargetPlayer;
@@ -13271,6 +13436,7 @@ public partial class TableWindow : Window
 
     private void ShowHostEncounterMirror(IReadOnlyList<Card> faces, string title, string body, string? subtitle, string? audience = null)
     {
+        ReleaseInHandCardVisual();
         if (CardRevealOverlay == null) return;
         var shown = faces?.Where(c => c != null).ToList() ?? new List<Card>();
         RevealTitle.Text = title;
@@ -13679,6 +13845,157 @@ public partial class TableWindow : Window
     private void HidePlayFlyIn()
     {
         FinishPlayFlyInLand(_playFlyInGen);
+    }
+
+    protected override void OnDeactivated(EventArgs e)
+    {
+        ReleaseInHandCardVisual();
+        base.OnDeactivated(e);
+    }
+
+    /// <summary>
+    /// A dialog, response window, or other action must not leave a hand drag or fly on the board.
+    /// </summary>
+    private void ReleaseInHandCardVisual()
+    {
+        if (_releasingHeldCard) return;
+        _releasingHeldCard = true;
+        try
+        {
+            try { Mouse.Capture(null); } catch { /* capture already gone */ }
+
+            if (_panelDragging && _zoneDragRef != null && _dragCard != null)
+            {
+                var zref = _zoneDragRef;
+                var border = _dragCard;
+                _zoneDragRef = null;
+                _dragCard = null;
+                _panelDragging = false;
+                _isDragging = false;
+                _dragOnOverlay = false;
+                HideSnapPreview();
+                try { ClearEventTargetHighlights(); } catch { /* highlights already clear */ }
+                ReturnFloatingToZone(zref.Card, border, zref.ZoneName, zref.Opponent);
+            }
+            else if (_dragCard != null && _isDragging && !_dragOnOverlay)
+            {
+                var border = _dragCard;
+                _dragCard = null;
+                _isDragging = false;
+                _dragSourceMission = null;
+                HideSnapPreview();
+                if (!double.IsNaN(_dragOrigin.X))
+                    Canvas.SetLeft(border, _dragOrigin.X);
+                if (!double.IsNaN(_dragOrigin.Y))
+                    Canvas.SetTop(border, _dragOrigin.Y);
+                Panel.SetZIndex(border, 1);
+            }
+            else
+            {
+                _zoneDragRef = null;
+                _panelDragging = false;
+            }
+
+            if (DragLayer != null)
+            {
+                foreach (var b in DragLayer.Children.OfType<Border>().ToList())
+                {
+                    if (ReferenceEquals(b, PlayFlyInCard)) continue;
+                    if (b.Tag is not Card c) continue;
+                    DragLayer.Children.Remove(b);
+                    if (ReferenceEquals(b, _dragCard))
+                        _dragCard = null;
+                    bool inHand = _handCards.Contains(c) || _oppHandCards.Contains(c);
+                    bool onTable = TableCanvas.Children.OfType<Border>().Any(x => x.Tag is Card t && ReferenceEquals(t, c));
+                    if (!inHand && !onTable)
+                    {
+                        int owner = 1;
+                        if (_borderOwner.TryGetValue(b, out int o) && o is 1 or 2)
+                            owner = o;
+                        (owner == 2 ? _oppHandCards : _handCards).Add(c);
+                    }
+                }
+            }
+            _dragOnOverlay = false;
+            _isDragging = false;
+            _panelDragging = false;
+
+            if (PlayFlyInCard != null && PlayFlyInCard.Visibility == Visibility.Visible)
+                HidePlayFlyIn();
+        }
+        finally
+        {
+            _releasingHeldCard = false;
+        }
+    }
+
+    private void MarkOpponentResponseHold(int responder)
+    {
+        if (responder == ViewerPlayer || OppHandStripBorder == null)
+        {
+            ClearOpponentResponseHold();
+            return;
+        }
+        if (!_opponentResponseHold)
+        {
+            _opponentHandBrush = OppHandStripBorder.Background;
+            _opponentHandBorderBrush = OppHandStripBorder.BorderBrush;
+            _opponentHandBorderThickness = OppHandStripBorder.BorderThickness;
+        }
+        _opponentResponseHold = true;
+        _opponentResponseHoldPlayer = responder is 1 or 2 ? responder : (ViewerPlayer == 1 ? 2 : 1);
+        OppHandStripBorder.Background = new SolidColorBrush(Color.FromRgb(0x6A, 0x1B, 0x9A));
+        OppHandStripBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(0xE1, 0xBE, 0xE7));
+        OppHandStripBorder.BorderThickness = new Thickness(3);
+        if (OppStripTitle != null)
+            OppStripTitle.Text = SeatLabel(_opponentResponseHoldPlayer) + " response window";
+    }
+
+    private void ClearOpponentResponseHold()
+    {
+        if (!_opponentResponseHold || OppHandStripBorder == null)
+        {
+            _opponentResponseHold = false;
+            _opponentResponseHoldPlayer = 0;
+            return;
+        }
+        _opponentResponseHold = false;
+        _opponentResponseHoldPlayer = 0;
+        if (_opponentHandBrush != null)
+            OppHandStripBorder.Background = _opponentHandBrush;
+        if (_opponentHandBorderBrush != null)
+            OppHandStripBorder.BorderBrush = _opponentHandBorderBrush;
+        OppHandStripBorder.BorderThickness = _opponentHandBorderThickness;
+        RefreshHandStrips();
+    }
+
+    private void AnnounceResponseHold(bool open, int responder)
+    {
+        if (responder is not (1 or 2)) return;
+        if (_gameMode != GameMode.Network || _netSession is not { IsHost: true })
+            return;
+        if (responder == _netSession.LocalPlayer)
+        {
+            try
+            {
+                _ = _netSession.SendChoiceRequestAsync(new NetChoiceDto
+                {
+                    CorrelationId = open ? "response-hold" : "response-hold-close",
+                    Kind = open ? NetChoiceDto.Kinds.ResponseWatch : NetChoiceDto.Kinds.ResponseWatchClose,
+                    TargetPlayer = responder,
+                    Title = "Response window"
+                });
+            }
+            catch
+            {
+                // The local window still works if the watcher note does not send.
+            }
+            return;
+        }
+        if (open)
+            MarkOpponentResponseHold(responder);
+        else
+            ClearOpponentResponseHold();
     }
 
     /// <summary>
@@ -15354,14 +15671,14 @@ public partial class TableWindow : Window
                 UpdatePhaseControls();
                 NotifyNetworkSeedChanged();
                 StatusText.Text =
-                    $"Facility phase: Player {_activePlayer} must still seed ({otherLeft} left). " +
+                    $"Facility phase: {SeatLabel(_activePlayer)} must still seed ({otherLeft} left). " +
                     "Finish seed only after that.";
                 return;
             }
             if (selfLeft > 0)
             {
                 StatusText.Text =
-                    $"{selfLeft} facility cards left for Player {_activePlayer}. " +
+                    $"{selfLeft} facility cards left for {SeatLabel(_activePlayer)}. " +
                     "Place cards or finish the phase when done – then Finish seed again.";
                 return;
             }
@@ -15410,14 +15727,14 @@ public partial class TableWindow : Window
     {
         if (_db == null)
         {
-            MessageBox.Show("Card data is not loaded yet.", "Quick game",
+            BridgeDialog.Show("Card data is not loaded yet.", "Quick game",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
-        var p1 = PickDeckFile("Quick game – Player 1 deck");
+        var p1 = PickDeckFile("Quick game - " + SeatLabel(1) + " deck");
         if (p1 == null) return;
-        var p2 = PickDeckFile("Quick game – Player 2 deck");
+        var p2 = PickDeckFile("Quick game - " + SeatLabel(2) + " deck");
         if (p2 == null) return;
 
         try
@@ -15434,7 +15751,7 @@ public partial class TableWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Quick game failed:\n\n{ex.Message}", "Quick game",
+            BridgeDialog.Show($"Quick game failed:\n\n{ex.Message}", "Quick game",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
@@ -15902,15 +16219,22 @@ public partial class TableWindow : Window
             .Where(b => b.Tag is Card c && IsMissionCard(c))
             .ToList();
 
-    private void StartLoadedMatch(NetworkLobbyWindow lobby, LobbyGameStartArgs args)
+    private void StartLoadedMatch(
+        NetServer? server,
+        NetClient? client,
+        INetLink? link,
+        bool isHost,
+        string? hostAddress,
+        int hostPort,
+        LobbyGameStartArgs args)
     {
+        RememberSeatNames(args.Player1Name, args.Player2Name);
         RememberMatchReport(args);
-        TryStartNetSessionFromLobby(lobby);
+        InitNetSessionFromTransport(server, client, link, isHost, hostAddress, hostPort);
         if (_netSession == null)
             throw new InvalidOperationException("NetPlaySession did not start after loading a save.");
 
         EnsureNetworkModeFromSession();
-        try { lobby.Close(); } catch { /* ignore */ }
         ApplySelectedGameMode();
         UpdateMpSaveButton();
 
@@ -15929,8 +16253,8 @@ public partial class TableWindow : Window
             return;
         }
 
-        _loadedDeck = new Deck { Name = "Player 1" };
-        _loadedDeckOpp = new Deck { Name = "Player 2" };
+        _loadedDeck = new Deck { Name = "(P1)" };
+        _loadedDeckOpp = new Deck { Name = "(P2)" };
         _netGuestHasHostState = false;
         _session.Log.Add(_session.TurnNumber, "System", "Waiting for the host snapshot of the loaded game.");
     }
@@ -15952,14 +16276,14 @@ public partial class TableWindow : Window
     {
         if (!_accountMatch || _netSession is not { IsHost: true })
         {
-            MessageBox.Show("Only the host of an account match can store a server save.", "Save game",
+            BridgeDialog.Show("Only the host of an account match can store a server save.", "Save game",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
         if (string.IsNullOrWhiteSpace(_matchReportId) || string.IsNullOrWhiteSpace(_matchReportSecret)
             || string.IsNullOrWhiteSpace(_matchReportHost) || _matchReportPort is < 1 or > 65535)
         {
-            MessageBox.Show("This match has no server id yet.", "Save game",
+            BridgeDialog.Show("This match has no server id yet.", "Save game",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
@@ -15978,7 +16302,7 @@ public partial class TableWindow : Window
                 if (reply.TryGetProperty("type", out var kind) && kind.GetString() == "error")
                 {
                     var message = reply.TryGetProperty("message", out var msg) ? msg.GetString() : "Save failed.";
-                    MessageBox.Show(message ?? "Save failed.", "Save game",
+                    BridgeDialog.Show(message ?? "Save failed.", "Save game",
                         MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
@@ -15994,7 +16318,7 @@ public partial class TableWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show("Could not save:\n\n" + ex.Message, "Save game",
+            BridgeDialog.Show("Could not save:\n\n" + ex.Message, "Save game",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         finally
@@ -16098,7 +16422,7 @@ public partial class TableWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Could not save:\n\n{ex.Message}", "Save game",
+            BridgeDialog.Show($"Could not save:\n\n{ex.Message}", "Save game",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
@@ -16119,7 +16443,7 @@ public partial class TableWindow : Window
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
             if (snap == null)
             {
-                MessageBox.Show("Empty or invalid save file.", "Load game",
+                BridgeDialog.Show("Empty or invalid save file.", "Load game",
                     MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
@@ -16132,7 +16456,7 @@ public partial class TableWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Could not load:\n\n{ex.Message}", "Load game",
+            BridgeDialog.Show($"Could not load:\n\n{ex.Message}", "Load game",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
@@ -16493,7 +16817,7 @@ public partial class TableWindow : Window
     {
         if (_db == null)
         {
-            MessageBox.Show("Card database is not loaded.", "Load game",
+            BridgeDialog.Show("Card database is not loaded.", "Load game",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
@@ -16894,10 +17218,10 @@ public partial class TableWindow : Window
             _seedSubPhase = SeedSubPhase.Done;
 
         // UI treats null decks as "no game" — keep placeholder names from save
-        _loadedDeck ??= new Deck { Name = save.DeckNameP1 ?? "Player 1" };
+        _loadedDeck ??= new Deck { Name = save.DeckNameP1 ?? "(P1)" };
         if (!string.IsNullOrWhiteSpace(save.DeckNameP1))
             _loadedDeck.Name = save.DeckNameP1!;
-        _loadedDeckOpp ??= new Deck { Name = save.DeckNameP2 ?? "Player 2" };
+        _loadedDeckOpp ??= new Deck { Name = save.DeckNameP2 ?? "(P2)" };
         if (!string.IsNullOrWhiteSpace(save.DeckNameP2))
             _loadedDeckOpp.Name = save.DeckNameP2!;
 
@@ -16975,7 +17299,7 @@ public partial class TableWindow : Window
         if (_seedPhaseActive)
             ShowCurrentSeedStack();
         StatusText.Text =
-            $"Restored: Turn {_turnNumber}, Player {_activePlayer}, " +
+            $"Restored: Turn {_turnNumber}, {SeatLabel(_activePlayer)}, " +
             $"segment {_session.Segment}, score P1 {_scoreP1} · P2 {_scoreP2}";
     }
 
@@ -20016,27 +20340,10 @@ public partial class TableWindow : Window
             TableCanvas.Children.Add(badge);
         }
 
-        // Dev / Seed phase: full stack depth (identical Host+Guest after ApplyGameSave).
-        // Player aid: own seeds only (ViewerPlayer - not ActivePlayer / Hotseat strip coords).
-        int ownCount = 0;
-        if (list != null)
-        {
-            foreach (var b in list)
-            {
-                int o = GetBorderOwner(b);
-                if (o == 0) o = 1;
-                if (o == ViewerPlayer) ownCount++;
-            }
-        }
+        // Seed counts under missions are a developer / seed-phase aid only.
         bool showAll = _devShowSeedCounts || _seedPhaseActive;
-        bool showOwn = _aidOwnSeedCounts && ownCount > 0;
-        bool show = count > 0 && (showAll || showOwn);
-        if (showAll)
-            badge.Text = $"{count}";
-        else if (showOwn)
-            badge.Text = $"{ownCount}";
-        else
-            badge.Text = "";
+        bool show = count > 0 && showAll;
+        badge.Text = showAll ? $"{count}" : "";
         badge.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
         // Always rebase to current mission AbsoluteLeft after Relayout / ApplyGameSave.
         Canvas.SetLeft(badge, Canvas.GetLeft(mission) + 8);
@@ -20357,7 +20664,7 @@ public partial class TableWindow : Window
             FontWeight = FontWeights.Bold,
             Opacity = 0.12,
             Foreground = Brushes.White,
-            Text = "PLAYER 1"
+            Text = "(P1)"
         };
         Panel.SetZIndex(_turnTintP1, 0);
         Panel.SetZIndex(_turnTintP2!, 0);
@@ -21217,7 +21524,7 @@ public partial class TableWindow : Window
         }
 
         ShowCardReveal(mission, "Mission solved",
-            $"Player {solver} solved {mission.Name}!\n+{result.Points} points\n\n"
+            $"{SeatLabel(solver)} solved {mission.Name}!\n+{result.Points} points\n\n"
             + $"Score: P1 {_scoreP1}  ·  P2 {_scoreP2}\n\n"
             + "More mission attempts are allowed in the same Execute segment.",
             RevealButtons.Ok, mission.Name,
@@ -24724,10 +25031,10 @@ public partial class TableWindow : Window
             }
             ShowActivePlayerHand();
             RefreshZoneCounts();
-            StatusText.Text = $"Masaka Transformations: Player {who} ({n} cards).";
+            StatusText.Text = $"Masaka Transformations: {SeatLabel(who)} ({n} cards).";
             _session.Log.Add(_session.TurnNumber, $"P{controller}", $"Masaka on P{who} ({n})");
             AnnounceChoiceResult(ev, "Masaka Transformations",
-                $"Effect applied to Player {who} ({n} cards redrawn).");
+                $"Effect applied to {SeatLabel(who)} ({n} cards redrawn).");
         }
         if (plan.ResQ)
         {
@@ -25565,7 +25872,7 @@ public partial class TableWindow : Window
         int chooser = opponentOf(_activePlayer);
         string skillList = keep.Count == 0 ? "no skills" : string.Join(" and ", keep);
         string frameSentence = chose && chooser is 1 or 2
-            ? $"Player {chooser} chose {skillList} for {victim.Name} on Frame of Mind."
+            ? $"{SeatLabel(chooser)} chose {skillList} for {victim.Name} on Frame of Mind."
             : $"{victim.Name} keeps {skillList} under Frame of Mind.";
         ShowCardReveal(victim, "Frame of Mind", frameSentence, RevealButtons.Ok, victim.Name);
         _session.Log.Add(_session.TurnNumber, $"P{_activePlayer}", frameSentence);
@@ -32372,7 +32679,7 @@ public partial class TableWindow : Window
         }
 
         ShowCardReveal(qCard, "Q — Spaceline rearrange",
-            $"Player {opp}: rearrange the spaceline.\nEach location moves with all cards on it.\nUse Left/Right, then Done.",
+            $"{SeatLabel(opp)}: rearrange the spaceline.\nEach location moves with all cards on it.\nUse Left/Right, then Done.",
             RevealButtons.Ok, qCard.Name);
 
         while (true)
@@ -32400,7 +32707,7 @@ public partial class TableWindow : Window
             _session.Log.Add(_session.TurnNumber, $"P{opp}",
                 $"Q rearrange: moved {(_spacelineOrder[dest].Tag as Card)?.Name} {dir}");
         }
-        StatusText.Text = $"Q: Player {opp} finished spaceline rearrange.";
+        StatusText.Text = $"Q: {SeatLabel(opp)} finished spaceline rearrange.";
     }
 
     /// <summary>REM Fatigue: docking at an Outpost cures (+5). Not HQ/Station.</summary>
@@ -32985,7 +33292,7 @@ public partial class TableWindow : Window
             ? "Yes – at own Outpost/HQ (same location)"
             : "No – ship must be at the same mission as own Outpost";
 
-        MessageBox.Show(
+        BridgeDialog.Show(
             $"Repair – {ship.Name}\n\n" +
             $"HULL damage: {hull}%\n" +
             $"Turns at outpost: {turns}/2\n" +
@@ -36178,7 +36485,7 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
             else
             {
                 deny = host?.Tag is Card bad
-                    ? $"\"{bad.Name}\" is not usable by Player {owner} (foreign facility)."
+                    ? $"\"{bad.Name}\" is not usable by {SeatLabel(owner)} (foreign facility)."
                     : $"{card.Name}: snap onto your Outpost/HQ (not the mission).";
             }
         }
@@ -36253,7 +36560,7 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
             ApplyPerspective();
             OnTurnContextChanged();
             StatusText.Text =
-                $"SEED Doorway → Player {_activePlayer} places all doorways ({otherCount} left).";
+                $"SEED Doorway → {SeatLabel(_activePlayer)} places all doorways ({otherCount} left).";
         }
         else
         {
@@ -36290,7 +36597,7 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
                 _ => "Seed"
             };
             StatusText.Text =
-                $"SEED alternating → Player {_activePlayer} ({phaseName}) " +
+                $"SEED alternating → {SeatLabel(_activePlayer)} ({phaseName}) " +
                 $"– {otherCount} remaining for them, {CountSeedFor(_seedSubPhase, _activePlayer == 1 ? 2 : 1)} for other player.";
         }
         else if (selfCount == 0)
@@ -36650,6 +36957,7 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
 
     private void OpenCardDetailPopup()
     {
+        ReleaseInHandCardVisual();
         if (_detailCard == null) return;
         FillDetailStackSection(_detailHost);
         if (CardDetailOverlay != null)
@@ -36755,10 +37063,10 @@ private Border? FindNearestLegalSeedMission(Card seedCard, double centerX, doubl
                 if (!present.Any()) continue;
                 if (IsOccupancyHiddenFromViewer(p))
                 {
-                    Run($"— Player {p} — occupancy hidden (6.3 / 7)");
+                    Run($"— {SeatLabel(p)} — occupancy hidden (6.3 / 7)");
                     continue;
                 }
-                Run($"— Player {p} —");
+                Run($"— {SeatLabel(p)} —");
                 if (present.Any(ModifierRules.IsPersonnelCard))
                 {
                     var team = ModifierRules.SummarizeTeam(present, p, DisabledSkillsOnHost(host), LoseFirstListedOnHost(host));

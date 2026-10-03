@@ -1,7 +1,7 @@
 # Compendium 2.7.4 — Features backlog
 
 Quelle: `rules/Compendium_Rulebook.pdf`. Ablauf: `IMPLEMENT.md`. Feinliste: `RULES_CHECKLIST.md`.
-Stand: 2026-09-28. Living list. Netz ist aktiv (siehe `HANDOFF.md`); Premiere-Tracker bleibt parallel P0.
+Stand: 2026-10-02. Living list. Netz ist aktiv (siehe `HANDOFF.md`); Premiere-Tracker bleibt parallel P0.
 
 ✅ spielbar (Pepsch green) · 🟡 CODED / ACTIVE / partial · ❌ offen · ➖ geparkt / später
 

@@ -1,6 +1,6 @@
 # Online-Arbeitsregeln
 
-**Stand:** 2026-09-28
+**Stand:** 2026-10-02
 
 Gilt für Grok-Projekte, Cursor und ähnliche Online-Arbeitsplätze. Die lokale Wahrheit für Code und Commits bleibt Josef.
 

@@ -1,3 +1,171 @@
+## 2026-10-03 - Play, friends, personnel stars
+
+- Getippt, nicht getestet, nicht gruen, nicht gepusht.
+- PLAY: Singleplayer / Multiplayer. Singleplayer nur der Kampagnen-Hinweis. Multiplayer und die unteren Lounge- und Friends-Tasten oeffnen denselben Viewscreen.
+- Namensfeld und Add Friend auf jeder Karte. Unbekannter oder offline Name speichert nichts. BridgeDialog Ja/Nein. Entfernen loescht das Paar. Angenommene Freunde stehen unter Friends, auch offline.
+- Nachrichten: friendRequest, friendReply, friendRemove, friendList, friendAsk, friendRequestSent, friendAccepted, friendDeclined, friendRemoved, friends, friendClosed.
+- Personal: Gold ist Icons [Cmd], Silber ist [Stf], dann kein Icon. Skill-Count in der Gruppe absteigend.
+- Client-Debug 0 Fehler, 11 alte Warnungen. LobbyService-Debug 0 Fehler, ein Prozess auf 7788. Kein Spieltest.
+
+## 2026-10-03 - Collection page size and sort
+
+- Getippt, nicht getestet, nicht gruen, nicht gepusht.
+- Binderseiten nutzen die volle Viewscreen-Hoehe. Die Karte skaliert mit der Zelle, auch bei einem breiten 4K-Fenster.
+- Personal innerhalb der Affiliation: Goldstern, Silberstern, kein Icon, dann Skill-Count. Feld uniqueness.
+- Missionen nach points, hoechster zuerst. Dilemmas [S/P], dann [S], dann [P].
+- Debug-Build 0 Fehler, 11 alte Warnungen. Kein Spieltest.
+
+## 2026-10-03 - Collection binders
+
+- Getippt, nicht getestet, nicht gruen, nicht gepusht.
+- COLLECTION im linken Rail oeffnet die Binder im Viewscreen. BACK eine Ebene. ThemeSkin.
+- Binder nur fuer Sets, die der Katalog schon hat. Seiten: erste allein, dann zwei, neun Karten. PREVIOUS / NEXT.
+- Besitz nur aus dem Account-Pool. Kein Login: Katalog abgedunkelt, niemand angemeldet. Keine Punkte, kein Latinum, keine neuen Kosten.
+- Debug-Build 0 Fehler, 11 alte Warnungen. Kein Spieltest.
+
+## 2026-10-03 - End Game on the COMMAND menu
+
+- Getippt, nicht getestet, nicht gruen, nicht gepusht.
+- End Game ist der erste Knopf im COMMAND-Panel. BridgeDialog Yes/No. Yes schliesst den Tisch und zeigt MainMenuWindow. No bleibt.
+- Offenes Netzspiel: bestehende Session wird disposed, damit die Gegenseite den Socket-Abbruch sieht. Kein FinishMatch, kein ReportMatchResult, keine Punkte, kein Latinum.
+- Debug-Build 0 Fehler, 11 alte Warnungen. Kein Spieltest.
+
+## 2026-10-03 - Developer Mode starts on
+
+- Getippt, nicht getestet, nicht gruen, nicht gepusht.
+- DEV-ONLY HOOK: DeveloperMode.IsEnabled startet true. Vor dem Release entfernen. Passwort-Knopf bleibt.
+- Debug-Build 0 Fehler, 11 alte Warnungen. Kein Spieltest.
+
+## 2026-10-03 - Table COMMAND menu
+
+- Getippt, nicht getestet, nicht gruen, nicht gepusht.
+- Die feste Menueleiste ist ausgeblendet. COMMAND sitzt links neben dem Punktestand. Die Zugzeile bleibt in derselben Reihe und nutzt die frei gewordene Hoehe.
+- TableCommandMenu nutzt ThemeSkin wie BridgeDialog. Kein WPF-Menue.
+- Alle bisherigen Befehle bleiben, inklusive File, Tools und der Developer-Eintraege, die nicht auf der Skizze standen. Haken lesen denselben Zustand wie vorher.
+- Debug-Build 0 Fehler, 11 alte Warnungen. Kein Spieltest.
+
+## 2026-10-03 - Published exe startup
+
+- Getippt, nicht von Pepsch getestet, nicht gruen, nicht gepusht.
+- Debug-exe startet per Doppelklick. F5 und der Debug-Ordner waren nicht der Absturz.
+- Veroeffentlichen nach Alpha20260930_2036: DllNotFoundException, Dll was not found, SetWindowLongPtrWndProc. Single-File-WPF ohne native Extract.
+- FolderProfile: IncludeNativeLibrariesForSelfExtract und keine Bundle-Kompression. Ordner neu veroeffentlicht, Main Bridge erschien. Danach beendet.
+- Debug-Build 0 Fehler, 11 alte Warnungen. Regeln, Uhren und Ports unveraendert.
+
+## 2026-10-03 - Bridge layout and seat names
+
+- Getippt, nicht getestet, nicht gruen, nicht gepusht.
+- Main Bridge: Chat und die zwei Reserve-Slots getauscht. Chat nutzt die hoehere rechte Flaeche unter CARD PACK SHOP. Reserve liegt im unteren Band.
+- Lounge-Crew: INVITE TO CHAT, dann TRADE und PLAY in der zweiten Zeile. Avatar ist ein Quadrat in der vollen Slot-Hoehe. Unterer Rand der Karte bleibt sichtbar. BACK spannt die rechte Rail.
+- Tisch-Banner: Name (BOTTOM) oder Name (TOP), wenn Account oder Lobby den Sitz kennt. Sonst weiter Player 1 / Player 2.
+- Debug-Build kompiliert, 0 Fehler, 11 alte Warnungen. Kein Spieltest. Regeln, Uhren und Ports unveraendert.
+
+## 2026-10-03 - Overlay and Deck Builder skin
+
+- Getippt, nicht getestet, nicht gruen, nicht gepusht.
+- TableWindow: card reveal, card detail, history, team, kidnap, think tray, reconnect, zoom, und die Welcome-Radios auf ThemeSkin. Steuerelemente und Klicks bleiben.
+- DeckBuilderWindow: Listen, Tabs und die Zug-Knopfe im Skin. Datei-öffnen und Datei-speichern bleiben die Windows-Dialoge.
+- Keine MessageBox.Show mehr im Client. Die zwei Entwickler-Prompts nutzen BridgeDialog.
+- Debug-Build kompiliert, 0 Fehler, 11 alte Warnungen. Kein Spieltest. Filz, Karten, Fly-in, Regeln, Uhren und Ports unveraendert.
+
+## 2026-10-03 - Table chrome and in-app dialogs
+
+- Getippt, nicht getestet, nicht gruen, nicht gepusht.
+- Tischfenster: ThemeSkin wie die Bruecke. Menue, Statusleiste, graue Rahmen, Save, Connected, End PLAY phase, Action History. Befehle bleiben.
+- 33 Spieler-MessageBox.Show nach BridgeDialog.cs. OK, Yes, No, Cancel liefern dieselbe Entscheidung. Zwei Entwickler-Prompts bleiben MessageBox.
+- Debug-Build kompiliert, 0 Fehler, 11 alte Warnungen. Kein Spieltest. Filz, Karten, Fly-in, Regeln, Uhren und 7777/7788 unveraendert.
+- Offen: Windows-Dateidialoge, Overlays im Spiel, Deck-Builder-Chrome.
+
+## 2026-10-03 - Card pack shop in the viewscreen
+
+- Getippt, nicht getestet, nicht gruen, nicht gepusht.
+- unknown pack: der Client sendete `premiere` und erwartete `booster`/`cards`. Der Server verkauft `premiere_booster` und antwortet `pack`/`cardIds`. Deshalb keine Karten und kein Abzug.
+- CARD PACK SHOP liegt im Viewscreen. BACK nimmt genau diese Ebene weg. PREMIERE ist kaufbar, Preis 50 wie bisher. ALTERNATE UNIVERSE hat auf dem Server kein Pack und keinen Preis, die Taste ist sichtbar und nicht verbunden. Zwei Plaetze bleiben reserviert. Buy ist aus, bis ein verbundenes Pack gewaehlt ist.
+- Bilder spaeter ohne Umbau: Assets/Shop/premiere.png und Assets/Shop/alternate_universe.png. Bis die Datei fehlt, steht der Set-Name.
+- Gekaufte Karten fliegen einzeln ein und bekommen einen Rahmen nach Seltenheit. Aufdeckung angepasst, nicht getestet: neun Karten pro Reihe, Fly-in 30 Prozent schneller (vorher 2750 ms je Karte, jetzt 1925 ms), zufaellige Reihenfolge, Klick auf den Hintergrund legt alle Karten sofort ab. Glow-Farben bleiben. Die vergroesserte Karte passt in die untere Viewscreen-Flaeche, mit etwa 5 Prozent Abstand oben und unten. Nicht getestet. Common grau, Uncommon gruen, Rare und Rare* blau, Rare+ lila, Ultra Rare gold. Red, SR, P und PV haben eigene Farben und denselben staerkeren Glow ab Rare.
+- Die 500-Latinum-Taste bleibt der Entwicklermodus-Haken. TableWindow-Regeln, Uhren und 7777/7788 unveraendert.
+
+## 2026-10-03 - Developer mode and debug Latinum
+
+- Getippt, nicht getestet, nicht gruen, nicht gepusht.
+- Options schaltet den Entwicklermodus mit einem Passwort ein. Ein falsches Passwort laesst ihn aus. Der Schalter ist eine Session-Klasse fuer Menue und Partie, nicht in der Kontodatenbank.
+- Card Pack Shop: eine Taste schreibt 500 auf dasselbe users.latinum, das der Shop ausgibt, und das Hauptfenster aktualisiert den Stand. Die Taste ist nur im UI, solange der Entwicklermodus an ist. Ohne Anmeldung wird nichts gutgeschrieben.
+- Eine Server-Nachricht, ein fester Betrag, ein Methodenpaar. TableWindow-Regeln, Uhren und 7777/7788 unveraendert.
+
+## 2026-10-03 - Deck builder inside the main window
+
+- Getippt, nicht getestet, nicht gruen, nicht gepusht.
+- DECKS baut den vorhandenen Deckbuilder in das Hauptfenster und oeffnet kein neues Fenster. BACK oben rechts geht genau eine Ebene zurueck und entfernt die Flaeche.
+- Links die Filter (Sets, Typ, Affiliation, Klasse/Skills, Name). Daneben die Kartenliste. Viewscreen ist das aktuelle Deck (Name, Save, Load, Clear, Zaehler, farbige Stapel, Kartenzeilen). Rechts die bisherige Detailflaeche, reserviert statt Shop. Unten Add all visible und eine Reihe deaktivierter Platzhalter ohne Funktion.
+- Filter Nur Konto-Karten zeigt nur Karten des angemeldeten Kontos. Alle Karten (Holodeck) zeigt den ganzen Katalog. Ohne Login ist nur der Katalog da, Speichern bleibt lokal.
+- Ein Konto speichert und laedt ueber deckSave, deckList und deckGet. Kein zweites Lager. Ranked-Dropdown nur Server-Decks. Holodeck-Dropdown alle lokalen Decks. Lokale Dateien erscheinen nicht im Ranked-Dropdown.
+- TableWindow-Regeln, Uhren und 7777/7788 unveraendert.
+
+## 2026-10-03 - Deck select, relay start, Game Options
+
+- Getippt, nicht getestet, nicht gruen, nicht gepusht.
+- Account-Deck aus dem Dropdown sendet sofort `deck` (`SendDeckAsync`) und setzt die Station auf Name und Anzahl. Upload ist kein eigener Schritt mehr. Der Gegner sieht dasselbe, sobald sein Deck ankommt.
+- ENGAGE / START GAME oeffnet das Relay der Room (TCP 7788) selbst. Ranked bleibt auf diesem Weg. Die Spalte SUBSPACE MATCH PROTOCOL ist auf dem Deck-Schirm ausgeblendet. Der Code fuer Relay und Direct bleibt.
+- GAME OPTIONS. Direct game nur im Holodeck, bestehender Pfad TCP 7777. Keine Punkte, keine Belohnung. Offizielles Match bietet Direct nicht an. Latinum 10/5 nur im bestehenden Account-Report. Der Client meldet einen Sieg nicht, wenn die Partie kein Account-Match ist.
+- Leerer Ranglisten-Tisch: der Start lief vor dem Laden des Katalogs, deshalb waren keine Karten verknuepft. Der Start wartet jetzt auf `Loaded`. Keine erfundenen Karten.
+- Einladung ohne Dialog bleibt: Accept, nur der Herausforderer waehlt den Modus, der Empfaenger bestaetigt, Decline zurueck zu den zwei Buttons, Raum erst bei der Modus-Annahme.
+
+## 2026-10-03 - Invite, then mode, then room
+
+- Getippt, nicht getestet, nicht gruen, nicht gepusht.
+- Kein Windows-Dialog mehr fuer die Herausforderung. PLAY sendet `challenge` ohne Modus. Empfaenger: Accept/Decline im Fenster. Erst `inviteAccepted` zeigt dem Herausforderer OFFICIAL MATCH (RANKED) und HOLODECK (OPEN RULES). `challengeMode` nennt den Modus, `modeReply` bestaetigt oder lehnt ab. Ablehnen des Modus laesst die Buttons stehen und setzt niemanden. Der Raum entsteht erst bei der Modus-Annahme (`matchReady`, dann room). Beide oeffnen dann die Match-Konsole und das Relay. Back auf den Mode-Buttons sendet `challengeCancel`.
+- `deleteAccount` unveraendert. Passwort wie `login`, kein Log. Geloescht: `users`, `sessions`, `decks`, `account_cards`. Nicht gruen.
+
+## 2026-10-02 - Lounge challenge opens the match console
+
+- Getippt, nicht getestet, nicht gruen, nicht gepusht.
+- PLAY an einer Crew-Karte sendet `challenge` (account = Ranked, sandbox = Holodeck). Der andere Spieler bekommt die Nachricht. Ablehnen oeffnet nichts. Annehmen legt einen Raum an, Herausforderer ist Host. Beide oeffnen die vorhandene Match-Konsole und verbinden das Relay. Danach nur Deck und Start game.
+- Sign-in-Server ist eine Auswahl: 127.0.0.1:7788, 192.168.50.241:7788, 81.217.114.46:7788.
+
+## 2026-10-02 - Persistent Lounge room, presence sync and embedded match console
+
+- Vollständig getestet und verifiziert via `LobbyService` Integrationstest.
+- Permanenter Lounge-Community-Raum im Server (`LobbyService/Program.cs`):
+  - Vorab im `RoomBook` instanziiert und permanent gehalten (`room.IsLounge = true`, `room.Mode = "all"`).
+  - Unterstützt beliebig viele verbundene Spieler (`Members`-Liste).
+  - Automatischer Broadcast (`RoomNotes(room)`) an alle Lounge-Teilnehmer beim Beitreten, Verlassen oder Wechseln in Match-Räume.
+  - Spieler sehen sich gegenseitig live im `LOUNGE CREW (ONLINE)` Avatar-Dock.
+  - Behebt die vorherige Fehlermeldung `[Server: no such room]`.
+- Vollständige Entfernung des `NetworkLobbyWindow`-Popup-Fensters:
+  - `StarTrekCCG/NetworkLobbyWindow.xaml` und `StarTrekCCG/NetworkLobbyWindow.xaml.cs` gelöscht.
+  - Sämtliche Match-Netzwerk-, Deckauswahl- und Spielstart-Funktionen direkt in `MainMenuWindow` (`MatchLobbyGrid`) integriert.
+  - Schneller Wechsel zwischen Brückenübersicht (`BridgeOverviewGrid`) und integrierter Match-Konsole (`MatchLobbyGrid`) ohne störende Popup-Dialoge.
+  - Entkopplung von `TableWindow`: Direkte Übergabe der aktiven Sockets via `StartNetSessionFromLobby(server, client, link, isHost, hostAddress, hostPort, args)`.
+
+## 2026-10-02 - Unified main bridge UI and seamless online matchmaking
+
+- Getippt, nicht getestet, nicht gruen, nicht gepusht.
+- Integration der Online-Lobby und Matchmaking direkt in die Hauptbrücke (`MainMenuWindow.xaml`, `MainMenuWindow.xaml.cs`):
+  - Viewscreen oben mittig (`Zone_Center_Main`): Zwei prominente Schnellstart-Buttons:
+    1. "OFFICIAL MATCH (RANKED)" (Relay · Account Card Pool · Rated)
+    2. "HOLODECK (OPEN RULES)" (Sandbox · All Cards Unlocked · Freeplay)
+  - Automatischer Server-Connect im Hintergrund: Bei Login verbindet sich der Client direkt mit dem Server (Standard TCP 7788) und tritt dem zentralen Raum "Lounge" bei, ohne manuelle IP/Port/Raum-Eingabemasken.
+  - Lounge Crew Avatar-Dock: Zeigt live die tatsächlich auf dem Server online verbundenen Spieler (`PlayerListChanged`).
+  - Neuer Kommunikations-Flow: Button auf Crew-Karten von "CHAT" in "INVITE TO CHAT" umgewandelt. Wechselt in den "PRIVATE"-Konferenzkanal und ermöglicht das Einladen mehrerer Teilnehmer in private Chatgruppen.
+  - "PLAY"-Button an Crew-Karten öffnet die Matchauswahl (Ranked vs. Holodeck).
+  - `NetworkLobbyWindow.xaml`: Manuelle IP-, Port- und Raumeingaben standardmäßig in ein minimiertes "Advanced"-Panel verlegt; automatische Verbindung und Bereinigung überflüssiger technischer Felder für einen sauberen Online-Workflow.
+- `DeckBuilderWindow.xaml` / `DeckBuilderWindow.xaml.cs`: Behebung von `XamlParseException` (`Mode=OneWay` für `Run.Text` Bindings und Property-Setters für `BrowserRow`).
+- Nicht gruen.
+
+## 2026-10-02 - Unified main bridge UI and skin framework
+
+- Getippt, nicht getestet, nicht gruen, nicht gepusht. Neues Startbildschirm- und Framework-Layout an den Koordinaten von TableWindow (`MainMenuWindow.xaml`, `MainMenuWindow.xaml.cs`, `ThemeSkin.xaml`).
+- Strukturierte Zonen:
+  - `Zone_TopBar` oben (Höhe ~44px): Spielername, Rang, Fraktion, Login/Logout-Umschalter, Onlinestatus-LED (grün/rot).
+  - `Zone_LeftRail` links (156px): 5 Hauptbuttons gleichmäßig verteilt (`PLAY`, `COLLECTION`, `DECKS`, `CAREER`, `OPTIONS`) und darunter 2 Buttons (`LOUNGE`, `FRIENDS`).
+  - `Zone_Center_Main` Mitte (*): dynamischer Viewscreen mit Sci-Fi/Space-Hintergrund und Navigationsinhalten.
+  - `Zone_Bottom_Social` unten (130px): 2/3 Avatar-Dock (horizontal scrollbar, interaktive Buttons Chat, Trade, Play) und 1/3 Chatfenster mit Lounge- und Private-Tabs.
+  - `Zone_RightRail` rechts (260px): kompakter quadratischer Back-Button oben, darunter Card-Pack-Shop (Latinum-Anzeige) und zwei Platzhalter.
+- `App.xaml` bindet `ThemeSkin.xaml` und `LobbyChrome.xaml` global in `Application.Resources` ein und startet auf `MainMenuWindow.xaml`.
+- `MainMenuWindow.xaml`: `Background` von `StaticResource` auf `DynamicResource SkinBrush_WindowBackground` geändert zur Laufzeitauflösung beim Start.
+- `DeckBuilderWindow.xaml` / `DeckBuilderWindow.xaml.cs`: Fehler `XamlParseException` ("TwoWay- oder OneWayToSource-Bindungen funktionieren nicht mit schreibgeschützter Eigenschaft 'Type'") behoben. `Run Text="{Binding Type, Mode=OneWay}"` und Setter an `BrowserRow` Properties ergänzt.
+- Nicht gruen.
+
 ## 2026-10-01 - Account deck builder uses the card pool
 
 - Getippt, nicht getestet, nicht gruen, nicht gepusht. Schritt 7. Der Deckbuilder aus dem Hauptmenue ohne Account-Login, und Sandbox, bleiben die volle lokale Kartenliste und lokale Deckdateien. Nach dem Lobby-Login im Account-Modus laedt er `get_pool`. Nicht besessene Karten bleiben sichtbar, grau, Menge 0. Pool-Menge und Deck-Menge stehen in der Zaehlerzeile. Mehr Kopien als die Pool-Menge werden nicht hinzugefuegt. Speichern und Laden eines Account-Decks gehen als cardIds. Deckformat v3 bleibt fuer lokale Dateien.

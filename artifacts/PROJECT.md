@@ -4,8 +4,8 @@ Private, nicht-kommerzielle C# / .NET 8 / WPF-App für Star Trek Customizable Ca
 Hotseat und Netz (Host = P1 autoritativ, Gast = P2) sind im Bau. Später Gegner-KI.
 
 Repo (nur lesen, nur Pepsch schiebt): https://github.com/gokeltanes-del/STCCG1E
-**Stand dieser Datei:** 2026-09-28
-**Code-Stand GitHub `master`:** `8083785` (2026-09-28)
+**Stand dieser Datei:** 2026-10-02
+**Code-Stand GitHub `master`:** `4ec69fe`
 
 Diese Datei beschreibt das Repo, die Arbeitsorte und **welche Markdown-Datei wofür da ist**.
 Kein Tip-Protokoll, keine Erledigt-Liste, kein Implementierungsablauf.
@@ -66,7 +66,7 @@ Nicht anlegen: `PROJECT_STATUS.md`, `RULES.md`, `CODE_PLACEMENT.md`, `GLOSSARY_W
 StarTrekCCG/
   TableWindow.xaml(.cs)        Tisch
   DeckBuilderWindow.*          Deckbau
-  NetworkLobbyWindow.*         Netz-Lobby
+  MainMenuWindow.*             Startbildschirm & integrierte Match-Lobby
   Models/                      Card, Deck
   Game/                        LegalMoves, EngineAuthority, *Rules, Board/
   Network/                     TCP/JSON Host-Gast

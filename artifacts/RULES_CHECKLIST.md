@@ -1,7 +1,7 @@
 # Compendium 2.7.4 — Checkliste
 
 Quelle: `rules/Compendium_Rulebook.pdf` (2.7.4, August 2026, 322 Seiten). Ablauf: `IMPLEMENT.md`.
-Stand: 2026-09-19 (TOC-Rebuild). Scope: Premiere; ➖ = nicht jetzt / Format / Referenz.
+Stand: 2026-10-02 (TOC-Rebuild). Scope: Premiere; ➖ = nicht jetzt / Format / Referenz.
 
 ✅ spielbar · 🟡 Lücken · ❌ fehlt · ➖ später
 

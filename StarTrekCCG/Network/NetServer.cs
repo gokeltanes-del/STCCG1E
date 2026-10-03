@@ -23,7 +23,9 @@ public sealed class NetServer : IDisposable
     private bool _disposed;
 
     public bool IsListening => _listener is not null;
-    public bool HasClient => _client is { Connected: true };
+    // TcpClient.Connected turns false when the lobby read is cancelled at game start.
+    // The socket still sends. DropClient is what actually releases the guest.
+    public bool HasClient => _stream != null;
 
     public async Task StartAsync(int port, bool loopbackOnly = false, CancellationToken cancellationToken = default)
     {

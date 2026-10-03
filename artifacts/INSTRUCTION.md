@@ -27,8 +27,8 @@ Fachwörter (Interrupt, Dilemma, plays on, RANGE, Persona, …).
 
 ## Was das Projekt ist
 
-Jetzt: Hotseat und Netz (Host = P1 autoritativ, Gast = P2, TCP/JSON in StarTrekCCG/Network/).
-Code-Stand dieser Kopie: GitHub master 8083785 (2026-09-28).
+Jetzt: Besorge dir die aktuelle GitHub Repo
+Code-Stand dieser Kopie: GitHub master 4ec69fe
 Später, nicht jetzt tippen: eigene Gegner-KI, Account-Sammlung.
 
 Repo (nur lesen; nur Pepsch pusht): https://github.com/gokeltanes-del/STCCG1E
@@ -245,7 +245,7 @@ Code-Baum kurz:
 StarTrekCCG/
   TableWindow.xaml(.cs)     Tisch
   DeckBuilderWindow.*       Deckbau
-  NetworkLobbyWindow.*      Netz-Lobby
+  MainMenuWindow.*          Startbildschirm & integrierte Match-Lobby
   Models/                   Card, Deck
   Game/                     LegalMoves, EngineAuthority, *Rules, Board/
   Network/                  TCP/JSON Host-Gast
@@ -270,10 +270,7 @@ present here aboard in-play unique treaty
 ## Jetzt und nicht jetzt
 
 Aktiver Auftrag, bis Pepsch ändert:
-- Netz: Dual-EXE Spaceline — Q-Net/Gaps als Spalten (`8083785`), Smoke HOLD. Phase-5 Härtung offen.
-- Plays on / Plays as, typunabhängig, F3-Smoke offen.
-- Premiere-Karten von unknown oder partial auf working bringen (~108 working / 6 partial / 249 unknown).
-- Unklare Fälle für Pepsch parken.
+- Debuggen und User Interface
 
 Nicht jetzt tippen:
 eigene KI-Gegner, Sites und Tactics vollständig, Borg als Volk, Mirror,

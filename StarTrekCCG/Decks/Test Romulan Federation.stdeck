@@ -1,0 +1,1978 @@
+{
+  "format": "STCCG1E-Deck-v3",
+  "name": "Test Romulan Federation",
+  "notes": "Holodeck test. Romulan + Federation + some Non-Aligned. No Klingon personnel, ships, or equipment.",
+  "created": "2026-10-03T15:36:42.894103+02:00",
+  "modified": "2026-10-03T15:36:42.894103+02:00",
+  "seed": [
+    {
+      "name": "Cryosatellite",
+      "set": "Alternate_Universe",
+      "type": "Artifact",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Cryosatellite"
+    },
+    {
+      "name": "Horga'hn",
+      "set": "PR",
+      "type": "Artifact",
+      "quantity": 1,
+      "cardId": "PR/PR/Horga'hn"
+    },
+    {
+      "name": "Interphase Generator",
+      "set": "PR",
+      "type": "Artifact",
+      "quantity": 1,
+      "cardId": "PR/PR/Interphase Generator"
+    },
+    {
+      "name": "Ophidian Cane",
+      "set": "Alternate_Universe",
+      "type": "Artifact",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Ophidian Cane"
+    },
+    {
+      "name": "Ressikan Flute",
+      "set": "Alternate_Universe",
+      "type": "Artifact",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Ressikan Flute"
+    },
+    {
+      "name": "Thought Maker",
+      "set": "PR",
+      "type": "Artifact",
+      "quantity": 1,
+      "cardId": "PR/PR/Thought Maker"
+    },
+    {
+      "name": "Tox Uthat",
+      "set": "PR",
+      "type": "Artifact",
+      "quantity": 1,
+      "cardId": "PR/PR/Tox Uthat"
+    },
+    {
+      "name": "Vulcan Stone of Gol",
+      "set": "PR",
+      "type": "Artifact",
+      "quantity": 1,
+      "cardId": "PR/PR/Vulcan Stone of Gol"
+    },
+    {
+      "name": "Alien Labyrinth",
+      "set": "Alternate_Universe",
+      "type": "Dilemma",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Alien Labyrinth"
+    },
+    {
+      "name": "Anaphasic Organism",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1,
+      "cardId": "PR/PR/Anaphasic Organism"
+    },
+    {
+      "name": "Armus: Skin Of Evil",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1,
+      "cardId": "PR/PR/Armus: Skin Of Evil"
+    },
+    {
+      "name": "Birth of \"Junior\"",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1,
+      "cardId": "PR/PR/Birth of \"Junior\""
+    },
+    {
+      "name": "Cardassian Trap",
+      "set": "Alternate_Universe",
+      "type": "Dilemma",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Cardassian Trap"
+    },
+    {
+      "name": "Conundrum",
+      "set": "Alternate_Universe",
+      "type": "Dilemma",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Conundrum"
+    },
+    {
+      "name": "Crystalline Entity",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1,
+      "cardId": "PR/PR/Crystalline Entity"
+    },
+    {
+      "name": "Cytherians",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1,
+      "cardId": "PR/PR/Cytherians"
+    },
+    {
+      "name": "El-Adrel Creature",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1,
+      "cardId": "PR/PR/El-Adrel Creature"
+    },
+    {
+      "name": "Empathic Echo",
+      "set": "Alternate_Universe",
+      "type": "Dilemma",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Empathic Echo"
+    },
+    {
+      "name": "Ferengi Attack",
+      "set": "Alternate_Universe",
+      "type": "Dilemma",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Ferengi Attack"
+    },
+    {
+      "name": "Hidden Entrance",
+      "set": "Alternate_Universe",
+      "type": "Dilemma",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Hidden Entrance"
+    },
+    {
+      "name": "Hunter Gangs",
+      "set": "Alternate_Universe",
+      "type": "Dilemma",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Hunter Gangs"
+    },
+    {
+      "name": "Iconian Computer Weapon",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1,
+      "cardId": "PR/PR/Iconian Computer Weapon"
+    },
+    {
+      "name": "Impassable Door",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1,
+      "cardId": "PR/PR/Impassable Door"
+    },
+    {
+      "name": "Interphasic Plasma Creatures",
+      "set": "Alternate_Universe",
+      "type": "Dilemma",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Interphasic Plasma Creatures"
+    },
+    {
+      "name": "Malfunctioning Door",
+      "set": "Alternate_Universe",
+      "type": "Dilemma",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Malfunctioning Door"
+    },
+    {
+      "name": "Maman Picard",
+      "set": "Alternate_Universe",
+      "type": "Dilemma",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Maman Picard"
+    },
+    {
+      "name": "Microbiotic Colony",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1,
+      "cardId": "PR/PR/Microbiotic Colony"
+    },
+    {
+      "name": "Microvirus",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1,
+      "cardId": "PR/PR/Microvirus"
+    },
+    {
+      "name": "Nanites",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1,
+      "cardId": "PR/PR/Nanites"
+    },
+    {
+      "name": "Null Space",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1,
+      "cardId": "PR/PR/Null Space"
+    },
+    {
+      "name": "Parallel Romance",
+      "set": "Alternate_Universe",
+      "type": "Dilemma",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Parallel Romance"
+    },
+    {
+      "name": "Portal Guard",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1,
+      "cardId": "PR/PR/Portal Guard"
+    },
+    {
+      "name": "Q",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1,
+      "cardId": "PR/PR/Q"
+    },
+    {
+      "name": "Radioactive Garbage Scow",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1,
+      "cardId": "PR/PR/Radioactive Garbage Scow"
+    },
+    {
+      "name": "Rebel Encounter",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1,
+      "cardId": "PR/PR/Rebel Encounter"
+    },
+    {
+      "name": "Sarjenka",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1,
+      "cardId": "PR/PR/Sarjenka"
+    },
+    {
+      "name": "Shaka, When the Walls Fell",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1,
+      "cardId": "PR/PR/Shaka, When the Walls Fell"
+    },
+    {
+      "name": "Tarellian Plague Ship",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1,
+      "cardId": "PR/PR/Tarellian Plague Ship"
+    },
+    {
+      "name": "Thought Fire",
+      "set": "Alternate_Universe",
+      "type": "Dilemma",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Thought Fire"
+    },
+    {
+      "name": "Tsiolkovsky Infection",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1,
+      "cardId": "PR/PR/Tsiolkovsky Infection"
+    },
+    {
+      "name": "Wind Dancer",
+      "set": "PR",
+      "type": "Dilemma",
+      "quantity": 1,
+      "cardId": "PR/PR/Wind Dancer"
+    },
+    {
+      "name": "Zaldan",
+      "set": "Alternate_Universe",
+      "type": "Dilemma",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Zaldan"
+    },
+    {
+      "name": "Alternate Universe Door",
+      "set": "Alternate_Universe",
+      "type": "Doorway",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Alternate Universe Door"
+    },
+    {
+      "name": "Devidian Door",
+      "set": "Alternate_Universe",
+      "type": "Doorway",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Devidian Door"
+    },
+    {
+      "name": "Federation Outpost",
+      "set": "PR",
+      "type": "Facility",
+      "quantity": 1,
+      "cardId": "PR/PR/Federation Outpost"
+    },
+    {
+      "name": "Neutral Outpost",
+      "set": "Alternate_Universe",
+      "type": "Facility",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Neutral Outpost"
+    },
+    {
+      "name": "Romulan Outpost",
+      "set": "PR",
+      "type": "Facility",
+      "quantity": 1,
+      "cardId": "PR/PR/Romulan Outpost"
+    },
+    {
+      "name": "Covert Installation",
+      "set": "PR",
+      "type": "Mission",
+      "quantity": 1,
+      "cardId": "PR/PR/Covert Installation"
+    },
+    {
+      "name": "Covert Rescue",
+      "set": "PR",
+      "type": "Mission",
+      "quantity": 1,
+      "cardId": "PR/PR/Covert Rescue"
+    },
+    {
+      "name": "Diplomacy Mission",
+      "set": "PR",
+      "type": "Mission",
+      "quantity": 1,
+      "cardId": "PR/PR/Diplomacy Mission"
+    },
+    {
+      "name": "Investigate \"Shattered Space\"",
+      "set": "PR",
+      "type": "Mission",
+      "quantity": 1,
+      "cardId": "PR/PR/Investigate \"Shattered Space\""
+    },
+    {
+      "name": "Study Lonka Pulsar",
+      "set": "PR",
+      "type": "Mission",
+      "quantity": 1,
+      "cardId": "PR/PR/Study Lonka Pulsar"
+    },
+    {
+      "name": "Study Nebula",
+      "set": "PR",
+      "type": "Mission",
+      "quantity": 1,
+      "cardId": "PR/PR/Study Nebula"
+    }
+  ],
+  "draw": [
+    {
+      "name": "Echo Papa 607 Killer Drone",
+      "set": "Alternate_Universe",
+      "type": "Equipment",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Echo Papa 607 Killer Drone"
+    },
+    {
+      "name": "Engineering Kit",
+      "set": "PR",
+      "type": "Equipment",
+      "quantity": 1,
+      "cardId": "PR/PR/Engineering Kit"
+    },
+    {
+      "name": "Engineering PADD",
+      "set": "PR",
+      "type": "Equipment",
+      "quantity": 1,
+      "cardId": "PR/PR/Engineering PADD"
+    },
+    {
+      "name": "Federation PADD",
+      "set": "PR",
+      "type": "Equipment",
+      "quantity": 1,
+      "cardId": "PR/PR/Federation PADD"
+    },
+    {
+      "name": "I.P. Scanner",
+      "set": "Alternate_Universe",
+      "type": "Equipment",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/I.P. Scanner"
+    },
+    {
+      "name": "Medical Kit",
+      "set": "PR",
+      "type": "Equipment",
+      "quantity": 1,
+      "cardId": "PR/PR/Medical Kit"
+    },
+    {
+      "name": "Medical Tricorder",
+      "set": "PR",
+      "type": "Equipment",
+      "quantity": 1,
+      "cardId": "PR/PR/Medical Tricorder"
+    },
+    {
+      "name": "Romulan Disruptor",
+      "set": "PR",
+      "type": "Equipment",
+      "quantity": 1,
+      "cardId": "PR/PR/Romulan Disruptor"
+    },
+    {
+      "name": "Romulan PADD",
+      "set": "PR",
+      "type": "Equipment",
+      "quantity": 1,
+      "cardId": "PR/PR/Romulan PADD"
+    },
+    {
+      "name": "Starfleet Type II Phaser",
+      "set": "PR",
+      "type": "Equipment",
+      "quantity": 1,
+      "cardId": "PR/PR/Starfleet Type II Phaser"
+    },
+    {
+      "name": "Tricorder",
+      "set": "PR",
+      "type": "Equipment",
+      "quantity": 1,
+      "cardId": "PR/PR/Tricorder"
+    },
+    {
+      "name": "Alien Probe",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Alien Probe"
+    },
+    {
+      "name": "Atmospheric Ionization",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Atmospheric Ionization"
+    },
+    {
+      "name": "Baryon Buildup",
+      "set": "Alternate_Universe",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Baryon Buildup"
+    },
+    {
+      "name": "Bynars Weapon Enhancement",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Bynars Weapon Enhancement"
+    },
+    {
+      "name": "Captain's Log",
+      "set": "Alternate_Universe",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Captain's Log"
+    },
+    {
+      "name": "Distortion Field",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Distortion Field"
+    },
+    {
+      "name": "Engage Shuttle Operations",
+      "set": "Alternate_Universe",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Engage Shuttle Operations"
+    },
+    {
+      "name": "Espionage: Federation on Klingon",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Espionage: Federation on Klingon"
+    },
+    {
+      "name": "Espionage: Klingon on Federation",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Espionage: Klingon on Federation"
+    },
+    {
+      "name": "Espionage: Romulan on Federation",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Espionage: Romulan on Federation"
+    },
+    {
+      "name": "Espionage: Romulan on Klingon",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Espionage: Romulan on Klingon"
+    },
+    {
+      "name": "Gaps in Normal Space",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Gaps in Normal Space"
+    },
+    {
+      "name": "Genetronic Replicator",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Genetronic Replicator"
+    },
+    {
+      "name": "Goddess of Empathy",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Goddess of Empathy"
+    },
+    {
+      "name": "Holo-Projectors",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Holo-Projectors"
+    },
+    {
+      "name": "Interrogation",
+      "set": "Alternate_Universe",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Interrogation"
+    },
+    {
+      "name": "Intruder Force Field",
+      "set": "Alternate_Universe",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Intruder Force Field"
+    },
+    {
+      "name": "Kivas Fajo: Collector",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Kivas Fajo: Collector"
+    },
+    {
+      "name": "Klim Dokachin",
+      "set": "Alternate_Universe",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Klim Dokachin"
+    },
+    {
+      "name": "Lore Returns",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Lore Returns"
+    },
+    {
+      "name": "Lore's Fingernail",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Lore's Fingernail"
+    },
+    {
+      "name": "Lower Decks",
+      "set": "Alternate_Universe",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Lower Decks"
+    },
+    {
+      "name": "Masaka Transformations",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Masaka Transformations"
+    },
+    {
+      "name": "Metaphasic Shields",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Metaphasic Shields"
+    },
+    {
+      "name": "Mot's Advice",
+      "set": "Alternate_Universe",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Mot's Advice"
+    },
+    {
+      "name": "Neural Servo Device",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Neural Servo Device"
+    },
+    {
+      "name": "Nutational Shields",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Nutational Shields"
+    },
+    {
+      "name": "Particle Scattering Field",
+      "set": "Alternate_Universe",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Particle Scattering Field"
+    },
+    {
+      "name": "Pattern Enhancers",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Pattern Enhancers"
+    },
+    {
+      "name": "Plasma Fire",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Plasma Fire"
+    },
+    {
+      "name": "Q-Net",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Q-Net"
+    },
+    {
+      "name": "Raise the Stakes",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Raise the Stakes"
+    },
+    {
+      "name": "Red Alert!",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Red Alert!"
+    },
+    {
+      "name": "Res-Q",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Res-Q"
+    },
+    {
+      "name": "Revolving Door",
+      "set": "Alternate_Universe",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Revolving Door"
+    },
+    {
+      "name": "Rishon Uxbridge",
+      "set": "Alternate_Universe",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Rishon Uxbridge"
+    },
+    {
+      "name": "Spacedock",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Spacedock"
+    },
+    {
+      "name": "Static Warp Bubble",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Static Warp Bubble"
+    },
+    {
+      "name": "Subspace Warp Rift",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Subspace Warp Rift"
+    },
+    {
+      "name": "Supernova",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Supernova"
+    },
+    {
+      "name": "Telepathic Alien Kidnappers",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Telepathic Alien Kidnappers"
+    },
+    {
+      "name": "Tetryon Field",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Tetryon Field"
+    },
+    {
+      "name": "The Charybdis",
+      "set": "Alternate_Universe",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/The Charybdis"
+    },
+    {
+      "name": "The Mask of Korgano",
+      "set": "Alternate_Universe",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/The Mask of Korgano"
+    },
+    {
+      "name": "The Traveler: Transcendence",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/The Traveler: Transcendence"
+    },
+    {
+      "name": "Thermal Deflectors",
+      "set": "Alternate_Universe",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Thermal Deflectors"
+    },
+    {
+      "name": "Treaty: Federation/Klingon",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Treaty: Federation/Klingon"
+    },
+    {
+      "name": "Treaty: Federation/Romulan",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Treaty: Federation/Romulan"
+    },
+    {
+      "name": "Treaty: Romulan/Klingon",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Treaty: Romulan/Klingon"
+    },
+    {
+      "name": "Warp Core Breach",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Warp Core Breach"
+    },
+    {
+      "name": "Wartime Conditions",
+      "set": "Alternate_Universe",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Wartime Conditions"
+    },
+    {
+      "name": "Where No One Has Gone Before",
+      "set": "PR",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Where No One Has Gone Before"
+    },
+    {
+      "name": "Yellow Alert",
+      "set": "Alternate_Universe",
+      "type": "Event",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Yellow Alert"
+    },
+    {
+      "name": "Alien Groupie",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Alien Groupie"
+    },
+    {
+      "name": "Amanda Rogers",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Amanda Rogers"
+    },
+    {
+      "name": "Anti-Matter Spread",
+      "set": "Alternate_Universe",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Anti-Matter Spread"
+    },
+    {
+      "name": "Asteroid Sanctuary",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Asteroid Sanctuary"
+    },
+    {
+      "name": "Auto-Destruct Sequence",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Auto-Destruct Sequence"
+    },
+    {
+      "name": "Barclay Transporter Phobia",
+      "set": "Alternate_Universe",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Barclay Transporter Phobia"
+    },
+    {
+      "name": "Brain Drain",
+      "set": "Alternate_Universe",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Brain Drain"
+    },
+    {
+      "name": "Countermanda",
+      "set": "Alternate_Universe",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Countermanda"
+    },
+    {
+      "name": "Crosis",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Crosis"
+    },
+    {
+      "name": "Dead in Bed",
+      "set": "Alternate_Universe",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Dead in Bed"
+    },
+    {
+      "name": "Destroy Radioactive Garbage Scow",
+      "set": "Alternate_Universe",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Destroy Radioactive Garbage Scow"
+    },
+    {
+      "name": "Devidian Foragers",
+      "set": "Alternate_Universe",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Devidian Foragers"
+    },
+    {
+      "name": "Disruptor Overload",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Disruptor Overload"
+    },
+    {
+      "name": "Distortion of Space/Time Continuum",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Distortion of Space/Time Continuum"
+    },
+    {
+      "name": "Emergency Transporter Armbands",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Emergency Transporter Armbands"
+    },
+    {
+      "name": "Energy Vortex",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Energy Vortex"
+    },
+    {
+      "name": "Escape Pod",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Escape Pod"
+    },
+    {
+      "name": "Eyes in the Dark",
+      "set": "Alternate_Universe",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Eyes in the Dark"
+    },
+    {
+      "name": "Fire Sculptor",
+      "set": "Alternate_Universe",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Fire Sculptor"
+    },
+    {
+      "name": "Full Planet Scan",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Full Planet Scan"
+    },
+    {
+      "name": "Hail",
+      "set": "Alternate_Universe",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Hail"
+    },
+    {
+      "name": "Honor Challenge",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Honor Challenge"
+    },
+    {
+      "name": "Howard Heirloom Candle",
+      "set": "Alternate_Universe",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Howard Heirloom Candle"
+    },
+    {
+      "name": "Hugh",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Hugh"
+    },
+    {
+      "name": "Humuhumunukunukuapua'a",
+      "set": "Alternate_Universe",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Humuhumunukunukuapua'a"
+    },
+    {
+      "name": "Incoming Message: Attack Authorization",
+      "set": "Alternate_Universe",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Incoming Message: Attack Authorization"
+    },
+    {
+      "name": "Incoming Message: Federation",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Incoming Message: Federation"
+    },
+    {
+      "name": "Incoming Message: Klingon",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Incoming Message: Klingon"
+    },
+    {
+      "name": "Incoming Message: Romulan",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Incoming Message: Romulan"
+    },
+    {
+      "name": "Isabella",
+      "set": "Alternate_Universe",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Isabella"
+    },
+    {
+      "name": "Jaglom Shrek: Information Broker",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Jaglom Shrek: Information Broker"
+    },
+    {
+      "name": "Jamaharon",
+      "set": "Alternate_Universe",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Jamaharon"
+    },
+    {
+      "name": "Kevin Uxbridge",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Kevin Uxbridge"
+    },
+    {
+      "name": "Kevin Uxbridge: Convergence",
+      "set": "Alternate_Universe",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Kevin Uxbridge: Convergence"
+    },
+    {
+      "name": "Klingon Death Yell",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Klingon Death Yell"
+    },
+    {
+      "name": "Klingon Right of Vengeance",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Klingon Right of Vengeance"
+    },
+    {
+      "name": "La Forge Maneuver",
+      "set": "Alternate_Universe",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/La Forge Maneuver"
+    },
+    {
+      "name": "Latinum Payoff",
+      "set": "Alternate_Universe",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Latinum Payoff"
+    },
+    {
+      "name": "Life-form Scan",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Life-form Scan"
+    },
+    {
+      "name": "Long-Range Scan",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Long-Range Scan"
+    },
+    {
+      "name": "Loss of Orbital Stability",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Loss of Orbital Stability"
+    },
+    {
+      "name": "Near-Warp Transport",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Near-Warp Transport"
+    },
+    {
+      "name": "Palor Toff: Alien Trader",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Palor Toff: Alien Trader"
+    },
+    {
+      "name": "Particle Fountain",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Particle Fountain"
+    },
+    {
+      "name": "Phaser Burns",
+      "set": "Alternate_Universe",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Phaser Burns"
+    },
+    {
+      "name": "Q2",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Q2"
+    },
+    {
+      "name": "Rescue Captives",
+      "set": "Alternate_Universe",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Rescue Captives"
+    },
+    {
+      "name": "Rogue Borg",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Rogue Borg"
+    },
+    {
+      "name": "Romulan Ambush",
+      "set": "Alternate_Universe",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Romulan Ambush"
+    },
+    {
+      "name": "Scan",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Scan"
+    },
+    {
+      "name": "Security Sacrifice",
+      "set": "Alternate_Universe",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Security Sacrifice"
+    },
+    {
+      "name": "Seize Wesley",
+      "set": "Alternate_Universe",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Seize Wesley"
+    },
+    {
+      "name": "Senior Staff Meeting",
+      "set": "Alternate_Universe",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Senior Staff Meeting"
+    },
+    {
+      "name": "Ship Seizure",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Ship Seizure"
+    },
+    {
+      "name": "Subspace Interference",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Subspace Interference"
+    },
+    {
+      "name": "Subspace Schism",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Subspace Schism"
+    },
+    {
+      "name": "Tachyon Detection Grid",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Tachyon Detection Grid"
+    },
+    {
+      "name": "Temporal Narcosis",
+      "set": "Alternate_Universe",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Temporal Narcosis"
+    },
+    {
+      "name": "Temporal Rift",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Temporal Rift"
+    },
+    {
+      "name": "The Devil",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/The Devil"
+    },
+    {
+      "name": "The Juggler",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/The Juggler"
+    },
+    {
+      "name": "Thine Own Self",
+      "set": "Alternate_Universe",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Thine Own Self"
+    },
+    {
+      "name": "Transwarp Conduit",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Transwarp Conduit"
+    },
+    {
+      "name": "Vorgon Raiders",
+      "set": "Alternate_Universe",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Vorgon Raiders"
+    },
+    {
+      "name": "Vulcan Mindmeld",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Vulcan Mindmeld"
+    },
+    {
+      "name": "Vulcan Nerve Pinch",
+      "set": "Alternate_Universe",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Vulcan Nerve Pinch"
+    },
+    {
+      "name": "Wolf",
+      "set": "Alternate_Universe",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Wolf"
+    },
+    {
+      "name": "Wormhole",
+      "set": "PR",
+      "type": "Interrupt",
+      "quantity": 1,
+      "cardId": "PR/PR/Wormhole"
+    },
+    {
+      "name": "Alexander Rozhenko",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Alexander Rozhenko"
+    },
+    {
+      "name": "Alidar Jarok",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Alidar Jarok"
+    },
+    {
+      "name": "Alyssa Ogawa",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Alyssa Ogawa"
+    },
+    {
+      "name": "Amarie",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Amarie"
+    },
+    {
+      "name": "Berlingoff Rasmussen",
+      "set": "Alternate_Universe",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Berlingoff Rasmussen"
+    },
+    {
+      "name": "Beverly Crusher",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Beverly Crusher"
+    },
+    {
+      "name": "Bochra",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Bochra"
+    },
+    {
+      "name": "Boratus",
+      "set": "Alternate_Universe",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Boratus"
+    },
+    {
+      "name": "Calloway",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Calloway"
+    },
+    {
+      "name": "Commander Tomalak",
+      "set": "Alternate_Universe",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Commander Tomalak"
+    },
+    {
+      "name": "D'Tan",
+      "set": "Alternate_Universe",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/D'Tan"
+    },
+    {
+      "name": "Darian Wallace",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Darian Wallace"
+    },
+    {
+      "name": "Deanna Troi",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Deanna Troi"
+    },
+    {
+      "name": "Devinoni Ral",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Devinoni Ral"
+    },
+    {
+      "name": "Dr. Leah Brahms",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Dr. Leah Brahms"
+    },
+    {
+      "name": "Dr. Reyga",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Dr. Reyga"
+    },
+    {
+      "name": "Erik Pressman",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Erik Pressman"
+    },
+    {
+      "name": "Evek",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Evek"
+    },
+    {
+      "name": "Fleet Admiral Shanthi",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Fleet Admiral Shanthi"
+    },
+    {
+      "name": "Galathon",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Galathon"
+    },
+    {
+      "name": "Giusti",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Giusti"
+    },
+    {
+      "name": "Ian Andrew Troi",
+      "set": "Alternate_Universe",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Ian Andrew Troi"
+    },
+    {
+      "name": "Ishara Yar",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Ishara Yar"
+    },
+    {
+      "name": "Jaron",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Jaron"
+    },
+    {
+      "name": "Jean-Luc Picard",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Jean-Luc Picard"
+    },
+    {
+      "name": "Jera",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Jera"
+    },
+    {
+      "name": "K'Ehleyr",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/K'Ehleyr"
+    },
+    {
+      "name": "Lakanta",
+      "set": "Alternate_Universe",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Lakanta"
+    },
+    {
+      "name": "Leah Brahms",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Leah Brahms"
+    },
+    {
+      "name": "Lt. (j.g.) Picard",
+      "set": "Alternate_Universe",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Lt. (j.g.) Picard"
+    },
+    {
+      "name": "Major Rakal",
+      "set": "Alternate_Universe",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Major Rakal"
+    },
+    {
+      "name": "McKnight",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/McKnight"
+    },
+    {
+      "name": "Mendak",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Mendak"
+    },
+    {
+      "name": "Mickey D.",
+      "set": "Alternate_Universe",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Mickey D."
+    },
+    {
+      "name": "Mirok",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Mirok"
+    },
+    {
+      "name": "Montgomery Scott",
+      "set": "Alternate_Universe",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Montgomery Scott"
+    },
+    {
+      "name": "Mot the Barber",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Mot the Barber"
+    },
+    {
+      "name": "Movar",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Movar"
+    },
+    {
+      "name": "N'Vek",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/N'Vek"
+    },
+    {
+      "name": "Neral",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Neral"
+    },
+    {
+      "name": "Nikolai Rozhenko",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Nikolai Rozhenko"
+    },
+    {
+      "name": "Ocett",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Ocett"
+    },
+    {
+      "name": "Palteth",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Palteth"
+    },
+    {
+      "name": "Pardek",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Pardek"
+    },
+    {
+      "name": "Parem",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Parem"
+    },
+    {
+      "name": "Paul Rice",
+      "set": "Alternate_Universe",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Paul Rice"
+    },
+    {
+      "name": "Reginald Barclay",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Reginald Barclay"
+    },
+    {
+      "name": "Richard Galen",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Richard Galen"
+    },
+    {
+      "name": "Ro Laren",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Ro Laren"
+    },
+    {
+      "name": "Satelk",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Satelk"
+    },
+    {
+      "name": "Sela",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Sela"
+    },
+    {
+      "name": "Selok",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Selok"
+    },
+    {
+      "name": "Simon Tarses",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Simon Tarses"
+    },
+    {
+      "name": "Sirna Kolrami",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Sirna Kolrami"
+    },
+    {
+      "name": "Soren",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Soren"
+    },
+    {
+      "name": "Stefan DeSeve",
+      "set": "Alternate_Universe",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Stefan DeSeve"
+    },
+    {
+      "name": "Taibak",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Taibak"
+    },
+    {
+      "name": "Taitt",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Taitt"
+    },
+    {
+      "name": "Takket",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Takket"
+    },
+    {
+      "name": "Tallus",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Tallus"
+    },
+    {
+      "name": "Tarus",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Tarus"
+    },
+    {
+      "name": "Tasha Yar",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Tasha Yar"
+    },
+    {
+      "name": "Taul",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Taul"
+    },
+    {
+      "name": "Taurik",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Taurik"
+    },
+    {
+      "name": "Tebok",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Tebok"
+    },
+    {
+      "name": "Thei",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Thei"
+    },
+    {
+      "name": "Toby Russell",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Toby Russell"
+    },
+    {
+      "name": "Tokath",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Tokath"
+    },
+    {
+      "name": "Tomalak",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Tomalak"
+    },
+    {
+      "name": "Tomek",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Tomek"
+    },
+    {
+      "name": "Toreth",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Toreth"
+    },
+    {
+      "name": "Varel",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Varel"
+    },
+    {
+      "name": "Vekor",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Vekor"
+    },
+    {
+      "name": "Wesley Crusher",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Wesley Crusher"
+    },
+    {
+      "name": "Worf",
+      "set": "PR",
+      "type": "Personnel",
+      "quantity": 1,
+      "cardId": "PR/PR/Worf"
+    },
+    {
+      "name": "D'deridex",
+      "set": "PR",
+      "type": "Ship",
+      "quantity": 1,
+      "cardId": "PR/PR/D'deridex"
+    },
+    {
+      "name": "Decius",
+      "set": "Alternate_Universe",
+      "type": "Ship",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Decius"
+    },
+    {
+      "name": "Devoras",
+      "set": "PR",
+      "type": "Ship",
+      "quantity": 1,
+      "cardId": "PR/PR/Devoras"
+    },
+    {
+      "name": "Edo Vessel",
+      "set": "Alternate_Universe",
+      "type": "Ship",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Edo Vessel"
+    },
+    {
+      "name": "Haakona",
+      "set": "PR",
+      "type": "Ship",
+      "quantity": 1,
+      "cardId": "PR/PR/Haakona"
+    },
+    {
+      "name": "Husnock Ship",
+      "set": "PR",
+      "type": "Ship",
+      "quantity": 1,
+      "cardId": "PR/PR/Husnock Ship"
+    },
+    {
+      "name": "Khazara",
+      "set": "PR",
+      "type": "Ship",
+      "quantity": 1,
+      "cardId": "PR/PR/Khazara"
+    },
+    {
+      "name": "Pi",
+      "set": "PR",
+      "type": "Ship",
+      "quantity": 1,
+      "cardId": "PR/PR/Pi"
+    },
+    {
+      "name": "Runabout",
+      "set": "PR",
+      "type": "Ship",
+      "quantity": 1,
+      "cardId": "PR/PR/Runabout"
+    },
+    {
+      "name": "Science Vessel",
+      "set": "PR",
+      "type": "Ship",
+      "quantity": 1,
+      "cardId": "PR/PR/Science Vessel"
+    },
+    {
+      "name": "Scout Vessel",
+      "set": "PR",
+      "type": "Ship",
+      "quantity": 1,
+      "cardId": "PR/PR/Scout Vessel"
+    },
+    {
+      "name": "Tama",
+      "set": "Alternate_Universe",
+      "type": "Ship",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/Tama"
+    },
+    {
+      "name": "U.S.S. Brattain",
+      "set": "PR",
+      "type": "Ship",
+      "quantity": 1,
+      "cardId": "PR/PR/U.S.S. Brattain"
+    },
+    {
+      "name": "U.S.S. Enterprise-C",
+      "set": "Alternate_Universe",
+      "type": "Ship",
+      "quantity": 1,
+      "cardId": "Alternate_Universe/au/U.S.S. Enterprise-C"
+    },
+    {
+      "name": "U.S.S. Galaxy",
+      "set": "PR",
+      "type": "Ship",
+      "quantity": 1,
+      "cardId": "PR/PR/U.S.S. Galaxy"
+    },
+    {
+      "name": "U.S.S. Miranda",
+      "set": "PR",
+      "type": "Ship",
+      "quantity": 1,
+      "cardId": "PR/PR/U.S.S. Miranda"
+    },
+    {
+      "name": "U.S.S. Oberth",
+      "set": "PR",
+      "type": "Ship",
+      "quantity": 1,
+      "cardId": "PR/PR/U.S.S. Oberth"
+    },
+    {
+      "name": "U.S.S. Sutherland",
+      "set": "PR",
+      "type": "Ship",
+      "quantity": 1,
+      "cardId": "PR/PR/U.S.S. Sutherland"
+    },
+    {
+      "name": "Zibalian Transport",
+      "set": "PR",
+      "type": "Ship",
+      "quantity": 1,
+      "cardId": "PR/PR/Zibalian Transport"
+    }
+  ],
+  "qs_tent": [],
+  "battle_bridge": [],
+  "q_continuum": [
+    {
+      "name": "Anti-Time Anomaly",
+      "set": "PR",
+      "type": "Q Event",
+      "quantity": 1,
+      "cardId": "PR/PR/Anti-Time Anomaly"
+    }
+  ],
+  "site_pile": [],
+  "tribble": [],
+  "side": []
+}
